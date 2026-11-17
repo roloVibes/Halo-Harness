@@ -1,10 +1,12 @@
-// Agents' tab (lib/agentsDoor.ts, 3.6.0.0 R5): 1 · Agents (`crew`), 2 · Workflows (`workflows`) or 3 · Map (`map`).
-// No door: while a session runs here Agents opens on the Map (the design: "on the Map while a session runs"), else on
-// the tab used last (1 · Agents the first time). A door or a pick of the person's wins. `note` is an old door's one
-// line, the first time this browser comes by it (`?mode=fleet`: Fleet left Halo in 3.5).
-import { FLEET_NOTE, onAgentsView, urlDoor, urlRun, type AgentsView } from "../../lib/agentsDoor";
+// Agents' tab (lib/agentsDoor.ts, 3.6.0.2 R52): 1 · Agents (`crew`), 2 · Workflows (`workflows`), 3 · Map (`map`) or
+// 4 · Live (`live`). No door (R56, decision 4): while a session he has talked to is open here Agents opens on Live, else on
+// the tab used last (1 · Agents the first time); decided once, the first time Agents is about to draw, and never again in
+// this page: a session starting, getting busy or ending never moves the tab. A door or a pick of the person's wins. `note`
+// is an old door's one line, the first time this browser comes by it (`?mode=fleet`: Fleet left Halo in 3.5).
+import { FLEET_NOTE, onAgentsView, openingView, urlDoor, urlRun, type AgentsView } from "../../lib/agentsDoor";
 import { createStore, studio, useStore, writeLocal } from "../../lib/store";
-import { counts, fleet } from "../fleet/store";
+import { fleet, localId } from "../fleet/store";
+import { openRows } from "../crew/map/litStore";
 import { openRun } from "../crew/run/door";
 
 export type AgentsState = { note: string; view: AgentsView; chosen: boolean };
@@ -37,16 +39,18 @@ function lastView(): AgentsView {
 
 export const agents = createStore<AgentsState>({ note: noteOnce(first.word), view: first.view || lastView(), chosen: !!first.view });
 
-/** Once, before the person is on Agents: a session runs here, so Agents will open on the Map (never a flip under them). */
-function mapWhileRunning(): void {
-  const s = agents.get();
-  if (s.chosen || counts(fleet.get()).live === 0 || (studio.get().section === "agents" && !first.view && seenHere)) return;
-  agents.update(() => ({ view: "map", chosen: true }));
+/** R56: once, as Agents is about to draw for the first time (a door named the tab: nothing to decide). */
+let decided = !!first.view;
+function decideOnce(): void {
+  if (decided || studio.get().section !== "agents") return;
+  decided = true;
+  stop();
+  const s = agents.get(), st = fleet.get();
+  const view = s.chosen ? s.view : openingView("", openRows(st, localId(st)), s.view);
+  if (view !== s.view) agents.update(() => ({ view, chosen: true }));
 }
-let seenHere = false; // Agents was on screen with the opening tab: a session starting later does not move it
-studio.subscribe(() => { if (studio.get().section === "agents" && !seenHere) window.setTimeout(() => { seenHere = studio.get().section === "agents"; }, 1500); });
-fleet.subscribe(mapWhileRunning);
-window.setTimeout(mapWhileRunning, 0);
+const stop = decided ? () => {} : studio.subscribe(decideOnce);
+decideOnce(); // a page that boots on Agents decides before its first draw
 if (urlRun()) window.setTimeout(() => void openRun(urlRun()), 0); // `&run=<id>`: the goal run in the Map's drawer
 
 /** Agents on `view`; `word` is the door it came by (`fleet` shows its line the first time). */

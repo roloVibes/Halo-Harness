@@ -192,9 +192,9 @@ def dash(c, rig) -> dict:
     # `&session=` page above draws the second session, main alone; "its map still lit" speaks of the rig's)
     boot_go(c, url(rig, f"mode=session&session={sid}"))
     c.wait(f"{drawn}.length >= 3", 30)  # 3.6.0.2 R15: its boxes and the rows in them
-    alt(c, 2)  # 3.3.18.0: Alt+2 opens Agents on Live; 3.5.0.0: this machine's sessions only
+    alt(c, 2)  # 3.6.0.2 R56: Alt+2 opens Agents on Live (a session talked to is open); 3.5.0.0: this machine's sessions only
     out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
-    out["agents_view"] = c.wait("document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'map' && 'map'", 30)  # R5: the Map while a session runs
+    out["agents_view"] = c.wait("document.querySelector('[data-testid=\"agents\"]')?.dataset.view", 30)  # 3.6.0.2 R56: the first tab drawn
     out["agents_boxes"] = c.js(f"{inside('agents', 'fleet-box')}.length + {inside('agents', 'live-machine')}.length")
     alt(c, 1)  # 3.1.6.0 R6: Session is the first tab
     out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)

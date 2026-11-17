@@ -7,12 +7,19 @@ them). No model is called.
               holds the shell (the T-state line, the status line, the frame) in its own workspace `agents-live`; the
               dot on 4 · Live while a session runs, not on 3 · Map; keys C -> Map, L -> Live, 3 -> Map, 4 -> Live; Live
               remembered as the tab used last; the palette's `Agents: 4 · Live` line, its key, Enter lands on Live
+    opens     R56 (decision 4): the rig's session between turns (a turn had, every agent done, not busy), the tab used
+              last 1 · Agents: Alt+2 from Session opens Agents on 4 · Live; `?` there says the opening rule; Alt+1 back to
+              Session. Then the session as a Studio-started one with no message yet (T10), the tab used last 2 · Workflows:
+              Alt+2 opens on Workflows
+    never_flips  R56: the session between turns; a recorder of `[data-testid=agents]`'s `data-view` from its first draw;
+              Alt+2, then busy, idle, busy (three `sessions` frames, each read by the page); 2 s more: one value, `live`
 
     python -m tests.helpers.studio_agents_live
 """
 from __future__ import annotations
 
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -66,6 +73,78 @@ def doors(c, rig, lv) -> dict:
     return out
 
 
+LINE = q("[data-testid=session-lit-line]")  # Session's T-state line: the page has read the rig's row
+READS = r"performance.getEntriesByType('resource').filter((e) => /\/api\/live(\?|$)/.test(e.name)).length"
+TAB = "(document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.textContent || '')"
+
+
+def fresh(c, rig, last: str) -> None:
+    """Session in a new page, with `last` as the tab used last (the rig's page is the only origin that can write it).
+    Each load starts from about:blank: the same URL again would be a hash change, not a new page."""
+    for i in range(2):
+        c.go("about:blank")
+        c.wait("location.href === 'about:blank'", 10)
+        c.go(rig.url("session"))
+        if not i:
+            c.wait(f"!!{LINE}", 40)
+            c.js(f"localStorage.setItem('halo.studio.agents-view', '{last}'); 1")
+
+
+def alt(c, n: int) -> None:
+    c.js("document.activeElement?.blur(); 1")
+    key(c, str(n), alt=True)
+
+
+def opens(c, rig, lv, rows) -> dict:
+    out: dict = {}
+    rows.idle(lv.sid, turns=1, parent=None, asked=False)  # between turns: a turn had, every agent done, not busy
+    fresh(c, rig, "crew")
+    c.wait(f"{LINE}?.dataset.state && {LINE}.dataset.state !== 'T10'", 40)
+    alt(c, 2)
+    out["opens"] = c.wait(VIEW, 20)
+    out["alt2"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
+    c.js("document.activeElement?.blur(); 1")
+    key(c, "?")
+    out["help"] = c.wait("document.querySelector('[data-testid=section-help]')?.textContent", 10)
+    c.click_on(q("[data-testid=section-help-ok]"))
+    c.wait("!document.querySelector('[data-testid=section-help]')", 10)
+    alt(c, 1)
+    out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
+    rows.idle(lv.sid, parent="studio:1", turns=0, asked=False)  # T10: Studio-started, no message yet; no other session
+    fresh(c, rig, "workflows")
+    c.wait(f"{LINE}?.dataset.state === 'T10'", 40)
+    alt(c, 2)
+    out["t10"] = c.wait(VIEW, 20)
+    return out
+
+
+def never_flips(c, rig, lv, rows) -> dict:
+    out: dict = {}
+    rows.reset()
+    rows.idle(lv.sid, turns=1, parent=None, asked=False)
+    fresh(c, rig, "crew")
+    c.wait(f"{LINE}?.dataset.state && {LINE}.dataset.state !== 'T10'", 40)
+    c.js("""(() => { window.__views = [];
+      const rec = () => { const v = document.querySelector('[data-testid=agents]')?.dataset.view;
+        if (v && v !== window.__views[window.__views.length - 1]) window.__views.push(v); };
+      new MutationObserver(rec).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-view'] });
+      return 1; })()""")
+    alt(c, 2)
+    c.wait("window.__views.length > 0", 20)
+    n0 = n = c.js(READS)
+    for step in (lambda: rows.turn(lv.sid, turns=1), lambda: rows.idle(lv.sid, turns=1), lambda: rows.turn(lv.sid, turns=1)):
+        step()  # each frame read by the page before the next: the three states each reach it
+        c.wait(f"{READS} > {n}", 20)
+        n = c.js(READS)
+    out["flip_reads"] = n - n0  # GET live re-read after each frame
+    try:  # bounded: any second value recorded within 2 s more is a flip
+        c.wait("window.__views.length > 1", 2)
+    except TimeoutError:
+        pass
+    out["flips"] = c.js("window.__views")
+    return out
+
+
 class AgentsLiveDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1500, 900
@@ -77,8 +156,10 @@ class AgentsLiveDriver(Driver):
         with StudioSessionRig() as rig:
             lv = Live(rig)
             lv.refresh(map="shop", map_next="shop")
+            from tests.helpers.studio_session_map_down import Rows
+            rows = Rows(rig)  # over GET live's rows: the session's turns, parent, busy and its agents' states (R56)
             try:
-                yield ((doors, (c, rig, lv)),)
+                yield ((doors, (c, rig, lv)), (opens, (c, rig, lv, rows)), (never_flips, (c, rig, lv, rows)))
             finally:
                 lv.close()
 

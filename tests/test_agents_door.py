@@ -8,7 +8,9 @@ tests/helpers/node_ts.py on every platform; the browser half is tests/test_studi
 2. a replay stays on Map (R55): `halo replay open`'s `view=live&replay=<id>` of 3.6.0.1 and before lands on the Map, where
    the scrubber is;
 3. the live panels' old doors (`showFleetPanel`: fleet-activity, fleet-costs, ...) land on Agents -> Live, where a run is
-   now watched; the Attention panel, an agent's rows and Local -> Hosts keep their homes.
+   now watched; the Attention panel, an agent's rows and Local -> Hosts keep their homes;
+4. R56 (decision 4): the opening tab (`openingView`): a door's tab, else 4 · Live while a session he has talked to is open
+   (a turn or a message asked, busy or between turns; T10 never), else the tab used last.
 Run: python -m tests.test_agents_door
 """
 from __future__ import annotations
@@ -74,6 +76,27 @@ out.doors = Object.fromEntries(['fleet-activity', 'fleet-costs', 'fleet-map', 'f
     ctx.check(f"each live panel's door, got {got.get('doors')}", got.get("doors") == {
         "fleet-activity": "live", "fleet-costs": "live", "fleet-map": "live", "fleet-runs": "live",
         "fleet-attention": "attention", "fleet-agent": "agent", "fleet-ollama": "local", "ollama": "local"})
+
+
+@test
+def test_agents_opens_on_live_while_a_session_he_talked_to_is_open(ctx: Ctx):
+    got = door("""
+const T10 = { parent: 'studio:1', turns: 0 }, between = { turns: 2, busy: false }, asked = { parent: 'studio:1', turns: 0, asked: true };
+out.between = D.openingView('', [between], 'crew');
+out.busy = D.openingView('', [{ turns: 1, busy: true }], 'workflows');
+out.asked = D.openingView('', [asked], 'map');
+out.t10 = D.openingView('', [T10], 'workflows');
+out.terminal_no_turn = D.openingView('', [{ parent: 'main', turns: 0 }], 'map');
+out.none = D.openingView('', [], 'crew');
+out.door = D.openingView('workflows', [between], 'crew');
+""")
+    ctx.check(f"R56: a session between turns or busy opens Live, got {got.get('between')!r} {got.get('busy')!r}",
+              got.get("between") == "live" and got.get("busy") == "live")
+    ctx.check(f"a Studio-started session asked once (a /clear keeps it) counts, got {got.get('asked')!r}", got.get("asked") == "live")
+    ctx.check(f"T10 (Studio-started, no message yet) and a session with no turn do not count: the tab used last, got "
+              f"{got.get('t10')!r} {got.get('terminal_no_turn')!r}", got.get("t10") == "workflows" and got.get("terminal_no_turn") == "map")
+    ctx.check(f"none open: the tab used last, got {got.get('none')!r}", got.get("none") == "crew")
+    ctx.check(f"a door's tab wins, got {got.get('door')!r}", got.get("door") == "workflows")
 
 
 if __name__ == "__main__":

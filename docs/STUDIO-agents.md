@@ -14,7 +14,8 @@ Agents (`Alt+2`) is three tabs, first on its bar:
 | **2 · Workflows** | `2` | put your agents in steps, in order: what each step gets and hands on; Try it on a throwaway copy | [STUDIO-workflows.md](STUDIO-workflows.md) |
 | **3 · Map** | `3` | connect them: who main hands work to, and when; every session runs on a map (the shipped `starter` until you pick one); while one runs the map lights up, and History under it replays what ran | [STUDIO-map.md](STUDIO-map.md) |
 
-Agents opens on the Map while a session runs, else on the tab used last; nothing else opens on its own. For this
+Agents opens on Live while a session you have talked to is open, else on the tab used last; it is decided once, as
+Agents first draws, and the tab never moves by itself after that; nothing else opens on its own. For this
 release `C` and `L` (the old Cast and Live keys) land on the Map and `W` on Workflows. The files live in
 `~/.halo/crew/` ([CREW-FORMATS.md](CREW-FORMATS.md)); the terminal has the same three as `halo agents`, `halo
 workflows` and `halo maps` ([COMMANDS-agents.md](COMMANDS-agents.md)).

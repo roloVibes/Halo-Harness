@@ -61,6 +61,13 @@ export function panelDoor(id: string): "attention" | "agent" | "local" | "live" 
   return id === "fleet-ollama" || id === "ollama" ? "local" : "live";
 }
 
+/** R56 (decision 4): the tab Agents opens on, decided once before its first draw. A door's tab wins; else 4 · Live while
+ *  a session he has talked to is open here (`rows`: this harness's open sessions; a turn, or a message asked, busy or
+ *  between turns; a Studio-started one with no message yet, T10, does not count); else `last`, the tab used last. */
+export function openingView(door: AgentsView | "", rows: { turns?: number | null; asked?: boolean | null }[], last: AgentsView): AgentsView {
+  return door || (rows.some((r) => Number(r.turns) > 0 || !!r.asked) ? "live" : last);
+}
+
 type Door = (view: AgentsView, word: string) => void;
 let take: Door | null = null;
 let waiting: [AgentsView, string] | null = null;

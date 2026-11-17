@@ -7,7 +7,12 @@ tests/test_agents_door.py, run in node everywhere.
    `1 · Agents | 2 · Workflows | 3 · Map | 4 · Live`; the Live part holds its shell (the session's T-state line from
    truth.ts, its status line, the frame reserved for the drawing) in its own workspace `agents-live`; the dot sits on
    4 · Live while a session runs, never on 3 · Map; C -> Map, L -> Live, 3 -> Map, 4 -> Live; Live is remembered as the
-   tab used last; the palette lists `Agents: 4 · Live` with its key 4 and Enter lands on Live.
+   tab used last; the palette lists `Agents: 4 · Live` with its key 4 and Enter lands on Live;
+2. R56 (decision 4): while a session he has talked to is open (here: between turns), Alt+2 opens Agents on 4 · Live
+   whatever the tab used last, and Agents' help says so; a Studio-started session with no message yet (T10) does not
+   count: Agents opens on the tab used last (2 · Workflows); this is decision 4's rewrite of
+   tests/test_studio_session.py's `test_alt_keys_and_agents_opens_on_the_map` (there now `..._opens_on_live`);
+3. R56: once Agents has drawn its opening tab it never moves by itself: busy, idle, busy frames leave it on Live.
 Run: python -m tests.test_studio_agents_live
 """
 from __future__ import annotations
@@ -26,6 +31,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 test, TESTS = new_registry()
 _RUN: dict = {}
 FOUR = ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"]
+OPENS = "Agents opens on Live while a session is open, else on the tab used last."  # R56's words in its help
 
 
 def _got(ctx: Ctx) -> dict:
@@ -55,6 +61,26 @@ def test_old_live_door_and_l_key_open_live(ctx: Ctx):
     ctx.check(f"Enter lands on Live, got {d.get('palette_to')!r}", d.get("palette_to") == "live")
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
+
+
+@test
+def test_alt_keys_and_agents_opens_on_live(ctx: Ctx):
+    d = _got(ctx)
+    ctx.check(f"R56: a session between turns open, the tab used last 1 · Agents: Alt+2 opens Agents on Live, got {d.get('alt2')!r} {d.get('opens')!r}",
+              str(d.get("alt2")).startswith("Agents") and d.get("opens") == "live")
+    ctx.check(f"Agents' help says the opening rule, got {d.get('help')!r}", OPENS in str(d.get("help")) and "Agents opens on the Map" not in str(d.get("help")))
+    ctx.check(f"Alt+1 comes back to Session, got {d.get('alt1')!r}", str(d.get("alt1")).startswith("Session"))
+    ctx.check(f"T10 (Studio-started, no message yet) does not count: the tab used last (2 · Workflows), got {d.get('t10')!r}",
+              d.get("t10") == "workflows")
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_opening_tab_never_flips_once_drawn(ctx: Ctx):
+    d = _got(ctx)
+    ctx.check(f"the three frames each read by the page, got {d.get('flip_reads')!r}", (d.get("flip_reads") or 0) >= 3)
+    ctx.check(f"R56: busy, idle, busy never move the opening tab: one value, Live, got {d.get('flips')!r}", d.get("flips") == ["live"])
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 if __name__ == "__main__":
     ctx = Ctx()

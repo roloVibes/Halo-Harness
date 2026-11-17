@@ -127,12 +127,14 @@ def test_session_param_chooses_that_session(ctx: Ctx):
 
 
 @test
-def test_alt_keys_and_agents_opens_on_the_map(ctx: Ctx):
+def test_alt_keys_and_agents_opens_on_live(ctx: Ctx):
+    # 3.6.0.2 decision 4 (R56): rewritten from test_alt_keys_and_agents_opens_on_the_map (3.6.0.0 R5: "on the Map while a
+    # session runs"); the opening tab is the first one Agents draws, so the driver reads it, not a wait for one value
     r, got = _driver("dash")
     _ran(ctx, r, got)
     ctx.check(f"Alt+2 shows Agents, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Agents"))
-    ctx.check(f"it opens on the Map while a session runs (3.6.0.0 R5), no harness box, got {got.get('agents_view')} {got.get('agents_boxes')}",
-              got.get("agents_view") == "map" and got.get("agents_boxes") == 0)
+    ctx.check(f"it opens on Live while a session he talked to is open (3.6.0.2 R56), no harness box, got {got.get('agents_view')} {got.get('agents_boxes')}",
+              got.get("agents_view") == "live" and got.get("agents_boxes") == 0)
     ctx.check(f"Alt+1 comes back to Session, its map still lit, got {got.get('alt1')!r} {got.get('back_map')}",
               str(got.get("alt1")).startswith("Session") and got.get("back_map") == "lit")
 

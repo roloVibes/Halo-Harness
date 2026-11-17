@@ -96,6 +96,11 @@ export function open(st: Pick<FleetState, "harnesses">, here: string): LitSessio
   return here_(st, here).map(toLit).sort(newestFirst);
 }
 
+/** R56: the open rows of this harness as they are (Agents' opening tab counts the ones he has talked to). */
+export function openRows(st: Pick<FleetState, "harnesses">, here: string): SessionRow[] {
+  return here_(st, here);
+}
+
 /** R2, R5: Live's picker: the open rows newest first, every Studio-started one with no message yet (T10) last. */
 export function openList(st: Pick<FleetState, "harnesses">, here: string): LitSession[] {
   return openOrder(here_(st, here)).map(toLit);
