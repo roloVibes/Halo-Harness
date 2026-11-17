@@ -10,7 +10,7 @@ import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { imageFields } from "./steerImage";
 // 3.6.0.2 P72: the box changes only when the answer to a send arrives, and then only for a send that was taken
-// (promptStore.ts takeSent); P22: a steer's row is drawn once (steerSent / steerAnswered); P23: an answered ask reads
+// (promptDraft.ts takeSent, given the text this answer took); P22: a steer's row is drawn once (steerSent / steerAnswered); P23: an answered ask reads
 // `Answered in Studio: <label>` with the label from THE table (promptWords.ts askLabel).
 import { dropSent, pushHistory, recordSent, takeSent } from "./promptDraft";
 import { addOut, loadReceipts, noteReceipt, prompt, steerAnswered, steerSent, type Receipt } from "./promptStore";
@@ -47,7 +47,7 @@ export async function runSlash(sid: string, line: string): Promise<boolean> {
   addOut(sid, line, lines.length && lines.some((l) => l.trim()) ? lines : ["(no output: the command ran, or became the next turn)"]);
   pushHistory(sid, line);
   if (result.ran === false) dropSent(); // nothing ran: the line stays in the box
-  else takeSent();
+  else takeSent(line);
   return true;
 }
 
@@ -71,7 +71,7 @@ export async function submit(sid: string, text: string, when: "refuse" | "queue"
   }
   const queued = !!(r.data.result || {}).queued;
   prompt.update(() => ({ busy: null }));
-  takeSent();
+  takeSent(text);
   pushHistory(sid, text);
   if (queued) toast("Queued: it starts when the running turn ends", "done");
   else if ((r.data.result || {}).steered) toast("Steered: it lands in the running turn", "done");

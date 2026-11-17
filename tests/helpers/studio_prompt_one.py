@@ -128,6 +128,13 @@ def p72(c, rig, gate) -> dict:
         c.type_text("base text extended")
     out["replaced_longer"] = in_flight(c, rig, gate, "base text", replace)
     empty_box(c)
+
+    def backspace_at_edge(c):  # the checker's walk: the caret right after the sent text, then Backspace
+        type_end(c, "e more")
+        c.js(f"(() => {{ const b = {INPUT}; b.focus(); b.setSelectionRange(3, 3); return 1; }})()")
+        press(c, "Backspace", "Backspace", 8, commands=["deleteBackward"])
+    out["backspace_edge"] = in_flight(c, rig, gate, "see", backspace_at_edge)
+    empty_box(c)
     out["slash_typed_after"] = in_flight(c, rig, gate, "/effort low", lambda c: type_end(c, " next"))
     out["slash_ran"] = c.wait(f"{OUTS}.some((o) => o.textContent.includes('ran /effort low')) && 'ran'", 10)
     empty_box(c)
@@ -183,6 +190,22 @@ def steer(c, rig, gate) -> dict:
     time.sleep(1.5)
     out["again_rows"] = steer_rows(c, "steer two")
     out["steered_end"] = list(rig.session.steered)
+    # the checker's walk: the busy line holds 'alpha'; ' beta' typed after it, then an Enter whose send fails; Steer
+    # then sends 'alpha' only, and the answer must not take out ' beta', which was never sent
+    typed(c, "alpha")
+    enter(c)
+    c.wait("!!document.querySelector('[data-testid=\"prompt-busy\"]') && 'busy'", 10)
+    type_end(c, " beta")
+    gate.refuse_next()
+    enter(c)
+    wait_for(lambda: gate.S._client is gate.client, 10)
+    time.sleep(0.5)
+    out["drift_during"] = c.js(f"{INPUT}.value")
+    c.click_on("document.querySelector('[data-testid=\"prompt-steer\"]')")
+    wait_for(lambda: len(rig.session.steered) > len(out["steered_end"]), 10)
+    out["drift_after"] = settled(c)
+    out["drift_steered"] = list(rig.session.steered)[len(out["steered_end"]):]
+    empty_box(c)
     c.click_on(f"[...{card}.querySelectorAll('[data-testid=\"prompt-ask-btn\"]')].find((b) => b.dataset.label === 'Allow')")
     wait_for(lambda: not rig.session.busy, 10)
     return {"steer": out}

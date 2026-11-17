@@ -88,8 +88,8 @@ def test_an_ask_answered_from_the_panel(ctx: Ctx):
               got.get("ask_buttons") == ["Allow", "Allow for this session", "Deny"])
     ctx.check(f"Answered in Studio: Allow (3.6.0.2 P23), the session took allow, got {got.get('ask_done')} {got.get('ask_decision')}",
               got.get("ask_done") == "Answered in Studio: Allow" and got.get("ask_decision") == "allow" and got.get("ask_turn_ended") is True)
-    ctx.check(f"one line, also once the session's own ask_answered arrived, got {got.get('ask_done_lines')}",
-              got.get("ask_done_lines") == ["Answered in Studio: Allow"])
+    ctx.check(f"one line, also once the session's own ask_answered arrived, got {got.get('ask_heard')} {got.get('ask_done_lines')}",
+              got.get("ask_heard") == "heard" and got.get("ask_done_lines") == ["Answered in Studio: Allow"])
 
 
 @test
@@ -123,6 +123,7 @@ def test_answer_never_wipes_what_he_typed_after_enter(ctx: Ctx):
     want = {"typed_after": ("first part and more", "and more"),  # a prompt, more typed while in flight
             "recall_up": ("repeat me", "repeat me"),  # (a) Up recalls the line just sent: left
             "replaced_longer": ("base text extended", "base text extended"),  # (b) a longer text beginning with it: left
+            "backspace_edge": ("see more", "see more"),  # a Backspace took the sent text's last letter: left
             "slash_typed_after": ("/effort low next", "next"),  # a slash line, more typed while in flight
             "failed": ("/effort none more", "/effort none more"),  # a refused send: nothing changes
             "ran_false": ("/effort mid x", "/effort mid x")}  # a slash that ran nothing: nothing changes
@@ -136,6 +137,9 @@ def test_answer_never_wipes_what_he_typed_after_enter(ctx: Ctx):
     ctx.check(f"Steer on the busy line, more typed while in flight: only that stays, got {s.get('during')!r} {s.get('after')!r}",
               s.get("during") == "steer this after" and s.get("after") == "after")
     ctx.check(f"a refused Steer leaves the box, got {s.get('refused_box')!r}", s.get("refused_box") == "steer two")
+    ctx.check(f"a failed Enter recorded more than the busy line holds: Steer sends 'alpha' and the box keeps 'alpha beta', "
+              f"got {s.get('drift_during')!r} {s.get('drift_steered')} {s.get('drift_after')!r}",
+              s.get("drift_during") == "alpha beta" and s.get("drift_steered") == ["alpha"] and s.get("drift_after") == "alpha beta")
 
 
 @test

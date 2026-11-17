@@ -39,11 +39,12 @@ export function recordSent(text: string, img: SteerImage | null): void {
 /** A send that was refused, failed, cancelled or ran nothing: the box stays exactly as it is. */
 export const dropSent = (): void => void (sent = null);
 
-/** The answer took the send: the sent text (and the sent chip, while its slot still holds it) leaves the box. */
-export function takeSent(): void {
+/** The answer took `taken`: the sent text (and the sent chip, while its slot still holds it) leaves the box, only when
+ *  the record is of that very text (a later Enter that failed may have recorded more: then nothing leaves). */
+export function takeSent(taken: string): void {
   const s = sent;
   sent = null;
-  if (!s) return;
+  if (!s || (s.text !== null && s.text !== taken)) return;
   const st = prompt.get();
   const box = s.text === null ? null : afterAnswer(st.draft, s.text);
   const chip = !!s.img && st.img === s.img;

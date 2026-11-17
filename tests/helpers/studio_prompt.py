@@ -154,8 +154,8 @@ def an_ask(c, rig) -> dict:
     got = wait_for(lambda: rig.session.permission_decisions.get("perm_1"), 10)
     out["ask_decision"] = getattr(got, "action", None)
     out["ask_turn_ended"] = bool(wait_for(lambda: not rig.session.busy and rig.session.turn_count == 2, 10))
-    import time
-    time.sleep(1.0)  # 3.6.0.2 P23: the session's own `ask_answered` (where studio) has reached the page by now
+    # 3.6.0.2 P23: wait until the session's own `ask_answered` (where studio) has reached the card (data-heard)
+    out["ask_heard"] = c.wait(f"{ASKS}.filter((a) => a.dataset.answered).pop()?.dataset.heard && 'heard'", 15)
     out["ask_done_lines"] = c.js(f"[...{ASKS}.filter((a) => a.dataset.answered).pop().querySelectorAll('[data-testid=\"prompt-ask-done\"]')]"
                                  ".map((x) => x.textContent)")
     return out

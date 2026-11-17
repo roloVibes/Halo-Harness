@@ -14,6 +14,7 @@ import { history, setDraft } from "./promptDraft";
 import { loadSlash, prompt, slashMatches, usePrompt } from "./promptStore";
 import { ModelPicker } from "../shared/picker/ModelPicker";
 import { resolveBusy, send } from "./promptSend";
+import { editStart } from "./promptWords";
 import { imageFile, kb, readImage } from "./steerImage";
 
 const BARE_MODEL = /^\s*\/model\s*$/; // 3.6.0.2 P69: Enter on a bare `/model` opens the model picker
@@ -38,17 +39,26 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
   const [pick, setPick] = useState(0);
   const [closed, setClosed] = useState("");
   const [hist, setHist] = useState(-1);
-  const editAt = useRef<number | null>(null); // 3.6.0.2 P72: where the coming edit's selection starts (beforeinput)
+  // 3.6.0.2 P72: the coming edit's kind and selection start (beforeinput; a composition from where it began)
+  const editAt = useRef<{ type: string; at: number } | null>(null);
   useEffect(() => void loadSlash(sid), [sid]);
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const note = () => void (editAt.current = el.selectionStart);
+    let comp: number | null = null;
+    const start = () => void (comp = el.selectionStart);
+    const note = (e: Event) => {
+      const type = (e as InputEvent).inputType || "";
+      if (type !== "insertCompositionText") comp = null;
+      editAt.current = { type, at: Math.min(el.selectionStart, comp ?? el.selectionStart) };
+    };
+    el.addEventListener("compositionstart", start);
     el.addEventListener("beforeinput", note);
-    return () => el.removeEventListener("beforeinput", note);
+    return () => (el.removeEventListener("compositionstart", start), el.removeEventListener("beforeinput", note));
   }, []);
   const edited = (value: string) => {
-    setDraft(value, editAt.current ?? 0); // unknown: 0, so a send in flight leaves the box alone
+    const e = editAt.current; // unknown: 0, so a send in flight leaves the box alone
+    setDraft(value, editStart(e?.type || "", e ? e.at : null, box.current?.selectionStart ?? 0));
     editAt.current = null;
   };
   useEffect(() => {

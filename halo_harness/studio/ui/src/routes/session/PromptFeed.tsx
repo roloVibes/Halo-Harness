@@ -65,7 +65,8 @@ function Ask({ sid, l }: { sid: string; l: LiveLine }) {
   const draft = usePrompt((s) => s.draft);
   const kind = info?.kind || l.ask || "permission";
   return (
-    <div className="spp-ask" data-testid="prompt-ask" data-kind={kind} data-answered={done ? true : undefined}>
+    <div className="spp-ask" data-testid="prompt-ask" data-kind={kind} data-answered={done ? true : undefined}
+      data-heard={heard ? true : undefined}>
       <div className="spp-ask-what">{l.text}</div>
       {done ? (
         <div className="mono muted" data-testid="prompt-ask-done">{done}</div>

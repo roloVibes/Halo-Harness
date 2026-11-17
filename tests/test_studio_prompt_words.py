@@ -51,20 +51,35 @@ console.log(JSON.stringify({ labels: %s.map(([k, f]) => m.askLabel(k, f)), words
           m.answeredLine("", "Deny")] }));
 """
 
-# P72: (what was sent, the box at Enter, then each edit as (next box, where its selection began)), the box after the answer
+# P72: (what was sent, the box at Enter, then each edit as the page sees it: (next box, its inputType, the selection
+# start at beforeinput, the caret at input; None: no beforeinput came)), the box after the answer
 CASES = {
     "nothing typed after Enter: the box empties": ("hello", "hello", [], ""),
-    "typed after Enter: only that stays": ("hello", "hello", [("hello and more", 5)], "and more"),
-    "a new line, then more: only the more": ("hello", "hello", [("hello\n", 5), ("hello\nnext", 6)], "next"),
-    "leading spaces were sent with it": ("  hello", "  hello", [("  hello x", 7)], "x"),
-    "Up recalls the line just sent: left": ("hello", "hello", [("hello", 0)], "hello"),
-    "the box replaced by a longer text beginning with it: left whole": ("hello", "hello", [("hello world", 0)], "hello world"),
-    "a Backspace into the sent text: left": ("hello", "hello", [("hell", 4)], "hell"),
-    "a Backspace into it, typed back: left": ("hello", "hello", [("hell", 4), ("hello", 4)], "hello"),
-    "a cut of the whole box, then typing: left": ("hello", "hello", [("", 0), ("new", 0)], "new"),
-    "an edit inside, after more was typed: left": ("hello", "hello", [("hello there", 5), ("hallo there", 1)], "hallo there"),
-    "a slash line, more typed after": ("/effort low", "/effort low", [("/effort low next", 11)], "next"),
-    "a trailing space at Enter goes with it": ("hello", "hello ", [("hello more", 6)], "more"),
+    "typed after Enter: only that stays": ("hello", "hello", [("hello and more", "insertText", 5, 14)], "and more"),
+    "a new line, then more: only the more": ("hello", "hello", [("hello\n", "insertLineBreak", 5, 6),
+                                                                 ("hello\nnext", "insertText", 6, 10)], "next"),
+    "leading spaces were sent with it": ("  hello", "  hello", [("  hello x", "insertText", 7, 9)], "x"),
+    "Up recalls the line just sent: left": ("hello", "hello", [("hello", "", None, 5)], "hello"),
+    "the box replaced by a longer text beginning with it: left whole": ("hello", "hello", [("hello world", "insertText", 0, 11)], "hello world"),
+    "a Backspace into the sent text: left": ("hello", "hello", [("hell", "deleteContentBackward", 5, 4)], "hell"),
+    "a Backspace into it, typed back: left": ("hello", "hello", [("hell", "deleteContentBackward", 5, 4),
+                                                                  ("hello", "insertText", 4, 5)], "hello"),
+    # the checker's walk: 'see' sent, 'e more' typed after, then a Backspace with the caret right after the sent text
+    "a Backspace at the sent text's edge, the text after it beginning with its last letter: left": (
+        "see", "see", [("seee more", "insertText", 3, 9), ("see more", "deleteContentBackward", 3, 2)], "see more"),
+    "a word deleted back across the edge: left": ("see", "see", [("see more", "insertText", 3, 8),
+                                                                  ("more", "deleteWordBackward", 4, 0)], "more"),
+    "a Delete forward after the sent text: only the rest": ("hello", "hello", [("hello xy", "insertText", 5, 8),
+                                                                                ("hello y", "deleteContentForward", 6, 6)], "y"),
+    "a cut of the whole box, then typing: left": ("hello", "hello", [("", "deleteByCut", 0, 0), ("new", "insertText", 0, 3)], "new"),
+    "an edit inside, after more was typed: left": ("hello", "hello", [("hello there", "insertText", 5, 11),
+                                                                       ("hallo there", "insertText", 1, 2)], "hallo there"),
+    "a paste after the sent text: only the paste": ("hello", "hello", [("hello pasted", "insertFromPaste", 5, 12)], "pasted"),
+    "an undo, wherever the caret was: left": ("hello", "hello", [("hello x", "insertText", 5, 7), ("hello", "historyUndo", 7, 5)], "hello"),
+    "a dropped text after it: left (a drop can start anywhere)": ("hello", "hello", [("hello x", "insertFromDrop", 7, 7)], "hello x"),
+    "a composition begun inside the sent text: left": ("hello", "hello", [("helかlo", "insertCompositionText", 3, 4)], "helかlo"),
+    "a slash line, more typed after": ("/effort low", "/effort low", [("/effort low next", "insertText", 11, 16)], "next"),
+    "a trailing space at Enter goes with it": ("hello", "hello ", [("hello more", "insertText", 6, 10)], "more"),
 }
 
 JS_P72 = """
@@ -72,7 +87,10 @@ const m = await import(%s);
 const out = {};
 for (const [name, [sent, box0, edits]] of Object.entries(%s)) {
   let box = box0, stands = box0.startsWith(sent);
-  for (const [next, at] of edits) { if (stands && !m.keepsSent(sent.length, box, next, at)) stands = false; box = next; }
+  for (const [next, type, before, after] of edits) {
+    if (stands && !m.keepsSent(sent.length, box, next, m.editStart(type, before, after))) stands = false;
+    box = next;
+  }
   const after = stands ? m.afterAnswer(box, sent) : null;
   out[name] = after === null ? box : after;
 }

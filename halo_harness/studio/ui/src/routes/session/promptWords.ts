@@ -53,6 +53,17 @@ export function keepsSent(len: number, prev: string, next: string, editStart: nu
   return editStart >= len && samePrefix(prev, next) >= len;
 }
 
+// The edits whose start is known from the selection before (at beforeinput) and the caret after (at input): an
+// insert or replace starts at the first, a Backspace-like delete at the second. An undo, a drop, a transpose or a
+// spelling replacement can start anywhere: unknown.
+const PLAIN_EDIT = /^(insert(Text|LineBreak|Paragraph|FromPaste|FromPasteAsQuotation|FromYank|CompositionText)|delete(Content|Word|SoftLine|HardLine|EntireSoftLine|ByCut)\w*)$/;
+
+/** P72: where an edit began, from its `inputType`, the selection start before it and the caret after it; 0 when unknown. */
+export function editStart(inputType: string, before: number | null, after: number): number {
+  if (before === null || !PLAIN_EDIT.test(inputType)) return 0;
+  return Math.max(0, Math.min(before, after));
+}
+
 /** P72: the box once the answer to a send arrives while its record stands: `null` leaves the box as it is. */
 export function afterAnswer(box: string, sent: string): string | null {
   if (!box.startsWith(sent)) return null;
