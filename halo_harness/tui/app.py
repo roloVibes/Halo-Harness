@@ -1358,7 +1358,7 @@ class BridgeApp(App):
             # 3.6.0.2 P5 batch 5 (K9, K10, J2 M3): the set-aside draft comes back as the LAST step, after the clear;
             # after a lost claim the box is the draft, a new line, then his words, and the kept guard holds all of it.
             box_aside.card_closed_after_borrow(self, card)
-            if lost and text.strip():
+            if lost and self.prompt_input.text.strip():  # K10: the whole box (draft and/or words), not his words alone
                 self._kept_text = self.prompt_input.text
                 box_aside.say_kept(self)
             return

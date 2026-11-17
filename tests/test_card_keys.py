@@ -880,6 +880,42 @@ def test_n5_n8_answered_elsewhere_during_a_borrow_keeps_draft_and_words(ctx: Ctx
 
 @test
 @real_card_timing
+def test_n5_k10_an_empty_reason_that_lost_its_claim_keeps_the_draft(ctx: Ctx):
+    """K10 (one of the two when the other is empty), F3: a draft is set aside, Tab, `4`, Studio answers the ask, he
+    presses Enter with NO reason: nothing is sent, the box holds the draft, and the kept guard holds it, so a second
+    Enter (a double tap) sends nothing, rings the bell and shows the kept line. Red on 0804c304 (the guard tested his
+    empty words, so the second Enter sent the unfinished draft to the model)."""
+    async def walk(fake, app, pilot, clock):
+        from halo_harness.tui.dispatch import apply_event
+        box = app.prompt_input
+        bells = []
+        app.bell = lambda: bells.append(1)
+        await _type(pilot, clock, "half a draft")
+        await _ask(app, pilot, _perm("req-1"))
+        clock.step(1.0)
+        await pilot.press("tab")
+        await pilot.press("4")
+        await pilot.pause(0.1)
+        ctx.check(f"the draft is set aside, got {box.text!r}", box.text == "" and _line(app) == SET_ASIDE)
+        await apply_event(app, ev.ask_answered("req-1", "permission", "Allow", "studio"))
+        await pilot.pause(0.1)
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"nothing sent, got {fake.permission_replies} {fake.submitted}",
+                  _nothing_answered(fake) and fake.submitted == [])
+        ctx.check(f"the box holds the draft, got {box.text!r}", box.text == "half a draft")
+        ctx.check(f"the kept guard holds it, got {app._kept_text!r}", app._kept_text == "half a draft")
+        ctx.check(f"the kept line above the box, got {_line(app)!r}", _line(app) == KEPT)
+        rang = len(bells)
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"a second Enter sends nothing, got {fake.submitted}", fake.submitted == [] and _nothing_answered(fake))
+        ctx.check(f"a second Enter rings the bell, got {len(bells) - rang}", len(bells) > rang)
+    _run(walk)
+
+
+@test
+@real_card_timing
 def test_n6_a_two_question_card_keeps_the_draft_aside_until_he_goes_back(ctx: Ctx):
     """K8, K9, J3 M3: a held two-question card and a draft: Tab, Other, `x`, Enter answers q1; the draft stays aside
     while q2 has the focus; Tab in the box during the borrow does nothing; Tab from q2 to the box brings it back; Enter
@@ -921,6 +957,38 @@ def test_n6_a_two_question_card_keeps_the_draft_aside_until_he_goes_back(ctx: Ct
         await pilot.pause(0.2)
         ctx.check(f"Enter sends the draft as text, got {fake.submitted}", fake.submitted == ["my draft"])
         ctx.check(f"no option picked, got {fake.question_replies}", fake.question_replies == [])
+    _run(walk)
+
+
+@test
+@real_card_timing
+def test_n6_the_draft_comes_back_when_q2_closes_the_card(ctx: Ctx):
+    """K9: a held two-question card and a draft: Tab, Other, `x`, Enter answers q1 (the draft stays aside); Enter on
+    q2's own list answers it and closes the card: the draft is back in the box exactly, the set-aside line is gone,
+    the draft is not sent. Shown red by taking out only the bring-back on close (see notes-batch05.md)."""
+    async def walk(fake, app, pilot, clock):
+        box = app.prompt_input
+        await _type(pilot, clock, "my draft")
+        await _ask(app, pilot, _two_questions("q-2"))
+        card = app.pending_card
+        clock.step(1.0)
+        await pilot.press("tab")
+        await pilot.pause(0.05)
+        app.focused.highlighted = 2  # "… Other (type your own answer)"
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+        await _type(pilot, clock, "x")
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"q2 has the focus, the draft aside, got {getattr(app.focused, 'id', None)} {box.text!r}",
+                  getattr(app.focused, "id", None) == "q-opt-1" and box.text == "" and _line(app) == SET_ASIDE)
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"q2's key closed the card, got {fake.question_replies}",
+                  len(fake.question_replies) == 1 and app.pending_card is not card)
+        ctx.check(f"the draft is back exactly, got {box.text!r}", box.text == "my draft")
+        ctx.check(f"the set-aside line is gone, got {_line(app)!r}", _line(app) == "")
+        ctx.check(f"the draft is not sent, got {fake.submitted}", fake.submitted == [])
     _run(walk)
 
 
