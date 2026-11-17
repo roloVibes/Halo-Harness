@@ -214,6 +214,8 @@ def _card(t, ev: dict, bad: list) -> float:
     press, or 0 when no card showed."""
     mark = _say(t, fakes.BUILD_PROMPT)
     shown = t.wait_for(lambda s: card_seen(s[mark:])["shown"], 30)
+    if shown:  # the card is drawn over several frames (its question first on a slow runner): judge the WHOLE card
+        t.wait_for(lambda s: _card_whole(card_seen(s[mark:])), CARD_WHOLE_S)
     seen = t.plain()[mark:]
     got = card_seen(seen)
     missing, ticked = got["missing"], got["ticked"]
@@ -228,6 +230,14 @@ def _card(t, ev: dict, bad: list) -> float:
                    + ": " + excerpt(seen[h.start():] if h else seen, 160))
     ev["card"]["key"] = _answer(t, mark)
     return time.monotonic()
+
+
+CARD_WHOLE_S = 15.0  # how long the step lets the card finish drawing before it says a row is missing
+
+
+def _card_whole(got: dict) -> bool:
+    """The card the step asserts is all there: shown, no row missing, the use row ticked."""
+    return bool(got["shown"] and not got["missing"] and got["ticked"])
 
 
 # the line above the box while a card waits (tui/widgets/cards.py WAIT_LINE / WAIT_LINE_SHORT, and the held box's
