@@ -130,7 +130,7 @@ def fleet_strips(c, rig) -> dict:
     from halo_harness.studio.server import url_for
     from tests.helpers.studio_strips import strips
     url = url_for(rig.server, "agents").replace("#t=", "&view=map&tour=off#t=")  # 3.6.0.0 R5: the Map's bar
-    return {"fleet_strips": strips(c, url, "!!document.querySelector('.section-view:not([hidden]) .workspace .stage-main .ws-cell')", "map-feed", shot, "fleet")}
+    return {"fleet_strips": strips(c, url, "!!document.querySelector('.section-view:not([hidden]) .workspace .stage-main .ws-cell')", "map-drawer", shot, "fleet")}
 
 
 def session_strips(c, rig) -> dict:

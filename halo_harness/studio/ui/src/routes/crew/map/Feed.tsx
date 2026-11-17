@@ -1,29 +1,26 @@
-// "What they think and say" (3.6.0.0 R4, the design's feed drawer): the lit session's rows -- THINK, SAY, TALK (agent to
-// agent, its own label), a tool, an ask -- from the same live feed Session's Live column reads (shared/liveFeed.ts) and
-// drawn by the same rows (session/LiveRows.tsx: an ask's answers are its buttons, the Attention row's own), newest at the
-// bottom with the follow rule Session's Live uses (session/follow.ts: scroll up to stop following, the pill to follow
-// again). Filtered by the clicked box (or a helper), or everyone. At its foot: Steer (a text box that fits its text) and
-// Stop, both to the agent of the clicked box (main for everyone) -- the owner's own controls, said plainly.
-// 3.6.0.0 R4b: the clicked box's facts and Pause / Resume / Dismiss at its head (BoxHead.tsx); a helper's own helpers
-// (`under:<id>`), the session's todo plan (`plan`) and, in a replay, the run's rows up to the scrubber (FeedParts.tsx);
-// Run a goal's form (`goal`, crew/run/GoalDrawer.tsx), a goal run's pages (`run:<id>`, crew/run/RunInspector.tsx) and
-// Live's whole History (`history`: sessions, goal runs, saved replay files, two ticked -> Compare; agents/live/History.tsx).
-import { useCallback, useMemo, useRef, useState } from "react";
+// The Feed (3.6.0.2 R57: Agents -> 4 · Live's right drawer, titled WORDS.feed, keyed to Live's session; 3.6.0.0 R4 was
+// the Map's "What they think and say"): the session's rows -- THINK, SAY, TALK (agent to agent, its own label), a tool, an
+// ask -- from the same live feed Session's Feed reads (shared/liveFeed.ts) and drawn by the same rows (session/LiveRows.tsx:
+// an ask's answers are its buttons, the Attention row's own), newest at the bottom with the follow rule Session's Feed uses
+// (session/follow.ts: scroll up to stop following, the pill to follow again). Filtered by a box clicked on Live (or a
+// helper), or everyone. At its foot: Steer (a text box that fits its text) and Stop, both to the agent of the clicked box
+// (main for everyone) -- the owner's own controls, said plainly. 3.6.0.0 R4b: the clicked box's facts and Pause / Resume /
+// Dismiss at its head (BoxHead.tsx); a helper's own helpers (`under:<id>`) and the session's todo plan (`plan`)
+// (FeedParts.tsx). The session and its overlay come from the Lit context agents/liveLit.tsx gives (the Map's Lit shape).
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Empty, TextBox } from "../../../lib/ui";
 import { agentCommand, steer } from "../../fleet/actions";
 import { hueOf } from "../../shared/hues";
 import { useLive, type LiveLine } from "../../shared/liveFeed";
+import { startLiveTree } from "../../shared/liveTree";
 import { LiveRow, type Who } from "../../session/LiveRows";
 import { useFollow } from "../../session/follow";
 import { followAgain } from "../../session/steer";
 import { BoxHead } from "./BoxHead";
-import { PlanList, ReplayRows, UnderList } from "./FeedParts";
+import { PlanList, UnderList } from "./FeedParts";
 import { setFeedFor, useLitStore } from "./litStore";
 import { under } from "./overlay";
 import { useTodos } from "./todoStore";
-import { GoalDrawer } from "../run/GoalDrawer";
-import { RunInspector } from "../run/RunInspector";
-import { HistoryDrawer } from "../live/History";
 import { useLitNow, type Lit } from "./useLit";
 
 const VIEW = 300;
@@ -49,6 +46,7 @@ function Pick({ L, filter }: { L: Lit; filter: string }) {
 
 export function Feed() {
   const L = useLitNow();
+  useEffect(() => startLiveTree(true), []); // its own rows (THINK and TALK too), as Session's Feed starts them: Live may be opened first
   const filter = useLitStore((s) => s.feedFor);
   const all = useLive((s) => s.lines);
   const plan = useTodos(L.session?.sid || "");
@@ -72,27 +70,13 @@ export function Feed() {
     || agents.find((a) => ids?.has(a.id)) || agents.find((a) => a.id === "main");
   const onPin = useCallback((k: string) => { const a = agents.find((x) => x.key === k); if (a) setFeedFor(`agent:${a.id}`); }, [agents]);
   const lastN = shown[shown.length - 1]?.n;
-  if (filter === "goal" || filter === "history" || filter.startsWith("run:")) // R4b (gaps 1, 8): reused, not redrawn
-    return (
-      <div className="mpf" data-testid="map-feed" data-filter={filter}>
-        <Button size="sm" onClick={() => setFeedFor("")} data-testid="map-feed-back">Back to what they think and say</Button>
-        <div className="mpf-page">{filter === "goal" ? <GoalDrawer /> : filter === "history" ? <HistoryDrawer /> : <RunInspector kind="run" id={filter.slice(4)} />}</div>
-      </div>
-    );
-  if (L.mode === "replay")
-    return (
-      <div className="mpf" data-testid="map-feed" data-filter={filter || "everyone"} data-replay="1">
-        <Pick L={L} filter={filter} />
-        <ReplayRows L={L} ids={ids} />
-      </div>
-    );
-  if (L.mode === "off" || !L.session) return <Empty title="Nothing runs on this map now" body="Start a session on it: what its agents think and say lands here as it happens." testid="map-feed-none" />;
+  if (!L.session) return null; // Live gives the Feed its session (agents/LiveFeed.tsx says why there is none)
   const send = async () => {
     if (target && text.trim() && (await steer(target.key, text, "nudge"))) setText("");
   };
   const box = filter.startsWith("agent:") ? L.ov?.helpers.find((h) => h.aid === filter.slice(6))?.box || "" : filter;
   return (
-    <div className="mpf" data-testid="map-feed" data-filter={filter || "everyone"} data-follow={following || undefined}>
+    <div className="mpf" data-testid="map-feed" data-sid={L.session.sid} data-filter={filter || "everyone"} data-follow={following || undefined}>
       <Pick L={L} filter={filter} />
       {filter === "plan" && <PlanList list={plan} />}
       {filter.startsWith("under:") && <UnderList L={L} aid={filter.slice(6)} />}

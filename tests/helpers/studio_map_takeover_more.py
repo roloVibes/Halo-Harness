@@ -1,5 +1,6 @@
 """tests.helpers.studio_map_takeover_more -- the R4b driver's later steps (tests/helpers/studio_map_takeover.py): keys,
-hover, ask, two, goal, replay. Each waits for the value it reads; no fixed sleep is a pass condition."""
+hover, ask, two, goal, replay. Each waits for the value it reads; no fixed sleep is a pass condition. 3.6.0.2 R57: the
+Feed is 4 · Live's drawer; the Map's own drawer holds Run a goal and History (tests/helpers/studio_live_feed.py)."""
 from __future__ import annotations
 
 import json
@@ -7,7 +8,8 @@ import json
 from tests.helpers.session_rig import wait_for
 from tests.helpers.studio_map_live_more import press
 from tests.helpers.studio_map_live_steps import box, click_box, q, t
-from tests.helpers.studio_map_takeover_steps import FD
+from tests.helpers.studio_map_takeover_steps import FD, back_to_map, to_feed
+from tests.helpers.studio_live_feed import MD, MD_SHOWN
 
 CARD = "document.getElementById('halo-hover-card')"
 
@@ -55,7 +57,7 @@ def ask(c, rig, lv, sent) -> dict:
     lv.state("reviewer", state="waiting")
     lv.ask("reviewer", "permission_request", {"id": "perm-r4b", "name": "Bash", "input": {"command": "git push origin feature/basket"}})
     lv.refresh(pending={"permission": ["perm-r4b"]})
-    click_box(c, "check")
+    to_feed(c, lv, "check")  # R57: the Feed is 4 · Live's
     key = f"{FD}?.querySelector('[data-testid=session-live-ask]:last-of-type [data-testid=session-live-key][data-key=a]')"
     out = {"row": c.wait(f"{FD}?.dataset.filter === 'check' && {key}?.title.includes('Attention row') && {key}.title", 30)}
     before = len(sent)
@@ -66,6 +68,7 @@ def ask(c, rig, lv, sent) -> dict:
     lv.fields.pop("pending", None)
     lv.state("reviewer", state="running")
     lv.refresh()
+    back_to_map(c)
     return out
 
 
@@ -93,22 +96,23 @@ def two(c, rig, lv, sent) -> dict:
 
 
 def goal(c, rig, lv, sent) -> dict:
+    """R57: Run a goal and History open in the Map's own right drawer (no feed to go back to: a page's × closes it)."""
     press(c, t("map-run-goal"))
-    out = {"form": c.wait(f"{FD}?.dataset.filter === 'goal' && !!{FD}.querySelector('[data-testid=run-goal-drawer]') && 'goal'", 15)}
-    back = f"{FD}.querySelector('[data-testid=map-feed-back]')"
-    c.js(f"{back}.scrollIntoView({{block: 'center'}}); 1")
-    x, y, w, h = c.rect(back)
+    out = {"form": c.wait(f"{MD}?.querySelector('[data-testid=map-drawer]')?.dataset.page === 'goal' && !!{MD}.querySelector('[data-testid=run-goal-drawer]') && 'goal'", 15)}
+    close = f"{MD}.querySelector('[data-testid=run-goal-close]')"
+    c.js(f"{close}.scrollIntoView({{block: 'center'}}); 1")
+    x, y, w, h = c.rect(close)
     out["under_back"] = c.js(f"(() => {{ const e = document.elementFromPoint({x + w / 2}, {y + h / 2}); return e ? (e.dataset.testid || e.className || e.tagName) : ''; }})()")
-    press(c, back)
+    press(c, close)
     try:
-        out["back"] = c.wait(f"{FD}?.dataset.filter === 'everyone' && 'back'", 10)
+        out["back"] = c.wait(f"!({MD_SHOWN}) && 'back'", 10)
     except TimeoutError:
-        raise TimeoutError(f"back: filter {c.js(f'{FD}?.dataset.filter')!r}, under the button {out.get('under_back')!r}, at {c.rect(back)}")
-    press(c, t("map-history-all"))  # Live's whole History in the drawer: goal runs and saved files beside sessions
-    out["history"] = c.wait(f"{FD}?.dataset.filter === 'history' && !!{FD}.querySelector('[data-testid=live-history-drawer]') && "
-                            f"[...{FD}.querySelectorAll('[data-testid=live-history-drawer] .lh-rows > *')].length", 15)
-    press(c, f"{FD}.querySelector('[data-testid=map-feed-back]')")
-    c.wait(f"{FD}?.dataset.filter === 'everyone'", 10)
+        raise TimeoutError(f"the goal's x: the drawer still {c.js(MD_SHOWN)}, under the button {out.get('under_back')!r}")
+    press(c, t("map-history-all"))  # History's whole list in the drawer: goal runs and saved files beside sessions
+    out["history"] = c.wait(f"{MD}?.querySelector('[data-testid=map-drawer]')?.dataset.page === 'history' && !!{MD}.querySelector('[data-testid=live-history-drawer]') && "
+                            f"[...{MD}.querySelectorAll('[data-testid=live-history-drawer] .lh-rows > *')].length", 15)
+    press(c, f"{MD}.querySelector('[data-testid=live-history-close]')")
+    c.wait(f"!({MD_SHOWN})", 10)
     return out
 
 
@@ -126,11 +130,11 @@ def replay(c, rig, lv, sent) -> dict:
         raise TimeoutError(f"no Replay the last session: the top line says {c.js(t('map-topline') + '?.textContent')!r}")
     press(c, last)
     out["replaying"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && 'replay'", 30)
-    click_box(c, "main")
-    out["drawer"] = c.wait(f"{FD}?.dataset.replay === '1' && !!({FD}.querySelector('[data-testid=map-feed-replay]') || "
-                           f"{FD}.querySelector('[data-testid=map-feed-replay-empty]')) && 'rows'", 15)
+    click_box(c, "main")  # R57: the Map has no feed, so a replay's click opens no drawer of words; its scrubber moves it
     scrub = q("[data-testid=replay-scrub]")
+    c.wait(f"!!{scrub}", 15)
     c.js(f"(() => {{ const s = {scrub}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
          " set.call(s, s.max); s.dispatchEvent(new Event('input', {bubbles: true})); s.dispatchEvent(new Event('change', {bubbles: true})); })(); 1")
-    out["rows"] = c.wait(f"[...({FD}?.querySelectorAll('[data-testid=map-feed-replay-row]') || [])].map((r) => r.dataset.kind)", 15)
+    out["drawer"] = c.js("document.querySelectorAll('[data-part=map] [data-testid=map-feed], [data-part=map] [data-testid=map-feed-panel]').length")
+    out["rows"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && {scrub}.value === {scrub}.max && 'end'", 15)
     return out

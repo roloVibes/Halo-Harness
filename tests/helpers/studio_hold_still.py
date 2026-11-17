@@ -73,10 +73,10 @@ VIEWBAR_READY = "!!document.querySelector('[data-testid=\"viewbar\"]')"
 # name: (query, the containers whose controls are measured, ready, a first click, what that click needs drawn)
 VIEWS = {
     "map": ("mode=agents&view=map", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-history"]'), MAP_READY, None, None),
-    "map_all": ("mode=agents&view=map&open=all", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-history"]', '[data-testid="map-feed-panel"]'), MAP_READY, None, None),
-    "history": ("mode=agents&view=map", ('[data-testid="map-feed-panel"]',), "!!document.querySelector('[data-testid=\"map-history-all\"]')",
+    "map_all": ("mode=agents&view=map&open=all", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-history"]', '[data-testid="map-drawer-panel"]'), MAP_READY, None, None),
+    "history": ("mode=agents&view=map", ('[data-testid="map-drawer-panel"]',), "!!document.querySelector('[data-testid=\"map-history-all\"]')",
                 _click("map-history-all"), None),
-    "goal": ("mode=agents&view=map", ('[data-testid="map-feed-panel"]',), MAP_READY, _click("map-run-goal"), FORM),
+    "goal": ("mode=agents&view=map", ('[data-testid="map-drawer-panel"]',), MAP_READY, _click("map-run-goal"), FORM),
     "session": ("mode=session", (RAIL, ".section-view"), START, None, None),
     "session_all": ("mode=session&open=all", _plus(clickables(".section-view"), "viewbar-word", "session-truth"), START, _click("session-open-workspace"), VIEWBAR_READY),
     "crew": ("mode=agents&view=crew&agent=coder", (RAIL, VIEWBAR, ".section-view"), CREW_READY, None, None),

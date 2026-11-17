@@ -3,11 +3,11 @@ the header's "+" became the view bar. Headless Chrome through tests/helpers/stud
 one), over a seeded scratch home; no provider request, no model call:
 
 1. Agents' view bar on 3 · Map (3.6.0.0 R5: Cast went) names every panel of the view: the left drawer (Agents and
-   workflows), the Map with its tab (the plan review to add), the right drawer (What they think and say), every drawer
+   workflows), the Map with its tab (the plan review to add), the right drawer (History: 3.6.0.2 R57, the Feed went to 4 · Live), every drawer
    closed on load; a focused button and Enter open its drawer beside the map (the button pressed), the panel's close
    puts it away; opening a drawer is never a "custom layout";
 2. the palette's Reset layout is drawn disabled with its words on a default layout (the builder's dock is not a
-   drawer); "Show panel: What they think and say" opens its drawer; Alt+Left on it widens it by 40 px and the width
+   drawer); "Show panel: History" opens its drawer; Alt+Left on it widens it by 40 px and the width
    is kept (the v3 record); Reset layout is enabled then;
 3. the "..." menu's Reset layout (the toast) closes every drawer and clears the saved key; its rows then say so
    (Reset disabled, "already default"); "How panels open" opens the section help on Moving panels, which the ?
@@ -35,7 +35,7 @@ UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
 # 3.6.0.0 R5: Agents -> 3 · Map's bar (Cast's went): the left drawer, the Map and its tab, the right drawer
 ROWS = [["map-add", "closed", "drawer", "Agents and workflows"], ["map-main", "open", "main", "Map"], ["orchestra-plan", "add", "tab", "Plan"],
-        ["map-feed", "closed", "drawer", "What they think and say"]]
+        ["map-drawer", "closed", "drawer", "History"]]
 
 
 def _got(ctx: Ctx) -> dict:
@@ -62,10 +62,10 @@ def test_the_view_bar_names_and_opens(ctx: Ctx):
               got.get("rows") == ROWS)
     ctx.check(f"no drawer drawn on load, no badge, got {got.get('drawers_fresh')} {got.get('badge_fresh')}",
               got.get("drawers_fresh") == [] and got.get("badge_fresh") is False)
-    ctx.check(f"the button takes the focus, got {got.get('focus')!r}", got.get("focus") == "map-feed")
+    ctx.check(f"the button takes the focus, got {got.get('focus')!r}", got.get("focus") == "map-drawer")
     opened = got.get("opened") or [[], "", True]
-    ctx.check(f"Enter opens What they think and say as a right drawer at its content's width, pressed, no custom layout, got {opened}",
-              opened[0] == [["map-feed", "right", 420]] and opened[1] == "true" and opened[2] is False)
+    ctx.check(f"Enter opens the Map's drawer (History) as a right drawer at its content's width, pressed, no custom layout, got {opened}",
+              opened[0] == [["map-drawer", "right", 420]] and opened[1] == "true" and opened[2] is False)
     ctx.check(f"its close puts it away, got {got.get('closed')}", got.get("closed") == [[], "false"])
 
 
@@ -74,11 +74,11 @@ def test_the_palette_shows_and_widens(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Reset layout on a default layout: disabled, its words, got {got.get('pal_reset_fresh')}",
               got.get("pal_reset_fresh") == ["Reset layout", "Agents: nothing to reset, every drawer is closed", "true"])
-    ctx.check(f"Show panel: What they think and say is a palette line, got {got.get('pal_show')}", (got.get("pal_show") or [""])[0] == "Show panel: What they think and say")
+    ctx.check(f"Show panel: History is a palette line, got {got.get('pal_show')}", (got.get("pal_show") or [""])[0] == "Show panel: History")
     before, after, saved = (got.get("widened") or [[], [], {}])[:3]
     ctx.check(f"Alt+Left widens the drawer by 40 px, kept in the v3 record, got {before} {after} {saved}",
-              before == [["map-feed", "right", 420]] and after == [["map-feed", "right", 460]]
-              and (saved or {}).get("v") == 3 and (saved or {}).get("widths") == {"map-feed": 460} and (saved or {}).get("open") == ["map-feed"])
+              before == [["map-drawer", "right", 420]] and after == [["map-drawer", "right", 460]]
+              and (saved or {}).get("v") == 3 and (saved or {}).get("widths") == {"map-drawer": 460} and (saved or {}).get("open") == ["map-drawer"])
     ctx.check(f"Reset layout is enabled now, the section in its hint, got {got.get('pal_reset_now')}",
               got.get("pal_reset_now") == ["Reset layout", "Agents: every drawer closed, the main thing back", None])
 
@@ -102,7 +102,7 @@ def test_the_map_plan_tab_setup_local_and_the_rail(ctx: Ctx):
     before = {r[0]: r[1] for r in got.get("fleet_rows") or []}
     after = {r[0]: r[1] for r in got.get("fleet_rows_after") or []}
     ctx.check(f"the Map: the plan review is 'add', the drawers closed, got {before}",
-              before.get("orchestra-plan") == "add" and before.get("map-feed") == "closed" and len(before) == 4)
+              before.get("orchestra-plan") == "add" and before.get("map-drawer") == "closed" and len(before) == 4)
     ctx.check(f"the bar added the plan review in the Map's place (a tab), its button shown, the Map's not, got {got.get('tree')} {after}",
               got.get("tree") is True and after.get("orchestra-plan") == "open" and after.get("map-main") == "closed")
     only = ["rail-sections,rail-toggle", 0, 0]

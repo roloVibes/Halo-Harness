@@ -6,7 +6,7 @@ import { goSection } from "../../../lib/store";
 import { orch, isLiveRun } from "../../orchestra/store";
 import { loadRuns, openRun as openOrchRun, startOrchestra } from "../../orchestra/sync";
 import { openReport } from "../live/historyStore";
-import { openFeed } from "../map/feedOpen";
+import { openMapDrawer } from "../map/feedOpen";
 import { openGoalHere, type GoalForm } from "./goalStore";
 
 /** The run of `id` (an exact id or a unique prefix), read afresh when the list does not hold it. */
@@ -27,11 +27,11 @@ export async function openRun(id: string): Promise<void> {
   const row = await rowOf(id);
   if (row && isLiveRun(row.state)) {
     if (orch.get().runId !== row.run_id) await openOrchRun(row.run_id);
-    openFeed(`run:${row.run_id}`);
+    openMapDrawer(`run:${row.run_id}`);
     return;
   }
   void openReport(row?.run_id || id);
-  openFeed("history");
+  openMapDrawer("history");
 }
 
 /** An Orchestra worker's session (its cwd is the lane's worktree, `.halo/orchestra/<run>/wt/worker-<n>`): its run. */
@@ -44,5 +44,5 @@ export function openWorkerRun(cwd: string): void {
 export function openGoal(form?: GoalForm): void {
   goSection("agents", "map");
   openGoalHere(form);
-  openFeed("goal");
+  openMapDrawer("goal");
 }

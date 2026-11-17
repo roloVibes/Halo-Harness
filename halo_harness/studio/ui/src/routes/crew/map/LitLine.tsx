@@ -12,7 +12,7 @@ import { goSection } from "../../../lib/store";
 import { fleet } from "../../fleet/store";
 import { isLiveRun, useOrch } from "../../orchestra/store";
 import { openRun as openOrchRun, startOrchestra } from "../../orchestra/sync";
-import { openFeed } from "./feedOpen";
+import { openFeed, openMapDrawer } from "./feedOpen";
 import { boxOfAgent } from "./talkPulse";
 import { planWords, startTodos, useTodos } from "./todoStore";
 import { liveNodes, type LiveNode } from "../live/liveModel";
@@ -84,7 +84,7 @@ export function Extras({ L }: { L: Lit }) {
       {run && (
         <span data-testid="map-lit-run" data-run={run.run_id}>
           A goal run is going: {run.goal_what.slice(0, 80)}{" "}
-          <Button size="sm" onClick={() => void openOrchRun(run.run_id).then(() => openFeed(`run:${run.run_id}`))} data-testid="map-lit-run-open"
+          <Button size="sm" onClick={() => void openOrchRun(run.run_id).then(() => openMapDrawer(`run:${run.run_id}`))} data-testid="map-lit-run-open"
                   title="Its pages (lanes, the gate, the merge, its report) in the drawer">Open</Button>
         </span>
       )}

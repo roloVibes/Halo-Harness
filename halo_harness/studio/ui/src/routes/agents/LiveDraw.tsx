@@ -18,11 +18,12 @@ import { useHold } from "../crew/map/hold";
 import { BOX_W, LABEL_H, LABEL_W, layout } from "../crew/map/layout";
 import { estimateDown, type PlacedDown, type RoutedDown } from "../crew/map/layoutDown";
 import { useLit } from "../crew/map/LitMini";
-import type { LitSession } from "../crew/map/litStore";
+import { setFeedFor, type LitSession } from "../crew/map/litStore";
 import { whenWords } from "../crew/map/mapTypes";
 import { RunLine } from "../crew/map/RunLine";
 import { useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { StepIn } from "../crew/map/StepIn";
+import type { Hit } from "../crew/map/stepInTarget";
 import { readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
 import { DownBox } from "../session/DownBox";
 import { firstSeen, keepSeen } from "../session/downFit";
@@ -42,7 +43,9 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const f = got && "unreadable" in got ? { ...given, unreadable: s.path || map } : given; // R50: T12
   const drawn = !!detail;
   const root = useRef<HTMLDivElement>(null), scroll = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null);
-  const { card, setCard, pick, pickLine, closeCard } = useStepCard(L); // R18 (runFrame.ts, as Session's drawer)
+  const { card, setCard, pick: pickCard, pickLine, closeCard } = useStepCard(L); // R18 (runFrame.ts, as Session's drawer)
+  // R57: a click on a box (its face, a block's head or step) also sets the Feed to that box; the Feed opens only by his hand
+  const pickIn = (id: string, loose: boolean) => (h: Hit) => ((loose ? undefined : setFeedFor(id)), pickCard(h));
   const { held } = useHold(root, !!card);
   const said = useRef(f);
   if (!held) said.current = f; // the head's words: a fact that would grow it waits with the drawing
@@ -103,7 +106,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
                         onClick={(e) => (e.stopPropagation(), pickLine(l, e.currentTarget.textContent || ""))}>
                     {p ? p.task || whenWords(l.when) : whenWords(l.when)}
                   </span>); })}
-                {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} live />)}
+                {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pickIn(b.id, !!b.block?.under)} live />)}
               </div>
             </div>
           </div>

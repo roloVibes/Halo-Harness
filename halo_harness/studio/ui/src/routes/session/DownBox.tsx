@@ -58,7 +58,8 @@ export function DownBox({ b, L, sid, lines: all, built = null, pick, live }: Pro
     <div className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit={L.unlit ? undefined : "live"} data-state={st} data-helper={helper} data-kind={b.kind}
          data-new={b.isNew || built ? "" : undefined} data-workflow={b.block?.workflow}
          data-testid={live ? (loose ? "live-block" : "live-box") : loose ? "session-map-block" : "session-lit-box"} data-box={b.id} data-map-box={live ? b.id : undefined} title={!b.block && hv.titles ? `${b.name}: ${STATE_WORDS[st]}` : undefined}
-         style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}>
+         style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}
+         tabIndex={live ? 0 : undefined} onKeyDown={live ? (e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), e.currentTarget.click()); } : undefined}>
       <LitFace b={b} ov={L.ov} sid={sid} tag={built ? newTag(built) : undefined} />
     </div>
   );

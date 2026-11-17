@@ -163,50 +163,62 @@ def helper(c, rig, lv, sent) -> dict:
     folder = Path(rig.state) / "crew" / "agents"
     out["written"] = sorted(p.name for p in folder.glob("*.yaml")) if folder.is_dir() else []
     c.js("document.activeElement?.blur(); 1")
-    key(c, "3")  # the Feed is still the Map's drawer (P4 batch 4 moves it to Live): the next step reads it there, on shop
-    sw = t("map-switcher")
-    c.wait(f"{VIEW} === 'map' && [...({sw}?.options || [])].some((o) => o.value === 'shop')", 20)
-    c.js(f"(() => {{ const s = {sw}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
-         f" set.call(s, 'shop'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
-    c.wait(f"{sw}.value === 'shop' && !!{t('map-lit-head')}", 20)
+    key(c, "4")  # 3.6.0.2 R57: the Feed is 4 · Live's drawer: the next step reads it there
+    c.wait(f"{VIEW} === 'live'", 20)
     return out
 
 
 def feed(c, rig, lv, sent) -> dict:
+    """R57: the Feed is 4 · Live's right drawer (tests/helpers/studio_live_feed.py): opened from its button, a click on a box
+    of Live's drawing sets it to that box (it was a click on the Map's box, opening the Map's drawer)."""
+    from tests.helpers.studio_live_feed import FD, FEED_SHOWN, click_live_box, close_card, live_box, open_feed
     out: dict = {}
-    click_box(c, "code")
-    fd = "document.querySelector('[data-testid=map-feed]')"
-    out["filter"] = c.wait(f"{fd}?.dataset.filter === 'code' && {fd}.dataset.filter", 10)
+    open_feed(c, lv.sid)
+    click_live_box(c, "code")
+    out["filter"] = c.wait(f"{FD}?.dataset.filter === 'code' && {FD}.dataset.filter", 10)
+    close_card(c)
     lv.think("implementer", "tM1", "The discount has to come before tax.", end=True, ms=600)
     lv.say("implementer", "Applying the discount before tax now.")
     lv.talk("main", "implementer", "Apply the discount before tax in basket.py.", "task", mid="tk-m1")
-    rows = f"[...{fd}.querySelectorAll('[data-testid=live-row]')].map((r) => r.dataset.kind)"
+    rows = f"[...{FD}.querySelectorAll('[data-testid=live-row]')].map((r) => r.dataset.kind)"
     try:
         out["kinds"] = c.wait(f"(() => {{ const k = {rows}; return ['think', 'text', 'talk'].every((x) => k.includes(x)) && k; }})()", 15)
     except TimeoutError:
-        raise TimeoutError(f"the drawer's rows: {c.js(rows)}; it says: {c.js(f'{fd}.innerText.slice(0, 300)')!r}")
+        raise TimeoutError(f"the Feed's rows: {c.js(rows)}; it says: {c.js(f'{FD}.innerText.slice(0, 300)')!r}")
     lv.state("reviewer", state="waiting")
     lv.ask("reviewer", "permission_request", {"id": "perm-9", "name": "Bash", "input": {"command": "git push origin feature/basket"}})
-    out["waits"] = c.wait(f"{box('check')}.dataset.state === 'waiting' && {box('check')}.querySelector('[data-testid=map-lit-state]').textContent", 15)
-    click_box(c, "check")
-    c.wait(f"{fd}?.dataset.filter === 'check'", 10)
-    out["ask_keys"] = c.wait(f"{fd}.querySelectorAll('[data-testid=session-live-ask] [data-testid=session-live-key]').length", 10)
-    shot(c, "studio-map-feed.png")
+    chk = live_box("check")
+    out["waits"] = c.wait(f"{chk}?.dataset.state === 'waiting' && {chk}.dataset.state", 15)  # check is the review workflow's block: its rows are its steps
+    click_live_box(c, "check")
+    c.wait(f"{FD}?.dataset.filter === 'check'", 10)
+    close_card(c)
+    out["ask_keys"] = c.wait(f"{FD}.querySelectorAll('[data-testid=session-live-ask] [data-testid=session-live-key]').length", 10)
+    shot(c, "studio-map-feed.png")  # the name tools/capture_map_live.py collects
     lv.state("reviewer", state="running")
-    c.js(f"{box('research')}.focus(); 1")  # the keyboard: Enter on a box opens its words
+    c.js(f"{live_box('research')}.focus(); 1")  # the keyboard: Enter on a box of Live sets the Feed to it
     c.key("Enter")
-    out["keyboard"] = c.wait(f"{fd}?.dataset.filter === 'research' && 'research'", 10)
-    area = f"{fd}.querySelector('[data-testid=map-feed-steer-text]')"
+    out["keyboard"] = c.wait(f"{FD}?.dataset.filter === 'research' && 'research'", 10)
+    close_card(c)
+    area = f"{FD}.querySelector('[data-testid=map-feed-steer-text]')"
     c.js(f"{area}.focus(); 1")
     c.type_text(STEER)
-    c.click_on(f"{fd}.querySelector('[data-testid=map-feed-steer]')")
+    c.click_on(f"{FD}.querySelector('[data-testid=map-feed-steer]')")
     got = wait_for(lambda: [d for d in sent if d["cmd"] == "agent_steer" and STEER in str(d["fields"].get("text"))], 20) or [{}]
     out["steer"] = [got[0].get("cmd"), got[0].get("status")]
-    c.click_on(f"{fd}.querySelector('[data-testid=map-feed-stop]')")
-    c.wait(f"!!{fd}.querySelector('[data-testid=map-feed-stop-yes]')", 5)
-    c.click_on(f"{fd}.querySelector('[data-testid=map-feed-stop-yes]')")
+    c.click_on(f"{FD}.querySelector('[data-testid=map-feed-stop]')")
+    c.wait(f"!!{FD}.querySelector('[data-testid=map-feed-stop-yes]')", 5)
+    c.click_on(f"{FD}.querySelector('[data-testid=map-feed-stop-yes]')")
     got = wait_for(lambda: [d for d in sent if "stop" in d["cmd"]], 20) or [{}]
     out["stop"] = [got[0].get("cmd"), got[0].get("status")]
+    c.click_on("document.querySelector('[data-part=live] [data-testid=live-feed-panel] [data-testid=panel-collapse]')")  # closed again
+    c.wait(f"!({FEED_SHOWN})", 10)
+    c.js("document.activeElement?.blur(); 1")
+    key(c, "3")  # the next steps start on 3 · Map, on shop, as they did when the Feed was the Map's
+    sw = t("map-switcher")
+    c.wait(f"{VIEW} === 'map' && [...({sw}?.options || [])].some((o) => o.value === 'shop')", 20)
+    c.js(f"(() => {{ const s = {sw}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
+         f" set.call(s, 'shop'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{sw}.value === 'shop'", 20)
     return out
 
 

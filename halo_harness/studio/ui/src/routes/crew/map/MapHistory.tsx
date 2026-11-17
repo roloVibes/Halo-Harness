@@ -10,7 +10,7 @@ import { Scrubber } from "../live/Scrubber";
 import { useLiveReplay } from "../live/replay";
 import { closeRun, pickRun, replayRun, toggleCard, useMapHist } from "./mapRuns";
 import { toggleHistory } from "../live/historyStore";
-import { openFeed } from "./feedOpen";
+import { openMapDrawer } from "./feedOpen";
 
 const when = (t: number) => (t ? new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 
@@ -50,7 +50,7 @@ export function MapHistory() {
             {(open || R) && <Button onClick={closeRun} data-testid="map-history-now">Back to now</Button>}
           </>
         )}
-        <Button onClick={() => (toggleHistory(true), openFeed("history"))} data-testid="map-history-all"
+        <Button onClick={() => (toggleHistory(true), openMapDrawer("history"))} data-testid="map-history-all"
                 title="Every past session, goal run and saved replay file, as Live's History lists them; tick two to compare">Goal runs, files, Compare</Button>
       </div>
       {R && <Scrubber sid={open?.sid ?? R.sid} title={open?.title ?? R.title} started={null} lineup="" />}

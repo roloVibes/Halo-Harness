@@ -34,3 +34,8 @@
 .ag-claims li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ag-claims [data-state="writing"] { color: var(--accent); }
 .pc-claims .ag-owns { font-size: 12px; line-height: 14px; }
+/* 3.6.0.2 R57: the Map drawer's button names the page it shows ("Run a goal" or "History"): it keeps the longer word's room
+   from the first draw, so a page change moves no control of the view bar */
+.viewbar-btn[data-panel="map-drawer"] .viewbar-name { display: inline-block; min-width: 7.6em; text-align: center; }
+/* 3.6.0.2 R57 with R7: History opened in the Map's own drawer: its row's report-card door is a control, >= 28 px */
+.mpf-page .lh-door { min-height: 28px; }

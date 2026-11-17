@@ -57,12 +57,14 @@ def test_the_map_holds_still_as_it_opens(ctx: Ctx):
 
 @test
 def test_the_history_drawer_holds_still(ctx: Ctx):
-    _view(ctx, "history", ("map-feed-back", "live-history-close"))
+    # 3.6.0.2 R57: the Map's own drawer (map-drawer-panel) has no "Back to what they think and say" (the Feed is 4 · Live's):
+    # History's own controls are measured (its close among them)
+    _view(ctx, "history", ("live-history-close",))
 
 
 @test
 def test_the_goal_form_is_drawn_whole_and_holds_still(ctx: Ctx):
-    _view(ctx, "goal", ("map-feed-back", "run-goal-close", "model-select", "orchestra-review", "orchestra-run"))
+    _view(ctx, "goal", ("run-goal-close", "model-select", "orchestra-review", "orchestra-run"))  # R57: no Back button (no feed on the Map)
 
 
 @test

@@ -44,7 +44,7 @@ STATE = ("[...document.querySelectorAll('.section-view:not([hidden]) [data-testi
 ORNAMENT = (f"[{qa('.section-view:not([hidden]) .panel.focused')}.map((p) => p.closest('.ws-cell').dataset.panel), {qa('.section-view:not([hidden]) .panel[data-focused]')}.length, "
             f"{qa('.section-view:not([hidden]) .hud-brackets')}.length, {qa('.section-view:not([hidden]) .panel-data')}.length, {qa('[data-testid=panel-about], .panel-about')}.length]")
 MAP = q(".section-view:not([hidden]) [data-panel=map-main] .panel")
-INSP = q(".section-view:not([hidden]) .stage-drawer [data-panel=map-feed] .panel")
+INSP = q(".section-view:not([hidden]) .stage-drawer [data-panel=map-drawer] .panel")
 
 
 def _url(ctx, query: str) -> str:
@@ -93,19 +93,19 @@ def drawer(c, url, ctx) -> dict:
     fresh(c, ctx, "roles", "Agents")  # the old Roles door: the Map
     c.wait(f"!!{MAP}", 40)
     out = {"map_before": steady(c, f"{RECT}({MAP})")}
-    c.click_on(button("map-feed"))
+    c.click_on(button("map-drawer"))
     c.wait(f"!!{INSP}", 10)
     out["att_open"] = steady(c, f"{RECT}({INSP})")
     out["map_open"] = c.js(f"{RECT}({MAP})")
-    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] .panel-title"))
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-drawer] .panel-title"))
     c.wait(f"{INSP}.classList.contains('focused')", 5)
     out["ornament_click"] = c.js(ORNAMENT)
-    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] [data-testid=panel-help-btn]"))
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-drawer] [data-testid=panel-help-btn]"))
     out["help_first"] = c.wait(f"{q('[data-testid=panel-help] .panel-help-about')}?.textContent", 10)
-    out["about_title"] = c.js(f"{q('.section-view:not([hidden]) [data-panel=map-feed] .panel-title')}.title")
-    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] [data-testid=panel-help-btn]"))
+    out["about_title"] = c.js(f"{q('.section-view:not([hidden]) [data-panel=map-drawer] .panel-title')}.title")
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-drawer] [data-testid=panel-help-btn]"))
     out["help_toggled"] = c.wait(f"!{q('[data-testid=panel-help]')} && 'closed'", 5)
-    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] [data-testid=panel-collapse]"))
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-drawer] [data-testid=panel-collapse]"))
     c.wait(f"!{INSP}", 10)
     out["map_back"] = steady(c, f"{RECT}({MAP})")
     out["custom_after"] = c.js(f"!!{q('[data-testid=layout-badge]')}")
@@ -116,7 +116,7 @@ def saved(c, url, ctx) -> dict:
     fresh(c, ctx, "roles", "Agents")
     c.wait(f"!!{MAP}", 40)
     before = steady(c, f"{RECT}({MAP})")
-    c.click_on(button("map-feed"))
+    c.click_on(button("map-drawer"))
     c.wait(f"!!{INSP}", 10)
     out = {"map_mine": steady(c, f"{RECT}({MAP})"), "map_default": before, "key": c.js("!!localStorage.getItem('halo.studio.layout.agents-map')")}
     load(c, ctx, "roles", "Agents")

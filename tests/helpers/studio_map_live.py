@@ -12,8 +12,9 @@ session that ran on it (its log holding the map receipts) are seeded in the rig'
     steps     a workflow box opened: its steps lit, the agent in a step, a repeat's rounds and checks
     helper    the made-up helper beside main, dashed, tagged, Save as an agent: the Agents form with its body, nothing
               written
-    feed      a click on a box: the drawer, filtered; THINK / SAY / TALK rows; an ask shows its answers and the box waits
-              on you; Steer and Stop reach the route; the keyboard (Enter on a box) opens it too
+    feed      R57: on 4 · Live, the Feed opened from its button; a click on a box sets it to that box; THINK / SAY / TALK
+              rows; an ask shows its answers and the box waits on you; Steer and Stop reach the route; the keyboard
+              (Enter on a box of Live) sets it too
     amber     another map shown: the amber line and Show the running map
     nomap     the session's row with no map: "Show it" -- main and every agent as a made-up helper, no lines
     history   the picker, Replay it on the map (quiet colours, a removed box dashed), the scrubber moves it, the report card

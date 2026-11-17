@@ -83,7 +83,7 @@ def test_the_ornament_on_one_panel(ctx: Ctx):
         orn = (got.get("ornament") or {}).get(sid)
         ctx.check(f"{sid}: one focused panel (the main one), one set of brackets, one data line, no about line, got {orn}",
                   orn == [[pid], 1, 1, 1, 0])
-    ctx.check(f"a click moves it, got {got.get('ornament_click')}", got.get("ornament_click") == [["map-feed"], 1, 1, 1, 0])
+    ctx.check(f"a click moves it, got {got.get('ornament_click')}", got.get("ornament_click") == [["map-drawer"], 1, 1, 1, 0])
     ctx.check(f"the ? opens the help on the about line, got {got.get('help_first')!r} / {got.get('about_title')!r}",
               bool(got.get("help_first")) and got.get("help_first") == got.get("about_title"))
     ctx.check(f"the ? again closes it, got {got.get('help_toggled')}", got.get("help_toggled") == "closed")

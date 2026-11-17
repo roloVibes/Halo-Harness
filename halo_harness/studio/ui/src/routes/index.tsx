@@ -32,7 +32,7 @@ import { AgentsView } from "./agents/Agents";
 import { agentsView, useAgentsView } from "./agents/store";
 import { CREW_SECTION, crewPanels } from "./crew/Crew";
 import { FLOWS_SECTION, flowPanels } from "./crew/flows/Flows";
-import { MAP_SECTION, mapPanels } from "./crew/map/MapView";
+import { MAP_SECTION, mapPanelsNow } from "./crew/map/MapView";
 import { LIVE_SECTION, livePanels } from "./agents/LiveView";
 import { mediaPanels } from "./media/MediaPanels";
 import { sessionPanels } from "./session/Session";
@@ -99,7 +99,7 @@ export function useSections(): SectionDef[] {
  *  lines, the + menu and the status bar follow the tab). */
 function agentsDef(view: string = agentsView()): SectionDef {
   const [id, panels] = view === "crew" ? [CREW_SECTION, crewPanels] : view === "workflows" ? [FLOWS_SECTION, flowPanels]
-    : view === "live" ? [LIVE_SECTION, livePanels] : [MAP_SECTION, mapPanels]; // 3.6.0.2 R52: 4 · Live has its own workspace
+    : view === "live" ? [LIVE_SECTION, livePanels] : [MAP_SECTION, mapPanelsNow()]; // 3.6.0.2 R52: 4 · Live has its own workspace
   return { ...SECTIONS[1], id: id as SectionId, panels, view: undefined };
 }
 

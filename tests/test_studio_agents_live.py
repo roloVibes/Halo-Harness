@@ -16,7 +16,11 @@ tests/test_agents_door.py, run in node everywhere.
 4. R34: Live draws the map the chosen session follows (shop), left to right, lit, read-only, never amber, whatever map
    3 · Map has open;
 5. R12: nothing in Live moves under the pointer while rows and a hand-off arrive; the change is drawn when it leaves;
-6. R3: the picker lists other machines' sessions; one picked says T9 and nothing is fetched.
+6. R3: the picker lists other machines' sessions; one picked says T9 and nothing is fetched;
+7. R57: what the agents say and do, line by line, is Live's right drawer titled Feed (WORDS.feed), for Live's session,
+   opened by his hand; a click on a box in Live sets it to that box; 3 · Map has no feed and no "What they think and
+   say"; Run a goal and History open in the Map's own right drawer, titled by the page, its button holding still; an
+   agent's "open" door (the palette's "Agents: follow agent ...") lands on Live's Feed for that agent.
 Run: python -m tests.test_studio_agents_live
 """
 from __future__ import annotations
@@ -139,6 +143,29 @@ def test_live_picker_other_machine_t9_no_fetch(ctx: Ctx):
     ctx.check(f"nothing fetched for it (no map read, nothing of away-1, at the server), got {d.get('gets')}", d.get("gets") == [])
     ctx.check(f"R1: a pick in Session (its Open in Agents -> Live) replaces it: Live draws that session, got {d.get('session_pick')!r}",
               d.get("session_pick") in ("T1", "T2", "T3", "T11", "T12"))
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_live_has_the_feed_map_does_not(ctx: Ctx):
+    d = _got(ctx)
+    ctx.check(f"Live's view bar has the Feed's button, closed until pressed, got {d.get('button')}", d.get("button") == ["Feed", "false", False])
+    ctx.check(f"its drawer is titled Feed, got {d.get('title')!r}", d.get("title") == "Feed")
+    ctx.check(f"THINK, SAY and TALK rows of Live's session, got {d.get('kinds')} {d.get('sids')}",
+              {"think", "text", "talk"} <= set(d.get("kinds") or []) and (d.get("sids") or ["", "-"])[0] == d["sids"][1])
+    ctx.check(f"a click on code's box in Live sets the Feed to it, and its step-in card opens, got {d.get('filter')!r} {d.get('feed_card')!r}",
+              d.get("filter") == "code" and d.get("feed_card") == "box:code")
+    ctx.check(f"3 · Map has no feed drawer, got {d.get('map_feed')}", d.get("map_feed") == 0)
+    ctx.check(f"nothing says 'What they think and say', got {d.get('map_words')!r}", d.get("map_words") is False)
+    ctx.check(f"the Map's own drawer: closed, its button on History, got {d.get('md_closed')}", d.get("md_closed") == ["History", False])
+    ctx.check(f"Run a goal opens the goal form in the Map's right drawer, titled Run a goal, got {d.get('goal')}", d.get("goal") == ["Run a goal", "Run a goal"])
+    ctx.check(f"History's list opens there, titled History, got {d.get('history')}", d.get("history") == ["History", "History"])
+    ctx.check(f"the drawer's button holds still whatever its page, got {d.get('btn_before')} {d.get('goal_btn')} {d.get('history_btn')}",
+              d.get("btn_before") == d.get("goal_btn") == d.get("history_btn") and d.get("btn_before"))
+    ctx.check(f"History's x closes the drawer with it, got {d.get('closed')!r}", d.get("closed") == "closed")
+    door = d.get("agent_door") or []
+    ctx.check(f"an agent's open door from 3 · Map lands on Live's Feed for that agent, got {door} (implementer {d.get('aid')!r})",
+              door[:2] == ["live", f"agent:{d.get('aid')}"])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

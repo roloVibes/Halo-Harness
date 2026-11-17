@@ -4,7 +4,7 @@
 // does and when it takes effect, its problem lines) and the receipt of the last change with Undo.
 import { useState } from "react";
 import { openGoalHere } from "../run/goalStore";
-import { openFeed } from "./feedOpen";
+import { openMapDrawer } from "./feedOpen";
 import { Button } from "../../../lib/ui";
 import { dismissError, newMap, openMap, setUse, toggleLock, undoLast, useMap } from "./mapStore";
 import { Extras, LitLine, ReplayLast } from "./LitLine";
@@ -85,7 +85,7 @@ export function MapBar() {
         <Switch on={!!name && inUse === name} label="My sessions use this" testid="map-uses" onFlip={() => void setUse(inUse !== name)}
                 title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />
         <span className="spacer" />
-        <Button size="sm" onClick={() => (openGoalHere(), openFeed("goal"))} data-testid="map-run-goal"
+        <Button size="sm" onClick={() => (openGoalHere(), openMapDrawer("goal"))} data-testid="map-run-goal"
                 title="Run a goal: several agents, one goal, one set of files -- the goal form opens in the drawer">Run a goal</Button>
         <Switch on={locked} label="Lock" testid="map-lock" onFlip={toggleLock} title="Locked: nothing on the map can be dragged or changed" />
       </div>

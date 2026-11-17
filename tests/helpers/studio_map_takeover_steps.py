@@ -1,6 +1,8 @@
 """tests.helpers.studio_map_takeover_steps -- the first steps of the R4b driver (tests/helpers/studio_map_takeover.py):
 facts, clocks, talk, depth, plan. Each waits for the value it reads, right after the action that causes it (a pulse
-shows for a few seconds); no fixed sleep is a pass condition."""
+shows for a few seconds); no fixed sleep is a pass condition. 3.6.0.2 R57: the drawer these read is 4 · Live's Feed
+(tests/helpers/studio_live_feed.py): a box is set in it by a click on Live's drawing, and the Map's links (the wait, a
+helper's "+n under it", the plan) land there; each step comes back to 3 · Map after."""
 from __future__ import annotations
 
 import time
@@ -9,8 +11,10 @@ from tests.helpers.chrome_driver import emulate_motion
 from tests.helpers.session_rig import wait_for
 from tests.helpers.studio_map_live_more import press
 from tests.helpers.studio_map_live_steps import VIEW, box, click_box, q, qa, t
+from tests.helpers.studio_agents import key
+from tests.helpers.studio_live_feed import FEED_SHOWN, choose, click_live_box, close_card, open_feed
 
-FD = "document.querySelector('[data-testid=map-feed]')"
+FD = "document.querySelector('[data-testid=map-feed]')"  # 4 · Live's Feed: the Map has none (R57)
 HEAD = f"{FD}?.querySelector('[data-testid=map-feed-head]')"
 WHY = "Auto: the strongest reasoning model under the lineup's budget"
 
@@ -26,11 +30,14 @@ def facts(c, rig, lv, sent) -> dict:
     c.wait(f"{VIEW} === 'map'", 40)
     c.wait(f"{t('map-lit-head')}?.textContent.startsWith('A session is running on this map')", 40)
     c.wait(f"{box('check')}?.dataset.state === 'working'", 30)
-    click_box(c, "check")
-    c.wait(f"{FD}?.dataset.filter === 'check' && {HEAD}?.dataset.agent === 'r3v1e2w0'", 15)
+    to_feed(c, lv, "check")
+    try:
+        c.wait(f"{FD}?.dataset.filter === 'check' && {HEAD}?.dataset.agent === 'r3v1e2w0'", 15)
+    except TimeoutError:
+        raise TimeoutError(f"the Feed on check: {c.js(f'[{FD}?.dataset.filter, {FD}?.dataset.sid, {HEAD}?.dataset.agent, {FD}?.innerText.slice(0, 200)]')}")
     out = {"head": c.wait(f"{fact('map-fact-why')} && [{fact('map-fact-who')}, {fact('map-fact-model')}, {fact('map-fact-why')}, {fact('map-fact-uses')}, "
                           f"{fact('map-fact-tokens')}, {fact('map-fact-cost')}, {fact('map-fact-ran')}]", 15)}
-    click_box(c, "research")  # Pause / Resume on a real agent of the session (the researcher), so its socket answers
+    pick_feed(c, "research")  # Pause / Resume on a real agent of the session (the researcher), so its socket answers
     c.wait(f"{FD}?.dataset.filter === 'research' && !!{FD}.querySelector('[data-testid=map-feed-pause]')", 15)
     press(c, f"{FD}.querySelector('[data-testid=map-feed-pause]')")
     got = wait_for(lambda: [d for d in sent if "pause" in str(d["cmd"]) or d["fields"].get("cmd") == "pause"], 20) or [{}]
@@ -41,13 +48,14 @@ def facts(c, rig, lv, sent) -> dict:
     got = wait_for(lambda: [d for d in sent if "resume" in str(d["cmd"]) or d["fields"].get("cmd") == "resume"], 20) or [{}]
     out["resume"] = [got[0].get("cmd"), got[0].get("fields", {}).get("cmd"), got[0].get("status")]
     lv.state("researcher", state="running")
-    click_box(c, "check")
+    pick_feed(c, "check")
     c.wait(f"{FD}?.dataset.filter === 'check'", 10)
     lv.state("reviewer", state="failed")
     c.wait(f"!!{FD}.querySelector('[data-testid=map-feed-dismiss]')", 15)
     press(c, f"{FD}.querySelector('[data-testid=map-feed-dismiss]')")
     out["dismissed"] = c.wait(f"!{FD}.querySelector('[data-testid=map-feed-dismiss]') && {HEAD}?.dataset.state === 'failed' && 'gone'", 10)
     lv.state("reviewer", state="running")
+    back_to_map(c)
     c.wait(f"{box('check')}?.dataset.state === 'working'", 15)
     return out
 
@@ -64,13 +72,13 @@ def clocks(c, rig, lv, sent) -> dict:
     out["outlined"] = c.wait(f"{qa('[data-testid=map-world] [data-map-box][data-waited]')}.map((b) => b.dataset.mapBox).join(',')", 15)
     link = t("map-lit-wait")
     out["link"] = c.wait(f"{link}?.textContent", 15)
-    click_box(c, "code")  # the drawer on another box first: the link must move it
+    to_feed(c, lv, "code")  # the Feed on another box first: the link must move it
     c.wait(f"{FD}?.dataset.filter === 'code'", 10)
-    c.js(f"{q('[data-testid=map-scroll]')}.scrollLeft = 0; {q('[data-testid=map-scroll]')}.scrollTop = 0; 1")
+    back_to_map(c)
     press(c, link)
-    out["opened"] = c.wait(f"{FD}?.dataset.filter === 'check' && document.activeElement === {box('check')} && 'check'", 10)
-    out["in_view"] = c.js(f"(() => {{ const s = {q('[data-testid=map-scroll]')}.getBoundingClientRect(), b = {box('check')}.getBoundingClientRect();"
-                          " return b.left >= s.left - 1 && b.right <= s.right + 1 && b.top >= s.top - 1 && b.bottom <= s.bottom + 1; })()")
+    out["opened"] = c.wait(f"{VIEW} === 'live' && {FD}?.dataset.filter === 'check' && 'check'", 10)
+    out["in_view"] = c.js(FEED_SHOWN)  # R57: the link lands on Live's Feed, open
+    back_to_map(c)
     lv.state("reviewer", state="running")
     lv.result("implementer", "call-clk", "3 passed")
     return out
@@ -104,6 +112,7 @@ def depth(c, rig, lv, sent) -> dict:
     out["listed"] = c.wait(f"{FD}?.dataset.filter === 'under:h3lp3r01' && {row}?.textContent", 10)
     press(c, row)
     out["filtered"] = c.wait(f"{FD}?.dataset.filter === 'agent:n3st3d01' && {FD}.dataset.filter", 10)
+    back_to_map(c)
     return out
 
 
@@ -122,4 +131,27 @@ def plan(c, rig, lv, sent) -> dict:
         out["plan_rows"] = c.wait(rows, 10)
     except TimeoutError:
         raise TimeoutError(f"the plan in the drawer: filter {c.js(f'{FD}?.dataset.filter')!r}, it says {c.js(f'{FD}?.innerText.slice(0, 200)')!r}")
+    back_to_map(c)
     return out
+
+
+def to_feed(c, lv, bid: str) -> None:
+    """4 · Live's Feed set to the box `bid` by a click on Live's drawing (R57), the step-in card closed again."""
+    c.js("document.activeElement?.blur(); 1")
+    key(c, "4")
+    open_feed(c, lv.sid)
+    click_live_box(c, bid)
+    close_card(c)
+
+
+def pick_feed(c, bid: str) -> None:
+    """The Feed's Show picker set to the box `bid` (the hover card a pointer leaves over Live's boxes covers no picker)."""
+    sel = "[data-part=live] [data-testid=map-feed-filter]"
+    c.wait(f"[...(document.querySelector('{sel}')?.options || [])].some((o) => o.value === '{bid}')", 15)
+    choose(c, sel, bid)
+
+
+def back_to_map(c) -> None:
+    c.js("document.activeElement?.blur(); 1")
+    key(c, "3")
+    c.wait(f"{VIEW} === 'map' && !!{t('map-lit-head')}", 20)

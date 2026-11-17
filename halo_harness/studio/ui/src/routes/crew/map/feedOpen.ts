@@ -1,12 +1,31 @@
-// Opening "What they think and say" (3.6.0.0 R4): a click on a lit box (or a helper, `agent:<id>`) filters the drawer to
-// it and opens the drawer, which pushes the map (the room rules: a drawer, never a pop-up). Nothing opens by itself.
-import { patchPanel } from "../../../lib/workspace/persist";
+// The two right drawers of Agents (3.6.0.2 R57). The Feed -- what the agents say and do, line by line -- is 4 · Live's
+// drawer, keyed to Live's session: a door to it (an agent's "open", a helper's "+n under it", a wait, the plan) lands on
+// Live with the Feed filtered to it and opened. 3 · Map keeps its own drawer for Run a goal, a goal run's pages and
+// History (R42: those buttons still change the page); its title follows the page it shows. Nothing opens by itself.
+import { createStore, goSection, useStore } from "../../../lib/store";
+import { patchPanel, whenLaidOut } from "../../../lib/workspace/persist";
 import { setFeedFor } from "./litStore";
 
 export const MAP_SECTION = "agents-map";
-export const FEED_PANEL = "map-feed";
+export const LIVE_SECTION = "agents-live";
+export const FEED_PANEL = "live-feed";
+export const MAP_DRAWER = "map-drawer";
 
+/** The Feed on 4 · Live, filtered to `filter` (a box, `agent:<id>`, `under:<id>`, `plan`; "" = everyone), opened. */
 export function openFeed(filter: string): void {
   setFeedFor(filter);
-  patchPanel(MAP_SECTION, FEED_PANEL, { collapsed: false }, false);
+  goSection("agents", "live");
+  whenLaidOut(LIVE_SECTION, () => patchPanel(LIVE_SECTION, FEED_PANEL, { collapsed: false }, false));
+}
+
+/** The Map drawer's page: `goal` (Run a goal's form), `history` (History's whole list) or `run:<id>` (a goal run's pages). */
+const mapDrawer = createStore<{ page: string }>({ page: "history" });
+export const useMapPage = (): string => useStore(mapDrawer, (s) => s.page);
+export const mapPage = (): string => mapDrawer.get().page;
+/** Its title: the words already on the button that opens the page. */
+export const mapPageTitle = (page: string): string => (page === "goal" ? "Run a goal" : "History");
+
+export function openMapDrawer(page: string): void {
+  mapDrawer.update(() => ({ page }));
+  whenLaidOut(MAP_SECTION, () => patchPanel(MAP_SECTION, MAP_DRAWER, { collapsed: false }, false));
 }

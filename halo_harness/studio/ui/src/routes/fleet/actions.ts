@@ -9,7 +9,8 @@ import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist
 import { scopedAgents } from "./scope";
 import { append, follow, watch } from "./streams";
 import { endedAt } from "../crew/map/truth";
-import { fleet, findAgent, findSession, isLive, parseKey, saveOpts, sessionTitle, type Door } from "./store";
+import { fleet, findAgent, findSession, isLive, localId, parseKey, saveOpts, sessionTitle, type Door } from "./store";
+import { openInLive } from "../session/store";
 import type { AgentKey, Harness } from "./types";
 import { load } from "./sync";
 
@@ -53,7 +54,7 @@ export function select(key: AgentKey): void {
 }
 
 /** Double-click / Enter on a node: the agent's inspector, expanded and focused -- Session's Agent strip in Session, else
- *  (3.6.0.0 R5: Live went) the Map's "What they think and say" drawer filtered to the agent. */
+ *  (3.6.0.2 R57) Agents -> 4 · Live on the agent's session with its Feed filtered to the agent. */
 export function openAgentPanel(key?: AgentKey): void {
   if (key) select(key);
   const k = key || fleet.get().selected;
@@ -64,8 +65,10 @@ export function openAgentPanel(key?: AgentKey): void {
     }
     return;
   }
-  goSection("agents", "map");
-  if (k) openFeed(`agent:${parseKey(k).a}`);
+  const p = k ? parseKey(k) : null;
+  if (p && p.h === localId()) openInLive(p.s); // Live on that agent's session (R1: Session's pick with it)
+  if (p) openFeed(`agent:${p.a}`);
+  else goSection("agents", "live");
 }
 
 export function pin(key: AgentKey | "" = fleet.get().selected): void {

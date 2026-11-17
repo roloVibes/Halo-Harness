@@ -18,7 +18,6 @@ import { dragDot } from "./drag";
 import { setHover, setPick, toggleOpen, useMap } from "./mapStore";
 import type { BoxFacts, DrawBox } from "./mapTypes";
 import { HelperRows, LitRows, LitSteps, STATE_WORDS, useClock } from "./LitBits";
-import { openFeed } from "./feedOpen";
 import { useLitNow } from "./useLit";
 
 const CAREFUL: Record<string, string> = { "ask-changes": "asks before it changes anything", "ask-commands": "asks before commands", own: "works on its own" };
@@ -80,12 +79,10 @@ export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: Dr
   const hv = useHover("map", lit ? `${b.id}` : "", () => (
     <HoverBody title={`${helper ? "helper" : b.main ? "main" : b.kind} ${b.name}`} is={summary}
                rows={[["now", `${helper ? STATE_WORDS[helper.state] : ob?.doing || ""}${clock ? ` · ${clock}` : ""}`],
-                      ["model", models.join(", ") || (b.main ? "the session's model" : meta)], ["cost", money(helper ? helper.cost : ob?.cost || 0)]]}
-               foot="Click: what it thinks and says, its facts and controls, in the drawer" />
+                      ["model", models.join(", ") || (b.main ? "the session's model" : meta)], ["cost", money(helper ? helper.cost : ob?.cost || 0)]]} />
   ), lit);
-  const click = () => {
+  const click = () => { // 3.6.0.2 R57: the box's detail only; what its agents say is 4 · Live's Feed
     if (!helper) toggleOpen(b.id);
-    if (L.mode !== "off") openFeed(helper ? `agent:${helper.aid}` : b.id); // lit: the click opens what they think and say, for this box
   };
   return (
     <div className="mp-box" data-map-box={b.id} data-name={b.name} data-kind={b.kind} data-ghost={b.ghost || undefined} data-new={b.isNew || undefined}

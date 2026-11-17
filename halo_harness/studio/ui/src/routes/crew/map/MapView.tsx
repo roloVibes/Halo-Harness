@@ -2,7 +2,8 @@
 // main at the left, a box per agent or workflow, one kind of line ("hands work to") with its When in words. The room
 // rules (R0a): the map is the main thing (the bar, the drawing, the strip under it); "Agents and workflows" is a left
 // drawer that pushes the map (closed until you open it from the view bar); the builder is docked at the foot. The view
-// bar carries Agents' switch and the Attention chip. Nothing opens by itself.
+// bar carries Agents' switch and the Attention chip. Nothing opens by itself. 3.6.0.2 R57: the Feed is 4 · Live's; the
+// Map's right drawer keeps Run a goal, a goal run's pages and History (MapDrawer.tsx), titled by the page it shows.
 import { useEffect, useMemo } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";
@@ -20,8 +21,8 @@ import { MapCanvas } from "./MapCanvas";
 import { firstName, loadMaps, openMap, useMap } from "./mapStore";
 import { Strip } from "./Strip";
 import { PickList, WhenCard } from "./WhenCard";
-import { Feed } from "./Feed";
-import { FEED_PANEL, MAP_SECTION } from "./feedOpen";
+import { MAP_DRAWER, MAP_SECTION, mapPage, mapPageTitle, useMapPage } from "./feedOpen";
+import { MapDrawer, MapDrawerGlance } from "./MapDrawer";
 import { MapHistory, MapHistoryLoad } from "./MapHistory";
 import { loadMapHistory, useMapHist } from "./mapRuns";
 import { useFleet } from "../../fleet/store";
@@ -37,11 +38,6 @@ function ListGlance() {
 function MainGlance() {
   const name = useMap((s) => s.name);
   return <div className="glance"><div className="glance-hint">{name ? `The map ${name}: expand it.` : "Pick a map."}</div></div>;
-}
-
-function FeedGlance() {
-  const L = useLitNow();
-  return <div className="glance"><div className="glance-hint">{L.mode === "live" ? "What the agents think and say: expand it, or click a box." : "Nothing runs on this map now."}</div></div>;
 }
 
 /** 3.6.0.0 R5c: what sits above History has landed -- the map list and the open map (or why not), the agents, the
@@ -85,16 +81,22 @@ export const mapPanels: PanelSpec[] = [
     about: "Who main hands work to, and when: boxes, lines, each line's When in words; the boxes nothing hands work to wait under it.",
     help: "Drag a box's dot to another box to connect them, or click the dot for a list.\nClick a line's label: its When, or take it out.\nClick a workflow box: its steps.\nMy sessions use this: new sessions run on this map.",
     face: "detail", glance: MainGlance, detail: MapMain },
-  { id: FEED_PANEL, testid: "map-feed-panel", title: "What they think and say", role: "drawer", side: "right", contentW: 420,
-    about: "While a session runs on this map: each agent's thoughts, words, tools, hand-offs to other agents and asks, newest at the bottom.",
-    help: "Click a box on the map: only its agents (or pick everyone).\nSteer: a few words the agent reads before its next step.\nStop: it stops at its next step.\nAn ask's answers are its buttons.",
-    face: "detail", glance: FeedGlance, detail: Feed },
   { id: "map-builder", testid: "map-builder-panel", title: "Builder", role: "dock",
     about: "Say how things should connect, or ask why something happened: the builder answers with a preview you tick, then Apply.",
     help: "Type what you want and press Enter.\nThe changes show on the map as dashed ghosts.\nApply writes; Undo puts it back.",
     face: "detail", glance: MapBuilder, detail: MapBuilder },
   planPanel, // 3.6.0.0 R5: a goal run's plan review (crew/run/planPanel.ts), optional, opened by "Review the plan"
 ];
+
+/** 3.6.0.2 R57: the Map's right drawer; its title follows its page (the words on the button that opened it). */
+const mapDrawerSpec = (page: string): PanelSpec => ({
+  id: MAP_DRAWER, testid: "map-drawer-panel", title: mapPageTitle(page), role: "drawer", side: "right", contentW: 420,
+  about: "Run a goal's form, a goal run's pages, or History: every past session, goal run and saved replay file.",
+  help: "Run a goal (in the map's bar): the goal form opens here.\nGoal runs, files, Compare (under the map): History's whole list.\nIts × closes the page and the drawer.",
+  face: "detail", glance: MapDrawerGlance, detail: MapDrawer,
+});
+/** The Map's panels as they are now (the palette's Show panel lines, the Inspector). */
+export const mapPanelsNow = (): PanelSpec[] => [...mapPanels, mapDrawerSpec(mapPage())];
 
 export function MapView() {
   const crewLoaded = useCrew((s) => s.loaded);
@@ -114,7 +116,8 @@ export function MapView() {
   const reg = usePacks((s) => s.reg);
   // 3.6.0.0 R5: a pack's panel declared for Agents (or its old words: roles, orchestra, team) joins the Map's workspace,
   // where Cast's workspace held it before
-  const specs = useMemo(() => [...mapPanels, ...PACK_WORDS.flatMap((w) => packPanels(reg, w))], [reg]);
+  const page = useMapPage();
+  const specs = useMemo(() => [...mapPanels, mapDrawerSpec(page), ...PACK_WORDS.flatMap((w) => packPanels(reg, w))], [reg, page]);
   return (
     <LitCtx.Provider value={lit}>
       <div className="cw" data-testid="map-view">

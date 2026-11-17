@@ -8,8 +8,8 @@ Skipped without Chrome. No model is called.
 3  agents talking: a dashed pulse box to box, its label, no line added; reduced motion: the boxes marked
 4  a helper's own helpers: "+N under it", not drawn; the drawer lists who started whom
 5  the todo plan: "plan: 1 of 3 done", its rows in the drawer
-6  Run a goal from the Map's bar opens the goal form in the drawer
-7  a replay's rows in the drawer, up to the scrubber's moment
+6  Run a goal from the Map's bar opens the goal form in the Map's own drawer (3.6.0.2 R57)
+7  a replay on the Map opens no feed (3.6.0.2 R57: the Map has none; the drawer of words is 4 · Live's Feed)
 9  J / K between working boxes; with nothing running, "Replay the last session"
 10 a hover summary card, by a move only, never over the box's controls
 11 an ask's answer pressed in the drawer reaches the session (a real waiter, its Attention row); two sessions: the picker
@@ -60,7 +60,7 @@ def test_2_clocks_and_the_wait(ctx: Ctx):
     ctx.check(f"an ask's seconds, got {g.get('waiting')!r}", bool(CLOCK.search(g.get("waiting") or "")) and g["waiting"].startswith("waiting on you"))
     ctx.check(f"the box the session waits on is outlined, got {g.get('outlined')!r}", g.get("outlined") == "check")
     ctx.check(f"the sentence's wait is a link, got {g.get('link')!r}", (g.get("link") or "").startswith("waiting on you: reviewer"))
-    ctx.check(f"the link opens that box in the drawer and focuses it, in view, got {g.get('opened')} {g.get('in_view')}", g.get("opened") == "check" and g.get("in_view") is True)
+    ctx.check(f"3.6.0.2 R57: the link opens 4 · Live's Feed on that box, shown, got {g.get('opened')} {g.get('in_view')}", g.get("opened") == "check" and g.get("in_view") is True)
 
 
 @test
@@ -89,13 +89,15 @@ def test_4_depth_and_5_the_plan(ctx: Ctx):
 @test
 def test_6_7_9_goal_replay_keys(ctx: Ctx):
     g = got(ctx)
-    ctx.check(f"Run a goal from the Map's bar: the goal form in the drawer, and back, got {g.get('form')} {g.get('back')}", g.get("form") == "goal" and g.get("back") == "back")
-    ctx.check(f"History under the map opens Live's whole History (goal runs, saved files, Compare) in the drawer, got {g.get('history')}",
+    ctx.check(f"Run a goal from the Map's bar: the goal form in the Map's own drawer (R57), its x closes it, got {g.get('form')} {g.get('back')}",
+              g.get("form") == "goal" and g.get("back") == "back")
+    ctx.check(f"History under the map opens the whole History (goal runs, saved files, Compare) in the Map's drawer, got {g.get('history')}",
               isinstance(g.get("history"), int) and g["history"] >= 1)
     ctx.check(f"J / K step between working boxes, got {g.get('focus')} of {g.get('working')}",
               len(g.get("focus") or []) == 3 and g["focus"][0] != g["focus"][1] and g["focus"][2] == g["focus"][0] and all(f in (g.get("working") or []) for f in g["focus"]))
     ctx.check(f"nothing running: Replay the last session, got {g.get('offer')!r} -> {g.get('replaying')!r}", g.get("offer") == "Replay the last session" and g.get("replaying") == "replay")
-    ctx.check(f"a replay's rows in the drawer up to the scrubber, got {g.get('rows')}", g.get("drawer") == "rows" and len(g.get("rows") or []) >= 1)
+    ctx.check(f"3.6.0.2 R57: a replay on the Map opens no feed (the Map has none); its scrubber runs it to the end, got {g.get('drawer')} {g.get('rows')!r}",
+              g.get("drawer") == 0 and g.get("rows") == "end")
 
 
 @test
