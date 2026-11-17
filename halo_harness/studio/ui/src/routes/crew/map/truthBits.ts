@@ -45,6 +45,10 @@ export function pickerSuffix(running: string[], next = false): string {
   return run + (next ? " · new sessions" : "");
 }
 export const switchLabel = (): string => "New sessions run on this";
+/** R36's use-row words, and the hand switch's receipt with no session open (R55). */
+export const newSessionsRunOn = (b: string): string => `New sessions run on ${b}.`;
+/** R55 L3: the mark on the workflow's box on Agents -> Map. */
+export const runningNowIn = (session: string): string => `running now in ${session}`;
 
 /** R28 a run's map not read yet (its drawing waits; the head above it is drawn from the row). */
 export const readingMap = (name: string): string => `Reading the map ${name}...`;

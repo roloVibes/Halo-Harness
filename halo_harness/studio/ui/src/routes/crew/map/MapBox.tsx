@@ -19,6 +19,8 @@ import { setHover, setPick, toggleOpen, useMap } from "./mapStore";
 import type { BoxFacts, DrawBox } from "./mapTypes";
 import { HelperRows, LitRows, LitSteps, STATE_WORDS, useClock } from "./LitBits";
 import { useLitNow } from "./useLit";
+import { useMark } from "./mapQuiet";
+import { runningNowIn } from "./truth";
 
 const CAREFUL: Record<string, string> = { "ask-changes": "asks before it changes anything", "ask-commands": "asks before commands", own: "works on its own" };
 
@@ -57,6 +59,7 @@ export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: Dr
                                                                    mainFacts?: { model?: string; does?: string }; talking?: boolean }) {
   const open = useMap((s) => !!s.open[b.id]);
   const L = useLitNow();
+  const mark = useMark(b.id); // R55 L3: a session is running this box's workflow right now
   const ob = L.ov?.boxes[b.id];
   const helper = b.helper ? L.ov?.helpers.find((h) => h.aid === b.helper) : undefined;
   const state = helper?.state || ob?.state;
@@ -88,6 +91,7 @@ export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: Dr
     <div className="mp-box" data-map-box={b.id} data-name={b.name} data-kind={b.kind} data-ghost={b.ghost || undefined} data-new={b.isNew || undefined}
          data-open={open || undefined} data-missing={missing || undefined} data-hot={hover === b.id || undefined}
          data-state={state} data-lit={(L.mode !== "off" && (ob || helper)) ? L.mode : undefined} data-helper={helper ? helper.aid : undefined}
+         data-running-in={mark?.sid}
          data-testid="map-box" tabIndex={0} style={style} title={hv.titles ? `${b.kind} ${b.name}: ${summary}${state ? ` (${STATE_WORDS[state]})` : ""}` : undefined}
          aria-expanded={open} data-hover-pad={lit ? 34 : undefined} data-waited={waited || undefined} data-talk={talking || undefined} {...hv.props}
          onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover("")}
@@ -101,6 +105,7 @@ export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: Dr
       </span>
       <b className="mp-name">{b.name}</b>
       <span className="mp-meta">{helper ? helper.model || "main's tools and mode" : missing ? "missing: make it in Agents or Workflows" : meta}</span>
+      {mark && <span className="mp-running-in" data-testid="map-running-in">{runningNowIn(mark.title)}</span>}
       {ob && L.mode !== "off" && <LitRows ob={ob} now={L.now} />}
       {helper && <HelperRows h={helper} sid={L.session?.sid || ""} all={L.ov?.helpers || []} />}
       {open && <Detail b={b} facts={facts} />}

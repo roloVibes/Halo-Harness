@@ -32,9 +32,13 @@ const NEW: Pick<Line, "act" | "label"> = { act: "new-session", label: "New sessi
 
 /** S13 (R21): {old} and {next} are names as a person reads them (`mapName`); the terminal adds its tail. */
 export function s13(old: string, next: string, terminal = false): string {
-  const s = `This session keeps running on ${old}, as it started. Start a new session to run on ${next}.`;
+  const s = s13For("This session", old, next);
   return terminal ? `${s} In the terminal: quit and run halo again; /clear keeps ${old}.` : s;
 }
+
+/** S13 with its subject: Agents -> Map names the open session in place of "This session" (R24, R55: the hand switch). */
+export const s13For = (who: string, old: string, next: string): string =>
+  `${who} keeps running on ${old}, as it started. Start a new session to run on ${next}.`;
 
 /** The map new sessions use, by identity: none set is the default, starter (R19, R20: T1 only when it IS {A}). */
 export const nextMap = (b: string | null): string => b || "starter";

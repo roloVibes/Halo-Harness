@@ -1,7 +1,7 @@
 // The Map tab's store (3.6.0.0 R3; docs/STUDIO-map.md): the maps (GET crew/maps), the open one (GET crew/map/<name>),
 // every change the page makes -- add a box, connect, a line's When, take a line out, + New map -- saved at once (PUT
 // crew/map/<name>, the before-image kept), then a receipt line with Undo (POST builder/undo: the builder's own store).
-// "My sessions use this" is POST crew/map/<name>/use. Lock (off by default, kept in this browser) stops every change.
+// "New sessions run on this" is POST crew/map/<name>/use (mapSwitch.ts). Lock (off by default, kept in this browser) stops every change.
 // The builder box on this tab says which map is open and reloads it after an Apply or an Undo (builderStore onTab).
 import { api, ApiError } from "../../../lib/api";
 import { onFilesChanged } from "../../../lib/filesLive";
@@ -16,6 +16,8 @@ export type MapState = {
   rows: MapRow[];
   listed: boolean; // GET crew/maps answered (or failed): `rows` is what there is
   inUse: string | null;
+  /** 3.6.0.2 R24 (F4): the map new sessions use -- the API's `next` (config crew.map), null when unset */
+  next: string | null;
   name: string;
   detail: MapDetail | null;
   locked: boolean;
@@ -29,13 +31,13 @@ export type MapState = {
 };
 
 const LOCK = "halo.studio.map-lock";
-const LAST = "halo.studio.map-open";
+export const LAST = "halo.studio.map-open";
 const read = (k: string) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
 
-export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, name: "", detail: null, locked: read(LOCK) === "1", open: {}, hover: "",
+export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, next: null, name: "", detail: null, locked: read(LOCK) === "1", open: {}, hover: "",
   pick: "", when: null, receipt: null, error: "", made: [] });
 export const useMap = <T,>(pick: (s: MapState) => T): T => useStore(maps, pick);
-const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
+export const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 
 let watching = false;
 
@@ -45,8 +47,8 @@ export async function loadMaps(): Promise<void> {
     onFilesChanged(["maps", "config"], () => void loadMaps());
   }
   try {
-    const r = await api.get<{ maps: MapRow[]; in_use: string | null }>("crew/maps");
-    maps.update(() => ({ rows: r.maps, inUse: r.in_use, listed: true }));
+    const r = await api.get<{ maps: MapRow[]; in_use: string | null; next?: string | null }>("crew/maps");
+    maps.update(() => ({ rows: r.maps, inUse: r.in_use, next: r.next || null, listed: true }));
   } catch (e) {
     maps.update(() => ({ error: msg(e), listed: true }));
   }
@@ -67,6 +69,17 @@ export async function openMap(name: string): Promise<void> {
   try {
     const detail = await api.get<MapDetail>(`crew/map/${name}`);
     maps.update((s) => ({ name, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {} }));
+  } catch (e) {
+    maps.update(() => ({ error: msg(e) }));
+  }
+}
+
+/** 3.6.0.2 R33: the open map changed by a session's build -- its detail re-read in place, keeping the pick, the When
+ *  card, the open boxes and the receipt (a real change of map is openMap's, which resets them). */
+export async function rereadDetail(name: string): Promise<void> {
+  try {
+    const detail = await api.get<MapDetail>(`crew/map/${name}`);
+    if (maps.get().name === name) maps.update(() => ({ detail }));
   } catch (e) {
     maps.update(() => ({ error: msg(e) }));
   }
@@ -161,18 +174,6 @@ export async function newMap(name: string): Promise<boolean> {
   } catch (e) {
     maps.update(() => ({ error: msg(e) }));
     return false;
-  }
-}
-
-export async function setUse(on: boolean): Promise<void> {
-  const s = maps.get();
-  try {
-    const r = await api.post<{ undo_id: string; in_use: string | null; said?: string }>(`crew/map/${s.name}/use`, { on });
-    maps.update(() => ({ inUse: r.in_use, receipt: { line: r.said || (on ? `New sessions run on ${s.name}; a running session keeps its own.`
-      : "New sessions run on no map (as before maps)."), undo: r.undo_id } }));
-    await loadMaps();
-  } catch (e) {
-    maps.update(() => ({ error: msg(e) }));
   }
 }
 

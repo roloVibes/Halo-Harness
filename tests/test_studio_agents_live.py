@@ -21,6 +21,10 @@ tests/test_agents_door.py, run in node everywhere.
    opened by his hand; a click on a box in Live sets it to that box; 3 · Map has no feed and no "What they think and
    say"; Run a goal and History open in the Map's own right drawer, titled by the page, its button holding still; an
    agent's "open" door (the palette's "Agents: follow agent ...") lands on Live's Feed for that agent.
+8. R55 R24 R33: 3 · Map is the plan -- one quiet line (L1-L3) in a row reserved from the first draw, box W marked
+   "running now in {session}", nothing lit or amber; the picker's "· running in" / "· new sessions" and the switch
+   "New sessions run on this"; the hand switch's receipt S13 naming the session; a build heard while away opens next
+   visit, one heard on the Map says L4 and waits, the same map is re-read in place (tests/helpers/studio_map_quiet.py).
 Run: python -m tests.test_studio_agents_live
 """
 from __future__ import annotations
@@ -28,6 +32,7 @@ from __future__ import annotations
 TIER = "full"  # headless Chrome: the full tier
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -170,6 +175,113 @@ def test_live_has_the_feed_map_does_not(ctx: Ctx):
     # never on this machine's session with a Feed filtered to an id it does not have
     ctx.check(f"another machine's agent's open door lands on Live of that session, T9, no Feed, got {d.get('away_door')}",
               d.get("away_door") == ["live", "away-1", "T9", None])
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+def _q(d: dict, step: str) -> dict:
+    return {k.split(".", 1)[1]: v for k, v in d.items() if k.startswith(step + ".")}
+
+
+@test
+def test_map_tab_quiet_line_and_running_workflow_box(ctx: Ctx):
+    d = _got(ctx)
+    q = _q(d, "quiet")
+    title, sid = str(q.get("title")), q.get("sid")
+    ctx.check(f"L3 in the reserved row, got {q.get('l3')!r}", re.fullmatch(
+        rf"{re.escape(title)} is running the workflow review from this map\. It runs on starter \(the default\), as it started\. Watch it in Live",
+        str(q.get("l3"))) is not None)
+    ctx.check(f"box check marked running now in {title}, got {q.get('mark')}", q.get("mark") == [sid, f"running now in {title}"])
+    ctx.check(f"nothing lit on the Map, got {q.get('lit')}", q.get("lit") == 0)
+    ctx.check(f"no session picker, no Show the running map, no Show it, nothing amber, got {q.get('gone')}", q.get("gone") == 0)
+    col = q.get("color") or ["", ""]
+    ctx.check(f"the quiet line is not in --warn, got {col}", col[0] and col[0] != col[1])
+    hp = str(q.get("help"))
+    ctx.check(f"Agents' help names 4 · Live and the switch's words, not the old ones, got {hp[:200]!r}",
+              "4 · Live" in hp and "New sessions run on this" in hp and "My sessions use this" not in hp and "The map lights up" not in hp)
+    ph = str(q.get("panel_help"))
+    ctx.check(f"the Map panel's help says the switch in its new words, got {ph!r}",
+              "New sessions run on this: new sessions run on this map." in ph and "My sessions use this" not in ph)
+    ctx.check(f"[Watch it in Live] lands on 4 · Live on that session, got {q.get('watch')}", q.get("watch") == ["live", sid])
+    ctx.check(f"on starter (its own map): L1, got {q.get('l1')!r}", q.get("l1") == f"{title} runs on this map now. Watch it in Live")
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_picker_says_running_in_session(ctx: Ctx):
+    d = _got(ctx)
+    p = _q(d, "picker")
+    title = str(p.get("title"))
+    fresh, opts = p.get("fresh") or [], p.get("options") or []
+    ctx.check(f"a fresh home (crew.map unset): starter running in {title}, no map tagged new sessions, got {fresh}",
+              any(o.startswith("starter") and o.endswith(f" · running in {title}") for o in fresh) and not any(o.endswith(" · new sessions") for o in fresh))
+    ctx.check(f"crew.map = shop: starter running in {title}, shop new sessions, no 'my sessions use this', got {opts}",
+              any(o.startswith("starter") and o.endswith(f" · running in {title}") for o in opts)
+              and any(o.startswith("shop") and o.endswith(" · new sessions") for o in opts)
+              and not any("my sessions use this" in o for o in opts + fresh))
+    ctx.check(f"the switch on for shop, its words, got {p.get('switch')}", p.get("switch") == ["true", "New sessions run on this"])
+    ctx.check(f"two sessions on starter, got {p.get('two')!r}", str(p.get("two")).endswith(" · running in 2 sessions"))
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_hand_switch_receipt_is_s13(ctx: Ctx):
+    d = _got(ctx)
+    r = _q(d, "receipt")
+    title = str(r.get("title"))
+    ctx.check(f"the receipt is S13 naming the open session, Undo beside it, got {r.get('s13')}",
+              r.get("s13") == [f"{title} keeps running on starter (the default), as it started. Start a new session to run on shop.", True])
+    ctx.check(f"with no open session: R36's words, got {r.get('none')!r}", r.get("none") == "New sessions run on ship-it.")
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_away_it_opens_on_the_built_map(ctx: Ctx):
+    d = _got(ctx)
+    a = _q(d, "away")
+    ctx.check(f"the frame on Session writes the map to open next, got {a.get('last')!r}", a.get("last") == "review-flow")
+    ctx.check(f"no map fetched for it, got {a.get('fetched')}", a.get("fetched") == [])
+    ctx.check(f"the section is still Session, got {a.get('section')!r}", str(a.get("section")).startswith("Session"))
+    ctx.check(f"Alt+2, 3 opens 3 · Map on review-flow, got {a.get('opened')!r}", a.get("opened") == "review-flow")
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_on_another_map_it_says_and_waits(ctx: Ctx):
+    d = _got(ctx)
+    w = _q(d, "waits")
+    title = str(w.get("title"))
+    ctx.check(f"L2, one session, got {w.get('l2_one')!r}",
+              w.get("l2_one") == f"{title} runs on starter (the default), as it started; new sessions run on this map. Watch it in Live")
+    ctx.check(f"L2, two sessions, got {w.get('l2_two')!r}",
+              w.get("l2_two") == "2 sessions run on other maps, as they started; new sessions run on this map. Watch them in Live")
+    ctx.check(f"L4 in the reserved row, got {w.get('notice')!r}",
+              re.fullmatch(rf"review-flow was just built in {re.escape(title)} at \d{{1,2}}[:.]\d{{2}}.*\. Open it", str(w.get("notice"))) is not None)
+    ctx.check(f"no box moved, got {w.get('moved')}", w.get("moved") == [])
+    st = w.get("still") or ["", False, ""]
+    ctx.check(f"the switcher still shop, the When card open, the section unchanged, got {st}",
+              st[0] == "shop" and st[1] is True and str(st[2]).startswith("Agents"))
+    ctx.check(f"[Open it] opens review-flow, the notice gone, got {w.get('opened')!r}", w.get("opened") == "review-flow")
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_notice_row_reserved_canvas_still(ctx: Ctx):
+    d = _got(ctx)
+    w = _q(d, "waits")
+    tops = [w.get("top_empty"), w.get("top_l2"), w.get("top_l2_two"), *(w.get("top_l4") or [None, None])]
+    ctx.check(f"the canvas top: the row empty, L2 (one, two), before and with L4, got {tops}",
+              all(isinstance(x, (int, float)) for x in tops) and max(tops) - min(tops) <= 0.5)
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_same_map_rereads_keeping_the_when_card(ctx: Ctx):
+    d = _got(ctx)
+    r = _q(d, "reread")
+    ctx.check(f"the new box drawn, got {r.get('drawn')!r}", r.get("drawn") == "extra")
+    ctx.check(f"the When card still open on main -> code, got {r.get('card')!r}", r.get("card") == "When does main hand work to code?")
+    ctx.check(f"the zoom kept, got {r.get('zoom_before')} {r.get('zoom_after')}", r.get("zoom_before") == r.get("zoom_after") and r.get("zoom_before"))
+    ctx.check(f"no notice for the open map, got {r.get('notice')!r}", r.get("notice") is False)
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

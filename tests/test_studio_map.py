@@ -11,7 +11,7 @@ tests/helpers/studio_map.py over tests/helpers/crew_rig.py; skipped without Chro
 4. the keyboard: Enter on a workflow row adds it under Not connected yet (tagged new); Enter on its dot lists targets;
    main, only when I ask; the workflow box opens to its steps and the link; hover lifts a box's lines and dims the rest;
    a label's card takes the line out (the box waits under Not connected yet again);
-5. + New map (main only); My sessions use this writes config crew.map; Lock: no dot, no Add;
+5. + New map (main only); New sessions run on this writes config crew.map (a fresh home tags no map); Lock: no dot, no Add;
 6. a hand zoom survives the list drawer; Fit never under 75 %;
 7. the builder on ship-it: ghost box and dashed line with its When; Apply draws them for real; Undo takes them away.
 Run: python -m tests.test_studio_map
@@ -87,7 +87,12 @@ def test_the_keyboard_the_strip_a_workflow_box_and_hover(ctx: Ctx):
 def test_more_than_one_map_uses_and_lock(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"+ New map: main only, got {got.get('new')}", got.get("new") == 1)
-    ctx.check(f"My sessions use this: config crew.map, got {got.get('in_use')!r}", got.get("in_use") == "starter")
+    # 3.6.0.2 R24 (rewritten to the truth): the switch says "New sessions run on this"; a fresh home tags no map
+    ctx.check(f"a fresh home: no map tagged; new sessions run on starter, the default: its switch is on, got {got.get('fresh_tags')} {got.get('uses_off')}",
+              not any(" · new sessions" in o or " · running in " in o or "my sessions use this" in o for o in got.get("fresh_tags") or ["?"])
+              and got.get("uses_off") == ["true", "New sessions run on this"])
+    ctx.check(f"New sessions run on this (ship-it): config crew.map, got {got.get('in_use')!r}", got.get("in_use") == "ship-it")
+    ctx.check(f"... and ship-it is tagged new sessions, got {got.get('tagged')!r}", str(got.get("tagged")).endswith(" · new sessions"))
     ctx.check("Lock: no dot, no Add", got.get("locked") is True)
 
 

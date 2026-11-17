@@ -140,7 +140,7 @@ def test_history_replays_a_run_on_its_map(ctx: Ctx):
     ctx.check(f"a box the run used that the map lost: removed since, got {got.get('removed')}", got.get("removed") == ["pdfs"])
     ctx.check(f"the scrubber at the start: not used yet, got {got.get('at_start')!r}", got.get("at_start") == "idle")
     ctx.check(f"the report card from the picker row, got {got.get('card')!r}", str(got.get("card")).startswith("session:"))
-    ctx.check(f"back to now, got {got.get('now')!r}", got.get("now") == "live")
+    ctx.check(f"back to now: the Map is the plan again, nothing lit (3.6.0.2 R55), got {got.get('now')!r}", got.get("now") == "plan")
 
 
 @test

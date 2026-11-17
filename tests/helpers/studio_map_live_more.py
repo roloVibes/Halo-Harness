@@ -45,7 +45,7 @@ def nomap(c, rig, lv, sent) -> dict:
          f" set.call(s, 'shop'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
     c.js("document.activeElement?.blur(); 1")
     key(c, "3")
-    c.wait(f"{VIEW} === 'map' && {sw}.value === 'shop' && {t('map-topline')}?.dataset.lit === 'live'", 20)
+    c.wait(f"{VIEW} === 'map' && {sw}.value === 'shop' && !!{t('map-topline')}", 20)  # R55: the Map is the plan, never lit by a run
     return out
 
 
@@ -70,7 +70,8 @@ def history(c, rig, lv, sent) -> dict:
     press(c, t("map-history-card"))
     out["card"] = c.wait("document.querySelector('[data-testid=report-card]')?.dataset.ref", 15)
     press(c, t("map-history-now"))
-    out["now"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'live' && 'live'", 15)
+    # 3.6.0.2 R55 (rewritten to the truth): back to now the Map is the plan again -- no replay, nothing lit by the run
+    out["now"] = c.wait(f"!!{t('map-topline')} && !{t('map-topline')}.dataset.lit && !{q('[data-testid=map-world]')}.dataset.lit && 'plan'", 15)
     return out
 
 

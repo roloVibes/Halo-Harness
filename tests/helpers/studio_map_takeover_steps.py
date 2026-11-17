@@ -12,7 +12,7 @@ from tests.helpers.session_rig import wait_for
 from tests.helpers.studio_map_live_more import press
 from tests.helpers.studio_map_live_steps import VIEW, box, click_box, q, qa, t
 from tests.helpers.studio_agents import key
-from tests.helpers.studio_live_feed import FEED_SHOWN, choose, click_live_box, close_card, open_feed
+from tests.helpers.studio_live_feed import choose, click_live_box, close_card, live_box, open_feed
 
 FD = "document.querySelector('[data-testid=map-feed]')"  # 4 · Live's Feed: the Map has none (R57)
 HEAD = f"{FD}?.querySelector('[data-testid=map-feed-head]')"
@@ -28,9 +28,9 @@ def facts(c, rig, lv, sent) -> dict:
     lv.state("reviewer", model_reason=WHY, tokens_in=1234, tokens_out=56, cost_usd=0.0123, since=time.time() - 75)
     c.go(rig.url("agents", "&view=map&map=shop"))
     c.wait(f"{VIEW} === 'map'", 40)
-    c.wait(f"{t('map-lit-head')}?.textContent.startsWith('A session is running on this map')", 40)
-    c.wait(f"{box('check')}?.dataset.state === 'working'", 30)
+    c.wait(f"!!{t('map-quiet')}", 40)  # 3.6.0.2 R55: the Map is the plan; its quiet line names the session
     to_feed(c, lv, "check")
+    c.wait(f"{live_box('check')}?.dataset.state === 'working'", 30)
     try:
         c.wait(f"{FD}?.dataset.filter === 'check' && {HEAD}?.dataset.agent === 'r3v1e2w0'", 15)
     except TimeoutError:
@@ -56,63 +56,51 @@ def facts(c, rig, lv, sent) -> dict:
     out["dismissed"] = c.wait(f"!{FD}.querySelector('[data-testid=map-feed-dismiss]') && {HEAD}?.dataset.state === 'failed' && 'gone'", 10)
     lv.state("reviewer", state="running")
     back_to_map(c)
-    c.wait(f"{box('check')}?.dataset.state === 'working'", 15)
     return out
 
 
 def clocks(c, rig, lv, sent) -> dict:
+    """3.6.0.2 R55 (rewritten to the truth): a tool's seconds on its box, the outline of the box the session waits on and
+    the sentence's wait link were the Map's run overlay. The Map is the plan: the run is 4 · Live's -- its box says
+    waiting, its Feed shows the ask -- and the Map draws none of them."""
     out: dict = {}
     lv.tool("implementer", "Bash", "call-clk", current="pytest -q")
-    doing = f"{box('code')}?.querySelector('[data-testid=map-lit-doing]')"
-    out["tool"] = c.wait(f"{doing}?.dataset.clock && /Bash pytest -q · \\d+ s/.test({doing}.textContent) && {doing}.textContent", 20)
     lv.state("reviewer", state="waiting")
     lv.ask("reviewer", "permission_request", {"id": "perm-clk", "name": "Bash", "input": {"command": "git push origin feature/basket"}})
-    wd = f"{box('check')}?.querySelector('[data-testid=map-lit-doing]')"
-    out["waiting"] = c.wait(f"/waiting on you · \\d+ s/.test({wd}?.textContent || '') && {wd}.textContent", 20)
-    out["outlined"] = c.wait(f"{qa('[data-testid=map-world] [data-map-box][data-waited]')}.map((b) => b.dataset.mapBox).join(',')", 15)
-    link = t("map-lit-wait")
-    out["link"] = c.wait(f"{link}?.textContent", 15)
-    to_feed(c, lv, "code")  # the Feed on another box first: the link must move it
-    c.wait(f"{FD}?.dataset.filter === 'code'", 10)
+    to_feed(c, lv, "check")
+    out["live_waiting"] = c.wait(f"{live_box('check')}?.dataset.state === 'waiting' && 'waiting'", 20)
+    out["feed_ask"] = c.wait(f"{FD}?.dataset.filter === 'check' && !!{FD}.querySelector('[data-testid=session-live-ask]') && 'ask'", 20)
     back_to_map(c)
-    press(c, link)
-    out["opened"] = c.wait(f"{VIEW} === 'live' && {FD}?.dataset.filter === 'check' && 'check'", 10)
-    out["in_view"] = c.js(FEED_SHOWN)  # R57: the link lands on Live's Feed, open
-    back_to_map(c)
+    out["map_run"] = c.js(f"[{qa('[data-testid=map-lit-doing]')}.length, {qa('[data-testid=map-world] [data-map-box][data-waited]')}.length, "
+                          f"{qa('[data-testid=map-lit-wait]')}.length]")
     lv.state("reviewer", state="running")
     lv.result("implementer", "call-clk", "3 passed")
     return out
 
 
 def talk(c, rig, lv, sent) -> dict:
-    pulse = f"{q('[data-testid=map-talk][data-from=code][data-to=check]')}"
+    """R55 (rewritten): one agent's words to another were a pulse on the Map's run overlay; they are a row of 4 · Live's
+    Feed, and the Map draws no pulse and adds no line."""
     out: dict = {"lines_before": c.js(f"{qa('[data-testid=map-line]')}.length")}
     lv.talk("implementer", "reviewer", "Please look at the tax order in basket.py before you pass it", "task", mid="tk-r4b-1")
-    out["pulse"] = c.wait(f"!!{pulse} && [{pulse}.getAttribute('d').startsWith('M'), getComputedStyle({pulse}).display, "
-                          f"{q('[data-testid=map-talk-label][data-from=code]')}?.textContent, {box('code')}.dataset.talk, {box('check')}.dataset.talk]", 10)
+    to_feed(c, lv, "code")
+    out["feed"] = c.wait(f"{FD}?.textContent.includes('Please look at the tax order') && 'said'", 20)
+    back_to_map(c)
+    out["pulse"] = c.js(f"{qa('[data-testid=map-talk]')}.length")
     out["lines"] = c.js(f"{qa('[data-testid=map-line]')}.length")
-    out["gone"] = c.wait(f"!{pulse} && !{box('code')}.dataset.talk && 'gone'", 20)
-    emulate_motion(c, "reduce")
-    lv.talk("implementer", "reviewer", "And the rounding rule too", "task", mid="tk-r4b-2")
-    out["reduced"] = c.wait(f"!!{pulse} && [getComputedStyle({pulse}).display, {box('code')}.dataset.talk, {box('check')}.dataset.talk]", 10)
-    emulate_motion(c, "no-preference")
     return out
 
 
 def depth(c, rig, lv, sent) -> dict:
+    """R55 + R15 (rewritten): main's made-up helpers were boxes of the Map's run overlay ("+1 under it"); the Map draws
+    none, and 4 · Live shows a made-up child as a row of the box that started it."""
     out: dict = {}
     lv.spawn("n3st3d01", "file-counter", "general-purpose", "or:mock/glm-5-coder", "Count the files the release notes name", parent="general-purpose")
-    under = q('[data-map-box="made-up:h3lp3r01"] [data-testid=map-helper-under]')
-    out["under"] = c.wait(f"{under}?.textContent", 20)
-    nested = q('[data-map-box="made-up:n3st3d01"]')
-    out["drawn"] = c.js(f"!!{nested}")
-    c.js(f"{under}.scrollIntoView({{block: 'nearest', inline: 'nearest'}}); 1")
-    press(c, under)
-    row = f"{FD}?.querySelector('[data-testid=map-feed-under-row][data-aid=n3st3d01]')"
-    out["listed"] = c.wait(f"{FD}?.dataset.filter === 'under:h3lp3r01' && {row}?.textContent", 10)
-    press(c, row)
-    out["filtered"] = c.wait(f"{FD}?.dataset.filter === 'agent:n3st3d01' && {FD}.dataset.filter", 10)
+    to_feed(c, lv, "code")
+    out["live_row"] = c.wait(f"[...({live_box('main')}?.querySelectorAll('[data-testid=session-map-row-text]') || [])].map((r) => r.textContent)"
+                             f".find((x) => x.startsWith('made up: List what the shop repo')) || ''", 20)
     back_to_map(c)
+    out["map_helpers"] = c.js(f"{qa('[data-map-box^=\"made-up:\"]')}.length")
     return out
 
 
@@ -154,4 +142,4 @@ def pick_feed(c, bid: str) -> None:
 def back_to_map(c) -> None:
     c.js("document.activeElement?.blur(); 1")
     key(c, "3")
-    c.wait(f"{VIEW} === 'map' && !!{t('map-lit-head')}", 20)
+    c.wait(f"{VIEW} === 'map' && !!{t('map-topline')}", 20)

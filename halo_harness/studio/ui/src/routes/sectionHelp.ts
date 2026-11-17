@@ -25,20 +25,20 @@ const HOP_KEYS: [string, string][] = [
 ];
 
 export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
-  agents: { // 3.6.0.0 R5: three tabs -- make an agent, make a workflow, connect them on the map (and watch it run)
+  agents: { // 3.6.0.0 R5, 3.6.0.2 R52: four tabs -- make an agent, make a workflow, connect them on the map, watch a session run
     terms: ["step", "hand-off", "when", "live map", "replay", "report card", "waiting path", "orchestra run", "gate"],
-    what: "Your agents in three tabs: 1 · Agents makes an agent (its name, what it does, its model, what it may use, how careful; Try it, Save), 2 · Workflows puts your agents in steps, in order, and 3 · Map connects them -- who main hands work to, and when. Every session runs on a map (the starter map until you pick one); while one runs the same map lights up, and History under it replays what ran. The files live in ~/.halo/crew/.",
+    what: "Your agents in four tabs: 1 · Agents makes an agent (its name, what it does, its model, what it may use, how careful; Try it, Save), 2 · Workflows puts your agents in steps, in order, and 3 · Map connects them -- who main hands work to, and when; 4 · Live shows what a session is doing now, drawn on the map it really follows. Every session runs on a map (the starter map until you pick one); History under the map replays what ran. The files live in ~/.halo/crew/.",
     steps: [
       ["Pick the tab", "1 · Agents, 2 · Workflows, 3 · Map or 4 · Live, first on each tab's bar (keys 1, 2, 3, 4; for this release C lands on the Map, L on Live, W on Workflows). Agents opens on Live while a session is open, else on the tab used last. Nothing else opens on its own."],
       ["1 · Agents", "Your agents on the left (tagged new or not used yet), then the starters to copy; the form on the right. Write it for me fills the builder box below; Try it runs the agent on a throwaway copy of the repo and says what it used and cost."],
       ["2 · Workflows", "A workflow is your agents in steps: each step's agents (side by side ones work at the same time), what it gets, what it hands on, when it runs, and Repeat until. The drawing beside the form follows the list. Try it runs it on a throwaway copy."],
-      ["3 · Map", "main is always at the left. Drag an agent or a workflow from Agents and workflows onto a box: that box hands work to it, and the When card opens at the line. Drag a box's dot to another box for a chain. My sessions use this makes it the map new sessions run on."],
-      ["While a session runs", "The map lights up: each box's state and what it does now, a hand-off moving along its line, helpers main made up beside it (Save as an agent). Click a box: What they think and say opens, filtered to it, with Steer, Stop, Pause and Take over."],
+      ["3 · Map", "main is always at the left. Drag an agent or a workflow from Agents and workflows onto a box: that box hands work to it, and the When card opens at the line. Drag a box's dot to another box for a chain. New sessions run on this makes it the map new sessions run on."],
+      ["4 · Live", "The session you pick, drawn on the map it really follows: each box with its agents and their state, a workflow as its steps, every hand-off lighting its line and leaving a trace, work outside the lines dashed. Click a box: Pause, Stop or steer it there. The Feed (its button on Live's bar) shows what the agents say and do, line by line."],
       ["History and goal runs", "Under the map, History lists finished runs, newest first; Replay it on the map plays one back with the scrubber, Report card says it in ten lines. Run a goal on the Map's bar opens the goal form in the drawer; a running goal's pages open there too."],
       ["Hover, then click", "Rest the pointer on a box or Tab to it: a card says what it is after a moment. A click opens everything in the drawer. Settings -> Studio turns the cards off."],
       ["Attention", "The chip at the right of each tab's bar counts every decision that waits on you, amber while any does; it (or A) opens the queue: A accepts, R denies or redoes with your text, S stops, O opens where it belongs."],
     ],
-    keys: [["1 / 2 / 3", "Agents, Workflows, Map (outside a text field)"], ["A", "the Attention queue"], ["J / K", "on the Map while a session runs: the next / previous box at work"], ...PANEL_KEYS],
+    keys: [["1 / 2 / 3 / 4", "Agents, Workflows, Map, Live (outside a text field)"], ["A", "the Attention queue"], ...PANEL_KEYS],
   },
   session: {
     terms: ["harness", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance

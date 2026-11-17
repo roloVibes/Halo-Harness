@@ -21,32 +21,36 @@ def letter(c, ch: str) -> None:
 
 
 def keys(c, rig, lv, sent) -> dict:
+    """R55 (rewritten): J / K stepped between the Map's working boxes; the Map draws no run, so none is working there."""
     c.js(f"{q('[data-testid=map-scroll]')}.focus(); 1")
-    out = {"working": c.js("[...document.querySelectorAll('[data-part=map] .mp-world [data-map-box][data-state=working], "
-                           "[data-part=map] .mp-world [data-map-box][data-state=waiting]')].map((b) => b.dataset.mapBox)")}
-    seen = []
-    for ch in ("j", "j", "k"):
-        before = c.js("document.activeElement?.dataset?.mapBox || ''")
-        letter(c, ch)
-        seen.append(c.wait(f"(document.activeElement?.dataset?.mapBox || '') !== {json.dumps(before)} && document.activeElement.dataset.mapBox", 5))
-    out["focus"] = seen
-    return out
+    return {"working": c.js("[...document.querySelectorAll('[data-part=map] .mp-world [data-map-box][data-state=working], "
+                            "[data-part=map] .mp-world [data-map-box][data-state=waiting]')].map((b) => b.dataset.mapBox)")}
 
 
 def hover(c, rig, lv, sent) -> dict:
+    """R55 + R43 (rewritten): the summary card of a box at work is 4 · Live's (the Map's boxes carry no run)."""
+    from tests.helpers.studio_live_feed import live_box
+    c.js("document.activeElement?.blur(); 1")
+    from tests.helpers.studio_agents import key as press_key
+    press_key(c, "4")
     out = {"by_itself": c.js(f"!!{CARD} && getComputedStyle({CARD}).display !== 'none'")}
-    b = box("research")
+    b = live_box("research")
+    c.wait(f"!!{b}", 20)
     c.js(f"{b}.scrollIntoView({{block: 'center', inline: 'center'}}); 1")
     x, y, w, h = c.rect(b)
     c.mouse("mouseMoved", x + w * 0.4, y + h * 0.3)
     c.mouse("mouseMoved", x + w * 0.45, y + h * 0.35)
-    out["card"] = c.wait(f"{CARD}?.querySelector('[data-testid=hover-card-title]')?.textContent.includes('research') && "
-                         f"[{CARD}.querySelector('[data-testid=hover-card-title]').textContent, "
-                         f"[...{CARD}.querySelectorAll('[data-testid=hover-card-row]')].map((r) => r.dataset.row)]", 10)
+    try:
+        out["card"] = c.wait(f"{CARD}?.textContent.includes('research') && "
+                             f"[{CARD}.querySelector('[data-testid=hover-card-title]')?.textContent || {CARD}.textContent.slice(0, 80), "
+                             f"[...{CARD}.querySelectorAll('[data-testid=hover-card-row]')].map((r) => r.dataset.row)]", 10)
+    except TimeoutError:
+        raise TimeoutError(f"no card on Live's research box: {c.js(f'[{x}, {y}, {w}, {h}, !!{CARD}, {CARD}?.textContent.slice(0, 120), document.elementFromPoint({x + w * 0.45}, {y + h * 0.35})?.outerHTML.slice(0, 160)]')}")
     out["covers"] = c.js(f"(() => {{ const k = {CARD}.getBoundingClientRect(); return [...{b}.querySelectorAll('button')].filter((x) => {{"
                          " const r = x.getBoundingClientRect(); return r.width && !(r.right <= k.left || r.left >= k.right || r.bottom <= k.top || r.top >= k.bottom); }).length; })()")
     c.mouse("mouseMoved", 4, 4)
     out["gone"] = c.wait(f"(!{CARD} || getComputedStyle({CARD}).display === 'none' || !{CARD}.textContent) && 'gone'", 10)
+    back_to_map(c)
     return out
 
 
@@ -72,26 +76,29 @@ def ask(c, rig, lv, sent) -> dict:
     return out
 
 
-def pick(c, sid: str) -> None:
-    sel = t("map-lit-pick")
-    c.js(f"(() => {{ const s = {sel}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
-         f" set.call(s, {json.dumps(sid)}); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
-
-
 def two(c, rig, lv, sent) -> dict:
+    """3.6.0.2 R55 + R34 (rewritten): the session picker is 4 · Live's ("Which session"), no longer the Map's."""
     from tests.helpers.studio_map_takeover import TWO_SID
+    from tests.helpers.studio_live_feed import choose
     lv.fields["two"] = True
     lv.refresh()
-    head = t("map-topline")
-    out = {"options": c.wait(f"{t('map-lit-pick')}?.options.length >= 2 && [...{t('map-lit-pick')}.options].map((o) => o.value)", 20)}
-    pick(c, TWO_SID)
+    c.js("document.activeElement?.blur(); 1")
+    from tests.helpers.studio_agents import key as press_key
+    press_key(c, "4")
+    sel = "[data-part=live] [data-testid=live-pick]"
+    pk = f"document.querySelector('{sel}')"
+    head = "document.querySelector('[data-part=live] [data-testid=agents-live]')"
+    out = {"options": c.wait(f"{pk}?.options.length >= 2 && [...{pk}.options].map((o) => o.value)", 20)}
+    choose(c, sel, TWO_SID)
     out["second"] = c.wait(f"{head}?.dataset.sid === {json.dumps(TWO_SID)} && {head}.dataset.sid", 10)
-    pick(c, rig.act.session_id)
+    choose(c, sel, rig.act.session_id)
     out["first"] = c.wait(f"{head}?.dataset.sid === {json.dumps(rig.act.session_id)} && {head}.dataset.sid", 10)
     out["first_is_rig"] = out["first"] == rig.act.session_id
     lv.fields["two"] = False
     lv.refresh()
-    c.wait(f"!{t('map-lit-pick')}", 20)
+    c.wait(f"!{pk}", 20)
+    out["map_picker"] = c.js(f"!!{t('map-lit-pick')}")
+    back_to_map(c)
     return out
 
 

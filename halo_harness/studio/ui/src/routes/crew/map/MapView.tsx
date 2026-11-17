@@ -27,6 +27,8 @@ import { MapHistory, MapHistoryLoad } from "./MapHistory";
 import { loadMapHistory, useMapHist } from "./mapRuns";
 import { useFleet } from "../../fleet/store";
 import { LitCtx, useLit, useLitNow } from "./useLit";
+import { QuietCtx, useQuiet } from "./mapQuiet";
+import { markMapDrawn } from "./mapSwitch";
 
 export { MAP_SECTION };
 
@@ -56,9 +58,11 @@ function MapMain() {
   const locked = useMap((s) => s.locked);
   const L = useLitNow();
   const settled = useSettled();
+  const quiet = useQuiet(); // R55: the one quiet line and the marks of running workflows' boxes
   const runningKey = L.all.map((s) => s.sid).join(",");
   useEffect(() => void loadMapHistory(new Set(runningKey ? runningKey.split(",") : [])), [runningKey]); // History's runs (MapHistory.tsx)
   return (
+    <QuietCtx.Provider value={quiet}>
     <div className="mp" data-testid="map" data-locked={locked || undefined} data-lit={L.ov ? L.mode : undefined} data-settled={settled || undefined}>
       <MapBar />
       <MapCanvas />
@@ -67,6 +71,7 @@ function MapMain() {
       <WhenCard />
       <PickList />
     </div>
+    </QuietCtx.Provider>
   );
 }
 
@@ -79,7 +84,7 @@ export const mapPanels: PanelSpec[] = [
     face: "detail", glance: ListGlance, detail: AddList },
   { id: "map-main", testid: "map-main-panel", title: "Map", role: "main",
     about: "Who main hands work to, and when: boxes, lines, each line's When in words; the boxes nothing hands work to wait under it.",
-    help: "Drag a box's dot to another box to connect them, or click the dot for a list.\nClick a line's label: its When, or take it out.\nClick a workflow box: its steps.\nMy sessions use this: new sessions run on this map.",
+    help: "Drag a box's dot to another box to connect them, or click the dot for a list.\nClick a line's label: its When, or take it out.\nClick a workflow box: its steps.\nNew sessions run on this: new sessions run on this map.",
     face: "detail", glance: MainGlance, detail: MapMain },
   { id: "map-builder", testid: "map-builder-panel", title: "Builder", role: "dock",
     about: "Say how things should connect, or ask why something happened: the builder answers with a preview you tick, then Apply.",
@@ -102,6 +107,7 @@ export function MapView() {
   const crewLoaded = useCrew((s) => s.loaded);
   const flowsLoaded = useFlows((s) => s.loaded);
   useEffect(() => {
+    markMapDrawn(); // 3.6.0.2 R33: a map built from now on waits for him (mapSwitch.ts)
     void loadMaps().then(() => openMap(firstName()));
     if (!crewLoaded) void loadCrew();
     if (!flowsLoaded) void loadFlows();
@@ -112,7 +118,7 @@ export function MapView() {
       <AttentionChip />
     </span>
   );
-  const lit = useLit(); // R4: one overlay for the whole tab (the canvas, the strip, the top line, the drawer)
+  const lit = useLit(); // R55: a replay's overlay for the whole tab, else off (the Map is the plan)
   const reg = usePacks((s) => s.reg);
   // 3.6.0.0 R5: a pack's panel declared for Agents (or its old words: roles, orchestra, team) joins the Map's workspace,
   // where Cast's workspace held it before

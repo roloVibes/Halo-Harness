@@ -173,9 +173,23 @@ def maps(c, rig) -> dict:
     c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
          f" set.call(s, 'starter'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
     c.wait(f"{t('map-switcher')}?.value === 'starter' && {qa('[data-testid=map-label]')}.length >= 8", 20)
+    opts = f"[...{t('map-switcher')}.options].map((o) => o.textContent)"
+    out["fresh_tags"] = c.js(opts)  # 3.6.0.2 R24: a fresh home (crew.map unset) tags no map
+    out["uses_off"] = [c.js(f"{t('map-uses')}.getAttribute('aria-checked')"), c.js(f"{t('map-uses')}.closest('label').textContent")]
+    # none set: new sessions run on the default, starter (config never holds it): the switch is on there; ship-it switched on
+    # is config crew.map and tagged; switched off again, new sessions are back on starter
+    c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
+         f" set.call(s, 'ship-it'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{t('map-switcher')}?.value === 'ship-it' && {t('map-uses')}.getAttribute('aria-checked') === 'false'", 20)
     c.js(f"{t('map-uses')}.click(); 1")
     c.wait(f"{t('map-uses')}.getAttribute('aria-checked') === 'true'", 20)
-    out["in_use"] = rig.api("GET", "crew/maps")[1]["in_use"]
+    out["in_use"] = rig.api("GET", "crew/maps")[1]["next"]
+    out["tagged"] = c.wait(f"{opts}.find((x) => x.startsWith('ship-it') && x.endsWith(' · new sessions')) || ''", 20)
+    c.js(f"{t('map-uses')}.click(); 1")
+    c.wait(f"{t('map-uses')}.getAttribute('aria-checked') === 'false'", 20)
+    c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
+         f" set.call(s, 'starter'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{t('map-switcher')}?.value === 'starter' && {qa('[data-testid=map-label]')}.length >= 8", 20)
     c.js(f"{t('map-lock')}.click(); 1")
     out["locked"] = c.wait(f"{t('map-lock')}.getAttribute('aria-checked') === 'true' && {qa('[data-testid=map-dot]')}.length === 0"
                            f" && {qa('[data-testid=map-add]')}.every((b) => b.disabled)", 10)

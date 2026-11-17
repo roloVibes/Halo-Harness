@@ -1,16 +1,14 @@
-// What lights the Map now (3.6.0.0 R4): the running session picked by litStore.ts on the map it started with, or a
-// replay opened from the Map's History (mapRuns.ts) at the scrubber's moment -- both through the same overlay
-// (overlay.ts). `other`: the lit session runs on another map than the one shown (the top line says so, in amber, with
-// "Show the running map"; the shown map is not lit). `nomap`: a session that did not start on a map (main and its
-// helpers, as made-up helpers, on an empty map). `card`: a Builder card the session parked (its ghosts on the map).
+// What lights the Map now (3.6.0.2 R55: the Map is the plan, no run overlay): only a replay opened from the Map's History
+// (mapRuns.ts) at the scrubber's moment, through the overlay (overlay.ts), in quiet colours. A running session is drawn
+// in Agents -> 4 · Live (agents/liveLit.tsx gives Live's session in this same shape through LitCtx); on the Map it is one
+// quiet line (NoticeRow.tsx). `all`: this machine's running sessions (History leaves them out of its finished runs).
 import { createContext, useContext, useEffect, useMemo } from "react";
 import { useStore } from "../../../lib/store";
-import { useSessionRecord, type WorkRecord } from "../../../lib/work/record";
-import { useNow } from "../../fleet/store";
+import type { WorkRecord } from "../../../lib/work/record";
 import type { LiveNode } from "../live/liveModel";
 import { useLiveReplay, type LiveReplay } from "../live/replay";
 import type { Change } from "../types";
-import { chosen, lit, startLit, useAway, useRunning, type AwaySession, type LitSession } from "./litStore";
+import { startLit, useAway, useRunning, type AwaySession, type LitSession } from "./litStore";
 import { mapHist } from "./mapRuns";
 import { eventsAt, overlay, type OvMap, type OvRow, type Overlay } from "./overlay";
 import { useMap } from "./mapStore";
@@ -18,7 +16,7 @@ import type { MapFile } from "./mapTypes";
 
 export type Lit = {
   mode: "off" | "live" | "replay"; session: LitSession | null; all: LitSession[]; other: boolean; nomap: boolean; ov: Overlay | null;
-  /** R4b: other machines' running sessions (listed in the picker, not lit here) */
+  /** R4b: other machines' running sessions */
   away: AwaySession[];
   rec: WorkRecord | null; card: Change[]; replay: LiveReplay | null; map: string; now: number;
 };
@@ -31,31 +29,19 @@ export const rowOfNode = (n: LiveNode): OvRow => ({
   kind: n.parent ? "subagent" : "main", square: n.square ? { name: n.square } : null,
 });
 
+/** The Map tab's Lit: a replay of History's open run, else off (R55). */
 export function useLit(): Lit {
   useEffect(() => startLit(), []);
   const file: MapFile | null = useMap((s) => s.detail?.map || null);
   const shown = useMap((s) => s.name);
   const all = useRunning();
   const away = useAway();
-  const pick = useStore(lit, (s) => s.pick);
   const r = useLiveReplay();
   const hist = useStore(mapHist, (s) => s.open);
   const replay = r && hist && r.kind === "session" && r.id === hist.sid ? r : null;
-  const session = replay ? null : chosen(all, pick, shown);
-  const rec = useSessionRecord(session?.sid || "");
-  const events = useStore(lit, (s) => (session ? s.events[session.sid] : undefined));
-  const card = useStore(lit, (s) => (session ? s.cards[session.sid]?.changes : undefined)) || NONE;
-  const wall = useNow(!!session, 1000) / 1000;
-  const other = !!session && !!session.map && session.map !== shown;
-  const nomap = !!session && !session.map;
-  const ov = useMemo(() => {
-    if (replay && hist) return overlay(hist.map === shown && file ? file : EMPTY, replay.nodes.map(rowOfNode), eventsAt(hist.events, replay.t), replay.t);
-    if (!session || other || !file) return null;
-    const rows: OvRow[] = (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id }) as OvRow);
-    return overlay(nomap ? EMPTY : file, rows, events || [], wall);
-  }, [replay, hist, session, other, nomap, file, rec, events, wall, shown]);
-  const mode = replay ? "replay" : session ? "live" : "off";
-  return { mode, session, all, away, other, nomap, ov, rec, card: other ? NONE : card, replay, map: replay ? hist?.map || "" : session?.map || "", now: replay ? replay.t : wall };
+  const ov = useMemo(() => (replay && hist ? overlay(hist.map === shown && file ? file : EMPTY, replay.nodes.map(rowOfNode), eventsAt(hist.events, replay.t), replay.t) : null),
+    [replay, hist, file, shown]);
+  return replay ? { ...OFF, mode: "replay", all, away, ov, replay, map: hist?.map || "", now: replay.t } : { ...OFF, all, away };
 }
 
 export const OFF: Lit = { mode: "off", session: null, all: [], away: [], other: false, nomap: false, ov: null, rec: null, card: NONE, replay: null, map: "", now: 0 };

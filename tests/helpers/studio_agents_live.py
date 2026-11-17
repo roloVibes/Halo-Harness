@@ -17,6 +17,7 @@ them). No model is called.
               the rig's home; the reviewer is the workflow review's step, in the box `check`)
     feed      R57: the Feed is Live's right drawer, the Map keeps Run a goal and History in its own (tests/helpers/
               studio_live_feed.py `feed_step`)
+    quiet, picker, receipt, away, waits, reread   R24 R33 R55: 3 · Map is the plan (tests/helpers/studio_map_quiet.py)
 
     python -m tests.helpers.studio_agents_live
 """
@@ -160,6 +161,7 @@ class AgentsLiveDriver(Driver):
         from tests.helpers import studio_agents_live_draw as D
         from tests.helpers.studio_map_live import MAP
         from tests.helpers.studio_live_feed import feed_step
+        from tests.helpers.studio_map_quiet import STEPS as QUIET
         with StudioSessionRig() as rig:
             from halo_harness.crew import store
             store.write_text(store.path_for("map", "shop", state_dir=rig.state), MAP)  # the map the session's row names
@@ -170,7 +172,8 @@ class AgentsLiveDriver(Driver):
             rows = Rows(rig)  # over GET live's rows: the session's turns, parent, busy and its agents' states (R56)
             try:
                 yield ((doors, (c, rig, lv)), (opens, (c, rig, lv, rows)), (never_flips, (c, rig, lv, rows)),
-                       (D.follows, (c, rig, lv, rows)), (D.holds, (c, rig, lv, rows)), (D.t9, (c, rig, lv, rows)), (feed_step, (c, rig, lv, rows)))
+                       (D.follows, (c, rig, lv, rows)), (D.holds, (c, rig, lv, rows)), (D.t9, (c, rig, lv, rows)), (feed_step, (c, rig, lv, rows)),
+                       *((step, (c, rig, lv, rows)) for step in QUIET))
             finally:
                 lv.close()
 
