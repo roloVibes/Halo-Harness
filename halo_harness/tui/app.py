@@ -595,6 +595,8 @@ class BridgeApp(App):
         self.run_worker(self._xp_balance_refresh_worker, thread=True, name="xp-balance-startup",
                          group="xp-balance-startup")
         self.set_interval(BALANCE_REFRESH_INTERVAL_S, self._xp_balance_refresh)
+        from halo_harness.tui import slash_capture  # 3.6.0.2 P8: a socket slash runs THIS terminal's table
+        self.controller.slash_hook = lambda name, args: slash_capture.run(self, name, args)
         starter = getattr(self.controller, "start", None)
         if callable(starter):
             starter()
@@ -1075,8 +1077,27 @@ class BridgeApp(App):
             if thread:
                 from halo_harness.tui.worker_guard import guard
                 work = guard(self, work, name or group)
-        return super().run_worker(work, name=name, group=group, description=description,
-                                  exit_on_error=exit_on_error, start=start, exclusive=exclusive, thread=thread)
+        worker = super().run_worker(work, name=name, group=group, description=description,
+                                    exit_on_error=exit_on_error, start=start, exclusive=exclusive, thread=thread)
+        from halo_harness.tui import slash_capture
+        slash_capture.record_worker(self, worker)  # 3.6.0.2 P9: a socket slash line's capture follows its workers
+        return worker
+
+    # ---- 3.6.0.2 P9-P11: a slash line sent over the control socket (tui/slash_capture.py) ----------------------
+    def notify(self, message, *, title="", severity="information", timeout=None, markup=True):
+        from halo_harness.tui import slash_capture
+        slash_capture.note(self, message)  # P9: the line's own toast is in its answer
+        return super().notify(message, title=title, severity=severity, timeout=timeout, markup=markup)
+
+    def call_from_thread(self, callback, *args, **kwargs):
+        from halo_harness.tui import slash_capture
+        return slash_capture.call_from_thread(self, super().call_from_thread, callback, *args, **kwargs)
+
+    def push_screen(self, screen, callback=None, wait_for_dismiss=False, *, mode=None):
+        from halo_harness.tui import slash_capture
+        if slash_capture.screen_blocked(self):  # P11: a socket line opens no screen in the terminal
+            return slash_capture.done_future()
+        return super().push_screen(screen, callback, wait_for_dismiss, mode=mode)
 
     def on_worker_state_changed(self, event) -> None:
         from textual.worker import WorkerState
@@ -1444,6 +1465,7 @@ class BridgeApp(App):
             from halo_harness.tui.slash import handle_slash
 
             name, _, args = self._without_chip_labels(stripped)[1:].partition(" ")
+            await self.transcript.add_user(stripped)  # 3.6.0.2 P12: the row `❯ /<line>`, before its output
             await handle_slash(self, name, args)
             return
         # review finding 4: the MODEL gets the full pasted text, never the

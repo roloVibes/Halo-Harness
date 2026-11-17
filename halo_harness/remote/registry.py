@@ -37,9 +37,12 @@ from halo_harness.remote import client
 
 FILENAME = "sessions.json"
 FIELDS = ("session_id", "cwd", "pid", "endpoint", "token_env", "started", "title", "mode", "kind", "harness",
-          "project", "parent", "mission", "part")  # mission, part: a mission-worker's (3.0.6.0 R7)
+          "project", "parent", "mission", "part",  # mission, part: a mission-worker's (3.0.6.0 R7)
+          "follows", "first_words")  # 3.6.0.2 P16: the id this row took over from; P70: its first prompt's words
 PUBLIC = ("session_id", "title", "cwd", "mode", "kind", "started", "pid", "harness", "project", "parent",
-          "mission", "part")
+          "mission", "part", "follows", "first_words")
+FIRST_WORDS = 6  # 3.6.0.2 P70: the first six words of the first user message,
+FIRST_WORDS_CAP = 60  # at most 60 characters
 
 
 def registry_path() -> Path:
@@ -71,6 +74,11 @@ def make_entry(*, session_id: str, cwd, endpoint: str, pid: Optional[int] = None
     if token:
         entry["token"] = token
     return entry
+
+
+def first_words(text) -> str:
+    """3.6.0.2 P70: the first six words of `text`, joined by single spaces, at most 60 characters."""
+    return " ".join(str(text or "").split()[:FIRST_WORDS])[:FIRST_WORDS_CAP]
 
 
 def public_entry(entry: dict) -> dict:

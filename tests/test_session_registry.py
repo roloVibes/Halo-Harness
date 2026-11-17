@@ -52,20 +52,20 @@ def test_shutdown_ends_a_real_session_after_the_current_tool_call(ctx: Ctx):
             ctx.check(f"shutdown answers at once, got {r}", r["ok"] and r["result"] == {"shutdown": True})
             gate.set()
             ctx.check("the TUI hook gets the line once the turn is over",
-                      wait_for(lambda: said, 15) == ["shut down from Studio by tester: done for today"])
+                      wait_for(lambda: said, 15) == ["shut down from Studio: done for today"])
             results = [str(n.get("content")) for n in session.log.nodes() if n.get("type") == "tool_result"]
             ctx.check(f"the pending tool call was left unrun, got {results}",
-                      results and "not run: stopped by tester from Studio" in results[0])
+                      results and "not run: stopped from Studio" in results[0])
             notes = []
             while not controller.events.empty():
                 ev = controller.events.get_nowait()
                 if ev is not None and ev.kind == "system_note":
                     notes.append(ev.data["text"])
             ctx.check(f"the transcript shows the line, got {notes[-3:]}",
-                      any("shut down from Studio by tester: done for today" in t for t in notes))
+                      any("shut down from Studio: done for today" in t for t in notes))
             meta = [n["control"] for n in session.log.nodes() if n.get("type") == "meta" and n.get("control")]
             ctx.check("the command is recorded in the main transcript with its origin",
-                      any(m["cmd"] == "shutdown" and m["by"] == "tester" and m["via"] == "Studio" for m in meta))
+                      any(m["cmd"] == "shutdown" and "by" not in m and m["via"] == "Studio" for m in meta))
             plain = _fake_controller(rig)
             act2 = runtime.start_for_controller(plain)
             sid2 = act2.session_id
@@ -174,7 +174,7 @@ def test_print_mode_shutdown_ends_its_input_and_the_wire_lists_the_commands(ctx:
     q = _TurnLineQueue()
     q.put({"text": "a later turn", "images": None})
     h = PrintModeHandle(FakeSession(), Path("."), input_queue=q)
-    h.control_shutdown("shut down from Studio by tester: bye")
+    h.control_shutdown("shut down from Studio: bye")
     ctx.check("print mode reads no further turn after a shutdown", q.get() is None)
     ctx.check("the wire's agent commands", {"agents", "agent_tail", "agent_steer", "agent_stop", "pause", "resume",
                                             "shutdown", "agent_follow"} <= set(CMDS))

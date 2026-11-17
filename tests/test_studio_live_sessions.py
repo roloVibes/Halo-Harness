@@ -59,8 +59,8 @@ def test_studio_sessions_rows_and_the_agent_routes(ctx: Ctx):
                   status == 200 and body["ok"] and body["result"]["agent_id"] == "main")
         ctx.check("the turn it started ran", wait_for(lambda: controller.session.turn_count >= 1 and not controller.session.busy))
         said = [n for n in controller.session.log.nodes() if n.get("type") == "user"]
-        ctx.check("with Studio's origin on the note", said and said[-1]["content"][0]["text"].startswith("[steer from ")
-                  and " via Studio] hello there" in said[-1]["content"][0]["text"])
+        ctx.check("with Studio's origin on the note, no user or host name (3.6.0.2 P3)",
+                  said and said[-1]["content"][0]["text"] == "[steer from Studio] hello there")
         status, body = _req(rig, "POST", f"sessions/{sid}/agents/nobody/command", {"cmd": "stop"})
         ctx.check(f"an unknown agent is the socket's error (502), got {status} {body}", status == 502 and "no agent" in body["error"])
         ctx.check("an unknown agent cmd is a 422", _req(rig, "POST", f"sessions/{sid}/agents/main/command", {"cmd": "explode"})[0] == 422)
@@ -72,9 +72,8 @@ def test_studio_sessions_rows_and_the_agent_routes(ctx: Ctx):
         ctx.check("resume", status == 200 and body["result"]["was_paused"] is True)
         ctx.check("an unknown session is a 404", _req(rig, "GET", "sessions/nobody/agents")[0] == 404)
         meta = [n["control"] for n in controller.session.log.nodes() if n.get("type") == "meta" and n.get("control")]
-        from halo_harness.remote.session_identity import harness_name
-        ctx.check("Studio's commands carry by = harness.name and via = Studio",
-                  meta and all(m["by"] == harness_name() and m["via"] == "Studio" for m in meta))
+        ctx.check("Studio's commands carry via = Studio and no user or host name",
+                  meta and all("by" not in m and m["via"] == "Studio" for m in meta))  # 3.6.0.2 P3: no user or host name
         from halo_harness.remote import registry
         registry.register({**registry.make_entry(session_id="hiddensession1", cwd=rig.cwd, endpoint=act.endpoint,
                                                 token=act.server.token), "private": True})

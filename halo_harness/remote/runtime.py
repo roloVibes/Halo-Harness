@@ -90,11 +90,13 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
                 session_id=handle.session_id, cwd=handle.cwd, endpoint=server.endpoint, token=server.token,
                 title=handle.title(), mode=mode, kind=handle.kind, harness=FI.harness(),
                 project=FI.project_stub(handle.cwd), parent=FI.parent_from_env())
+            entry["first_words"] = _logged_first_words(handle)  # 3.6.0.2 P70: a resumed one has some
             registry.register(entry)
             act = Active(handle, server, entry["session_id"], controller, mode, entry, reopen)
             handle.hub.meta.update(session_id=act.session_id, harness=entry["harness"].get("id"))
             act.listener = agent_frames.attach(act)
             handle.hub.add_observer(lambda ev, a=act: _watch_status(a, ev))
+            handle.hub.add_observer(lambda ev, a=act: _watch_first_words(a, ev))  # 3.6.0.2 P70
             _actives.append(act)
             if not _atexit_registered:
                 atexit.register(stop)
@@ -118,7 +120,8 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
 
 
 def _watch_status(act: Active, ev) -> None:
-    """Keep `mode` (and the key, after /clear or a fork) in the registry."""
+    """Keep `mode` (and the key, after /clear or a fork) in the registry. 3.6.0.2 P16: the new row names the id it
+    follows and is written BEFORE the old row leaves, so a list read always finds one of the two."""
     if ev.kind != "status" or act not in _actives:
         return
     # a sub-agent's own status events reach this tap too (agent_id, session_id "agent-<id>"): never ours
@@ -129,14 +132,38 @@ def _watch_status(act: Active, ev) -> None:
     if sid and sid != act.session_id:
         old, act.session_id, act.mode = act.session_id, sid, str(mode or "")
         act.entry = {**act.entry, "session_id": sid, "title": act.handle.title(), "mode": act.mode,
-                     "started": time.time()}
+                     "started": time.time(), "follows": old,
+                     "first_words": _logged_first_words(act.handle)}  # P70: "" after /clear
         act.handle.hub.meta["session_id"] = sid
-        registry.unregister(old)
         registry.register(act.entry)
+        registry.unregister(old)
         agent_frames.registry_frame(act, "register")
     elif mode and mode != act.mode:
         act.mode = act.entry["mode"] = str(mode)
         registry.update(act.session_id, mode=act.mode)
+
+
+def _logged_first_words(handle) -> str:
+    """3.6.0.2 P70: the first words of the first user message already in the session's log ("" for none)."""
+    try:
+        from halo_harness.agent.sessions import _first_user_text
+        from halo_harness.remote.registry import first_words
+        return first_words(_first_user_text(handle.session.log.nodes()))
+    except Exception:
+        return ""
+
+
+def _watch_first_words(act: Active, ev) -> None:
+    """3.6.0.2 P70: the main session's first `user_message` gives a row with none its `first_words`."""
+    if ev.kind != "user_message" or getattr(ev, "agent_id", None) or act not in _actives:
+        return
+    if act.entry.get("first_words"):
+        return
+    from halo_harness.remote import registry
+    words = registry.first_words((ev.data or {}).get("text"))
+    if words:
+        act.entry = {**act.entry, "first_words": words}
+        registry.update(act.session_id, first_words=words)
 
 
 def _remember(controller, opener) -> None:

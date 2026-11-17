@@ -13,9 +13,10 @@ commands (Halo 3.0.5.0 "Fleet" round R1). Wire shapes:
 
 Rows and entries: agent/agent_registry.py, agent/agent_transcript.py.
 "main" (or the session id) is the main agent, `job:<id>` a background Bash
-job. Every command takes `by` (Studio sends `harness.name`) and `via` (default
-"Studio"); those that act on an agent are recorded in its own transcript (a
-`meta` node `{"fleet": {cmd, by, via, ...}}`), its parent's transcript and the
+job. Every command takes `via` (default "Studio"; 3.6.0.2 P3: a `by` a client
+sends is never read, and no line or record names a user or host); those that
+act on an agent are recorded in its own transcript (a `meta` node
+`{"control": {cmd, via, ...}}`), its parent's transcript and the
 TUI get one line for a steer, stop or pause. A steer is a user-role note read
 before the agent's next model call: it never widens a permission, answers a
 card or skips a gate.
@@ -37,10 +38,9 @@ def _str(req: dict, key: str) -> str:
     return v if isinstance(v, str) else ""
 
 
-def _caller(req: dict) -> tuple:
-    by = " ".join(_str(req, "by").split())[:64] or "a remote client"
-    via = " ".join(_str(req, "via").split())[:32] or "Studio"
-    return by, via
+def _caller(req: dict) -> str:
+    """The request's via (3.6.0.2 P3: the only name a line or record carries; `by` is never read)."""
+    return " ".join(_str(req, "via").split())[:32] or "Studio"
 
 
 def _tree(handle):
@@ -82,11 +82,11 @@ def _announce(handle, line: str) -> None:
         pass
 
 
-def _record(handle, tree, aid: str, cmd: str, by: str, via: str, **extra) -> None:
+def _record(handle, tree, aid: str, cmd: str, via: str, **extra) -> None:
     log = getattr(_session(handle, tree, aid), "log", None)
     if log is not None:
         try:
-            log.append_meta(control={"cmd": cmd, "by": by, "via": via, "agent_id": aid, **extra})
+            log.append_meta(control={"cmd": cmd, "via": via, "agent_id": aid, **extra})
         except Exception:
             pass
 
@@ -118,83 +118,83 @@ def cmd_steer(handle, tree, req: dict) -> dict:
     mode = _str(req, "mode") or "nudge"
     if mode not in STEER_MODES:
         raise HandleError(f"steer mode must be one of {', '.join(STEER_MODES)}, got {mode!r}")
-    by, via = _caller(req)
+    via = _caller(req)
     aid = _resolve(handle, tree, req)
     handoff = {"handoff": "take_over"} if req.get("handoff") else {}  # 3.0.5.0 R4: Fleet's Take over
     if handoff:
         mode = "redirect"
-    head = f"[{'hand-off' if handoff else 'steer'} from {by} via {via}] "
+    head = f"[{'hand-off' if handoff else 'steer'} from {via}] "
     note = head + (text if mode == "nudge" else "Redirect: the rest of your current task is replaced. "
                    f"Your task is now: {text}")
     from halo_harness.live.talk import on_steer  # 3.3.16.2: another agent's steer (`from_agent`) is a talk
     if aid == tree.root_id:
         on_steer(tree, req, aid, text)
         result = handle.submit(note)
-        _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400), **handoff)
+        _record(handle, tree, aid, "agent_steer", via, mode=mode, text=one_line(text, 400), **handoff)
         if handoff:
-            _announce(handle, f"the main agent taken over from {via} by {by}: {one_line(text, 80)}")
+            _announce(handle, f"the main agent taken over from {via}: {one_line(text, 80)}")
         return {"agent_id": aid, "mode": mode, "delivered": "steer" if result.get("steered") else "turn", **result}
     _live_child(tree, aid)
     on_steer(tree, req, aid, text)
-    tree.controls.post(aid, note, cut_by=f"{by} from {via}" if mode == "redirect" else None)
+    tree.controls.post(aid, note, cut_by=via if mode == "redirect" else None)
     delivered = "inbox"
     if mode == "redirect":
         tree.update(aid, task=first_line(text))
-    _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400), **handoff)
+    _record(handle, tree, aid, "agent_steer", via, mode=mode, text=one_line(text, 400), **handoff)
     verb = "taken over" if handoff else "steered"
-    _parent_line(handle, tree, aid, f"{_label(tree, aid)} {verb} from {via} by {by}: {one_line(text, 80)}")
+    _parent_line(handle, tree, aid, f"{_label(tree, aid)} {verb} from {via}: {one_line(text, 80)}")
     return {"agent_id": aid, "mode": mode, "delivered": delivered}
 
 
 def cmd_stop(handle, tree, req: dict) -> dict:
-    by, via = _caller(req)
+    via = _caller(req)
     reason = " ".join(_str(req, "reason").split())[:300] or "no reason given"
     aid = _resolve(handle, tree, req)
     if aid == tree.root_id:
-        _record(handle, tree, aid, "agent_stop", by, via, reason=reason)
+        _record(handle, tree, aid, "agent_stop", via, reason=reason)
         return {"agent_id": aid, **handle.interrupt()}
     if aid.startswith("job:"):
         killer = getattr(getattr(handle.session, "job_registry", None), "kill", None)
         ok, message = killer(aid[4:]) if callable(killer) else (False, "no job registry in this session")
-        _announce(handle, f"background job {aid[4:]} stopped from {via} by {by}: {reason}")
+        _announce(handle, f"background job {aid[4:]} stopped from {via}: {reason}")
         return {"agent_id": aid, "stopped": bool(ok), "message": message}
     state = tree.state_of(aid)
     if state in FINISHED:
         raise HandleError(f"agent {aid} has already finished ({state})")
-    ids = tree.controls.stop(aid, by, reason, via)
-    _record(handle, tree, aid, "agent_stop", by, via, reason=reason)
-    _parent_line(handle, tree, aid, f"{_label(tree, aid)} stopped from {via} by {by}: {reason}")
+    ids = tree.controls.stop(aid, reason, via)
+    _record(handle, tree, aid, "agent_stop", via, reason=reason)
+    _parent_line(handle, tree, aid, f"{_label(tree, aid)} stopped from {via}: {reason}")
     return {"agent_id": aid, "stopping": ids}
 
 
 def cmd_pause(handle, tree, req: dict, on: bool) -> dict:
-    by, via = _caller(req)
+    via = _caller(req)
     aid = _resolve(handle, tree, req, optional=True)
     if aid is not None and aid != tree.root_id:
         _live_child(tree, aid)
     target = aid or tree.root_id
     if not on:
         had = tree.controls.resume(aid)
-        _record(handle, tree, target, "resume", by, via, scope="agent" if aid else "session")
-        _announce(handle, f"{_label(tree, aid) if aid else 'the session'} resumed from {via} by {by}")
+        _record(handle, tree, target, "resume", via, scope="agent" if aid else "session")
+        _announce(handle, f"{_label(tree, aid) if aid else 'the session'} resumed from {via}")
         return {"resumed": aid or "session", "was_paused": had}
-    fresh = tree.controls.pause(aid, by, via)
+    fresh = tree.controls.pause(aid, via)
     reason = " ".join(_str(req, "reason").split())[:120]  # 3.0.5.0 R4: "cap" when a spend cap paused it
-    _record(handle, tree, target, "pause", by, via, scope="agent" if aid else "session", **({"reason": reason} if reason else {}))
+    _record(handle, tree, target, "pause", via, scope="agent" if aid else "session", **({"reason": reason} if reason else {}))
     why = f": {reason}" if reason else ""
     if fresh and aid and aid != tree.root_id:
-        _parent_line(handle, tree, aid, f"{_label(tree, aid)} paused from {via} by {by}{why}")
+        _parent_line(handle, tree, aid, f"{_label(tree, aid)} paused from {via}{why}")
     elif fresh:
-        _announce(handle, f"the session paused from {via} by {by}{why} (each agent holds at its next tool boundary)")
+        _announce(handle, f"the session paused from {via}{why} (each agent holds at its next tool boundary)")
     return {"paused": aid or "session"}
 
 
 def cmd_shutdown(handle, tree, req: dict) -> dict:
-    by, via = _caller(req)
+    via = _caller(req)
     reason = " ".join(_str(req, "reason").split())[:300] or "no reason given"
-    tree.controls.begin_shutdown(by, reason, via)
-    _record(handle, tree, tree.root_id, "shutdown", by, via, reason=reason)
-    handle.control_shutdown(f"shut down from {via} by {by}: {reason}")
+    tree.controls.begin_shutdown(reason, via)
+    _record(handle, tree, tree.root_id, "shutdown", via, reason=reason)
+    handle.control_shutdown(f"shut down from {via}: {reason}")
     return {"shutdown": True}
 
 
@@ -217,7 +217,6 @@ def run(handle, req: dict) -> dict:
     if cmd == "agent_follow":
         aid = _resolve(handle, tree, req)
         on = req.get("on", True) is not False
-        by, via = _caller(req)
-        _record(handle, tree, aid, "agent_follow", by, via, on=on)
+        _record(handle, tree, aid, "agent_follow", _caller(req), on=on)
         return {"agent_id": aid, "following": tree.follow(aid, on)}
     raise HandleError(f"unknown agent cmd {cmd!r}")

@@ -109,11 +109,11 @@ def mark_read(session, meta: Optional[dict], turn: int, node: Optional[dict] = N
 
 
 def stamp(ev, meta: Optional[dict]):
-    """The turn's `user_message` event with where it came from (`via`, `by`) and its `receipt`: the Studio feed
+    """The turn's `user_message` event with where it came from (`via`; 3.6.0.2 P3: never a `by`) and its `receipt`: the Studio feed
     draws "from Studio" and the ladder from them."""
     if isinstance(meta, dict) and meta:
         try:
-            ev.data.update({k: str(meta[k]) for k in ("via", "by", "receipt") if meta.get(k)})
+            ev.data.update({k: str(meta[k]) for k in ("via", "receipt") if meta.get(k)})
         except Exception:
             pass
     return ev

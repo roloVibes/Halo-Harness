@@ -66,7 +66,7 @@ def test_origin_and_receipt_ride_on_the_command_meta(ctx: Ctx):
         ctx.check(f"taken as a new turn, got {r}", r["ok"] and r["result"]["steered"] is False)
         cmd = rig.controller.commands.get(timeout=2)
         ctx.check(f"a user_input Command with meta {{via, by, receipt}}, got {cmd.kind} {cmd.data.get('meta')}",
-                  cmd.kind == "user_input" and cmd.data["meta"] == {"via": "studio", "by": "you@studio", "receipt": "r_abc123"})
+                  cmd.kind == "user_input" and cmd.data["meta"] == {"via": "studio", "receipt": "r_abc123"})  # 3.6.0.2 P3: the `by` sent is dropped
         c.call("submit", text="plain phone turn")
         cmd = rig.controller.commands.get(timeout=2)
         ctx.check("a submit without origin carries no meta (the Signal remote's call, unchanged)", not cmd.data.get("meta"))

@@ -1,6 +1,6 @@
 """tests.test_session_steer_redirect -- Halo 3.0.5.0 "Fleet" round R1, the two steer
 modes in detail over a REAL session: a `redirect` leaves the rest of the
-child's current tool round unrun ("not run: redirected by ...") and its
+child's current tool round unrun ("not run: redirected from ...") and its
 next model call reads the new task; a steer to a finished agent, a steer
 with an unknown mode and a steer to a background job are refused, and a
 background job is a leaf under main that agent_stop kills.
@@ -50,7 +50,7 @@ def test_redirect_cuts_the_round_and_the_next_call_reads_the_new_task(ctx: Ctx):
             ctx.check("the session's turn ends", wait_for(lambda: not session.busy, 15))
             tool_msgs = [m for m in (seen[1] if len(seen) > 1 else {}).get("messages") or [] if m.get("role") == "tool"]
             ctx.check(f"both calls of the round were left unrun with the redirect, got {tool_msgs}",
-                      len(tool_msgs) == 2 and all("not run: redirected by tester from Studio" in json.dumps(m)
+                      len(tool_msgs) == 2 and all("not run: redirected from Studio" in json.dumps(m)
                                                   for m in tool_msgs))
             ctx.check("the next model call reads the new task",
                       "Redirect: the rest of your current task is replaced. Your task is now: only the markdown files"

@@ -64,8 +64,8 @@ def test_item28_child_status_never_rekeys_the_registry(ctx: Ctx):
                                                    data={"session_id": "parent-sid", "permission_mode": "plan"}))
         ctx.check("the parent's own mode change still lands", calls == [("update", "parent-sid", {"mode": "plan"})])
         runtime._watch_status(act, SimpleNamespace(kind="status", agent_id=None, data={"session_id": "forked-sid"}))
-        ctx.check("the parent's own /clear still re-keys",
-                  calls[1:] == [("unregister", "parent-sid"), ("register", "forked-sid")])
+        ctx.check("the parent's own /clear still re-keys (3.6.0.2 P16: the new row first, then the old leaves)",
+                  calls[1:] == [("register", "forked-sid"), ("unregister", "parent-sid")])
     finally:
         runtime._actives[:] = saved[0]
         registry.register, registry.unregister, registry.update, agent_frames.registry_frame = saved[1:]

@@ -87,7 +87,7 @@ event     {"event": "permission_request", "data": {...}, "turn": 3, "agent_id": 
 | `mode` | `mode` | `{mode}` |
 | `model` | `ref` | `{model}`; an unresolvable ref is `ok: false` with the resolver's sentence |
 | `effort` | `level` | `{effort, message}` |
-| `slash` | `name` and `args`, or `line` (`"/cost"`) | `{output}` |
+| `slash` | `name` and `args`, or `line` (`"/cost"`) | `{output, ran}`: in a terminal session the line runs the terminal's own command table (as if typed there; the terminal draws its `❯ /<line>` row) and `output` holds its notes and toasts; `ran` is false when nothing ran (a command that opens a window or works on the terminal's own box, or a terminal too busy to take the line within 1 s) |
 | `tail` | `n` (default 20, at most 200) | `{markdown}`: the last n user / assistant messages |
 | `receipts` | | `{receipts: [...]}`: the session's receipts ladder (3.3.11.0 R1, below) |
 | `subscribe` | optional `kinds` (a list; default all) | `{subscribed: true}`; event frames follow on this connection |
@@ -143,15 +143,15 @@ semantics are in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio
 | `agent_stop` | `agent_id`, optional `reason` | `{agent_id, stopping: [ids]}`: that agent and its subtree end at their next tool boundary. `main` is the turn-level `interrupt` (`{agent_id, interrupted}`); a `job:` id kills the job (`{agent_id, stopped, message}`) |
 | `pause` | optional `agent_id` | `{paused}`: that agent and its subtree (or, with no `agent_id`, every agent of the session) hold at their next tool boundary |
 | `resume` | optional `agent_id` | `{resumed, was_paused}` |
-| `shutdown` | optional `reason` | `{shutdown: true}`: every agent ends at its next tool boundary, then the session closes: the TUI shows `shut down from Studio by <by>: <reason>` and exits, `halo -p` reads no further turn and returns |
+| `shutdown` | optional `reason` | `{shutdown: true}`: every agent ends at its next tool boundary, then the session closes: the TUI shows `shut down from Studio: <reason>` and exits, `halo -p` reads no further turn and returns |
 | `agent_follow` | `agent_id`, `on` (default true) | `{agent_id, following: [ids]}`: while on, that agent's entries are also published as `agent_event` frames |
 
-Every one takes `by` (the caller's name: Studio sends `harness.name`, `halo
-remote` sends it too) and `via` (default `Studio`). The commands that act
+Every one takes `via` (default `Studio`; `halo remote` sends `halo remote`). No line, record or note names a
+user or host: a `by` a client sends is not read (3.6.0.2). The commands that act
 on an agent are recorded in that agent's own transcript as a `meta` node
-(`{"control": {"cmd", "by", "via", "agent_id", ...}}`; `"fleet"` before 3.5.0.0, still read); a steer, stop or pause
+(`{"control": {"cmd", "via", "agent_id", ...}}`; `"fleet"` before 3.5.0.0, still read); a steer, stop or pause
 also leaves one line in the parent's transcript (`"<agent> steered from
-Studio by <by>: <first 80 characters>"`) and in the TUI. Old clients see
+Studio: <first 80 characters>"`) and in the TUI. Old clients see
 the same wire: nothing in the earlier commands changed.
 
 ## The event feed

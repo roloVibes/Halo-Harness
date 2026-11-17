@@ -198,6 +198,9 @@ class _Conn:
                     self.send({"id": None, "ok": False, "error": "invalid JSON"})
                     continue
                 self.send(handle_request(self.server.handle, req, self))
+                then, self.then = getattr(self, "then", None), None
+                if callable(then):  # 3.6.0.2 P11: `/exit` from Studio ends the terminal AFTER its answer went out
+                    then()
         except OSError:
             pass
         finally:

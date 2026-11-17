@@ -8,7 +8,7 @@ the session's control socket (remote/agent_control.py has the wire).
 
 `<sid>` is a session id or a unique prefix (`halo remote sessions` lists
 them); `--agent main` is the main agent. Every verb takes `--json`. The
-commands go out with `by` = `harness.name` and `via` = "halo remote".
+commands go out with `via` = "halo remote" and no user or host name (3.6.0.2 P3).
 """
 
 from __future__ import annotations
@@ -46,11 +46,10 @@ def _send(a, cmd: str, **fields):
     if entry is None:
         return None, C.fail(a.json, "no_session", err)
     from halo_harness.remote.client import ControlClient, default_token_for
-    from halo_harness.remote.session_identity import harness_name
     client = None
     try:
         client = ControlClient(str(entry.get("endpoint") or ""), default_token_for(entry), timeout=CALL_TIMEOUT_S)
-        resp = client.call(cmd, by=harness_name(), via="halo remote", **fields)
+        resp = client.call(cmd, via="halo remote", **fields)
     except Exception as e:  # refused, closed, timed out
         return None, C.fail(a.json, "unreachable", f"Session {a.session}: {type(e).__name__}: {e}")
     finally:

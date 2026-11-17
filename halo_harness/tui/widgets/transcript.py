@@ -630,6 +630,8 @@ class Transcript(VerticalScroll):
         self.plain_log.append(f"> {text}")
 
     async def add_note(self, text: str, *, kind: str = "note") -> "SystemNote":
+        from halo_harness.tui import slash_capture
+        slash_capture.note(self.app, text)  # 3.6.0.2 P9: a socket slash line's note is in its answer
         widget = SystemNote(text, kind=kind)
         await self._mount_tracked(widget)
         if kind not in ("todos",):  # a todo list is a transient status render, not worth replaying

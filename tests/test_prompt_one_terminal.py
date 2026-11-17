@@ -12,6 +12,10 @@ P6  one `ask_answered` event per answer, from either side, only when the claim w
 P73 two answers that cross: one wins, the other gets False; one decision, one line, one event.
 P7  plain-text Enter on a card that no longer waits sends the text as an ordinary prompt, no toast.
 P17 `/studio` in a private session says so and opens nothing.
+Batch 2 (F1b): P3 no frame, log line, receipt or line names a user or host (`origin` is `{via}`); P8 a socket slash
+runs the terminal's own table (taken within 1 s or not at all); P9 its answer holds its notes and toasts; P10 still
+running after 3.5 s says so; P11 a screen, a box command or `/exit`; P12 the `❯ /<line>` row for both boxes; P16 the
+row after `/clear` follows the old id and is written first; P70 the row's `first_words`.
 The socket half runs over the remote rig (a real Controller + handle + socket over a scripted FakeSession); the
 terminal half drives the real TUI (Textual run_test) over the FakeController. No model is called.
 Run: python -m tests.test_prompt_one_terminal
@@ -737,6 +741,595 @@ def test_private_studio_line(ctx: Ctx):
                       and opened == [])
     finally:
         runtime._private_flag, studio_open.OPENER = old_flag, old_opener
+
+
+# ==== batch 2 (the design's F1b): P3, P8-P12, P16, P70 ===============================================================
+NAME = "someone@gpu-box"  # a user and host name a client might send: it must reach nothing
+
+
+def _dump(x) -> str:
+    import json
+    return json.dumps(x, default=str, ensure_ascii=False)
+
+
+# ---- P3 -----------------------------------------------------------------------------------------------------------
+@test
+def test_no_user_or_host_in_meta_frames_or_log(ctx: Ctx):
+    origin = {"via": "studio", "by": NAME}
+    with Rig() as rig:
+        c = rig.client()
+        c.call("submit", text="hello from the panel", origin=origin, receipt="r_name1")
+        ctx.check("a Studio turn ran", _wait(lambda: rig.session.turn_count == 1 and not rig.session.busy))
+        ctx.check("turn 2 parks", _turn(rig, c, "please ask first", 2, "_permission_waiters", "perm_1"))
+        r = c.call("submit", text="steer it now", origin=origin)
+        ctx.check(f"a steer, got {r}", r["ok"] and r["result"]["steered"] is True)
+        c.call("answer", kind="permission", request_id="perm_1", action="allow", origin=origin)
+        ctx.check("turn 2 ends", _wait(lambda: not rig.session.busy))
+        r = c.call("agent_steer", agent_id="main", text="look again", by=NAME)
+        ctx.check(f"a steer of the main agent, got {r}", r["ok"])
+        ctx.check("its turn ran", _wait(lambda: rig.session.turn_count == 3 and not rig.session.busy))
+        r = c.call("agent_stop", agent_id="main", reason="enough for now", by=NAME)
+        ctx.check(f"an agent stop, got {r}", r["ok"])
+        r = c.call("note", name="fleet.message", text="hi there", by=NAME)
+        ctx.check(f"a fleet.message names the via, got {r}", r["ok"] and r["result"] == {"delivered": True, "via": "Studio"})
+        frames = [{"kind": e.kind, **e.data} for e in _drain(rig)]
+        nodes = rig.session.log.nodes()
+        from halo_harness.remote.receipt_seams import rows
+        receipts = rows(rig.session, rig.cwd)
+        for what, blob in (("frames", frames), ("the session log", nodes), ("the receipts", receipts)):
+            ctx.check(f"no user or host name in {what}", NAME not in _dump(blob) and "gpu-box" not in _dump(blob))
+        users = [f for f in frames if f["kind"] == "user_message" and f.get("text") == "hello from the panel"]
+        ctx.check(f"the turn's user_message carries via and no by, got {users}",
+                  len(users) == 1 and users[0].get("via") == "studio" and "by" not in users[0])
+        meta = [n["control"] for n in nodes if n.get("type") == "meta" and n.get("control")]
+        ctx.check(f"the control records carry via only, got {meta}",
+                  meta and all("by" not in m and m["via"] == "Studio" for m in meta))
+        notes = [f["text"] for f in frames if f["kind"] == "system_note"]
+        ctx.check(f"the message line names Studio, got {notes}", "(remote) message from Studio: hi there" in notes)
+
+
+class _CtlHandle:
+    """What agent_control needs of a handle: a TUI-backed one (`controller`), its notes, submits and shutdown."""
+
+    def __init__(self, session) -> None:
+        self.session, self.session_id, self.controller = session, session.log.session_id, object()
+        self.notes: list = []
+        self.submitted: list = []
+        self.shut: list = []
+
+    def _note(self, line: str) -> None:
+        self.notes.append(line)
+
+    def submit(self, text: str, **kw) -> dict:
+        self.submitted.append(text)
+        return {"steered": False}
+
+    def interrupt(self, **kw) -> dict:
+        return {"interrupted": True}
+
+    def control_shutdown(self, text: str) -> None:
+        self.shut.append(text)
+
+
+@test
+def test_agent_control_lines_name_no_one(ctx: Ctx):
+    from halo_harness.agent import agent_inbox, agent_registry
+    from halo_harness.remote import agent_control, protocol
+    from tests.helpers.fake_remote_session import FakeSession
+    main, child = FakeSession(), FakeSession("childsession000000000000000000001")
+    child.agent_id = "a1"
+    h = _CtlHandle(main)
+    tree = agent_registry.tree_for(main)
+    child._agent_tree = tree
+    tree.add("a1", session=child, parent=tree.root_id, name="reader", state="running")
+    tree.add("job:7", parent=tree.root_id, name="bash", state="running")
+    main.job_registry = SimpleNamespace(kill=lambda jid: (True, f"killed {jid}"))
+
+    def call(cmd: str, **fields) -> dict:
+        return agent_control.run(h, {"cmd": cmd, "by": NAME, **fields})
+
+    call("agent_steer", agent_id="a1", text="look at the index")
+    ctx.check(f"the steer note reads `[steer from Studio] `, got {tree.controls.inbox.get('a1')}",
+              tree.controls.drain("a1") == ["[steer from Studio] look at the index"])
+    call("agent_steer", agent_id="main", text="do the other thing", handoff=True)
+    ctx.check(f"the hand-off note reads `[hand-off from Studio] `, got {h.submitted}",
+              h.submitted and h.submitted[-1].startswith("[hand-off from Studio] "))
+    call("agent_steer", agent_id="a1", text="start over", handoff=True)
+    tree.controls.drain("a1")
+    ctx.check("a redirect's cut reads `not run: redirected from Studio`",
+              agent_inbox.before_tool(child) == ("not run: redirected from Studio", False))
+    call("pause", agent_id="a1")
+    call("resume", agent_id="a1")
+    call("pause", reason="cap")
+    call("resume")
+    call("agent_stop", agent_id="job:7", reason="too long")
+    call("agent_stop", agent_id="a1", reason="enough for now")
+    ctx.check("a stopped agent's next tool reads `not run: stopped from Studio`",
+              agent_inbox.before_tool(child) == ("not run: stopped from Studio", True))
+    ctx.check("its parent reads `stopped from Studio: <reason>`",
+              agent_inbox.handback(child, "").startswith("stopped from Studio: enough for now"))
+    call("shutdown", reason="done for today")
+    protocol._message(h, {"text": "hi there", "by": NAME})
+    want = ["reader (a1) steered from Studio: look at the index",
+            "the main agent taken over from Studio: do the other thing",
+            "reader (a1) taken over from Studio: start over",
+            "reader (a1) paused from Studio", "reader (a1) resumed from Studio",
+            "the session paused from Studio: cap (each agent holds at its next tool boundary)",
+            "the session resumed from Studio", "background job 7 stopped from Studio: too long",
+            "reader (a1) stopped from Studio: enough for now", "message from Studio: hi there"]
+    ctx.check(f"every agent line of section 3, no name, got {h.notes}", h.notes == want)
+    ctx.check(f"the shutdown line, got {h.shut}", h.shut == ["shut down from Studio: done for today"])
+    call("agent_steer", agent_id="a1", text="nudge", via="halo remote")
+    ctx.check("another client's own via stands in its place",
+              tree.controls.drain("a1") == ["[steer from halo remote] nudge"])
+    logged = main.log.nodes() + child.log.nodes()
+    ctx.check("no name in any line, record or note", NAME not in _dump([h.notes, h.shut, h.submitted, logged,
+                                                                         tree.controls.stops, tree.controls.pauses]))
+
+
+# ---- P8-P12: a slash line over the socket runs the terminal's own table ------------------------------------------
+def _rows(app) -> list:
+    from halo_harness.tui.widgets.transcript import UserMessage
+    return [w.raw_text for w in app.transcript.query(UserMessage)]
+
+
+def _notes(app) -> list:
+    from halo_harness.tui.widgets.transcript import SystemNote
+    return [w.raw_text for w in app.transcript.query(SystemNote)]
+
+
+def _order(app) -> list:
+    from halo_harness.tui.widgets.transcript import SystemNote, UserMessage
+    return [("row" if isinstance(w, UserMessage) else "note", w.raw_text) for w in app.transcript.children
+            if isinstance(w, (SystemNote, UserMessage))]
+
+
+async def _hook(fake, name: str, args: str = "") -> tuple:
+    """The socket's thread calling the TUI's hook (what ControllerHandle.run_slash does): (answer, seconds)."""
+    t0 = time.monotonic()
+    r = await asyncio.to_thread(fake.slash_hook, name, args)
+    return r, time.monotonic() - t0
+
+
+def _patched(name: str, fn):
+    """Swap one handler of tui/slash.py's table for the test's own (handle_slash reads the table at call time)."""
+    from halo_harness.tui import slash as S
+    attr = f"_handle_{name}"
+    old = getattr(S, attr)
+    setattr(S, attr, fn)
+    return lambda: setattr(S, attr, old)
+
+
+@test
+def test_socket_slash_runs_terminal_table_model_switches(ctx: Ctx):
+    with Rig() as rig:
+        c = rig.client()
+        seen = []
+        rig.controller.slash_hook = lambda name, args: seen.append((name, args)) or {"output": "done", "ran": True}
+        r = c.call("slash", line="/model other-model")
+        ctx.check(f"a session with the hook runs it, never run_slash, got {r} {seen}",
+                  r["ok"] and r["result"] == {"output": "done", "ran": True} and seen == [("model", "other-model")])
+        rig.controller.slash_hook = None
+        r = c.call("slash", line="/help me")
+        ctx.check(f"no hook: run_slash as today, a plain string ran, got {r}",
+                  r["ok"] and r["result"] == {"output": "ran /help me", "ran": True})
+        notes = [e.data["text"] for e in _drain(rig) if e.kind == "system_note"]
+        ctx.check(f"no `(remote) /<name>` note, got {notes}", not [t for t in notes if t.startswith("(remote) /")])
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            ctx.check("the TUI set the controller's slash hook at mount", callable(getattr(fake, "slash_hook", None)))
+            r, _ = await _hook(fake, "model", "other-model")
+            await pilot.pause(0.2)
+            ctx.check(f"/model <ref> from Studio switches the model, got {fake.model} {r}",
+                      fake.model == "other-model" and r["ran"] is True and "Model set to other-model" in r["output"])
+            ctx.check("Controller.run_slash never ran", fake.slash_calls == [])
+    asyncio.run(body())
+
+
+@test
+def test_untaken_socket_slash_never_runs_late(ctx: Ctx):
+    from halo_harness.tui.slash_capture import BUSY
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            before, box = fake.model, {}
+
+            def call():
+                t0 = time.monotonic()
+                box["r"] = fake.slash_hook("model", "late-model")
+                box["t"] = time.monotonic() - t0
+            th = threading.Thread(target=call, daemon=True)
+            th.start()
+            time.sleep(1.5)  # the UI thread is held
+            th.join(5)
+            await pilot.pause(0.5)
+            ctx.check(f"the busy words and ran false within 1.2 s, got {box}",
+                      box.get("r") == {"output": BUSY, "ran": False} and box.get("t", 9) < 1.2)
+            ctx.check(f"nothing ran after the UI freed, got {fake.model} {_rows(app)}",
+                      fake.model == before and "/model late-model" not in _rows(app))
+    asyncio.run(body())
+
+
+@test
+def test_slash_answer_holds_notes_and_toasts(ctx: Ctx):
+    async def handler(app, args):
+        await app.transcript.add_note("first note", kind="command")
+        app.notify("a toast", title="/intro")
+        await app.transcript.add_note("last note", kind="command")
+    restore = _patched("intro", handler)
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            r, _ = await _hook(fake, "intro", "x")
+            await pilot.pause(0.2)
+            ctx.check(f"notes and toasts in order, got {r}", r == {"output": "first note\na toast\nlast note", "ran": True})
+            ctx.check(f"the terminal draws them as for a typed line, got {_order(app)[-3:]}",
+                      _order(app)[-3:] == [("row", "/intro x"), ("note", "first note"), ("note", "last note")])
+    try:
+        asyncio.run(body())
+    finally:
+        restore()
+
+
+@test
+def test_worker_slash_status_output_reaches_the_answer(ctx: Ctx):
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            for name in ("status", "help"):
+                r, _ = await _hook(fake, name)
+                ctx.check(f"/{name} works in a worker thread; its output is in the answer, got {r}",
+                          r == {"output": f"(fake) ran /{name}", "ran": True})
+            await pilot.pause(0.2)
+            ctx.check(f"and in the terminal, got {_notes(app)}", "(fake) ran /status" in _notes(app))
+    asyncio.run(body())
+
+
+@test
+def test_unrelated_toast_not_in_slash_output(ctx: Ctx):
+    async def handler(app, args):
+        app.notify("its own toast", title="/intro")
+        await asyncio.sleep(0.4)
+    restore = _patched("intro", handler)
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            task = asyncio.ensure_future(_hook(fake, "intro"))
+            await asyncio.sleep(0.15)
+            app.notify("a canary toast")  # made by something else while the line runs
+            await app.transcript.add_note("a title changed")
+            r, _ = await task
+            ctx.check(f"only the line's own toast is in it, got {r}", r == {"output": "its own toast", "ran": True})
+    try:
+        asyncio.run(body())
+    finally:
+        restore()
+
+
+@test
+def test_slash_note_keeps_its_line_breaks(ctx: Ctx):
+    text = "Line one\n  indented two\n\nafter a blank"
+
+    async def handler(app, args):
+        await app.transcript.add_note(text, kind="command")
+    restore = _patched("intro", handler)
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            r, _ = await _hook(fake, "intro")
+            ctx.check(f"the note whole, its line breaks kept, got {r!r}", r == {"output": text, "ran": True})
+    try:
+        asyncio.run(body())
+    finally:
+        restore()
+
+
+@test
+def test_slash_over_3500ms_answers_still_running(ctx: Ctx):
+    from halo_harness.tui.slash_capture import STILL
+
+    async def body():
+        fake, app = _app()
+        plain = fake.run_slash
+
+        def slow(name, args=""):
+            if name == "slowcmd":
+                time.sleep(4.2)
+                return "the late output"
+            return plain(name, args)
+        fake.run_slash = slow
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            r, took = await _hook(fake, "slowcmd")
+            ctx.check(f"the output so far and the still-running line within 4.6 s, ran true, got {r} in {took:.2f}s",
+                      r == {"output": STILL, "ran": True} and took < 4.6)
+            for _ in range(60):
+                if "the late output" in _notes(app):
+                    break
+                await pilot.pause(0.1)
+            ctx.check(f"the rest shows in the terminal, got {_notes(app)}", "the late output" in _notes(app))
+    asyncio.run(body())
+
+
+@test
+def test_needs_screen_opens_nothing_and_says_so(ctx: Ctx):
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            screens = len(app.screen_stack)
+            for name, args in (("model", ""), ("resume", ""), ("rewind", ""), ("update", ""), ("ollama", "hosts"),
+                               ("mcp", ""), ("permissions", ""), ("keys", ""), ("explain", "x"), ("effort", "")):
+                r, _ = await _hook(fake, name, args)
+                await pilot.pause(0.1)
+                line = f"/{name} opens a window in the terminal: type it there."
+                ctx.check(f"/{name} {args}: the line and ran false, got {r}", r == {"output": line, "ran": False})
+                ctx.check(f"/{name}: the row then the line in the terminal, got {_order(app)[-2:]}",
+                          _order(app)[-2:] == [("row", f"/{name} {args}".strip()), ("note", line)])
+                ctx.check(f"/{name}: no screen and no card opened", len(app.screen_stack) == screens
+                          and app.pending_card is None)
+            ctx.check("nothing ran", fake.slash_calls == [])
+    asyncio.run(body())
+
+
+@test
+def test_every_handler_that_pushes_a_screen_is_caught(ctx: Ctx):
+    """Every handler of tui/slash.py's table that reaches a push site (a `push_screen`, a `set_pending_card`, the
+    tasks panel, the editor) is in `needs_screen`; then a push the table missed is caught as it happens."""
+    import ast
+    import inspect
+    from halo_harness.tui import slash as S
+    from halo_harness.tui.slash_capture import needs_screen
+    tree = ast.parse(inspect.getsource(S))
+    funcs = {n.name: n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    pushes = ("push_screen", "set_pending_card", "action_toggle_tasks", "action_open_editor")
+
+    def reaches(name: str, seen: set) -> bool:
+        if name in seen or name not in funcs:
+            return False
+        seen.add(name)
+        names = {getattr(n, "attr", None) or getattr(n, "id", None) for n in ast.walk(funcs[name])}
+        return bool(names & set(pushes)) or any(reaches(n, seen) for n in names if n in funcs)
+    table = next(n for n in ast.walk(funcs["handle_slash"]) if isinstance(n, ast.Dict))
+    handlers = {k.value: v.id for k, v in zip(table.keys, table.values) if isinstance(v, ast.Name)}
+    pushing = sorted(name for name, fn in handlers.items() if reaches(fn, set()))
+    missed = [n for n in pushing if not (needs_screen(n, "") or needs_screen(n, "hosts"))]
+    ctx.check(f"the push sites found, got {pushing}", len(pushing) >= 12)
+    ctx.check(f"every handler that pushes is in needs_screen, missed {missed}", missed == [])
+
+    from textual.screen import ModalScreen
+
+    async def handler(app, args):
+        app.push_screen(ModalScreen())
+    restore = _patched("intro", handler)
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            screens = len(app.screen_stack)
+            r, _ = await _hook(fake, "intro")
+            await pilot.pause(0.2)
+            line = "/intro opens a window in the terminal: type it there."
+            ctx.check(f"a push the table missed is caught, got {r}", r == {"output": line, "ran": False})
+            ctx.check("not pushed, the line in the terminal", len(app.screen_stack) == screens and line in _notes(app))
+            app.push_screen(ModalScreen())  # outside a capture a push is a push
+            await pilot.pause(0.2)
+            ctx.check("a push outside a capture still opens", len(app.screen_stack) == screens + 1)
+    try:
+        asyncio.run(body())
+    finally:
+        restore()
+
+
+@test
+def test_screen_pushed_from_a_worker_is_caught(ctx: Ctx):
+    from textual.screen import ModalScreen
+
+    def work(app):
+        time.sleep(0.2)
+        app.call_from_thread(app.push_screen, ModalScreen())
+
+    async def handler(app, args):
+        app.run_worker(lambda: work(app), thread=True, name="pushes", group="pushes")
+    restore = _patched("intro", handler)
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            screens = len(app.screen_stack)
+            r, _ = await _hook(fake, "intro")
+            await pilot.pause(0.3)
+            line = "/intro opens a window in the terminal: type it there."
+            ctx.check(f"a worker's push is caught, got {r}", r == {"output": line, "ran": False})
+            ctx.check("not pushed", len(app.screen_stack) == screens)
+    try:
+        asyncio.run(body())
+    finally:
+        restore()
+
+
+@test
+def test_box_commands_from_studio_leave_the_terminal_box(ctx: Ctx):
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            pi = app.prompt_input
+            pi.insert("half a thought")
+            pi.images.append({"path": "chip.png"})
+            text, chips = pi.text, list(pi.images)
+            for name, args in (("paste", ""), ("paste", "shot.png"), ("images", "clear"), ("screenshot", "")):
+                r, _ = await _hook(fake, name, args)
+                await pilot.pause(0.1)
+                line = f"/{name} works on the terminal's own box: type it there."
+                ctx.check(f"/{name} {args}: the line, ran false, got {r}", r == {"output": line, "ran": False})
+                ctx.check(f"/{name}: the row and the line in the terminal, got {_order(app)[-2:]}",
+                          _order(app)[-2:] == [("row", f"/{name} {args}".strip()), ("note", line)])
+                ctx.check(f"/{name}: the box and its chips unchanged", pi.text == text and list(pi.images) == chips)
+            pi.images.clear()
+    asyncio.run(body())
+
+
+@test
+def test_exit_from_studio_ends_the_terminal(ctx: Ctx):
+    from halo_harness.remote import protocol
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            r, _ = await _hook(fake, "exit")
+            ctx.check(f"the answer comes first: output empty, ran true, the terminal still up, got {r}",
+                      r.get("output") == "" and r.get("ran") is True and callable(r.get("then"))
+                      and not app._quitting)
+            conn = SimpleNamespace()
+            ans = protocol._slash_answer(r, conn)
+            ctx.check(f"the wire answer, the end held for after the send, got {ans}",
+                      ans == {"output": "", "ran": True} and callable(getattr(conn, "then", None)) and not app._quitting)
+            await asyncio.to_thread(conn.then)
+            for _ in range(50):
+                if getattr(fake, "quit_called", False):
+                    break
+                await pilot.pause(0.1)
+            ctx.check("then the terminal's Halo ends as typed there", app._quitting and getattr(fake, "quit_called", False))
+    asyncio.run(body())
+
+
+@test
+def test_slash_row_drawn_for_both_boxes(ctx: Ctx):
+    async def handler(app, args):
+        await app.transcript.add_note(f"intro {args}", kind="command")
+    restore = _patched("intro", handler)
+
+    async def body():
+        fake, app = _app()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            app.prompt_input.insert("/intro typed")
+            await pilot.press("enter")
+            await pilot.pause(0.3)
+            ctx.check(f"a typed line: its row then its output, got {_order(app)[-2:]}",
+                      _order(app)[-2:] == [("row", "/intro typed"), ("note", "intro typed")])
+            r, _ = await _hook(fake, "intro", "from studio")
+            await pilot.pause(0.2)
+            ctx.check(f"a Studio line: its row then its output, got {_order(app)[-2:]}",
+                      _order(app)[-2:] == [("row", "/intro from studio"), ("note", "intro from studio")])
+            ctx.check("no `(remote) /` line", not [t for t in _notes(app) if t.startswith("(remote) /")])
+    try:
+        asyncio.run(body())
+    finally:
+        restore()
+
+
+# ---- P16, P70: the registry row follows the terminal and carries its first words -----------------------------------
+def _registry_rows() -> dict:
+    from halo_harness.remote import registry
+    return {r["session_id"]: r for r in registry._load(registry.registry_path())}
+
+
+@test
+def test_new_row_follows_old_id(ctx: Ctx):
+    from halo_harness.remote import registry, runtime
+    from tests.helpers.fake_remote_session import FakeLog
+    with Rig(serve=False, start_controller=False) as rig:
+        act = runtime._open(rig.handle, rig.controller)
+        try:
+            old = act.session_id
+            ctx.check("registered", old in _registry_rows())
+            seen, real_reg, real_unreg = [], registry.register, registry.unregister
+
+            def reg(entry):
+                real_reg(entry)
+                seen.append(("register", sorted(_registry_rows())))
+
+            def unreg(sid):
+                real_unreg(sid)
+                seen.append(("unregister", sorted(_registry_rows())))
+            registry.register, registry.unregister = reg, unreg
+            try:
+                new = "clearedsession00000000000000000002"
+                rig.session.log = FakeLog(new)  # /clear: a fresh log under a new id
+                rig.handle.hub.publish(ev.Event("status", {"session_id": new, "permission_mode": "default"}))
+                ctx.check("re-registered", _wait(lambda: len(seen) >= 2, 5))
+            finally:
+                registry.register, registry.unregister = real_reg, real_unreg
+            ctx.check(f"the new row is written before the old leaves, got {seen}",
+                      seen == [("register", sorted([old, new])), ("unregister", [new])])
+            row = _registry_rows().get(new) or {}
+            ctx.check(f"the new row follows the old id, got {row}", row.get("follows") == old)
+            pub = registry.public_entry(row)
+            ctx.check(f"`follows` and `first_words` are public, got {pub}",
+                      pub.get("follows") == old and pub.get("first_words") == "" and "token" not in pub)
+        finally:
+            runtime.stop_one(act)
+
+
+@test
+def test_first_words_in_the_registry_row(ctx: Ctx):
+    from halo_harness.headless_session import HeadlessHandle
+    from halo_harness.remote import registry, runtime
+    from halo_harness.remote.print_handle import PrintModeHandle
+    from tests.helpers.fake_remote_session import FakeLog, FakeSession
+    ctx.check("six words, single spaces, at most 60 characters",
+              registry.first_words("  fix   the\nflaky login test on windows please ") == "fix the flaky login test on"
+              and len(registry.first_words("x" * 200)) == 60 and registry.first_words("") == "")
+    text = "please fix the flaky login test on windows today"
+    with Rig(serve=False, start_controller=False) as rig:
+        acts = []
+        try:
+            resumed = FakeSession("resumedsession0000000000000000003")
+            resumed.log.add("user", "carry on with the   index work from yesterday")
+            kinds = (("terminal", lambda: runtime._open(rig.handle, rig.controller)),
+                     ("Studio-started", lambda: runtime._open(HeadlessHandle(rig.controller, threading.Event()),
+                                                              rig.controller)),
+                     ("print", lambda: runtime._open(PrintModeHandle(FakeSession("printsession00000000000000000004"),
+                                                                     rig.cwd), kind="print")),
+                     ("resumed", lambda: runtime._open(PrintModeHandle(resumed, rig.cwd), kind="print")))
+            for label, opener in kinds:
+                if label == "Studio-started":
+                    runtime.stop_one(acts[0])  # one handle per session: the terminal's first
+                act = opener()
+                acts.append(act)
+                ctx.check(f"{label}: opened", act is not None)
+                if label == "resumed":
+                    ctx.check(f"resumed: read from the log at register, got {_registry_rows()[act.session_id]}",
+                              _registry_rows()[act.session_id].get("first_words") == "carry on with the index work")
+                    continue
+                ctx.check(f"{label}: none until the first message",
+                          _registry_rows()[act.session_id].get("first_words") == "")
+                act.handle.hub.publish(ev.Event("user_message", {"text": "a sub-agent's task text"}, turn=1,
+                                                agent_id="sub1"))
+                act.handle.hub.publish(ev.Event("user_message", {"text": text}, turn=1))
+                act.handle.hub.publish(ev.Event("user_message", {"text": "a second message later"}, turn=2))
+                got = _wait(lambda: _registry_rows()[act.session_id].get("first_words"), 5)
+                ctx.check(f"{label}: the first main message's words, got {got!r}", got == "please fix the flaky login test")
+                time.sleep(0.2)
+                ctx.check(f"{label}: a later message changes nothing",
+                          _registry_rows()[act.session_id].get("first_words") == "please fix the flaky login test")
+            act = acts[1]
+            new = "clearedsession00000000000000000005"
+            rig.session.log = FakeLog(new)
+            act.handle.hub.publish(ev.Event("status", {"session_id": new, "permission_mode": "default"}))
+            ctx.check("after /clear the new row", _wait(lambda: new in _registry_rows(), 5))
+            ctx.check(f"a row made by /clear starts with none, got {_registry_rows().get(new)}",
+                      _registry_rows()[new].get("first_words") == "")
+        finally:
+            for act in acts:
+                runtime.stop_one(act)
 
 
 if __name__ == "__main__":

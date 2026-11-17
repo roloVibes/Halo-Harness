@@ -102,7 +102,7 @@ def test_agent_tree_tail_steer_pause_redirect_stop_and_frames(ctx: Ctx):
             notes = [n.get("control_note") for n in session.log.nodes() if n.get("type") == "meta" and n.get("control_note")]
             ctx.check(f"the parent (main) transcript got exactly one line, got {notes}",
                       len(notes) == 1 and notes[0].startswith("general-purpose") and
-                      "steered from Studio by tester: focus on the index format" in notes[0])
+                      "steered from Studio: focus on the index format" in notes[0] and "tester" not in notes[0])
             ctx.check("pause B", c.call("pause", agent_id=bid, **BY)["result"] == {"paused": bid})
             gate_b.set()
             ctx.check("B holds at its tool boundary: state paused",
@@ -112,7 +112,7 @@ def test_agent_tree_tail_steer_pause_redirect_stop_and_frames(ctx: Ctx):
                       len(b_seen) == 1 and not any(n.get("type") == "tool_result" for n in _child_nodes(rig, session, bid)))
             ctx.check("resume B", c.call("resume", agent_id=bid, **BY)["result"]["was_paused"] is True)
             ctx.check("B finishes", wait_for(lambda: _rows(c)[bid]["state"] == "done", 15))
-            steer = "[steer from tester via Studio] focus on the index format"
+            steer = "[steer from Studio] focus on the index format"
             ctx.check(f"the note is a user-role message in B's next model call, got {len(b_seen)} calls",
                       len(b_seen) == 2 and any(steer in t for t in _user_texts(b_seen[1]))
                       and not any(steer in t for t in _user_texts(b_seen[0])))
@@ -139,13 +139,13 @@ def test_agent_tree_tail_steer_pause_redirect_stop_and_frames(ctx: Ctx):
                       and final[bid]["state"] == "done" and final["main"]["state"] == "done")
             results = {n["tool_use_id"]: str(n.get("content")) for n in session.log.nodes() if n.get("type") == "tool_result"}
             ctx.check(f"main got A's stopped hand-back, got {results.get('call_a', '')[:120]!r}",
-                      "stopped by tester from Studio: enough for now" in results.get("call_a", ""))
+                      "stopped from Studio: enough for now" in results.get("call_a", ""))
             texts = [b.get("text") for n in session.log.nodes() if n.get("type") == "assistant"
                      for b in n.get("content") or [] if b.get("type") == "text"]
             ctx.check("and the main agent carried on to its own answer", "main done" in texts)
             c_results = [str(n.get("content")) for n in _child_nodes(rig, session, cc["agent_id"]) if n.get("type") == "tool_result"]
             ctx.check(f"C's tool was left unrun with the stop reason, got {c_results}",
-                      any("not run: stopped by tester from Studio" in t for t in c_results))
+                      any("not run: stopped from Studio" in t for t in c_results))
             states = feed.of("agent_state")
             ctx.check(f"agent_state frames for the tree, with session_id and harness, got {len(states)}",
                       states and all(f.get("session_id") == session.log.session_id and f.get("harness") == hello["data"]["harness"]["id"]

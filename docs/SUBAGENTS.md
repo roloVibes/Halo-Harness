@@ -169,11 +169,11 @@ results, the agents it spawned, its hand-back, and the commands it received).
 **Steer.** A steer is delivered to THAT agent, not to main:
 
 - `nudge` (the default): the note goes to the agent's inbox and is applied
-  right before its next model call, as a user-role note `[steer from <by> via
+  right before its next model call, as a user-role note `[steer from
   Studio] <text>`, through the path a typed steer takes (UserPromptSubmit
   hooks run on it). The tool calls already planned this round still run.
 - `redirect`: the same, and the rest of the agent's current tool round is
-  left unrun (`not run: redirected by <by> from Studio`), so its next model
+  left unrun (`not run: redirected from Studio`), so its next model
   call starts from the note: `Redirect: the rest of your current task is
   replaced. Your task is now: <text>`. Its `task` in the tree becomes the
   note's first line. A round the agent planned after it read the note is not
@@ -186,8 +186,8 @@ results, the agents it spawned, its hand-back, and the commands it received).
 next tool boundary: the flag is checked before every tool call and before
 every model call, so a model call already streaming finishes first and a
 running tool call finishes too. The calls it had not started are answered
-`not run: stopped by <by> from Studio`. Its parent receives the ordinary
-hand-back, shaped `stopped by <by> from Studio: <reason>` followed by what the
+`not run: stopped from Studio`. Its parent receives the ordinary
+hand-back, shaped `stopped from Studio: <reason>` followed by what the
 agent had written so far, and carries on with its own turn (a stopped child
 is not sent back for an acceptance retry). For the main agent a stop is the
 turn-level interrupt. A background Bash job is killed.
@@ -199,11 +199,11 @@ end the hold too. `shutdown` ends every agent at its next boundary and then
 closes the session.
 
 **What the parent sees.** One line in its own transcript for a steer, stop or
-pause (`<agent> steered from Studio by <by>: <first 80 characters>`, `...
-stopped from Studio by <by>: <reason>`, `... paused from Studio by <by>`, once
+pause (`<agent> steered from Studio: <first 80 characters>`, `...
+stopped from Studio: <reason>`, `... paused from Studio`, once
 per pause), the same line in the TUI, and for a stop the hand-back above as
 the Agent tool's result. The agent's own transcript records every command
-(`cmd`, `by`, `via`).
+(`cmd`, `via`; no user or host name).
 
 **What a steer never does.** It is a user-role note like any typed steer:
 it never widens a permission, approves or answers a card, changes an

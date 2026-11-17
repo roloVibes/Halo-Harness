@@ -86,22 +86,38 @@ def _note(handle, req: dict, conn) -> dict:
 
 
 def _message(handle, req: dict) -> dict:
-    """`{"cmd": "note", "name": "fleet.message", "text", "by"}` (3.0.5.0 R4, Fleet's People panel): a line
-    the session's owner reads in the transcript and the TUI; the model never sees it."""
+    """`{"cmd": "note", "name": "fleet.message", "text", "via"?}` (3.0.5.0 R4, Fleet's People panel): a line
+    the session's owner reads in the transcript and the TUI; the model never sees it. 3.6.0.2 P3: the line names
+    the request's via ("Studio" when it names none), never a user or host: a `by` is not read."""
     text = " ".join(_str(req, "text").split())[:500]
     if not text:
         raise HandleError("a fleet.message note needs text")
-    by = " ".join(_str(req, "by").split())[:64] or "someone"
-    line = f"message from {by}: {text}"
+    from halo_harness.remote.agent_control import _announce, _caller
+    via = _caller(req)
+    line = f"message from {via}: {text}"
     log = getattr(handle.session, "log", None)
     if log is not None:
         try:
             log.append_meta(control_note=line)
         except Exception:
             pass
-    from halo_harness.remote.agent_control import _announce
     _announce(handle, line)
-    return {"delivered": True, "by": by}
+    return {"delivered": True, "via": via}
+
+
+def _slash_answer(result, conn) -> dict:
+    """3.6.0.2 P8: `slash` answers `{output, ran}` (a handle's plain string ran); P11: a `then` (the terminal's
+    `/exit`) runs once the answer went out (`conn.then`, control_socket), or at once with no connection."""
+    if not isinstance(result, dict):
+        return {"output": "" if result is None else str(result), "ran": True}
+    out = {"output": str(result.get("output") or ""), "ran": result.get("ran") is not False}
+    then = result.get("then")
+    if callable(then):
+        if conn is not None:
+            conn.then = then
+        else:
+            then()
+    return out
 
 
 def _images(handle, req: dict):
@@ -164,7 +180,7 @@ def run_cmd(handle, req: dict, conn) -> Any:
         name, args = _str(req, "name"), _str(req, "args")
         if line.startswith("/") and not name:
             name, _, args = line[1:].partition(" ")
-        return {"output": handle.run_slash(name, args)}
+        return _slash_answer(handle.run_slash(name, args), conn)
     if cmd == "tail":
         n = req.get("n", TAIL_DEFAULT)
         n = n if isinstance(n, int) and not isinstance(n, bool) else TAIL_DEFAULT

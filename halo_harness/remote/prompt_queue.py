@@ -3,9 +3,10 @@ panel), and the one user turn a session may hold for later.
 
 `submit` (remote/protocol.py) takes two more fields:
 
-    origin     {via: "studio", by}   where the turn came from (3.6.0.2 P1: no grey note in the terminal;
-                                     the `❯` row is the one copy): the turn's `user_message` carries `via` / `by`
-                                     (remote/receipt_seams.stamp)
+    origin     {via: "studio"}       where the turn came from (3.6.0.2 P1: no grey note in the terminal;
+                                     the `❯` row is the one copy): the turn's `user_message` carries `via`
+                                     (remote/receipt_seams.stamp); 3.6.0.2 P3: a `by` a client sends is dropped,
+                                     no frame or log line carries a user or host name
     when_busy  steer (the default: today's behaviour, the Signal remote's unchanged) | refuse | queue
 
 * `refuse`: a busy session answers `{busy: true, line}` and takes nothing; the panel then offers Queue it / Steer.
@@ -37,7 +38,7 @@ def submit_kw(req: dict) -> dict:
     kw: dict = {}
     origin = req.get("origin")
     if isinstance(origin, dict) and origin.get("via"):
-        kw["origin"] = {"via": str(origin["via"])[:32], "by": " ".join(str(origin.get("by") or "").split())[:64]}
+        kw["origin"] = {"via": str(origin["via"])[:32]}
     wb = req.get("when_busy")
     if isinstance(wb, str) and wb:
         if wb not in WHEN_BUSY:
@@ -51,12 +52,10 @@ def submit_kw(req: dict) -> dict:
 
 
 def meta_of(origin: Optional[dict], receipt: str = "") -> dict:
-    """The `user_input` Command's meta: `{via, by, receipt}`, only the parts there are."""
+    """The `user_input` Command's meta: `{via, receipt}`, only the parts there are (3.6.0.2 P3: never a `by`)."""
     meta: dict = {}
     if isinstance(origin, dict) and origin.get("via"):
         meta["via"] = origin["via"]
-        if origin.get("by"):
-            meta["by"] = origin["by"]
     if receipt:
         meta["receipt"] = receipt
     return meta

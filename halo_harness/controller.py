@@ -668,6 +668,10 @@ class Controller:
         self.commands.put(events.Command("run_clear", {}))
         return ""
 
+    # 3.6.0.2 P8: the TUI sets this at mount (tui/slash_capture.run); a socket `slash` then runs the terminal's
+    # own table on its UI thread (remote/handle.ControllerHandle.run_slash), never `run_slash` below.
+    slash_hook = None
+
     def run_slash(self, name: str, args: str = "") -> str:
         """Resolve `name` through the U0 registry.
 

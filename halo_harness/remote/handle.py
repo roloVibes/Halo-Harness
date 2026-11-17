@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Optional, Protocol, runtime_checkable
 
 from halo_harness import events
-from halo_harness.remote.base import HandleError, _BaseHandle, _short  # HandleError is re-exported here
+from halo_harness.remote.base import HandleError, _BaseHandle  # HandleError is re-exported here
 from halo_harness.remote.feed import EventHub, Subscription
 
 
@@ -42,7 +42,7 @@ class SessionHandle(Protocol):
     def answer_plan(self, approved: bool, *, feedback: str = "", mode_after: Optional[str] = None,
                     via: str = "") -> bool: ...
     def answer_approval(self, request_id: str, action: str, *, instruction: str = "", via: str = "") -> bool: ...
-    def run_slash(self, name: str, args: str = "") -> str: ...
+    def run_slash(self, name: str, args: str = "") -> "str | dict": ...  # 3.6.0.2 P8: {output, ran} from a terminal
     def tail(self, n: int = 20) -> str: ...
     def subscribe(self, *, kinds=None, maxsize: int = 256) -> Subscription: ...
     def unsubscribe(self, sub: Subscription) -> None: ...
@@ -167,9 +167,13 @@ class ControllerHandle(_BaseHandle):
         self._note(f"effort {level}")
         return {"effort": getattr(self.session, "effort", level), "message": text}
 
-    def run_slash(self, name: str, args: str = "") -> str:
+    def run_slash(self, name: str, args: str = ""):
+        """3.6.0.2 P8: a terminal's own table (the TUI's `slash_hook`: `{output, ran}`), else `run_slash` as
+        before; P12: no `(remote) /<name>` note (the terminal draws the line's own row)."""
         name = (name or "").lstrip("/").strip()
         if not name:
             raise HandleError("slash command name required")
-        self._note(f"/{name} {_short(args)}".strip())
+        hook = getattr(self.controller, "slash_hook", None)
+        if callable(hook):
+            return hook(name, args or "")
         return self.controller.run_slash(name, args or "")

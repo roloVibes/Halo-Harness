@@ -11,7 +11,8 @@ One `Controls` per agent tree (`agent_registry.AgentTree.controls`):
   ..."), so its next model call starts from the new task.
 * stop: the agent and its subtree end at their next tool boundary (checked
   before every tool call and before every model call); the parent's tool
-  result is "stopped by <by> from <via>: <reason>" and the parent goes on.
+  result is "stopped from <via>: <reason>" and the parent goes on (3.6.0.2
+  P3: no line names a user or host, only the request's via).
 * pause / resume: an agent and its subtree, or the whole session, hold at
   the next tool boundary until resumed (state `paused` meanwhile).
 * shutdown: every agent ends at its next boundary; the session then closes.
@@ -33,7 +34,8 @@ PARTIAL_CAP = 1500
 
 
 def who(rec: dict) -> str:
-    return f"{rec.get('by') or 'someone'} from {rec.get('via') or 'Studio'}"
+    """Where a stop or pause came from: its via only (3.6.0.2 P3)."""
+    return f"from {rec.get('via') or 'Studio'}"
 
 
 class Controls:
@@ -45,11 +47,12 @@ class Controls:
         self.pauses: dict = {}
         self.shutdown: Optional[dict] = None
 
-    def _rec(self, by: str, via: str, **extra) -> dict:
-        return {"by": by, "via": via or "Studio", "ts": time.time(), **extra}
+    def _rec(self, via: str, **extra) -> dict:
+        return {"via": via or "Studio", "ts": time.time(), **extra}
 
     # ---- the inbox ----------------------------------------------------------
     def post(self, aid: str, note: str, *, cut_by: Optional[str] = None) -> int:
+        """`cut_by` is a redirect's via (3.6.0.2 P3): the cut results read "not run: redirected from <via>"."""
         with self.tree.cv:
             self.inbox.setdefault(aid, []).append(note)
             if cut_by:
@@ -66,15 +69,15 @@ class Controls:
             return self.cuts.pop(aid, None)
 
     # ---- stop / shutdown ------------------------------------------------------
-    def stop(self, aid: str, by: str, reason: str, via: str = "Studio") -> list:
+    def stop(self, aid: str, reason: str, via: str = "Studio") -> list:
         with self.tree.cv:
-            self.stops[aid] = self._rec(by, via, reason=reason)
+            self.stops[aid] = self._rec(via, reason=reason)
             self.tree.cv.notify_all()
         return self.tree.subtree(aid)
 
-    def begin_shutdown(self, by: str, reason: str, via: str = "Studio") -> None:
+    def begin_shutdown(self, reason: str, via: str = "Studio") -> None:
         with self.tree.cv:
-            self.shutdown = self._rec(by, via, reason=reason)
+            self.shutdown = self._rec(via, reason=reason)
             self.tree.cv.notify_all()
 
     def stop_record(self, aid: str) -> Optional[dict]:
@@ -93,12 +96,12 @@ class Controls:
                 table.pop(aid, None)
 
     # ---- pause / resume ---------------------------------------------------------
-    def pause(self, aid: Optional[str], by: str, via: str = "Studio") -> bool:
+    def pause(self, aid: Optional[str], via: str = "Studio") -> bool:
         """False when it was paused already (the parent is told once)."""
         with self.tree.cv:
             key = aid or ALL
             fresh = key not in self.pauses
-            self.pauses[key] = self._rec(by, via)
+            self.pauses[key] = self._rec(via)
             return fresh
 
     def resume(self, aid: Optional[str]) -> bool:
@@ -155,10 +158,10 @@ def before_tool(session) -> "Optional[tuple]":
         _hold(tree, aid, getattr(session, "abort", None))
         rec = tree.controls.stop_record(aid)
         if rec is not None:
-            return f"not run: stopped by {who(rec)}", True
-        by = tree.controls.take_cut(aid)
-        if by:
-            return f"not run: redirected by {by}", False
+            return f"not run: stopped {who(rec)}", True
+        via = tree.controls.take_cut(aid)
+        if via:
+            return f"not run: redirected from {via}", False
     except Exception:
         return None
     return None
@@ -197,7 +200,7 @@ def handback(child, text: str) -> str:
     rec = tree.controls.stop_record(aid) if tree is not None else None
     if rec is None:
         return text
-    line = f"stopped by {who(rec)}: {rec.get('reason') or 'no reason given'}"
+    line = f"stopped {who(rec)}: {rec.get('reason') or 'no reason given'}"
     partial = (text or "").strip()
     if partial and partial != _NO_TEXT:
         line += "\n\nWhat it had written before it stopped:\n" + partial[-PARTIAL_CAP:]
