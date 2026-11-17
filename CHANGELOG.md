@@ -287,8 +287,9 @@ more alike. The limits that remain are at the end of this section.
   (a link such as macOS /var to /private/var, or a Windows drive letter in another case or with other slashes).
 - **The box a session waits on (on you, a tool or a model reply) was not outlined on the run drawings.** It is now, on
   Session's Live and on 4 · Live.
-- **`halo bugreport` could cut a settings path under your home folder** when a folder name in it was long. The path is
-  shown as `~/...` again; a secret beside it is still cut.
+- **`halo bugreport` could cut a settings path under your home folder** when the home folder's own path ran 40 or more
+  letters, digits and slashes with no dot, dash or underscore (a macOS temp folder can). The path is now shown as
+  `~/...`; a secret beside it is still cut.
 
 ### Known limits
 
@@ -311,8 +312,8 @@ more alike. The limits that remain are at the end of this section.
 - **Something main builds before Studio follows the session may not be marked as just built.** Studio picks up a
   terminal session within about two seconds of its start (or of Studio's own start); what the session sends before
   that does not reach the page. What was built is saved and listed all the same.
-- **On Windows the sentence over Session's drawing can take one more line when the map new sessions use is switched**,
-  which moves the controls under it once, also while the pointer is on the drawer.
+- **On Windows (and wherever the font runs wider) the sentence over Session's drawing can take one more line when the
+  map new sessions use is switched**, which moves the controls under it once, also while the pointer is on the drawer.
 - **History is still on Agents -> 3 · Map.** It leaves the Agents tab in the next release.
 - **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
   which removes it and says so; Windows has no reaper. Its `docker run` client ends with Halo at once. Any `halo`
