@@ -99,9 +99,10 @@ def _enum_tab(c, rig, view: str) -> dict:
     def keys() -> list:
         return [x["key"] for x in c.js(f"{ENUM}({view!r})") or []]
 
-    def load():
+    def load(need: str = ""):
         """The tab at rest as a first-time user sees it: what an earlier press saved (a drawer opened, a panel alone) is
-        forgotten first, then the page is loaded again."""
+        forgotten first, then the page is loaded again. `need`: the control about to be pressed, listed at rest; the page
+        counts as back at rest only once it is listed again (a chip that mounts late, such as Attention, is waited for)."""
         for clear in (True, False):
             c.go("about:blank")
             c.wait("location.href === 'about:blank'", 10)
@@ -110,9 +111,9 @@ def _enum_tab(c, rig, view: str) -> dict:
             if clear:
                 c.js("(() => { try { localStorage.clear(); sessionStorage.clear(); } catch (e) { /* none to clear */ } return 1; })()")
         last = None
-        for _ in range(20):  # at rest: two reads 0.5 s apart list the same controls
+        for _ in range(40):  # at rest: two reads 0.5 s apart list the same controls, `need` among them
             now = keys()
-            if now and now == last:
+            if now and now == last and (not need or need in now):
                 return
             last = now
             time.sleep(0.5)
@@ -131,7 +132,7 @@ def _enum_tab(c, rig, view: str) -> dict:
                 skipped.append([x["key"], why])
                 continue
             if c.js(VIEW) != view or keys() != at_rest:
-                load()
+                load(x["key"])
             how = ("choose", x["other"]) if x["tag"] == "SELECT" else None
             recs += presses(c, [(x["tid"] or x["text"] or x["key"], _find(view, x["key"]), None, how)])
     finally:

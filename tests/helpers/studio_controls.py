@@ -40,11 +40,16 @@ LOG: list = []  # the agent commands that reached "the session" (the forward's s
 VISIBLE = """((e) => { if (!e || !e.isConnected) return false; const r = e.getBoundingClientRect(), s = getComputedStyle(e);
   return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && !e.closest('[hidden], [inert]')
     && (!e.closest('[aria-hidden=true]') || e instanceof SVGElement); })"""  # a twin kept for its room is aria-hidden; a drawing's svg is too
-INTO_VIEW = """((e) => { const r = e.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+# Is `e` what a press at its centre reaches? `e` or a child of it is; an ANCESTOR is not (`e` is clipped out of its
+# scroller's view or covered, e.g. History below the Map panel's visible bottom: the press lands on the stage), unless `e`
+# takes no pointer itself (an svg shape, `pointer-events: none`), where the press is the ancestor's by design.
+REACHED = """((e, at) => !!at && (e === at || e.contains(at) || (at.contains(e)
+  && (e instanceof SVGElement || getComputedStyle(e).pointerEvents === 'none'))))"""
+INTO_VIEW = f"""((e) => {{ const r = e.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
   const at = x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight ? document.elementFromPoint(x, y) : null;
-  if (r.width && (!at || !(e === at || e.contains(at) || at.contains(e)))) e.scrollIntoView({block: 'center', inline: 'center'}); return 1; })"""
-HIT = """((e) => { const r = e.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  return !!at && (e === at || e.contains(at) || at.contains(e)) ? '' : (at ? (at.dataset.testid || at.className || at.tagName) + '' : 'nothing'); })"""
+  if (r.width && !{REACHED}(e, at)) e.scrollIntoView({{block: 'center', inline: 'center'}}); return 1; }})"""
+HIT = f"""((e) => {{ const r = e.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return {REACHED}(e, at) ? '' : (at ? (at.dataset.testid || at.className || at.tagName) + '' : 'nothing'); }})"""
 ARM = """(() => { const C = window.__ctl || (window.__ctl = {});
   if (C.mo) C.mo.disconnect();
   C.muts = 0; C.scrolls = 0; C.phase = 'noise'; C.noise = new WeakSet(); C.raf = 0;
