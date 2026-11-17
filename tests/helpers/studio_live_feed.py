@@ -137,4 +137,38 @@ def feed_step(c, rig, lv, rows) -> dict:
     aid = lv.aid("implementer")
     out["agent_door"] = c.wait(f"{VIEW} === 'live' && {FEED_SHOWN} && {FD}?.dataset.filter === 'agent:{aid}' && [{VIEW}, {FD}.dataset.filter, {FD}.dataset.sid]", 15)
     out["aid"] = aid
+    out["away_door"] = away_door(c, rig)
     return out
+
+
+def away_door(c, rig) -> list:
+    """An agent of ANOTHER machine's session, opened from 3 · Map (the palette's "Agents: follow agent night-runner"):
+    Live lands on that session (T9, its drawing is in that machine's Studio), never on this machine's session with a
+    Feed filtered to an id it does not have (its id `main` is this session's main's too)."""
+    from halo_harness.studio import live_api
+    from tests.helpers.studio_agents_live_draw import AWAY
+    far = {**AWAY, "sessions": [{**AWAY["sessions"][0], "busy": True,
+                                 "agents": [{"agent_id": "main", "name": "night-runner", "state": "running"}]}]}
+    orig = live_api.view_for
+
+    def view_for(server, state_dir):
+        v = orig(server, state_dir)
+        return {**v, "harnesses": list(v.get("harnesses") or []) + [far]}
+    live_api.view_for = view_for
+    try:
+        c.go("about:blank")
+        c.wait("location.href === 'about:blank'", 10)
+        c.go(rig.url("agents", "&view=map"))
+        c.wait(f"{VIEW} === 'map'", 40)
+        c.click_on("document.querySelector('[data-testid=palette-btn], .palette-btn')")
+        c.wait("document.activeElement?.classList.contains('palette-input')", 10)
+        c.type_text("Agents: follow agent night-runner")
+        c.wait("[...document.querySelectorAll('[data-testid=palette] .palette-item .palette-label')].some((x) => x.textContent === 'Agents: follow agent night-runner')", 30)
+        c.key("Enter")
+        truth = f"document.querySelector('{LP}[data-testid=live-truth]')"
+        try:
+            return c.wait(f"{VIEW} === 'live' && {LIVE}?.dataset.sid === 'away-1' && [{VIEW}, {LIVE}.dataset.sid, {truth}?.dataset.state, {FD}?.dataset.filter ?? null]", 20)
+        except TimeoutError:
+            return c.js(f"[{VIEW}, {LIVE}?.dataset.sid, {truth}?.dataset.state, {FD}?.dataset.filter ?? null]")
+    finally:
+        live_api.view_for = orig

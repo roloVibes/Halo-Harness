@@ -112,8 +112,8 @@ def test_the_drawer_steer_stop_and_an_ask(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"a click on Live's box filters the Feed to it, got {got.get('filter')!r}", got.get("filter") == "code")
     ctx.check(f"THINK, SAY and TALK rows, got {got.get('kinds')}", {"think", "text", "talk"} <= set(got.get("kinds") or []))
-    ctx.check(f"an ask: its box waits on you, its answers are buttons, got {got.get('waits')!r} {got.get('ask_keys')}",
-              got.get("waits") == "waiting" and (got.get("ask_keys") or 0) >= 2)  # R57: Live's block box is marked waiting (its rows are its steps)
+    ctx.check(f"an ask: its box waits on you, its answers are buttons, got {got.get('waits')!r} {got.get('ask_what')!r} {got.get('ask_keys')}",
+              got.get("waits") == "waiting" and "git push origin feature/basket" in str(got.get("ask_what") or "") and (got.get("ask_keys") or 0) >= 2)  # R57: Live's block box is marked waiting (its rows are its steps)
     ctx.check(f"Enter on a box of Live sets the Feed to its words, got {got.get('keyboard')!r}", got.get("keyboard") == "research")
     ctx.check(f"Steer reaches the session, got {got.get('steer')}", got.get("steer") == ["agent_steer", 200])
     ctx.check(f"Stop (asked first) reaches it, got {got.get('stop')}", got.get("stop") == ["agent_stop", 200])

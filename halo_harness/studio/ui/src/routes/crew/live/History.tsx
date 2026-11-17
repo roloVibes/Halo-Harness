@@ -18,7 +18,7 @@ import { ComparePage } from "./Compare";
 import { RunReport } from "../run/RunReport";
 import { openFileReplay, openLiveReplay, replaySession, useLiveReplay } from "./replay";
 import { api, ApiError } from "../../../lib/api";
-import { toast } from "../../../lib/store";
+import { studio, toast } from "../../../lib/store";
 
 const KIND: Record<string, string> = { session: "session", run: "goal run", file: "file" };
 
@@ -119,7 +119,11 @@ export function HistoryDrawer() {
   const reportError = useHistory((s) => s.reportError);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && (e.stopPropagation(), toggleHistory(false));
+    // 3.6.0.2 R57: History lives in the Map's drawer now; an Esc meant for the palette, a menu or a dialog over it is
+    // theirs (the capture listener would otherwise close History and swallow it), as the goal form's does
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !studio.get().paletteOpen
+      && !(e.target as HTMLElement | null)?.closest?.("[role=listbox], [role=menu], [role=dialog], .mpk")
+      && (e.stopPropagation(), toggleHistory(false));
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [open]);

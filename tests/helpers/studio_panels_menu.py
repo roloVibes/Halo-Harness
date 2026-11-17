@@ -111,17 +111,18 @@ def arrange(c, url, ctx) -> dict:
     mod_key(c, "ArrowLeft", 37, 1, "ArrowLeft")  # Alt+Left on a right drawer: wider
     c.wait(f"JSON.stringify({DRAWERS}) !== {json.dumps(json.dumps(before))}", 10)
     out["widened"] = [before, settle(c, DRAWERS), c.js(SAVED)]
-    # 3.6.0.2 R57: the Map's right drawer shows History, whose Esc (capture, on the window) would close it before the
-    # palette's: its own x closes the page and the drawer first (the widths stay custom)
-    c.click_on(q("[data-panel=map-drawer] [data-testid=live-history-close]"))
-    c.wait(f"!{q('.stage-drawer[data-panel-in=map-drawer]')}", 10)
     out["pal_reset_now"] = palette(c, "Reset layout")
+    # 3.6.0.2 R57: the Map's right drawer shows History; Esc over the palette closes the palette only, never History
     c.key("Escape")
+    c.wait(f"!{q('[data-testid=palette]')}", 10)
+    out["esc_palette"] = c.js(f"[!!{q('[data-testid=palette]')}, "
+                              f"!!{q('.stage-drawer[data-panel-in=map-drawer] [data-testid=live-history-drawer]')}]")
     return out
 
 
 def reset(c, url, ctx) -> dict:
-    out = {"reset_ran": more(c, "layout-reset")}
+    out = {"before_reset": c.js(f"{qa('.workspace[data-section=agents-map] .stage-drawer')}.map((d) => d.dataset.panelIn)")}
+    out["reset_ran"] = more(c, "layout-reset")
     out["reset_toast"] = c.wait(f"{TOASTS}.includes('Agents layout reset') && 'reset'", 10)
     c.wait(f"!{q('.workspace[data-section=agents-map] .stage-drawer')}", 10)
     out["after"] = [c.js(DRAWERS), c.js(SAVED)]

@@ -193,6 +193,9 @@ def feed(c, rig, lv, sent) -> dict:
     c.wait(f"{FD}?.dataset.filter === 'check'", 10)
     close_card(c)
     out["ask_keys"] = c.wait(f"{FD}.querySelectorAll('[data-testid=session-live-ask] [data-testid=session-live-key]').length", 10)
+    # the words he reads on Live that it waits on him: the Feed's ask row says what is asked (a block box's own state
+    # line is the workflow's, R43)
+    out["ask_what"] = c.js(f"{FD}.querySelector('[data-testid=session-live-ask] .slv-ask-what')?.textContent || ''")
     shot(c, "studio-map-feed.png")  # the name tools/capture_map_live.py collects
     lv.state("reviewer", state="running")
     c.js(f"{live_box('research')}.focus(); 1")  # the keyboard: Enter on a box of Live sets the Feed to it

@@ -11,6 +11,8 @@ import { append, follow, watch } from "./streams";
 import { endedAt } from "../crew/map/truth";
 import { fleet, findAgent, findSession, isLive, localId, parseKey, saveOpts, sessionTitle, type Door } from "./store";
 import { openInLive } from "../session/store";
+import { pickLive as pickLiveSession } from "../agents/livePick";
+import { setAgentsView } from "../agents/store";
 import type { AgentKey, Harness } from "./types";
 import { load } from "./sync";
 
@@ -66,9 +68,12 @@ export function openAgentPanel(key?: AgentKey): void {
     return;
   }
   const p = k ? parseKey(k) : null;
-  if (p && p.h === localId()) openInLive(p.s); // Live on that agent's session (R1: Session's pick with it)
-  if (p) openFeed(`agent:${p.a}`);
-  else goSection("agents", "live");
+  if (p && p.h === localId()) return (openInLive(p.s), openFeed(`agent:${p.a}`)); // Live on its session (R1), its Feed on it
+  // another machine's agent: Live on ITS session (T9: the drawing is in that machine's Studio), never this machine's
+  // session with a Feed filtered to an id it does not have
+  if (p) pickLiveSession(p.s, false);
+  setAgentsView("live");
+  goSection("agents", "live");
 }
 
 export function pin(key: AgentKey | "" = fleet.get().selected): void {

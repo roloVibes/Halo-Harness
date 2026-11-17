@@ -166,6 +166,10 @@ def test_live_has_the_feed_map_does_not(ctx: Ctx):
     door = d.get("agent_door") or []
     ctx.check(f"an agent's open door from 3 · Map lands on Live's Feed for that agent, got {door} (implementer {d.get('aid')!r})",
               door[:2] == ["live", f"agent:{d.get('aid')}"])
+    # batch 4 repair: another machine's agent (its id `main` is this session's main's too) lands on its own session (T9),
+    # never on this machine's session with a Feed filtered to an id it does not have
+    ctx.check(f"another machine's agent's open door lands on Live of that session, T9, no Feed, got {d.get('away_door')}",
+              d.get("away_door") == ["live", "away-1", "T9", None])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

@@ -81,11 +81,16 @@ def test_the_palette_shows_and_widens(ctx: Ctx):
               and (saved or {}).get("v") == 3 and (saved or {}).get("widths") == {"map-drawer": 460} and (saved or {}).get("open") == ["map-drawer"])
     ctx.check(f"Reset layout is enabled now, the section in its hint, got {got.get('pal_reset_now')}",
               got.get("pal_reset_now") == ["Reset layout", "Agents: every drawer closed, the main thing back", None])
+    # 3.6.0.2 R57: History in the Map's drawer must not take the palette's Esc (palette gone, History still shown)
+    ctx.check(f"Esc over the palette closes the palette, History stays open in the Map's drawer, got {got.get('esc_palette')}",
+              got.get("esc_palette") == [False, True])
 
 
 @test
 def test_the_overflow_menu_resets_and_explains(ctx: Ctx):
     got = _got(ctx)
+    ctx.check(f"the Map's drawer is still open when Reset layout runs, got {got.get('before_reset')}",
+              got.get("before_reset") == ["map-drawer"])
     ctx.check(f"Reset layout from the ... menu: the toast, the drawers closed, the key gone, got {got.get('reset_toast')} {got.get('after')}",
               got.get("reset_ran") is True and got.get("reset_toast") == "reset" and got.get("after") == [[], None])
     ctx.check(f"the rows say what they would do, got {got.get('more_rows')}",
