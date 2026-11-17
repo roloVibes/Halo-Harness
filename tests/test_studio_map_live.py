@@ -13,7 +13,7 @@ tests/test_map_overlay.py's; the frames' source is tests/test_map_chains.py.
    opens the form with its body, nothing written;
 6. the Map's drawer (P4 batch 4 moves the Feed to Live): filtered by the clicked box, THINK / SAY / TALK rows, an ask's
    answers and its box waiting on you, the keyboard; Steer and Stop reach the session's command route;
-8. another map open on 3 · Map: 4 · Live still draws shop, lit, nothing amber;  9. a session with no map: T4 in Live;
+8. another map open on 3 · Map: 4 · Live still draws shop, lit, nothing amber;  9. a session with no map: T4 in Live, over main's box and the run's own blocks (P8);
 10. History (on the Map, R55): the picker, Replay it on the map (quiet colours, a removed box), the scrubber, the card;
 the room in Live at 1280 / 1500 / 1920 and a zoom step while frames arrive; 11. Session's Live drawer, its link to Live.
 Run: python -m tests.test_studio_map_live
@@ -127,7 +127,12 @@ def test_another_map_open_on_map_live_unchanged_and_a_session_with_no_map(ctx: C
     head = str(got.get("nomap_head"))
     ctx.check(f"no map: T4 in section 4's words, got {head!r}",
               head.startswith("This session runs with no map, as it started at ") and head.endswith(": main does the work and starts its own agents."))
-    ctx.check(f"no drawing and no Show it, got {got.get('boxes')}", got.get("boxes") == [0, False])
+    # P8 (rewritten to the coordinator's ruling): a session with no map is drawn as Session's Live drawer draws it -- the
+    # box main first, then only what the run itself started (this rig runs the workflow review: its block), under its T4
+    # line (an ask's door lands there); none of the map shop's boxes; still no Show it
+    ids, show = (got.get("boxes") or [[], None])
+    ctx.check(f"main's box first, then only the run's own blocks, and no Show it, got {got.get('boxes')}",
+              bool(ids) and ids[0] == "main" and all(b.startswith("workflow:") for b in ids[1:]) and show is False)
     ctx.check(f"the map again, its lines' labels, got {got.get('again')}", got.get("again") == 5)
 
 

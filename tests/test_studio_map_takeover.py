@@ -95,9 +95,11 @@ def test_6_7_9_goal_replay_keys(ctx: Ctx):
     ctx.check(f"3.6.0.2 R57: a replay on the Map opens no feed (the Map has none); its scrubber runs it to the end, got {g.get('drawer')} {g.get('rows')!r}",
               g.get("drawer") == 0 and g.get("rows") == "end")
     rows = g.get("drawer_rows")
+    # P8 (rewritten to the truth, the owner's rule a text is never cut): the rows are no longer one line each, cut with an
+    # ellipsis; each row's words are whole, wrapped as the Feed's rows are
     ctx.check(f"P4 batch 12 (rewritten to the truth): a replay opens no Feed and DOES list its rows (spawns, hand-offs, asks, "
-              f"finishes up to the scrubber) in the Map's own drawer on History's page, one line each, got {rows!r}",
-              isinstance(rows, list) and len(rows) >= 1 and all(h < 30 for _, h in rows))
+              f"finishes up to the scrubber) in the Map's own drawer on History's page, each row's words whole (P8), got {rows!r}",
+              isinstance(rows, list) and len(rows) >= 1 and all(whole is True for _, whole in rows))
     # P7 (the coordinator's ruling): Replay is his own press, so it opens the Map's drawer on that replay's page at once;
     # the rows follow the scrubber, the newest at the foot, and History's "Back to now" is never covered
     ctx.check(f"P7: pressing Replay opens the Map's drawer on History's page with the replay's rows, got {g.get('opened')!r}",

@@ -18,9 +18,14 @@
 .mp-quiet { margin: 0; }
 /* P4 batch 12: the sentence's room (its longest form, measured) and one row of controls, each part in its own place */
 .mp-topline-room { position: relative; min-width: 0; }
-.mp-topline-acts { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--s-2); min-height: 28px; min-width: 0; overflow: hidden; }
+.mp-topline-acts { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--s-2); min-height: 28px; min-width: 0; }
 .mp-topline-acts .mp-slot { flex: 0 0 auto; display: inline-flex; }
-.mp-topline-acts > [data-testid=map-lit-extras] { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* P8 (the owner's rule: a text is never cut): the plan and a goal run's words wrap whole in the row's room; Open is its own
+   item that never shrinks, so it is always drawn inside the top line */
+.mp-topline-acts > [data-testid=map-lit-extras] { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-2); overflow-wrap: anywhere; }
+.mp-extras-run { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--s-2); }
+.mp-extras-goal { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.mp-extras-run > .btn { flex: none; }
 .mp-notice-twin { position: absolute; left: 0; right: 0; top: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
 .mp-running-in { font-size: 12px; font-style: italic; }
 
@@ -110,6 +115,6 @@
 .mpf > [data-testid=map-feed-back] { align-self: flex-start; }
 .mpf-replay { flex: 0 1 auto; max-height: 40%; min-height: 0; display: flex; flex-direction: column; padding-bottom: var(--s-2); border-bottom: 1px solid var(--line); }
 .mpf-replay .mpf-rows { min-height: 0; }
-.mpf-replay .mpf-mark { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; } /* one line each */
+/* P8 (the owner's rule: a text is never cut): a replay's rows wrap whole, as the Feed's rows (.mpf-mark) */
 .mpf-replay .mpf-row-task { display: inline; margin-left: 6px; }
 .mpf-page { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }

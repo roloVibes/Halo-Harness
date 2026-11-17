@@ -26,7 +26,7 @@ export function UnderList({ L, aid }: { L: Lit; aid: string }) {
         <button key={h.aid} type="button" className="mpf-row-btn" data-testid="map-feed-under-row" data-aid={h.aid} onClick={() => setFeedFor(`agent:${h.aid}`)}
                 title={`Show only what ${h.name} thinks and says`}>
           <b>{h.name}</b> <span className="mp-muted">started by {name(h.parent)} · {STATE_WORDS[h.state]}</span>
-          {h.task && <span className="mpf-row-task">{h.task.length > 120 ? h.task.slice(0, 117) + "..." : h.task}</span>}
+          {h.task && <span className="mpf-row-task">{h.task}</span>}
         </button>
       ))}
     </div>
@@ -52,7 +52,7 @@ export function ReplayRows({ L, ids }: { L: Lit; ids: Set<string> | null }) {
           <span className="mono mp-muted">{mmss(m.t - r.tl.t0)}</span>{" "}
           <b>{m.name || name.get(m.agent_id) || m.agent_id}</b> {MARK_WORDS[m.kind] || m.kind}
           {m.to && <> {m.kind === "spawn" ? "by" : "to"} {name.get(m.to) || m.to}</>}
-          {m.text && <span className="mpf-row-task">{m.text.length > 200 ? m.text.slice(0, 197) + "..." : m.text}</span>}
+          {m.text && <span className="mpf-row-task">{m.text}</span>}
         </div>
       ))}
     </div>

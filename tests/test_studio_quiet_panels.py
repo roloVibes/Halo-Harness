@@ -59,9 +59,12 @@ def test_the_source_is_quiet(ctx: Ctx):
     ctx.check("no density store (nothing reads halo.studio.density)", not (UI / "lib" / "density.ts").exists())
     specs = {sid: pid for sid, pid in PRIMARY.items()}
     src = "\n".join(p.read_text(encoding="utf-8") for p in (UI / "routes").rglob("*.tsx"))
+    # P8 (rewritten to the truth): since 3.6.0.2 (decision 5) a panel's title may be the one source of its word,
+    # `WORDS.feed` / `WORDS.live` (crew/map/truthWords.ts), in place of a quoted literal; it is still `primary: true`
+    title = r'(?:"[^"]+"|WORDS\.(?:feed|live|map))'
     for sid, pid in specs.items():
-        ctx.check(f"{sid}: {pid} is the primary", re.search(rf'panel\("{pid}", \{{ title: "[^"]+", primary: true,', src) is not None
-                  or re.search(rf'\{{ id: "{pid}", testid: "{pid}-panel", title: "[^"]+", role: "main",', src) is not None)
+        ctx.check(f"{sid}: {pid} is the primary", re.search(rf'panel\("{pid}", \{{ title: {title}, primary: true,', src) is not None
+                  or re.search(rf'\{{ id: "{pid}", testid: "{pid}-panel", title: {title}, role: "main",', src) is not None)
 
 
 @test

@@ -1093,6 +1093,9 @@ def test_just_built_selected_once_only_when_untouched(ctx: Ctx):
               "Running: starter (the default)" in (f.get("text") or "") and "Just built: review-flow" in (f.get("text") or "")
               and f.get("h") == 24 and (f.get("built") or {}).get("pressed") == "true" and f.get("map") == "review-flow"
               and f.get("lit") == 0 and f.get("working") == 0)
+    ctx.check(f"P8: both buttons of the pair say their words whole (no ellipsis, nothing overflows), got "
+              f"{(f.get('running') or {}).get('whole')} {(f.get('built') or {}).get('whole')}",
+              (f.get("running") or {}).get("whole") is True and (f.get("built") or {}).get("whole") is True)
     ctx.check(f"R30 (a): Running: starter draws it again, lit, got {bk.get('map')!r} lit {bk.get('lit')}",
               bk.get("map") == "starter" and (bk.get("lit") or 0) > 0)
     ctx.check(f"R30 (a): a second build in the session only marks the tab, got {s}",

@@ -6,6 +6,7 @@
 import { api, ApiError } from "../../../lib/api";
 import { onFilesChanged } from "../../../lib/filesLive";
 import { createStore, toast, useStore } from "../../../lib/store";
+import { TO_A_MAP } from "../map/truthWords";
 import type { Cost, FlowRow, Scope, Step, Workflow } from "../types";
 import { showFlowTry } from "./flowRun";
 
@@ -166,7 +167,7 @@ export async function saveFlow(): Promise<boolean> {
   try {
     if (s.open.name && s.open.name === w.name) await api.put(path, { workflow: w });
     else await api.post(path, { workflow: w });
-    let note = `Saved ${w.name}. Put it on a map in the Map tab (next version) or name it to a session's Workflow tool.`;
+    let note = `Saved ${w.name}. ${TO_A_MAP} A session's Workflow tool can also run it by its name.`;
     if (s.open.name && s.open.name !== w.name) {
       try {
         await api.del(`crew/workflow/${encodeURIComponent(s.open.name)}`);

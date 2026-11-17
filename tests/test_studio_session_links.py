@@ -32,6 +32,10 @@ def test_orchestra_run_line_watches_its_session(ctx: Ctx):
               f"the Map had settled first: {got.get('settled')})")
     ctx.check(f"a live run's line has the button, got {got.get('watch_orchestra')!r}", got.get("watch_orchestra") == "Watch in Session")
     # P4 batch 9 (the Map's top line draws its buttons in one parent): Open is pressed once, the same node before and after
+    w = got.get("whole") or {}
+    ctx.check(f"P8: the goal's 120 characters whole on the top line, wrapped, nothing cut, got {w}",
+              str(w.get("text") or "").endswith("then make the tests pass") and w.get("fits") is True and w.get("cut") is False)
+    ctx.check(f"P8: the goal run's Open is drawn inside the top line's box, got {w.get('open_inside')!r}", w.get("open_inside") is True)
     ctx.check(f"Open pressed once, the same node before and after the Map settled, got {got.get('open_clicks')} {got.get('open_same_node')!r}",
               got.get("open_clicks") == 1 and got.get("open_same_node") is True)
     ctx.check(f"it opens Session with the run's session chosen, got {got.get('orchestra_tab')!r} {got.get('orchestra_session')}",

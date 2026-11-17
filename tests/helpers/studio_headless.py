@@ -60,7 +60,16 @@ def start_one(c, rig, server) -> dict:
     if row:
         rig.pids.append(row["pid"])
     out["focused"] = c.wait(f"document.activeElement === {INPUT} && 'focused'", 15)
-    out["noterm"] = c.wait("document.querySelector('[data-testid=\"prompt-noterm\"]')?.textContent", 20)
+    # P8 (rewritten to the truth): P6 rebuilt the Prompt header -- `no terminal` is the end of the header's words (P27:
+    # `<folder> · <title> · started <HH:MM> · no terminal`), and the line beside them holds its two controls
+    words = "document.querySelector('[data-testid=\"prompt-to\"]')?.textContent || ''"
+    try:
+        c.wait(f"({words}).includes('no terminal')", 20)
+    except Exception:
+        pass  # recorded as it is: the test says what the header said
+    out["noterm"] = c.js(words)
+    out["noterm_controls"] = c.js("[...document.querySelectorAll('[data-testid=\"prompt-noterm\"] [data-testid=\"prompt-open-terminal\"],"
+                                  " [data-testid=\"prompt-noterm\"] [data-testid=\"prompt-end\"]')].map((b) => b.textContent)")
     out["registered"] = (rig.entry(sid, 30) or {}).get("kind")
     return out
 

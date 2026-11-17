@@ -9,11 +9,24 @@ import threading
 
 from tests.helpers.studio_session import COST, TAB, url
 
+# P8: a 120-character goal -- the top line shows it whole, wrapped beside Open (never cut, never a slice at 80)
+GOAL = ("Ship the basket discount fix for every customer who has a coupon and a loyalty card together, "
+        "then make the tests pass")
+# the goal's words whole (no overflow, no ellipsis or nowrap on it or its row) and Open's rect inside the top line's box
+WHOLE = """(() => { const g = document.querySelector('[data-part=map] [data-testid=map-lit-run-goal]');
+  const o = document.querySelector('[data-part=map] [data-testid=map-lit-run-open]'), t = document.querySelector('[data-part=map] [data-testid=map-topline]');
+  if (!g || !o || !t) return null; const cut = (e) => { const s = getComputedStyle(e); return s.textOverflow === 'ellipsis' || s.whiteSpace === 'nowrap' || s.webkitLineClamp !== 'none'; };
+  const O = o.getBoundingClientRect(), T = t.getBoundingClientRect();
+  return { text: g.textContent, fits: g.scrollWidth <= g.clientWidth + 1 && g.scrollHeight <= g.clientHeight + 1,
+    cut: [g, g.parentElement, g.parentElement.parentElement].some(cut), open_inside: O.width > 0 && O.left >= T.left - 0.5 && O.right <= T.right + 0.5
+      && O.top >= T.top - 0.5 && O.bottom <= T.bottom + 0.5 }; })()"""
+
+
 def live_run(rig):
     """A run of the rig's repo led by this harness's session, live as Studio's own run is."""
     from halo_harness.orchestra.goal import Goal, new_run
     from halo_harness.studio import orchestra_live as L
-    goal = Goal(what="Ship the basket discount fix", done_when="the tests pass", stop_when="two returns", workers=2,
+    goal = Goal(what=GOAL, done_when="the tests pass", stop_when="two returns", workers=2,
                 return_cap=1, test="python -c pass", files=["basket.py"], test_timeout_s=30)
     run_dir = new_run(rig.proj, goal, lead_holder=f"{rig.act.session_id}/main")
     stop = threading.Event()
@@ -82,6 +95,7 @@ def links(c, rig) -> dict:
     except TimeoutError:
         out["settled"] = False  # the press below still says what happened
     out["open_same_node"] = c.js(f"window.__open1 === {opener}")
+    out["whole"] = c.js(WHOLE)
     # the presses that reach Open are COUNTED by the page (P4 batch 12: a constant here could never fail)
     c.js(f"window.__opens = 0; {opener}.addEventListener('click', () => window.__opens++, true); 1")
     t1 = time.monotonic()

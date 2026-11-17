@@ -18,12 +18,13 @@ export const REPLAY_LAST = "Replay the last session";
  *  row -- never moves the drawing; before there is a row nothing is drawn in the slot (P4 batch 12: no unseen copy). */
 export function ReplayLast() {
   const last = useMapHist((s) => s.rows[0]);
-  return last ? <Button size="sm" onClick={() => void replayRun(last.sid)} data-testid="map-lit-replay-last" title={`Replay "${last.what.slice(0, 60)}" on the map`}>{REPLAY_LAST}</Button> : null;
+  return last ? <Button size="sm" onClick={() => void replayRun(last.sid)} data-testid="map-lit-replay-last" title={`Replay "${last.what}" on the map`}>{REPLAY_LAST}</Button> : null;
 }
 
 /** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed; a goal run going, with Open (its
  *  pages in the Map's drawer, opened at once and filled as its reads arrive: P4 batch 9). Its buttons live in ONE parent
- *  whatever the line beside them says, so a listing landing never takes a button away under a click (batch 9). */
+ *  whatever the line beside them says, so a listing landing never takes a button away under a click (batch 9). P8 (the
+ *  owner's rule: a text is never cut): the goal's whole words wrap beside Open, its own item that never shrinks. */
 export function Extras({ sid }: { sid: string }) {
   useEffect(() => (startTodos(), startOrchestra()), []);
   const plan = planWords(useTodos(sid));
@@ -33,8 +34,8 @@ export function Extras({ sid }: { sid: string }) {
     <span className="cw-line" data-testid="map-lit-extras">
       {plan && <button type="button" className="mp-link" onClick={() => openFeed("plan")} data-testid="map-lit-plan" title={`The session's plan, in 4 · ${WORDS.live}'s ${WORDS.feed}`}>{plan}</button>}
       {plan && run && " · "}
-      {run && <span data-testid="map-lit-run" data-run={run.run_id}>
-        A goal run is going: {run.goal_what.slice(0, 80)}{" "}
+      {run && <span className="mp-extras-run" data-testid="map-lit-run" data-run={run.run_id}>
+        <span className="mp-extras-goal" data-testid="map-lit-run-goal">A goal run is going: {run.goal_what}</span>
         <Button size="sm" onClick={() => (openMapDrawer(`run:${run.run_id}`), void openOrchRun(run.run_id))} data-testid="map-lit-run-open"
                 title="Its pages (lanes, the gate, the merge, its report) in the drawer">Open</Button>
       </span>}
@@ -48,7 +49,7 @@ export function ReplayLine() {
   const run = useMapHist((s) => s.open);
   return (
     <p className="cw-line mp-topline">
-      Replaying {run?.title ? `"${run.title.slice(0, 60)}"` : "a past session"} {run?.map ? (run.map === shown ? "on this map" : `(it ran on ${run.map})`) : "(it did not start on a map)"}, in quiet colours.{" "}
+      Replaying {run?.title ? `"${run.title}"` : "a past session"} {run?.map ? (run.map === shown ? "on this map" : `(it ran on ${run.map})`) : "(it did not start on a map)"}, in quiet colours.{" "}
       <Button size="sm" onClick={closeRun} data-testid="map-replay-close">Back to now</Button>
     </p>
   );

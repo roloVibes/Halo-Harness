@@ -4,10 +4,12 @@ headless Chrome through tests/helpers/studio_attention_open.py (skipped without 
 
 ONE door, used by an Attention row's O, the Live ask card's O and the alert's click. Since 3.6.0.2 (P4 batch 9, the
 owner's point 20) it lands on the run's drawing with the asking agent's box selected and its card open on the ask's
-choices: from Agents (-> Map on the session's map or another) on Agents -> 4 · Live (an agent it puts on no box -- this
-rig's session runs with no map -- the Feed on its ask and one line, P4 batch 12); from anywhere else (Session on
+choices: from Agents (-> Map on the session's map or another) on Agents -> 4 · Live (this rig's session runs with no map:
+since P8 4 · Live draws main's box alone under its T4 line, as Session's Live drawer does); from anywhere else (Session on
 another session with the drawers open, Session showing only the Feed, Local) on Session with the row's session
-selected, the Feed pointed at the asking agent (the Live column's agent pick, 3.6.0.1) and its Live drawer open. The other kinds of row keep their
+selected, the Feed pointed at the asking agent (the Live column's agent pick, 3.6.0.1), its Live drawer open and Attention on
+the asked row with its answers (3.6.0.1's check, restored by P8: the Live drawer takes Attention's room at 1500 px, so one
+press of Attention's button shows it). The other kinds of row keep their
 homes (the steward's note opens Local); a row whose session has ended says so in one toast line, never silently.
 Run: python -m tests.test_studio_attention_open
 """
@@ -43,16 +45,25 @@ def _landed(ctx: Ctx, got: dict, case: str, what: str, where: str = "session") -
     boxed = bool(key) and p.get("box") == aid and (p.get("ask_keys") or 0) > 0
     if where == "agents":
         ctx.check(f"{what}: Agents -> 4 · Live, got {p.get('section')!r} {p.get('view')!r}", p.get("section") == "agents" and p.get("view") == "live")
-        off = bool(p.get("feed_ask")) and any("is not on the map" in t for t in p.get("toasts") or [])
-        ctx.check(f"{what}: the asking agent's box selected with its card on the ask, or (on no box) the Feed on its ask "
-                  f"and one line, got box {p.get('box')!r} {p.get('ask_keys')!r}, Feed {p.get('feed_ask')!r}, toasts {p.get('toasts')!r}",
-                  boxed or off)
+        # P8 (the coordinator's ruling): this rig's session runs with NO map; 4 · Live draws main's box alone under its
+        # T4 line (as Session's Live drawer does), so the door lands on the box with its card, never on an empty page
+        ctx.check(f"{what}: the session with no map drawn under its T4 line, got {p.get('truth')!r}", p.get("truth") == "T4")
+        ctx.check(f"{what}: the asking agent's box selected with its card on the ask's choices, got box {p.get('box')!r} "
+                  f"{p.get('ask_keys')!r}, Feed {p.get('feed_ask')!r}, toasts {p.get('toasts')!r}", boxed)
         return
     ctx.check(f"{what}: the asking agent's box selected, its card on the ask's choices, got {p.get('box')!r} {p.get('ask_keys')!r}", boxed)
     ctx.check(f"{what}: Session, its Live drawer open, got {p.get('section')!r} {p.get('live_open')!r}",
               p.get("section") == "session" and p.get("live_open") is True)
     ctx.check(f"{what}: the asking session shown and its agent in the Feed, got {p.get('sessions')!r} {p.get('pin')!r}",
               bool(key) and p.get("pin") == key and p.get("sessions") == [key.split("|")[1]])
+    # P8: restored from 3.6.0.1 (the join dropped it without saying so): the door still opens Attention and selects the
+    # asked row. At this rig's 1500 px the Live drawer, opened after it, takes its room (R9: the oldest drawer closes), so
+    # the driver reads what is on screen and, Attention being closed, presses its button ONCE: the asked row, selected,
+    # with its answers (tests/helpers/studio_attention_open.py _attention)
+    a = p.get("attn") or {}
+    ctx.check(f"{what}: Attention on the asked row with its answers (open at landing: {a.get('open_at_landing')}), got "
+              f"{a.get('open')!r} {a.get('row')!r} {a.get('keys')!r}",
+              a.get("open") is True and bool(a.get("want")) and a.get("row") == a.get("want") and "a" in (a.get("keys") or []))
 
 
 @test

@@ -4,6 +4,7 @@
 // Discard / Copy / Delete (Delete asks on the page). Beside it, the steps drawn (Drawn.tsx). Nothing is written until Save.
 import { Button, TextBox } from "../../../lib/ui";
 import { prefill, useBuilder } from "../builderStore";
+import { TO_A_MAP } from "../map/truthWords";
 import { useCrew } from "../store";
 import type { Change } from "../types";
 import { Drawn, type DrawnStep } from "./Drawn";
@@ -103,7 +104,7 @@ export function FlowForm() {
           <input className="input mono" value={w.name} spellCheck={false} data-testid="flow-name"
                  onChange={(e) => setFlow({ name: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 48) })} />
           <span className="cw-line" data-testid="flow-used">{maps.length ? `On the map ${maps.join(", ")}.`
-            : "Not on a map yet (the Map tab comes next). A session's Workflow tool can run it by its name once it is saved."}</span>
+            : `Not on a map yet. ${TO_A_MAP} A session's Workflow tool can run it by its name once it is saved.`}</span>
         </label>
         <label className="cw-field">
           <span className="cw-label mono">What it is for</span>

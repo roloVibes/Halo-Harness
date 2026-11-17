@@ -25,5 +25,8 @@ export const NEXT_NONE = "New sessions will run with no map.";
 export const T10_NONE = "New session from Studio, no message yet. It will run with no map.";
 /** A door to a panel the section no longer has (lib/workspace/persist.ts; accepted as written, P4 batch 12). */
 export const NOT_HERE = "That panel is not on this page any more: there is nothing to open.";
+/** P8 (judge B M5): how a workflow gets on a map, the ONE sentence 2 · Workflows says it in (its list with nothing on a
+ *  map, the form of one on no map, the line after Save); the Map tab shipped in 3.6.0.0. */
+export const TO_A_MAP = `To put a workflow on a map: in 3 · ${WORDS.map}, drag it from Agents and workflows onto a box, and that box hands work to it.`;
 /** R11: the slot under Session's drawing when {n} boxes wait wholly below it (a press scrolls one row). */
 export const moreBelow = (n: number): string => `↓ ${n} more below`;

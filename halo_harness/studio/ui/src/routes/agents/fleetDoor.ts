@@ -2,8 +2,11 @@
 // palette, a pack's route, Settings' and Setup's links -- comes through `showFleetPanel` and opens its home (3.6.0.2 R52:
 // a run is watched on Agents -> 4 · Live again; lib/agentsDoor.ts panelDoor decides, node-tested):
 //   fleet-attention                     Agents, the Attention panel (attention.ts)
-//   fleet-agent                         Agents -> Map, the agent's rows in the drawer (3.6.0.1: an ask of a session
-//                                       of this harness opens in Session instead, glance/openAsk.ts)
+//   fleet-agent                         Agents -> Map, the agent's rows in the drawer (an ASK of a session of this
+//                                       harness takes the ask's own door instead, glance/openAsk.ts: the run's
+//                                       drawing with the asking agent's box and its card -- Agents -> 4 · Live
+//                                       when he is in Agents, a session with no map included; else Session's
+//                                       Live drawer)
 //   fleet-ollama | ollama               Local -> Hosts
 //   anything else (fleet-activity, fleet-costs, ...)    Agents -> Live
 import { goSection } from "../../lib/store";

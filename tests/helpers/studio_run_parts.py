@@ -113,13 +113,16 @@ def wait_link(c, lv, where: str) -> dict:
     so the box holding it (code) is outlined, and the drawing's wait link names it; a press picks that box."""
     outlined = f"{boxes(where)}.filter((b) => b.hasAttribute('data-waited')).map((b) => b.dataset.box)"
     link = f"document.querySelector('{ROOT[where]} [data-testid=run-wait]')"
-    out: dict = {"helper": lv.aid("implementer")}
+    row = f"Math.round(document.querySelector('{ROOT[where]} [data-testid=run-wait-row]')?.getBoundingClientRect().height ?? -1)"
+    out: dict = {"helper": lv.aid("implementer"), "row_before": c.js(row)}
     try:
         lv.tool("main", "Agent", f"call-{where}-agent")
-        lv.tool("implementer", "Bash", f"call-{where}-bash", current="pytest -q")
+        # P8: a long tool line -- the link shows its words whole on its reserved row, which keeps its height
+        lv.tool("implementer", "Bash", f"call-{where}-bash", current="pytest -q tests/test_a_rather_long_module_name_for_the_slot.py")
         out["outlined"] = until(c, outlined, ["code"])
         c.wait(f"{link}?.textContent", 10)
-        out.update({"link": c.js(f"{link}.textContent"), "leaf": c.js(f"{link}.dataset.leaf")})
+        out.update({"link": c.js(f"{link}.textContent"), "leaf": c.js(f"{link}.dataset.leaf"), "row_after": c.js(row),
+                    "whole": c.js(WHOLE.replace("$LINK", link))})
         c.js(f"{link}.click(); 1")
         out["picked"] = until(c, f"[({q(where, '> [data-selected]')}?.dataset.box || ''), !!document.querySelector('{ROOT[where]} [data-testid=map-step-in]')]", ["code", True])
     finally:
@@ -127,6 +130,12 @@ def wait_link(c, lv, where: str) -> dict:
         lv.result("implementer", f"call-{where}-bash", "ok")
         lv.state("implementer", current="thinking")
     return out
+
+
+# P8: an element's words whole: nothing overflows it and no ellipsis, nowrap or line clamp is on it or its row
+WHOLE = """(() => { const e = $LINK; if (!e) return null; const cut = (x) => { const s = getComputedStyle(x);
+  return s.textOverflow === 'ellipsis' || s.whiteSpace === 'nowrap' || s.webkitLineClamp !== 'none'; };
+  return e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1 && ![e, ...e.querySelectorAll('*'), e.parentElement].some(cut); })()"""
 
 
 # P7: Session's bottom slot -- "↓ n more below" (its rect, how many lines its words take), the slot's height and width, and
@@ -139,7 +148,8 @@ BELOW = """(() => { const s = document.querySelector('[data-testid=session-map-b
   return { more: r ? [r.left, r.top, r.width, r.height].map(Math.round) : null, lines: m ? lines(m) : 0, natural: !!r && Math.abs(r.width - nat) < 0.5,
     slot: [Math.round(S.width), Math.round(S.height)], wait: !!w,
     inside: !W || (W.top >= S.top - 0.5 && W.bottom <= S.bottom + 0.5 && W.left >= S.left - 0.5 && W.right <= S.right + 0.5),
-    whole: !t || (t.scrollWidth <= t.clientWidth + 1 && t.scrollHeight <= t.clientHeight + 1) }; })()"""
+    whole: !w || (w.scrollWidth <= w.clientWidth + 1 && w.scrollHeight <= w.clientHeight + 1
+      && ![w, t].some((x) => { const c = getComputedStyle(x); return c.textOverflow === 'ellipsis' || c.whiteSpace === 'nowrap' || c.webkitLineClamp !== 'none'; })) }; })()"""
 
 
 def settled(c, expr: str, tries: int = 12):
@@ -156,7 +166,8 @@ def settled(c, expr: str, tries: int = 12):
 
 def below(c, lv, where: str) -> dict:
     """At 1280 x 800, before and while a long wait link shows: "↓ n more below" keeps its rect, its own (natural) width and
-    one line; the slot keeps its 32 px; the wait link lies inside the slot, its words whole."""
+    one line; the slot keeps its height (P8: "more below"'s 32 px row and the wait link's reserved row); the wait link lies
+    inside the slot, its words whole."""
     out: dict = {}
     c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
     try:

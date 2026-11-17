@@ -16,18 +16,21 @@
 .mp-down-room { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: var(--s-1); }
 .mp-down-fill { flex: 1 1 0; min-height: 0; overflow: hidden; }
 :is(.mp-down, .ag-run) .mp-mini-scroll { flex: none; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
-/* R11 R12: the "↓ {n} more below" slot, at a fixed height at the drawer's bottom, there whether it says something or not */
-.mp-down-below { flex: 0 0 32px; height: 32px; display: flex; align-items: center; min-width: 0; }
-/* batch 13's repair: the wait link sits in a fixed slot (Session: after "more below", at the right; Live: at the left of
-   the tools row), one line: it never moves a control or the drawing; its whole words are its title */
-.ag-run-tools .mp-wait-link { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* P7: in Session's slot "↓ n more below" never shrinks or wraps (its own width, one line); the wait link takes the room
-   that is left and wraps there, inside the slot's reserved 32 px (two 14 px lines at 12 px): nothing moves when it comes */
-.mp-down-below > [data-testid=map-more-below] { flex: 0 0 auto; white-space: nowrap; }
-.mp-down-below .mp-wait-link { flex: 0 1 auto; min-width: 0; min-height: 0; max-height: 28px; margin-left: auto; align-self: center;
-  overflow: hidden; font-size: 12px; line-height: 14px; text-align: right; white-space: normal; overflow-wrap: anywhere; }
-.mp-down-below .mp-wait-words { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.ag-run-tools .mp-wait-link { margin-right: auto; }
+/* R11 R12: the bottom slot, at the drawer's bottom, there whether it says something or not: "↓ {n} more below" in its own
+   column, its width kept from the first draw (P7: never shrinks or wraps, one line), then the wait link's own reserved
+   lines beside it; the slot is 32 px tall unless the twins of the longest wait link need more lines, from the first draw */
+.mp-down-below { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s-2); min-height: 32px; min-width: 0; }
+.mp-down-more { height: 32px; display: flex; align-items: center; min-width: 15ch; font-size: 12.5px; }
+.mp-down-below > .mp-wait-row { align-self: center; }
+.mp-down-more > [data-testid=map-more-below] { flex: 0 0 auto; white-space: nowrap; }
+/* P8 (the owner's rule: a text is never cut): the wait link's row (runWait.tsx WaitRow; Session: beside "more below",
+   Live: the tools row, left of the zoom). Its room is the tallest of hidden twins of the longest links this run can show,
+   in the same grid cell as the link, reserved from the first draw: the link wraps whole inside it, no ellipsis, no clamp */
+.mp-wait-row { display: grid; min-width: 0; font-size: 12px; line-height: 14px; }
+.mp-wait-row > * { grid-area: 1 / 1; min-width: 0; }
+.mp-wait-twin { visibility: hidden; pointer-events: none; overflow-wrap: anywhere; }
+.mp-wait-row .mp-wait-link { justify-self: start; align-self: start; min-height: 28px; max-width: 100%; padding: 0; font: inherit;
+  line-height: inherit; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 /* R7 R9 R10: a box is 184 px wide, 56 px for a name and "kind · state" (9 + 19 + 17 + 9 + borders), and grows with its
    words: no cap, no ellipsis, long words break anywhere */
 :is(.mp-down, .ag-run) .mp-box { padding: 9px 10px; overflow: visible; }
@@ -102,11 +105,14 @@
 .mp-step-in-ended { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
 .mp-step-in-foot { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin-top: auto; }
 .mp-step-in-foot > .mp-link { white-space: nowrap; }
-/* 3.6.0.2 R30 R31: the pair Running | Just built (one line, only with two maps) and the Just built head, at the top of the
+/* 3.6.0.2 R30 R31: the pair Running | Just built (only with two maps) and the Just built head, at the top of the
    drawing's box (MapDown.tsx); R29: the "new {t}" tag on a box a build wrote */
 .mp-built { flex: none; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mp-pair { display: flex; align-items: center; gap: 4px; height: 24px; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; color: var(--text); }
-.mp-pair-btn { height: 22px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-control); background: transparent; color: var(--muted); font: inherit; min-width: 0; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+/* P8: never cut -- a long pair wraps (each button its own whole words, a second line when it needs one); the pair takes its
+   room once, when the build lands (R30: the drawing moves down once), and a press changes no height */
+.mp-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; min-height: 24px; min-width: 0; font-size: 12px; color: var(--text); }
+.mp-pair-btn { min-height: 22px; max-width: 100%; padding: 2px 6px; border: 1px solid var(--line); border-radius: var(--r-control); background: transparent;
+  color: var(--muted); font: inherit; line-height: 16px; min-width: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
 .mp-pair-btn[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
 .mp-pair-btn[data-new]::after { content: " ●"; color: var(--accent); }
 .mp-pair-sep { color: var(--muted); }

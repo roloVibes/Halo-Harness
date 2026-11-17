@@ -12,7 +12,8 @@
 //   its place. Fit (100 %, from the top left) only on the first draw and on a different map; a hand zoom 75 % to 200 %.
 // - R49: the layout is computed again only when the map or the overlay's shape (LitMini `v`) or a measured height changes.
 // - P4 batch 13 (runParts.tsx, as Session's drawer): the tool clock, the talk pulse, "+{n} under it" to the Feed, J / K;
-//   the box waited on outlined and the wait link at the left of the tools row (runWait.tsx; batch 13's repair).
+//   the box waited on outlined and the wait link at the left of the tools row, on its reserved row (runWait.tsx WaitRow;
+//   P8: its words whole, never cut).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
@@ -31,7 +32,7 @@ import { readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
 import { DownBox } from "../session/DownBox";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
-import { useRunWait, WaitLink } from "../crew/map/runWait";
+import { useRunWait, WaitRow } from "../crew/map/runWait";
 import { firstSeen, keepSeen } from "../session/downFit";
 import { LiveHead } from "./LiveHead";
 
@@ -101,7 +102,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       <RunCtx.Provider value={parts}>
       <div className="ag-live-frame ag-run" ref={root} data-testid="live-frame" data-held={held ? "1" : undefined} onKeyDown={steps}>
         <div className="ag-run-tools">
-          <WaitLink world={world} />
+          <WaitRow world={world} />
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />
         </div>
         {!drawn && (gone ? <p className="cw-line" data-testid="live-removed">{removedAt(gone)}</p>

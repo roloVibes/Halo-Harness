@@ -44,7 +44,6 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 Q = "document.querySelector"
 SID2 = "attnopenother000000000000000002"
-OFF_MAP = "is not on the map: its question is in the"  # truthBits.askOffMap
 BUDGET = 12  # seconds a case may take to settle (Windows runners are slow); a case that never settles is recorded as is
 STUB = """(() => {
   const notes = [], reads = [];
@@ -82,6 +81,7 @@ PROBE = f"""(() => {{
            box: box ? box.dataset.box : '', feed_ask: !![...document.querySelectorAll('[data-testid=session-live-ask] [data-testid=session-live-key]')].find((e) => e.offsetParent), ask_keys: card ? card.querySelectorAll('[data-testid=map-step-in-ask] [data-testid=map-step-in-ask-key]').length : 0,
            pin: pick ? pick.value : null, sessions, attn_open: btn ? btn.getAttribute('aria-pressed') === 'true' : null,
            row: row ? row.dataset.id : '', keys: row ? [...row.querySelectorAll('[data-testid=fleet-attn-key]')].map((k) => k.dataset.key) : [],
+           truth: {Q}('[data-part=live] [data-testid=live-truth]')?.dataset.state || '',
            toasts: [...document.querySelectorAll('.toast:not([data-leaving]) .toast-text')].map((t) => t.textContent) }};
 }})()"""
 
@@ -98,13 +98,30 @@ def _settle(c, cond: str) -> dict:
 def _landed(key: str, where: str = "session") -> str:
     """The one door's end state (3.6.0.2 P4 batch 9: the run's drawing). From Agents: Agents -> 4 · Live, the asking
     agent's box selected, its card open with the ask's choices. Elsewhere: Session on the row's session, the asking agent
-    in the Live column's pick (3.6.0.1), Session's Live drawer open, the box selected and its card on the ask."""
+    in the Live column's pick (3.6.0.1), Session's Live drawer open, the box selected and its card on the ask (Attention: _attention)."""
     _h, sid, aid = key.split("|")
-    if where == "agents":  # an agent 4 · Live puts on no box (P4 batch 12): the Feed on its ask and one line (askOffMap)
-        return (f"p.section === 'agents' && p.view === 'live' && ((p.box === {json.dumps(aid)} && p.ask_keys > 0)"
-                f" || (p.feed_ask && p.toasts.some((t) => t.includes({json.dumps(OFF_MAP)}))))")
+    if where == "agents":  # P8: this rig's session runs with no map; 4 · Live draws main's box under its T4 line
+        return f"p.section === 'agents' && p.view === 'live' && p.box === {json.dumps(aid)} && p.ask_keys > 0"
     return (f"p.section === 'session' && p.pin === {json.dumps(key)} && p.sessions.join() === {json.dumps(sid)} && p.live_open === true"
             f" && p.box === {json.dumps(aid)} && p.ask_keys > 0")
+
+
+def _attention(c, row: str) -> dict:
+    """P8 (3.6.0.1's Session landing, restored): Attention on the asked row with its answers. At this rig's 1500 px
+    the door opens Attention and then the Live drawer, and the room rule (lib/workspace/rules.ts R9: the oldest drawer
+    closes when the room runs out) closes Attention again; so what is on screen is read, and when Attention is closed
+    ONE press of its view-bar button shows it: the row the door selected, with its answers."""
+    p = c.js(PROBE)
+    out = {"want": row, "open_at_landing": p.get("attn_open") is True}
+    btn = f"{Q}(\"{SV} [data-testid=viewbar-btn][data-panel=session-attention]\")"
+    if p.get("attn_open") is not True:
+        c.click_on(btn)
+        p = _settle(c, "p.attn_open === true && !!p.row")
+    out.update(open=p.get("attn_open") is True, row=p.get("row") or "", keys=p.get("keys") or [])
+    if not out["open_at_landing"] and out["open"]:
+        c.click_on(btn)  # closed again: the saved layout the next case boots with is the door's own
+        _settle(c, "p.attn_open === false")
+    return out
 
 
 def _boot(c, rig, query: str, ready: str) -> None:
@@ -181,6 +198,7 @@ def row_b(c, x: Ctx) -> dict:
     x.row = _queue(rig)[0]  # the card says its row is read: the one row that waits
     c.click_on(o)
     out["row_b"] = _settle(c, _landed(x.key))
+    out["row_b"]["attn"] = _attention(c, x.row)
     _answer(rig)
     return out
 
@@ -198,10 +216,12 @@ def alerts(c, x: Ctx) -> dict:
     out["row"], out["key"] = x.row, x.key
     c.js("window.__notes[0].onclick(); 1")
     out["alert_b"] = _settle(c, _landed(x.key))
+    out["alert_b"]["attn"] = _attention(c, x.row)
     _unpin(c)
     _tab(c, "local")
     c.js("window.__notes[0].onclick(); 1")
     out["alert_e"] = _settle(c, _landed(x.key))
+    out["alert_e"]["attn"] = _attention(c, x.row)
     _unpin(c)
     _tab(c, "agents")
     c.wait(f"!!{Q}('[data-testid=\"agents-view-map\"]')", 20)
@@ -222,6 +242,7 @@ def row_a(c, x: Ctx) -> dict:
     out = {"row_a_before": {"agent": c.js(pressed.format("session-agent")), **c.js(PROBE)}}
     _click_o(c, f"{SV.replace(chr(92), '')} .ws-cell[data-panel=\"session-attention\"]", x.row)
     out["row_a"] = _settle(c, _landed(x.key))
+    out["row_a"]["attn"] = _attention(c, x.row)
     return out
 
 

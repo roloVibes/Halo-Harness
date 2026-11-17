@@ -158,7 +158,9 @@ def replay(c, rig, lv, sent) -> dict:
         c.click_on(MD_BTN)
     try:
         out["drawer_rows"] = c.wait(f"(() => {{ const r = [...document.querySelectorAll('{rows}')].filter((e) => e.offsetParent);"
-                                    f" return r.length ? r.map((e) => [e.dataset.kind, e.getBoundingClientRect().height]) : null; }})()", 15)
+                                    f" const cut = (x) => {{ const s = getComputedStyle(x); return s.textOverflow === 'ellipsis' || s.whiteSpace === 'nowrap'; }};"
+                                    f" return r.length ? r.map((e) => [e.dataset.kind, e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1"
+                                    f" && ![e, ...e.querySelectorAll('*')].some(cut)]) : null; }})()", 15)
     except TimeoutError:
         out["drawer_rows"] = f"none: drawer {c.js('document.querySelector(`[data-part=map] [data-testid=map-drawer]`)?.dataset.page || null')}"
     out.update(replay_rows_follow(c, rows, scrub))

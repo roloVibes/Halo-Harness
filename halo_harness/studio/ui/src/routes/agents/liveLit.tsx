@@ -2,7 +2,10 @@
 // in the Lit shape the Feed, its head (BoxHead) and its pages read (crew/map/useLit.ts), given to the whole workspace
 // through LitCtx. A local session gives its words whatever its T-state; its overlay (which box holds which agents) comes
 // from the drawing's own read (LitMini useLit, cached by version: nothing is read twice) only while Live draws it, so a
-// session Live does not draw (T4, T8, T10) reads no map (R28). Another machine's session (T9), or none: no Feed.
+// session Live does not draw (T8, T10) reads no map (R28). Another machine's session (T9), or none: no Feed. P8 (the
+// coordinator's ruling): a session with NO map (T4) is drawn as Session's Live drawer draws it -- the box main alone,
+// through the same drawing (LiveDraw.tsx, useLit's map of no file: nothing is read) -- under its T4 line, so an ask's door
+// from Agents lands on main's box with the ask's card: a run's drawing is never an empty page while a session runs.
 import { useMemo, type ReactNode } from "react";
 import { useSessionRecord } from "../../lib/work/record";
 import { useNow } from "../fleet/store";
@@ -13,7 +16,7 @@ import { LitCtx, OFF, type Lit } from "../crew/map/useLit";
 import { useLivePick, type LivePick } from "./livePick";
 import { useShown } from "../crew/map/runParts";
 
-const DRAWN = new Set(["T1", "T2", "T3", "T11", "T12"]); // a local session with a map, open
+const DRAWN = new Set(["T1", "T2", "T3", "T4", "T11", "T12"]); // a local open session, with a map or with none (main alone)
 const NOBODY: LitSession = { sid: "", title: "", map: null, started: 0, live: 0 };
 
 /** The session Live draws (a local open session with a map), or null. */

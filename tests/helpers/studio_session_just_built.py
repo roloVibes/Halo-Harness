@@ -177,7 +177,8 @@ def _on_shop(rig, rows: Rows, a: str, b: str) -> None:
 
 def _pair(c) -> dict:
     return c.js(f"""(() => {{ const p = {PAIR}, d = {DRAWN}, h = {HEAD}, bar = {Q}('[data-testid=session-built]');
-      const btn = (w) => {{ const b = p?.querySelector(`[data-which=${{w}}]`); return b ? {{ pressed: b.getAttribute('aria-pressed'), marked: b.hasAttribute('data-new'), text: b.textContent }} : null; }};
+      const btn = (w) => {{ const b = p?.querySelector(`[data-which=${{w}}]`); return b ? {{ pressed: b.getAttribute('aria-pressed'), marked: b.hasAttribute('data-new'), text: b.textContent,
+        whole: b.scrollWidth <= b.clientWidth + 1 && b.scrollHeight <= b.clientHeight + 1 && getComputedStyle(b).textOverflow !== 'ellipsis' && getComputedStyle(b).whiteSpace !== 'nowrap' }} : null; }};
       return {{ bar: !!bar, barH: bar ? bar.getBoundingClientRect().height : 0,
                text: p?.textContent || '', h: p ? Math.round(p.getBoundingClientRect().height * 2) / 2 : null, buttons: p ? p.querySelectorAll('button').length : 0,
                running: btn('running'), built: btn('built'), map: d?.dataset.map || '', lit: d ? d.querySelectorAll('[data-lit]').length : -1,

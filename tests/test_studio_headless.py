@@ -36,7 +36,10 @@ def test_new_session_opens_on_it_with_the_prompt(ctx: Ctx):
               "or:mock/headless" in str(got.get("default_option")) and bool(got.get("cwd_placeholder")))
     ctx.check(f"Session on the new session, got {got.get('sid')!r}", len(str(got.get("sid") or "")) == 32)
     ctx.check(f"the Prompt has the keyboard, got {got.get('focused')}", got.get("focused") == "focused")
-    ctx.check(f"the header says no terminal, got {got.get('noterm')!r}", "no terminal" in str(got.get("noterm")))
+    # P8 (rewritten to the truth, promptF P27): the header's words end with `no terminal`; its two controls are beside them
+    ctx.check(f"the header's words say no terminal, got {got.get('noterm')!r}", str(got.get("noterm") or "").strip().endswith("· no terminal"))
+    ctx.check(f"and its two controls are there, got {got.get('noterm_controls')!r}",
+              got.get("noterm_controls") == ["Open in terminal", "End session"])
     ctx.check(f"the registry row is headless, got {got.get('registered')}", got.get("registered") == "headless")
 
 

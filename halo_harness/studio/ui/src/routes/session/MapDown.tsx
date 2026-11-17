@@ -18,7 +18,8 @@
 //   (no overlay); the boxes a build in this session wrote carry "new {t}" (built.ts tagOf).
 // - P4 batch 13 (crew/map/runParts.tsx, as Agents -> Live): the tool clock, the talk pulse, "+{n} under it" (the Feed is
 //   Agents -> Live's: it opens there on this session), J / K; its clock only while Session is on screen; the box waited
-//   on outlined and the wait link in the bottom slot, after "more below" (runWait.tsx; batch 13's repair).
+//   on outlined and the wait link in the bottom slot, on its own reserved lines beside "more below" (runWait.tsx WaitRow; P8:
+//   its words whole, never cut).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
@@ -31,7 +32,7 @@ import { useAskedBox } from "../crew/map/askBox";
 import { StepIn } from "../crew/map/StepIn";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
-import { useRunWait, WaitLink } from "../crew/map/runWait";
+import { useRunWait, WaitRow } from "../crew/map/runWait";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { moreBelow, openInAgents, readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
@@ -175,8 +176,8 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       </div>
       {card && <StepIn t={card} map={shown} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below">
-        {n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" onClick={down}>{moreBelow(n)}</button>}
-        <WaitLink world={world} />
+        <div className="mp-down-more">{n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" onClick={down}>{moreBelow(n)}</button>}</div>
+        <WaitRow world={world} />
       </div>
       </RunCtx.Provider>
     </div>

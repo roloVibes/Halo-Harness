@@ -17,7 +17,9 @@
 .ag-live-pick { flex: none; align-self: flex-start; height: 32px; width: 360px; max-width: 100%; }
 /* R34: the run's drawing, left to right (LiveDraw.tsx): the zoom row, then the scroll box filling the frame */
 .ag-run { display: flex; flex-direction: column; gap: 4px; min-height: 240px; min-width: 0; }
-.ag-run-tools { flex: 0 0 32px; display: flex; align-items: center; justify-content: flex-end; }
+.ag-run-tools { flex: none; min-height: 32px; display: flex; align-items: center; gap: var(--s-2); } /* P8: the wait row takes the room left of the zoom */
+.ag-run-tools > .mp-wait-row { flex: 1 1 0; }
+.ag-run-tools > .cz-zoom { margin-left: auto; }
 .ag-run .mp-scroll { flex: 1 1 0; min-height: 0; }
 .ag-run .mp-label { cursor: pointer; }
 .ag-note {

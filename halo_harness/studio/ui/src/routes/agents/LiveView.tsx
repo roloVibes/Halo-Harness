@@ -2,9 +2,9 @@
 // (the four-tab switch, then Attention, as every tab), a workspace `agents-live` with one main panel titled WORDS.live.
 // In it, in this order: the picker "Which session" (only with two or more open sessions: this machine's, then other
 // machines'; livePick.ts; its row's room is reserved from the first draw, so a second session opening moves nothing,
-// R12), the session's T-state line and its status line (LiveHead.tsx, from its row at once), then the frame: for a local session with a map, its drawing (LiveDraw.tsx); for one with no map (T4), one that ended (T8), one on
-// another machine (T9), one with no message yet (T10) or none (Empty) the frame stays empty at its reserved height and
-// nothing is fetched (R28). R57: its right drawer titled WORDS.feed is the Feed (crew/map/Feed.tsx) for Live's session
+// R12), the session's T-state line and its status line (LiveHead.tsx, from its row at once), then the frame: for a local open session, its drawing (LiveDraw.tsx; one with no map, T4, is main's box alone under its T4 line, as
+// Session's Live drawer draws it: P8); for one that ended (T8), one on another machine (T9), one with no message yet
+// (T10) or none (Empty) the frame stays empty at its reserved height and nothing is fetched (R28). R57: its right drawer titled WORDS.feed is the Feed (crew/map/Feed.tsx) for Live's session
 // (liveLit.tsx), closed until he opens it from the view bar or a door opens it (crew/map/feedOpen.ts openFeed).
 import { useEffect } from "react";
 import { Empty } from "../../lib/ui";

@@ -37,7 +37,13 @@ def nomap(c, rig, lv, sent) -> dict:
     lv.refresh(map=None)
     tr = lq("[data-testid=live-truth]")
     out = {"nomap_head": c.wait(f"{tr}?.dataset.state === 'T4' && {tr}.textContent", 20)}
-    out["boxes"] = [c.js(f"{lqa('[data-map-box]')}.length"), c.js(f"!!{lq('[data-testid=map-lit-show-nomap]')}")]
+    # P8: a session with no map is drawn as Session's Live drawer draws it: main's box, and what the run started (this
+    # rig's session runs the workflow review: its block), under the T4 line
+    try:
+        c.wait(f"{lqa('[data-map-box]')}.length > 0", 20)
+    except Exception:
+        pass  # recorded as drawn (none), the test says so
+    out["boxes"] = [c.js(f"{lqa('[data-map-box]')}.map((b) => b.dataset.mapBox)"), c.js(f"!!{lq('[data-testid=map-lit-show-nomap]')}")]
     lv.refresh(map="shop")
     out["again"] = c.wait(f"{lq('[data-testid=agents-live]')}?.dataset.map === 'shop' && {lqa('[data-testid=live-label]')}.length", 20)
     sw = t("map-switcher")  # the Map back on shop for its History (R55: a replay is the Map's)

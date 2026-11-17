@@ -127,6 +127,10 @@ def drawn(c, rig, lv, st) -> dict:
         st["press"] = f"{type(e).__name__}: {e}"[:160]
     _off(c)
     _wait(c, f"!!{Q}('[data-testid=session-lit-map][data-map=review-flow]')", 10)
+    # P8: the block's step rows come with the map's read (its facts), a moment after the drawing's head: seen red twice in
+    # four runs on the base when read at once. The drawing is read once its review block has them (or after 10 s, as is)
+    _wait(c, f"(() => {{ const b = {Q}('[data-testid=session-lit-map] [data-box=review]'); const t = b ? b.textContent : '';"
+             f" return t.includes('coder') && t.includes('reviewer'); }})()", 10)
     _off(c)
     d = c.js(DRAWN) or {}
     d["s0"] = c.js(SAMPLE) or {}
@@ -303,7 +307,10 @@ class BuiltDriver(Driver):
         with StudioSessionRig() as rig:
             rig.full = False  # no `open=all`: the drawer must start closed
             lv = Live(rig, extra=())
-            lv.refresh(map="starter")  # this session started on the default
+            # this session started on the default: its row says so as the engine's does (map_facts.row: map_plain True);
+            # P8: without it the row described a session started on a map NAMED starter, which reads "starter", not S13's
+            # "starter (the default)"
+            lv.refresh(map="starter", map_plain=True)
             st = {"body": seed_built(rig)}
             yield tuple((fn, (c, rig, lv, st)) for fn in (built, word, drawn, turns, agents))
 

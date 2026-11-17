@@ -4,6 +4,7 @@
 // preview would make shows as a dashed ghost row. Hover a row: its whole line; click: the form.
 import { Button } from "../../../lib/ui";
 import { useBuilder } from "../builderStore";
+import { TO_A_MAP } from "../map/truthWords";
 import type { FlowRow } from "../types";
 import { useFlowBuilt } from "./flowBuilt";
 import { copyFlowFrom, newFlow, openFlow, useFlows } from "./flowStore";
@@ -60,7 +61,7 @@ export function FlowList() {
       {mine.map((r) => <Item key={`${r.scope}:${r.name}`} r={r} on={isOn(r)} built={r.name === built} />)}
       {loaded && !mine.length && <p className="cw-hint" data-testid="flow-none">None yet: + New workflow, copy a starter below, or describe one in the builder box.</p>}
       {mine.length > 0 && !mine.some((r) => r.maps.length) && (
-        <p className="cw-hint" data-testid="flow-no-map">Nothing is on a map yet: the Map tab, where you connect workflows, comes in the next version.</p>
+        <p className="cw-hint" data-testid="flow-no-map">{`Nothing is on a map yet. ${TO_A_MAP}`}</p>
       )}
       {error && <p className="cw-hint" data-tone="bad">{error}</p>}
       <div className="cw-group mono">Starters to copy</div>

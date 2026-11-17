@@ -25,9 +25,9 @@ import { toolClock, waitClock } from "./truthBits";
 import { waitWhat } from "./truth";
 
 /** The run's wait (runWait.tsx): `waits` by agent id; `leaf`: the agent the session waits on; `box`: the drawn box
- *  holding it; `link`: 3.6.0.0's words for it. */
-export type RunWait = { waits: Map<string, Wait>; leaf: string; box: string; link: string };
-export const NO_WAIT: RunWait = { waits: new Map(), leaf: "", box: "", link: "" };
+ *  holding it; `link`: 3.6.0.0's words for it; `room`: the longest links this run can show (P8: the link's reserved room). */
+export type RunWait = { waits: Map<string, Wait>; leaf: string; box: string; link: string; room: string[] };
+export const NO_WAIT: RunWait = { waits: new Map(), leaf: "", box: "", link: "", room: [] };
 
 /** What the parts of one drawing read: its agents' keys by id, its clock (`now`, seconds), its Feed door, its wait. */
 export type RunParts = { keys: Map<string, string>; now: number; under: (aid: string) => void; wait: RunWait };
