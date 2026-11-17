@@ -46,6 +46,9 @@ export function pickerSuffix(running: string[], next = false): string {
 }
 export const switchLabel = (): string => "New sessions run on this";
 
+/** R28 a run's map not read yet (its drawing waits; the head above it is drawn from the row). */
+export const readingMap = (name: string): string => `Reading the map ${name}...`;
+
 /** R28 a just-built map that is gone. */
 export const removedAt = (t: number): string => `This map was removed at ${clock(t)}.`;
 

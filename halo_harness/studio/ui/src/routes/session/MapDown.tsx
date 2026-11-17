@@ -16,18 +16,18 @@
 // - R29-R31: the pair Running | Just built (two maps only) and the head (BuiltBar.tsx), at the top of the drawing's own
 //   box: no room until a build lands, then the drawing moves down once and no control moves; Just built is drawn calm
 //   (no overlay); the boxes a build in this session wrote carry "new {t}" (built.ts tagOf).
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { holding, tagOf, useBuilt } from "../crew/map/built";
 import { useHold } from "../crew/map/hold";
 import { useLit } from "../crew/map/LitMini";
-import { RunLine, type LinePick } from "../crew/map/RunLine";
+import { RunLine } from "../crew/map/RunLine";
+import { useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { StepIn } from "../crew/map/StepIn";
-import { stepIn, type Hit, type Target } from "../crew/map/stepInTarget";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
-import { moreBelow, openInAgents, removedAt, type TruthFacts } from "../crew/map/truth";
+import { moreBelow, openInAgents, readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
 import { BuiltBar } from "./BuiltBar";
 import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight } from "./downFit";
 import { DownBox } from "./DownBox";
@@ -70,25 +70,13 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const [heights, setHeights] = useState<Record<string, number>>({});
   // the boxes no line reaches wait for R44's heading (a later batch): today, as before, the drawing is the reached map
   const live = useMemo(() => layoutDown({ ...v, strip: [] }, (b) => heights[b.id] ?? estimateDown(b), cw), [v, heights, cw]);
-  const [card, setCard] = useState<Target | null>(null);
+  const { card, setCard, pick, pickLine, closeCard } = useStepCard(L); // R18 (runFrame.ts)
   const { held } = useHold(root, !!card);
   useEffect(() => holding(s.sid, held), [s.sid, held]); // R30: Just built is chosen only while this is not held
   useEffect(() => () => holding(s.sid, false), [s.sid]);
-  const rowsNow = useRef(L);
-  rowsNow.current = L;
-  const pick = useCallback((h: Hit) => setCard((c) => { // R18: from the rows at the click; the same thing again closes it
-    const t = stepIn(h, rowsNow.current.agents, rowsNow.current.ov);
-    return c && c.id === t.id ? null : t;
-  }), []);
-  const pickLine: LinePick = useCallback((l, text) => pick({ kind: "line", from: l.from, to: l.to, text, off: !!l.off }), [pick]);
-  const closeCard = useCallback(() => setCard(null), []);
   useEffect(() => setCard(null), [s.sid, shown]);
-  const kept = useRef<{ map: string; cw: number; g: Down; ready: boolean } | null>(null);
-  let was = kept.current;
-  if (!held || !was || !was.ready || was.map !== shown || was.cw !== cw) {
-    was = kept.current = { map: shown, cw, g: live, ready: live.boxes.every((b) => heights[b.id] != null) };
-  }
-  const g = was.g; // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
+  // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
+  const g = useHeld<Down>(held, `${shown}|${cw}`, live, live.boxes.every((b) => heights[b.id] != null));
 
   const [k, setK] = useState(1);
   const [restTop, setRestTop] = useState(0); // the scrollTop the scroll box's height is counted from
@@ -126,13 +114,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     el.scrollTop = p.t;
     if (Math.abs(el.scrollTop - p.t) <= 1 || ++p.tries > 3) pending.current = null;
   });
-  useLayoutEffect(() => { // R10: each box as tall as its words, measured once drawn (as MapCanvas.tsx measures)
-    const got: Record<string, number> = {};
-    world.current?.querySelectorAll<HTMLElement>("[data-box]").forEach((el) => {
-      got[el.dataset.box!] = (el.querySelector<HTMLElement>(".mp-inner")?.offsetHeight || 0) + 20; // its words, padding and border
-    });
-    if (Object.entries(got).some(([id, h]) => Math.abs((heights[id] || 0) - h) > 1)) setHeights((x) => ({ ...x, ...got }));
-  });
+  useMeasure(world, heights, setHeights); // R10 (runFrame.ts)
   const onScroll = () => {
     const el = scroll.current;
     if (!el) return;
@@ -163,7 +145,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
         <BuiltBar s={s} />
         <div className="mp-down-fill" ref={roomEl}>
         {!drawn && (gone ? <p className="cw-line" data-testid="session-map-removed">{removedAt(gone)}</p>
-          : !(got && "unreadable" in got) && <p className="cw-line" data-testid="session-lit-map-reading">Reading the map {shown}...</p>)}
+          : !(got && "unreadable" in got) && <p className="cw-line" data-testid="session-lit-map-reading">{readingMap(shown)}</p>)}
         {drawn && <div className="mp-mini-scroll rc-scroll" ref={scroll} style={{ height: H }} onScroll={onScroll} tabIndex={0} data-pan="1"
              title={NAV_HELP} aria-label="The session's map">
           <div className="mp-mini-size" style={{ width: g.w * k, height: g.h * k }}>

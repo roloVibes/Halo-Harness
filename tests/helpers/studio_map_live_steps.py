@@ -85,6 +85,23 @@ def lit(c, rig, lv, sent) -> dict:
     out["code_face"] = c.js(f"{lbox('code')}.querySelector('{FACE}')?.textContent")
     out["notes_face"] = c.js(f"[...{lbox('notes')}.querySelectorAll('{FACE}')].map((r) => r.textContent)")
     out["cut"] = c.js(L_CUT)
+    out["stranger"] = stray(c, lv)
+    return out
+
+
+def stray(c, lv) -> dict:
+    """The stray agent (x0rph4n1, its parent `nobody`: no box of the map started it, so R17 has no box to draw it from):
+    in Live it is no row of any box and no line, it is not a hand-off outside the map; the status line counts it among
+    those working (it says one agent fewer once it is done, and again as many when it works)."""
+    st = lq("[data-testid=live-status]")
+    out = {"rows": c.js(f"document.querySelectorAll('{LP}[data-testid=live-frame] [data-row=x0rph4n1]').length"),
+           "working": c.js(f"{st}?.textContent")}
+    lv.state("stray", state="done")
+    try:
+        out["done"] = c.wait(f"{st}?.textContent !== {out['working']!r} && {st}.textContent", 15)
+    finally:
+        lv.state("stray", state="running")
+    out["again"] = c.wait(f"{st}?.textContent === {out['working']!r} && {st}.textContent", 15)
     return out
 
 

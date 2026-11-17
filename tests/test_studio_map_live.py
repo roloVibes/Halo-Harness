@@ -5,7 +5,8 @@ rows and the map frames a session on a map sends; skipped without Chrome). The o
 tests/test_map_overlay.py's; the frames' source is tests/test_map_chains.py.
 
 1. 4 · Live's head: the session's T-state (it runs on shop) and its status line (who works, dollars); the tab dot on 4 · Live;
-2. each box's state, its face ("{kind} · {state}"), nothing cut;
+2. each box's state, its face ("{kind} · {state}"), nothing cut; a stray agent no box started: no row of any box,
+   counted among those working in the status line, never a hand-off outside the map;
 3. a hand-off lights the line its frame names (the label: the task, then its When again); a chain; reduced motion;
 4. a workflow box is its block: the head and a row per step, its agent; a click on the head opens the step-in card;
 5. a made-up child is a row "made up: {task} · {state}" in main's box with Save as an agent, a saved row has none; Save
@@ -22,6 +23,7 @@ from __future__ import annotations
 TIER = "full"  # headless Chrome: the full tier
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -61,6 +63,18 @@ def test_each_box_says_its_state_and_nothing_is_cut(ctx: Ctx):
     ctx.check(f"code's face: agent, working, got {got.get('code_face')!r}", str(got.get("code_face")).startswith("agent · working"))
     ctx.check(f"not used yet, got {got.get('notes_face')}", got.get("notes_face") == ["agent · not used yet"])
     ctx.check(f"nothing cut, got {got.get('cut')}", got.get("cut") == 0)
+    # rewritten to the truth on 4 · Live (was: "an agent no box claims: in the strip, tagged 'not on this map'", the Map's
+    # strip, which the run's drawing does not have): R15 R17 R23, see tests/helpers/studio_map_live_steps.py `stray`
+    sg = got.get("stranger") or {}
+    ctx.check(f"an agent no box claims: no row of any box in Live, got {sg.get('rows')!r}", sg.get("rows") == 0)
+    n = re.match(r"(\d+) agents working", str(sg.get("working")))
+    left = str(sg.get("done"))
+    ctx.check(f"... counted among those working: one fewer once it is done, as many again when it works, got {sg}",
+              bool(n) and (left.startswith(f"{int(n.group(1)) - 1} agents working") if int(n.group(1)) > 2 else not left.startswith(f"{n.group(1)} agents"))
+              and sg.get("again") == sg.get("working"))
+    off = re.compile(r" · \d+ hand-offs? outside the map$")
+    ctx.check(f"... and never a hand-off outside the map (no box started it): the count is the same either way, got {sg}",
+              (off.search(str(sg.get("working"))) or [""])[0] == (off.search(left) or [""])[0])
 
 
 @test

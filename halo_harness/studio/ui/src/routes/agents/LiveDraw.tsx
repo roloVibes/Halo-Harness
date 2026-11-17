@@ -11,7 +11,7 @@
 //   place; the change that moves a box is drawn when the pointer leaves; after a hand scroll the first box he sees keeps
 //   its place. Fit (100 %, from the top left) only on the first draw and on a different map; a hand zoom 75 % to 200 %.
 // - R49: the layout is computed again only when the map or the overlay's shape (LitMini `v`) or a measured height changes.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { useHold } from "../crew/map/hold";
@@ -20,11 +20,12 @@ import { estimateDown, type PlacedDown, type RoutedDown } from "../crew/map/layo
 import { useLit } from "../crew/map/LitMini";
 import type { LitSession } from "../crew/map/litStore";
 import { whenWords } from "../crew/map/mapTypes";
-import { RunLine, type LinePick } from "../crew/map/RunLine";
+import { RunLine } from "../crew/map/RunLine";
+import { useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { StepIn } from "../crew/map/StepIn";
-import { stepIn, type Hit, type Target } from "../crew/map/stepInTarget";
-import { removedAt, type TruthFacts } from "../crew/map/truth";
+import { readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
 import { DownBox } from "../session/DownBox";
+import { firstSeen, keepSeen } from "../session/downFit";
 import { LiveHead } from "./LiveHead";
 
 const NAV_ID = "agents-live";
@@ -41,7 +42,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const f = got && "unreadable" in got ? { ...given, unreadable: s.path || map } : given; // R50: T12
   const drawn = !!detail;
   const root = useRef<HTMLDivElement>(null), scroll = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null);
-  const [card, setCard] = useState<Target | null>(null);
+  const { card, setCard, pick, pickLine, closeCard } = useStepCard(L); // R18 (runFrame.ts, as Session's drawer)
   const { held } = useHold(root, !!card);
   const said = useRef(f);
   if (!held) said.current = f; // the head's words: a fact that would grow it waits with the drawing
@@ -50,20 +51,8 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     const g = layout(v.boxes, v.lines, (b) => heights[b.id] ?? estimateDown(b));
     return { boxes: g.boxes.map((b) => ({ ...b, w: BOX_W, rank: b.col, row: 0 })), lines: g.lines.map((l) => ({ ...l, entry: 0 })), w: g.w, h: g.h };
   }, [v, heights]);
-  const kept = useRef<{ map: string; g: G; ready: boolean } | null>(null);
-  let was = kept.current;
-  if (!held || !was || !was.ready || was.map !== map) {
-    was = kept.current = { map, g: fresh, ready: fresh.boxes.every((b) => heights[b.id] != null) };
-  }
-  const g = was.g; // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
-  const rowsNow = useRef(L);
-  rowsNow.current = L;
-  const pick = useCallback((h: Hit) => setCard((c) => { // R18: from the rows at the click; the same thing again closes it
-    const t = stepIn(h, rowsNow.current.agents, rowsNow.current.ov);
-    return c && c.id === t.id ? null : t;
-  }), []);
-  const pickLine: LinePick = useCallback((l, text) => pick({ kind: "line", from: l.from, to: l.to, text, off: !!l.off }), [pick]);
-  const closeCard = useCallback(() => setCard(null), []);
+  // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
+  const g = useHeld<G>(held, map, fresh, fresh.boxes.every((b) => heights[b.id] != null));
   useEffect(() => setCard(null), [s.sid, map]);
 
   const [k, setK] = useState(1);
@@ -84,18 +73,10 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     const old = last.current, el = scroll.current;
     last.current = g;
     if (old === g || !el || el.scrollTop < 0.5) return;
-    const first = [...old.boxes].sort((a, b) => a.y - b.y).find((b) => (b.y + b.h) * k > el.scrollTop);
-    const now = first && g.boxes.find((b) => b.id === first.id);
-    if (first && now && now.y !== first.y) el.scrollTop += (now.y - first.y) * k;
+    const seen = firstSeen(old.boxes, k, el.scrollTop), t = seen && keepSeen(g.boxes, k, seen); // as Session's drawer (downFit.ts)
+    if (t != null && Math.abs(t - el.scrollTop) > 0.5) el.scrollTop = t;
   }, [g]); // eslint-disable-line react-hooks/exhaustive-deps
-  useLayoutEffect(() => { // R10: each box as tall as its words, measured once drawn (never while the view is hidden)
-    if (!world.current?.offsetParent) return;
-    const got: Record<string, number> = {};
-    world.current.querySelectorAll<HTMLElement>("[data-box]").forEach((el) => {
-      got[el.dataset.box!] = (el.querySelector<HTMLElement>(".mp-inner")?.offsetHeight || 0) + 20; // its words, padding and border
-    });
-    if (Object.entries(got).some(([id, h]) => Math.abs((heights[id] || 0) - h) > 1)) setHeights((x) => ({ ...x, ...got }));
-  });
+  useMeasure(world, heights, setHeights, true); // R10 (runFrame.ts): never while the view is hidden
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
   const pulse = (from: string, to: string) => ov?.pulses.find((p) => p.from === from && p.to === to);
@@ -107,7 +88,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />
         </div>
         {!drawn && (gone ? <p className="cw-line" data-testid="live-removed">{removedAt(gone)}</p>
-          : !(got && "unreadable" in got) && <p className="cw-line" data-testid="live-reading">Reading the map {map}...</p>)}
+          : !(got && "unreadable" in got) && <p className="cw-line" data-testid="live-reading">{readingMap(map)}</p>)}
         {drawn && (
           <div className="mp-scroll rc-scroll" ref={scroll} tabIndex={0} data-pan="1" title={NAV_HELP} aria-label="The session's map" data-testid="live-scroll">
             <div className="mp-world-size" style={{ width: g.w * k, height: g.h * k }}>

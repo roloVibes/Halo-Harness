@@ -6,9 +6,12 @@ Halo 3.6.0.2 R3 R34 R12), over the same rig: the session's row on `shop` (the ma
               connect dot, no label that is a button, no When card from a label's click, nothing amber; 3 · Map's picker
               changed afterwards leaves Live on shop
     holds     R12: the pointer on check's box; a made-up child under main, a second child under code and a hand-off
-              main -> code arrive: every box holds still (0.5 px) and the scroll stays; the pointer leaves: code's box grows
+              main -> code arrive: every box holds still (0.5 px) and the scroll stays; then a second session opens: the
+              picker appears in its kept room, no box and no zoom button moves; the pointer leaves: code's box grows
     t9        R3: an `away` harness (another machine, `gpu-box`) with an open session `nightly` on `tiers` joins GET live; the
               picker lists "{title} · {map}" for both machines, none disabled; picking nightly says T9 and fetches nothing
+              (the GETs recorded at the server's dispatcher from before the page loads; the local drawing's map read is
+              the tap's proof); R1: Session's Open in Agents -> Live then lands on the local session, drawn
 """
 from __future__ import annotations
 
@@ -102,9 +105,43 @@ def holds(c, rig, lv, rows) -> dict:
     moved = [k for s in samples for k, r in s.items() if k in before and max(abs(a - b) for a, b in zip(r, before[k])) > 0.5]
     out["moved"] = sorted(set(moved))
     out["scroll"] = [top, c.js(f"{SCROLL}.scrollTop")]
+    out.update(_second_session(c, lv))
     c.mouse("mouseMoved", 4, 4)
     out["released"] = c.wait(f"document.querySelector('{F}')?.dataset.held !== '1' && (() => {{ const b = {box('code')}; const r = b.getBoundingClientRect();"
                              f" return r.height > {before['code'][3]} + 1 && b.querySelector('.mp-inner').offsetHeight + 20 <= b.clientHeight + 2 && r.height; }})()", 15)
+    return out
+
+
+def _second_session(c, lv) -> dict:
+    """R12, still held: a second session opens (another machine's here; a second local one takes the same path, the
+    picker's options are both lists): the picker "Which session" appears in the room kept for it; no box, no zoom button
+    moves."""
+    from halo_harness.studio import live_api
+    tools = f"document.querySelector('{F} .ag-run-tools')"
+    zoom = f"(() => {{ const r = {tools}.getBoundingClientRect(); return [r.left, r.top]; }})()"
+    pick = f"!!document.querySelector('{P} [data-testid=live-pick]')"
+    out: dict = {"pick_before": c.js(pick)}
+    before, zb = c.js(RECTS), c.js(zoom)
+    orig = live_api.view_for
+
+    def view_for(server, state_dir):
+        v = orig(server, state_dir)
+        return {**v, "harnesses": list(v.get("harnesses") or []) + [AWAY]}
+    live_api.view_for = view_for
+    try:
+        lv.refresh()
+        out["pick_after"] = c.wait(pick, 20)
+        samples = []
+        for _ in range(4):
+            samples.append((c.js(RECTS), c.js(zoom)))
+            time.sleep(0.2)
+    finally:
+        live_api.view_for = orig
+        lv.refresh()
+    moved = {k for s, _ in samples for k, r in s.items() if k in before and max(abs(a - b) for a, b in zip(r, before[k])) > 0.5}
+    moved |= {"zoom" for _, z in samples if max(abs(a - b) for a, b in zip(z, zb)) > 0.5}
+    out["held_on_pick"] = c.js(f"document.querySelector('{F}')?.dataset.held || ''")
+    out["moved_on_pick"] = sorted(moved)
     return out
 
 
@@ -117,6 +154,7 @@ def t9(c, rig, lv, rows) -> dict:
         v = orig(server, state_dir)
         return {**v, "harnesses": list(v.get("harnesses") or []) + [AWAY]}
     live_api.view_for = view_for
+    gets, untap = _tap_gets()  # from before the page loads: the client keeps the fetch it had at boot (lib/api.ts fetchOwn)
     try:
         rows.reset()
         c.go("about:blank")
@@ -129,19 +167,42 @@ def t9(c, rig, lv, rows) -> dict:
         except TimeoutError:
             raise TimeoutError(f"the picker: {c.js(f'{opts}.map((o) => o.textContent)')}; Live says {c.js(f'{LIVE}?.innerText.slice(0, 300)')!r}")
         out["pick_label"] = c.js(f"{pick}.getAttribute('aria-label')")
-        c.js("""(() => { window.__mapGets = []; const f = window.fetch;
-          window.fetch = function (u, ...a) { const s = String(u && u.url || u); if (s.includes('crew/map/')) window.__mapGets.push(s); return f.call(this, u, ...a); };
-          return 1; })()""")
+        c.wait(f"{BOXES}.length >= 6", 30)  # the local session drawn first: its map was read (the tap's own proof)
+        out["gets_drawn"] = sorted(set(p for p in gets if p.startswith("crew/map/")))
+        gets.clear()
         choose(c, f"{P} [data-testid=live-pick]", "away-1")
         truth = f"document.querySelector('{P} [data-testid=live-truth]')"
         out["t9"] = c.wait(f"{truth}?.textContent === {T9!r} && [{truth}.dataset.state, {truth}.textContent]", 30)
         out["boxes"] = c.js(f"{BOXES}.length")
+        time.sleep(2)  # a read the pick would start lands within this; what the server served is read, not timed
+        out["gets"] = [p for p in gets if p.startswith("crew/map/") or "away-1" in p]
+        # R1: a pick in Session replaces it: Session's [Open in Agents -> Live] lands on that session, drawn, not on T9
+        from tests.helpers.studio_agents_live import alt
+        alt(c, 1)
+        link = "document.querySelector('[data-testid=session-map] [data-testid=session-lit-open]')"
+        c.wait(f"!!{link}", 30)
+        c.click_on(link)
         try:
-            c.wait("window.__mapGets.length > 0", 2)
+            out["session_pick"] = c.wait(f"{VIEW} === 'live' && {LIVE}?.dataset.sid === '{lv.sid}' && {BOXES}.length >= 6 && {LIVE}.dataset.state", 30)
         except TimeoutError:
-            pass
-        out["gets"] = c.js("window.__mapGets")
+            out["session_pick"] = c.js(f"[{VIEW}, {LIVE}?.dataset.sid, {LIVE}?.dataset.state, {BOXES}.length]")
     finally:
+        untap()
         live_api.view_for = orig
         rows.refresh()
     return out
+
+
+def _tap_gets():
+    """The paths of the GETs the page makes, recorded at the server's dispatcher (as studio_cost_composition taps the
+    commands): `_api` reads the module attribute per request."""
+    from halo_harness.studio import api as A
+    seen, orig = [], A.dispatch
+
+    def rec(req):
+        if req.method == "GET":
+            seen.append(str(req.path))
+        return orig(req)
+
+    A.dispatch = rec
+    return seen, lambda: setattr(A, "dispatch", orig)

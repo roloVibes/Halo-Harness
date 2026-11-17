@@ -1,0 +1,46 @@
+// The parts of a run's drawing that Session's Live drawer (session/MapDown.tsx, top to bottom) and Agents -> 4 · Live
+// (agents/LiveDraw.tsx, left to right) share, imported by both, never copied (3.6.0.2 R10 R12 R18):
+// - useStepCard: R18 a click on a box, a step row, a line or a label opens the step-in card for the agent the session's
+//   rows name at that moment (stepInTarget.ts); the same thing again closes it;
+// - useHeld: R12 under the pointer (or with a card open) the last laid-out geometry stays, once every box is measured; a
+//   different map (or width) is drawn at once; the change is drawn when the pointer leaves;
+// - useMeasure: R10 each box as tall as its words, measured once drawn (as MapCanvas.tsx measures).
+import { useCallback, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import type { Lit } from "./LitMini";
+import type { LinePick } from "./RunLine";
+import { stepIn, type Hit, type Target } from "./stepInTarget";
+
+export function useStepCard(L: Lit) {
+  const [card, setCard] = useState<Target | null>(null);
+  const rowsNow = useRef(L);
+  rowsNow.current = L;
+  const pick = useCallback((h: Hit) => setCard((c) => { // from the rows at the click
+    const t = stepIn(h, rowsNow.current.agents, rowsNow.current.ov);
+    return c && c.id === t.id ? null : t;
+  }), []);
+  const pickLine: LinePick = useCallback((l, text) => pick({ kind: "line", from: l.from, to: l.to, text, off: !!l.off }), [pick]);
+  const closeCard = useCallback(() => setCard(null), []);
+  return { card, setCard, pick, pickLine, closeCard };
+}
+
+/** The geometry to draw: `fresh` unless held, measured, and still the same drawing (`key`: the map, and the width laid out). */
+export function useHeld<G>(held: boolean, key: string, fresh: G, ready: boolean): G {
+  const kept = useRef<{ key: string; g: G; ready: boolean } | null>(null);
+  const was = kept.current;
+  if (!held || !was || !was.ready || was.key !== key) kept.current = { key, g: fresh, ready };
+  return kept.current!.g;
+}
+
+/** Measures each `[data-box]` under `world` after every draw and grows `heights` when a box's words need it; `shownOnly`:
+ *  never while the view is hidden (a hidden view's boxes measure as their padding alone). */
+export function useMeasure(world: RefObject<HTMLElement | null>, heights: Record<string, number>,
+                           setHeights: Dispatch<SetStateAction<Record<string, number>>>, shownOnly = false): void {
+  useLayoutEffect(() => {
+    if (shownOnly && !world.current?.offsetParent) return;
+    const got: Record<string, number> = {};
+    world.current?.querySelectorAll<HTMLElement>("[data-box]").forEach((el) => {
+      got[el.dataset.box!] = (el.querySelector<HTMLElement>(".mp-inner")?.offsetHeight || 0) + 20; // its words, padding and border
+    });
+    if (Object.entries(got).some(([id, h]) => Math.abs((heights[id] || 0) - h) > 1)) setHeights((x) => ({ ...x, ...got }));
+  });
+}

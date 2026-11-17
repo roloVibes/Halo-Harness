@@ -73,3 +73,8 @@ export function agentsView(): AgentsView {
 export function useAgentsView(): AgentsView {
   return useStore(agents, (s) => s.view);
 }
+
+/** 3.6.0.2 R1 R3: another machine's session picked in 4 · Live (`sid`, "" for none) and the local pick it was made over
+ *  (`at`). It holds until he picks another: in Live's picker, or in Session (a different local pick there voids it; its
+ *  [Open in Agents -> Live] clears it, routes/session/store.ts `openInLive`). */
+export const livePickAway = createStore<{ sid: string; at: string }>({ sid: "", at: "" });

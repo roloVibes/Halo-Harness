@@ -115,6 +115,10 @@ def test_live_holds_still_under_the_pointer(ctx: Ctx):
     ctx.check(f"R12: no box moved under the pointer, got {d.get('moved')}", d.get("moved") == [])
     sc = d.get("scroll") or [0, 1]
     ctx.check(f"the scroll stayed, got {sc}", sc[0] == sc[1])
+    ctx.check(f"R12: a second session opening shows the picker, got {d.get('pick_before')!r} -> {d.get('pick_after')!r}",
+              d.get("pick_before") is False and d.get("pick_after") is True)
+    ctx.check(f"R12: ... in the room kept for it: no box and no zoom button moved under the held pointer, got {d.get('moved_on_pick')} "
+              f"(held {d.get('held_on_pick')!r})", d.get("moved_on_pick") == [] and d.get("held_on_pick") == "1")
     ctx.check(f"the pointer left: code's box grew to hold its new row, got {d.get('released')!r}", bool(d.get("released")))
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
@@ -130,7 +134,11 @@ def test_live_picker_other_machine_t9_no_fetch(ctx: Ctx):
     ctx.check(f"its name, got {d.get('pick_label')!r}", d.get("pick_label") == "Which session")
     ctx.check(f"T9 in section 4's words, got {d.get('t9')}", d.get("t9") == ["T9", "nightly runs on tiers on gpu-box. Its drawing is in that machine's Studio."])
     ctx.check(f"no drawing, got {d.get('boxes')}", d.get("boxes") == 0)
-    ctx.check(f"nothing fetched for it, got {d.get('gets')}", d.get("gets") == [])
+    ctx.check(f"the server's tap sees the page's reads: the local session's map read when it was drawn, got {d.get('gets_drawn')}",
+              "crew/map/shop" in (d.get("gets_drawn") or []))
+    ctx.check(f"nothing fetched for it (no map read, nothing of away-1, at the server), got {d.get('gets')}", d.get("gets") == [])
+    ctx.check(f"R1: a pick in Session (its Open in Agents -> Live) replaces it: Live draws that session, got {d.get('session_pick')!r}",
+              d.get("session_pick") in ("T1", "T2", "T3", "T11", "T12"))
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

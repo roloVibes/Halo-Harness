@@ -24,7 +24,7 @@ import { onEvent } from "../../lib/events";
 import { livePick, noteBuild, noteRows, staleList } from "./pick";
 import { keepOpen } from "../crew/map/built";
 import { startLit } from "../crew/map/litStore";
-import { setAgentsView } from "../agents/store";
+import { livePickAway, setAgentsView } from "../agents/store";
 
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
@@ -203,6 +203,7 @@ export function enterSession(): void {
  *  `sess.chosen` = this session (the session Agents -> Live opens on). */
 export function openInLive(sid: string): void {
   if (sid) sess.update(() => ({ chosen: sid }));
+  if (sid) livePickAway.update(() => ({ sid: "", at: "" })); // R1: a pick here replaces another machine's picked in Live
   if (sid && studio.get().section === "session") setScope({ harness: localId(fleet.get()) || "?", session: sid }); // kept on leaving
   setAgentsView("live");
   goSection("agents", "live");
