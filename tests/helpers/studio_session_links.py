@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import threading
 
+from tests.helpers.hold_still import DRAWN, GATE, _measure
 from tests.helpers.studio_session import COST, TAB, url
 
 # P8: a 120-character goal -- the top line shows it whole, wrapped beside Open (never cut, never a slice at 80)
@@ -20,6 +21,74 @@ WHOLE = """(() => { const g = document.querySelector('[data-part=map] [data-test
   return { text: g.textContent, fits: g.scrollWidth <= g.clientWidth + 1 && g.scrollHeight <= g.clientHeight + 1,
     cut: [g, g.parentElement, g.parentElement.parentElement].some(cut), open_inside: O.width > 0 && O.left >= T.left - 0.5 && O.right <= T.right + 0.5
       && O.top >= T.top - 0.5 && O.bottom <= T.bottom + 0.5 }; })()"""
+# P8 repair: what must hold still on the Map while the goal run's line lands (tests/helpers/hold_still.py `still`)
+_PART = "document.querySelector('[data-part=map] [data-testid={}]')"
+HELD = {"drawing": _PART.format("map-scroll"), "top line": _PART.format("map-topline"),
+        "zoom": _PART.format("canvas-zoom"),
+        "run open": _PART.format("map-lit-run-open")}
+# the oldest held answer that is not a goal run's (None: none waits)
+_NOT_RUN = ("(() => { const h = window.__hold, i = h.queue.findIndex((e) => !e.path.startsWith('orchestra'));"
+            " if (i < 0) return null; const e = h.queue.splice(i, 1)[0]; h.seen.push(e.path); e.go(); return e.path; })()")
+
+
+def _release(c, nxt: str, quiet: float = 0.6, each=None) -> list:
+    """Let the held answers `nxt` picks go one at a time until none has waited for `quiet` s; `each(path)` after each."""
+    import time
+    out: list = []
+    idle = None
+    while len(out) < 120:
+        path = c.js(nxt)
+        if path is None:
+            idle = idle or time.time()
+            if time.time() - idle > quiet:
+                return out
+            time.sleep(0.1)
+            continue
+        idle = None
+        out.append(path)
+        c.wait("window.__hold.inflight === 0 && 'idle'", 20)
+        c.js(DRAWN)
+        if each:
+            each(path)
+    return out
+
+
+def held_run(c, page: str) -> dict:
+    """P8 repair: the Map opened with every /api/ answer held (tests/helpers/hold_still.py's gate). Every answer but the
+    goal runs' let go until nothing more asks: what is drawn then (`drawn_before_runs`). Then the rest, oldest first,
+    until the drawing is there: the first draw, measured (`first`); then every answer left, one at a time, the Map
+    measured again after each (`moved`)."""
+    import time
+    c.call("Page.enable")
+    ident = c.call("Page.addScriptToEvaluateOnNewDocument", source=GATE)["identifier"]
+    out: dict = {"moved": []}
+    try:
+        c.go("about:blank")
+        c.go(page)
+        c.wait("!!window.__hold", 40)
+        out["before"] = _release(c, _NOT_RUN, quiet=1.5)
+        out["drawn_before_runs"] = sorted(k for k, v in _measure(c, HELD).items() if v)
+        end = time.time() + 40
+        while not c.js(f"!!{HELD['drawing']}") and time.time() < end:
+            path = c.js("window.__hold.next()")
+            if path:
+                out["before"].append(path)
+                c.wait("window.__hold.inflight === 0 && 'idle'", 20)
+                c.js(DRAWN)
+            else:
+                time.sleep(0.1)
+        out["first"] = first = {k: v for k, v in _measure(c, HELD).items() if v}
+
+        def look(path):
+            now = _measure(c, HELD)
+            for k, v in first.items():  # each control said once, at its first move
+                if not any(m.startswith(k + " moved") for m in out["moved"]) and (
+                        not now.get(k) or any(abs(a - b) > 1 for a, b in zip(v, now[k]))):
+                    out["moved"].append(f"{k} moved after {path}: {v} -> {now.get(k)}")
+        out["released"] = _release(c, "window.__hold.next()", each=look)
+    finally:
+        c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=ident)
+    return out
 
 
 def live_run(rig):
@@ -79,8 +148,8 @@ def links(c, rig) -> dict:
     sid = rig.act.session_id
     t0 = time.monotonic()
     run_dir = live_run(rig)
-    c.go(url(rig, "mode=agents&view=map&plan=off"))  # 3.6.0.0 R5: the Map's line names the run; Open shows its pages
     opener = "document.querySelector('[data-testid=\"map-lit-run-open\"]')"
+    c.go(url(rig, "mode=agents&view=map&plan=off"))  # 3.6.0.0 R5: the Map's line names the run; Open shows its pages
     c.wait(f"!!{opener}", 30)
     # 3.6.0.1 (one Linux CI leg, red three times, its retry too): the button was on the page 0.3 s after the load, the
     # click right after it had no effect, and nothing came for 30 s, while the server answered. WHY IS NOT PROVEN.
@@ -111,4 +180,10 @@ def links(c, rig) -> dict:
     out["orchestra_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["orchestra_session"] = c.wait(f"{COST}?.dataset.session === '{sid}' && {COST}.dataset.session", 15)
     out["sid"] = sid
+    # P8 repair (the owner's rule: nothing moves after the first draw): the Map opened with every answer held, then the
+    # answers let go one at a time; the drawing waits for the goal runs' listing, so the run's line (its 120-character
+    # goal) is in the first draw, and the drawing under the top line, the top line and the zoom never move
+    # (done last: the links above are 3.6.0.1's flow, untouched)
+    out["held"] = held_run(c, url(rig, "mode=agents&view=map&plan=off"))
+    out["held"]["run_landed"] = c.wait(f"!!{opener} && 'landed'", 30)
     return out

@@ -33,7 +33,7 @@ CUT = re.compile(r"text-overflow:\s*ellipsis|white-space:\s*nowrap|line-clamp")
 # the selectors of the texts the judge found cut, and the stylesheet each lives in
 WHOLE = {
     "map-down.css": [".mp-wait-link", ".mp-wait-words", ".mp-wait-row", ".mp-pair", ".mp-pair-btn"],
-    "map-lit.css": ["[data-testid=map-lit-extras]", ".mpf-replay .mpf-mark", ".mp-extras-run", ".mp-extras-goal"],
+    "map-lit.css": ["[data-testid=map-lit-extras]", ".mpf-replay .mpf-mark", ".mp-extras-run", ".mp-extras-goal", ".mp-run-row"],
     "map.css": [".mp-uses-default", ".mp-uses-slot"],
 }
 

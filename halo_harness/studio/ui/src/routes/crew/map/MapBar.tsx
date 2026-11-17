@@ -8,7 +8,7 @@ import { openGoalHere } from "../run/goalStore";
 import { openMapDrawer } from "./feedOpen";
 import { Button } from "../../../lib/ui";
 import { dismissError, newMap, openMap, toggleLock, undoLast, useMap } from "./mapStore";
-import { Extras, REPLAY_LAST, ReplayLast, ReplayLine } from "./LitLine";
+import { Extras, REPLAY_LAST, ReplayLast, ReplayLine, RunRow } from "./LitLine";
 import { useLitNow } from "./useLit";
 import { setDrafting, setUse } from "./mapSwitch";
 import { QuietCtx, useQuiet } from "./mapQuiet";
@@ -86,8 +86,10 @@ function useRoom(key: string) {
 /** The map's top line: the reserved notice row (R55 L1-L3, R33 L4: NoticeRow.tsx), then a sentence -- a replay's line or
  *  R3's words -- in a room as tall as its longest form, then one row of controls, each in its own place: Replay the last
  *  session (its slot kept empty until History has a row), R4's "{n} new, not connected yet" (a box that just landed under
- *  "Not connected yet": a link that brings the strip into view), the plan and a goal run going. A part that is not there is
- *  not drawn: no unseen copy in the sentence (P4 batch 12); the line's height never changes with a session or a row. */
+ *  "Not connected yet": a link that brings the strip into view) and the plan; then a goal run going, on its own row,
+ *  in the first draw (LitLine.tsx RunRow; not drawn while a replay the person chose plays: below the replay's line and
+ *  its Back to now, it gives History in the drawer that room). A part that is not there is not drawn: no unseen copy in
+ *  the sentence (P4 batch 12); the line's height never changes with a session or a row. */
 export function TopLine({ fresh = 0 }: { fresh?: number }) {
   const locked = useMap((s) => s.locked);
   const scope = useMap((s) => s.detail?.scope);
@@ -115,6 +117,7 @@ export function TopLine({ fresh = 0 }: { fresh?: number }) {
         )}
         <Extras sid={quiet.sid} />
       </div>
+      {L.mode !== "replay" && <RunRow />}
     </div>
   );
 }
@@ -139,6 +142,8 @@ export function MapBar() {
             spacer, so the slot filling moves nothing) */}
         {/* P7: roles off and none set, new sessions run on NO map (`next_none`, the field the truth block reads): the
             default map says the words file's sentence for that, beside a switch (off) whose press puts new sessions on it */}
+        {/* P8 repair: the slot has the bar's free room to itself (the spacer gives it up), so its words wrap whole in
+            the bar's row and the open map landing moves nothing on the bar (it moved 16 px when they took three lines) */}
         <span className="mp-uses-slot">{!listed || !name ? null : !next && !nextNone && nextMap(next) === name ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
           : <><Switch on={!nextNone && nextMap(next) === name} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextNone || nextMap(next) !== name)}
                     title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />

@@ -5,7 +5,7 @@
 // changes width it fits again unless you zoomed it by hand (a hand zoom survives the Add drawer); Fit never goes under
 // 75 % -- past that the map pans, from main (top left). 3.6.0.0 R4b: agents talking light a dashed pulse box to box
 // (talkPulse.ts, no line added); J / K step between the working boxes.
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { fitScale, NAV_HELP, recallZoom, useCanvasNav, useZoomPoint } from "../../../lib/canvasNav";
 import { ZoomButtons } from "../../../lib/ui/ZoomButtons";
 import { useBuilder } from "../builderStore";
@@ -21,6 +21,8 @@ import { useLitNow } from "./useLit";
 import { useLive } from "../../shared/liveFeed";
 import { useTalks } from "../../shared/liveTalk";
 import { talkPulses } from "./talkPulse";
+import { useOrch } from "../../orchestra/store";
+import { startOrchestra } from "../../orchestra/sync";
 
 /** R4b (R4's gap 9): J / K move between the working (or waiting) boxes, in the map's order, and bring each into view. */
 function stepBoxes(e: KeyboardEvent<HTMLElement>): void {
@@ -68,7 +70,11 @@ export function MapCanvas() {
     el.scrollTop = 0;
   };
   const nav = useCanvasNav(scroll, { zoom, zoomAt: zoomPt, fit, id: ID, min: 0.5, max: 2, background: ".mp-world, .mp-world-size, .mp-lines" });
-  const drawn = !!detail;
+  // P8 repair (the owner's rule: nothing moves after the first draw): the canvas is drawn once the goal runs are listed
+  // too, so a goal run's line (LitLine.tsx RunRow, its words whole) is in the first draw, never pushing it down later
+  useEffect(() => startOrchestra(), []);
+  const runsListed = useOrch((s) => s.listed);
+  const drawn = !!detail && runsListed;
   useLayoutEffect(() => { // the first drawing fits its box (later: R8, when the box changes width)
     if (drawn && !nav.byHand()) fit();
   }, [drawn, detail?.map.name]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -99,6 +105,7 @@ export function MapCanvas() {
     if (f?.background && f.running) return "in the background: its chain is not followed";
     return whenWords(when);
   };
+  if (!runsListed) return <div className="mp-canvas" data-testid="map-canvas" />; // its room kept (the canvas' least height)
   return (
     <div className="mp-canvas" data-testid="map-canvas" onKeyDown={stepBoxes}>
       <div className="mp-zoom"><TopLine fresh={v.strip.filter((b) => b.isNew && !b.ghost).length} /><ZoomButtons zoom={zoom} zoomAt={nav.zoomAt} fit={nav.fit} /></div>

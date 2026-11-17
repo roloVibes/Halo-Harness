@@ -1,7 +1,7 @@
 // The Map's top line's pieces (3.6.0.2 R55: the Map is the plan): a replay of History's run says what plays, in quiet
 // colours, with Back to now; with nothing replaying, "Replay the last session" and a goal run going (with Open). A
 // running session is not drawn on the Map: its one quiet line is NoticeRow.tsx, its drawing Agents -> 4 · Live.
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../../../lib/ui";
 import { isLiveRun, useOrch } from "../../orchestra/store";
 import { openRun as openOrchRun, startOrchestra } from "../../orchestra/sync";
@@ -21,25 +21,39 @@ export function ReplayLast() {
   return last ? <Button size="sm" onClick={() => void replayRun(last.sid)} data-testid="map-lit-replay-last" title={`Replay "${last.what}" on the map`}>{REPLAY_LAST}</Button> : null;
 }
 
-/** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed; a goal run going, with Open (its
- *  pages in the Map's drawer, opened at once and filled as its reads arrive: P4 batch 9). Its buttons live in ONE parent
- *  whatever the line beside them says, so a listing landing never takes a button away under a click (batch 9). P8 (the
- *  owner's rule: a text is never cut): the goal's whole words wrap beside Open, its own item that never shrinks. */
+/** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed. */
 export function Extras({ sid }: { sid: string }) {
   useEffect(() => (startTodos(), startOrchestra()), []);
   const plan = planWords(useTodos(sid));
-  const run = useOrch((s) => s.runs.find((r) => isLiveRun(r.state)));
-  if (!plan && !run) return null;
+  if (!plan) return null;
   return (
     <span className="cw-line" data-testid="map-lit-extras">
-      {plan && <button type="button" className="mp-link" onClick={() => openFeed("plan")} data-testid="map-lit-plan" title={`The session's plan, in 4 · ${WORDS.live}'s ${WORDS.feed}`}>{plan}</button>}
-      {plan && run && " · "}
+      <button type="button" className="mp-link" onClick={() => openFeed("plan")} data-testid="map-lit-plan" title={`The session's plan, in 4 · ${WORDS.live}'s ${WORDS.feed}`}>{plan}</button>
+    </span>
+  );
+}
+
+/** R4b: a goal run going, with Open (its pages in the Map's drawer, opened at once and filled as its reads arrive: P4
+ *  batch 9). P8 (the owner's rule: a text is never cut): the goal's whole words wrap beside Open, its own item that never
+ *  shrinks, on the top line's own row. P8 repair (nothing moves after the first draw): the Map's canvas is drawn once the
+ *  runs are listed (MapCanvas.tsx), so a run going is in the first draw; the row keeps the tallest room it has had, so a
+ *  run ending moves nothing; a run started later (Run a goal) grows it once. */
+export function RunRow() {
+  const run = useOrch((s) => s.runs.find((r) => isLiveRun(r.state)));
+  const box = useRef<HTMLDivElement>(null);
+  const [kept, setKept] = useState(0);
+  useLayoutEffect(() => {
+    const h = box.current?.offsetHeight || 0;
+    if (h > kept + 0.5) setKept(h);
+  });
+  return !run && !kept ? null : (
+    <div className="cw-line mp-run-row" data-testid="map-lit-run-row" ref={box} style={kept ? { minHeight: kept } : undefined}>
       {run && <span className="mp-extras-run" data-testid="map-lit-run" data-run={run.run_id}>
         <span className="mp-extras-goal" data-testid="map-lit-run-goal">A goal run is going: {run.goal_what}</span>
         <Button size="sm" onClick={() => (openMapDrawer(`run:${run.run_id}`), void openOrchRun(run.run_id))} data-testid="map-lit-run-open"
                 title="Its pages (lanes, the gate, the merge, its report) in the drawer">Open</Button>
       </span>}
-    </span>
+    </div>
   );
 }
 

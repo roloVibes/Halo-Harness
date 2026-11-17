@@ -36,6 +36,17 @@ def test_orchestra_run_line_watches_its_session(ctx: Ctx):
     ctx.check(f"P8: the goal's 120 characters whole on the top line, wrapped, nothing cut, got {w}",
               str(w.get("text") or "").endswith("then make the tests pass") and w.get("fits") is True and w.get("cut") is False)
     ctx.check(f"P8: the goal run's Open is drawn inside the top line's box, got {w.get('open_inside')!r}", w.get("open_inside") is True)
+    # P8 repair (the owner's rule: nothing moves after the first draw): with the answers held, the Map's drawing waits for
+    # the goal runs' listing (on 79f00437 it was drawn first and the run's line pushed it 44 px down); its first draw
+    # holds the run's line; after it, as every other answer lands, nothing on the Map moves
+    h = got.get("held") or {}
+    first = h.get("first") or {}
+    ctx.check(f"P8 repair: nothing of the Map's drawing before the goal runs are listed, got {h.get('drawn_before_runs')}",
+              not {"drawing", "top line", "zoom"} & set(h.get("drawn_before_runs") or ["?"]))
+    ctx.check(f"P8 repair: the first draw holds the drawing, the top line, the zoom and the run's Open, got {sorted(first)}",
+              {"drawing", "top line", "zoom", "run open"} <= set(first) and h.get("run_landed") == "landed")
+    ctx.check(f"P8 repair: after the first draw nothing on the Map moves, got {h.get('moved')} "
+              f"(released {h.get('released')})", h.get("moved") == [])
     ctx.check(f"Open pressed once, the same node before and after the Map settled, got {got.get('open_clicks')} {got.get('open_same_node')!r}",
               got.get("open_clicks") == 1 and got.get("open_same_node") is True)
     ctx.check(f"it opens Session with the run's session chosen, got {got.get('orchestra_tab')!r} {got.get('orchestra_session')}",
