@@ -31,6 +31,9 @@ def test_orchestra_run_line_watches_its_session(ctx: Ctx):
         print(f"    (the Map's Open took {got.get('open_clicks')} click(s) before its drawer showed the run; "
               f"the Map had settled first: {got.get('settled')})")
     ctx.check(f"a live run's line has the button, got {got.get('watch_orchestra')!r}", got.get("watch_orchestra") == "Watch in Session")
+    # P4 batch 9 (the Map's top line draws its buttons in one parent): Open is pressed once, the same node before and after
+    ctx.check(f"Open pressed once, the same node before and after the Map settled, got {got.get('open_clicks')} {got.get('open_same_node')!r}",
+              got.get("open_clicks") == 1 and got.get("open_same_node") is True)
     ctx.check(f"it opens Session with the run's session chosen, got {got.get('orchestra_tab')!r} {got.get('orchestra_session')}",
               str(got.get("orchestra_tab")).startswith("Session") and got.get("orchestra_session") == got.get("sid"))
 

@@ -6,6 +6,7 @@
 // took at boot; `plainCall` is the same request without it (a pack's scoped client, packlib/scoped.ts). 3.4.1.2
 // (PACKS-2): the request's init and headers are objects with no prototype, so no getter a script put on
 // Object.prototype is asked for a field while fetch reads them.
+import { limitFor, overLimit, within } from "./apiLimit";
 import { makeOwnerProof, ownerProof } from "./owner";
 
 const fetchOwn = window.fetch.bind(window);
@@ -179,15 +180,20 @@ async function request<T>(owner: boolean, method: string, path: string, body?: u
     headers["Content-Type"] = "application/json";
     init.body = JSON.stringify(body);
   }
-  let res: Response;
+  const ms = limitFor(path); // P4 batch 9: a read that never ends fails at its limit like any failed read (apiLimit.ts)
+  let res: Response, text: string;
   try {
-    res = await fetchOwn(url, init);
+    [res, text] = await within(async (signal) => {
+      init.signal = signal;
+      const r = await fetchOwn(url, init);
+      return [r, await r.text()] as const;
+    }, ms);
   } catch (e) {
-    noteReached(false);
+    const slow = e instanceof Error && e.message === overLimit(ms).message;
+    if (!slow) noteReached(false); // one slow answer is not a stopped server
     throw new ApiError(0, "Studio server unreachable: " + (e instanceof Error ? e.message : String(e)));
   }
   noteReached(true);
-  const text = await res.text();
   let data: Record<string, unknown> = {};
   if (text) {
     try {

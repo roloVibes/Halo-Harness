@@ -4,7 +4,8 @@
 // not a "custom layout" (R10); `custom` is true only once a width was set by hand. `lv` is the view's layout version
 // (Workspace's `version`): a saved view of an older version is kept and the view says so once ("the layout changed":
 // use the new one, or keep mine); a v1 / v2 arrangement of the old grid is dropped, with the same note once.
-import { createStore, writeLocal, type Store } from "../store";
+import { createStore, toast, writeLocal, type Store } from "../store";
+import { keepAsk, takeAsks } from "./kept";
 import { FULL_PAGE } from "./query";
 import { closeIn, merge, openIn, roleOf, soloOf } from "./rules";
 import type { Layout, PanelLayout, PanelSpec } from "./types";
@@ -118,25 +119,13 @@ export function takeNote(section: string): LayoutState["note"] {
   return "";
 }
 
-/** Run `go` once the section's workspace has laid out (at once when it has); gives up after `ms`. */
-export function whenLaidOut(section: string, go: () => void, ms = 30000): void {
-  const s = layoutStore(section);
-  if (s.get().layout) return go();
-  const stop = s.subscribe(() => {
-    if (!s.get().layout) return;
-    stop();
-    window.clearTimeout(timer);
-    go();
-  });
-  const timer = window.setTimeout(stop, ms);
-}
-
 /** Replace the section's layout; `save` also persists what a person chose (open drawers, widths, the tab). */
 export function setLayout(section: string, layout: Layout, save = true): void {
   const s = layoutStore(section);
   const custom = Object.values(layout).some((p) => !!p.width);
   s.update(() => ({ layout, custom }));
   if (save) writeLocal(layoutKey(section), JSON.stringify({ v: VERSION, ...toSaved(section, layout) }));
+  for (const go of takeAsks(section)) go(); // a door's ask kept until this section laid out (kept.ts)
 }
 
 /** The stage's width now (drawers make room by it). */
@@ -145,11 +134,17 @@ export function stageWidth(section: string): number {
   return el?.clientWidth || window.innerWidth;
 }
 
-/** Change one panel: `collapsed: false` opens it (a drawer by the stage's rules, a tab shown), `true` puts it away. */
+/** The one line a door says when its panel is not in the section (P4 batch 9: a door never leads nowhere). */
+export const NOT_HERE = "That panel is not on this page any more: there is nothing to open.";
+
+/** Change one panel: `collapsed: false` opens it (a drawer by the stage's rules, a tab shown), `true` puts it away. Asked
+ *  before the section has laid out (a door that switched section in the same step), the ask is kept and applied at its
+ *  first layout (kept.ts); a panel the section does not have is said in one line when a door asks to open it. */
 export function patchPanel(section: string, id: string, patch: Partial<PanelLayout>, save = true): void {
   const cur = layoutStore(section).get().layout;
+  if (!cur) return keepAsk(section, id, () => patchPanel(section, id, patch, save));
   const specs = specsOf.get(section) || [];
-  if (!cur || !cur[id]) return;
+  if (!cur[id]) return void (patch.collapsed === false && !specs.some((s) => s.id === id) && toast(NOT_HERE, "info"));
   const { collapsed, ...rest } = patch;
   let next: Layout = { ...cur, [id]: { ...cur[id], ...rest } };
   if (collapsed === false) next = openIn(next, specs, id, stageWidth(section), {}, FULL_PAGE);
@@ -192,7 +187,7 @@ export function activatePanel(section: string, id: string): void {
  *  "pop it out over the page"; a drawer is what that is now.) */
 export function showPanel(section: string, spec: PanelSpec, _float = false): void {
   const cur = layoutStore(section).get().layout;
-  if (!cur) return;
+  if (!cur) return keepAsk(section, spec.id, () => showPanel(section, spec, _float)); // applied at its first layout
   const base = cur[spec.id] ? cur : { ...cur, [spec.id]: { collapsed: true, face: spec.face ?? "detail", z: 0 } };
   const specs = specsOf.get(section) || [];
   layoutStore(section).update(() => ({ solo: "" }));

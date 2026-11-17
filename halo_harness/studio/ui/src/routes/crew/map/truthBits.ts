@@ -93,3 +93,7 @@ export const unreachedHead = (): string => "Not connected yet: no line from main
 /** R47 what the Workflows head adds. */
 export const workflowsHead = (): string =>
   `Workflows are fixed lists of steps. A session runs a map, and a box on a map can run a workflow: see ${WORDS.map}.`;
+
+/** P4 batch 9: an ask's door pressed after its session ended (glance/openAsk.ts), one line; `t` 0 when not seen ending. */
+export const askEnded = (session: string, t: number): string =>
+  `${session || "This session"} ${t ? `ended at ${clock(t)}` : "has ended"}: nothing waits on you there now.`;

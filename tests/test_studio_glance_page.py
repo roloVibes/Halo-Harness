@@ -6,7 +6,8 @@ tests/helpers/studio_glance.py (skipped without Chrome), every pack off; no mode
 2. Settings -> Studio -> Alerts: None by default, nothing asked or shown on load; a click on the browser's asks this
    browser ONCE and saves `studio.alerts: browser`;
 3. a card that starts waiting is ONE notification naming what waits and the session -- the ask's frames again and the
-   queue read twice more do not make a second -- and a click on it opens Session's Attention on that row;
+   queue read twice more do not make a second -- and a click on it lands on Session's Live drawer with the asking agent's
+   box selected and its card open on the ask (3.6.0.2 P4 batch 9; it opened Session's Attention on that row before);
 4. the glance at 390 px: no rail, no horizontal scroll, the sentence, the ask with its three answers as large buttons
    saying what each does, the spend honestly ("unknown", "no cap set"), the elapsed time, the last three events; Allow
    once answers the card (the owner-proof path) and then nothing waits;
@@ -66,7 +67,7 @@ def test_one_notification_per_new_ask_and_its_click_opens_it(ctx: Ctx):
               and "you@studio" in str(note.get("body")) and str(note.get("tag", "")).endswith(":perm_1"))
     ctx.check(f"the frames again and two more reads: still one, got {got.get('notes_after')}",
               got.get("notes_after") == 1 and got.get("reads_grew") is True)
-    ctx.check(f"a click opens Session's Attention on that row: {got.get('opened')}", got.get("opened") == "permission"
+    ctx.check(f"a click opens Session's Live drawer, the asking box selected, its card on that ask: {got.get('opened')}", got.get("opened") == "permission"
               and got.get("note_closed") is True)
 
 

@@ -58,7 +58,8 @@ export type Question = { text: string; choices: string[] };
 
 export type Meta = { model: string; model_from: string; typical: string; spent_usd: number; cap_usd: number; reached: boolean };
 
-export type Msg = { me?: boolean; text: string; question?: Question; cost?: number };
+/** `left`: the lines of what an Apply left out and why, in the engine's words (builder/apply's `left`, P4 batch 9). */
+export type Msg = { me?: boolean; text: string; question?: Question; cost?: number; left?: string[] };
 
 export type TryRec = {
   id: string;

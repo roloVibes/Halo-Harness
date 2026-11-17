@@ -1,63 +1,77 @@
-// ONE door for "open this ask" (3.6.0.1; the owner's report from live use of 3.6.0.0: "when I get an attention alert and
-// chose 'open' nothing happens"). The alert's click (3.4.1.0 R4, lib/alerts.ts), an Attention row's O and the Live ask
-// card's O (routes/fleet/extras.ts `openTarget`) all come here: Session, the row's session selected, the Feed pointed at
-// the asking agent (the Live column's agent pick), the Attention drawer open with that row selected, its answers one key
-// away. The section may still be mounting: the drawer opens once its layout is up (an optional panel not in the saved
-// view is added). A row of no session (a cap, a conflict) opens Attention on it as before. Never silent: a session that
-// has ended says so in one toast line. A row of another harness (Session shows this one's) goes to `elsewhere`, else
-// Agents' Attention on it. The glance shows the ask on its own page instead (routes/glance/Glance.tsx).
-import { goSection, toast } from "../../lib/store";
-import { focusPanel, layoutStore, patchPanel, showPanel, specsFor, whenLaidOut } from "../../lib/workspace/persist";
+// The one door of an ask (3.4.1.0 R4; 3.6.0.1, the owner's report from live use of 3.6.0.0: "when I get an attention
+// alert and chose 'open' nothing happens"; 3.6.0.2 P4 batch 9, the owner's point 20): a click on an alert's notification
+// in the shell (lib/alerts.ts) and O on an ask's row (Attention in Session or over Agents, the Feed: fleet/extras.ts
+// answerRow and openTarget) land on the RUN'S DRAWING with the asking agent's box selected and its card open -- the
+// ask's choices, Pause, Stop, Steer (crew/map/askBox.ts): Agents -> 4 · Live when he is in Agents, else Session with
+// that session chosen, the Live column's agent pick on the asking agent, its Live drawer open and Attention open on the
+// row (an optional panel not in the saved view is added). A door asked before its section laid out is kept and applied
+// at the first layout (lib/workspace/kept.ts). A session Studio has not read yet (its first ask came before the list's
+// next read): the list is read once, then the door lands; still not there, it has ended: one line says so and nothing
+// moves; a read that failed says so. Another machine's ask, or a row of no session: Session's Attention on the row (its
+// drawing is in that machine's Studio). The glance shows the ask on its own page instead (routes/glance/Glance.tsx).
+import { goSection, studio, toast } from "../../lib/store";
+import { keepAsk } from "../../lib/workspace/kept";
+import { focusPanel, layoutStore, NOT_HERE, patchPanel, showPanel, specsFor } from "../../lib/workspace/persist";
 import { setAttention } from "../agents/attention";
-import { findAgent, findSession, fleet, keyOf, localId } from "../fleet/store";
+import { askBox } from "../crew/map/askBox";
+import { setFeedFor } from "../crew/map/litStore";
+import { askEnded } from "../crew/map/truthBits";
 import { panels, type AttnRow } from "../fleet/pstore";
+import { findAgent, findSession, fleet, keyOf, localId } from "../fleet/store";
 import { load } from "../fleet/sync";
+import { lastRow } from "../session/pick";
 import { pinTo } from "../session/steer";
-import { openSession, sess, setSessionView, showsSessionStart } from "../session/store";
+import { openInLive, openSession, sess, setSessionView, showsSessionStart } from "../session/store";
 
-export type AskRef = Pick<AttnRow, "harness" | "session_id" | "agent_id"> & { id?: string };
+/** What a door needs of an ask: an Attention row, or an `o` answer's target (fleet/extras.ts openTarget). */
+export type AskRef = Pick<AttnRow, "harness" | "session_id" | "agent_id"> & Partial<Pick<AttnRow, "id" | "local" | "session">>;
 
-export const GONE = "That session has ended; its ask is gone.";
 export const UNREAD = "Studio could not read the sessions just now. Try Open again.";
 
 /** Session's Attention drawer open (added first when the saved view has no such panel) and given the focus. */
 function openAttention(): void {
   const id = "session-attention";
-  if (layoutStore("session").get().layout?.[id]) {
+  const cur = layoutStore("session").get().layout;
+  if (!cur) return keepAsk("session", id, openAttention); // applied at Session's first layout
+  if (cur[id]) {
     patchPanel("session", id, { collapsed: false }, false);
-    focusPanel("session", id);
-    return;
+    return focusPanel("session", id);
   }
   const spec = specsFor("session")?.find((s) => s.id === id);
   if (spec) showPanel("session", spec);
-  else toast("Session has no Attention panel here: open it from the view bar", "info", 5000);
+  else toast(NOT_HERE, "info");
 }
 
 function land(row: AskRef): void {
-  const s = fleet.get();
   const sid = row.session_id || "";
-  if (sid) {
-    const asked = keyOf(row.harness, sid, row.agent_id || "main");
+  const aid = row.agent_id || "main";
+  const f = fleet.get();
+  if (row.id) panels.update(() => ({ attnSel: row.id || "", replyFor: "" }));
+  const local = row.local ?? (!f.loaded || row.harness === localId(f));
+  if (sid && local && studio.get().section === "agents") {
+    setAttention(false); // the card carries the ask: the queue's panel would lie over it
+    setFeedFor(`agent:${aid}`);
+    askBox("live", sid, aid);
+    return openInLive(sid);
+  }
+  if (sid && local) {
+    const asked = keyOf(row.harness, sid, aid);
     const main = keyOf(row.harness, sid, "main");
-    const key = findAgent(s, asked) ? asked : findAgent(s, main) ? main : "";
+    const key = findAgent(f, asked) ? asked : findAgent(f, main) ? main : "";
+    askBox("session", sid, aid);
     openSession(key ? { key } : { session: sid });
     pinTo(key);
   } else goSection("session");
   if (showsSessionStart(fleet.get(), sess.get().view)) setSessionView("workspace");
-  whenLaidOut("session", openAttention);
+  openAttention();
+  if (sid && local) patchPanel("session", "session-map", { collapsed: false }, false);
 }
 
 /** Open `row`'s ask where it can be answered (see the head of this file). */
-export function openAsk(row: AskRef, elsewhere?: () => void): void {
-  if (row.id) panels.update(() => ({ attnSel: row.id || "", replyFor: "" }));
+export function openAsk(row: AskRef): void {
   const sid = row.session_id || "";
-  const here = (): boolean => !!fleet.get().loaded && !!sid && !!findSession(fleet.get(), row.harness, sid);
-  const local = (): boolean => !fleet.get().loaded || row.harness === localId(fleet.get());
-  const go = (): void => {
-    if (!local()) return elsewhere ? elsewhere() : (goSection("agents"), setAttention(true));
-    land(row);
-  };
-  if (!sid || here()) return go();
-  // a session Studio has not read yet (its first ask came before the fleet's next read), or one that has ended
-  void load().then(() => (here() ? go() : toast(GONE, "info", 5000)), () => toast(UNREAD, "error", 5000));
+  const here = (): boolean => !!fleet.get().loaded && !!findSession(fleet.get(), row.harness, sid);
+  if (!sid || here()) return land(row);
+  const ended = (): void => void toast(askEnded(row.session || "", lastRow(sid)?.ended || 0), "info", 6000);
+  void load().then(() => (here() ? land(row) : fleet.get().error ? toast(UNREAD, "error", 5000) : ended()), () => toast(UNREAD, "error", 5000));
 }

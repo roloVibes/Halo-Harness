@@ -18,6 +18,7 @@ import { STATE_WORDS } from "./LitBits";
 import { openMap, setHover } from "./mapStore";
 import { stateOf, type OvRow } from "./overlay";
 import type { Target, Who } from "./stepInTarget";
+import { StepInAsks } from "./StepInAsk";
 import { agentRow, endedAt, openInAgents, openMapAt } from "./truth";
 
 /** Agents -> Map on `map`, the sender's box marked (R18's off-map link). */
@@ -69,6 +70,7 @@ export function StepIn({ t, map, close, onLive }: { t: Target; map: string; clos
         <button type="button" className="mp-step-in-x" data-testid="map-step-in-close" aria-label="Close" onClick={close}>×</button>
       </div>
       <p className="mp-step-in-state mono" data-testid="map-step-in-state">{t.text}</p>
+      <StepInAsks who={t.who} />
       {t.who.map((w) => <WhoRow key={w.key} w={w} chosen={w.key === pick} choose={() => setPick(w.key)} />)}
       {pick && (
         <div className="mp-step-in-steer" data-steer-key={pick}>

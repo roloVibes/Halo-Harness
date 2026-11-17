@@ -23,7 +23,8 @@ import { holding, tagOf, useBuilt } from "../crew/map/built";
 import { useHold } from "../crew/map/hold";
 import { useLit } from "../crew/map/LitMini";
 import { RunLine } from "../crew/map/RunLine";
-import { useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
+import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
+import { useAskedBox } from "../crew/map/askBox";
 import { StepIn } from "../crew/map/StepIn";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
@@ -115,6 +116,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     if (Math.abs(el.scrollTop - p.t) <= 1 || ++p.tries > 3) pending.current = null;
   });
   useMeasure(world, heights, setHeights); // R10 (runFrame.ts)
+  useAskedBox("session", s.sid, L, world, setCard); // an ask's door: the asking agent's box selected, its card open
   const onScroll = () => {
     const el = scroll.current;
     if (!el) return;
@@ -153,7 +155,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
               <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
                 {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} />)}
               </svg>
-              {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} built={tagOf({ tags, flows }, s.sid, shown, b)} />)}
+              {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} built={tagOf({ tags, flows }, s.sid, shown, b)} sel={selected(card, b.id, b.block?.workflow)} />)}
             </div>
           </div>
         </div>}

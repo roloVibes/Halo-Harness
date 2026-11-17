@@ -5,7 +5,7 @@
 // and the panel closes; Reject does the same.
 import type { PanelSpec } from "../../../lib/workspace/types";
 import { goSection } from "../../../lib/store";
-import { hidePanel, layoutStore, showPanel, whenLaidOut } from "../../../lib/workspace/persist";
+import { hidePanel, layoutStore, showPanel } from "../../../lib/workspace/persist";
 import { planPanels } from "../../orchestra/plan/PlanPanel";
 import { MAP_SECTION } from "../map/feedOpen";
 
@@ -14,7 +14,7 @@ export const planPanel: PanelSpec = { ...planPanels[0], optional: true };
 /** The Map with the plan review open. */
 export function reviewPlan(): void {
   goSection("agents", "map");
-  whenLaidOut(MAP_SECTION, () => showPanel(MAP_SECTION, planPanel));
+  showPanel(MAP_SECTION, planPanel); // kept until the Map lays out (lib/workspace/kept.ts)
 }
 
 /** The plan went on (approved) or the run stopped (rejected): the panel leaves the Map. */

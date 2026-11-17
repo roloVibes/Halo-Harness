@@ -57,6 +57,7 @@ function Message({ m, last, tab }: { m: Msg; last: boolean; tab: Tab }) {
     <div className="cw-msg" data-me={m.me || undefined} data-testid="builder-msg">
       <span className="cw-msg-who mono">{m.me ? "you" : "builder"}</span>
       <div className="cw-msg-text">{m.text}</div>
+      {m.left?.map((l, i) => <div key={i} className="cw-line cw-msg-left" data-testid="builder-left">{l}</div>)}
       {m.question && (
         <div className="cw-row" data-testid="builder-question">
           {m.question.text && <span className="cw-line">{m.question.text}</span>}

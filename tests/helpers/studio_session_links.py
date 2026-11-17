@@ -71,38 +71,26 @@ def links(c, rig) -> dict:
     c.wait(f"!!{opener}", 30)
     # 3.6.0.1 (one Linux CI leg, red three times, its retry too): the button was on the page 0.3 s after the load, the
     # click right after it had no effect, and nothing came for 30 s, while the server answered. WHY IS NOT PROVEN.
-    # The likely cause: the click is three mouse events at a spot read a moment earlier, and in a page's first moments
-    # the top line is drawn again when the session listing lands (the button is taken away and put back, elsewhere).
-    # The other: Open waits for three reads before it opens its drawer, and a read that never ends leaves it closed.
-    # So the driver (1) waits for the Map to say it has settled before it clicks, (2) takes "the drawer shows the
-    # run" as the click's answer, and clicks again when there is none (three clicks at most), (3) reports the count
-    # (the test prints it when it is more than one) and, on a failure, what the page held (_why).
+    # The likely cause: in a page's first moments the top line is drawn again when the session listing lands. So the
+    # driver waits for the Map to say it has settled before it presses and, on a failure, reports what the page held
+    # (_why). P4 batch 9: Open lives in ONE parent whatever the top line says, so it is the same node once the Map
+    # settled; it is pressed once, never a second time.
+    c.js(f"window.__open1 = {opener}; 1")
     try:
-        c.wait("!!document.querySelector('[data-testid=\"map\"][data-settled]')", 20)
+        c.wait("!!document.querySelector('[data-testid=\"map\"][data-settled]')", 30)
         out["settled"] = True
     except TimeoutError:
-        out["settled"] = False  # the clicks below still say what happened
+        out["settled"] = False  # the press below still says what happened
+    out["open_same_node"] = c.js(f"window.__open1 === {opener}")
     t1 = time.monotonic()
-    watch = "document.querySelector('[data-testid=\"orchestra-watch-session\"]')?.textContent"
-    answered = "(document.querySelector('[data-testid=\"map-feed\"]')?.dataset.filter || '').startsWith('run:')"
-    clicks = 0
     try:
-        while True:
-            clicks += 1
-            c.wait(f"!!{opener}", 10)
-            c.click_on(opener)
-            try:
-                c.wait(answered, 30 if clicks == 3 else 8)
-                break
-            except TimeoutError:
-                if clicks == 3:
-                    raise
-        out["watch_orchestra"] = c.wait(watch, 30)
+        c.click_on(opener)
+        out["open_clicks"] = 1  # one press, never a second
+        out["watch_orchestra"] = c.wait("document.querySelector('[data-testid=\"orchestra-watch-session\"]')?.textContent", 30)
     except TimeoutError as e:
-        took = {"to the Open button": round(t1 - t0, 1), "after its first click": round(time.monotonic() - t1, 1),
-                "clicks": clicks, "settled first": out["settled"]}
+        took = {"to the Open button": round(t1 - t0, 1), "after its press": round(time.monotonic() - t1, 1),
+                "settled first": out["settled"]}
         raise TimeoutError(f"{e}; WHY: {_why(c, rig, run_dir, sid, took)}") from None
-    out["open_clicks"] = clicks
     c.click_on("document.querySelector('[data-testid=\"orchestra-watch-session\"]')")
     out["orchestra_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["orchestra_session"] = c.wait(f"{COST}?.dataset.session === '{sid}' && {COST}.dataset.session", 15)

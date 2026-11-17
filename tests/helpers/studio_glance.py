@@ -104,9 +104,12 @@ def alert(c, rig) -> dict:
     c.wait(f"window.__reads.length >= {reads + 2}", 40)
     out = {"note": n, "notes_after": c.js("window.__notes.length"), "reads_grew": c.js("window.__reads.length") > before}
     c.js("window.__notes[0].onclick()")
-    row = f"{Q}('[data-panel=\"session-attention\"] [data-testid=\"fleet-attn-row\"][aria-selected=\"true\"]')"
-    c.wait(f"!!{Q}('.section-view[data-section=\"session\"]:not([hidden])') && !!{row}", 30)
-    out["opened"] = c.js(f"{row}.dataset.kind")
+    # 3.6.0.2 P4 batch 9 (the owner's point 20): the click lands on the run's drawing -- Session's Live drawer, the asking
+    # agent's box (main) selected, its card open with the ask's choices (the Attention row stays selected behind it)
+    box = f"{Q}('.section-view[data-section=\"session\"] [data-testid=\"session-lit-box\"][data-box=\"main\"][data-selected]')"
+    ask = f"{box}?.closest('.mp-down')?.querySelector('[data-testid=\"map-step-in\"] [data-testid=\"map-step-in-ask\"]')"
+    c.wait(f"!!{Q}('.section-view[data-section=\"session\"]:not([hidden])') && !!{ask}", 30)
+    out["opened"] = c.js(f"{ask}.dataset.kind")
     out["note_closed"] = c.js("window.__notes[0].closed")
     return out
 

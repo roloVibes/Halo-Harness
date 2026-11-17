@@ -20,14 +20,18 @@ async function rowOf(id: string) {
   return hits.find((r) => r.run_id === id) || (hits.length === 1 ? hits[0] : null);
 }
 
-/** Open a run where it is: its pages in the Map's drawer while it runs or waits for its plan, else its report. */
+/** Open a run where it is: its pages in the Map's drawer while it runs or waits for its plan, else its report. The
+ *  drawer opens FIRST (a run the list holds as live, or one it does not hold yet: the run's pages say they are reading)
+ *  and is filled as the reads arrive; a read that never ends fails at its limit (lib/apiLimit.ts), never a closed door. */
 export async function openRun(id: string): Promise<void> {
   startOrchestra();
   goSection("agents", "map");
-  const row = await rowOf(id);
+  const known = orch.get().runs.find((r) => r.run_id === id);
+  if (!known || isLiveRun(known.state)) openMapDrawer(`run:${id}`);
+  const row = known || await rowOf(id);
   if (row && isLiveRun(row.state)) {
-    if (orch.get().runId !== row.run_id) await openOrchRun(row.run_id);
-    openMapDrawer(`run:${row.run_id}`);
+    if (row.run_id !== id) openMapDrawer(`run:${row.run_id}`); // a prefix named it
+    if (orch.get().runId !== row.run_id) void openOrchRun(row.run_id);
     return;
   }
   void openReport(row?.run_id || id);

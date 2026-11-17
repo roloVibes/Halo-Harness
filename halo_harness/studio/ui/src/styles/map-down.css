@@ -109,3 +109,9 @@
 .mp-built-acts { display: flex; gap: var(--s-2); min-width: 0; }
 .mp-built-acts > .mp-link { flex: none; font-size: 12px; line-height: 17px; white-space: nowrap; }
 .mp-new-tag { align-self: flex-start; font-size: 12px; line-height: 16px; }
+/* P4 batch 9: the ask of a card's agent, its question then its answers (StepInAsk.tsx) */
+.mp-step-in-asks { flex: none; height: 64px; overflow-y: auto; }
+.mp-step-in-ask { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); padding: 2px 0; }
+.mp-step-in-ask-what { flex: 1 1 100%; font-size: 12px; overflow-wrap: anywhere; color: var(--warn, inherit); }
+.mp-step-in-ask-reply { display: flex; gap: var(--s-1); flex: 1 1 100%; }
+.mp-step-in-ask-reply .input { flex: 1; min-width: 0; }

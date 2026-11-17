@@ -8,7 +8,7 @@
 import { goSection, openHelp, studio, toast, toggleFocus, toggleRail } from "../lib/store";
 import { themeCommands } from "./themeCommands"; // 3.3.12.0 R1
 import { openGlossary } from "../lib/glossary";
-import { layoutStore, resetLayout, showPanel, whenLaidOut } from "../lib/workspace/persist";
+import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { sectionDef, sections, type SectionDef } from "../routes";
 import { packCommands } from "../routes/packs/registry";
@@ -29,7 +29,7 @@ export type Command = { id: string; group: string; label: string; kbd?: string; 
 /** Open a panel (a drawer, a tab, or an optional one added) and focus it, bringing the section's workspace up first. */
 export function revealPanel(def: SectionDef, p: PanelSpec): void {
   def.enter?.();
-  whenLaidOut(def.id, () => showPanel(def.id, p)); // the section may still be mounting (a slow runner: seconds)
+  showPanel(def.id, p); // the section may still be mounting (a slow runner: seconds): kept until it lays out (kept.ts)
 }
 
 /** What Reset layout would say when there is nothing to do ("" when there is). */

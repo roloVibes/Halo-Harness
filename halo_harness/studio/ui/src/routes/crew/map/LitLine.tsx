@@ -19,7 +19,8 @@ export function ReplayLast() {
 }
 
 /** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed; a goal run going, with Open (its
- *  pages in the Map's drawer). */
+ *  pages in the Map's drawer, opened at once and filled as its reads arrive: P4 batch 9). Its buttons live in ONE parent
+ *  whatever the line beside them says, so a listing landing never takes a button away under a click (batch 9). */
 export function Extras({ sid }: { sid: string }) {
   useEffect(() => (startTodos(), startOrchestra()), []);
   const plan = planWords(useTodos(sid));
@@ -31,7 +32,7 @@ export function Extras({ sid }: { sid: string }) {
       {plan && run && " · "}
       {run && <span data-testid="map-lit-run" data-run={run.run_id}>
         A goal run is going: {run.goal_what.slice(0, 80)}{" "}
-        <Button size="sm" onClick={() => void openOrchRun(run.run_id).then(() => openMapDrawer(`run:${run.run_id}`))} data-testid="map-lit-run-open"
+        <Button size="sm" onClick={() => (openMapDrawer(`run:${run.run_id}`), void openOrchRun(run.run_id))} data-testid="map-lit-run-open"
                 title="Its pages (lanes, the gate, the merge, its report) in the drawer">Open</Button>
       </span>}
     </span>

@@ -55,7 +55,8 @@ export function steerAgent(key: AgentKey): void {
     focusSteer("agent");
     return;
   }
-  if (layoutStore("session").get().layout?.["session-live"]?.collapsed) patchPanel("session", "session-live", { collapsed: false }, false);
+  const feed = layoutStore("session").get().layout?.["session-live"];
+  if (!feed || feed.collapsed) patchPanel("session", "session-live", { collapsed: false }, false); // kept until Session laid out
   pinTo(key);
   focusSteer("live");
 }

@@ -92,7 +92,8 @@ export function startManager(): void {
 export function selectPack(id: string): void {
   mgr.update(() => ({ sel: id }));
   // 3.6.0.0 R0a: Details is a closed drawer; a pick opens it beside Installed
-  if (id && layoutStore("packs").get().layout?.["pm-details"]?.collapsed) patchPanel("packs", "pm-details", { collapsed: false }, false);
+  const det = layoutStore("packs").get().layout?.["pm-details"];
+  if (id && (!det || det.collapsed)) patchPanel("packs", "pm-details", { collapsed: false }, false); // kept until Packs laid out
 }
 
 export function togglePick(id: string, need: string, on: boolean): void {

@@ -23,7 +23,7 @@ export type Target = { id: string; title: string; text: string; who: Who[]; send
 
 const LIVE = ["queued", "running", "waiting", "paused"];
 const isLive = (a: RecRow) => LIVE.includes(String(a.state || ""));
-const who = (a: RecRow): Who => ({ key: a.key, aid: a.id, name: String(a.row.crew?.agent || a.name || a.id) });
+export const who = (a: RecRow): Who => ({ key: a.key, aid: a.id, name: String(a.row.crew?.agent || a.name || a.id) });
 const newest = (rs: RecRow[]): RecRow | undefined => rs[rs.length - 1];
 
 /** The live child of the workflow `w`'s step `n` (no `n`: the running step's, else any live step child). */
@@ -57,4 +57,14 @@ export function stepIn(h: Hit, rows: RecRow[], ov: Overlay | null): Target {
   } else if (h.to.startsWith("made-up:")) a = rows.find((r) => r.id === h.to.slice("made-up:".length) && isLive(r));
   else a = newest(rows.filter((r) => isLive(r) && r.row.crew?.line === `${h.from} -> ${h.to}`));
   return { ...base, title: a ? who(a).name : `${h.from} -> ${h.to}`, who: a ? [who(a)] : [], sender: h.off ? h.from : "" };
+}
+
+/** Where agent `aid` is drawn: the box its row belongs to, else its workflow's block. Pure (tests/test_studio_door_kept.py; askBox.ts uses it). */
+export function placeOf(aid: string, ov: Overlay | null, rows: RecRow[]): { box?: string; workflow?: string } | null {
+  if (aid === "main") return { box: "main" };
+  if (!ov) return null;
+  for (const [id, b] of Object.entries(ov.boxes)) if (b.agents.includes(aid)) return { box: id };
+  for (const [id, ks] of Object.entries(ov.kids)) if (ks.some((k) => k.aid === aid)) return { box: id };
+  const w = rows.find((r) => r.id === aid)?.row.crew?.workflow;
+  return w ? { workflow: w } : null;
 }

@@ -3,7 +3,7 @@
 // Live with the Feed filtered to it and opened. 3 · Map keeps its own drawer for Run a goal, a goal run's pages and
 // History (R42: those buttons still change the page); its title follows the page it shows. Nothing opens by itself.
 import { createStore, goSection, useStore } from "../../../lib/store";
-import { patchPanel, whenLaidOut } from "../../../lib/workspace/persist";
+import { patchPanel } from "../../../lib/workspace/persist";
 import { setFeedFor } from "./litStore";
 
 export const MAP_SECTION = "agents-map";
@@ -15,7 +15,7 @@ export const MAP_DRAWER = "map-drawer";
 export function openFeed(filter: string): void {
   setFeedFor(filter);
   goSection("agents", "live");
-  whenLaidOut(LIVE_SECTION, () => patchPanel(LIVE_SECTION, FEED_PANEL, { collapsed: false }, false));
+  patchPanel(LIVE_SECTION, FEED_PANEL, { collapsed: false }, false); // kept until Live lays out (lib/workspace/kept.ts)
 }
 
 /** The Map drawer's page: `goal` (Run a goal's form), `history` (History's whole list) or `run:<id>` (a goal run's pages). */
@@ -27,5 +27,5 @@ export const mapPageTitle = (page: string): string => (page === "goal" ? "Run a 
 
 export function openMapDrawer(page: string): void {
   mapDrawer.update(() => ({ page }));
-  whenLaidOut(MAP_SECTION, () => patchPanel(MAP_SECTION, MAP_DRAWER, { collapsed: false }, false));
+  patchPanel(MAP_SECTION, MAP_DRAWER, { collapsed: false }, false); // kept until the Map lays out
 }

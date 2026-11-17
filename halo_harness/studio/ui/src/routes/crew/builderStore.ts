@@ -135,13 +135,14 @@ export async function apply(tab: Tab = "agents"): Promise<void> {
   const ids = s.pending.filter((c) => c.ticked).map((c) => c.id);
   if (!ids.length) return discardPreview(tab);
   try {
-    const r = await api.post<{ undo_id: string; wrote: string[]; removed: string[]; skipped: string[]; filled: { field: string; value: string }[] }>(
+    const r = await api.post<{ undo_id: string; wrote: string[]; removed: string[]; skipped: string[]; filled: { field: string; value: string }[]; left?: string[] }>(
       "builder/apply", { conversation_id: s.cid, change_ids: ids });
     for (const f of r.filled || []) setForm({ [f.field]: f.value });
     const touched = [...new Set(s.pending.filter((c) => ids.includes(c.id)).map((c) => c.target))];
     const n = r.wrote.length + r.removed.length;
     const line = n ? `The builder wrote ${n} file${n > 1 ? "s" : ""}.` : r.filled?.length ? "Put into the form: read it, then Save." : "Nothing to write.";
-    say(tab, { text: line + (r.skipped?.length ? ` ${r.skipped.join(" ")}` : "") });
+    // what the Apply-time recheck left out (a switch of new sessions that would widen now), each line as the server says it
+    say(tab, { text: line + (r.skipped?.length ? ` ${r.skipped.join(" ")}` : ""), left: (r.left || []).map(String) });
     b.update(() => ({ pending: [], receipt: n ? { line, undo: r.undo_id, touched } : null }));
     await HOOKS[tab].after(touched);
   } catch (e) {

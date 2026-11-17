@@ -21,7 +21,8 @@ import { useLit } from "../crew/map/LitMini";
 import { setFeedFor, type LitSession } from "../crew/map/litStore";
 import { whenWords } from "../crew/map/mapTypes";
 import { RunLine } from "../crew/map/RunLine";
-import { useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
+import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
+import { useAskedBox } from "../crew/map/askBox";
 import { StepIn } from "../crew/map/StepIn";
 import type { Hit } from "../crew/map/stepInTarget";
 import { readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
@@ -80,6 +81,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     if (t != null && Math.abs(t - el.scrollTop) > 0.5) el.scrollTop = t;
   }, [g]); // eslint-disable-line react-hooks/exhaustive-deps
   useMeasure(world, heights, setHeights, true); // R10 (runFrame.ts): never while the view is hidden
+  useAskedBox("live", s.sid, L, world, setCard); // an ask's door: the asking agent's box selected, its card open
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
   const pulse = (from: string, to: string) => ov?.pulses.find((p) => p.from === from && p.to === to);
@@ -106,7 +108,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
                         onClick={(e) => (e.stopPropagation(), pickLine(l, e.currentTarget.textContent || ""))}>
                     {p ? p.task || whenWords(l.when) : whenWords(l.when)}
                   </span>); })}
-                {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pickIn(b.id, !!b.block?.under)} live />)}
+                {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pickIn(b.id, !!b.block?.under)} live sel={selected(card, b.id, b.block?.workflow)} />)}
               </div>
             </div>
           </div>

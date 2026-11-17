@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { token } from "../../lib/api";
 import { goSection, toast, type SectionId } from "../../lib/store";
-import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
+import { focusPanel, layoutStore, NOT_HERE, patchPanel } from "../../lib/workspace/persist";
 import { usePacks } from "./store";
 import type { PaletteEntry, Route } from "./types";
 
@@ -22,13 +22,13 @@ export function openRoute(r: Route): void {
   const panel = r.panel;
   if (!panel) return;
   const ws = WS[r.section] || r.section;
-  const go = (tries: number) => {
-    if (layoutStore(ws).get().layout?.[panel]) {
-      patchPanel(ws, panel, { collapsed: false }, false);
-      focusPanel(ws, panel);
-    } else if (tries > 0) window.setTimeout(() => go(tries - 1), 120);
-  };
-  go(20);
+  const go = () => (patchPanel(ws, panel, { collapsed: false }, false), focusPanel(ws, panel));
+  const s = layoutStore(ws);
+  if (s.get().layout?.[panel]) return go();
+  // the section, or a pack's panel in it, may still be on its way (a slow machine: seconds): the ask waits for the
+  // panel, and a panel that never comes is said in one line (P4 batch 9: a door never leads nowhere)
+  const stop = s.subscribe(() => s.get().layout?.[panel] && (stop(), window.clearTimeout(timer), go()));
+  const timer = window.setTimeout(() => (stop(), toast(NOT_HERE, "info")), 30000);
 }
 
 export function openUrl(url: string): void {

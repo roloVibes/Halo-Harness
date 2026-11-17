@@ -5,7 +5,7 @@ import { api, ApiError } from "../../lib/api";
 import { goSection, studio, toast } from "../../lib/store";
 import { pickLive } from "../crew/live/scope";
 import { openFeed } from "../crew/map/feedOpen";
-import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
+import { focusPanel, patchPanel } from "../../lib/workspace/persist";
 import { scopedAgents } from "./scope";
 import { append, follow, watch } from "./streams";
 import { endedAt } from "../crew/map/truth";
@@ -61,10 +61,8 @@ export function openAgentPanel(key?: AgentKey): void {
   if (key) select(key);
   const k = key || fleet.get().selected;
   if (studio.get().section === "session") {
-    if (layoutStore("session").get().layout) {
-      patchPanel("session", "session-agent", { collapsed: false, face: "detail" }, false);
-      focusPanel("session", "session-agent");
-    }
+    patchPanel("session", "session-agent", { collapsed: false, face: "detail" }, false); // kept until Session laid out
+    focusPanel("session", "session-agent");
     return;
   }
   const p = k ? parseKey(k) : null;

@@ -24,9 +24,9 @@ const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid)?.local ? "local" : encodeURIComponent(hid));
 
 /** Where an `o` answer points: a section and view; a live row (section `live`, 3.5.0.0; `fleet` before) its home --
- *  the steward's note Local -> Hosts on its host, an ask of a session the one door (3.6.0.1, glance/openAsk.ts:
- *  Session on that session, the Feed on the asking agent, Attention open on `row`), a conflict the Map on it, a cap
- *  Agents -> Map. */
+ *  the steward's note Local -> Hosts on its host, an ask of a session the one door (3.6.0.1; 3.6.0.2 P4 batch 9,
+ *  glance/openAsk.ts: the run's drawing with the asking agent's box selected, Attention open on `row`), a conflict the
+ *  Map on it, a cap Agents -> Map. */
 export function openTarget(t: OpenTarget, row?: AttnRow): void {
   if (t.section !== "live" && t.section !== "fleet") {
     const view = viewOf(String(t.view || "")) || undefined; // 3.6.0.0 R5: an old view word lands on the tab that replaced it
@@ -40,9 +40,8 @@ export function openTarget(t: OpenTarget, row?: AttnRow): void {
   }
   if (t.panel === "ollama" || t.panel === "fleet-ollama") return openLocalHost(t.host || ""); // 3.3.4.0 R5: the steward's attention row
   const aid = t.a ? t.a.split("|")[2] : t.agent_id || "main";
-  const old = (): void => (select(`${t.harness}|${t.session_id}|${aid}`), showFleetPanel("fleet-agent")); // another harness's ask: its agent on the Map
   if (!t.a && t.harness && t.session_id && (t.panel || "fleet-agent") === "fleet-agent")
-    return openAsk({ id: row?.id, harness: t.harness, session_id: t.session_id, agent_id: aid }, old);
+    return openAsk({ id: row?.id, harness: t.harness, session_id: t.session_id, agent_id: aid });
   if (t.a) select(t.a);
   else if (t.harness && t.session_id) select(`${t.harness}|${t.session_id}|${aid}`);
   showFleetPanel(t.a || t.session_id ? "fleet-agent" : t.panel || "fleet-agent");
@@ -51,7 +50,8 @@ export function openTarget(t: OpenTarget, row?: AttnRow): void {
 export async function answerRow(row: AttnRow, key: string, text = ""): Promise<boolean> {
   try {
     const r = await api.post<{ ok?: boolean; answer?: string; open?: OpenTarget; set_aside?: boolean; lifted?: boolean }>("live/attention/answer", { id: row.id, key, ...(text ? { text } : {}) });
-    if (r.open) openTarget(r.open, row); // `o`
+    // `o`: an agent's ask lands where an alert's Open does, on the run's drawing with its box selected (glance/openAsk.ts)
+    if (r.open) (row.session_id && r.open.panel === "fleet-agent" ? openAsk(row) : openTarget(r.open, row));
     else toast(`${row.what}: ${r.answer || row.keys[key] || key}`, "done");
     panels.update((s) => ({ replyFor: "", attention: r.open ? s.attention : s.attention.filter((x) => x.id !== row.id) }));
     window.setTimeout(() => (void loadAttention(), void load()), 400);

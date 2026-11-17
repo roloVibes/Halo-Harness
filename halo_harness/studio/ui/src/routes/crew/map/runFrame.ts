@@ -23,6 +23,10 @@ export function useStepCard(L: Lit) {
   return { card, setCard, pick, pickLine, closeCard };
 }
 
+/** The box a card is open on carries the selected mark (`data-selected`): its own card, or a block's head or step's. */
+export const selected = (card: Target | null, id: string, workflow?: string): boolean =>
+  !!card && (card.id === `box:${id}` || (!!workflow && (card.id === `head:${workflow}` || card.id.startsWith(`step:${workflow}:`))));
+
 /** The geometry to draw: `fresh` unless held, measured, and still the same drawing (`key`: the map, and the width laid out). */
 export function useHeld<G>(held: boolean, key: string, fresh: G, ready: boolean): G {
   const kept = useRef<{ key: string; g: G; ready: boolean } | null>(null);
