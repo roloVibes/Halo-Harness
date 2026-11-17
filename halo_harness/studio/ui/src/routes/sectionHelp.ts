@@ -25,6 +25,9 @@ const HOP_KEYS: [string, string][] = [
   ["Esc", "unpin the mini stream"],
 ];
 
+/** P4 batch 13: J / K in a run's drawing (crew/map/runParts.tsx useStepKeys), on both drawings. */
+export const STEP_KEYS: [string, string] = ["J / K", `in the drawing of a run (${WORDS.live}): the next / previous box, its card open, as a click does (outside a text field)`];
+
 export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   agents: { // 3.6.0.0 R5, 3.6.0.2 R52: four tabs -- make an agent, make a workflow, connect them on the map, watch a session run
     terms: ["step", "hand-off", "when", "live map", "replay", "report card", "waiting path", "orchestra run", "gate"],
@@ -39,7 +42,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Hover, then click", "Rest the pointer on a box or Tab to it: a card says what it is after a moment. A click opens everything in the drawer. Settings -> Studio turns the cards off."],
       ["Attention", "The chip at the right of each tab's bar counts every decision that waits on you, amber while any does; it (or A) opens the queue: A accepts, R denies or redoes with your text, S stops, O opens where it belongs."],
     ],
-    keys: [["1 / 2 / 3 / 4", `Agents, Workflows, ${WORDS.map}, ${WORDS.live} (outside a text field)`], ["A", "the Attention queue"], ...PANEL_KEYS],
+    keys: [["1 / 2 / 3 / 4", `Agents, Workflows, ${WORDS.map}, ${WORDS.live} (outside a text field)`], STEP_KEYS, ["A", "the Attention queue"], ...PANEL_KEYS],
   },
   session: {
     terms: ["harness", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance
@@ -52,7 +55,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Open what you need", `${WORDS.live}, Cost, Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) are buttons in the bar above the ${WORDS.feed}; a click opens one as a drawer beside it (Activity takes the ${WORDS.feed}'s place as its tab), Reset layout closes them all.`],
       ["Glance from a phone", "The \"...\" menu's Open the glance (or the palette, or halo studio --mode glance): one phone-width page -- what runs, what waits on you as big buttons, the spend against its cap -- here, or on a phone through an SSH forward of Studio's port. Settings -> Studio -> Alerts can add one browser notification when something starts waiting on you."],
     ],
-    keys: [...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
+    keys: [...HOP_KEYS, STEP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
       ["Esc", `in the ${WORDS.feed}: show every agent again after a tag click`], ["A / R / S / O", `in Attention, or on the newest ask card in the ${WORDS.feed}: accept, deny or redo (with a text), stop, open`], ...PANEL_KEYS],
   },
   packs: {

@@ -3,7 +3,7 @@
 // overlay (overlay.ts), its children as rows inside their box and a workflow as its block (litView.ts withRun, RunRows.tsx;
 // 3.6.0.2 R14 R15), the hand-offs counted and in flight (overlayHops.ts; R16 R49) -- and a box's face: its name, then
 // "kind · state", whole (no cap, no ellipsis: the box grows to hold it, R10). The frame (scroll, zoom, rows, the "↓" slot)
-// is the drawing's own. 3.6.0.0 R5: a session that did not start on a map is drawn as main and the helpers it started.
+// is the drawing's own; its clock ticks only while `shown` (runParts.tsx). 3.6.0.0 R5: a session that did not start on a map is drawn as main and the helpers it started.
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../../../lib/store";
 import { useSessionRecord, type RecordAgent } from "../../../lib/work/record";
@@ -16,6 +16,7 @@ import type { DrawBox, MapDetail } from "./mapTypes";
 import { overlay, type BoxState, type Overlay, type OvRow } from "./overlay";
 import { inFlight, NO_TOTALS, type Totals } from "./overlayHops";
 import { BlockFace, KidRows, NewTag } from "./RunRows";
+import { ToolClock } from "./runParts";
 import { view, type MapView } from "./view";
 
 const NO_AGENTS: RecordAgent[] = [];
@@ -25,7 +26,7 @@ const NO_MAP = { map: { format: "map/1", name: "", boxes: [], lines: [] }, scope
 /** `totals`: the session's hand-offs counted (R49); `live`: the lines with a hand-off in flight now (R16). */
 export type Lit = { detail: MapDetail | null; ov: Overlay | null; v: MapView; totals: Totals; live: Set<string>; agents: RecordAgent[];
   /** 3.6.0.2 R28: the read (removed / unreadable), and `unlit`: a map drawn calm (Just built, R30) */
-  got?: Got | null; unlit?: boolean };
+  got?: Got | null; unlit?: boolean; /** the drawing's clock, seconds (P4 batch 13) */ now?: number };
 
 /** R49: what the drawing's layout depends on -- the blocks (workflow, caller, step count) and which box holds which
  *  rows -- never a frame's state or time, so the layout is computed again only when that changes. */
@@ -37,7 +38,7 @@ const shapeOf = (ov: Overlay | null): string => !ov ? "" : JSON.stringify([
 /** The session's map (null while it is read, or gone: `got` says which), its overlay and the lit view (boxes, strip,
  *  lines). `show`: another map to draw for this session (3.6.0.2 R30 Just built), `unlit`: drawn calm, no overlay. The
  *  file is read by version (mapFiles.ts, R27 R28 R50): after the first draw, softly, by the row's scope and path. */
-export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }): Lit {
+export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }, shown = true): Lit {
   useEffect(() => startLit(), []);
   const name = show ? show.map : s.map || "";
   const own = !show || show.map === s.map;
@@ -47,7 +48,7 @@ export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }): 
   const rec = useSessionRecord(s.sid);
   const evs = useStore(lit, (x) => x.events[s.sid]);
   const events = unlit ? undefined : evs;
-  const now = useNow(true, 1000) / 1000;
+  const now = useNow(shown, 1000) / 1000; // P4 batch 13: the drawing's one clock, stopped while it is not on screen
   const tot = useStore(lit, (x) => x.totals[s.sid]) || NO_TOTALS;
   const totals = unlit ? NO_TOTALS : tot;
   const rows = useMemo(() => (unlit ? [] : (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id }) as OvRow)), [rec, unlit]);
@@ -59,7 +60,7 @@ export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }): 
   ovNow.current = ov;
   const v = useMemo(() => withRun(view(detail?.map || null, [], []), ovNow.current, detail, plain), [detail, shape, plain]); // eslint-disable-line react-hooks/exhaustive-deps
   const live = useMemo(() => inFlight(totals, rows, !unlit && !!s.busy), [totals, rows, s.busy, unlit]);
-  return { detail, ov, v, totals, live, agents: unlit ? NO_AGENTS : rec?.agents || NO_AGENTS, got, unlit };
+  return { detail, ov, v, totals, live, agents: unlit ? NO_AGENTS : rec?.agents || NO_AGENTS, got, unlit, now };
 }
 
 /** A box's state and, for a made-up helper, its agent id. */
@@ -79,6 +80,7 @@ export function LitFace({ b, ov, sid, tag }: { b: DrawBox; ov: Overlay | null; s
       <b className="mp-name">{b.name}</b>
       {tag && <NewTag text={tag} />}
       <span className="mp-lit-row mono" data-state={st}>{b.main ? "main" : b.kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
+      <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={st === "working" && !b.helper} />
       <KidRows kids={ov?.kids[b.id] || []} sid={sid} sender={b.id} />
     </span>
   );

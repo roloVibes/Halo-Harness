@@ -16,6 +16,8 @@
 // - R29-R31: the pair Running | Just built (two maps only) and the head (BuiltBar.tsx), at the top of the drawing's own
 //   box: no room until a build lands, then the drawing moves down once and no control moves; Just built is drawn calm
 //   (no overlay); the boxes a build in this session wrote carry "new {t}" (built.ts tagOf).
+// - P4 batch 13 (crew/map/runParts.tsx, as Agents -> Live): the tool clock, the talk pulse, "+{n} under it" (the Feed is
+//   Agents -> Live's: it opens there on this session), J / K; its clock only while Session is on screen.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
@@ -26,6 +28,8 @@ import { RunLine } from "../crew/map/RunLine";
 import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
 import { StepIn } from "../crew/map/StepIn";
+import { openFeed } from "../crew/map/feedOpen";
+import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { moreBelow, openInAgents, readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
@@ -61,7 +65,8 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const tags = useBuilt((x) => x.tags), flows = useBuilt((x) => x.flows);
   const own = s.map || "";
   const shown = which === "built" && just?.kind === "other" && just.map ? just.map : own; // R30: Just built, or Running
-  const L = useLit(s, shown !== own ? { map: shown, unlit: true } : undefined);
+  const on = useShown("session");
+  const L = useLit(s, shown !== own ? { map: shown, unlit: true } : undefined, on);
   const { detail, ov, v, got } = L;
   const f = got && "unreadable" in got && shown === own ? { ...given, unreadable: s.path || own } : given; // R50: T12
   const drawn = !!detail;
@@ -133,9 +138,13 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   };
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
+  const parts = useRunParts(L.agents, L.now || 0, (aid) => (openInLive(s.sid), openFeed(`under:${aid}`)));
+  const talks = useTalkLines(ov, s.sid, L.now || 0, g.lines);
+  const steps = useStepKeys(world, false);
   return ( // R28: the head first, from the row; the drawing once its map is read (`session-lit-map` only then)
     <div className="mp-mini mp-down" ref={root} data-testid={drawn ? "session-lit-map" : "session-lit-map-wait"} data-dir="down" data-map={shown}
-         data-sid={s.sid} data-held={held ? "1" : undefined}>
+         data-sid={s.sid} data-held={held ? "1" : undefined} onKeyDown={steps}>
+      <RunCtx.Provider value={parts}>
       <div className="mp-mini-head mp-down-head">
         <TruthBlock f={f} sid={s.sid} off={L.unlit ? 0 : ov?.offCount || 0} />
         <div className="mp-down-tools">
@@ -153,7 +162,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
           <div className="mp-mini-size" style={{ width: g.w * k, height: g.h * k }}>
             <div className="mp-mini-world" ref={world} data-zoom={k.toFixed(3)} style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
               <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
-                {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} />)}
+                {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} talk={talks.get(`${l.from}>${l.to}`)} />)}
               </svg>
               {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} built={tagOf({ tags, flows }, s.sid, shown, b)} sel={selected(card, b.id, b.block?.workflow)} />)}
             </div>
@@ -165,6 +174,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       <div className="mp-down-below" data-testid="session-map-below">
         {n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" onClick={down}>{moreBelow(n)}</button>}
       </div>
+      </RunCtx.Provider>
     </div>
   );
 }

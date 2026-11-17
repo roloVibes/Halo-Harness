@@ -11,6 +11,7 @@
 //   place; the change that moves a box is drawn when the pointer leaves; after a hand scroll the first box he sees keeps
 //   its place. Fit (100 %, from the top left) only on the first draw and on a different map; a hand zoom 75 % to 200 %.
 // - R49: the layout is computed again only when the map or the overlay's shape (LitMini `v`) or a measured height changes.
+// - P4 batch 13 (runParts.tsx, as Session's drawer): the tool clock, the talk pulse, "+{n} under it" to the Feed, J / K.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
@@ -27,6 +28,8 @@ import { StepIn } from "../crew/map/StepIn";
 import type { Hit } from "../crew/map/stepInTarget";
 import { readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
 import { DownBox } from "../session/DownBox";
+import { openFeed } from "../crew/map/feedOpen";
+import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
 import { firstSeen, keepSeen } from "../session/downFit";
 import { LiveHead } from "./LiveHead";
 
@@ -39,7 +42,8 @@ type G = { boxes: PlacedDown[]; lines: (RoutedDown & { lx: number; ly: number })
 /** `f`: the session's facts (its row); the head says them, held with the drawing (R12). */
 export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const map = s.map || "";
-  const L = useLit(s);
+  const shown = useShown("live");
+  const L = useLit(s, undefined, shown);
   const { detail, ov, v, got } = L;
   const f = got && "unreadable" in got ? { ...given, unreadable: s.path || map } : given; // R50: T12
   const drawn = !!detail;
@@ -85,10 +89,14 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
   const pulse = (from: string, to: string) => ov?.pulses.find((p) => p.from === from && p.to === to);
+  const parts = useRunParts(L.agents, L.now || 0, (aid) => openFeed(`under:${aid}`));
+  const talks = useTalkLines(ov, s.sid, L.now || 0, g.lines);
+  const steps = useStepKeys(world, true);
   return (
     <>
       <LiveHead f={said.current} sid={s.sid} off={ov?.offCount || 0} />
-      <div className="ag-live-frame ag-run" ref={root} data-testid="live-frame" data-held={held ? "1" : undefined}>
+      <RunCtx.Provider value={parts}>
+      <div className="ag-live-frame ag-run" ref={root} data-testid="live-frame" data-held={held ? "1" : undefined} onKeyDown={steps}>
         <div className="ag-run-tools">
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />
         </div>
@@ -100,7 +108,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
               <div className="mp-world" ref={world} data-testid="live-world" data-map={map} data-zoom={k.toFixed(3)}
                    style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
                 <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
-                  {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} />)}
+                  {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} talk={talks.get(`${l.from}>${l.to}`)} />)}
                 </svg>
                 {g.lines.filter((l) => !l.helper).map((l) => { const p = pulse(l.from, l.to); return (
                   <span key={`l${l.key}`} className="mp-label mono" data-testid="live-label" data-from={l.from} data-to={l.to}
@@ -115,6 +123,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
         )}
         {card && <StepIn t={card} map={map} close={closeCard} onLive={closeCard} />}
       </div>
+      </RunCtx.Provider>
     </>
   );
 }

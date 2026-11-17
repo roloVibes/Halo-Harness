@@ -11,6 +11,7 @@ import { toLit, type LitSession } from "../crew/map/litStore";
 import { truthState } from "../crew/map/truth";
 import { LitCtx, OFF, type Lit } from "../crew/map/useLit";
 import { useLivePick, type LivePick } from "./livePick";
+import { useShown } from "../crew/map/runParts";
 
 const DRAWN = new Set(["T1", "T2", "T3", "T11", "T12"]); // a local session with a map, open
 const NOBODY: LitSession = { sid: "", title: "", map: null, started: 0, live: 0 };
@@ -22,9 +23,10 @@ export function LiveLit({ children }: { children: ReactNode }) {
   const p = useLivePick();
   const s = p.local && p.row ? toLit(p.row) : null;
   const drawn = liveRun(p);
-  const M = useLit(drawn || NOBODY);
+  const on = useShown("live"); // P4 batch 13: no clock of a hidden Live runs
+  const M = useLit(drawn || NOBODY, undefined, on);
   const rec = useSessionRecord(s?.sid || "");
-  const now = useNow(!!s, 1000) / 1000;
+  const now = useNow(!!s && on, 1000) / 1000;
   const sid = s?.sid || "", map = s?.map || "";
   const ov = drawn ? M.ov : null;
   const value = useMemo<Lit>(() => (!s ? OFF : { ...OFF, mode: "live", session: s, all: [s], map, ov, rec, now }),

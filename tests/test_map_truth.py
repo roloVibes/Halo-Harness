@@ -214,7 +214,7 @@ def test_truth_each_state(ctx: Ctx):
     exact = {
         "head1": "workflow W · step 3 of 6", "head2": "workflow W",
         "steps": [f"3 test · tester · m-small · {s}" for s in ("done", "working", "next", "failed")],
-        "agent": "coder · m-code · working", "madeUp": f"made up: {TASK60[:40]} · working", "more": "+4 more",
+        "agent": "coder · m-code · working", "madeUp": f"made up: {TASK60[:40]} · working", "more": "+4 under it",  # P4 batch 13: the coordinator's ruling, the 3.6.0.0 door to the Feed's under: page
         "trace1": X(clk, "Carried 1 hand-off; last at {12:30}: fix the retry"),
         "trace3": X(clk, "Carried 3 hand-offs; last at {12:30}: fix the retry"),
         "off": "Not on the map: coder started this itself", "ended": X(clk, "ended at {12:30}"),

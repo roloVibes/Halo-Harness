@@ -25,7 +25,10 @@ export const stepRow = (i: number, step: string, agent: string, model: string, s
 /** R15 the other children inside their box: a saved agent, one made up for a task (its first 40 characters), the rest. */
 export const agentRow = (agent: string, model: string, state: string): string => `${agent} · ${model} · ${state}`;
 export const madeUpRow = (task: string, state: string): string => `made up: ${task.slice(0, 40)} · ${state}`;
-export const moreRows = (n: number): string => `+${n} more`;
+/** A box's rows past the third (R15; P4 batch 13: the 3.6.0.0 door to the Feed's `under:` page): "+{n} under it". */
+export const moreRows = (n: number): string => `+${n} under it`;
+/** P4 batch 13: the tool clock of a working box or row -- the tool it is in and for how long ("Bash · 12 s"). */
+export const toolClock = (tool: string, secs: string): string => `${tool} · ${secs}`;
 
 /** R16 a trace's hover: the hand-offs it carried, the last one's time and few words. */
 export const traceHover = (n: number, t: number, words: string): string =>

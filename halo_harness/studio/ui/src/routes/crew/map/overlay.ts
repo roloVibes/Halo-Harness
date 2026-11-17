@@ -38,7 +38,9 @@ export type StepLit = { n: number; name: string; state: string; agents: string[]
 export type Steps = { state: string; steps: StepLit[] };
 /** R15: a child drawn as a row inside its box: saved (`made` false) or made up; `unlined` = no line brought it; `off` = and
  *  on a map of his (R17). */
-export type Kid = { aid: string; made: boolean; agent: string; model: string; task: string; state: BoxState; unlined: boolean; off: boolean };
+export type Kid = { aid: string; made: boolean; agent: string; model: string; task: string; state: BoxState; unlined: boolean; off: boolean;
+  /** the agent that started it (P4 batch 13: whose `under:` page "+{n} under it" opens) */
+  parent: string };
 /** R48: hand-offs on no line of the map, by `from>to`: how many, the last one's words and time, still in flight. */
 export type OffHop = { from: string; to: string; n: number; sender: string; task: string; t: number; running: boolean; off: boolean };
 export type Overlay = {
@@ -166,7 +168,7 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number,
       const unlined = !r.crew?.line;
       // made up: as tagged (R13); untagged (no map, an old run): only a general-purpose or nameless one
       (kids[p.box] = kids[p.box] || []).push({ aid: r.agent_id, made: r.crew ? !!r.crew.made_up : ANY.includes(str(r.name)), agent: str(r.crew?.agent || r.name || r.agent_id),
-        model: str(r.model), task: str(r.task), state: st, unlined, off: unlined && !opts.plain });
+        model: str(r.model), task: str(r.task), state: st, unlined, off: unlined && !opts.plain, parent: str(r.parent) });
     }
     if (p.workflow && !p.box) continue; // R14: a step of a workflow on no box: its block's row only
     if (!p.box) strangers.push({ aid: r.agent_id, name: str(r.name || r.role || r.agent_id), why: p.why, state: st });

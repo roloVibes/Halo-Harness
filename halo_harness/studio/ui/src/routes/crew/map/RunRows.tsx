@@ -2,7 +2,8 @@
 // - a workflow's block: its head "workflow {W} · step {i} of {n}" (running) or "workflow {W}", then EVERY step a row
 //   "{i} {step} · {agent} · {model} · done | working | next | failed" (states read live from the overlay);
 // - the children inside their box: saved "{agent} · {model} · {state}", made up "made up: {task, 40} · {state}" with
-//   [Save as an agent] (only there); three rows, then "+{n} more" (its hover lists all). A child no line brought is
+//   [Save as an agent] (only there); three rows, then "+{n} under it" (its hover lists all; a press opens the Feed on the
+//   `under:` page of the agent that started them: P4 batch 13); a working row keeps its tool clock (runParts.tsx). A child no line brought is
 //   dashed (R17): in `--off-map` on a map of his, hover "Not on the map: {sender} started this itself"; plain on the
 //   default map.
 import { agentRow, blockHead, madeUpRow, moreRows, offHover, stepRow } from "./truth";
@@ -10,6 +11,8 @@ import { saveAsAgent, STATE_WORDS } from "./LitBits";
 import type { Block } from "./mapTypes";
 import type { Kid, Overlay } from "./overlay";
 import { runningStep } from "./overlayBlocks";
+import { RunCtx, ToolClock } from "./runParts";
+import { useContext } from "react";
 
 const SHOWN = 3;
 
@@ -38,8 +41,11 @@ export function BlockFace({ block, ov, tag }: { block: Block; ov: Overlay | null
 export const kidText = (k: Kid): string => (k.made ? madeUpRow(k.task || k.agent, STATE_WORDS[k.state]) : agentRow(k.agent, k.model, STATE_WORDS[k.state]));
 
 export function KidRows({ kids, sid, sender }: { kids: Kid[]; sid: string; sender: string }) {
+  const P = useContext(RunCtx);
   if (!kids.length) return null;
   const more = kids.length - SHOWN;
+  const ps = [...new Set(kids.slice(SHOWN).map((k) => k.parent).filter(Boolean))];
+  const of = ps.length === 1 ? ps[0] : "main"; // whose `under:` page lists the rows not drawn
   return (
     <span className="mp-kids" data-testid="session-map-rows">
       {kids.map((k, i) => ( // past the third, a row is kept (hidden) for "+{n} more": its hover lists them all
@@ -47,6 +53,7 @@ export function KidRows({ kids, sid, sender }: { kids: Kid[]; sid: string; sende
               data-helper={k.made ? k.aid : undefined} data-unlined={k.unlined ? "1" : undefined} data-off={k.off ? "1" : undefined}
               title={k.off ? offHover(sender) : undefined}>
           <span className="mp-lit-row" data-testid="session-map-row-text">{kidText(k)}</span>
+          <ToolClock aids={[k.aid]} on={k.state === "working"} />
           {k.made && sid && (
             <button type="button" className="mp-link" data-testid="map-save-agent" data-hover-skip=""
                     title="Open the Agents form with an agent built from this one; nothing is saved until you press Save there"
@@ -56,7 +63,10 @@ export function KidRows({ kids, sid, sender }: { kids: Kid[]; sid: string; sende
           )}
         </span>
       ))}
-      {more > 0 && <span className="mp-lit-row mp-muted" data-testid="session-map-rows-more" title={kids.map(kidText).join("\n")}>{moreRows(more)}</span>}
+      {more > 0 && (P ? (
+        <button type="button" className="mp-link mp-lit-row" data-testid="session-map-rows-more" data-under={of} data-hover-skip="" title={kids.map(kidText).join("\n")}
+                onClick={(e) => (e.stopPropagation(), P.under(of))}>{moreRows(more)}</button>
+      ) : <span className="mp-lit-row mp-muted" data-testid="session-map-rows-more" title={kids.map(kidText).join("\n")}>{moreRows(more)}</span>)}
     </span>
   );
 }

@@ -10,10 +10,15 @@ import { helperId } from "./litView";
 export const TALK_S = 4;
 export type TalkPulse = { from: string; to: string; text: string; n: number };
 
-/** The agent id -> the box it is drawn in (a helper's own helpers: their first-level helper's box). */
-export function boxOfAgent(ov: Overlay): Map<string, string> {
+/** The agent id -> the box it is drawn in (a helper's own helpers: their first-level helper's box). `rows`: a run drawing
+ *  (3.6.0.2 R15), where every child is a row inside the box that holds it (`ov.kids`), never a box of its own. */
+export function boxOfAgent(ov: Overlay, rows = false): Map<string, string> {
   const out = new Map<string, string>();
   for (const [id, b] of Object.entries(ov.boxes)) for (const a of b.agents) out.set(a, id);
+  if (rows) {
+    for (const [id, ks] of Object.entries(ov.kids || {})) for (const k of ks) if (!out.has(k.aid)) out.set(k.aid, id);
+    return out;
+  }
   const top = new Set(firstLevel(ov.helpers).map((h) => h.aid));
   const up = (aid: string, depth = 0): string => {
     if (top.has(aid)) return helperId(aid);
@@ -25,9 +30,9 @@ export function boxOfAgent(ov: Overlay): Map<string, string> {
 }
 
 /** The talks of session `sid` heard in the last TALK_S seconds (`now` in seconds), box to box. */
-export function talkPulses(msgs: TalkMsg[], lines: LiveLine[], ov: Overlay | null, sid: string, now: number): TalkPulse[] {
+export function talkPulses(msgs: TalkMsg[], lines: LiveLine[], ov: Overlay | null, sid: string, now: number, rows = false): TalkPulse[] {
   if (!ov || !sid) return [];
-  const boxes = boxOfAgent(ov);
+  const boxes = boxOfAgent(ov, rows);
   const out: TalkPulse[] = [];
   for (const m of msgs.slice(-40)) {
     if (!m.fromKey.includes(`|${sid}|`)) continue;

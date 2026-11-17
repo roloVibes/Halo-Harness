@@ -115,3 +115,9 @@
 .mp-step-in-ask-what { flex: 1 1 100%; font-size: 12px; overflow-wrap: anywhere; color: var(--warn, inherit); }
 .mp-step-in-ask-reply { display: flex; gap: var(--s-1); flex: 1 1 100%; }
 .mp-step-in-ask-reply .input { flex: 1; min-width: 0; }
+/* P4 batch 13 (routes/crew/map/runParts.tsx): the tool clock's seconds sit in a slot of fixed width, so a tick moves nothing;
+ * agents of two boxes talking pulse the line between them (none when motion is reduced: the line is marked, nothing runs) */
+:is(.mp-down, .ag-run) .mp-clock { color: var(--muted); }
+:is(.mp-down, .ag-run) .mp-clock-secs { display: inline-block; min-width: 10ch; }
+:is(.mp-down, .ag-run) .mp-line[data-talk] { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 6; animation: mp-talk-run 1.2s linear infinite; }
+@media (prefers-reduced-motion: reduce) { :is(.mp-down, .ag-run) .mp-line[data-talk] { animation: none; stroke-dasharray: none; } }

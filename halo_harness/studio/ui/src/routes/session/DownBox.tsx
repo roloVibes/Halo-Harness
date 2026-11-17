@@ -3,6 +3,8 @@
 // model; its state; "Starts when: {When} (from {source})", one row per line feeding it; its children; "Built {t} in this
 // session" when the build tagged it), click = the step-in card (R18: on a step row its tagged child, on a block's head
 // the running step's, else the box's live rows). No When label is drawn on Session's lines (R44): the When is here.
+// P4 batch 13: every box takes the focus (J / K step through them, runParts.tsx; Enter opens its card); a box that waits
+// on him carries the 3.6.0.0 outline (`data-waited`).
 import type { MouseEvent } from "react";
 import { useHover } from "../../lib/hover/useHover";
 import { STATE_WORDS } from "../crew/map/LitBits";
@@ -57,9 +59,10 @@ export function DownBox({ b, L, sid, lines: all, built = null, pick, live, sel }
   return (
     <div className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit={L.unlit ? undefined : "live"} data-state={st} data-helper={helper} data-kind={b.kind}
          data-new={b.isNew || built ? "" : undefined} data-workflow={b.block?.workflow} data-selected={sel ? "" : undefined}
+         data-waited={!L.unlit && st === "waiting" ? "" : undefined}
          data-testid={live ? (loose ? "live-block" : "live-box") : loose ? "session-map-block" : "session-lit-box"} data-box={b.id} data-map-box={live ? b.id : undefined} title={!b.block && hv.titles ? `${b.name}: ${STATE_WORDS[st]}` : undefined}
          style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}
-         tabIndex={live ? 0 : undefined} onKeyDown={live ? (e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), e.currentTarget.click()); } : undefined}>
+         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), e.currentTarget.click()); }}>
       <LitFace b={b} ov={L.ov} sid={sid} tag={built ? newTag(built) : undefined} />
     </div>
   );

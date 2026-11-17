@@ -6,10 +6,12 @@
 // his, hover "Not on the map: {sender} started this itself". Weights and colours: styles/map-down.css, by attribute.
 // R18: with `onPick` a wider transparent twin (`data-hit`, a 12 px stroke: the hit area >= 10 px) takes the click: the
 // step-in card for the agent travelling it, or its state ("Starts when ..." for a line nothing travelled).
+// P4 batch 13: `talk`, agents of its two boxes talking now (runParts.tsx useTalkLines): the line pulses (`data-talk`).
 import { whenWords } from "./mapTypes";
 import { offHover, startsWhen, traceHover } from "./truth";
 import type { RoutedDown } from "./layoutDown";
 import type { Lit } from "./LitMini";
+import type { TalkPulse } from "./talkPulse";
 
 const FEW = 8; // the task's first words in the hover
 
@@ -17,7 +19,7 @@ export const fewWords = (task: string): string => task.trim().split(/\s+/).filte
 
 export type LinePick = (l: RoutedDown, text: string) => void;
 
-export function RunLine({ l, lit, onPick }: { l: RoutedDown; lit: Pick<Lit, "totals" | "live">; onPick?: LinePick }) {
+export function RunLine({ l, lit, onPick, talk }: { l: RoutedDown; lit: Pick<Lit, "totals" | "live">; onPick?: LinePick; talk?: TalkPulse }) {
   const k = `${l.from}>${l.to}`, c = lit.totals.lines[k];
   const live = lit.live.has(k);
   const hover = l.off ? offHover(l.from) : c ? traceHover(c.n, c.last, fewWords(c.task)) : "";
@@ -26,7 +28,7 @@ export function RunLine({ l, lit, onPick }: { l: RoutedDown; lit: Pick<Lit, "tot
     <>
     <path d={l.d} className="mp-line" data-from={l.from} data-to={l.to} data-helper={l.helper || undefined} data-off={l.off ? "1" : undefined}
           data-lit={live ? "live" : c ? "trace" : undefined} data-hops={c ? Math.min(3, c.n) : undefined}
-          data-last={c && lit.totals.last === k ? "1" : undefined} data-hover={hover || undefined}>
+          data-last={c && lit.totals.last === k ? "1" : undefined} data-hover={hover || undefined} data-talk={talk ? "1" : undefined}>
       {hover && <title>{hover}</title>}
     </path>
     {onPick && (
