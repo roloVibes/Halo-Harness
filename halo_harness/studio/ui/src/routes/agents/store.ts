@@ -29,7 +29,7 @@ const first = urlDoor();
 function lastView(): AgentsView {
   try {
     const v = localStorage.getItem(LAST);
-    return v === "workflows" || v === "flows" ? "workflows" : v === "map" ? "map" : "crew";
+    return v === "workflows" || v === "flows" ? "workflows" : v === "map" || v === "live" ? v : "crew"; // R52: Live is remembered too
   } catch {
     return "crew";
   }

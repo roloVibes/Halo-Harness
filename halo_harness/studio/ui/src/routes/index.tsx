@@ -16,7 +16,8 @@
 // group), 3.3.5.0 R1 Local (the machines that serve models, and the models they serve), each paged too.
 // 3.3.13.0 R2: Design left the core for the design pack (its section, when the pack is on, is a pack section).
 // 3.3.16.0 R1 "Agents: one section": Team, Roles and Orchestra folded into Agents (Alt+2; routes/agents/). 3.6.0.0 R5:
-// Agents is three tabs, each with its own workspace (1 · Agents, 2 · Workflows, 3 · Map: routes/crew/); the Cast / Live
+// Agents is three tabs, each with its own workspace (1 · Agents, 2 · Workflows, 3 · Map: routes/crew/; 3.6.0.2 R52 a fourth,
+// 4 · Live: routes/agents/LiveView.tsx); the Cast / Live
 // workspace (`roles`) went. Local carries the Media panels as optional drawers over its page (the palette's Media lines;
 // 3.6.0.0 R0a). 3.3.16.0 R2 "the Fleet fold": the Fleet section went -- a machine's sessions on Agents -> 3 · Map, its
 // models in Local, pairing and the people in Setup -> Machines. Six core sections, the shell
@@ -32,6 +33,7 @@ import { agentsView, useAgentsView } from "./agents/store";
 import { CREW_SECTION, crewPanels } from "./crew/Crew";
 import { FLOWS_SECTION, flowPanels } from "./crew/flows/Flows";
 import { MAP_SECTION, mapPanels } from "./crew/map/MapView";
+import { LIVE_SECTION, livePanels } from "./agents/LiveView";
 import { mediaPanels } from "./media/MediaPanels";
 import { sessionPanels } from "./session/Session";
 import { SessionView } from "./session/Start";
@@ -96,11 +98,12 @@ export function useSections(): SectionDef[] {
 /** 3.6.0.0 R5: Agents' def is the workspace of the tab it shows (its id is that workspace's: the palette's Show panel
  *  lines, the + menu and the status bar follow the tab). */
 function agentsDef(view: string = agentsView()): SectionDef {
-  const [id, panels] = view === "crew" ? [CREW_SECTION, crewPanels] : view === "workflows" ? [FLOWS_SECTION, flowPanels] : [MAP_SECTION, mapPanels];
+  const [id, panels] = view === "crew" ? [CREW_SECTION, crewPanels] : view === "workflows" ? [FLOWS_SECTION, flowPanels]
+    : view === "live" ? [LIVE_SECTION, livePanels] : [MAP_SECTION, mapPanels]; // 3.6.0.2 R52: 4 · Live has its own workspace
   return { ...SECTIONS[1], id: id as SectionId, panels, view: undefined };
 }
 
-const TAB_OF: Record<string, string> = { [CREW_SECTION]: "crew", [FLOWS_SECTION]: "workflows", [MAP_SECTION]: "map" };
+const TAB_OF: Record<string, string> = { [CREW_SECTION]: "crew", [FLOWS_SECTION]: "workflows", [MAP_SECTION]: "map", [LIVE_SECTION]: "live" };
 
 export function sectionDef(id: SectionId): SectionDef {
   if (id === "agents") return agentsDef();

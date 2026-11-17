@@ -1,16 +1,18 @@
-// Agents (Alt+2) has three tabs (3.6.0.0 R5): `crew` 1 · Agents, `workflows` 2 · Workflows, `map` 3 · Map. Every older
-// door lands on one of them: `?mode=roles|orchestra|team|fleet` and `?mode=agents&view=cast|live|roles|team|orchestra|
-// runs` on the Map (where a session is lit while it runs and History replays it), `view=flows` (3.6.0.0 R2's id for the
-// Workflows tab) on Workflows. A saved section, a `focus` frame, an attention row's `o` and a pack's route that name an
-// old word land the same way (lib/store.ts goSection). routes/agents/store.ts takes the view (onAgentsView); this file has
-// no React and no store of its own, so lib/store.ts may import it. `&run=<id>` (a goal run) opens on the Map's drawer.
-export type AgentsView = "crew" | "workflows" | "map";
-export const AGENTS_VIEWS: AgentsView[] = ["crew", "workflows", "map"];
+// Agents (Alt+2) has four tabs (3.6.0.2 R52): `crew` 1 · Agents, `workflows` 2 · Workflows, `map` 3 · Map, `live` 4 · Live
+// (what a session is doing now, drawn on the map it really follows). Every older door lands on one of them:
+// `?mode=agents&view=live` on Live; `?mode=roles|orchestra|team|fleet` and `?mode=agents&view=cast|roles|team|orchestra|runs`
+// on the Map, `view=flows` (3.6.0.0 R2's id for the Workflows tab) on Workflows; a replay (`&replay=<id>`, `halo replay
+// open`) stays on the Map, where its scrubber is (R55). A saved section, a `focus` frame, an attention row's `o` and a
+// pack's route that name an old word land the same way (lib/store.ts goSection). routes/agents/store.ts takes the view
+// (onAgentsView); this file has no React and no store of its own, so lib/store.ts may import it and node runs it
+// (tests/test_agents_door.py). `&run=<id>` (a goal run) opens on the Map's drawer.
+export type AgentsView = "crew" | "workflows" | "map" | "live";
+export const AGENTS_VIEWS: AgentsView[] = ["crew", "workflows", "map", "live"];
 /** The words of the sections Agents took in, and the tab each one lands on. */
 export const AGENTS_DOORS: Record<string, AgentsView> = { roles: "map", orchestra: "map", team: "map", fleet: "map" };
-/** The views of the tabs before 3.6.0.0 R5 and where each lands now. */
-export const OLD_VIEWS: Record<string, AgentsView> = { cast: "map", live: "map", roles: "map", team: "map", orchestra: "map",
-  runs: "map", flows: "workflows" };
+/** The views of the tabs before 3.6.0.0 R5 and where each lands now (`live` is a tab again: 3.6.0.2 R52). */
+export const OLD_VIEWS: Record<string, AgentsView> = { cast: "map", roles: "map", team: "map", orchestra: "map", runs: "map",
+  flows: "workflows" };
 /** 3.5.0.0 took Fleet out; an old `?mode=fleet` link says so once, on the Map. */
 export const FLEET_NOTE = "Fleet left Halo in 3.5: this machine's sessions run on the Map";
 
@@ -30,6 +32,7 @@ export function urlDoor(search?: string): { view: AgentsView | ""; word: string 
   if (!q) return { view: "", word: "" };
   const word = q.get("mode") || "";
   const view = q.get("view") || "";
+  if (word === "agents" && q.get("replay")) return { view: "map", word }; // R55: a replay stays on the Map
   if (word === "agents") return { view: isView(view) ? view : OLD_VIEWS[view] || "", word };
   return { view: AGENTS_DOORS[word] || "", word: AGENTS_DOORS[word] ? word : "" };
 }
@@ -48,6 +51,14 @@ export function doorOf(word: string): { section: string; view: AgentsView | "" }
 /** A view word of any age (an old link's `cast`, `flows`) as the tab it is now ('' for none). */
 export function viewOf(word: string): AgentsView | "" {
   return isView(word) ? word : OLD_VIEWS[word] || "";
+}
+
+/** Where a live panel's old door (routes/agents/fleetDoor.ts showFleetPanel) lands: the Attention panel, an agent's rows,
+ *  Local -> Hosts, or Agents -> Live, where a run is watched (R52: fleet-activity, fleet-costs and the rest). */
+export function panelDoor(id: string): "attention" | "agent" | "local" | "live" {
+  if (id === "fleet-attention") return "attention";
+  if (id === "fleet-agent") return "agent";
+  return id === "fleet-ollama" || id === "ollama" ? "local" : "live";
 }
 
 type Door = (view: AgentsView, word: string) => void;

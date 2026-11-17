@@ -14,7 +14,7 @@ this tab at 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `flows` view
 5. Write it for me on a saved workflow: the box filled and focused; its step line a ghost step; Discard drops it;
 6. Try it: the band first; each step's state and the agents that ran; three checks, the receipt's why; the total;
    marked seen;
-7. Delete asks on the page; Keep it; the switch is the three tabs, and W (the old board's key) lands on 2 · Workflows.
+7. Delete asks on the page; Keep it; the switch is the four tabs (3.6.0.2 R52), and W (the old board's key) lands on 2 · Workflows.
 Run: python -m tests.test_studio_flows
 """
 from __future__ import annotations
@@ -45,7 +45,7 @@ def test_the_2_key_opens_the_workflows_tab(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"2 lands on 2 · Workflows, got {got.get('view')!r}", got.get("view") == "workflows")
     f = got.get("first") or {}
-    ctx.check(f"the switch's names, got {f.get('switch')}", f.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map"])  # 3.6.0.0 R5: three tabs
+    ctx.check(f"the switch's names, got {f.get('switch')}", f.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"])  # 3.6.0.2 R52: four tabs
     ctx.check(f"the list open, no conversation, no dialog, got {f}", f.get("list") is True and f.get("conversation") is False and f.get("dialogs") == 0)
     ctx.check(f"the five starters, got {f.get('starters')}", f.get("starters") == ["code", "media", "plan", "research", "review"])
     ctx.check(f"the empty form says how to start, got {f.get('empty')!r}", f.get("empty") == "Make your first workflow")
@@ -110,12 +110,12 @@ def test_try_it_step_by_step(ctx: Ctx):
 
 
 @test
-def test_delete_asks_and_the_three_tabs(ctx: Ctx):
+def test_delete_asks_and_the_four_tabs(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the question, got {got.get('ask')!r}", got.get("ask") == "Delete my-review? Its file goes; nothing else changes.")
     ctx.check(f"Keep it: still there, got {got.get('kept')}", got.get("kept") == [True, 200])
-    ctx.check(f"three tabs, and W lands on 2 · Workflows, got {got.get('tabs')!r} {got.get('back')!r}",
-              got.get("tabs") == ["1 · Agents", "2 · Workflows", "3 · Map"] and got.get("back") == "my-review")
+    ctx.check(f"four tabs, and W lands on 2 · Workflows, got {got.get('tabs')!r} {got.get('back')!r}",
+              got.get("tabs") == ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"] and got.get("back") == "my-review")
 
 
 if __name__ == "__main__":

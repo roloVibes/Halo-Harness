@@ -6,9 +6,9 @@ crew drivers (studio_crew.py, studio_flows.py, studio_map*.py) import its `key`,
 
     python -m tests.helpers.studio_agents agents   Alt+2 opens Agents on 1 · Agents (3.6.0.0 R1) with nothing else open; six section
                                                    tabs; the doors (?mode=roles, roles&view=live, orchestra,
-                                                   agents&view=runs|live) land on their views (3.4.0.0 D: Runs' on
-                                                   Live); ?mode=team lands on Live with Team's line once; C / R / L / W
-                                                   switch (R lands on Live); Live draws the run's lead and its lanes
+                                                   agents&view=runs) land on the Map, agents&view=live on 4 · Live
+                                                   (3.6.0.2 R52); ?mode=team lands on the Map with Team's line once;
+                                                   C / L / W / 4 / 1 switch; Live draws the run's lead and its lanes
                                                    in the run's block, each with its number, worktree and owns row; a
                                                    lane's click is its summary, its Claims page lists the claims
 
@@ -68,6 +68,7 @@ def cast_first(c, page) -> dict:
 
 
 def doors(c, page) -> dict:
+    """3.6.0.2 R52: the old doors land on the four tabs (`view=live` on Live; roles, team, orchestra, runs on the Map)."""
     out = {}
     for q in ("mode=roles", "mode=roles&view=live", "mode=orchestra", "mode=agents&view=runs", "mode=agents&view=live", "mode=agents",
               "mode=agents&view=workflows", "mode=agents&view=crew"):  # 3.3.16.0 R3: the fourth view; 3.6.0.0 R1: the Agents tab
@@ -77,21 +78,23 @@ def doors(c, page) -> dict:
 
 
 def team_note(c, page) -> dict:
+    """?mode=team lands on the Map with Team's line, once (3.6.0.0 R5)."""
     out = {}
     open_page(c, page, "mode=team")
-    out["first"] = c.wait(f"{VIEW} === 'live' && [{VIEW}, {NOTE}?.textContent || '']", 30)
+    out["first"] = c.wait(f"{VIEW} === 'map' && [{VIEW}, {NOTE}?.textContent || '']", 30)
     open_page(c, page, "mode=team")
-    c.wait(f"{VIEW} === 'live' && !!document.querySelector('[data-testid=\"roles-live-map\"]')", 30)
+    c.wait(f"{VIEW} === 'map'", 30)
     out["again"] = [c.js(VIEW), c.js(f"!!{NOTE}")]
     return out
 
 
 def view_keys(c, page) -> dict:
-    open_page(c, page, "mode=agents")
-    c.wait(f"{VIEW} === 'live'", 30)  # 3.3.18.0: a bare door opens on Live
+    """3.6.0.2 R52: L -> Live, C -> Map, W -> Workflows, 1 -> Agents, 4 -> Live."""
+    open_page(c, page, "mode=agents&view=live")
+    c.wait(f"{VIEW} === 'live'", 30)
     c.js("document.activeElement?.blur()")
     out = {}
-    for ch, want in (("r", "live"), ("w", "workflows"), ("l", "live"), ("c", "cast"), ("1", "crew")):  # 3.3.16.0 R3: W; 3.4.0.0 D: R lands on Live; 3.6.0.0 R1: 1
+    for ch, want in (("c", "map"), ("l", "live"), ("w", "workflows"), ("4", "live"), ("1", "crew")):
         key(c, ch)
         out[ch] = c.wait(f"{VIEW} === '{want}' && {VIEW}", 10)
     return out

@@ -38,15 +38,15 @@ VIEW = "document.querySelector('[data-testid=\"agents\"]')?.dataset.view"
 
 
 def doors(c, rig) -> dict:
-    """3.6.0.0 R5: every old door lands on one of the three tabs; the old keys for this release."""
+    """3.6.0.0 R5, 3.6.0.2 R52: every old door lands on one of the four tabs (`view=live` on Live); the old keys."""
     out: dict = {}
     for extra in ("&view=cast", "&view=live", "&view=orchestra", "&view=flows", "&mode=roles", "&mode=team", "&mode=fleet"):
         c.js("window.__mapOld = 1; 1")
         c.go(rig.url("").replace("?mode=agents", "?" + extra[1:]) if extra.startswith("&mode=") else rig.url(extra))
-        out[extra] = c.wait(f"!window.__mapOld && ({VIEW} === 'map' || {VIEW} === 'workflows') && {VIEW}", 40)
+        out[extra] = c.wait(f"!window.__mapOld && ['map', 'workflows', 'live'].includes({VIEW}) && {VIEW}", 40)
     out["fleet_note"] = c.js("document.querySelector('[data-testid=agents-team-note]')?.textContent || ''")
     c.js("document.activeElement?.blur(); 1")
-    for ch, want in (("w", "workflows"), ("c", "map"), ("w", "workflows"), ("l", "map")):
+    for ch, want in (("w", "workflows"), ("c", "map"), ("w", "workflows"), ("l", "live"), ("4", "live")):
         key(c, ch)
         out[f"key_{ch}"] = c.wait(f"{VIEW} === '{want}' && {VIEW}", 20)
     return out

@@ -42,7 +42,7 @@ def _got(ctx: Ctx) -> dict:
 def test_the_3_key_opens_the_starter_map(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"3 lands on 3 · Map, got {got.get('view')!r}", got.get("view") == "map")
-    ctx.check(f"the switch, got {got.get('switch')}", got.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map"])
+    ctx.check(f"the switch, got {got.get('switch')}", got.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"])  # 3.6.0.2 R52
     f = got.get("first") or {}
     ctx.check(f"the starter map, no dialog, no conversation, the list closed, got {f}",
               f.get("map") == "starter" and f.get("dialogs") == 0 and f.get("conversation") is False and f.get("drawer") is False)
@@ -111,14 +111,16 @@ def test_the_builder_draws_ghosts_apply_undo(ctx: Ctx):
 
 
 @test
-def test_the_old_doors_land_on_the_three_tabs(ctx: Ctx):
-    """3.6.0.0 R5: Cast, Live and the board went; their addresses and keys land on the Map (the board's on Workflows)."""
+def test_the_old_doors_land_on_the_four_tabs(ctx: Ctx):
+    """3.6.0.0 R5: Cast and the board went; their addresses and keys land on the Map (the board's on Workflows). 3.6.0.2 R52:
+    Live is a tab again, so its address and L land on it."""
     d = _got(ctx)
-    want = {"&view=cast": "map", "&view=live": "map", "&view=orchestra": "map", "&view=flows": "workflows", "&mode=roles": "map",
+    want = {"&view=cast": "map", "&view=live": "live", "&view=orchestra": "map", "&view=flows": "workflows", "&mode=roles": "map",
             "&mode=team": "map", "&mode=fleet": "map"}
     ctx.check(f"each old address on its tab, got {d}", all(d.get(k) == v for k, v in want.items()))
     ctx.check(f"mode=fleet says Fleet left once, got {d.get('fleet_note')!r}", "Fleet left Halo in 3.5" in str(d.get("fleet_note")))
-    ctx.check(f"the keys: W -> Workflows, C and L -> Map, got {d}", d.get("key_w") == "workflows" and d.get("key_c") == "map" and d.get("key_l") == "map")
+    ctx.check(f"the keys: W -> Workflows, C -> Map, L and 4 -> Live, got {d}", d.get("key_w") == "workflows" and d.get("key_c") == "map"
+              and d.get("key_l") == "live" and d.get("key_4") == "live")
 
 
 if __name__ == "__main__":

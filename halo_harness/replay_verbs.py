@@ -119,7 +119,7 @@ def _open(args) -> int:
         url = launch_detached("agents", cwd=Path.cwd(), state_dir=_state(), open_browser=False)
         if url:
             head, _, frag = url.partition("#")
-            url = f"{head}{'&' if '?' in head else '?'}view=live&replay={p['id']}" + (f"#{frag}" if frag else "")
+            url = f"{head}{'&' if '?' in head else '?'}view=map&replay={p['id']}" + (f"#{frag}" if frag else "")
             from halo_harness.studio.launch import _open as browse
             browse(url)
     if args.json:

@@ -4,7 +4,7 @@ rig: a real session with the row's `map`, extra agent rows and the map frames a 
 without Chrome). The overlay's own rules are tests/test_map_overlay.py's; the frames' source is tests/test_map_chains.py.
 
 1. the top line: the session running on this map, when it started, the one sentence, when an edit takes effect; the
-   tab's dot (its words stay "3 · Map");
+   tab dot, on 4 · Live (3.6.0.2 R52);
 2. each box's state, what it does, its cost, a row per fact, nothing cut; a stray agent in the strip, tagged;
 3. a hand-off moves on the line its frame names (the label: the task, then its When again); a chain; reduced motion;
 4. an opened workflow box: its steps lit, a step's agent, the repeat's rounds and checks;
@@ -46,7 +46,8 @@ def test_the_top_line_and_the_tab_dot(ctx: Ctx):
               "agent" in str(got.get("sentence")) and "model" in str(got.get("sentence")) and "$" in str(got.get("sentence")))
     ctx.check(f"when an edit takes effect, got {got.get('when')!r}", "at the next hand-off" in str(got.get("when"))
               and "the next time that agent starts" in str(got.get("when")) and "with the next session" in str(got.get("when")))
-    ctx.check(f"the tab's dot, its words unchanged, got {got.get('dot')}", got.get("dot") == ["1", "3 · Map"])
+    ctx.check(f"the tab's dot on 4 · Live (3.6.0.2 R52: a run is Live's), none on 3 · Map, got {got.get('dot')}",
+              got.get("dot") == ["1", "4 · Live", ""])
 
 
 @test

@@ -1,6 +1,7 @@
-// Agents (Alt+2): three tabs and nothing else (3.6.0.0 R5, the v3 design) -- 1 · Agents (make an agent: routes/crew/),
-// 2 · Workflows (your agents in steps: routes/crew/flows/), 3 · Map (who main hands work to and when; lit while a
-// session runs, History replays on it: routes/crew/map/). Each tab draws the switch in its own view bar (ViewSwitch.tsx).
+// Agents (Alt+2): four tabs and nothing else (3.6.0.0 R5, 3.6.0.2 R52) -- 1 · Agents (make an agent: routes/crew/),
+// 2 · Workflows (your agents in steps: routes/crew/flows/), 3 · Map (the plan: who main hands work to and when; History
+// replays on it: routes/crew/map/), 4 · Live (what a session is doing now, drawn on the map it really follows:
+// LiveView.tsx). Each tab draws the switch in its own view bar (ViewSwitch.tsx).
 // The Attention queue floats over every tab (AttentionChip.tsx, closed on load, A toggles it). A tab mounts the first
 // time it shows and stays mounted (its state kept), as the shell keeps a visited section.
 import { useEffect, useState } from "react";
@@ -12,10 +13,11 @@ import { useAttentionKey } from "./attention";
 import { CrewView } from "../crew/Crew";
 import { FlowsView } from "../crew/flows/Flows";
 import { MapView } from "../crew/map/MapView";
+import { LiveView } from "./LiveView";
 
 export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
   const view = useAgentsView();
-  const [seen, setSeen] = useState({ crew: view === "crew", workflows: view === "workflows", map: view === "map" });
+  const [seen, setSeen] = useState({ crew: view === "crew", workflows: view === "workflows", map: view === "map", live: view === "live" });
   useEffect(() => setSeen((s) => (s[view] ? s : { ...s, [view]: true })), [view]);
   useAgentsKeys();
   useAttentionKey();
@@ -35,6 +37,11 @@ export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
         {seen.map && (
           <div className="ag-part" hidden={view !== "map"} data-part="map">
             <MapView />
+          </div>
+        )}
+        {seen.live && (
+          <div className="ag-part" hidden={view !== "live"} data-part="live">
+            <LiveView />
           </div>
         )}
         <AttentionPanel />

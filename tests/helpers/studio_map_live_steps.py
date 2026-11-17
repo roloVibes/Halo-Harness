@@ -60,8 +60,9 @@ def lit(c, rig, lv, sent) -> dict:
     out = {"head": c.wait(f"{t('map-lit-head')}?.textContent.startsWith('A session is running on this map') && {t('map-lit-head')}.textContent", 40)}
     out["sentence"] = c.wait(f"{t('map-lit-sentence')}?.textContent", 20)
     out["when"] = c.js(f"{t('map-lit-when')}?.textContent")
-    tab = "document.querySelector('[data-part=map] [data-testid=agents-view-map]')"
-    out["dot"] = c.js(f"[{tab}?.dataset.running, {tab}?.innerText]")
+    tab = "document.querySelector('[data-part=map] [data-testid=agents-view-live]')"  # 3.6.0.2 R52: the dot is Live's
+    mtab = "document.querySelector('[data-part=map] [data-testid=agents-view-map]')"
+    out["dot"] = c.js(f"[{tab}?.dataset.running, {tab}?.innerText, {mtab}?.dataset.running || '']")
     out["states"] = c.wait(f"(() => {{ const s = {STATES}; return s.code === 'working' && s.check === 'working' && s.notes === 'idle' && s; }})()", 30)
     out["check_rows"] = c.js(f"[...{box('check')}.querySelectorAll('.mp-lit-row')].map((r) => r.textContent)")
     out["notes_rows"] = c.js(f"[...{box('notes')}.querySelectorAll('.mp-lit-row')].map((r) => r.textContent)")

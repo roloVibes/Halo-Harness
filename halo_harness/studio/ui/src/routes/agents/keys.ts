@@ -1,13 +1,13 @@
-// Agents' tab keys (3.6.0.0 R5): 1 · Agents, 2 · Workflows, 3 · Map, while Agents is on screen and the key is not typed
-// into a field, a dialog or the palette. For this release the old keys still land: C (Cast) and L (Live) on the Map,
-// W (the board) on Workflows.
+// Agents' tab keys (3.6.0.2 R52): 1 · Agents, 2 · Workflows, 3 · Map, 4 · Live, while Agents is on screen and the key is
+// not typed into a field, a dialog or the palette. For this release the old keys still land: C (Cast) on the Map, L on
+// Live, W (the board) on Workflows.
 import { useEffect } from "react";
 import { studio } from "../../lib/store";
 import type { AgentsView } from "../../lib/agentsDoor";
 import { setAgentsView } from "./store";
 
 const TYPING = "input, textarea, select, [contenteditable]";
-const KEYS: Record<string, AgentsView> = { "1": "crew", "2": "workflows", "3": "map", c: "map", l: "map", w: "workflows" };
+const KEYS: Record<string, AgentsView> = { "1": "crew", "2": "workflows", "3": "map", "4": "live", c: "map", l: "live", w: "workflows" };
 
 export function useAgentsKeys(): void {
   useEffect(() => {
