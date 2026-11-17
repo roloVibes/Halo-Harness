@@ -169,7 +169,7 @@ prompt hint says "1 queued from Studio") and **Steer** (it goes into the running
 the box.
 
 **The conversation** reads like the terminal: your turns (marked **from Studio** when this page sent them; the
-terminal's transcript says `(from Studio) prompt: ...` above the turn), the assistant's text, each tool call on one line
+terminal's transcript shows the same `❯` row and nothing more), the assistant's text, each tool call on one line
 (with a pack policy's line when one answered it), the turn's end line and the asks. An ask the terminal shows as a card
 (a permission, a question, a plan, an approval) shows here with the same buttons -- Allow, Allow for this session,
 Deny; the question's options; Approve the plan, Keep planning; Accept, Stop -- and answers through the socket's

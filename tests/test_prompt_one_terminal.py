@@ -289,6 +289,141 @@ def test_socket_answer_while_typing_a_deny_reason_keeps_the_text(ctx: Ctx):
         asyncio.run(body(*case))
 
 
+@test
+def test_kept_text_never_answers_the_card_behind_or_goes_as_a_prompt(ctx: Ctx):
+    """THE GATE, the Enter he was about to press: what he typed for a card that a Studio answer closed (or whose own
+    Enter lost the claim) stays in the box and the next Enter sends it nowhere -- not as the answer to the card that
+    waited behind it, not as a prompt or a steer. Once he changes the box, Enter is his again."""
+    from halo_harness.tui.dispatch import apply_event
+
+    async def borrow_permission(app, pilot):
+        await pilot.press("4")
+
+    async def borrow_question(app, pilot):
+        ol = app.pending_card._lists[0]
+        ol.highlighted = len(app.pending_card.questions[0][1])  # the "Other" row
+        ol.action_select()
+
+    async def enter(app, pilot):
+        app.set_focus(app.prompt_input)
+        await pilot.press("enter")
+        await pilot.pause(0.3)
+
+    def nothing_sent(fake) -> bool:
+        return (fake.submitted == [] and not fake.permission_replies and not fake.question_replies
+                and not fake.plan_replies and not fake.approval_replies)
+
+    typed = "reason meant for the first ask"
+
+    async def body(name, first, borrow, answer, behind, lost):
+        fake, app = _app()
+        if lost:
+            fake.lost_request_ids = {answer[0]}
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            await apply_event(app, first)
+            if behind is not None:
+                await apply_event(app, behind)
+            await pilot.pause(0.3)
+            await borrow(app, pilot)
+            await pilot.pause(0.3)
+            app.prompt_input.insert(typed)
+            await pilot.pause(0.1)
+            if lost:
+                await enter(app, pilot)  # his Enter lost the claim: the card closed, the words stay
+            else:
+                await apply_event(app, ev.ask_answered(answer[0], answer[1], answer[2], "studio"))
+                await pilot.pause(0.3)
+            ctx.check(f"{name}: the words are in the box, got {app.prompt_input.text!r}", app.prompt_input.text == typed)
+            if behind is not None:
+                ctx.check(f"{name}: the card behind shows", getattr(app.pending_card, "request_id", "") == "req-2")
+            await enter(app, pilot)
+            ctx.check(f"{name}: Enter sent nothing, got {fake.submitted} {fake.permission_replies}", nothing_sent(fake))
+            ctx.check(f"{name}: the words are still in the box, got {app.prompt_input.text!r}",
+                      app.prompt_input.text == typed)
+            if behind is not None:
+                ctx.check(f"{name}: the card behind still waits", getattr(app.pending_card, "request_id", "") == "req-2")
+            app.prompt_input.insert(" now")
+            await pilot.pause(0.2)
+            await enter(app, pilot)
+            if behind is not None:
+                got = fake.permission_replies
+                ctx.check(f"{name}: changed, Enter answers the card he sees, got {got}",
+                          [(r, d.get("action"), d.get("message")) for r, d in got] == [("req-2", "deny", typed + " now")])
+            else:
+                ctx.check(f"{name}: changed, Enter is an ordinary prompt, got {fake.submitted}",
+                          fake.submitted == [typed + " now"])
+
+    cases = (("deny reason, one behind", _perm("req-1"), borrow_permission, ("req-1", "permission", "Allow"),
+              _perm("req-2"), False),
+             ("question Other, one behind", _question("q-1"), borrow_question, ("q-1", "question", "red"),
+              _perm("req-2"), False),
+             ("deny reason, nothing behind", _perm("req-1"), borrow_permission, ("req-1", "permission", "Allow"),
+              None, False),
+             ("his own Enter lost, one behind", _perm("req-1"), borrow_permission, ("req-1", "permission", "Allow"),
+              _perm("req-2"), True))
+    for case in cases:
+        asyncio.run(body(*case))
+
+
+@test
+def test_a_lost_plan_marker_never_takes_the_next_plan(ctx: Ctx):
+    """P4/P73: a plan card whose key lost because the plan stopped waiting (no winner's event ever comes) leaves no
+    marker behind that a LATER plan's Studio answer would land on: the later plan's card closes and its own marker
+    gets the line."""
+    from halo_harness.tui.dispatch import apply_event
+
+    async def body():
+        fake, app = _app()
+        fake.lost_request_ids = {"plan"}
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            await apply_event(app, _plan("plan-1"))
+            await pilot.pause(0.3)
+            old = _markers(app)["plan"]
+            old_text = old.raw_text
+            await pilot.press("1")
+            await pilot.pause(0.3)
+            ctx.check("the stopped plan's card closed", app.pending_card is None)
+            fake.lost_request_ids = set()
+            await apply_event(app, _plan("plan-2"))
+            await pilot.pause(0.3)
+            new = _markers(app)["plan"]
+            await apply_event(app, ev.ask_answered("plan-2", "plan", "Approve the plan", "studio"))
+            await pilot.pause(0.3)
+            ctx.check(f"the later plan's card closed, got {type(app.pending_card).__name__}", app.pending_card is None)
+            ctx.check(f"its own marker has the line, got {new.raw_text!r}",
+                      new.raw_text == "Answered in Studio: Approve the plan")
+            ctx.check(f"the old marker is left as it was, got {old.raw_text!r}", old.raw_text == old_text)
+            ctx.check(f"one line, got {_answered_notes(app)}", _answered_notes(app) == ["Answered in Studio: Approve the plan"])
+    asyncio.run(body())
+
+
+@test
+def test_a_mode_change_that_answers_an_ask_emits_its_event(ctx: Ctx):
+    """P6: every answered ask emits one `ask_answered`, also when a mode change (Shift+Tab) decides it -- the shown
+    card and one waiting behind it -- so Studio's copy of the ask can close too."""
+    from halo_harness.tui.dispatch import apply_event
+
+    async def body():
+        fake, app = _app()
+        fake.events = sink = _Sink()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            await apply_event(app, _perm("req-1"))
+            await apply_event(app, _perm("req-2"))
+            await pilot.pause(0.3)
+            fake.permission_mode = "auto"
+            app._reevaluate_pending_permission_for_mode("auto")
+            await pilot.pause(0.3)
+            got = [(e.data["request_id"], e.data["kind"], e.data["label"], e.data["where"])
+                   for e in sink.put_events if getattr(e, "kind", "") == "ask_answered"]
+            ctx.check(f"one event per decided ask, got {got}",
+                      got == [("req-1", "permission", "Allow", "terminal"), ("req-2", "permission", "Allow", "terminal")])
+            ctx.check("both cards are gone", app.pending_card is None and app._pending_queue == [])
+    asyncio.run(body())
+
+
 # ---- P5 -----------------------------------------------------------------------------------------------------------
 @test
 def test_answered_line_names_label_and_where(ctx: Ctx):

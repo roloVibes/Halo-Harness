@@ -100,9 +100,10 @@ and the connection stays open.
 
 Several clients may connect at once; a subscription belongs to its
 connection. Commands that arrive over the socket show up in the TUI transcript
-as a `(remote) ...` note, never as a message typed by you; a `submit` with
-`origin: {via: "studio"}` says `(from Studio) prompt: ...` instead (3.3.11.0 R1), and its turn's `user_message`
-frame carries `via`, `by` and `receipt`.
+as a `(remote) ...` note, never as a message typed by you. A `submit` or `steer` draws no note: its `❯` row is
+the only copy (3.6.0.2), and its turn's `user_message` frame carries `via`, `by` and `receipt`. An ask answered over
+the socket closes the terminal's card with one muted line, `Answered in Studio: <label>` (or `Answered remotely:
+<label>`), and every answered ask emits one `ask_answered` event.
 
 ### Receipts (3.3.11.0 R1)
 

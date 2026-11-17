@@ -329,6 +329,7 @@ class BridgeApp(App):
         self._pending_lock = asyncio.Lock()  # finding 71: serializes dock hand-offs
         self._pending_markers: "dict" = {}
         self._lost_markers: "dict" = {}  # 3.6.0.2 P73: a card whose answer lost the claim -> its marker
+        self._kept_text = None  # 3.6.0.2 P4 gate: words a closed card left in the box; Enter sends them nowhere until changed
         self._borrowing_card = None
         self._ctrl_c_deadline: Optional[float] = None
         # 3.1.6.0 R5: the one-per-session "hold Shift to select" hint.
@@ -1242,8 +1243,21 @@ class BridgeApp(App):
 
     # ---- submit / slash dispatch ------------------------------------------
 
+    def on_text_area_changed(self, event) -> None:
+        """3.6.0.2 P4 gate: any change to the box (typing, a paste, a cut, a history recall) makes its text his again."""
+        if self._kept_text is not None and getattr(event, "text_area", None) is self.prompt_input \
+                and self.prompt_input.text != self._kept_text:
+            self._kept_text = None
+
     async def on_prompt_input_submitted(self, event: PromptInput.Submitted) -> None:
         text = event.text
+        if self._kept_text is not None:
+            if text == self._kept_text:
+                # 3.6.0.2 P4 gate: the words a closed card left in the box (the Enter he meant for it) go
+                # nowhere -- not to the card behind it, not as a prompt; once he changes them, Enter is his again.
+                self.bell()
+                return
+            self._kept_text = None
         stripped = text.strip()
         # 1.0.1 fixpass finding 14: a `/`-prefixed submission is ALWAYS an
         # attempted slash command, whatever card/borrow state is active --
@@ -1287,6 +1301,8 @@ class BridgeApp(App):
             # stays in the box, unsent; otherwise the box empties as before.
             if not getattr(card, "claim_lost", False):
                 self.prompt_input.clear_submitted()
+            elif text.strip():
+                self._kept_text = text
             return
         if not text.strip():
             return
@@ -2049,6 +2065,9 @@ class BridgeApp(App):
         card is tracked here but not yet a live widget anywhere."""
         marker = await self.transcript.add_note(marker_text, kind="pending-marker")
         self._pending_markers[id(card)] = marker
+        # 3.6.0.2 P4/P73: a new ask under the same key (a plan) means the old one stopped waiting; a marker its
+        # lost key left for a winner's event that never came must not take this ask's answer.
+        self._lost_markers.pop(_ask_key(card), None)
         # Finding 71: every card goes through the queue and ONE serialized
         # activation, so a card arriving while the previous one is being
         # handed over can never be shown over (and orphaned by) the other.
@@ -2173,6 +2192,8 @@ class BridgeApp(App):
             card.decision_line = line
             if self._borrowing_card is card:
                 self._borrowing_card = None  # the box keeps its text; clear_pending_card puts the placeholder back
+                if self.prompt_input.text.strip():
+                    self._kept_text = self.prompt_input.text
             self.clear_pending_card()
             return
         for queued in list(self._pending_queue):
@@ -2280,11 +2301,14 @@ class BridgeApp(App):
         them (the old bug: `_borrowing_card` was then left pointing at the
         now-finished card, so the NEXT Enter answered nothing and cleared
         whatever card was ACTUALLY pending by then instead)."""
+        from halo_harness import events as _events
         from halo_harness.tui.widgets.cards import PermissionCard
+        sink = getattr(getattr(self.controller, "events", None), "put", None)
         card = self.pending_card
         if isinstance(card, PermissionCard) and not card.done and not card.awaiting_feedback:
             action = self.controller.reevaluate_pending_permission(card.request_id)
             if action in ("allow", "deny"):  # else still "ask" under the new mode -- leave it up
+                _events.answered(sink, card.request_id, "permission", {"action": action}, "terminal")  # 3.6.0.2 P6
                 card.resolve_externally(action)
                 if self._borrowing_card is card:
                     self._borrowing_card = None
@@ -2310,6 +2334,7 @@ class BridgeApp(App):
             if action not in ("allow", "deny"):
                 still_queued.append(queued)
                 continue
+            _events.answered(sink, queued.request_id, "permission", {"action": action}, "terminal")  # 3.6.0.2 P6
             queued.resolve_externally(action)
             marker = self._pending_markers.pop(id(queued), None)
             if marker is not None:
