@@ -21,5 +21,9 @@ export const nextName = (b: string | null): string => b || DEFAULT_MAP;
 /** The coordinator's ruling (P4 batch 10): new sessions with no map (roles off, crew.map unset), the same string as
  *  crew/map_facts.py NOTE_NEXT_NONE (tests/test_map_s13_three_places.py holds the two equal). */
 export const NEXT_NONE = "New sessions will run with no map.";
+/** T10 when new sessions get no map (accepted as written, P4 batch 12). */
+export const T10_NONE = "New session from Studio, no message yet. It will run with no map.";
+/** A door to a panel the section no longer has (lib/workspace/persist.ts; accepted as written, P4 batch 12). */
+export const NOT_HERE = "That panel is not on this page any more: there is nothing to open.";
 /** R11: the slot under Session's drawing when {n} boxes wait wholly below it (a press scrolls one row). */
 export const moreBelow = (n: number): string => `↓ ${n} more below`;

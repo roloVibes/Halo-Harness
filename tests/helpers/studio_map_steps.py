@@ -175,7 +175,8 @@ def maps(c, rig) -> dict:
     c.wait(f"{t('map-switcher')}?.value === 'starter' && {qa('[data-testid=map-label]')}.length >= 8", 20)
     opts = f"[...{t('map-switcher')}.options].map((o) => o.textContent)"
     out["fresh_tags"] = c.js(opts)  # 3.6.0.2 R24: a fresh home (crew.map unset) tags no map
-    out["uses_off"] = [c.js(f"{t('map-uses')}.getAttribute('aria-checked')"), c.js(f"{t('map-uses')}.closest('label').textContent")]
+    # P4 batch 12: on the default map with none set the switch could change nothing: no switch, the plain sentence
+    out["uses_off"] = [c.js(f"!!{t('map-uses')}"), c.js(f"{t('map-uses-default')}?.textContent || ''")]
     # none set: new sessions run on the default, starter (config never holds it): the switch is on there; ship-it switched on
     # is config crew.map and tagged; switched off again, new sessions are back on starter
     c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"

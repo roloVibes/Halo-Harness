@@ -3,17 +3,17 @@
 // {session}", F2) and whether new sessions use it ("· new sessions", F4: the API's `next`; 3.6.0.2 R24), with ONE switch,
 // New sessions run on this (config crew.map; mapSwitch.ts), and Lock (off by default: nothing can be dragged or changed). Under it the map's top line (what a change
 // does and when it takes effect, its problem lines) and the receipt of the last change with Undo.
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { openGoalHere } from "../run/goalStore";
 import { openMapDrawer } from "./feedOpen";
 import { Button } from "../../../lib/ui";
 import { dismissError, newMap, openMap, toggleLock, undoLast, useMap } from "./mapStore";
-import { Extras, ReplayLast, ReplayLine } from "./LitLine";
+import { Extras, REPLAY_LAST, ReplayLast, ReplayLine } from "./LitLine";
 import { useLitNow } from "./useLit";
 import { setDrafting, setUse } from "./mapSwitch";
 import { QuietCtx, useQuiet } from "./mapQuiet";
 import { NoticeRow } from "./NoticeRow";
-import { nextMap, pickerSuffix, switchLabel } from "./truth";
+import { newSessionsRunOn, nextMap, nextName, pickerSuffix, switchLabel } from "./truth";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
 
@@ -59,35 +59,69 @@ function Picker() {
   );
 }
 
-/** The map's top line: the reserved notice row (R55 L1-L3, R33 L4: NoticeRow.tsx), then a replay's line or R3's words; R4: a
- *  box that just landed under "Not connected yet" (`fresh`) is said with a link that brings the strip into view. */
+const OFF_SAID = "Nothing is running on it now.";
+
+/** The room of the top line's sentence and of its Replay slot, from the first draw (P4 batch 12): a hidden twin, outside
+ *  the sentence, measures the longest the sentence can be and the Replay button; measured again only when the width or
+ *  the words change, never because a part came or went. */
+function useRoom(key: string) {
+  const box = useRef<HTMLDivElement>(null), twin = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState({ h: 0, w: 0 });
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setWidth(Math.round(el.clientWidth)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const [said, btn] = [...(twin.current?.children || [])] as HTMLElement[];
+    const h = said?.offsetHeight || 0, w = Math.ceil(btn?.offsetWidth || 0);
+    if (Math.abs(h - room.h) > 0.5 || Math.abs(w - room.w) > 0.5) setRoom({ h, w });
+  }, [key, width]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { box, twin, room };
+}
+
+/** The map's top line: the reserved notice row (R55 L1-L3, R33 L4: NoticeRow.tsx), then a sentence -- a replay's line or
+ *  R3's words -- in a room as tall as its longest form, then one row of controls, each in its own place: Replay the last
+ *  session (its slot kept empty until History has a row), R4's "{n} new, not connected yet" (a box that just landed under
+ *  "Not connected yet": a link that brings the strip into view), the plan and a goal run going. A part that is not there is
+ *  not drawn: no unseen copy in the sentence (P4 batch 12); the line's height never changes with a session or a row. */
 export function TopLine({ fresh = 0 }: { fresh?: number }) {
   const locked = useMap((s) => s.locked);
   const scope = useMap((s) => s.detail?.scope);
   const L = useLitNow();
   const quiet = useContext(QuietCtx);
-  const runs = ["L1", "L3"].includes(quiet.facts?.kind || ""); // a session runs on it or from it now
-  const strip = fresh > 0 && (
-    <button type="button" className="mp-link mp-fresh" data-testid="map-fresh" onClick={() => document.querySelector("[data-testid=map-strip]")?.scrollIntoView({ block: "nearest" })}>
-      {fresh} new, not connected yet
-    </button>
-  );
+  const runs = ["L1", "L3"].includes(quiet.facts?.kind || ""); // a session runs on it or from it now: L1/L3 says so
+  const said = locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`;
+  const { box, twin, room } = useRoom(said);
   return (
     <div className="mp-topwrap" data-testid="map-topline" data-lit={L.mode === "replay" ? "replay" : undefined}>
       <NoticeRow />
-      {L.mode === "replay" ? <ReplayLine /> : (
-        <p className="cw-line mp-topline">
-          {/* kept in its room while L1/L3 says otherwise, so the drawing under it never moves (R55) */}
-          <span className={runs ? "mp-kept" : undefined} aria-hidden={runs || undefined}>Nothing is running on it now.</span><ReplayLast /> {locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`}
-          {strip && <> {strip}</>} <Extras sid={quiet.sid} />
-        </p>
-      )}
+      <div className="mp-topline-room" ref={box} style={room.h ? { minHeight: room.h } : undefined}>
+        {L.mode === "replay" ? <ReplayLine /> : <p className="cw-line mp-topline" data-testid="map-topline-said">{runs ? said : `${OFF_SAID} ${said}`}</p>}
+        <div className="mp-notice-twin" ref={twin} aria-hidden="true">
+          <p className="cw-line mp-topline">{OFF_SAID} {said}</p>
+          <button type="button" tabIndex={-1} className="btn btn-default btn-sm"><span className="btn-label">{REPLAY_LAST}</span></button>
+        </div>
+      </div>
+      <div className="mp-topline-acts" data-testid="map-topline-acts">
+        <span className="mp-slot" style={room.w ? { minWidth: room.w } : undefined}>{L.mode !== "replay" && <ReplayLast />}</span>
+        {L.mode !== "replay" && fresh > 0 && (
+          <button type="button" className="mp-link mp-fresh" data-testid="map-fresh" onClick={() => document.querySelector("[data-testid=map-strip]")?.scrollIntoView({ block: "nearest" })}>
+            {fresh} new, not connected yet
+          </button>
+        )}
+        <Extras sid={quiet.sid} />
+      </div>
     </div>
   );
 }
 
 export function MapBar() {
   const locked = useMap((s) => s.locked);
+  const listed = useMap((s) => s.listed);
   const name = useMap((s) => s.name);
   const next = useMap((s) => s.next);
   const problems = useMap((s) => s.detail?.problems) || NONE;
@@ -99,8 +133,12 @@ export function MapBar() {
         <Picker />
         {/* on: new sessions run on this map -- by identity, none set is the default starter (truth.ts nextMap; config
             never holds the default, changes_map.config_text); the tag "· new sessions" is the set map's (F4) only */}
-        <Switch on={!!name && nextMap(next) === name} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextMap(next) !== name)}
-                title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />
+        {/* P4 batch 12: on the map new sessions use by default (none set) the switch could change nothing: the plain sentence;
+            neither is drawn before the maps are read (which one it is is not known yet; Run a goal and Lock sit after the
+            spacer, so the slot filling moves nothing) */}
+        <span className="mp-uses-slot">{!listed || !name ? null : !next && nextMap(next) === name ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
+          : <Switch on={!!name && nextMap(next) === name} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextMap(next) !== name)}
+                    title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />}</span>
         <span className="spacer" />
         <Button size="sm" onClick={() => (openGoalHere(), openMapDrawer("goal"))} data-testid="map-run-goal"
                 title="Run a goal: several agents, one goal, one set of files -- the goal form opens in the drawer">Run a goal</Button>

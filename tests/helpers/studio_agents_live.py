@@ -28,7 +28,6 @@ them). No model is called.
 from __future__ import annotations
 
 import sys
-import time
 from contextlib import contextmanager
 from pathlib import Path
 

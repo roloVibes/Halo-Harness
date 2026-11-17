@@ -37,10 +37,14 @@ const onScreen = () => studio.get().section === "agents" && agents.get().view ==
 /** The tab's first mount, before its list is read: from now on its showing again opens what was built. */
 export const markFlowsShown = (): void => void (shown = true);
 
-/** The tab shown: the remembered workflow opens once, unless the form holds an unsaved edit or it is gone (an Undo). */
+/** The tab shown: the remembered workflow opens once, unless the form holds an unsaved edit or it is gone (an Undo). A
+ *  name the list does not hold yet (the list was read before the build landed: the disk is polled) is kept until the list
+ *  has been read again; it is given up only when that read does not hold it (P4 batch 12, the owner's point 2). */
 export async function takeBuilt(urlNamed = false): Promise<void> {
   const name = flowBuilt.get().pending;
   if (!name) return;
+  if (!flows.get().flows.some((w) => w.name === name)) await loadFlows();
+  if (flowBuilt.get().pending !== name) return; // taken (or a newer build) while the list was read
   flowBuilt.update(() => ({ pending: "" }));
   writeLocal(FLOW_OPEN, null);
   const s = flows.get();

@@ -9,6 +9,8 @@ uses it, over tests/helpers/studio_session_rig.py (this harness's real session) 
                  selection are all as they were
     ask_session  Session, its Attention drawer: the same row's O lands on Session's Live drawer, `check` selected and
                  waiting, the card with the ask's choices
+    ask_stranger an agent the drawing puts on no box asks: O from Agents and from Session opens the Feed on it with the
+                 ask's choices and the line "{agent} is not on the map: its question is in the Feed." (P4 batch 12)
     run_open     a live goal run, the run's file read held by the browser (never answered): the Map's top line's Open is
                  the same DOM node before and after the Map settled (one parent whatever the line says), and one press
                  opens the Map's drawer on the run at once
@@ -104,6 +106,63 @@ def ask_session(c, rig, lv) -> dict:
     return out
 
 
+def ask_stranger(c, rig, lv) -> dict:
+    """P4 batch 12 (the owner's point 24): an ask from an agent the drawing puts on NO box (its row names the box `gone`, not
+    on shop): O from Agents and from Session opens the Feed on that agent with the ask's choices in view and one line
+    saying so; nothing else closes (Session's Attention drawer stays)."""
+    out: dict = {}
+    line = "scout is not on the map: its question is in the Feed."
+    toast = "[...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | ')"
+    keys = f"({SHOWN})('[data-testid=session-live-ask] [data-testid=session-live-key]')"
+    row = "(sel) => [...document.querySelectorAll(sel)].find((r) => r.textContent.includes('scout'))"
+    for where in ("agents", "session"):
+        if where == "agents":
+            c.go(rig.url("agents", "&view=map"))
+            c.wait(f"{VIEW} === 'map'", 40)
+            # it asks while the page is open (its words reach the Feed as they are said)
+            lv.spawn("s0c0u7t0", "scout", "scout", "or:mock/qwen3-coder", "Scout: look around the basket code")
+            lv.rows["s0c0u7t0"]["crew"] = {"box": "gone"}
+            lv.state("scout", state="waiting")
+            lv.ask("scout", "permission_request", {"id": "perm-off", "name": "Bash", "input": {"command": "ls"}})
+            chip = vis("[data-testid=agents-attention]")
+            c.wait(f"Number({chip}?.dataset.count) > 0", 30)
+            c.click_on(chip)
+            r = f"({row})('[data-testid=fleet-attention] [data-testid=fleet-attn-row]')"
+        else:
+            c.go(rig.url("session"))
+            c.wait(f"!!{SESSION} && !{SESSION}.hidden", 40)
+            lv.ask("scout", "permission_request", {"id": "perm-off-2", "name": "Bash", "input": {"command": "pwd"}})  # asked again, the page open
+            btn = "document.querySelector('[data-testid=viewbar-btn][data-panel=session-attention]')"
+            c.wait(f"!!{btn}", 30)
+            c.click_on(btn)
+            r = f"({row})('[data-panel=session-attention] [data-testid=fleet-attn-row]')"
+        c.wait(f"!!{r}", 30)
+        c.click_on(f"{r}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
+        seen = ""
+        for _ in range(40):  # the line, while it is shown (a toast lasts 8 s)
+            seen = c.js(toast) or ""
+            if line in seen:
+                break
+            time.sleep(0.2)
+        try:
+            c.wait(f"!!{keys}", 10)
+            if line not in seen:
+                raise TimeoutError("no line")
+            out[f"stranger_{where}"] = [c.js(f"{keys}.closest('[data-testid=session-live-ask]') ? 'feed' : ''"), seen]
+        except TimeoutError:
+            out[f"stranger_{where}"] = [f"no Feed ask in view: keys {c.js(f'!!{keys}')}, view {c.js(VIEW)}, card "
+                                        f"{c.js(CARD_LIVE + '?.textContent?.slice(0, 80) || null')}, selected "
+                                        f"{c.js('document.querySelector(`[data-selected]`)?.dataset.box || null')}, feed panel "
+                                        f"{c.js('document.querySelector(`[data-testid=viewbar-btn][data-panel=live-feed]`)?.getAttribute(`aria-pressed`) || null')}, feed "
+                                        f"{c.js('[...document.querySelectorAll(`[data-testid=map-feed]`)].map((e) => [e.dataset.filter, !!e.offsetParent, e.querySelectorAll(`[data-testid=session-live-ask]`).length])')}", seen]
+        if where == "session":
+            out["stranger_session_attention"] = c.js(f"!!({SHOWN})('[data-panel=session-attention] [data-testid=fleet-attn-row]')")
+        else:
+            out["stranger_agents_view"] = c.js(VIEW)
+    out["stranger_line"] = line
+    return out
+
+
 def run_open(c, rig, lv) -> dict:
     from tests.helpers.studio_session_links import live_run
     out: dict = {}
@@ -181,7 +240,7 @@ class DoorsDriver(Driver):
             lv.rows["r3v1e2w0"]["square"] = {"name": "review", "engine": "steps"}  # the workflow review's step: box check
             lv.refresh(map="shop", map_next="shop")
             try:
-                yield tuple((fn, (c, rig, lv)) for fn in (ask_map, ask_session, run_open, builder_left))
+                yield tuple((fn, (c, rig, lv)) for fn in (ask_map, ask_session, ask_stranger, run_open, builder_left))
             finally:
                 lv.close()
 

@@ -152,13 +152,10 @@ def test_live_names_only_the_run(ctx: Ctx):
         if not ok:
             bad.append(what)
 
-    # 1. Setup -> Machines' five lines: no live tree, no fleet scope, no Mission panel; Live only as a link to the view
-    whats = re.findall(r'"((?:[^"\\]|\\.)*)"', _between(_read("shared/StartBits.tsx"), "MACHINES_WHAT: string[] = [", "];"))
-    check(f"MACHINES_WHAT keeps its five lines, got {len(whats)}", len(whats) == 5)
-    gone = [s for s in whats if any(w in s for w in ("live tree", "fleet scope", "Mission panel", "mission"))]
-    check(f"no line promises a live tree, a fleet scope or a Mission panel, got {gone}", not gone)
-    loose = [s for s in whats if len(WORD.findall(s)) != s.count("Agents -> Live")]
-    check(f"every Live in them is the link Agents -> Live, got {loose}", not loose)
+    # 1. (P4 batch 12, rewritten to the truth: the coordinator's ruling) Setup -> Machines' five lines had no reader and a
+    #    help entry was read by no panel (fleet-activity): both are gone, so no unread line can say Live
+    check("MACHINES_WHAT is gone (no page read it)", "MACHINES_WHAT" not in _read("shared/StartBits.tsx"))
+    check("no help entry for fleet-activity (no panel has that id)", '"fleet-activity"' not in _read("help-live.ts"))
 
     # 2. a button's words name where its click lands
     hist = _read("fleet/AgentHistory.tsx")
@@ -199,6 +196,28 @@ def test_live_names_only_the_run(ctx: Ctx):
         hits += _visible_live(rel, text)
     check("no visible string says Live for something else:\n  " + "\n  ".join(hits), not hits)
     ctx.check("R53:\n" + "\n".join(bad), not bad)
+
+
+@test
+def test_python_lines_name_where_replays_and_history_are(ctx: Ctx):
+    """P4 batch 12: the Python side too -- a line a person reads (a string, not a docstring or a comment) that says where a
+    replay or History is names Agents -> Map (R55: History is the Map's), and none uses Live for the Feed ("what only
+    Live showed", "Live's group title")."""
+    import ast
+    root = SRC.parents[2]  # halo_harness/
+    bad = []
+    for p in sorted(root.rglob("*.py")):
+        tree = ast.parse(p.read_text(encoding="utf-8"))
+        docs = {id(n.body[0].value) for n in ast.walk(tree) if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                and n.body and isinstance(n.body[0], ast.Expr) and isinstance(getattr(n.body[0], "value", None), ast.Constant)}
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
+                t = n.value
+                where = re.search(r"Agents (?:->|→) Live", t) and re.search(r"History|replay", t, re.I)
+                if where or "only Live showed" in t or "Live's group" in t:
+                    bad.append(f"{p.relative_to(root).as_posix()}:{n.lineno}: {t[:90]!r}")
+    sep = "\n  "
+    ctx.check("lines that send him to Live for a replay or History, or call the Feed Live:" + sep + sep.join(bad), not bad)
 
 
 @test

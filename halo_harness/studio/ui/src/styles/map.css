@@ -7,12 +7,14 @@
 .workspace[data-section="agents-map"] .ws-cell[data-role="dock"] > .panel > .panel-body { overflow: visible; }
 
 .mp { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; min-height: 0; min-width: 0; }
-.mp-top { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.mp-top { flex-shrink: 0; display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
 .mp-bar { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: center; min-width: 0; }
 .mp-picker, .mp-new { display: inline-flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
 /* a set width, not its longest map name: the list landing must not move the bar (Run a goal moved 94 px out from under a click) */
 .mp-picker select { min-height: 32px; width: 240px; max-width: 100%; text-overflow: ellipsis; }
 .mp-new .input { min-height: 32px; width: 180px; max-width: 100%; }
+.mp-uses-slot { flex: 1 1 0; min-width: 0; overflow: hidden; display: inline-flex; } /* P4 batch 12: a share of the free room, never wraps the bar */
+.mp-uses-default { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .mp-switch { display: inline-flex; gap: var(--s-2); align-items: center; min-height: 32px; font-size: var(--ts-body); cursor: pointer; }
 .mp-topline { margin: 0; }
 .mp-problems, .mp-error { display: flex; flex-direction: column; gap: 2px; padding: 4px var(--s-2); border: 1px solid var(--warn); border-radius: var(--r-control); }
@@ -21,7 +23,9 @@
 .mp-error > .cw-line { flex: 1 1 200px; color: var(--text); }
 
 /* the drawing */
-.mp-canvas { position: relative; display: flex; flex-direction: column; flex: 1 0 auto; min-height: clamp(360px, calc(100vh - 330px), 820px); min-width: 0; }
+/* P4 batch 12: the canvas' least height is what the Map panel's own box leaves after the bar, the strip and History,
+   measured (MapView.tsx useCanvasRoom), not the window's height minus a constant: History's head and Replay in sight at rest */
+.mp-canvas { position: relative; display: flex; flex-direction: column; flex: 1 0 0; min-height: var(--mp-canvas-min, 120px); min-width: 0; } /* the drawing never sizes it: it scrolls inside */
 .mp-zoom { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; justify-content: flex-end; padding-bottom: var(--s-1); }
 .mp-zoom .mp-topline { flex: 1 1 260px; }
 .mp-scroll { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; outline: none; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--bg-2); }
@@ -72,7 +76,7 @@
   color: var(--accent); font-size: 12px; line-height: 20px; pointer-events: none; }
 
 /* Not connected yet */
-.mp-strip { flex: 0 0 auto; max-height: 220px; overflow-y: auto; overflow-x: hidden; padding: var(--s-2) var(--s-3) var(--s-2) 36px;
+.mp-strip { flex: 0 1 auto; min-height: 56px; max-height: 220px; overflow-y: auto; overflow-x: hidden; padding: var(--s-2) var(--s-3) var(--s-2) 36px;
   border: 1px dashed var(--line-strong); border-radius: var(--r-card); background: var(--bg-2); }
 .mp-strip[data-drop] { outline: 2px dashed var(--accent); outline-offset: -4px; }
 .mp-strip[data-drop-on] { outline-color: var(--ok); outline-style: solid; }

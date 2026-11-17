@@ -9,7 +9,7 @@ Skipped without Chrome. No model is called.
 4  a helper's own helpers: "+N under it", not drawn; the drawer lists who started whom
 5  the todo plan: "plan: 1 of 3 done", its rows in the drawer
 6  Run a goal from the Map's bar opens the goal form in the Map's own drawer (3.6.0.2 R57)
-7  a replay on the Map opens no feed (3.6.0.2 R57: the Map has none; the drawer of words is 4 · Live's Feed)
+7  a replay on the Map opens no Feed (3.6.0.2 R57) and lists its rows up to the scrubber in the Map's own drawer, History's page (P4 batch 12)
 9  J / K between working boxes; with nothing running, "Replay the last session"
 10 a hover summary card, by a move only, never over the box's controls
 11 an ask's answer pressed in the drawer reaches the session (a real waiter, its Attention row); two sessions: the picker
@@ -94,6 +94,10 @@ def test_6_7_9_goal_replay_keys(ctx: Ctx):
     ctx.check(f"nothing running: Replay the last session, got {g.get('offer')!r} -> {g.get('replaying')!r}", g.get("offer") == "Replay the last session" and g.get("replaying") == "replay")
     ctx.check(f"3.6.0.2 R57: a replay on the Map opens no feed (the Map has none); its scrubber runs it to the end, got {g.get('drawer')} {g.get('rows')!r}",
               g.get("drawer") == 0 and g.get("rows") == "end")
+    rows = g.get("drawer_rows")
+    ctx.check(f"P4 batch 12 (rewritten to the truth): a replay opens no Feed and DOES list its rows (spawns, hand-offs, asks, "
+              f"finishes up to the scrubber) in the Map's own drawer on History's page, one line each, got {rows!r}",
+              isinstance(rows, list) and len(rows) >= 1 and all(h < 30 for _, h in rows))
 
 
 @test

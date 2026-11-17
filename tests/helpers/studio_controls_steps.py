@@ -21,6 +21,16 @@ from tests.helpers.studio_controls import VISIBLE, choose, presses
 
 M = "document.querySelector('[data-testid=\"session-lit-map\"]')"
 VIEW = "document.querySelector('[data-testid=agents]')?.dataset.view"
+# History's head and its Replay inside the visible box of every scrolling ancestor and of the window, no scroll made:
+# [head in sight, Replay in sight, the panel body's visible bottom, Replay's bottom] (P4 batch 12)
+SIGHT = """(() => { const h = [...document.querySelectorAll('[data-part=map] [data-testid=map-history]')].find((e) => e.offsetParent);
+  const head = h?.querySelector('.mp-history-bar > b'), rp = h?.querySelector('[data-testid=map-history-replay]');
+  if (!head || !rp) return 'not drawn';
+  let top = 0, bottom = innerHeight, scrolled = 0;
+  for (let p = h.parentElement; p; p = p.parentElement) { const o = getComputedStyle(p).overflowY;
+    if (['auto', 'scroll', 'hidden'].includes(o)) { const r = p.getBoundingClientRect(); top = Math.max(top, r.top); bottom = Math.min(bottom, r.bottom); scrolled += p.scrollTop; } }
+  const inside = (e) => { const r = e.getBoundingClientRect(); return r.height > 0 && r.top >= top - 0.5 && r.bottom <= bottom + 0.5; };
+  return [inside(head), inside(rp), Math.round(bottom), Math.round(rp.getBoundingClientRect().bottom), scrolled]; })()"""
 
 
 def vis(sel: str) -> str:
@@ -188,7 +198,20 @@ def map_view(c, rig, lv, rows) -> dict:
             c.js(f"{t('map-history-replay')}.click(); 1")
         c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && !!{t('map-replay-close')} && !!{t('map-history-now')}", 20)
 
+    def starter_his_shop():
+        """crew.map = shop (his map set elsewhere): on starter the switch is a switch again (P4 batch 12)."""
+        use(rig, "shop")
+        to_map(c, rig, "starter")
+
     try:
+        # P4 batch 12: History's head and its Replay in sight at rest (no scroll made) at four window sizes, a fresh page each
+        out["sight"] = {}
+        for w, h in ((1280, 800), (1440, 900), (1500, 900), (1920, 1080)):
+            _size(c, w, h)
+            to_map(c, rig, "shop")
+            c.wait(f"{t('map-history-pick')}?.options.length >= 1 && !!{t('map-history-replay')}", 20)
+            out["sight"][f"{w}x{h}"] = c.js(SIGHT)
+        _size(c, 1500, 900)
         recs = presses(c, [
             ("[Watch it in Live]", t("map-watch-live"), l1),
             ("the map picker", t("map-switcher"), shop, ("choose", "starter")),
@@ -198,6 +221,7 @@ def map_view(c, rig, lv, rows) -> dict:
             ("the new map's Cancel", f"{t('map-new-make')}?.nextElementSibling"),
             ("New sessions run on this", t("map-uses"), back_to("shop")),
             ("Undo (the switch)", t("map-undo")),
+            ("New sessions run on this (starter, his map shop)", t("map-uses"), starter_his_shop),
             ("Run a goal", t("map-run-goal")),
             ("Lock", t("map-lock")), ("Lock (off again)", t("map-lock")),
             ("n new, not connected yet", t("map-fresh"), fresh),
@@ -213,6 +237,10 @@ def map_view(c, rig, lv, rows) -> dict:
             ("Attention", t("agents-attention")), ("Attention's x", vis("[data-testid=agents-attention-close]")),
         ])
         out["gone"] = c.js("document.querySelectorAll('[data-testid=map-lit-pick], [data-testid=map-show-running], [data-testid=map-lit-show-nomap]').length")
+        # P4 batch 12: no map set, on the default map: no switch (it could change nothing), the plain sentence instead
+        use(rig, None)
+        to_map(c, rig, "starter")
+        out["default_uses"] = [c.js(f"!!{t('map-uses')}"), c.js(f"{t('map-uses-default')}?.textContent || ''")]
     finally:
         rig.full = full
         use(rig, None)

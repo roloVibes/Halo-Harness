@@ -82,10 +82,12 @@ def links(c, rig) -> dict:
     except TimeoutError:
         out["settled"] = False  # the press below still says what happened
     out["open_same_node"] = c.js(f"window.__open1 === {opener}")
+    # the presses that reach Open are COUNTED by the page (P4 batch 12: a constant here could never fail)
+    c.js(f"window.__opens = 0; {opener}.addEventListener('click', () => window.__opens++, true); 1")
     t1 = time.monotonic()
     try:
         c.click_on(opener)
-        out["open_clicks"] = 1  # one press, never a second
+        out["open_clicks"] = c.js("window.__opens")
         out["watch_orchestra"] = c.wait("document.querySelector('[data-testid=\"orchestra-watch-session\"]')?.textContent", 30)
     except TimeoutError as e:
         took = {"to the Open button": round(t1 - t0, 1), "after its press": round(time.monotonic() - t1, 1),

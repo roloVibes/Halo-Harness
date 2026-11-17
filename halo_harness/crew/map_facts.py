@@ -215,7 +215,8 @@ def turn_note(session) -> "str | None":
             # the first turn: nothing sent (decision 7); the baseline is what the session started under (map_events
             # `started` keeps F4 then), so a switch between its start and this turn is told at the next turn
             start = getattr(session, "_map_next_at_start", None)
-            session._map_told = (f["map"], start[0], start[1] if len(start) > 1 else f["next_none"])                 if isinstance(start, tuple) else key
+            session._map_told = ((f["map"], start[0], start[1] if len(start) > 1 else f["next_none"])
+                                 if isinstance(start, tuple) else key)
             return None
         pending = getattr(session, "_map_note_pending", None)
         retell = getattr(session, "_map_retell", False)

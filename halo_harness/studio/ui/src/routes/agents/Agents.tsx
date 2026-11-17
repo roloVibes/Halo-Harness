@@ -18,6 +18,7 @@ import { CrewView } from "../crew/Crew";
 import { FlowsView } from "../crew/flows/Flows";
 import { MapView } from "../crew/map/MapView";
 import { LiveView } from "./LiveView";
+import { startLive } from "../shared/liveFeed";
 
 export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
   const shown = useAgentsView();
@@ -25,6 +26,9 @@ export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
   const view = waiting ? "" : shown;
   const [seen, setSeen] = useState({ crew: view === "crew", workflows: view === "workflows", map: view === "map", live: view === "live" });
   useEffect(() => setSeen((s) => (!view || s[view] ? s : { ...s, [view]: true })), [view]);
+  // P4 batch 12: the Feed's lines are collected from the section's first draw, so an ask said while he was on another
+  // tab is in 4 · Live's Feed when a door opens it there (startLive runs once per page)
+  useEffect(() => startLive(), []);
   useAgentsKeys();
   useAttentionKey();
   return (

@@ -3,7 +3,7 @@
 // lines L1-L4 and the worst case the truth block reserves (R20). The other lines of the rules (R4, R14-R18, R24, R28-R31,
 // R43, R45, R47) are in truthBits.ts, re-exported here. Pure: no React, no store, no DOM. The words Live / Feed / Map live
 // in truthWords.ts (decision 5), re-exported here; Session, Agents -> Live, Agents -> Map and the Start view read only this.
-import { clock, DEFAULT_MAP, mapName, NEXT_NONE, nextName, WORDS, type Line } from "./truthWords";
+import { clock, DEFAULT_MAP, mapName, NEXT_NONE, nextName, T10_NONE, WORDS, type Line } from "./truthWords";
 
 export * from "./truthWords";
 export * from "./truthBits";
@@ -68,7 +68,7 @@ export function truthLines(f: TruthFacts): Line[] {
     case "T9": return [{ text: f.a ? `${f.title} runs on ${A} on ${f.machine}. Its drawing is in that machine's Studio.`
                                    : `${f.title} runs with no map on ${f.machine}. Its drawing is in that machine's Studio.` }];
     case "T8": return [{ text: `This session ended at ${clock(f.ended || 0)}. ${f.a ? `It ran on ${A}.` : "It ran with no map."}` }];
-    case "T10": return [{ text: `New session from Studio, no message yet. It will run ${f.bNone ? "with no map" : `on ${B}`}.` }];
+    case "T10": return [{ text: f.bNone ? T10_NONE : `New session from Studio, no message yet. It will run on ${B}.` }];
     case "T12": return [{ text: `This session runs on ${A} from ${f.unreadable}, which Studio cannot read here.` }];
     case "T4": return [{ text: `This session runs with no map, as it started at ${t}: main does the work and starts its own agents.` }];
   }
@@ -179,7 +179,8 @@ export function statusRoom(now: Status, names: string[], flows: { name: string; 
   const who = [...new Set(["main", ...names])];
   const rows = [...who.map((name) => [{ name, state: "working" }]), ...(who.length > 1 ? [who.map((name) => ({ name, state: "working" }))] : [])];
   const flowsTo = [null, ...flows.filter((w) => w.name).map((w) => ({ name: w.name, step: Math.max(1, w.of), of: Math.max(1, w.of) }))];
-  const offs = plainMap ? [now.off] : [...new Set([now.off, Math.max(1, now.off)])];
+  // P4 batch 12: the hand-off tail at its one-, two- and three-digit counts (1, 10+, 100+), so ten or more never grow it
+  const offs = plainMap ? [now.off] : [...new Set([now.off, Math.max(1, now.off), Math.max(10, now.off), Math.max(100, now.off)])];
   const out = new Set([statusLine(now)]);
   for (const off of offs) {
     for (const state of ["idle", "done"] as const) out.add(statusLine({ ...now, state, off }));

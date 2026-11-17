@@ -9,6 +9,7 @@ import { keepAsk, takeAsks } from "./kept";
 import { FULL_PAGE } from "./query";
 import { closeIn, merge, openIn, roleOf, soloOf } from "./rules";
 import type { Layout, PanelLayout, PanelSpec } from "./types";
+import { NOT_HERE } from "../../routes/crew/map/truthWords"; // the words live in one place (P4 batch 12)
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
 const VERSION = 3;
@@ -135,7 +136,7 @@ export function stageWidth(section: string): number {
 }
 
 /** The one line a door says when its panel is not in the section (P4 batch 9: a door never leads nowhere). */
-export const NOT_HERE = "That panel is not on this page any more: there is nothing to open.";
+export { NOT_HERE };
 
 /** Change one panel: `collapsed: false` opens it (a drawer by the stage's rules, a tab shown), `true` puts it away. Asked
  *  before the section has laid out (a door that switched section in the same step), the ask is kept and applied at its

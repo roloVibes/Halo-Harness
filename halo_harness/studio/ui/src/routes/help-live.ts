@@ -1,6 +1,6 @@
 // What the two live panels are (`about`, one line) and how to use them (`help`, a few short lines); routes/help.ts
-// merges them into HELP. They keep their panel ids: Attention (Agents' chip, every view) and Activity (Agents -> Live,
-// optional).
+// merges them into HELP. It keeps its panel id: Attention (Agents' chip, every view). Activity's entry went: no panel reads
+// it (P4 batch 12).
 import type { Help } from "./help-orchestra";
 
 const lines = (...l: string[]) => l.join("\n");
@@ -13,15 +13,6 @@ export const LIVE_HELP: Record<string, Help> = {
       "A accepts or allows, R denies or redoes with your text, S stops, O opens where it belongs (Agents, Local).",
       "J / K (or the arrows) move between rows while this panel has the focus.",
       "The chip on Agents' bar counts them in every view, amber while any waits; it (or A) opens and closes this panel.",
-    ),
-  },
-  "fleet-activity": {
-    about: "What your sessions do: a timeline lane per live agent and the merged live log.",
-    help: lines(
-      "Open it in Session with Activity in the bar above the Feed; it takes the Feed's place as its tab.",
-      "Each lane shows the agent's states over 5, 15 or 60 minutes; the ticks are its tool calls.",
-      "Hover a bar for who and when; click a lane or a line to select that agent on the tree.",
-      "Filter the log by session, agent or kind; Follow keeps the newest line in view.",
     ),
   },
 };

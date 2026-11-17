@@ -1,16 +1,7 @@
 // The pieces a Start view is made of (3.1.4.0 R2, from Fleet's Start view; 3.3.16.0 R2 "the Fleet fold": that view
-// went with the section -- its five lines are Setup -> Machines' lead, MACHINES_WHAT): numbered lines, "try it" and
+// went with the section; its five unread Machines lines went in P4 batch 12): numbered lines, "try it" and
 // "open the workspace anyway". Session's Start view reads them too.
 import type { ReactNode } from "react";
-
-/** What pairing machines gives you, in five lines (Setup -> Machines' lead while only this harness is here). */
-export const MACHINES_WHAT: string[] = [
-  "Every Halo session on this machine shows on Agents -> Live by itself, drawn on the map it really follows.",
-  "Other machines join with a six-word pair code; each one says what it shares and what you may do there.",
-  "Agents -> Live lists other machines' sessions too; each one's drawing is in that machine's Studio.",
-  "Steer any agent on any machine: a nudge it reads before its next step, or a new task.",
-  "Their models show in Local.",
-];
 
 /** A Start view's numbered lines. */
 export function Explain({ lines }: { lines: string[] }) {

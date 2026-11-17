@@ -4,7 +4,7 @@
 // drawer that pushes the map (closed until you open it from the view bar); the builder is docked at the foot. The view
 // bar carries Agents' switch and the Attention chip. Nothing opens by itself. 3.6.0.2 R57: the Feed is 4 · Live's; the
 // Map's right drawer keeps Run a goal, a goal run's pages and History (MapDrawer.tsx), titled by the page it shows.
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useLayoutEffect, useRef, useState, type RefObject, type CSSProperties } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";
 import { planPanel } from "../run/planPanel";
@@ -54,8 +54,37 @@ function useSettled(): boolean {
   return map && agents && flows && sessions && runs;
 }
 
+/** P4 batch 12 (the coordinator's ruling): the canvas' least height is what the Map panel's real box leaves after the
+ *  bar, the strip and History, measured (never the window's height minus a constant), so History's head and its Replay are
+ *  in sight at rest; measured again when the panel or a part above or under the canvas changes size. */
+function useCanvasRoom(root: RefObject<HTMLDivElement | null>): number {
+  const [room, setRoom] = useState(0);
+  useLayoutEffect(() => {
+    const el = root.current;
+    let body = el?.parentElement || null;
+    while (body && !/(auto|scroll)/.test(getComputedStyle(body).overflowY)) body = body.parentElement;
+    if (!el || !body || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const kids = ([...el.children] as HTMLElement[]).filter((k) => k.offsetParent !== null && getComputedStyle(k).position !== "absolute" && getComputedStyle(k).position !== "fixed");
+      const others = kids.filter((k) => !k.classList.contains("mp-canvas")).reduce((n, k) => n + k.offsetHeight, 0);
+      const gap = parseFloat(getComputedStyle(el).rowGap) || 0;
+      const top = el.getBoundingClientRect().top - body!.getBoundingClientRect().top + body!.scrollTop;
+      const h = Math.max(120, Math.floor(body!.clientHeight - top - others - gap * Math.max(0, kids.length - 1) - 2));
+      setRoom((r) => (Math.abs(r - h) > 0.5 ? h : r));
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(body);
+    for (const k of [...el.children]) if (!k.classList.contains("mp-canvas")) ro.observe(k);
+    measure();
+    return () => ro.disconnect();
+  });
+  return room;
+}
+
 function MapMain() {
   const locked = useMap((s) => s.locked);
+  const root = useRef<HTMLDivElement>(null);
+  const room = useCanvasRoom(root);
   const L = useLitNow();
   const settled = useSettled();
   const quiet = useQuiet(); // R55: the one quiet line and the marks of running workflows' boxes
@@ -63,7 +92,7 @@ function MapMain() {
   useEffect(() => void loadMapHistory(new Set(runningKey ? runningKey.split(",") : [])), [runningKey]); // History's runs (MapHistory.tsx)
   return (
     <QuietCtx.Provider value={quiet}>
-    <div className="mp" data-testid="map" data-locked={locked || undefined} data-lit={L.ov ? L.mode : undefined} data-settled={settled || undefined}>
+    <div className="mp" ref={root} style={room ? ({ "--mp-canvas-min": `${room}px` } as CSSProperties) : undefined} data-testid="map" data-locked={locked || undefined} data-lit={L.ov ? L.mode : undefined} data-settled={settled || undefined}>
       <MapBar />
       <MapCanvas />
       <Strip />

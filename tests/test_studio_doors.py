@@ -54,6 +54,21 @@ def test_attention_open_in_session_lands_on_the_live_drawer(ctx: Ctx):
 
 
 @test
+def test_an_ask_from_an_agent_on_no_box_opens_the_feed_and_says_so(ctx: Ctx):
+    """P4 batch 12 (the owner's point 24, the coordinator's ruling): a door never leads nowhere -- an agent the drawing puts
+    on no box asks; its O opens the Feed on that agent with the ask's choices in view, and one line says so."""
+    d = _got(ctx)
+    line = d.get("stranger_line") or ""
+    for where in ("agents", "session"):
+        got = d.get(f"stranger_{where}") or ["", ""]
+        ctx.check(f"from {where}: the Feed shows the ask's choices and the line {line!r}, got {got!r}",
+                  got[0] == "feed" and line in (got[1] or ""))
+    ctx.check(f"Agents: it stays on 4 · Live, got {d.get('stranger_agents_view')!r}", d.get("stranger_agents_view") == "live")
+    ctx.check(f"Session: nothing else closes (the Attention drawer is open), got {d.get('stranger_session_attention')!r}",
+              d.get("stranger_session_attention") is True)
+
+
+@test
 def test_a_goal_runs_open_holds_still_and_opens_at_once(ctx: Ctx):
     d = _got(ctx)
     ctx.check(f"Open is the same node before and after the Map settled, got {d.get('run_same_node')!r}", d.get("run_same_node") is True)

@@ -29,8 +29,9 @@ export function optText(r: Pick<SessionRow, "session_id" | "title" | "map" | "ma
 /** Pick a session in the picker: a local one is Session's pick too; another machine's stays Live's. */
 export function pickLive(sid: string, local: boolean): void {
   const f = fleet.get(), kept = f.scope.session || sess.get().chosen;
-  const at = local ? "" : kept || chosenSession(f)?.session_id || ""; // the local pick it is made over, written down (R1)
-  if (!local && at !== kept) sess.update(() => ({ chosen: at }));
+  // the local pick it is made over (none: ""); Session's own pick is never written by a far pick (P4 batch 12: with no
+  // pick of his, Session and Live keep following the newest open session, R34)
+  const at = local ? "" : kept;
   away.update(() => ({ sid: local ? "" : sid, at }));
   if (local) sess.update(() => ({ chosen: sid }));
 }

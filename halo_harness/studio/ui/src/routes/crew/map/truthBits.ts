@@ -95,5 +95,7 @@ export const workflowsHead = (): string =>
   `Workflows are fixed lists of steps. A session runs a map, and a box on a map can run a workflow: see ${WORDS.map}.`;
 
 /** P4 batch 9: an ask's door pressed after its session ended (glance/openAsk.ts), one line; `t` 0 when not seen ending. */
-export const askEnded = (session: string, t: number): string =>
-  `${session || "This session"} ${t ? `ended at ${clock(t)}` : "has ended"}: nothing waits on you there now.`;
+export const askEnded = (t: number): string =>
+  `This session ${t ? `ended at ${clock(t)}` : "has ended"}. Nothing waits on you there now.`; // T8's first sentence (P4 batch 12)
+/** P4 batch 12 (the owner's point 24): an ask's door for an agent the drawing puts on no box (glance/openAsk.ts). */
+export const askOffMap = (agent: string): string => `${agent} is not on the map: its question is in the ${WORDS.feed}.`;

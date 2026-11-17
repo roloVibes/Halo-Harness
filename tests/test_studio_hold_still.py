@@ -48,7 +48,10 @@ def _view(ctx: Ctx, name: str, must: tuple = ()) -> None:
 
 @test
 def test_the_map_holds_still_as_it_opens(ctx: Ctx):
-    _view(ctx, "map", ("map-run-goal", "map-switcher", "map-uses", "map-lock", "agents-view-map", "viewbar-btn"))
+    # P4 batch 12 (rewritten to the truth): "New sessions run on this" is drawn only once the maps are read -- on the default
+    # map with none set it is the plain sentence, not a switch that could change nothing -- so it is not there at first
+    # paint; its slot sits before the spacer and nothing measured moves when it fills
+    _view(ctx, "map", ("map-run-goal", "map-switcher", "map-lock", "agents-view-map", "viewbar-btn"))
     _view(ctx, "map_all", ("map-run-goal", "map-switcher", "map-lock"))
     got = _got(ctx)
     ctx.check("History's Compare door is not drawn before what sits above it has landed",

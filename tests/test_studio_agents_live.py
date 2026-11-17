@@ -298,6 +298,10 @@ def test_quiet_line_never_moves_the_drawing_at_1280(ctx: Ctx):
         tops = s.get(name) or []
         ctx.check(f"{name}: the canvas top with the quiet line, without the session, with it again (1280 x 800), got {tops}",
                   len(tops) == 3 and all(isinstance(x, (int, float)) for x in tops) and max(tops) - min(tops) <= 0.5)
+        gaps = s.get(f"{name}_gaps") or []
+        ctx.check(f"P4 batch 12: {name}: nothing in the top line is an unseen copy, no visible gap (with and without the "
+                  f"session; [hidden, gap, Replay drawn] each), got {gaps}",
+                  len(gaps) == 3 and all(isinstance(g, list) and g[0] == 0 and g[1] is False for g in gaps))
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 
@@ -306,6 +310,8 @@ def test_latest_map_pick_wins(ctx: Ctx):
     d = _got(ctx)
     r = _q(d, "race")
     ctx.check(f"the tab's first open was answered after his pick, got {r.get('served')!r}", r.get("served") is True)
+    ctx.check(f"in that ORDER: his pick drawn, then the first open answered, got {r.get('order')!r}",
+              r.get("order") == ["his pick drawn", "first open answered"])
     ctx.check(f"his pick (shop) still open after the late answer for starter, got {r.get('after')}", r.get("after") == ["shop", True])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 

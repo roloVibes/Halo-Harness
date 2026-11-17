@@ -31,6 +31,13 @@ LIVE = "document.querySelector('[data-part=live] [data-testid=agents-live]')"
 REVIEW = {"workflow": "review", "step": 1, "agent": "reviewer", "saved": True}
 RF = {"name": "review-flow", "boxes": [{"id": "review", "workflow": "review"}], "lines": [{"from": "main", "to": "review", "when": "always"}]}
 RF_YAML = "format: map/1\nname: review-flow\nboxes:\n- {id: review, workflow: review}\nlines:\n- {from: main, to: review, when: always}\n"
+# P4 batch 12: what the top line hides inside its sentence or its row of controls (an unseen copy keeping a room) and
+# whether a visible sentence has a gap of more than one space; [hidden parts, a gap, History's Replay drawn]
+GAP = ("(() => { const p = document.querySelector('[data-part=map] [data-testid=map-topline]'); if (!p) return 'no line';"
+       " const mine = (e) => !e.closest('.mp-notice-twin');"
+       " const hid = [...p.querySelectorAll('.mp-topline, .mp-topline *, .mp-topline-acts *')].filter((e) => mine(e) && getComputedStyle(e).visibility === 'hidden').length;"
+       " const gap = [...p.querySelectorAll('.mp-topline')].filter(mine).some((e) => /[^ ] {2,}[^ ]/.test(e.innerText));"
+       " return [hid, gap, !!p.querySelector('[data-testid=map-lit-replay-last]')]; })()")
 OPTS = f"[...({SW}?.options || [])].map((o) => o.textContent)"
 TOP = f"document.querySelector('{M} [data-testid=map-scroll]')?.getBoundingClientRect().top"
 BOXES = f"Object.fromEntries([...document.querySelectorAll('{M} [data-testid=map-world] [data-map-box]')].map((b) => {{ const r = b.getBoundingClientRect(); return [b.dataset.mapBox, [r.left, r.top]]; }}))"
@@ -278,14 +285,17 @@ def still(c, rig, lv, rows) -> dict:
             choose(c, f"{M} [data-testid=map-switcher]", name)
             said = f"{SW}.value === {name!r} && {q}?.textContent.includes({words!r})"
             c.wait(said, 20)
-            tops = [c.js(TOP)]
+            tops, gaps = [c.js(TOP)], [c.js(GAP)]
             rows.hide(lv.sid)
             c.wait(f"!{q}", 20)
             tops.append(c.js(TOP))
+            gaps.append(c.js(GAP))
             rows.reset()
             c.wait(said, 20)
             tops.append(c.js(TOP))
+            gaps.append(c.js(GAP))
             out[name] = tops
+            out[f"{name}_gaps"] = gaps
         return out
     finally:
         rows.reset()
@@ -297,15 +307,18 @@ def race(c, rig, lv, rows) -> dict:
     from halo_harness.studio import api as A
     from tests.helpers.studio_agents_live_draw import choose
     setup(rig, lv, rows, flow=False)
-    orig, served = A.dispatch, []
+    import threading
+    picked = threading.Event()
+    orig, served, order = A.dispatch, [], []  # order: what happened, in turn (P4 batch 12: the test asserts it)
 
     def slow(req):
         if req.method == "GET" and str(req.path) == "crew/map/starter" and not req.query and not served:
-            time.sleep(2)  # the first open's answer is held until after his pick's; a delay, not a pass condition
+            picked.wait(30)  # the first open's answer is held until his pick is drawn (an event, not a delay)
             try:
                 return orig(req)
             finally:
                 served.append(1)
+                order.append("first open answered")
         return orig(req)
     A.dispatch = slow
     try:
@@ -315,16 +328,19 @@ def race(c, rig, lv, rows) -> dict:
         c.wait(f"{VIEW} === 'map' && [...({SW}?.options || [])].some((o) => o.value === 'shop')", 40)
         choose(c, f"{M} [data-testid=map-switcher]", "shop")
         c.wait(f"{SW}.value === 'shop' && !!document.querySelector('{M} [data-map-box=check]')", 20)
+        order.append("his pick drawn")
+        picked.set()
         end = time.time() + 30
         while not served and time.time() < end:
             time.sleep(0.05)
-        out: dict = {"served": bool(served)}
+        out: dict = {"served": bool(served), "order": list(order)}
         # the late answer has reached the page (its resource entry is complete), then two frames for React to draw it
         c.wait("performance.getEntriesByType('resource').some((e) => /\\/crew\\/map\\/starter$/.test(e.name))", 20)
         c.js("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))")
         out["after"] = [c.js(f"{SW}.value"), c.js(f"!!document.querySelector('{M} [data-map-box=check]')")]
         return out
     finally:
+        picked.set()
         A.dispatch = orig
 
 

@@ -2,7 +2,12 @@
 // - `under:<id>`: the helpers a helper started (R4's gap 2, depth): one row each, "started by <who>", a click filters
 //   the drawer to it; no second level is drawn on the map;
 // - `plan`: the session's todo plan (todoStore.ts), one row per item with its state.
+// And 3 · Map's drawer, History's page (P4 batch 12, the coordinator's ruling: a feature is not lost by a move): a
+// replay's rows (gap 10), the run's spawns, hand-offs, asks, failures and finishes up to the scrubber's moment, from
+// Live's replay store (agents/live/replay.ts, its timeline's marks), one line each, the newest at the foot.
+import { useLayoutEffect, useRef } from "react";
 import { Empty } from "../../../lib/ui";
+import { mmss } from "../live/timeline";
 import { under, type Helper } from "./overlay";
 import { setFeedFor } from "./litStore";
 import { STATE_WORDS } from "./LitBits";
@@ -23,6 +28,32 @@ export function UnderList({ L, aid }: { L: Lit; aid: string }) {
           <b>{h.name}</b> <span className="mp-muted">started by {name(h.parent)} · {STATE_WORDS[h.state]}</span>
           {h.task && <span className="mpf-row-task">{h.task.length > 120 ? h.task.slice(0, 117) + "..." : h.task}</span>}
         </button>
+      ))}
+    </div>
+  );
+}
+
+const MARK_WORDS: Record<string, string> = { spawn: "started", handoff: "handed back", ask: "asked", fail: "failed", finish: "finished" };
+
+export function ReplayRows({ L, ids }: { L: Lit; ids: Set<string> | null }) {
+  const r = L.replay;
+  const box = useRef<HTMLDivElement>(null);
+  const rows = r ? r.tl.marks.filter((m) => m.t <= r.t + 1e-6 && (!ids || ids.has(m.agent_id) || (!!m.to && ids.has(m.to)))) : [];
+  useLayoutEffect(() => { // the newest at the foot, in sight
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [rows.length]);
+  if (!r) return null;
+  const name = new Map(r.tl.base.map((n) => [n.id, n.name]));
+  if (!rows.length) return <Empty title="Nothing yet at this moment" body="Move the scrubber on: each start, hand-off, ask and finish of the run shows here as it happened." testid="map-feed-replay-empty" />;
+  return (
+    <div className="mpf-rows" ref={box} data-testid="map-feed-replay" data-t={Math.round(r.t)}>
+      {rows.map((m, i) => (
+        <div key={i} className="mpf-mark" data-testid="map-feed-replay-row" data-kind={m.kind}>
+          <span className="mono mp-muted">{mmss(m.t - r.tl.t0)}</span>{" "}
+          <b>{m.name || name.get(m.agent_id) || m.agent_id}</b> {MARK_WORDS[m.kind] || m.kind}
+          {m.to && <> {m.kind === "spawn" ? "by" : "to"} {name.get(m.to) || m.to}</>}
+          {m.text && <span className="mpf-row-task">{m.text.length > 200 ? m.text.slice(0, 197) + "..." : m.text}</span>}
+        </div>
       ))}
     </div>
   );

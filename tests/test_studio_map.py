@@ -88,9 +88,9 @@ def test_more_than_one_map_uses_and_lock(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"+ New map: main only, got {got.get('new')}", got.get("new") == 1)
     # 3.6.0.2 R24 (rewritten to the truth): the switch says "New sessions run on this"; a fresh home tags no map
-    ctx.check(f"a fresh home: no map tagged; new sessions run on starter, the default: its switch is on, got {got.get('fresh_tags')} {got.get('uses_off')}",
+    ctx.check(f"a fresh home: no map tagged; new sessions run on starter, the default: no switch there (P4 batch 12, rewritten to the truth: it could change nothing), the plain sentence, got {got.get('fresh_tags')} {got.get('uses_off')}",
               not any(" · new sessions" in o or " · running in " in o or "my sessions use this" in o for o in got.get("fresh_tags") or ["?"])
-              and got.get("uses_off") == ["true", "New sessions run on this"])
+              and got.get("uses_off") == [False, "New sessions run on starter (the default)."])
     ctx.check(f"New sessions run on this (ship-it): config crew.map, got {got.get('in_use')!r}", got.get("in_use") == "ship-it")
     ctx.check(f"... and ship-it is tagged new sessions, got {got.get('tagged')!r}", str(got.get("tagged")).endswith(" · new sessions"))
     ctx.check("Lock: no dot, no Add", got.get("locked") is True)

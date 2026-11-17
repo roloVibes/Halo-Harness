@@ -4,18 +4,22 @@
 // answerRow and openTarget) land on the RUN'S DRAWING with the asking agent's box selected and its card open -- the
 // ask's choices, Pause, Stop, Steer (crew/map/askBox.ts): Agents -> 4 · Live when he is in Agents, else Session with
 // that session chosen, the Live column's agent pick on the asking agent, its Live drawer open and Attention open on the
-// row (an optional panel not in the saved view is added). A door asked before its section laid out is kept and applied
-// at the first layout (lib/workspace/kept.ts). A session Studio has not read yet (its first ask came before the list's
-// next read): the list is read once, then the door lands; still not there, it has ended: one line says so and nothing
-// moves; a read that failed says so. Another machine's ask, or a row of no session: Session's Attention on the row (its
-// drawing is in that machine's Studio). The glance shows the ask on its own page instead (routes/glance/Glance.tsx).
+// row (an optional panel not in the saved view is added). The queue's panel in Agents closes only as the card opens. An
+// agent the drawing puts on no box (P4 batch 12): the Feed opens on that agent with its ask, one line says so
+// (askOffMap), nothing else closes (in Session the Attention drawer the Live drawer took the place of comes back). A
+// door asked before its section laid out is kept and applied at the first layout (lib/workspace/kept.ts). A session
+// Studio has not read yet (its first ask came before the list's next read): the list is read once, then the door lands;
+// still not there, it has ended: one line says so and nothing moves; a read that failed says so. Another machine's ask,
+// or a row of no session: Session's Attention on the row (its drawing is in that machine's Studio). The glance shows the
+// ask on its own page instead (routes/glance/Glance.tsx).
 import { goSection, studio, toast } from "../../lib/store";
 import { keepAsk } from "../../lib/workspace/kept";
 import { focusPanel, layoutStore, NOT_HERE, patchPanel, showPanel, specsFor } from "../../lib/workspace/persist";
 import { setAttention } from "../agents/attention";
 import { askBox } from "../crew/map/askBox";
+import { openFeed } from "../crew/map/feedOpen";
 import { setFeedFor } from "../crew/map/litStore";
-import { askEnded } from "../crew/map/truthBits";
+import { askEnded, askOffMap } from "../crew/map/truthBits";
 import { panels, type AttnRow } from "../fleet/pstore";
 import { findAgent, findSession, fleet, keyOf, localId } from "../fleet/store";
 import { load } from "../fleet/sync";
@@ -24,7 +28,7 @@ import { pinTo } from "../session/steer";
 import { openInLive, openSession, sess, setSessionView, showsSessionStart } from "../session/store";
 
 /** What a door needs of an ask: an Attention row, or an `o` answer's target (fleet/extras.ts openTarget). */
-export type AskRef = Pick<AttnRow, "harness" | "session_id" | "agent_id"> & Partial<Pick<AttnRow, "id" | "local" | "session">>;
+export type AskRef = Pick<AttnRow, "harness" | "session_id" | "agent_id"> & Partial<Pick<AttnRow, "id" | "local">>;
 
 export const UNREAD = "Studio could not read the sessions just now. Try Open again.";
 
@@ -49,16 +53,18 @@ function land(row: AskRef): void {
   if (row.id) panels.update(() => ({ attnSel: row.id || "", replyFor: "" }));
   const local = row.local ?? (!f.loaded || row.harness === localId(f));
   if (sid && local && studio.get().section === "agents") {
-    setAttention(false); // the card carries the ask: the queue's panel would lie over it
     setFeedFor(`agent:${aid}`);
-    askBox("live", sid, aid);
+    askBox("live", sid, aid, {
+      found: () => setAttention(false), // the card carries the ask: the queue's panel would lie over it
+      stranger: (name) => (openFeed(`agent:${aid}`), toast(askOffMap(name), "info", 8000)),
+    });
     return openInLive(sid);
   }
   if (sid && local) {
     const asked = keyOf(row.harness, sid, aid);
     const main = keyOf(row.harness, sid, "main");
     const key = findAgent(f, asked) ? asked : findAgent(f, main) ? main : "";
-    askBox("session", sid, aid);
+    askBox("session", sid, aid, { stranger: (name) => (openAttention(), toast(askOffMap(name), "info", 8000)) });
     openSession(key ? { key } : { session: sid });
     pinTo(key);
   } else goSection("session");
@@ -72,6 +78,6 @@ export function openAsk(row: AskRef): void {
   const sid = row.session_id || "";
   const here = (): boolean => !!fleet.get().loaded && !!findSession(fleet.get(), row.harness, sid);
   if (!sid || here()) return land(row);
-  const ended = (): void => void toast(askEnded(row.session || "", lastRow(sid)?.ended || 0), "info", 6000);
+  const ended = (): void => void toast(askEnded(lastRow(sid)?.ended || 0), "info", 6000);
   void load().then(() => (here() ? land(row) : fleet.get().error ? toast(UNREAD, "error", 5000) : ended()), () => toast(UNREAD, "error", 5000));
 }

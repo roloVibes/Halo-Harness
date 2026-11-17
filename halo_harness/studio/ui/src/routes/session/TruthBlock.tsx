@@ -86,8 +86,8 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
   });
   const busy = !!given.busy;
   const status = statusOf(rows, events, busy, off);
-  const said = statusRoom(status, rows.map(nameOf), knownFlows(rows, events), !!given.plain || !given.a)
-    .sort((x, y) => y.length - x.length).slice(0, 4); // a mono line: the longest few are the tallest
+  // every sentence this run can show, each measured in the twin: a short one can wrap taller than a long one (P4 batch 12)
+  const said = statusRoom(status, rows.map(nameOf), knownFlows(rows, events), !!given.plain || !given.a);
   const stwin = useRef<HTMLDivElement>(null), sMost = useRef(0);
   const [sMin, setSMin] = useState(0);
   useLayoutEffect(() => { // R23: the status line's room is the tallest sentence this run can show, from its first draw

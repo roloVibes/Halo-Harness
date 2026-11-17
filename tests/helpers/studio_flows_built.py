@@ -5,7 +5,8 @@
              "Map" lands on 3 · Map; the 2 key brings the tab back
     built    a workflow main has just built (a `builder_done` frame) is open in the form on the next visit: a mounted
              tab left for 1 · Agents and come back to with 2; the same with an unsaved edit in the form (the form keeps
-             the edit and the list marks the built one); a fresh page on Session where Workflows was never opened
+             the edit and the list marks the built one); a NEW one built while he is away, the list's read held back as he
+             comes back: open once the read lands (P4 batch 12); a fresh page on Session where Workflows was never opened
 No model is called."""
 from __future__ import annotations
 
@@ -85,6 +86,32 @@ def built(c, rig) -> dict:
     out["dirty"] = c.js(f"[{FORM}?.dataset.name, {t('flow-for')}?.value, "
                         f"{q('[data-testid=flow-item][data-name=my-review]')}?.dataset.built || '']")
     click(c, "flow-discard")
+    # P4 batch 12: a NEW workflow built while he is away; he comes back before the list was read again (its read held
+    # back at the server): it is kept, and open in the form once the read lands
+    import threading
+    from halo_harness.studio import api as A
+    gate, orig = threading.Event(), A.dispatch
+
+    def held(req):
+        if req.method == "GET" and str(req.path) == "crew/workflows":
+            gate.wait(30)
+        return orig(req)
+    A.dispatch = held
+    try:
+        rig.api("POST", "crew/workflow/brand-new", {"workflow": {**wf, "name": "brand-new"}})
+        _leave(c)
+        out["new_heard"] = _frame(c, rig, [{"kind": "workflow", "name": "brand-new", "added": True}])
+        _back(c)
+        time.sleep(1.5)  # his arrival is handled while the read is held (what is read is the form after it, not a time)
+        out["new_listed_before"] = c.js(f"!!{q('[data-testid=flow-item][data-name=brand-new]')}")
+        gate.set()
+        try:
+            out["new_after_read"] = c.wait(f"{FORM}?.dataset.name === 'brand-new' && 'brand-new'", 20)
+        except TimeoutError:
+            out["new_after_read"] = f"not opened: the form shows {c.js(f'{FORM}?.dataset.name || null')!r}"
+    finally:
+        gate.set()
+        A.dispatch = orig
     # a fresh page on Session: Workflows never opened in it
     c.go("about:blank")
     c.wait("location.href === 'about:blank'", 10)

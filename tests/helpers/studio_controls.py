@@ -47,7 +47,7 @@ REACHED = """((e, at) => !!at && (e === at || e.contains(at) || (at.contains(e)
   && (e instanceof SVGElement || getComputedStyle(e).pointerEvents === 'none'))))"""
 INTO_VIEW = f"""((e) => {{ const r = e.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
   const at = x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight ? document.elementFromPoint(x, y) : null;
-  if (r.width && !{REACHED}(e, at)) e.scrollIntoView({{block: 'center', inline: 'center'}}); return 1; }})"""
+  if (r.width && !{REACHED}(e, at)) {{ e.scrollIntoView({{block: 'center', inline: 'center'}}); return 1; }} return 0; }})"""
 HIT = f"""((e) => {{ const r = e.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
   return {REACHED}(e, at) ? '' : (at ? (at.dataset.testid || at.className || at.tagName) + '' : 'nothing'); }})"""
 ARM = """(() => { const C = window.__ctl || (window.__ctl = {});
@@ -81,11 +81,11 @@ def away(c) -> None:
 
 
 def press_one(c, sel: str, how=None) -> dict:
-    c.js(f"{INTO_VIEW}({sel})")
+    scrolled = c.js(f"{INTO_VIEW}({sel})") == 1  # P4 batch 12: reachable only by scrolling its panel -- REPORTED
     away(c)
     c.js(ARM)
     time.sleep(NOISE_S)
-    rec = {"hit": c.js(f"{HIT}({sel})")}
+    rec = {"hit": c.js(f"{HIT}({sel})"), "scrolled": scrolled}
     c.js("window.__ctl.phase = 'press'; 1")
     if how is None:
         x, y, w, h = c.rect(sel)
@@ -132,6 +132,11 @@ def presses(c, controls) -> list:
             rec["error"] = f"{type(e).__name__}: {e}"[:300]
         out.append(rec)
     return out
+
+
+def scrolled(recs: list) -> list:
+    """The controls a press could reach only after scrolling their panel (out of sight at rest): a list for the output."""
+    return [r["name"] for r in recs or [] if r.get("scrolled")]
 
 
 def failures(recs: list) -> list:

@@ -433,6 +433,24 @@ def test_status_room_holds_the_sentences_this_run_can_show(ctx: Ctx):
 
 
 @test
+def test_status_room_holds_ten_hand_offs_and_every_sentence(ctx: Ctx):
+    """P4 batch 12 (the checker's follow-up): the twin is given EVERY sentence this run can show, each measured, not the
+    four longest by letters (a short sentence can wrap taller than a long one), and the hand-off tail at 10 or more is held
+    from the first draw (a two-digit count makes a longer sentence than "1 hand-off")."""
+    import re as _re
+    now = dict(state="done", rows=[], what="", workflow=None, waiting=None, cost=0.8, off=0)
+    _, out = ts("out.own = T.statusRoom(D.now, ['main', 'tester'], [], false);", dict(now=now))
+    own = out["own"]
+    ctx.check(f"10 hand-offs and 100 hand-offs are held, got {[s for s in own if 'hand-offs' in s][:3]}",
+              any("10 hand-offs outside the map" in s for s in own) and any("100 hand-offs outside the map" in s for s in own))
+    shortest = min(own, key=len)
+    ctx.check(f"more than four sentences, the shortest among them ({shortest!r}), got {len(own)}", len(own) > 4 and "Done · $0.80" in own)
+    block = (MAPDIR.parent.parent / "session" / "TruthBlock.tsx").read_text(encoding="utf-8")
+    ctx.check("TruthBlock gives the twin every sentence (no cut to the longest few by letters)",
+              not _re.search(r"statusRoom\([^;]*\.slice\(0, 4\)", block, _re.S))
+
+
+@test
 def test_words_in_one_place(ctx: Ctx):
     _, out = ts("out.words = T.WORDS; out.was = T.WAS;" + ALL)
     ctx.check(f"WORDS = Live / Feed / Map, got {out['words']}", out["words"] == {"live": "Live", "feed": "Feed", "map": "Map"})

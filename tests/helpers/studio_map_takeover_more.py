@@ -144,4 +144,14 @@ def replay(c, rig, lv, sent) -> dict:
          " set.call(s, s.max); s.dispatchEvent(new Event('input', {bubbles: true})); s.dispatchEvent(new Event('change', {bubbles: true})); })(); 1")
     out["drawer"] = c.js("document.querySelectorAll('[data-part=map] [data-testid=map-feed], [data-part=map] [data-testid=map-feed-panel]').length")
     out["rows"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && {scrub}.value === {scrub}.max && 'end'", 15)
+    # P4 batch 12 (the coordinator's ruling): the replay's rows, up to the scrubber, in the Map's OWN drawer on History's page
+    rows = "[data-part=map] [data-testid=map-drawer][data-page=history] [data-testid=map-drawer-replay] [data-testid=map-feed-replay-row]"
+    from tests.helpers.studio_live_feed import MD_BTN  # the Map drawer's own button: History's page
+    if c.js(f"{MD_BTN}?.getAttribute('aria-pressed')") != "true":
+        c.click_on(MD_BTN)
+    try:
+        out["drawer_rows"] = c.wait(f"(() => {{ const r = [...document.querySelectorAll('{rows}')].filter((e) => e.offsetParent);"
+                                    f" return r.length ? r.map((e) => [e.dataset.kind, e.getBoundingClientRect().height]) : null; }})()", 15)
+    except TimeoutError:
+        out["drawer_rows"] = f"none: drawer {c.js('document.querySelector(`[data-part=map] [data-testid=map-drawer]`)?.dataset.page || null')}"
     return out

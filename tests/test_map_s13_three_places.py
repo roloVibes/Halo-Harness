@@ -110,6 +110,28 @@ def test_no_map_for_new_sessions_is_one_sentence_in_both_languages(ctx: Ctx):
     ctx.check(f"Empty and the Start view say it, got {got.get('empty')!r} {got.get('start')!r}",
               got.get("empty") == got.get("start") == ["No session is open here. New sessions will run with no map."])
 
+@test
+def test_accepted_sentences_live_in_the_words_file(ctx: Ctx):
+    """P4 batch 12 (the coordinator's ruling): T10 with no map for new sessions and the line for a panel that is no longer
+    on the page are ACCEPTED as written and live in ONE place, the truth words file (truthWords.ts); truth.ts and
+    lib/workspace/persist.ts take them from there (Python has neither sentence)."""
+    import time
+    from tests.helpers import node_ts
+    t = round(time.time())
+    got = node_ts.run((NONE_TS % (json.dumps(TRUTH.resolve().as_uri()), t, t)).replace(
+        "start: T.startLines(null, null, true).map((l) => l.text) }));",
+        "start: [], t10: T.truthLines({ ...f, studio: true, turns: 0 }).map((l) => l.text), w10: T.T10_NONE, gone: T.NOT_HERE }));"))
+    ctx.check(f"T10 with no map is the words file's T10_NONE, got {got.get('t10')!r} / {got.get('w10')!r}",
+              got.get("t10") == [got.get("w10")] == ["New session from Studio, no message yet. It will run with no map."])
+    ctx.check(f"the gone panel's line is the words file's NOT_HERE, got {got.get('gone')!r}",
+              got.get("gone") == "That panel is not on this page any more: there is nothing to open.")
+    ui = TRUTH.parents[3]
+    truth = (TRUTH.parent / "truth.ts").read_text(encoding="utf-8")
+    persist = (ui / "lib" / "workspace" / "persist.ts").read_text(encoding="utf-8")
+    ctx.check("neither sentence is written out in truth.ts or persist.ts",
+              "no message yet. It will run with no map" not in truth and "is not on this page any more" not in persist)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

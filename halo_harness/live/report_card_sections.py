@@ -48,6 +48,6 @@ def cannot(p: dict, facts: dict, waits: list, money: dict) -> list:
         out.append(f"Halo could not price every call ({unknown or 'a model with no price'}): the cost is the priced part, with a +.")
     elif not money.get("known"):
         out.append(f"No call was priced ({unknown or 'no price recorded'}): the cost is unknown, not $0.")
-    out.append("What only Live showed as it happened -- a tool's last output line, a thought's pieces as they streamed -- is not "
+    out.append("What only the Feed showed as it happened -- a tool's last output line, a thought's pieces as they streamed -- is not "
                "in the record.")
     return out
