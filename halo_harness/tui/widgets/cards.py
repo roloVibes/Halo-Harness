@@ -911,6 +911,8 @@ ANSWERED_TAIL_TEXT = " · closes when you send"
 ANSWERED_TAIL_EMPTY = " · Enter closes it"
 HELD_PLACEHOLDER = "Tab: go to the waiting card · Enter: send a message"
 HELD_PLACEHOLDER_SHORT = "Tab: go to the waiting card"
+# The box's placeholder while a permission card has the focus: its keys only (F-C: words in the box never answer it).
+PERMISSION_PLACEHOLDER = "1-4 answers the request above"
 
 
 def card_kind_word(card) -> str:

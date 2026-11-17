@@ -31,6 +31,8 @@ test, TESTS = new_registry()
 WAIT_PERMISSION = "⏸ Permission waits while you type · Tab goes to it · Enter sends your text"
 WAIT_PERMISSION_SHORT = "⏸ Permission waits · Tab goes to it"
 HELD_PLACEHOLDER = "Tab: go to the waiting card · Enter: send a message"
+HELD_PLACEHOLDER_SHORT = "Tab: go to the waiting card"
+PERMISSION_PLACEHOLDER = "1-4 answers the request above"
 TAG_WAITING = "permission needed · Tab goes to it"
 TAG_KEYS = "permission needed: 1 yes · 2 session · 3 always · 4 no"
 
@@ -162,6 +164,49 @@ def test_n1_an_ask_that_lands_while_he_types_never_takes_a_letter(ctx: Ctx):
         await pilot.resize_terminal(60, 24)
         await pilot.pause(0.2)
         ctx.check(f"the short wait line at 60 columns, got {_line(app)!r}", _line(app) == WAIT_PERMISSION_SHORT)
+    _run(walk)
+
+
+@test
+@real_card_timing
+def test_n20_the_box_placeholder_never_asks_for_words_and_follows_the_card(ctx: Ctx):
+    """Repair of batch 4 (checker finding 1, F-C, K20): with a permission card in front the box once read '1-4 answers
+    the request above, or type why not' -- the box path that sentence described is gone, and typing `why not` on the
+    card answers it (`y` allows). The placeholder names only the card's keys; a tip refresh never paints over a card's
+    placeholder; a waiting card's placeholder picks its form from the width again on a resize, as its line does."""
+    async def walk(fake, app, pilot, clock):
+        await _ask(app, pilot, _perm("req-1"))
+        card = app.pending_card
+        ctx.check(f"the card took the focus from the idle box, got {type(app.focused).__name__}", _in(card, app.focused))
+        ctx.check(f"the placeholder names the keys only, got {app.prompt_input.placeholder!r}",
+                  app.prompt_input.placeholder == PERMISSION_PLACEHOLDER)
+        app._refresh_tip_placeholder()  # a Studio note or the idle tip rotation refreshes the placeholder
+        ctx.check(f"a tip refresh keeps it, got {app.prompt_input.placeholder!r}",
+                  app.prompt_input.placeholder == PERMISSION_PLACEHOLDER)
+        clock.step(1.0)
+        await pilot.press("tab")
+        await pilot.pause(0.1)
+        ctx.check("Tab went back to the box", app.focused is app.prompt_input)
+        ctx.check(f"the held placeholder, got {app.prompt_input.placeholder!r}",
+                  app.prompt_input.placeholder == HELD_PLACEHOLDER)
+        app._refresh_tip_placeholder()
+        ctx.check(f"a tip refresh keeps the held one, got {app.prompt_input.placeholder!r}",
+                  app.prompt_input.placeholder == HELD_PLACEHOLDER)
+        await pilot.resize_terminal(48, 24)
+        await pilot.pause(0.2)
+        ctx.check(f"narrower: the short form, got {app.prompt_input.placeholder!r}",
+                  app.prompt_input.placeholder == HELD_PLACEHOLDER_SHORT)
+        await pilot.resize_terminal(80, 24)
+        await pilot.pause(0.2)
+        ctx.check(f"wide again: the long form, got {app.prompt_input.placeholder!r}",
+                  app.prompt_input.placeholder == HELD_PLACEHOLDER)
+        await pilot.press("tab")
+        clock.step(0.1)
+        await pilot.press("1")
+        await pilot.pause(0.2)
+        ctx.check(f"Tab, 1 allowed once, got {_answers(fake)}", _answers(fake) == [("req-1", "allow", None)])
+        ctx.check(f"no card: the placeholder is no card's, got {app.prompt_input.placeholder!r}",
+                  app.prompt_input.placeholder not in (PERMISSION_PLACEHOLDER, HELD_PLACEHOLDER, HELD_PLACEHOLDER_SHORT))
     _run(walk)
 
 

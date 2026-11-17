@@ -395,6 +395,10 @@ class BridgeApp(App):
     def _current_placeholder_text(self) -> str:
         from halo_harness.remote.prompt_queue import hint_for  # 3.3.11.0 R1: "1 queued from Studio"
         from halo_harness.tui import tips as tips_mod
+        from halo_harness.tui import card_focus
+        card_text = card_focus.placeholder(self)  # 3.6.0.2 P5 (K20): a shown card's placeholder; no tip paints over it
+        if card_text:
+            return card_text
         if hint_for(getattr(self, "controller", None)):
             return hint_for(self.controller)
         if self._tip_rotator is None or self._tip_rotator.current is None:
@@ -2038,9 +2042,9 @@ class BridgeApp(App):
         # user presses "4" and borrows the input for deny feedback -- a
         # pending permission ask must be impossible to miss even if the
         # auto-scroll fix (item 16) still somehow leaves it out of view.
-        from halo_harness.tui.widgets.cards import PermissionCard
+        from halo_harness.tui.widgets.cards import PERMISSION_PLACEHOLDER, PermissionCard
         if isinstance(card, PermissionCard):
-            self.prompt_input.placeholder = "1-4 answers the request above, or type why not"
+            self.prompt_input.placeholder = PERMISSION_PLACEHOLDER
             self.status_bar.set_pending_permission(True)
         self._refresh_needs_you_tag()
 

@@ -143,6 +143,18 @@ def hold(app, card) -> None:
     refresh(app)
 
 
+def placeholder(app) -> "str | None":
+    """The box's placeholder a shown card asks for (K20), or None: the held one, picked from the box's width now, or a
+    taken permission card's keys. A borrow sets its own, so None during one."""
+    from halo_harness.tui.widgets.cards import PERMISSION_PLACEHOLDER, PermissionCard, held_placeholder
+    card = getattr(app, "pending_card", None)
+    if card is None or getattr(app, "_borrowing_card", None) is not None or getattr(card, "done", False):
+        return None
+    if card is app._held_card:
+        return held_placeholder(app.prompt_input.size.width or 80)
+    return PERMISSION_PLACEHOLDER if isinstance(card, PermissionCard) else None
+
+
 def refresh(app) -> None:
     """The wait line and the permission tag follow where the focus is (K5, J1 M5)."""
     line = getattr(app, "card_wait_line", None)

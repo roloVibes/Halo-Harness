@@ -167,6 +167,13 @@ class PromptInput(TextArea):
     def set_completion_open(self, is_open: bool) -> None:
         self._completion_open = bool(is_open)
 
+    def on_resize(self, event: events.Resize) -> None:
+        # 3.6.0.2 P5 repair (K5, K20): a waiting card's placeholder picks its form from this box's new width, as its
+        # wait line does at every render.
+        app = self.app
+        if getattr(app, "_held_card", None) is not None and getattr(app, "_borrowing_card", None) is None:
+            app._refresh_tip_placeholder()
+
     # ---- submit / newline --------------------------------------------
 
     async def _on_key(self, event: events.Key) -> None:
