@@ -519,7 +519,7 @@ class Controller:
         "instruction": str|None}`."""
         return self.session.resolve_approval(request_id, decision)
 
-    def answer_plan(self, approved: bool, *, feedback: str = "", mode_after: Optional[str] = None) -> None:
+    def answer_plan(self, approved: bool, *, feedback: str = "", mode_after: Optional[str] = None) -> bool:
         """`PlanCard`'s reply (D-Contract `plan_reply{approved, feedback,
         mode_after}`). Direct (see class docstring), like `answer_permission`/
         `answer_question`: the worker thread is parked inside `ExitPlanMode`'s
@@ -528,8 +528,9 @@ class Controller:
         than going through `self.commands` -- a queued `plan_reply` would
         just sit there until the turn ends on its own, defeating the point.
         `Session.run()`'s own `plan_reply` branch calls `resolve_plan` too,
-        as a safety net for a reply that arrives with no turn in flight."""
-        self.session.resolve_plan({"approved": approved, "feedback": feedback, "mode_after": mode_after})
+        as a safety net for a reply that arrives with no turn in flight. 3.6.0.2 P73: True when this answer won the
+        plan's slot (False: nothing waits, or another answer claimed it first)."""
+        return bool(self.session.resolve_plan({"approved": approved, "feedback": feedback, "mode_after": mode_after}))
 
     def list_mcp_servers(self) -> list:
         """One dict per configured server (`McpManager.status()`'s own

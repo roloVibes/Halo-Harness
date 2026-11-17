@@ -29,6 +29,16 @@ from typing import Callable, Optional
 from halo_harness.studio.edit_open import describe, open_edit
 
 OPENER: Callable = open_edit
+PRIVATE_LINE = "This session is private: Studio cannot see it or type into it."
+
+
+def _private() -> bool:
+    """This process's session is private (`--private`, `/private on`, `control.private`): Studio never lists it."""
+    try:
+        from halo_harness.remote import runtime
+        return bool(runtime.private())
+    except Exception:
+        return False
 
 
 def _app(host):
@@ -100,6 +110,9 @@ def open_section(host, word: str = "", *, cwd=None, state_dir=None, on_line: Opt
     target, why = section_target(word, this_session_id(host))
     if target is None:
         say(why)
+        return False
+    if target.mode == "session" and _private():  # 3.6.0.2 P17: Studio could neither see it nor type into it
+        say(PRIVATE_LINE)
         return False
     from halo_harness.studio.agents_door import door_line  # 3.3.16.0 R1: roles, orchestra, team: the new door, once
     if door_line(word):

@@ -7172,8 +7172,10 @@ class Session:
         """Called from the UI THREAD: answer the `permission_request` for
         `request_id`, unblocking the worker thread parked in
         `_await_permission_decision`. `decision` is a `Decision` or a `{"action": ...}` dict. Returns False
-        when no such request is waiting (already answered/aborted)."""
-        slot = self._permission_waiters.get(request_id)
+        when no such request is waiting (already answered/aborted), or another answer claimed it first (3.6.0.2
+        P73: a socket answer and a terminal key that cross give one decision)."""
+        from halo_harness.agent.ask_claim import claim
+        slot = claim(self._permission_waiters, request_id)
         if slot is None:
             return False
         if slot.get("tool_name") == "Skill":  # 3.4.1.2 (ENGINE-3): only the person's allow is a skill card's yes
@@ -7199,15 +7201,17 @@ class Session:
         that. Returns None (the waiter is left untouched, still parked)
         when nothing is waiting for `request_id`, or `decide()` still says
         "ask" under the new mode -- the caller must leave the card up
-        either way, never guess at a UI-level shortcut."""
-        slot = self._permission_waiters.get(request_id)
+        either way, never guess at a UI-level shortcut. 3.6.0.2 P73: None too when another answer claimed the
+        slot first."""
+        from halo_harness.agent.ask_claim import claim, unclaimed
+        slot = unclaimed(self._permission_waiters, request_id)
         if slot is None:
             return None
         tool_name = slot.get("tool_name")
         if tool_name is None or slot.get("policy_ask"):  # 3.3.10.0 R2: a pack's ask waits for you, whatever the mode
             return None
         decision = self.permission_engine.decide(tool_name, slot.get("tool_input"), slot.get("tool"))
-        if decision.action not in ("allow", "deny"):
+        if decision.action not in ("allow", "deny") or claim(self._permission_waiters, request_id) is not slot:
             return None
         slot["decision"] = decision
         slot["event"].set()
@@ -7218,8 +7222,9 @@ class Session:
         AskUserQuestion round trip), unblocking the worker parked in
         `_await_reply`. `answer` is whatever the UI produced -- a plain
         string, or a list/dict of answers, JSON-encoded into the tool
-        result. Returns False when nothing is waiting for `request_id`."""
-        slot = self._question_waiters.get(request_id)
+        result. Returns False when nothing is waiting for `request_id` (or another answer claimed it: P73)."""
+        from halo_harness.agent.ask_claim import claim
+        slot = claim(self._question_waiters, request_id)
         if slot is None:
             return False
         slot["answer"] = answer
@@ -7235,8 +7240,9 @@ class Session:
         `decision` is `{"action": "accept"|"edit"|"stop", "instruction":
         str|None}` (`ApprovalCard`'s own shape). Returns False when
         nothing is waiting for `request_id` (already answered, or the
-        run was interrupted first)."""
-        slot = self._approval_waiters.get(request_id)
+        run was interrupted first, or another answer claimed it: P73)."""
+        from halo_harness.agent.ask_claim import claim
+        slot = claim(self._approval_waiters, request_id)
         if slot is None:
             return False
         slot["decision"] = decision
@@ -7255,11 +7261,12 @@ class Session:
         `resolve_permission`/`resolve_question` there is no caller-supplied
         request_id to match against -- `self._pending_plan_id` (set by
         `_dispatch_tools` right before it starts waiting) is authoritative.
-        Returns False when nothing is waiting."""
+        Returns False when nothing is waiting (or another answer claimed it: P73)."""
+        from halo_harness.agent.ask_claim import claim
         request_id = self._pending_plan_id
         if request_id is None:
             return False
-        slot = self._plan_waiters.get(request_id)
+        slot = claim(self._plan_waiters, request_id)
         if slot is None:
             return False
         slot["decision"] = decision

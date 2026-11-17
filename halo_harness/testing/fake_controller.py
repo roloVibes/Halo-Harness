@@ -78,6 +78,8 @@ class FakeController:
         self.interrupts = 0
         self.quit_called = False
         self.permission_replies: list = []
+        # 3.6.0.2 P73: request ids whose answer loses the claim (answered elsewhere first): answer_* returns False
+        self.lost_request_ids: set = set()
         # 1.0.1 fixpass finding 4: request ids `reevaluate_pending_
         # permission` below must report as STILL "ask" regardless of mode
         # (a test-only stand-in for "an explicit ask: rule still asks even
@@ -152,8 +154,11 @@ class FakeController:
     def add_permission_rule(self, rule: str, scope: str) -> None:
         self.added_rules.append((rule, scope))
 
-    def answer_permission(self, request_id: str, decision) -> None:
+    def answer_permission(self, request_id: str, decision) -> bool:
+        if request_id in self.lost_request_ids:
+            return False
         self.permission_replies.append((request_id, decision))
+        return True
 
     def reevaluate_pending_permission(self, request_id: str) -> Optional[str]:
         """1.0.1 fixpass finding 4: test-fixture mirror of `Controller.
@@ -177,14 +182,20 @@ class FakeController:
             return "deny"
         return None
 
-    def answer_question(self, request_id: str, answer) -> None:
+    def answer_question(self, request_id: str, answer) -> bool:
+        if request_id in self.lost_request_ids:
+            return False
         self.question_replies.append((request_id, answer))
+        return True
 
-    def answer_plan(self, approved: bool, *, feedback: str = "", mode_after=None) -> None:
+    def answer_plan(self, approved: bool, *, feedback: str = "", mode_after=None) -> bool:
         # additive, matches halo_harness.controller.Controller.answer_plan --
         # no existing test touches this (plan mode/`plan_review` didn't
         # exist before U2's PlanCard).
+        if "plan" in self.lost_request_ids:
+            return False
         self.plan_replies.append({"approved": approved, "feedback": feedback, "mode_after": mode_after})
+        return True
 
     def answer_approval(self, request_id: str, decision) -> bool:
         # additive, matches halo_harness.controller.Controller.answer_
@@ -192,6 +203,8 @@ class FakeController:
         # (unlike answer_question's bare None above) so dispatch.py's own
         # "not ok -> notify" branch never fires for this fake's own
         # always-successful answer.
+        if request_id in self.lost_request_ids:
+            return False
         self.approval_replies.append((request_id, decision))
         return True
 

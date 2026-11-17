@@ -109,6 +109,9 @@ EVENT_KINDS = frozenset({
     # Halo 3.3.9.0 R2: the voice loop's state (voice/loop.py): {state: on|off|listening|partial|heard|interrupted|
     # speaking|idle|card|note, text?, mode?, steer?, row?}; the TUI draws it (tui/voice_view.py), others ignore it.
     "voice",
+    # 3.6.0.2 P6: an ask answered, from either side -- data: {request_id, kind, label, where: terminal|studio|remote}
+    # (`answered` below); the terminal closes its card for an answer that did not come from it.
+    "ask_answered",
 })
 # Halo 3.3.10.0 R2: no new kind -- a `tool_use_ready` / `tool_result` a pack's policy answered carries this field,
 # {"line": "policy: deny -- fence: outside the project", "verdicts": [{at, pack, policy, verdict, reason, rule, ms,
@@ -429,6 +432,70 @@ def steer_applied(text: str, *, turn: int = 0) -> Event:
     """data: {text} -- the queued steer text was just appended as a
     user-role message and the loop is continuing with it."""
     return Event("steer_applied", {"text": text}, turn=turn)
+
+
+# ---- 3.6.0.2 P5/P6 ("one prompt"): an ask answered, from either side -----------
+# `ask_label` is the ONE table of the words an answer is named by (Studio's promptWords.ts copies it word for
+# word); `answered` is the one function both sides call once their claim on the waiting slot won (P73): the
+# terminal's card path with where "terminal", the control socket's answer with where from the request's via.
+ANSWERED_WORDS = {"studio": "Answered in Studio: ", "remote": "Answered remotely: "}
+_PERMISSION_LABELS = {"once": "Allow", "session": "Allow for this session", "always": "Allow always"}
+
+
+def ask_label(kind: str, fields: dict) -> str:
+    """How an answer reads: permission `Allow` / `Allow for this session` / `Allow always` / `Deny` / `Deny: <words>`;
+    question the chosen option or typed answer (several joined by `; `); plan `Approve the plan` / `Keep planning`
+    / `Keep planning: <words>`; approval `Accept` / `Edit, re-run` / `Edit, re-run: <words>` / `Stop`. Typed words
+    are kept whole."""
+    f = fields if isinstance(fields, dict) else {}
+
+    def _with(base: str, words) -> str:
+        words = str(words or "").strip()
+        return f"{base}: {words}" if words else base
+    if kind == "permission":
+        if f.get("action") == "allow":
+            return _PERMISSION_LABELS.get(f.get("scope") or "once", "Allow")
+        return _with("Deny", f.get("message"))
+    if kind == "question":
+        answer = f.get("answer")
+        if isinstance(answer, dict):
+            answer = list(answer.values())
+        if isinstance(answer, (list, tuple)):
+            return "; ".join(str(a) for a in answer)
+        return "" if answer is None else str(answer)
+    if kind == "plan":
+        return "Approve the plan" if f.get("approved") else _with("Keep planning", f.get("feedback"))
+    action = str(f.get("action") or "")
+    if action == "edit":
+        return _with("Edit, re-run", f.get("instruction"))
+    return {"accept": "Accept", "stop": "Stop"}.get(action, action[:1].upper() + action[1:])
+
+
+def where_of(via) -> str:
+    """An answer's `where`: `studio` when the request's via is Studio (any case), else `remote`."""
+    return "studio" if str(via or "").strip().lower() == "studio" else "remote"
+
+
+def answered_line(where: str, label: str) -> str:
+    """The terminal's one muted line for an ask answered over the socket (its card's marker, rewritten)."""
+    return ANSWERED_WORDS.get(where, ANSWERED_WORDS["remote"]) + label
+
+
+def ask_answered(request_id: str, kind: str, label: str, where: str) -> Event:
+    """data: {request_id, kind, label, where: terminal|studio|remote} -- one per answered ask (P6)."""
+    return Event("ask_answered", {"request_id": str(request_id or ""), "kind": kind, "label": label, "where": where})
+
+
+def answered(put, request_id, kind: str, fields: dict, where: str) -> Event:
+    """P6: build the one `ask_answered` event and hand it to `put` (the session's event sink); only ever called
+    after the claim on the slot returned True."""
+    ev = ask_answered(request_id, kind, ask_label(kind, fields), where)
+    if callable(put):
+        try:
+            put(ev)
+        except Exception:
+            pass
+    return ev
 
 
 # ---- Halo 2.0.1 W2a: phase events + steer_restart ---------------------

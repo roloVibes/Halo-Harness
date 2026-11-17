@@ -228,6 +228,27 @@ def _bash_shadow_after_worker(app, before: dict, turn=None) -> None:
         pass
 
 
+def _to_latest(app) -> None:
+    """3.6.0.2 P2: the transcript to its bottom and following, exactly as the terminal's own Enter does."""
+    to_end = getattr(app, "action_scroll_transcript_end", None)
+    if callable(to_end):
+        to_end()
+
+
+def _card_answered(app, card, ok, kind: str, fields: dict) -> None:
+    """3.6.0.2 P6/P73: a card's own key answered. When the claim won, the ONE `ask_answered` event (where
+    "terminal") goes out through the session's event sink (Studio's feed sees it); when it lost (the ask was
+    answered elsewhere first, or no longer waits) the card closes and does nothing else: no toast, no decision of
+    its own in the marker (the winner's event names it). A controller that reports nothing (None) counts as won."""
+    if ok is False:
+        card.claim_lost = True
+    else:
+        from halo_harness import events as _events
+        sink = getattr(getattr(app.controller, "events", None), "put", None)
+        _events.answered(sink, getattr(card, "request_id", ""), kind, fields, "terminal")
+    app.clear_pending_card()
+
+
 async def _show_permission_card(app, data: dict, *, agent_id: "str | None" = None) -> None:
     """H5c finding 8: `agent_id`, when given, means this ask came from a
     sub-agent, not the main session -- the SAME live, answerable card
@@ -246,8 +267,8 @@ async def _show_permission_card(app, data: dict, *, agent_id: "str | None" = Non
         summary = f"[sub-agent {agent_id}] {summary}"
 
     def on_decide(decision: dict) -> None:
-        app.resolve_permission_decision(request_id, decision, suggested_rule=suggested)
-        app.clear_pending_card()
+        ok = app.resolve_permission_decision(request_id, decision, suggested_rule=suggested)
+        _card_answered(app, card, ok, "permission", decision)
 
     card = PermissionCard(request_id=request_id, summary=summary, input_data=input_data,
                            reason=data.get("reason", ""), suggested_rule=suggested, on_decide=on_decide)
@@ -283,10 +304,7 @@ async def _show_question_card(app, data: dict, *, agent_id: "str | None" = None)
 
     def on_answer(answer) -> None:
         ok = app.controller.answer_question(request_id, answer)
-        if not ok:
-            app.notify("That question is no longer waiting for an answer (already answered or the turn "
-                       "was interrupted).", severity="warning", title="Question")
-        app.clear_pending_card()
+        _card_answered(app, card, ok, "question", {"answer": answer})
 
     card = QuestionCard(request_id=request_id, input_data=input_data, on_answer=on_answer)
     await app.enqueue_pending_card(card, marker_text="⏸ question asked, see below")
@@ -302,9 +320,9 @@ async def _show_plan_card(app, data: dict, *, agent_id: "str | None" = None) -> 
         card_data = {**data, "plan": f"[sub-agent {agent_id}]\n{data.get('plan', '')}"}
 
     def on_reply(decision: dict) -> None:
-        app.controller.answer_plan(decision["approved"], feedback=decision.get("feedback", ""),
-                                    mode_after=decision.get("mode_after"))
-        app.clear_pending_card()
+        ok = app.controller.answer_plan(decision["approved"], feedback=decision.get("feedback", ""),
+                                         mode_after=decision.get("mode_after"))
+        _card_answered(app, card, ok, "plan", decision)
 
     card = PlanCard(request_id=request_id, input_data=card_data, on_reply=on_reply)
     await app.enqueue_pending_card(card, marker_text="⏸ plan ready for review, see below")
@@ -323,10 +341,7 @@ async def _show_approval_card(app, data: dict, *, agent_id: "str | None" = None)
 
     def on_decide(decision: dict) -> None:
         ok = app.controller.answer_approval(request_id, decision)
-        if not ok:
-            app.notify("That approval is no longer waiting for a decision (already answered or the run "
-                       "was interrupted).", severity="warning", title="Approval")
-        app.clear_pending_card()
+        _card_answered(app, card, ok, "approval", decision)
 
     if position == "preflight":  # Halo 3.3.5.0 R4: compact (Enter) / a bigger-window model / send anyway
         from halo_harness.tui.widgets.preflight_card import PreflightCard
@@ -408,6 +423,8 @@ async def _apply_event_inner(app, event) -> None:
             pending.remove(text)
             return
         await app.transcript.add_user(text)
+        if agent_id is None:  # 3.6.0.2 P2: a turn from Studio brings the transcript down to its row, as Enter does
+            _to_latest(app)
     elif kind == "message_start":
         app.transcript.begin_message(turn, agent_id=agent_id)
         # H9 whole-tree review finding 11: a child's own `message_start`
@@ -827,6 +844,12 @@ async def _apply_event_inner(app, event) -> None:
     elif kind == "voice":  # 3.3.9.0 R2: the voice loop's mic chip, partial transcript, prompt echo, latency line
         from halo_harness.tui.voice_view import apply as _voice
         await _voice(app, data)
+    elif kind == "ask_answered":
+        # 3.6.0.2 P4/P5: answered over the control socket -- the card for it closes with one muted line
+        if data.get("where") in ("studio", "remote"):
+            from halo_harness import events as _events
+            app.close_answered_card(data.get("request_id", ""), data.get("kind", ""),
+                                    _events.answered_line(data["where"], data.get("label", "")))
     elif kind == "system_note":
         # W5b: an async, out-of-band transcript line (background connector
         # discovery finishing is the first user) -- a real transcript note,
@@ -878,6 +901,7 @@ async def _apply_event_inner(app, event) -> None:
             pending.append(text)
             await app.transcript.add_user(text)
             await app.transcript.add_note("↳ steering the running turn…", kind="steer")
+            _to_latest(app)  # 3.6.0.2 P2: a steer from Studio comes down to its row, as Enter does
     elif kind == "steer_applied":
         pending = getattr(app, "_pending_steer_note_texts", None)
         text = data.get("text")

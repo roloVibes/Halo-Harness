@@ -99,7 +99,18 @@ def test_remote_commands_are_tagged_notes_not_user_bubbles(ctx: Ctx):
                 break
             if ev is not None and ev.kind == "system_note":
                 kinds_notes.append(ev.data["text"])
-        ctx.check("a (remote) system_note was queued for the TUI", any(t.startswith("(remote) prompt: tag me") for t in kinds_notes))
+        ctx.check("3.6.0.2 P1: no (remote) prompt note (the turn's row is the one copy)",
+                  not [t for t in kinds_notes if t.startswith("(remote) prompt")])
+        c.call("interrupt")  # a request with no Studio via keeps its `(remote) interrupt`
+        later = []
+        while True:
+            try:
+                ev = rig.controller.events.get_nowait()
+            except queue.Empty:
+                break
+            if ev is not None and ev.kind == "system_note":
+                later.append(ev.data["text"])
+        ctx.check(f"an interrupt with no studio via is tagged, got {later}", later == ["(remote) interrupt"])
         ctx.check("mode change tagged too", any(t.startswith("(remote) mode auto") for t in kinds_notes))
 
 

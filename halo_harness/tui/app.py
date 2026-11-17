@@ -117,6 +117,12 @@ def _debug_key_repr(key: str) -> str:
     return _DEBUG_KEY_PLACEHOLDER
 
 
+def _ask_key(card) -> str:
+    """3.6.0.2 P4: which ask a card answers -- its request id; a plan card is "plan" (one open plan at a time)."""
+    from halo_harness.tui.widgets.cards import PlanCard
+    return "plan" if isinstance(card, PlanCard) else str(getattr(card, "request_id", "") or "")
+
+
 def _expand_pasted(text: str, pasted: Optional[dict]) -> str:
     """review finding 4: `PromptInput` shows/logs `[Pasted text #n +N
     lines]` but the MODEL must see the real content -- expand every
@@ -322,6 +328,7 @@ class BridgeApp(App):
         self._pending_queue: "list" = []
         self._pending_lock = asyncio.Lock()  # finding 71: serializes dock hand-offs
         self._pending_markers: "dict" = {}
+        self._lost_markers: "dict" = {}  # 3.6.0.2 P73: a card whose answer lost the claim -> its marker
         self._borrowing_card = None
         self._ctrl_c_deadline: Optional[float] = None
         # 3.1.6.0 R5: the one-per-session "hold Shift to select" hint.
@@ -1270,12 +1277,16 @@ class BridgeApp(App):
                 return
             card = self._borrowing_card
             self._borrowing_card = None
-            self.prompt_input.clear_submitted()
             self.prompt_input.placeholder = self._current_placeholder_text()
             # finding 14: expanded, never the raw "[Pasted text #n ...]"
             # placeholder -- same reasoning as review finding 4's own fix
             # for the ordinary prompt path just below.
             card.resolve_with_message(_expand_pasted(text, event.pasted))
+            # 3.6.0.2 P73: an answer that lost its claim (the ask was answered
+            # elsewhere first) closed the card and sent nothing: what he typed
+            # stays in the box, unsent; otherwise the box empties as before.
+            if not getattr(card, "claim_lost", False):
+                self.prompt_input.clear_submitted()
             return
         if not text.strip():
             return
@@ -1322,16 +1333,21 @@ class BridgeApp(App):
                 # the pending ask underneath was never actually answered.
                 card = self.pending_card
                 card.resolve_with_message(_expand_pasted(text, event.pasted))
+                if not getattr(card, "claim_lost", False):
+                    return
+                # 3.6.0.2 P7: the card no longer waited (answered elsewhere, or
+                # the turn ended): it closed, and the text is an ordinary prompt
+                # below (a row, a turn or a steer, a history entry), no toast.
+            else:
+                # A card with no free-text answer (a rewind confirmation) --
+                # unchanged: a steer on the turn running underneath it, same as
+                # before this fix. W2c item 1: THIS steer path (unlike the
+                # common mid-turn steer, which reaches the default path below
+                # via `_submit_prompt`) used to skip history entirely -- Up
+                # must still recall it.
+                self._record_submitted_history(text, event.pasted)
+                self.controller.submit(_expand_pasted(text, event.pasted), pasted=event.pasted or None)
                 return
-            # A card with no free-text answer (a rewind confirmation) --
-            # unchanged: a steer on the turn running underneath it, same as
-            # before this fix. W2c item 1: THIS steer path (unlike the
-            # common mid-turn steer, which reaches the default path below
-            # via `_submit_prompt`) used to skip history entirely -- Up
-            # must still recall it.
-            self._record_submitted_history(text, event.pasted)
-            self.controller.submit(_expand_pasted(text, event.pasted), pasted=event.pasted or None)
-            return
         # 1.0.1 hotfix 16: a fresh prompt always re-anchors the transcript
         # to follow the coming reply, even if the user had scrolled up to
         # re-read something earlier -- scroll_end() moving scroll_y back to
@@ -2090,7 +2106,11 @@ class BridgeApp(App):
         # "⏸ ... see below" widget, now showing what was actually decided.
         finished = self.pending_card
         marker = self._pending_markers.pop(id(finished), None) if finished is not None else None
-        if marker is not None:
+        if marker is not None and getattr(finished, "claim_lost", False):
+            # 3.6.0.2 P73: this card's answer lost its claim -- it never writes
+            # its own decision; the winner's `ask_answered` names it here.
+            self._lost_markers[_ask_key(finished)] = marker
+        elif marker is not None:
             # W4c item 1: `set_text` (not a bare `.update()`) keeps the
             # marker's own `copy_text()` -- what a transcript copy actually
             # reads -- in sync with what's now on screen, so a selection
@@ -2131,6 +2151,40 @@ class BridgeApp(App):
                 self.call_later(self._clear_dock_if_idle)
             self._refresh_needs_you_tag()
 
+    def close_answered_card(self, request_id: str, kind: str, line: str) -> None:
+        """3.6.0.2 P4/P5: an ask answered over the control socket (Studio, the
+        phone). Its card closes at once -- the shown one, one waiting behind it
+        (it leaves the waiting list), or one whose own key lost the claim -- and
+        its marker becomes the ONE muted line (`Answered in Studio: <label>`).
+        A card borrowing the box (a deny reason, a question's Other, plan
+        feedback, an approval edit) ends the borrow and brings the placeholder
+        back; what he typed stays in the box, unsent (the HARD GATE)."""
+        key = "plan" if kind == "plan" else request_id
+        marker = self._lost_markers.pop(key, None)
+        if marker is not None:
+            marker.set_text(line)
+            return
+
+        def _is_it(card) -> bool:
+            return card is not None and _ask_key(card) == key
+        card = self.pending_card
+        if _is_it(card):
+            card.done = True  # its keys (and a late Enter) answer nothing now
+            card.decision_line = line
+            if self._borrowing_card is card:
+                self._borrowing_card = None  # the box keeps its text; clear_pending_card puts the placeholder back
+            self.clear_pending_card()
+            return
+        for queued in list(self._pending_queue):
+            if _is_it(queued):
+                queued.done = True
+                self._pending_queue.remove(queued)
+                waiting = self._pending_markers.pop(id(queued), None)
+                if waiting is not None:
+                    waiting.set_text(line)
+                self._refresh_needs_you_tag()
+                return
+
     def borrow_input(self, card, *, placeholder: str) -> None:
         """A card needs one line of free text (deny feedback, "Other...",
         plan feedback) -- give it back to PromptInput temporarily; the next
@@ -2156,7 +2210,7 @@ class BridgeApp(App):
         else:
             base.set_focus(widget)
 
-    def resolve_permission_decision(self, request_id: str, decision: dict, *, suggested_rule) -> None:
+    def resolve_permission_decision(self, request_id: str, decision: dict, *, suggested_rule):
         from halo_harness.permissions import SettingsWriteRefused
 
         scope = decision.get("scope")
@@ -2170,9 +2224,8 @@ class BridgeApp(App):
         reply = {"action": decision["action"], "reason": "", "rule": rules[0] if rules else None,
                  "message": decision.get("message", "")}
         ok = self.controller.answer_permission(request_id, reply)
-        if not ok:
-            self.notify("That request is no longer waiting for an answer (already answered or the turn "
-                        "was interrupted).", severity="warning", title="Permission")
+        if ok is False:  # 3.6.0.2 P7/P73: no longer waiting -- the card closes and nothing else happens (no toast)
+            return False
         for extra_rule in rules[1:]:
             self.controller.add_permission_rule(extra_rule, "session")
         if scope == "always" and rules:
@@ -2186,6 +2239,7 @@ class BridgeApp(App):
             if written:
                 dest = str(self.cwd / ".claude" / "settings.local.json")
                 self.notify(f"Rule(s) added to {dest}: {', '.join(written)}", title="Permission")
+        return ok
 
     # ---- keys ---------------------------------------------------------
 

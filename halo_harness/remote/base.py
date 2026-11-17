@@ -60,6 +60,17 @@ class _BaseHandle:
     def _note(self, text: str) -> None:
         """A `(remote)`-tagged transcript line, where the surface has one."""
 
+    def _emit(self, ev) -> None:
+        """An event of this session's own (3.6.0.2 P6: `ask_answered`): the feed; the TUI's handle puts it on the
+        Controller's queue, which reaches the terminal and the feed both."""
+        self.hub.publish(ev)
+
+    def _answered(self, request_id, kind: str, fields: dict, via: str) -> None:
+        """3.6.0.2 P5/P6: the one `ask_answered` event of an answer that won its slot (the terminal closes its card
+        with `Answered in Studio: <label>` or `Answered remotely: <label>` from it); no `(remote)` note."""
+        from halo_harness import events
+        events.answered(self._emit, request_id, kind, fields, events.where_of(via))
+
     def _add_rule(self, rule: str, scope: str):
         raise NotImplementedError
 
@@ -150,8 +161,9 @@ class _BaseHandle:
         return render_tail(self.session.log.nodes(), n)
 
     # ---- direct controls ---------------------------------------------------
-    def interrupt(self) -> dict:
-        self._note("interrupt")
+    def interrupt(self, *, via: str = "") -> dict:
+        if str(via or "").strip().lower() != "studio":  # 3.6.0.2 P1: Studio's own Stop draws no `(remote)` note
+            self._note("interrupt")
         self.session.abort.set()
         return {"interrupted": True}
 
@@ -170,7 +182,7 @@ class _BaseHandle:
 
     # ---- answers -------------------------------------------------------------
     def answer_permission(self, request_id: str, action: str, *, scope: str = "once",
-                           message: str = "", rule: Optional[str] = None) -> bool:
+                           message: str = "", rule: Optional[str] = None, via: str = "") -> bool:
         """`scope` once|session|always; the rule to learn defaults to the
         `suggested_rule` the permission_request event carried (as the TUI)."""
         if action not in ("allow", "deny"):
@@ -186,7 +198,7 @@ class _BaseHandle:
         if not self._resolve_permission(request_id, reply):
             return False
         self._suggested.pop(request_id, None)
-        self._note(f"permission {action} ({scope})")
+        self._answered(request_id, "permission", {"action": action, "scope": scope, "message": message}, via)
         for extra in rules[1:]:
             self._add_rule(extra, "session")
         if scope == "always":
@@ -197,25 +209,27 @@ class _BaseHandle:
                     pass
         return True
 
-    def answer_question(self, request_id: str, answer) -> bool:
+    def answer_question(self, request_id: str, answer, *, via: str = "") -> bool:
         ok = self.session.resolve_question(request_id, answer)
         if ok:
-            self._note("question answered")
+            self._answered(request_id, "question", {"answer": answer}, via)
         return ok
 
-    def answer_plan(self, approved: bool, *, feedback: str = "", mode_after: Optional[str] = None) -> bool:
+    def answer_plan(self, approved: bool, *, feedback: str = "", mode_after: Optional[str] = None,
+                    via: str = "") -> bool:
+        request_id = getattr(self.session, "_pending_plan_id", None) or ""  # the open plan's id, read before it ends
         ok = self.session.resolve_plan({"approved": bool(approved), "feedback": feedback or "",
                                          "mode_after": mode_after})
         if ok:
-            self._note("plan " + ("approved" if approved else "sent back"))
+            self._answered(request_id, "plan", {"approved": bool(approved), "feedback": feedback}, via)
         return ok
 
-    def answer_approval(self, request_id: str, action: str, *, instruction: str = "") -> bool:
+    def answer_approval(self, request_id: str, action: str, *, instruction: str = "", via: str = "") -> bool:
         if action not in ("accept", "edit", "stop", "compact", "switch", "send", "lane", "describe"):  # R4 preflight, R6 eyes
             raise HandleError(f"approval action must be accept, edit, stop, compact, switch, send, lane or describe, got {action!r}")
         ok = self.session.resolve_approval(request_id, {"action": action, "instruction": instruction or None})
         if ok:
-            self._note(f"approval {action}")
+            self._answered(request_id, "approval", {"action": action, "instruction": instruction}, via)
         return ok
 
 

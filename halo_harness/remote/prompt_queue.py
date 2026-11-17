@@ -3,8 +3,9 @@ panel), and the one user turn a session may hold for later.
 
 `submit` (remote/protocol.py) takes two more fields:
 
-    origin     {via: "studio", by}   where the turn came from: the TUI's transcript line says "(from Studio)",
-                                     the turn's `user_message` carries `via` / `by` (remote/receipt_seams.stamp)
+    origin     {via: "studio", by}   where the turn came from (3.6.0.2 P1: no grey note in the terminal;
+                                     the `❯` row is the one copy): the turn's `user_message` carries `via` / `by`
+                                     (remote/receipt_seams.stamp)
     when_busy  steer (the default: today's behaviour, the Signal remote's unchanged) | refuse | queue
 
 * `refuse`: a busy session answers `{busy: true, line}` and takes nothing; the panel then offers Queue it / Steer.
@@ -61,12 +62,6 @@ def meta_of(origin: Optional[dict], receipt: str = "") -> dict:
     return meta
 
 
-def origin_word(origin: Optional[dict]) -> str:
-    """How a transcript line names the sender: "from Studio" (a Studio send), else "remote" (the phone, a CLI)."""
-    via = str((origin or {}).get("via") or "").lower() if isinstance(origin, dict) else ""
-    return "from Studio" if via == "studio" else (f"from {via}" if via else "remote")
-
-
 class PromptQueue:
     """One held user turn for a Controller-driven session."""
 
@@ -111,7 +106,7 @@ class PromptQueue:
             return
         self.controller.commands.put(events.Command("user_input", {"text": held["text"], "images": held["images"],
                                                                      "pasted": None, "meta": held["meta"]}))
-        self._note(f"the queued turn starts: {_short(held['text'])}")
+        # 3.6.0.2 P1: the held turn's own `❯` row says it started; no "the queued turn starts" note
 
     def drop(self) -> Optional[dict]:
         """The session ends: the held turn (if any) is dropped with one line; returns it."""

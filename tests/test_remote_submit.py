@@ -1,8 +1,8 @@
 """tests.test_remote_submit -- Halo 3.3.11.0 R1: the control socket's `submit` for Studio's Prompt panel
 (remote/protocol.py, remote/handle.py, remote/prompt_queue.py).
 
-1. `origin` and `receipt` ride on the `user_input` Command's meta ({via, by, receipt}); the transcript line says
-   "(from Studio) prompt: ..."; a submit without them is the Command it always was ("(remote) prompt: ...");
+1. `origin` and `receipt` ride on the `user_input` Command's meta ({via, by, receipt}); 3.6.0.2 P1: no grey
+   note in the transcript (the turn's own row is the one copy); a submit without them is the Command it always was;
 2. `when_busy`: steer is the default (the Signal remote unchanged: Session.steer); `refuse` answers
    {busy: true, line} and takes nothing; an unknown value is an error;
 3. `queue` holds ONE turn: a second `queue` answers {busy, held, line}; the TUI's hint says "1 queued from
@@ -28,15 +28,18 @@ test, TESTS = new_registry()
 STUDIO = {"via": "studio", "by": "you@studio"}
 
 
-def _notes(rig) -> list:
-    out = []
+def _notes(rig, rows: bool = False):
+    """The transcript notes queued for the TUI (and, with `rows`, the user_message texts: the `❯` rows)."""
+    out, users = [], []
     while True:
         try:
             ev = rig.controller.events.get_nowait()
         except queue.Empty:
-            return out
+            return (out, users) if rows else out
         if ev is not None and ev.kind == "system_note":
             out.append(ev.data["text"])
+        elif ev is not None and ev.kind == "user_message":
+            users.append(ev.data["text"])
 
 
 def _wait(fn, timeout: float = 8.0):
@@ -68,8 +71,8 @@ def test_origin_and_receipt_ride_on_the_command_meta(ctx: Ctx):
         cmd = rig.controller.commands.get(timeout=2)
         ctx.check("a submit without origin carries no meta (the Signal remote's call, unchanged)", not cmd.data.get("meta"))
         notes = _notes(rig)
-        ctx.check(f"the transcript says (from Studio), got {notes}", any(t.startswith("(from Studio) prompt: hello from the panel") for t in notes))
-        ctx.check("a remote turn still says (remote)", any(t.startswith("(remote) prompt: plain phone turn") for t in notes))
+        ctx.check(f"3.6.0.2 P1: no (from Studio) prompt note, got {notes}", not [t for t in notes if "prompt:" in t])
+        ctx.check("nor a (remote) prompt note", not [t for t in notes if "plain phone turn" in t])
         ctx.check("an unknown when_busy is an error", not c.call("submit", text="x", when_busy="later")["ok"])
 
 
@@ -109,10 +112,11 @@ def test_queue_holds_one_turn_and_submits_it_on_turn_done(ctx: Ctx):
         users = [n["content"][0]["text"] for n in rig.session.log.nodes() if n["type"] == "user"]
         ctx.check(f"it ran exactly once, after the first, got {users}", users == ["please ask first", "queued from the panel"])
         ctx.check("the hint is gone", hint_for(rig.controller) == "")
-        notes = _notes(rig)
-        ctx.check(f"the transcript says it queued and started, got {notes}",
+        notes, rows = _notes(rig, rows=True)
+        ctx.check(f"the transcript says it queued (3.6.0.2 P1: no `the queued turn starts` note), got {notes}",
                   any("(from Studio) queued: queued from the panel" in t for t in notes)
-                  and any("(from Studio) the queued turn starts: queued from the panel" in t for t in notes))
+                  and not [t for t in notes if "the queued turn starts" in t])
+        ctx.check(f"the held turn's user_message (its row) is there, got {rows}", "queued from the panel" in rows)
         time.sleep(0.3)
         ctx.check("no second run", rig.session.turn_count == 2)
 

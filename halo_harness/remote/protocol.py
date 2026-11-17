@@ -35,6 +35,12 @@ def _str(req: dict, key: str, *alts: str) -> str:
     return ""
 
 
+def _via(req: dict) -> str:
+    """The request's `origin.via` ("" when it names none: the phone, a script)."""
+    origin = req.get("origin")
+    return str(origin.get("via") or "")[:32] if isinstance(origin, dict) else ""
+
+
 def _answer(handle, req: dict) -> dict:
     kind = req.get("kind")
     if kind not in ANSWER_KINDS:
@@ -43,16 +49,17 @@ def _answer(handle, req: dict) -> dict:
     # as the card id too when no `request_id` is given (the correlation id
     # of the reply is then the same string).
     rid = _str(req, "request_id", "target", "id")
+    via = _via(req)  # 3.6.0.2 P5: the terminal's line says where the answer came from
     if kind == "permission":
         ok = handle.answer_permission(rid, _str(req, "action", "decision"), scope=_str(req, "scope") or "once",
-                                       message=_str(req, "message"), rule=_str(req, "rule") or None)
+                                       message=_str(req, "message"), rule=_str(req, "rule") or None, via=via)
     elif kind == "question":
-        ok = handle.answer_question(rid, req.get("answer"))
+        ok = handle.answer_question(rid, req.get("answer"), via=via)
     elif kind == "plan":
         ok = handle.answer_plan(bool(req.get("approved")), feedback=_str(req, "feedback"),
-                                 mode_after=_str(req, "mode_after") or None)
+                                 mode_after=_str(req, "mode_after") or None, via=via)
     else:
-        ok = handle.answer_approval(rid, _str(req, "action"), instruction=_str(req, "instruction"))
+        ok = handle.answer_approval(rid, _str(req, "action"), instruction=_str(req, "instruction"), via=via)
     if not ok:
         raise HandleError(f"no pending {kind} request" + (f" {rid!r}" if rid else ""))
     return {"resolved": True}
@@ -139,7 +146,7 @@ def run_cmd(handle, req: dict, conn) -> Any:
         kw = {**submit_kw(req), **({"images": images} if images else {})}
         return handle.submit(_str(req, "text"), **kw)
     if cmd == "interrupt":
-        return handle.interrupt()
+        return handle.interrupt(via=_via(req))
     if cmd == "answer":
         from halo_harness.remote.receipt_seams import answered  # 3.3.11.0 R1: an answer's receipt
         return answered(handle, req, lambda: _answer(handle, req))
