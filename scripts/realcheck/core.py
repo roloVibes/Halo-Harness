@@ -204,7 +204,7 @@ def browser(ctx) -> "str | None":
     that one, or a Fail saying it names nothing. Not set: tests/helpers/chrome_driver.find_chrome (HALO_CHROME, else
     an installed Chrome; None when there is none). Whichever: headless, with a throw-away profile (tests/helpers/cdp.py),
     never the person's own Chrome profile and never a window on the desktop."""
-    from halo_harness.live.clip_chrome import named_browser
+    from halo_harness.browser_find import named_browser
     from tests.helpers.chrome_driver import ChromeNotFound, find_chrome
     sep = "=" if ctx.chrome_from.startswith("REALCHECK") else " "
     if ctx.chrome == "none":

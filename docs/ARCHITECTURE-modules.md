@@ -130,6 +130,10 @@ try, and a workflow's `run` on the step runner).
   `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`);
   R2: `live/replay_run.py` (a goal run's replay), `live/replay_facts.py` (a run's figures from its own record),
   `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`);
+  3.6.0.3: `live/card_data.py` + `live/card_run.py` + `live/card_facts.py` + `live/card_timeline.py` (the report card's
+  data, moved out of the replay modules above, which re-export it until they leave), `privacy_scrub.py` (the export's
+  and the bug report's redaction, from `live/replay_private.py` + `live/replay_cut.py`), `browser_find.py` (the browser
+  finder realcheck uses, from `live/clip_chrome.py`);
   R3: `live/report_card.py` + `live/report_card_sections.py` + `live/report_card_text.py` (the run report card and its
   Markdown, from the record), `report_cli.py` (`halo report`); R4: `studio/glance_door.py` (where the glance is: this
   machine's address, the SSH door's state and the phone's steps, `GET glance/door`; the terminal's phone line), the

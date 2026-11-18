@@ -81,20 +81,6 @@ def test_rows_name_the_better_figure_with_a_word(ctx: Ctx):
 
 
 @test
-def test_a_cost_halo_cannot_price_is_never_marked(ctx: Ctx):
-    with _home() as (state, repo):
-        r = _rows(_cmp(state, repo, SID, SID_B))
-        ctx.check(f"B's priced part with a +, never $0: {r['cost']['b']}", r["cost"]["b"]["text"] == "$0.0120+" and r["cost"]["b"]["unknown"])
-        ctx.check("the better cost is not marked where a side is unknown", r["cost"]["better"] is None and r["cost"]["word"] == "unknown")
-    with _home(priced=True) as (state, repo):
-        r = _rows(_cmp(state, repo, SID, SID_B))
-        ctx.check(f"once every call is priced it is compared: {r['cost']}", r["cost"]["better"] == "b" and r["cost"]["word"] == "cheaper")
-    from halo_harness.live.compare_text import cells
-    c = cells({"cost_usd": 0.0, "cost_known": False, "cost_unknown": ["or:x/free"], "models": []})["cost"]
-    ctx.check(f"nothing priced: unknown, not $0: {c}", c["text"].startswith("unknown") and "$0" not in c["text"] and c["value"] is None)
-
-
-@test
 def test_what_differed_in_three_plain_lines(ctx: Ctx):
     with _home() as (state, repo):
         got = _cmp(state, repo, SID, RUN)

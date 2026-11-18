@@ -201,10 +201,10 @@ def _without_paths(text: str, ctx, h) -> str:
 def _identities(text: str) -> list:
     """(4) where `text` holds this machine's identity as Halo could WRITE it, not a word: [(user|host, start, end)].
     The account in a home path, a login (`<user>@<host>`, `<machine>\\<user>`) or an account slot (`user=`, `ssh -l`
-    ...): the release's own matcher, live/replay_private._name_patterns; in a `by` field or `by <user>`; as a bare word
-    only when it is no common word (replay_cut.COMMON_NAMES: the CI runners' `runner` is a word of "the step runner").
+    ...): the release's own matcher, privacy_scrub._name_patterns; in a `by` field or `by <user>`; as a bare word
+    only when it is no common word (privacy_scrub.COMMON_NAMES: the CI runners' `runner` is a word of "the step runner").
     The host name, whole and its first label, as a whole word."""
-    from halo_harness.live.replay_private import _SEGMENT_END, _name_patterns
+    from halo_harness.privacy_scrub import _SEGMENT_END, _name_patterns
     user, host = getpass.getuser(), socket.gethostname()
     hosts = sorted({n for n in (host, host.split(".")[0]) if n and len(n) >= 3}, key=len, reverse=True)
     pats = []

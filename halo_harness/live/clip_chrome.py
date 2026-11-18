@@ -9,6 +9,9 @@ for another process on the machine to attach to. Windows has no fd 3 / fd 4 to h
 them there through the C runtime's inherited-handle block, which `subprocess` cannot fill), so there Chrome keeps
 `--remote-debugging-port=0` on loopback, and what it films is a throwaway Studio of its own (live/replay_clip.py
 `_studio`: its own token, the replay page's GETs only, stopped after): the live Studio's token never enters it.
+
+3.6.0.3: the browser finder (named_browser, find_chrome, none_found) moved to halo_harness/browser_find.py with no
+change of behaviour; re-exported here until the batch that deletes this module.
 """
 
 from __future__ import annotations
@@ -23,43 +26,8 @@ from halo_harness import subprocess_safe as subprocess
 import tempfile
 import time
 import urllib.request
-from pathlib import Path
-from typing import Optional
 
-CANDIDATES = ("C:/Program Files/Google/Chrome/Application/chrome.exe",
-              "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-              "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
-
-
-def named_browser(value: str) -> Optional[str]:
-    """The browser a person named: a path that exists, or a bare command name found on PATH; None when it names
-    nothing. (3.6.0.1: shared with tests/helpers/chrome_driver.py and scripts/realcheck's --browser.)"""
-    if Path(value).exists():
-        return value
-    if "/" not in value and os.sep not in value:
-        return shutil.which(value)
-    return None
-
-
-def find_chrome() -> Optional[str]:
-    """`HALO_CHROME` when it is set (that one alone: a value that names nothing gives None, never the person's own
-    installed Chrome; 3.6.0.1), else the usual install paths, then PATH; None when there is none."""
-    env = os.environ.get("HALO_CHROME", "")
-    if env:
-        return named_browser(env)
-    for cand in CANDIDATES:
-        if Path(cand).exists():
-            return cand
-    return next((shutil.which(n) for n in NAMES if shutil.which(n)), None)
-
-
-def none_found() -> str:
-    """The one line said when find_chrome() found nothing: it names HALO_CHROME and its value when that was set."""
-    env = os.environ.get("HALO_CHROME", "")
-    if env:
-        return f"HALO_CHROME names a browser that does not exist: {env} (fix or unset it)"
-    return "a clip is filmed in Chrome and none was found: install Chrome or set HALO_CHROME"
+from halo_harness.browser_find import CANDIDATES, NAMES, find_chrome, named_browser, none_found  # noqa: F401 (moved in 3.6.0.3)
 
 
 def pipe_ok() -> bool:

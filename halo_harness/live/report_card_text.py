@@ -7,7 +7,7 @@ model call; a cost Halo cannot price is "unknown" or the priced part with a "+",
 
 from __future__ import annotations
 
-from halo_harness.live.compare_text import bare, money, secs
+from halo_harness.live.card_data import bare, money, secs
 
 KIND = {"session": "session", "run": "goal run", "file": "saved replay"}
 CELL_ROWS = (("ended", "How it ended"), ("wall", "Wall time"), ("cost", "Cost"), ("tokens", "Tokens"), ("models", "Models used"),

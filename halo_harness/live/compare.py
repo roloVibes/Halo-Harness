@@ -1,4 +1,5 @@
 """halo_harness.live.compare -- two runs side by side (Halo 3.4.1.0 R2 "Time"; docs/REPLAY.md "Compare two runs").
+3.6.0.3: resolve, lanes, CompareError and PHASE (the report card's) moved to live/card_data.py, re-exported here.
 
 A run is anything with a replay: a session of this machine, a goal run of this repo, a saved `.halo-replay` file (one
 made anywhere). Both are read as replays (live/replay_file.py, live/replay_run.py; nothing is written) and their
@@ -15,44 +16,15 @@ split at a moment (before / after a steer): `split` seconds since its start, by 
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Optional
 
-from halo_harness.live.compare_text import cells, differed, secs  # the words: live/compare_text.py
+from halo_harness.live.card_data import (cells, CompareError, lanes, PHASE, resolve, secs)  # noqa: F401 (moved in 3.6.0.3)
+from halo_harness.live.compare_text import differed  # the words: live/compare_text.py
 
 # key, label, which way is better (-1: lower, +1: higher, 0: neither), the word for the better one
 ROWS = (("ended", "How it ended", 1, "finished"), ("wall", "Wall time", -1, "faster"), ("cost", "Cost", -1, "cheaper"),
         ("tokens", "Tokens", -1, "fewer"), ("models", "Models used", 0, ""), ("agents", "Agents spawned", 0, ""),
         ("asks", "Asks to you", -1, "fewer"), ("failures", "Failures", -1, "fewer"), ("retries", "Retries", -1, "fewer"))
-PHASE = {"typing": "writing", "tool": "tool", "waiting": "waiting"}
-
-
-class CompareError(ValueError):
-    """A ref that names no run this machine can read; the message says which."""
-
-
-def resolve(state_dir, ref: str, cwd=None) -> dict:
-    from halo_harness.live import history, replay_file, replay_run
-    kind, _, rid = ref.partition(":") if ref.split(":", 1)[0] in ("session", "run", "file") else ("", "", ref)
-    try:
-        if kind in ("", "file"):
-            known = replay_file.path_for(state_dir, rid)
-            if known is not None:
-                return replay_file.load(known)
-            if kind == "file" or rid.endswith(replay_file.SUFFIX) or Path(rid).expanduser().is_file():
-                src = Path(rid).expanduser()
-                if not src.is_file():
-                    raise CompareError(f"no saved replay or file {rid!r}")
-                return replay_file.load(src)
-        if kind in ("", "session") and history.find(state_dir, rid) is not None:
-            return replay_file.build(state_dir, rid, cwd=cwd)
-        if kind in ("", "run"):
-            run_dir = replay_run.find(cwd or ".", rid)
-            if run_dir is not None:
-                return replay_run.build_run(state_dir, run_dir)
-    except replay_file.ReplayError as e:
-        raise CompareError(str(e)) from None
-    raise CompareError(f"{ref!r} is not a session of this machine, a goal run of this repo or a saved replay")
 
 
 def _better(key: str, way: int, a, b) -> Optional[str]:
@@ -79,35 +51,8 @@ def rows(fa: dict, fb: dict) -> list:
     return out
 
 
-def lanes(p: dict, window=None) -> list:
-    """Each agent as a lane of phase segments (seconds since the run's or the window's start), its block first."""
-    t0 = (window or (p.get("started"),))[0] or p.get("started") or 0.0
-    t1 = window[1] if window else (p.get("ended") or t0)
-    by: dict = {}
-    for s in p.get("states") or []:
-        by.setdefault(str(s.get("agent_id")), []).append(s)
-    out = []
-    for a in p.get("agents") or []:
-        aid = str(a.get("agent_id"))
-        a0, a1 = a.get("since") if isinstance(a.get("since"), (int, float)) else t0, a.get("ended") if isinstance(a.get("ended"), (int, float)) else t1
-        if a1 < t0 or a0 > t1:
-            continue
-        pts = sorted(by.get(aid) or [], key=lambda s: s["t"])
-        segs = []
-        for i, s in enumerate(pts):
-            phase = PHASE.get(str(s.get("activity") or ""))
-            nxt = pts[i + 1]["t"] if i + 1 < len(pts) else a1
-            lo, hi = max(t0, s["t"]), min(t1, nxt)
-            if phase and hi > lo:
-                segs.append({"t0": round(lo - t0, 2), "t1": round(hi - t0, 2), "phase": phase})
-        out.append({"agent_id": aid, "name": a.get("name") or aid, "role": a.get("role") or "", "model": a.get("model") or "",
-                    "block": a.get("lineup") or ("goal run" if p.get("kind") == "run" else "session"), "state": a.get("state") or "",
-                    "from": round(max(a0, t0) - t0, 2), "to": round(min(a1, t1) - t0, 2), "segs": segs[:400]})
-    return out
-
-
 def _side(label: str, p: dict, window=None) -> dict:
-    from halo_harness.live.replay_facts import figures
+    from halo_harness.live.card_facts import figures
     return {"label": label, "kind": p.get("kind") or "session", "id": p.get("run_id") or p.get("session_id") or p.get("id"),
             "file": p.get("id") if p.get("saved") else None, "title": p.get("title") or "", "started": p.get("started"),
             "figures": figures(p, window), "lanes": lanes(p, window)}

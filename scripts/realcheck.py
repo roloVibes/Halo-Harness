@@ -103,7 +103,7 @@ def run(chosen: list, *, installed: bool = False, real_local: str = "", keep: bo
         repo: Path = REPO, probe_version: bool = True, say=print, browser=None) -> "tuple[list, str]":
     """Each step in turn: (its Results, the `halo --version` line of what ran). `browser` (None: REALCHECK_BROWSER):
     a path or command name the browser steps use (HALO_CHROME for the run), `none` (they SKIP), or '' (as before)."""
-    from halo_harness.live.clip_chrome import named_browser
+    from halo_harness.browser_find import named_browser
     from realcheck.core import Ctx, Fail, Skip
     root = Path(root) if root else Path(tempfile.mkdtemp(prefix="halo-realcheck-"))
     ctx = Ctx(repo, root, installed=installed, real_local=real_local)

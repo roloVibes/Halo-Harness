@@ -1,10 +1,10 @@
 """halo_harness.live.report_card -- a finished run's report card (Halo 3.4.1.0 R3 "Time"; docs/REPLAY.md "The report
 card"), rendered FROM THE RECORD: never hand-written, no model call. A run is anything with a replay -- a session of this
-machine, a goal run of this repo, a saved `.halo-replay` file made anywhere (live/compare.resolve reads all three) -- so a
+machine, a goal run of this repo, a saved `.halo-replay` file made anywhere (live/card_data.resolve reads all three) -- so a
 file opened on another machine gives the same card.
 
-The figures are R2's, not a second set: live/replay_facts.figures and live/compare_text.cells (the nine cells Compare's
-rows show), live/compare.lanes (each agent's block and phase segments). On top of them, from the replay's marks, bands,
+The figures are R2's, not a second set: live/card_facts.figures and live/card_data.cells (the nine cells Compare's
+rows show), live/card_data.lanes (each agent's block and phase segments). On top of them, from the replay's marks, bands,
 states and facts: the story in order in about ten lines (who was asked what, what each handed back), where the time went
 (by phase, by block), where the money went (by model, by block), what failed and what happened next, what waited on you
 and for how long, which model did what, the files it wrote, and what this record cannot show, said in plain words.
@@ -21,7 +21,7 @@ import re
 import time
 from typing import Optional
 
-from halo_harness.live.compare_text import bare, secs
+from halo_harness.live.card_data import bare, secs
 
 FORMAT = "halo-report-card"
 STORY_MAX = 10
@@ -152,10 +152,10 @@ def _failures(p: dict, story_of, names: dict, t0: float) -> list:
 
 
 def resolve(state_dir, ref: str, cwd=None) -> "tuple[dict, bool]":
-    """The replay `ref` names (live/compare.resolve; CompareError when none) and whether it was read from a saved file."""
+    """The replay `ref` names (live/card_data.resolve; CompareError when none) and whether it was read from a saved file."""
     from pathlib import Path
-    from halo_harness.live import compare, replay_file
-    p = compare.resolve(state_dir, ref, cwd=cwd)
+    from halo_harness.live import card_data, replay_file  # replay_file: path_for, SUFFIX (file code; Z13)
+    p = card_data.resolve(state_dir, ref, cwd=cwd)
     rid = ref.split(":", 1)[1] if ref.split(":", 1)[0] in ("session", "run", "file") else ref
     from_file = ref.startswith("file:") or (not ref.startswith(("session:", "run:")) and (
         replay_file.path_for(state_dir, rid) is not None or rid.endswith(replay_file.SUFFIX) or Path(rid).expanduser().is_file()))
@@ -164,9 +164,8 @@ def resolve(state_dir, ref: str, cwd=None) -> "tuple[dict, bool]":
 
 def card(p: dict, ref: str = "", from_file: bool = False) -> dict:
     """The report card of replay `p` (a session's, a goal run's, a saved file's)."""
-    from halo_harness.live.compare import lanes as lanes_of
-    from halo_harness.live.compare_text import cells
-    from halo_harness.live.replay_facts import figures
+    from halo_harness.live.card_data import cells, lanes as lanes_of
+    from halo_harness.live.card_facts import figures
     from halo_harness.live.report_card_sections import cannot, models_did
     facts = p.get("facts") if isinstance(p.get("facts"), dict) else {}
     fig, lanes = figures(p), lanes_of(p)

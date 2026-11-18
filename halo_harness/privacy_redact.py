@@ -10,7 +10,7 @@ secrets   redact.sanitize_text's shapes (keys by prefix, NAME=value, `"name": "v
           `&key=`, `access_token=` ...), a bare random token of 30+ characters, and the current values of this
           process's secret environment variables (and the caller's `known`), also percent-encoded or JSON-escaped;
           `strict` (the bug report's wider surface) adds every 32+ hex and 40+ base64 run
-paths and  live/replay_private.scrub: the project's paths relative (`root`), the home `~` (any spelling, 8.3 too), the
+paths and  privacy_scrub.scrub: the project's paths relative (`root`), the home `~` (any spelling, 8.3 too), the
 names     user and machine names `<user>` / `<machine>` everywhere but in a path inside the project and the title,
           checked once more after percent-decoding and NFKC folding; control characters dropped
 A dict keeps the redactor's JSON pass too (a `"NAME": "value"` pair split across a key and its value).
@@ -61,7 +61,7 @@ def _strict_runs(s: str) -> str:
     """The strict pass's hex and base64 runs, never across the home's own spelling (3.6.0.2 P9 batch 3): a macOS temp
     home (/var/folders/<2>/<28 letters and digits>/T/...) is one 40+ base64 run when its segment has no `_`, and was cut
     before the path pass could write it as ~. The home is no secret; the path pass rewrites it right after."""
-    from halo_harness.live.replay_private import _homes
+    from halo_harness.privacy_scrub import _homes
     held = {}
     for h in sorted(_homes(), key=len, reverse=True):
         for spelled in dict.fromkeys((h, h.replace("\\", "/"))):
@@ -114,7 +114,7 @@ def redact(obj, *, root=None, strict: bool = False, known: Optional[Iterable[str
            machines=None):
     """`obj` with every secret, path and name rule above applied; a dict that the JSON pass would break comes back as
     `{"type": ..., "_sanitize_error": ...}` (never the original)."""
-    from halo_harness.live.replay_private import scrub
+    from halo_harness.privacy_scrub import scrub
     vals = env_secret_values(known)
     out = _leaves(obj, lambda s: secrets_text(s, strict=strict, known=vals))
     if isinstance(out, (dict, list)):

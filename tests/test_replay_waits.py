@@ -67,12 +67,12 @@ def test_a_card_answered_from_studio_reads_waiting_on_you(ctx: Ctx):
 
 @test
 def test_the_report_card_sums_every_listed_wait(ctx: Ctx):
-    from halo_harness.live import replay_file as RF
     from halo_harness.live import report_card as RC
+    from halo_harness.live.card_data import build
     from halo_harness.live.report_card_text import waited
     with _home() as state:
         _headless(state)
-        p = RF.build(state, SID)
+        p = build(state, SID)
         c = RC.card(p, f"session:{SID}")
         secs = [w["secs"] for w in c["waits"]]
         ctx.check(f"the card's own 6 s and the question's 10 s, got {secs} total {c['waited_s']}",

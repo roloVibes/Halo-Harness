@@ -18,32 +18,29 @@ docs/REPLAY.md is the reference.
 What it never holds: the prompts, the tool inputs and outputs, the thoughts, the working directory (3.4.1.0 R3:
 `facts.artefacts` names the files it wrote by their path inside the project). Every string passes
 `redact.sanitize_node`, the rule `halo export --sanitize` and `halo session export` apply, then (3.4.1.1, defect 56)
-live/replay_private.scrub: a path is project-relative or `~/...`, the user and machine names are out of every text
+privacy_scrub.scrub: a path is project-relative or `~/...`, the user and machine names are out of every text
 but the owner's own (the title) and a path inside the project.
 
     build(state_dir, sid, lineup=None, cwd=None) -> payload       save(state_dir, payload) -> Path
     load(path) / parse(text) -> payload (an older file upgraded)   saved(state_dir) -> rows, newest first
+
+3.6.0.3: the payload's names and build moved to live/card_data.py (no change of behaviour) and are re-exported
+here until the batch that deletes this module; what is left is the file code (save, load, path_for ...).
 """
 
 from __future__ import annotations
 
 import json
 import re
-import time
 from pathlib import Path
 from typing import Optional
 
-FORMAT = "halo-replay"
-VERSION = 1
+from halo_harness.live.card_data import (AGENT_KEYS, build, FORMAT, includes, plan_of, ReplayError, VERSION)  # noqa: F401 (moved in 3.6.0.3)
+
 SUFFIX = ".halo-replay"
 MAX_BYTES = 32_000_000
-AGENT_KEYS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "state", "since", "ended", "cost_usd", "task")
 DROP_KEYS = {"path", "cwd", "_path", "_source", "file"}
 _ID = re.compile(r"^[A-Za-z0-9_.-]{1,120}$")
-
-
-class ReplayError(ValueError):
-    """A file that is not a replay, or one this Halo cannot read; the message says which."""
 
 
 def replays_dir(state_dir) -> Path:
@@ -59,57 +56,8 @@ def _scrub(obj):
     return obj
 
 
-def plan_of(_lineup: Optional[str] = None, cwd=None, state_dir=None) -> Optional[dict]:
-    """None: 3.6.0.0 R5b, lineups and their blocks are gone (a 3.4 / 3.5 replay file's `plan` is still read, never
-    drawn); the map a session ran on rides on each of its agents' rows."""
-    return None
-
-
-def includes(p: dict) -> list:
-    n_agents = len(p.get("agents") or [])
-    kinds: dict = {}
-    for m in p.get("marks") or []:
-        kinds[m.get("kind")] = kinds.get(m.get("kind"), 0) + 1
-    marks = ", ".join(f"{n} {k}" for k, n in kinds.items()) or "no marks"
-    plan = p.get("plan") or {}
-    return [f"{n_agents} agent{'s' if n_agents != 1 else ''}: names, roles, models, tasks (first line), states, costs",
-            f"{len(p.get('states') or [])} state changes and the cost over time; marks: {marks}"
-            + ("; the record's figures (cost, tokens, models, retries)" if p.get("facts") else "")
-            + ("; the files it wrote (paths inside the project) and the last answer's first line" if "artefacts" in (p.get("facts") or {}) else ""),
-            "a goal run's record: the lead and its lanes, each lane's state changes (not each step)" if p.get("kind") == "run"
-            else f"the lineup's blocks: {plan.get('lineup')}" if plan else "no lineup blocks (the lineup did not load)",
-            "not included: prompts, tool inputs and outputs, thoughts, the working directory; a path is written relative to"
-            " the project or as ~/... under your home; your user or machine name only where you typed it (the title, the"
-            " lineup's names) or in a path inside the project",
-            "every text passed the export redactor (`halo session export`'s rules)"]
-
-
-def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_states: Optional[dict] = None) -> dict:
-    """The replay of session `sid` on this machine. Raises ReplayError when there is no such session."""
-    from halo_harness import __version__
-    from halo_harness.live import history, replay_facts, timeline
-    from halo_harness.privacy_redact import redact
-    path = history.find(state_dir, sid)
-    if path is None:
-        raise ReplayError(f"no transcript of session {sid!r} on this machine")
-    hist = history.read(path, live_states=live_states)
-    p = {"format": FORMAT, "version": VERSION, "kind": "session", "id": "", "session_id": hist["session_id"],
-         "title": hist.get("title") or "", "saved": round(time.time(), 3), "halo": __version__,
-         "started": hist.get("started"), "ended": hist.get("ended"), "cost_usd": hist.get("cost_usd"),
-         "agents": [{k: a.get(k) for k in AGENT_KEYS} for a in hist.get("agents") or []],
-         "states": hist.get("states") or [], "costs": hist.get("costs") or [], "agent_costs": hist.get("agent_costs") or [],
-         **timeline.of(hist), "plan": plan_of(lineup, cwd=cwd, state_dir=state_dir), "facts": replay_facts.session_facts(path)}
-    p["id"] = f"{p['session_id']}-{time.strftime('%Y%m%d-%H%M%S', time.localtime(p['saved']))}"
-    from halo_harness.live.replay_private import project_root  # 3.4.1.2: the one redaction (privacy_redact.py)
-    p = redact(p, root=project_root(hist.get("cwd") or cwd))
-    if "_sanitize_error" in p:
-        raise ReplayError("the redactor could not clean this session's timeline; nothing was written")
-    p["includes"] = includes(p)
-    return p
-
-
 def save(state_dir, payload: dict) -> Path:
-    """Write the payload; every string passes live/replay_private.scrub first (3.4.1.1, defect 56: whatever built or
+    """Write the payload; every string passes privacy_scrub.scrub first (3.4.1.1, defect 56: whatever built or
     brought it, the file never holds this machine's home path, user name or machine name)."""
     from halo_harness.privacy_redact import redact  # 3.4.1.2 (PACKS-5): secrets, paths and names, one function
     original, payload = payload, redact(payload)

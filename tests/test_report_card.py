@@ -120,6 +120,7 @@ def test_a_goal_runs_card(ctx: Ctx):
 @test
 def test_honest_figures_and_what_an_older_record_cannot_show(ctx: Ctx):
     from halo_harness.live import replay_file as RF
+    from halo_harness.live.card_data import build
     from halo_harness.live.report_card_text import markdown
     with _home() as (state, repo):
         c = _card(state, repo, SID_B)
@@ -127,7 +128,7 @@ def test_honest_figures_and_what_an_older_record_cannot_show(ctx: Ctx):
         ctx.check(f"a cost Halo cannot price: the priced part with a +, never $0: {c['cells']['cost']}",
                   c["cells"]["cost"]["text"] == "$0.0120+" and "- free: unknown (no price)" in md and "Total $0.0120+." in md)
         ctx.check("said in plain words", any(x.startswith("Halo could not price every call (free)") for x in c["cannot"]))
-        p = RF.build(state, SID)
+        p = build(state, SID)
         p.pop("facts")
         p["id"] = "r1-file"
         RF.save(state, p)
@@ -135,7 +136,7 @@ def test_honest_figures_and_what_an_older_record_cannot_show(ctx: Ctx):
         ctx.check(f"a file saved before R2 says what it lacks: {old['cannot']}", old["artefacts"] is None
                   and any("saved before 3.4.1.0 R2" in x for x in old["cannot"]) and any("before 3.4.1.0 R3" in x for x in old["cannot"])
                   and "Not in this record" in markdown(old))
-        none = __import__("halo_harness.live.compare_text", fromlist=["cells"]).cells({"cost_usd": 0.0, "cost_known": False, "cost_unknown": ["x"], "models": []})
+        none = __import__("halo_harness.live.card_data", fromlist=["cells"]).cells({"cost_usd": 0.0, "cost_known": False, "cost_unknown": ["x"], "models": []})
         ctx.check("nothing priced reads unknown", none["cost"]["text"].startswith("unknown"))
 
 

@@ -1,60 +1,12 @@
 """halo_harness.live.compare_text -- the words of a comparison (Halo 3.4.1.0 R2 "Time"): one run's cells (a value and
 its text per row; the report card will read the same) and "what differed" in three plain lines, derived from the rows
 (live/compare.py). A cost Halo cannot price is "unknown" (or the priced part with a "+"), never $0. No model call.
+3.6.0.3: the card's words (money, secs, kilo, bare, cells) moved to live/card_data.py, re-exported here.
 """
 
 from __future__ import annotations
 
-from typing import Optional
-
-
-def money(v: Optional[float]) -> str:
-    if v is None:
-        return "unknown"
-    return f"${v:.2f}" if v >= 1 else f"${v:.4f}"  # Studio's cost() (orchestra/format.ts)
-
-
-def secs(v: Optional[float]) -> str:
-    if v is None:
-        return "unknown"
-    s = int(round(v))
-    return f"{s // 3600} h {s % 3600 // 60:02d} min" if s >= 3600 else f"{s // 60} min {s % 60:02d} s" if s >= 60 else f"{s} s"
-
-
-def kilo(n: int) -> str:
-    return f"{n / 1_000_000:.1f}M" if n >= 1_000_000 else f"{n / 1000:.1f}k" if n >= 1000 else str(n)
-
-
-def bare(ref: str) -> str:
-    return str(ref).split(":", 1)[-1].split("/")[-1] or str(ref)
-
-
-def _pct(x: Optional[float]) -> str:
-    return "?" if x is None else f"{round(x * 100)} %"
-
-
-def cells(f: dict) -> dict:
-    """{key: {value, text, unknown?}} for one run's figures (live/replay_facts.figures)."""
-    cost, known = f.get("cost_usd"), bool(f.get("cost_known"))
-    if cost is None or (not known and not cost):
-        cost_text = "unknown" + (f" (no price for {', '.join(bare(m) for m in f.get('cost_unknown') or [])})" if f.get("cost_unknown") else "")
-    else:
-        cost_text = money(cost) + ("+" if not known else "")
-    tok = f.get("tokens")
-    tok_text = (f"{kilo(tok['in'] + tok['out'])} ({kilo(tok['in'])} in, {kilo(tok['out'])} out)" if tok
-                else "not counted for part of a run" if f.get("window") else "unknown")
-    models = f.get("models") or []
-    m_text = "; ".join(f"{bare(m['model'])}: {_pct(m.get('cost_share'))} of cost, {_pct(m.get('time_share'))} of time" for m in models) or "none recorded"
-    retries = f.get("retries")
-    return {"ended": {"value": f.get("ok"), "text": str(f.get("how") or "unknown")},
-            "wall": {"value": f.get("wall_s"), "text": secs(f.get("wall_s"))},
-            "cost": {"value": cost if known else None, "text": cost_text, **({"unknown": True} if not known else {})},
-            "tokens": {"value": tok["in"] + tok["out"] if tok else None, "text": tok_text, **({} if tok else {"unknown": True})},
-            "models": {"value": [m["model"] for m in models], "text": m_text},
-            "agents": {"value": f.get("agents"), "text": str(f.get("agents") or 0)},
-            "asks": {"value": f.get("asks"), "text": str(f.get("asks") or 0)},
-            "failures": {"value": f.get("failures"), "text": str(f.get("failures") or 0)},
-            "retries": {"value": retries, "text": "unknown" if retries is None else str(retries), **({"unknown": True} if retries is None else {})}}
+from halo_harness.live.card_data import (bare, cells, kilo, money, _pct, secs)  # noqa: F401 (moved in 3.6.0.3)
 
 
 def _rel(a: float, b: float) -> float:

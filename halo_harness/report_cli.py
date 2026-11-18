@@ -24,11 +24,11 @@ def cmd_report(argv: Optional[list] = None) -> int:
     ap.add_argument("--json", action="store_true", help="the card's data instead of the Markdown")
     args = ap.parse_args(sys.argv[1:] if argv is None else argv)
     from halo_harness.config.paths import bridge_home
-    from halo_harness.live import compare, report_card
+    from halo_harness.live import card_data, report_card
     from halo_harness.live.report_card_text import markdown
     try:
         p, from_file = report_card.resolve(bridge_home(), args.ref, cwd=Path.cwd())
-    except compare.CompareError as e:
+    except card_data.CompareError as e:
         print(f"halo report: {e}", file=sys.stderr)
         return 2
     c = report_card.card(p, args.ref, from_file)

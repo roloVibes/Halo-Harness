@@ -78,7 +78,7 @@ def find_chrome(explicit: str = "") -> "str | None":
     named (a path, or a bare command name on PATH) is used or nothing:
     naming one that does not exist raises ChromeNotFound, never a silent
     fall-back to the person's own installed Chrome (3.6.0.1)."""
-    from halo_harness.live.clip_chrome import named_browser
+    from halo_harness.browser_find import named_browser
     for label, cand in (("the browser given", explicit), ("HALO_CHROME names a browser that",
                                                            os.environ.get("HALO_CHROME", ""))):
         if cand:

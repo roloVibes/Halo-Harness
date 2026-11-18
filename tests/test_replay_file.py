@@ -38,35 +38,6 @@ def _home():
                 os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
-def _hist(state: Path) -> dict:
-    from halo_harness.live import history
-    return history.read(seed(state))
-
-
-@test
-def test_timeline_marks_and_bands(ctx: Ctx):
-    from halo_harness.live import timeline
-    with _home() as state:
-        h = _hist(state)
-        marks = timeline.marks(h)
-        kinds = [m["kind"] for m in marks]
-        ctx.check(f"a spawn per sub-agent, the scout's hand-back, the ask, the fixer's failure, the finishes: {kinds}",
-                  kinds.count("spawn") == 2 and "handoff" in kinds and "ask" in kinds and "fail" in kinds and "finish" in kinds)
-        ctx.check("in time order", [m["t"] for m in marks] == sorted(m["t"] for m in marks))
-        ctx.check("a spawn names its parent and its task", any(m["kind"] == "spawn" and m["to"] == "main" and "find the bug" in m["text"] for m in marks))
-        asks = [(round(m["t"] - T0), m["text"]) for m in marks if m["kind"] == "ask"]
-        ctx.check(f"the permission card from the turn's record (its words, how it was answered) and the question, got {asks}",
-                  asks[0] == (20, "Bash: rm -rf build (answered allow after 6 s)") and asks[1][0] == 70 and asks[1][1].startswith("may I push?"))
-        main = [(round(x["t"] - T0), x["state"]) for x in h["states"] if x["agent_id"] == "main"]
-        ctx.check(f"main waits on the owner from the card to the answer, and through the question, got {main}",
-                  (20, "waiting") in main and (26, "running") in main and (70, "waiting") in main and (80, "running") in main)
-        bands = timeline.bands(h)
-        phases = {b["phase"] for b in bands}
-        ctx.check(f"the bands carry the phase words, got {phases}", {"tool", "waiting", "thinking"} <= phases and phases <= set(timeline.PHASES))
-        ctx.check("they tile the session without overlap", all(a["t1"] <= b["t0"] + 1e-6 for a, b in zip(bands, bands[1:])))
-        ctx.check("each agent's own cost over time", {c["agent_id"] for c in h["agent_costs"]} == {"main", "scout1"})
-
-
 @test
 def test_round_trip_and_the_version_field(ctx: Ctx):
     from halo_harness.live import replay_file as RF

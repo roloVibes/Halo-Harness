@@ -12,7 +12,7 @@ NOT_RECORDED = "model not recorded"
 
 
 def models_did(agents: list, fig: dict) -> list:
-    """Each model and the agents that ran on it, the model that cost the most first (live/replay_facts.figures' order)."""
+    """Each model and the agents that ran on it, the model that cost the most first (live/card_facts.figures' order)."""
     by: dict = {}
     for a in agents:
         by.setdefault(str(a.get("model") or NOT_RECORDED), []).append(
@@ -25,7 +25,7 @@ def models_did(agents: list, fig: dict) -> list:
 
 def cannot(p: dict, facts: dict, waits: list, money: dict) -> list:
     """What this record does not hold, each in one plain line (an empty section of the card is never left unexplained)."""
-    from halo_harness.live.compare_text import bare
+    from halo_harness.live.card_data import bare
     out = []
     if p.get("kind") == "run":
         out.append("A goal run's record holds each lane's state changes (joined, writing, written, in review, merged, failed), "

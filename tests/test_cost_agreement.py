@@ -78,7 +78,7 @@ def _near(v, want=TOTAL) -> bool:
 
 @test
 def test_one_finished_session_with_a_sub_agent_tells_one_number(ctx: Ctx):
-    from halo_harness.live import caps, compare, history, replay_facts, report_card, session_cost
+    from halo_harness.live import caps, card_data, card_facts, compare, history, report_card, session_cost
     from halo_harness.peers import local_view
     from halo_harness.studio import live_agents_api
     with _home() as state:
@@ -95,12 +95,12 @@ def test_one_finished_session_with_a_sub_agent_tells_one_number(ctx: Ctx):
         ctx.check(f"the replay (Live's total): the sub-agent once: {live['cost_usd']}", _near(live["cost_usd"]))
         row = live_agents_api.history(state, role="main")[0]
         ctx.check(f"History's row: {row['cost_usd']}", _near(row["cost_usd"]))
-        facts = replay_facts.session_facts(path)
+        facts = card_facts.session_facts(path)
         ctx.check(f"the record's figures: {facts['cost_usd']} unknown {facts['cost_unknown']}", _near(facts["cost_usd"]) and facts["cost_unknown"] == [])
         p, from_file = report_card.resolve(state, f"session:{SID}")
         money = report_card.card(p, f"session:{SID}", from_file)["money"]
         ctx.check(f"the report card's money: {money['total']} known {money['known']}", _near(money["total"]) and money["known"])
-        cmp = compare.compare(compare.resolve(state, f"session:{SID}"), compare.resolve(state, f"session:{SID}"))
+        cmp = compare.compare(card_data.resolve(state, f"session:{SID}"), card_data.resolve(state, f"session:{SID}"))
         cost_row = next(r for r in cmp["rows"] if r["key"] == "cost")
         ctx.check(f"the compare row: {cost_row['a']}", _near(cost_row["a"]["value"]) and not cost_row["a"].get("unknown"))
         view = {"harnesses": [local_view.harness_entry([], state)]}

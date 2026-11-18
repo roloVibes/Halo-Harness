@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.compare_seed import RUN, SID_B, TR, seed_b, seed_run  # noqa: E402
+from tests.helpers.compare_seed import RUN, TR, seed_run  # noqa: E402
 from tests.helpers.replay_seed import FAKE_KEY  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -37,32 +37,6 @@ def _home():
         finally:
             for k, v in saved.items():
                 os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
-
-
-@test
-def test_a_sub_agents_cost_counts_once(ctx: Ctx):
-    from halo_harness.live import history
-    with _home() as state:
-        h = history.read(seed_b(state))
-        ctx.check(f"main's $0.004 and the reviewer's $0.008, its rolled-up total not again: {h['cost_usd']}", abs(h["cost_usd"] - 0.012) < 1e-9)
-        main = next(a for a in h["agents"] if a["agent_id"] == "main")
-        ctx.check(f"main's own cost is its own calls: {main['cost_usd']}", abs(main["cost_usd"] - 0.004) < 1e-9)
-        ctx.check(f"the running total ends at the session's: {h['costs'][-1]}", abs(h["costs"][-1]["usd"] - 0.012) < 1e-9)
-
-
-@test
-def test_the_records_figures(ctx: Ctx):
-    from halo_harness.live import history, replay_facts
-    with _home() as state:
-        f = replay_facts.session_facts(seed_b(state))
-        ctx.check(f"cost from the transcripts, each call once: {f['cost_usd']}", abs(f["cost_usd"] - 0.012) < 1e-9)
-        ctx.check(f"the unpriced call's model is unknown, not $0: {f['cost_unknown']}", f["cost_unknown"] == ["or:mock/free"])
-        ctx.check(f"tokens in and out (main's two calls + the reviewer's): {f['tokens']}", f["tokens"] == {"in": 4000, "out": 800})
-        ctx.check(f"each model's cost: {f['model_cost']}", f["model_cost"] == {"or:mock/glm-5.3": 0.012})
-        ctx.check(f"the retries and the steer: {f['retries']} {f['steers']}", f["retries"] == 1 and len(f["steers"]) == 1)
-        priced = replay_facts.session_facts(seed_b(state, priced=True))
-        ctx.check("a call priced at $0 is known", priced["cost_unknown"] == [] and abs(priced["cost_usd"] - 0.012) < 1e-9)
-        ctx.check("the session file is found by id", history.find(state, SID_B) is not None)
 
 
 @test

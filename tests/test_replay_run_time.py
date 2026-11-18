@@ -66,29 +66,6 @@ def test_studio_draws_a_goal_run_from_its_record(ctx: Ctx):
         ctx.check("an unknown run is 404", get_replay(bad)[0] == 404)
 
 
-@test
-def test_a_role_word_is_never_named_as_the_model(ctx: Ctx):
-    """3.4.1.1 defect 59: a goal run with `lead: main` (the lead role) read "MODELS USED ... main: 2 % of cost" and the
-    lead's box MODEL main. The lead's model is its own session's record's, else said as not recorded."""
-    from halo_harness.live import replay_run
-    with _run() as (state, repo):
-        run_dir = repo / ".halo" / "orchestra" / RUN
-        goal = json.loads((run_dir / "goal.json").read_text(encoding="utf-8"))
-        (run_dir / "goal.json").write_text(json.dumps(dict(goal, lead="main", worker="subagent")), encoding="utf-8")
-        p = replay_run.build_run(state, run_dir)
-        ctx.check(f"no session on disk: the lead's model is not recorded, never `main`: {p['agents'][0]['model']} {p['facts']['model_cost']}",
-                  p["agents"][0]["model"] is None and "main" not in p["facts"]["model_cost"]
-                  and replay_run.LEAD_UNKNOWN in p["facts"]["model_cost"])
-        split = json.loads((run_dir / "split.json").read_text(encoding="utf-8"))
-        (run_dir / "split.json").write_text(json.dumps(dict(split, lead_sessions=["leadsess0001"])), encoding="utf-8")
-        sess = state / "sessions" / "repo" / "leadsess0001.jsonl"
-        sess.parent.mkdir(parents=True, exist_ok=True)
-        sess.write_text(json.dumps({"type": "meta", "ts": TR, "model": "or:deepseek/deepseek-v4.1-flash"}) + "\n", encoding="utf-8")
-        p = replay_run.build_run(state, run_dir)
-        ctx.check(f"its session's record names it: {p['agents'][0]['model']} {sorted(p['facts']['model_cost'])}",
-                  p["agents"][0]["model"] == "or:deepseek/deepseek-v4.1-flash" and "or:deepseek/deepseek-v4.1-flash" in p["facts"]["model_cost"])
-
-
 JS = """const m = await import(%s);
 const p = %s;
 const tl = m.fromSession(p, "run");
