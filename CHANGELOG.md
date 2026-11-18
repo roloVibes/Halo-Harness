@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.4] - unreleased
+## [3.6.0.4] - 2026-11-18
 
 A small release with one fix at its heart: a running terminal session could vanish from Studio for good after one
 failed connect to it, while the terminal went on working. Now one failed connect no longer removes it. Beside it are
