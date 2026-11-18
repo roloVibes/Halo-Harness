@@ -1,19 +1,11 @@
-"""halo_harness.studio.live_recording_api -- flight recordings and the canvas
-replay of Studio's Fleet section (Halo 3.0.5.0 "Fleet" round R4, D5 / D12;
-3.1.0.0 R2 cut it out of live_handoff_api.py), appended to
-studio/live_api.py's ROUTES; the same loopback + token guard.
+"""halo_harness.studio.live_recording_api -- Record: a session as one HTML page
+(Halo 3.0.5.0 "Fleet" round R4, D5 / D12; 3.1.0.0 R2 cut it out of
+live_handoff_api.py), appended to studio/live_api.py's ROUTES; the same
+loopback + token guard. 3.6.0.3 B: the old playback's route left.
 
-    POST fleet/<h>/<sid>/recording[?agent=<aid>]
+    POST live/<h>/<sid>/recording[?agent=<aid>]
         -> {ok, path, name, url: "live/recordings/<name>", bytes, agents, states}   ~/.halo/recordings/<sid>[-<aid>].html
     GET  live/recordings/<name>      the recording's HTML (text/html, attachment; its own CSP)
-    GET  live/replay?session=<sid>[&harness=<h>]
-        -> {session_id, harness, title, started, ended, cost_usd, agents: [...], states: [{t, agent_id, state,
-            activity, tool?}], costs: [{t, usd}], agent_costs: [{t, agent_id, usd}], marks: [...], bands: [...]}
-        the session's time axis: the scrubber under Agents -> Live replays it (3.4.1.0 R1, live/card_timeline.py);
-        3.6.0.0 R4: + {map, map_events: [{event, data}]} -- the map it ran on, its hand-offs and steps (the lit Map)
-    GET  live/replay?run=<run id>
-        -> a goal run's replay payload (live/card_run.build_run, kind "run": the lead and its lanes, each lane's state
-           changes and its cost at its end), what the scrubber draws a goal run from (3.4.1.1, defect 60)
 
 A member's session comes through the hub (`agent_tail` per agent, which needs
 its share `full`); this harness's from its transcripts on disk.
@@ -64,39 +56,6 @@ def get_recording(req):
     return 200, html_download(path.read_bytes(), path.name)
 
 
-def get_replay(req):
-    sid, run = str(req.query.get("session") or "").strip(), str(req.query.get("run") or "").strip()
-    if run:  # 3.4.1.1 (60): a goal run's axis from its record (live/card_run.py): each lane's states and costs at their times
-        from halo_harness.live import card_data, card_run
-        run_dir = card_run.find(req.cwd, run)
-        if run_dir is None:
-            return 404, {"error": f"no goal run {run!r} in this repo"}
-        try:
-            return 200, card_run.build_run(req.state_dir, run_dir)
-        except card_data.ReplayError as e:
-            return 404, {"error": str(e)}
-    if not sid:
-        return 422, {"error": "name the session: ?session=<id> (or a goal run: ?run=<id>)", "problems": []}
-    hid = str(req.query.get("harness") or "local")
-    hist, name = _history(req, hid, sid)
-    if hist is None:
-        return name
-    from halo_harness.live import card_timeline
-    keep = ("session_id", "title", "started", "ended", "cost_usd", "agents", "states", "costs", "agent_costs")
-    return 200, {"harness": name, **{k: hist.get(k) for k in keep}, **card_timeline.of(hist), **_map_part(req, hid, sid)}
-
-
-def _map_part(req, hid: str, sid: str) -> dict:
-    """3.6.0.0 R4: the map it ran on and its hand-offs and steps, as the lit Map replays them (crew/map_events.py)."""
-    if hid != "local":
-        return {"map": None, "map_events": []}
-    from halo_harness.crew.map_events import recorded
-    from halo_harness.live import history
-    got = recorded(history.find(req.state_dir, sid))
-    return {"map": got["map"], "map_events": got["events"]}
-
-
 _ID = r"[A-Za-z0-9_.:-]+"
 ROUTES = [("POST", rf"^live/(?P<hid>{_ID})/(?P<sid>{_ID})/recording$", post_recording),
-          ("GET", r"^live/recordings/(?P<name>[A-Za-z0-9_.-]+\.html)$", get_recording),
-          ("GET", r"^live/replay$", get_replay)]
+          ("GET", r"^live/recordings/(?P<name>[A-Za-z0-9_.-]+\.html)$", get_recording)]

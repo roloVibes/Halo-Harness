@@ -54,19 +54,17 @@ def _imports(path: Path) -> list:
 
 @test
 def test_the_finder_moved_whole_and_its_users_import_it_from_its_own_module(ctx: Ctx):
-    """3.6.0.3 (R-B6): the clip's module re-exports the five names (the same objects) until the batch that deletes it;
-    realcheck and the suite's Chrome driver import from halo_harness.browser_find; the finder opens no socket and
+    """3.6.0.3 (R-B6): the five names live in halo_harness.browser_find (file 06 deleted the clip's module that
+    re-exported them); realcheck and the suite's Chrome driver import from there; the finder opens no socket and
     starts no process, so tests.test_offline_mode needs no entry for it."""
     from halo_harness import browser_find
-    from halo_harness.live import clip_chrome
     for name in MOVED:
-        ctx.check(f"clip_chrome.{name} is browser_find.{name}",
-                  hasattr(browser_find, name) and getattr(clip_chrome, name, None) is getattr(browser_find, name))
+        ctx.check(f"browser_find.{name} is there", hasattr(browser_find, name))
     for rel in ("scripts/realcheck.py", "scripts/realcheck/core.py", "tests/helpers/chrome_driver.py"):
         got = _imports(ROOT / rel)
         ctx.check(f"{rel} imports named_browser from halo_harness.browser_find",
                   ("halo_harness.browser_find", "named_browser") in got
-                  and not any(m == "halo_harness.live.clip_chrome" for m, _n in got))
+                  and not any(m.startswith("halo_harness.live.") for m, _n in got))
     mods = {m.split(".")[0] for m, _n in _imports(ROOT / "halo_harness" / "browser_find.py")}
     ctx.check(f"no network and no process in the finder, got {sorted(mods)}",
               not mods & {"socket", "urllib", "subprocess", "http"} and not any(

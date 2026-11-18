@@ -3,7 +3,7 @@
 3.4.1.0 R2 fixed a replay counting a finished sub-agent's cost twice (the parent's rolled-up `usage` line AND the
 sub-agent's own transcript); 3.4.0.1 made the harness's "today" and History read finished sessions from their
 records (live/session_cost.py). The two read the same files differently, so this pins that they agree: the report
-card, the compare row, the replay (Live's total), History's row, the harness's today (GET live's own entry) and the
+card, its cost cell (3.6.0.3 B: Compare's row of it left with Compare), the history read (Live's total), History's row, the harness's today (GET live's own entry) and the
 caps' harness figure, for a session started today with main's call ($0.004), a reviewer sub-agent ($0.008, its
 own transcript plus the rollup line in main's) and a provider failure (a 429: a usage line with no price, which spent
 nothing -- it must not make the total "unknown" in one place and whole in another).
@@ -78,7 +78,7 @@ def _near(v, want=TOTAL) -> bool:
 
 @test
 def test_one_finished_session_with_a_sub_agent_tells_one_number(ctx: Ctx):
-    from halo_harness.live import caps, card_data, card_facts, compare, history, report_card, session_cost
+    from halo_harness.live import caps, card_data, card_facts, history, report_card, session_cost
     from halo_harness.peers import local_view
     from halo_harness.studio import live_agents_api
     with _home() as state:
@@ -97,12 +97,12 @@ def test_one_finished_session_with_a_sub_agent_tells_one_number(ctx: Ctx):
         ctx.check(f"History's row: {row['cost_usd']}", _near(row["cost_usd"]))
         facts = card_facts.session_facts(path)
         ctx.check(f"the record's figures: {facts['cost_usd']} unknown {facts['cost_unknown']}", _near(facts["cost_usd"]) and facts["cost_unknown"] == [])
-        p, from_file = report_card.resolve(state, f"session:{SID}")
-        money = report_card.card(p, f"session:{SID}", from_file)["money"]
+        p = report_card.resolve(state, f"session:{SID}")
+        money = report_card.card(p, f"session:{SID}")["money"]
         ctx.check(f"the report card's money: {money['total']} known {money['known']}", _near(money["total"]) and money["known"])
-        cmp = compare.compare(card_data.resolve(state, f"session:{SID}"), card_data.resolve(state, f"session:{SID}"))
-        cost_row = next(r for r in cmp["rows"] if r["key"] == "cost")
-        ctx.check(f"the compare row: {cost_row['a']}", _near(cost_row["a"]["value"]) and not cost_row["a"].get("unknown"))
+        # 3.6.0.3 B (file 06): Compare left; the run's own cost cell (the one its row showed) stays on the card
+        cost_cell = card_data.cells(card_facts.figures(card_data.resolve(state, f"session:{SID}")))["cost"]
+        ctx.check(f"the card's cost cell: {cost_cell}", _near(cost_cell["value"]) and not cost_cell.get("unknown"))
         view = {"harnesses": [local_view.harness_entry([], state)]}
         spent = caps.spend(view, now)
         ctx.check(f"the caps' harness and total figures: {spent['harnesses']} {spent['total']}",

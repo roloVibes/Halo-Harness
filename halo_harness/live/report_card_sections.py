@@ -1,6 +1,6 @@
 """halo_harness.live.report_card_sections -- two of the report card's sections (Halo 3.4.1.0 R3 "Time"; live/report_card.py
 builds the rest): which model did what, and what this record cannot show, said in plain words rather than left blank
-(docs/REPLAY.md "What a past moment can and cannot show" is the list). No model call.
+No model call.
 
     models_did(agents, figures) -> [{model, cost_usd, cost_share, time_share, agents: [{name, role, task}]}]
     cannot(p, facts, waits, money) -> [line, ...]
@@ -30,13 +30,8 @@ def cannot(p: dict, facts: dict, waits: list, money: dict) -> list:
     if p.get("kind") == "run":
         out.append("A goal run's record holds each lane's state changes (joined, writing, written, in review, merged, failed), "
                    "not each step a lane took.")
-    if p.get("upgraded_from") is not None:
-        out.append("This is an older file (the 3.0.5.0 to 3.4.0.0 shape): it holds the agents and their states, not the record's figures.")
-    elif not facts:
-        out.append("This file was saved before 3.4.1.0 R2: the tokens, the retries and the failed model calls are not in it; "
-                   "each model's cost comes from its agents.")
-    if "artefacts" not in facts:
-        out.append("This record does not list the files the run wrote (a replay saved before 3.4.1.0 R3).")
+    # 3.6.0.3 B (Z13): the lines only a saved file of the old playback could reach (an older shape, no figures, no
+    # files written) left with the file code: a session's and a goal run's record always carry their figures and files
     if facts and facts.get("tokens") is None:
         out.append("The tokens are not in this record" + (": not every lane's transcript is on this disk." if p.get("kind") == "run" else "."))
     if any(str(w.get("text") or "").startswith("a permission card (") for w in waits):

@@ -509,6 +509,10 @@ def _run_command(argv: list) -> Optional[int]:
         from halo_harness.studio.modes import moved_line
         print(f"halo design: {moved_line('design')}", file=sys.stderr)
         return 2
+    if argv[0] == "replay":  # 3.6.0.3 B (Z12): replays left Halo; never a prompt
+        from halo_harness.cli_commands import REPLAY_LEFT
+        print(REPLAY_LEFT, file=sys.stderr)
+        return 2
     cmd = BY_NAME.get(argv[0])
     if cmd is None or not cmd.target:
         return None

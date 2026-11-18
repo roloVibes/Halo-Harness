@@ -92,11 +92,7 @@ def pack_runs(pack_id: str, cwd, state_dir) -> bool:
 
 
 def refused(handler, method: str, path: str) -> bool:
-    """The router's check (server.py `_api`): a write without the proof that is not a running pack's own route; on a
-    clip's filming Studio (`only_gets`, live/replay_clip.py) anything but those GETs."""
-    only = getattr(handler.server, "only_gets", None)
-    if only is not None:
-        return method not in READS or not any(re.match(p, path) for p in only)
+    """The router's check (server.py `_api`): a write without the proof that is not a running pack's own route."""
     if method in READS or owner_ok(handler):
         return False
     pid = pack_page_id(method, path)

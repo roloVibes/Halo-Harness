@@ -2,8 +2,9 @@
 live/card_data.py and card_run.py, card_facts.py, card_timeline.py beside it; 3.6.0.3 moved them out of the modules named
 for replays -- live/replay_file.py, replay_run.py, replay_facts.py, compare.py, compare_text.py, timeline.py -- with no
 change of behaviour). The time axis' marks and bands, a goal run's lead model, a sub-agent's cost once, the record's
-figures and a cost Halo cannot price; every name that moved is the same object through its old module until the batch
-that deletes it, and the card's own files import it from here. Run: python -m tests.test_card_data
+figures and a cost Halo cannot price; the card's own files import it from here. 3.6.0.3 B (file 06): the old modules
+left, and the asserts of their mixed tests on build / find / build_run moved here (a session's and a goal run's record,
+no key, no home path, no names in what build returns). Run: python -m tests.test_card_data
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from tests.helpers.compare_seed import RUN, SID_B, TR, seed_b, seed_run  # noqa: E402
-from tests.helpers.replay_seed import SID, T0, seed  # noqa: E402
+from tests.helpers.replay_seed import FAKE_KEY, SID, T0, seed  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -84,16 +85,10 @@ def _compare_home(priced: bool = False):
                 os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
-def _cmp(state, repo, a, b, **kw) -> dict:
-    """Two records side by side: card_data.resolve reads each; compare.compare (Compare's rows, which leave with Compare
-    in Z4 batch 5) puts them side by side. This test is mixed like ruling (4)'s: batch 5 splits it."""
-    from halo_harness.live import card_data, compare
-    pa = card_data.resolve(state, a, cwd=repo)
-    return compare.compare(pa, pa if a == b else card_data.resolve(state, b, cwd=repo), same=a == b, **kw)
-
-
-def _rows(got: dict) -> dict:
-    return {r["key"]: r for r in got["rows"]}
+def _cost_cell(state, repo, ref: str) -> dict:
+    """One run's cost cell, as the card shows it (card_data.cells of card_facts.figures of the resolved record)."""
+    from halo_harness.live import card_data, card_facts
+    return card_data.cells(card_facts.figures(card_data.resolve(state, ref, cwd=repo)))["cost"]
 
 
 @test
@@ -171,29 +166,18 @@ def test_the_records_figures(ctx: Ctx):
 
 @test
 def test_a_cost_halo_cannot_price_is_never_marked(ctx: Ctx):
+    """3.6.0.3 B (file 06) split it from Compare: the run's own cost cell stays (the card shows it); which of two runs
+    was cheaper (Compare's rows, `better` and `word`) left with Compare."""
     with _compare_home() as (state, repo):
-        r = _rows(_cmp(state, repo, SID, SID_B))
-        ctx.check(f"B's priced part with a +, never $0: {r['cost']['b']}", r["cost"]["b"]["text"] == "$0.0120+" and r["cost"]["b"]["unknown"])
-        ctx.check("the better cost is not marked where a side is unknown", r["cost"]["better"] is None and r["cost"]["word"] == "unknown")
+        b = _cost_cell(state, repo, SID_B)
+        ctx.check(f"B's priced part with a +, never $0: {b}", b["text"] == "$0.0120+" and b["unknown"])
     with _compare_home(priced=True) as (state, repo):
-        r = _rows(_cmp(state, repo, SID, SID_B))
-        ctx.check(f"once every call is priced it is compared: {r['cost']}", r["cost"]["better"] == "b" and r["cost"]["word"] == "cheaper")
+        b = _cost_cell(state, repo, SID_B)
+        ctx.check(f"once every call is priced it is known: {b}", b["text"] == "$0.0120" and not b.get("unknown")
+                  and abs(b["value"] - 0.012) < 1e-9)
     from halo_harness.live.card_data import cells
     c = cells({"cost_usd": 0.0, "cost_known": False, "cost_unknown": ["or:x/free"], "models": []})["cost"]
     ctx.check(f"nothing priced: unknown, not $0: {c}", c["text"].startswith("unknown") and "$0" not in c["text"] and c["value"] is None)
-
-
-def _defined(path: Path) -> list:
-    """The names a module defines at its top level (functions, classes, assignments), never what it imports."""
-    out = []
-    for node in ast.parse(path.read_text(encoding="utf-8")).body:
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-            out.append(node.name)
-        elif isinstance(node, ast.Assign):
-            out += [t.id for t in node.targets if isinstance(t, ast.Name)]
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            out.append(node.target.id)
-    return out
 
 
 def _imports(path: Path) -> list:
@@ -208,25 +192,15 @@ def _imports(path: Path) -> list:
 
 
 LIVE = ROOT / "halo_harness" / "live"
-#: old module -> (its new home, the names that moved; None = the whole module moved)
-MOVES = {"replay_file": ("card_data", ("FORMAT", "VERSION", "AGENT_KEYS", "ReplayError", "plan_of", "includes", "build")),
-         "compare": ("card_data", ("PHASE", "CompareError", "resolve", "lanes")),
-         "compare_text": ("card_data", ("money", "secs", "kilo", "bare", "_pct", "cells")),
-         "replay_run": ("card_run", None), "replay_facts": ("card_facts", None), "timeline": ("card_timeline", None)}
-OLD = set(MOVES) | {"replay_private", "replay_cut", "clip_chrome"}
-#: the file code that does not move (it leaves in Z4 batch 5, Z13): the one place a kept file may still name it
-FILE_CODE = {("halo_harness/live/report_card.py", "replay_file"), ("halo_harness/live/card_data.py", "replay_file")}
+#: the modules of the old playback the card's data moved out of (3.6.0.3 R-B6); file 06 deleted them
+OLD = {"replay_file", "compare", "compare_text", "replay_run", "replay_facts", "timeline", "replay_private", "replay_cut",
+       "clip_chrome"}
 
 
 @test
-def test_every_moved_name_is_the_same_object_through_its_old_module(ctx: Ctx):
-    """3.6.0.3 (R-B6, Z5): the card's data left its replay names as a pure move; each old module re-exports what moved
-    (the private names too) until the batch that deletes it; the payload's value "halo-replay" stays."""
-    import importlib
-    for old, (new, names) in MOVES.items():
-        a, b = importlib.import_module(f"halo_harness.live.{old}"), importlib.import_module(f"halo_harness.live.{new}")
-        for name in names if names is not None else _defined(LIVE / f"{new}.py"):
-            ctx.check(f"{old}.{name} is {new}.{name}", hasattr(b, name) and getattr(a, name, None) is getattr(b, name))
+def test_the_payload_format_stays_and_each_file_is_small(ctx: Ctx):
+    """3.6.0.3 (R-B6, Z5): the payload's "format" value stays as it is; each of the card's data files stays under 400
+    lines. (File 02's identity checks through the old modules left with those modules in file 06.)"""
     from halo_harness.live import card_data
     ctx.check(f"the payload's format stays, got {card_data.FORMAT!r}", card_data.FORMAT == "halo-replay" and card_data.VERSION == 1)
     for rel in ("card_data.py", "card_run.py", "card_facts.py", "card_timeline.py"):
@@ -237,8 +211,7 @@ def test_every_moved_name_is_the_same_object_through_its_old_module(ctx: Ctx):
 @test
 def test_the_cards_files_import_no_moved_name_from_an_old_module(ctx: Ctx):
     """3.6.0.3 (R-B6): the report card (report_card*.py, `halo report`, Studio's live_recording_api) reads its data from
-    card_data and the card_* files; the new modules import no old one but resolve's file branch (replay_file's
-    path_for, load, SUFFIX: file code, a named exception until Z4 batch 5)."""
+    card_data and the card_* files; none of them imports an old module (3.6.0.3 B file 06: resolve's file branch left)."""
     files = ("halo_harness/live/report_card.py", "halo_harness/live/report_card_text.py",
              "halo_harness/live/report_card_sections.py", "halo_harness/report_cli.py",
              "halo_harness/studio/live_recording_api.py", "halo_harness/live/card_data.py", "halo_harness/live/card_run.py",
@@ -247,12 +220,171 @@ def test_the_cards_files_import_no_moved_name_from_an_old_module(ctx: Ctx):
         bad = []
         for mod, name in _imports(ROOT / rel):
             old = mod.rsplit(".", 1)[-1] if mod.startswith("halo_harness.live.") else name if mod == "halo_harness.live" else ""
-            if old in OLD and (rel, old) not in FILE_CODE:
+            if old in OLD:
                 bad.append(f"{mod}:{name}")
         ctx.check(f"{rel} imports no moved name from an old module, got {bad}", not bad)
-    src = (ROOT / "halo_harness" / "live" / "report_card.py").read_text(encoding="utf-8")
-    ctx.check("report_card.py still names replay_file only for path_for and SUFFIX (file code, Z13)",
-              set(re.findall(r"replay_file\.(\w+)", src)) <= {"path_for", "SUFFIX"})
+    for rel in ("report_card.py", "card_data.py"):
+        src = (LIVE / rel).read_text(encoding="utf-8")
+        ctx.check(f"live/{rel} names no replay_file (the file code left, Z13)", not re.findall(r"replay_file", src))
+
+
+# 3.6.0.3 B (file 06, its rulings): the mixed tests of the old file code are SPLIT, not deleted -- every assert on
+# build, find and build_run stays here, checked on the built payload itself; what saved, loaded or listed a file left.
+
+@test
+def test_a_sessions_record_for_the_card(ctx: Ctx):
+    """From test_replay_file's round trip: build() reads a session as one payload with its agents, marks, bands and the
+    lines that say what it holds."""
+    from halo_harness.live import card_data
+    with _home() as state:
+        seed(state)
+        p = card_data.build(state, SID, lineup="none-such")
+        ctx.check("three agents, marks and bands", len(p["agents"]) == 3 and p["marks"] and p["bands"])
+        ctx.check("it says what it holds", any("not included" in line for line in p["includes"]))
+
+
+@test
+def test_a_seeded_key_never_reaches_the_built_record(ctx: Ctx):
+    """From test_replay_file: build alone redacts (title, task, hand-back); no working directory or project path."""
+    from halo_harness.live import card_data
+    with _home() as state:
+        seed(state)
+        built = json.dumps(card_data.build(state, SID))
+        ctx.check("no key in the record", FAKE_KEY not in built and FAKE_KEY[9:] not in built and "zq" * 14 not in built)
+        ctx.check("where it stood, the redactor's mark", "<redacted>" in built)
+        ctx.check("no working directory or path", "secret-project" not in built and '"cwd"' not in built)
+
+
+@test
+def test_a_goal_runs_record_for_the_card(ctx: Ctx):
+    """From test_replay_run: a goal run is found by id in its repo and read as the same payload a session is."""
+    from halo_harness.live import card_run
+    with _home() as state:
+        repo = state.parent / "repo"
+        run_dir = seed_run(repo)
+        ctx.check("found by id in the repo", card_run.find(repo, RUN) == run_dir and card_run.find(repo, "nope") is None)
+        p = card_run.build_run(state, run_dir)
+        ctx.check(f"kind run: {p['kind']}", p["kind"] == "run")
+        ctx.check(f"the lead and its two lanes as agents: {[a['agent_id'] for a in p['agents']]}",
+                  [a["agent_id"] for a in p["agents"]] == ["lead", "lane-1", "lane-2"] and p["agents"][1]["parent"] == "lead")
+        ctx.check(f"lane 1 done, lane 2 failed: {[a['state'] for a in p['agents']]}", [a["state"] for a in p["agents"]] == ["done", "done", "failed"])
+        kinds = [(m["kind"], round(m["t"] - TR)) for m in p["marks"]]
+        ctx.check(f"the plan review, two spawns, two hand-offs, the failure and the finishes: {kinds}",
+                  ("ask", 8) in kinds and kinds.count(("spawn", 10)) == 2 and ("handoff", 40) in kinds and ("fail", 50) in kinds and ("finish", 90) in kinds)
+        ctx.check("each lane's states from its record", any(s["agent_id"] == "lane-1" and s["activity"] == "typing" for s in p["states"]))
+        ctx.check(f"the bands: {sorted({b['phase'] for b in p['bands']})}", {"writing"} <= {b["phase"] for b in p["bands"]})
+        f = p["facts"]
+        ctx.check(f"its figures from the report and the lanes: {f}", f["cost_usd"] == 0.05 and f["how"] == "finished" and f["ok"] is True
+                  and f["retries"] == 1 and f["model_cost"] == {"or:mock/lead": 0.01, "or:mock/glm-5.3": 0.03, "or:mock/worker": 0.01})
+        ctx.check("its tokens are unknown (no lane session on this disk), never 0", f["tokens"] is None)
+
+
+@test
+def test_a_seeded_key_never_reaches_a_goal_runs_record(ctx: Ctx):
+    """From test_replay_run: the goal and a lane's title held a key; the built record holds none, nor the repo's path."""
+    from halo_harness.live import card_run
+    with _home() as state:
+        run_dir = seed_run(state.parent / "repo")
+        built = json.dumps(card_run.build_run(state, run_dir))
+        ctx.check("no key in the record (the goal and a lane's title held one)", FAKE_KEY not in built and FAKE_KEY[9:] not in built)
+        ctx.check("where it stood, the redactor's mark", "<redacted>" in built)
+        ctx.check("no repo path, worktree or branch", "secret-project" not in built and '"cwd"' not in built and "worker-1" not in built)
+
+
+@test
+def test_a_goal_runs_lane_ends_when_it_merged(ctx: Ctx):
+    """From test_replay_run_time (3.4.1.1 defect 60; its route left with the old playback): the record gives each lane's
+    states and the run's costs at their own times -- lane 1 written at +70 ends when it merged (+80)."""
+    from halo_harness.live import card_run
+    with _run() as (state, repo):
+        p = card_run.build_run(state, card_run.find(repo, RUN))
+        lane1 = next(a for a in p["agents"] if a["agent_id"] == "lane-1")
+        ctx.check(f"lane 1 ends when it merged (+80), not when its piece was written (+70): {lane1['ended'] - TR}",
+                  round(lane1["ended"] - TR) == 80)
+        ends = {s["agent_id"]: round(s["t"] - TR) for s in p["states"] if s["state"] == "done"}
+        ctx.check(f"its done state is at +80: {ends}", ends.get("lane-1") == 80)
+        costs = [(round(c["t"] - TR), c["usd"]) for c in p["costs"]]
+        ctx.check(f"its costs come at each end (the record's only times for them): {costs}", costs and costs[-1] == (90, 0.05))
+
+
+@contextlib.contextmanager
+def _private_home(where=None):
+    """A scratch home in `where` with a made-up account (tests/test_privacy_scrub.py's names) in its environment."""
+    from tests.test_privacy_scrub import MACHINE, NIX_HOME, USER, WIN_HOME
+    env = {"USERPROFILE": WIN_HOME, "HOME": NIX_HOME, "USERNAME": USER, "USER": USER, "LOGNAME": USER, "COMPUTERNAME": MACHINE}
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR") + tuple(env)}
+    with tempfile.TemporaryDirectory(prefix="halo-private-", dir=where) as d:
+        os.environ["BRIDGE_TEST_HOME"] = d
+        os.environ.pop("BRIDGE_STATE_DIR", None)
+        os.environ.update(env)
+        try:
+            from halo_harness.config.paths import bridge_home
+            yield bridge_home()
+        finally:
+            for k, v in saved.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
+def _private(ctx: Ctx, where=None, label: str = "") -> None:
+    """From test_replay_private (3.4.1.1 defect 56): a seeded home path, user name, machine name and key never reach the
+    BUILT record; a path inside the project reads project-relative, any other under the home as ~/..."""
+    from halo_harness.live import card_data
+    from tests.test_privacy_scrub import MACHINE, NIX_HOME, USER, WIN_HOME
+    with _private_home(where) as state:
+        sub = seed(state).parent / SID / "subagents"
+        proj = str(state.parent / "work" / "secret-project")  # the session's cwd (seed's meta)
+        (Path(proj) / ".git").mkdir(parents=True, exist_ok=True)  # its own repo, wherever the scratch home lies
+        said = f"read {WIN_HOME}\\Documents\\plan.md and {NIX_HOME}/notes, as {USER} on {MACHINE} {FAKE_KEY}"
+        task = f"count lines of {proj}{os.sep}a.txt; {said}"
+        for name in ("agent-scout1.meta.json", "agent-scout1.jsonl"):  # the task: the meta's and the first user line
+            rows = [json.loads(x) for x in (sub / name).read_text(encoding="utf-8").splitlines() if x.strip()]
+            rows[0].update({"description": task} if name.endswith(".meta.json") else {"content": task})
+            (sub / name).write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+        p = card_data.build(state, SID)
+        raw = json.dumps(p)
+        for bad in (FAKE_KEY, USER, USER[:6], MACHINE, "Users\\\\" + USER, "/home/" + USER, proj,
+                    proj.replace("\\", "\\\\"), str(state.parent).replace("\\", "\\\\"), "secret-project"):
+            ctx.check(f"{label}{bad[:40]!r} is not in the built record", bad not in raw)
+        got = next(a["task"] for a in p["agents"] if a["agent_id"] == "scout1")
+        want = "count lines of a.txt; read ~/Documents/plan.md and ~/notes, as <user> on <machine>"
+        # the task is an excerpt (200 characters of the model's words, live/history.py): how much of `want` it holds
+        # depends on how long the scratch home's path was; it is `want` or a cut of it ending in "..."
+        cut = got[:-3] if got.endswith("...") else None
+        ctx.check(f"{label}the task (the model's words) reads project-relative, ~ and no names, got {got!r}",
+                  got.startswith(want) or (cut is not None and (want.startswith(cut) or (
+                      cut.endswith(("<user>", "<machine>")) and want.startswith(cut.rsplit(" ", 1)[0] + " ")))))
+        ctx.check("the includes line says the limit",
+                  any("relative to the project" in x and "where you typed it" in x for x in p["includes"]))
+
+
+@test
+def test_a_seeded_home_path_user_name_and_key_never_reach_the_built_record(ctx: Ctx):
+    _private(ctx)
+
+
+@test
+def test_the_scratch_home_inside_a_repo_and_under_an_8_3_spelling(ctx: Ctx):
+    """3.4.1.2: the gate puts TEMP under the real home (and a run may put it inside the project): the redaction does not
+    depend on where the scratch home lies, nor on a short (8.3) spelling of its folder."""
+    inside = ROOT / ".prepush" / "card-private-inside"
+    inside.mkdir(parents=True, exist_ok=True)
+    try:
+        _private(ctx, str(inside), "inside the working tree: ")
+    finally:
+        import shutil
+        shutil.rmtree(inside, ignore_errors=True)
+    long_dir = Path(tempfile.mkdtemp(prefix="halo private long folder name "))
+    try:
+        short = str(long_dir)
+        if os.name == "nt":
+            import ctypes
+            buf = ctypes.create_unicode_buffer(1024)
+            if ctypes.windll.kernel32.GetShortPathNameW(str(long_dir), buf, 1024):
+                short = buf.value
+        _private(ctx, short, f"under {'an 8.3 spelling' if short != str(long_dir) else 'a long folder name'}: ")
+    finally:
+        import shutil
+        shutil.rmtree(long_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

@@ -394,36 +394,32 @@ def _imports(path: Path) -> list:
     return out
 
 
-OLD_SCRUB = ("halo_harness.live.replay_private", "halo_harness.live.replay_cut")
+LIVE_PKG = "halo_harness.live"
+OLD_SCRUB = tuple(f"{LIVE_PKG}.{name}" for name in ("replay_private", "replay_cut"))  # deleted in 3.6.0.3 B file 06
 
 
 @test
-def test_every_moved_name_is_the_same_object_through_its_old_module(ctx: Ctx):
-    """3.6.0.3 (R-B6, Z5): the scrub left its replay names as a pure move; each old module re-exports what moved (the
-    private names too) until the batch that deletes it."""
-    from halo_harness import privacy_scrub as new
-    from halo_harness.live import replay_cut, replay_private
+def test_the_scrub_lives_in_its_own_module(ctx: Ctx):
+    """3.6.0.3 (R-B6, Z5): the scrub left its old names as a pure move, private names too; file 06 deleted the old
+    modules that re-exported it (and audit(), with `halo audit privacy --replays`)."""
+    import importlib.util
     names = _defined(ROOT / "halo_harness" / "privacy_scrub.py")
     for must in ("scrub", "project_root", "_homes", "_CONTROLS", "_SEGMENT_END", "_name_patterns", "COMMON_NAMES",
                  "cut_name_rule", "cut_path_rule"):
         ctx.check(f"{must} lives in privacy_scrub.py", must in names)
-    for name in names:
-        ctx.check(f"replay_private.{name} is privacy_scrub.{name}", getattr(replay_private, name, None) is getattr(new, name))
-    for name in ("COMMON_NAMES", "cut_name_rule", "cut_path_rule"):
-        ctx.check(f"replay_cut.{name} is privacy_scrub.{name}", getattr(replay_cut, name, None) is getattr(new, name))
-    ctx.check("audit() did not move (it leaves with `halo audit privacy --replays`)",
-              "audit" not in names and callable(getattr(replay_private, "audit", None)))
+    ctx.check("audit() is not in it", "audit" not in names)
+    for old in OLD_SCRUB:
+        ctx.check(f"{old} is gone", importlib.util.find_spec(old) is None)
 
 
 @test
 def test_the_kept_files_import_the_scrub_from_its_own_module(ctx: Ctx):
     """3.6.0.3 (R-B6): privacy_redact.py (the export's, `halo export --sanitize`'s and the bug report's redaction),
-    live/replay_file.py's build and realcheck's prompt step import the scrub from halo_harness.privacy_scrub; the new
-    module imports no old one."""
-    for rel in ("halo_harness/privacy_redact.py", "halo_harness/live/replay_file.py", "scripts/realcheck/steps_prompt.py",
+    the card's build (live/card_data.py) and realcheck's prompt step import the scrub from halo_harness.privacy_scrub; the
+    new module imports no old one."""
+    for rel in ("halo_harness/privacy_redact.py", "halo_harness/live/card_data.py", "scripts/realcheck/steps_prompt.py",
                 "halo_harness/privacy_scrub.py"):
-        old = [f"{m}.{n}" for m, n in _imports(ROOT / rel) if m in OLD_SCRUB or m == "halo_harness.live" and n in (
-            "replay_private", "replay_cut")]
+        old = [f"{m}.{n}" for m, n in _imports(ROOT / rel) if m in OLD_SCRUB or m == LIVE_PKG and f"{m}.{n}" in OLD_SCRUB]
         ctx.check(f"{rel} imports nothing from the old modules, got {old}", not old)
     for rel in ("halo_harness/privacy_redact.py", "scripts/realcheck/steps_prompt.py"):
         ctx.check(f"{rel} imports from halo_harness.privacy_scrub",

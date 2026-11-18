@@ -948,6 +948,16 @@ def test_builder_description_says_workflow_on_a_map(ctx: Ctx):
 # ---- 3.6.0.2 P2 batch 7 (R51, with R38 R40): /clear keeps the map and says so ---------------------------------------
 
 
+def _logged_map(path) -> tuple:
+    """(the LAST map_start's `data.map`, how many map_hop / map_step receipts) in a session's log: the map receipts stay
+    in the log (3.6.0.3 B, Z11: this replaces map_events.recorded, which left with the old playback's route)."""
+    from halo_harness.live.history import read_nodes
+    rows = [n for n in read_nodes(path) if isinstance(n, dict) and n.get("type") == "receipt" and n.get("kind") == "map"]
+    starts = [n for n in rows if n.get("event") == "map_start"]
+    last = (starts[-1].get("data") or {}).get("map") if starts else None
+    return last, sum(1 for n in rows if n.get("event") in ("map_hop", "map_step"))
+
+
 def _map_starts(log) -> list:
     return [(i, n) for i, n in enumerate(log.nodes())
             if n.get("type") == "receipt" and n.get("kind") == "map" and n.get("event") == "map_start"]
@@ -978,14 +988,14 @@ def _clear_notes(session, error=None) -> list:
 @test
 def test_clear_relogs_map_start_and_says_the_map(ctx: Ctx):
     """R51: `/clear` starts a new log that begins (after its system node) with the map the session still runs on --
-    name, scope, path, hash, t -- so a replay keeps drawing it there; the terminal says "This session still runs on
+    name, scope, path, hash, t -- so the record keeps it there; the terminal says "This session still runs on
     {A}." after its line. With R38 R40: the status row's start time is the re-logged one, the new conversation's first
     turn carries no note, a later switch is told again. A session with no map: nothing of it.
     The status row's `asked` stays True after /clear, by R5: "A row whose `parent` is `studio:<pid>` ... and no turn reads
     T10" ("New session from Studio, no message yet.") -- a cleared session has had its turns and keeps its map (R51:
     "`/clear` keeps the map and says so"), so it never reads T10 again."""
     import hashlib
-    from halo_harness.crew import map_events, store
+    from halo_harness.crew import store
     from halo_harness.theme import set_config_value
     cleared = "Conversation cleared -- starting a new session context."
     # part 1 + 2: on yours `shop`
@@ -1005,7 +1015,7 @@ def test_clear_relogs_map_start_and_says_the_map(ctx: Ctx):
                   data.get("map") == "shop" and data.get("scope") == "yours" and data.get("path") == str(path)
                   and data.get("hash") == hashlib.sha256(path.read_bytes()).hexdigest()
                   and isinstance(data.get("t"), float))
-        ctx.check("a replay of the new log reads shop", map_events.recorded(s.log.path)["map"] == "shop")
+        ctx.check("the new log's last map_start reads shop", _logged_map(s.log.path)[0] == "shop")
         notes = _clear_notes(s)
         ctx.check(f"the terminal: its line, then 'This session still runs on shop.', got {notes}",
                   notes == [(cleared, "note"), ("This session still runs on shop.", "note")])
@@ -1076,14 +1086,13 @@ def test_resumed_session_has_map_since(ctx: Ctx):
                   and starts[-1][1].get("data", {}).get("map") == "shop")
         two = _notes(rig.turn("Which map?"))
         ctx.check(f"the resumed session's first turn carries no note (nothing changed), got {two}", two == [])
-        from halo_harness.crew import map_events  # batch 8 repair: a resume onto another map -- the replay names it
+        # batch 8 repair: a resume onto another map -- the log names it (3.6.0.3 B, Z11: read from the map_start rows)
         two_starts = rig.home / "two-starts.jsonl"
         two_starts.write_text("".join(json.dumps({"type": "receipt", "kind": "map", "event": e, "data": d}) + "\n" for e, d in (
             ("map_start", {"map": "shop", "t": 1.0}), ("map_hop", {"map": "shop", "to": "coder"}),
             ("map_start", {"map": "ship-it", "t": 2.0}))), encoding="utf-8")
-        got = map_events.recorded(two_starts)
-        ctx.check(f"a log with two map_starts replays on the last one's map, got {got.get('map')}",
-                  got.get("map") == "ship-it" and len(got.get("events") or []) == 1)
+        got = _logged_map(two_starts)
+        ctx.check(f"a log with two map_starts runs on the last one's map, its hop kept, got {got}", got == ("ship-it", 1))
     with _NoteRig(crew_map=False) as rig:
         rig.turn("Say hello.")
         s = rig.resume()

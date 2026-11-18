@@ -37,19 +37,6 @@ def test_47_a_new_files_diff(ctx: Ctx):
 
 
 @test
-def test_61_compare_says_how_often_it_asked(ctx: Ctx):
-    from halo_harness.live.compare_text import differed
-    row = lambda key, a, b, better="a": {"key": key, "label": key, "a": {"value": a, "text": ""}, "b": {"value": b, "text": ""},  # noqa: E731
-                                         "better": better}
-    rows = [row("ended", 0, 0, "same"), row("cost", 0, 0, "same") | {"word": "same"}, row("wall", 1, 1, "same"), row("models", [], [], "same"),
-            row("failures", 0, 0, "same"), row("asks", 2, 3), row("retries", 0, 0, "same"), row("tokens", 1, 1, "same"),
-            row("agents", 1, 1, "same")]
-    lines = differed(rows, {}, {})
-    ctx.check(f"`A asked you 2 times; B 3 times.`, not `2 ask to yous`, got {lines}",
-              any(x == "A asked you 2 times; B 3 times." for x in lines) and not any("ask to yous" in x for x in lines))
-
-
-@test
 def test_55_no_source_says_an_invalid_escape(ctx: Ctx):
     """`halo replay clip` first printed replay_clip.py:131's SyntaxWarning (a `\\s` in a plain string); permissions_ps.py's
     docstring had one too. No module of Halo's may: each compiles here with that warning made an error."""

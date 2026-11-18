@@ -50,12 +50,16 @@ def _render_text(findings: "list[dict]", *, history: bool) -> str:
 
 def cmd_audit(argv: "list[str]") -> int:
     if argv[:1] in (["-h"], ["--help"]):  # 3.6.0.0 R16: the usage, exit 0
-        print("usage: halo audit privacy [--history | --commits | --replays] [--json] [--since REV] [--cwd DIR]\n"
+        print("usage: halo audit privacy [--history | --commits] [--json] [--since REV] [--cwd DIR]\n"
               "(halo audit privacy --help for each flag)")
         return 0
     if not argv or argv[0] != "privacy":
-        print("usage: halo audit privacy [--history | --commits | --replays] [--json] [--since REV] [--cwd DIR]",
+        print("usage: halo audit privacy [--history | --commits] [--json] [--since REV] [--cwd DIR]",
               file=sys.stderr)
+        return 2
+    if "--replays" in argv[1:]:  # 3.6.0.3 B (R-B10, Z12): the saved replays' scan left with the replays
+        from halo_harness.cli_commands import REPLAY_LEFT
+        print(REPLAY_LEFT, file=sys.stderr)
         return 2
 
     parser = argparse.ArgumentParser(
@@ -70,9 +74,6 @@ def cmd_audit(argv: "list[str]") -> int:
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON instead of text lines")
     parser.add_argument("--since", default=None, metavar="REV",
                          help="With --history, leave out everything REV reaches")
-    parser.add_argument("--replays", action="store_true",
-                         help="Scan this home's saved replays (~/.halo/replays/*.halo-replay) instead: the rules above, "
-                              "plus this machine's home path, user name and machine name (3.4.1.1)")
     parser.add_argument("--cwd", default=None, metavar="DIR",
                          help="Repo directory to scan (default: the current directory)")
     args = parser.parse_args(argv[1:])
@@ -93,16 +94,11 @@ def cmd_audit(argv: "list[str]") -> int:
             print(name_checks_line())
             print(pc.render(report), end="")
         return 1 if failing else 0
-    if args.replays:  # 3.4.1.1 (56): a replay is made to be handed on; its own folder, its own check
-        from halo_harness.live.replay_private import audit
-        from halo_harness.providers.config import default_state_dir
-        findings = audit(default_state_dir())
-    else:
-        findings = scan_history(repo, since=args.since) if args.history else scan_working_tree(repo, not_checked)
+    findings = scan_history(repo, since=args.since) if args.history else scan_working_tree(repo, not_checked)
 
     if args.json:
         payload = {
-            "mode": "replays" if args.replays else "history" if args.history else "working-tree",
+            "mode": "history" if args.history else "working-tree",
             # The repo's own NAME only -- never the absolute path, which
             # on a real machine starts with the same real home-profile
             # path (`C:\Users\<name>\...`/`/home/<name>/...`) this whole
@@ -118,8 +114,7 @@ def cmd_audit(argv: "list[str]") -> int:
             payload["summary"] = summarize_history(findings)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        if not args.replays:
-            print(name_checks_line())
+        print(name_checks_line())
         if not_checked:
             print(f"not checked: {len(not_checked)} file(s) that are not text (images, fonts, archives; SVG is text "
                   f"and is checked)")

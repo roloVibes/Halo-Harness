@@ -842,6 +842,24 @@ def _check_test_leftovers(state_dir: Optional[Path] = None) -> Optional[str]:
                 cmd=f"inspect and remove by hand from {mcp_dir}")
 
 
+def _check_replay_leftovers(state_dir: Optional[Path] = None) -> Optional[str]:
+    """3.6.0.3 B (R-B11, Z14): the saved files of the old playback (`<state>/replays/`, its clips counted) -- one WARN
+    while the folder exists, `None` (no row) otherwise. Read-only: the folder is never moved or deleted here."""
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.tui.copy_outcome import display_path
+        folder = (Path(state_dir) if state_dir is not None else bridge_home()) / "replays"
+        if not folder.is_dir():
+            return None
+        n = sum(1 for p in folder.rglob("*") if p.is_file())
+        shown = display_path(folder) + os.sep
+    except OSError:
+        return None
+    files = "1 saved file is" if n == 1 else f"{n} saved files are"
+    return _fix(f"{WARN} Halo no longer opens replays; {files} in {shown} (clips counted)",
+                cmd="delete the folder when you like")
+
+
 def _check_orphans(state_dir: Optional[Path] = None) -> Optional[str]:
     """3.6.0.0 R10: "N processes of Halo have no living owner", with the command that stops them; None when none."""
     from halo_harness.ps_cli import doctor_line
@@ -1803,6 +1821,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("clipboard", _row("clipboard", _clipboard_row)))
     entries.append(("mcp_servers", _row("mcp_servers", _check_mcp_servers, cwd)))
     entries.append(("test_leftovers", _row("test_leftovers", _check_test_leftovers)))
+    entries.append(("replay_leftovers", _row("replay_leftovers", _check_replay_leftovers)))
     entries.append(("orphans", _row("orphans", _check_orphans)))
     entries.append(("mcp_connectors", _row("mcp_connectors", _check_mcp_connectors)))
     entries.extend(_rows("ollama_hosts", _check_ollama_hosts))

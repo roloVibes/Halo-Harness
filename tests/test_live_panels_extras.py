@@ -1,8 +1,8 @@
-"""tests.test_live_panels_extras -- Halo 3.0.5.0 round R4, hand-offs, flight recordings and the canvas replay over
+"""tests.test_live_panels_extras -- Halo 3.0.5.0 round R4, hand-offs and flight recordings over
 the rig (tests/helpers/studio_session_rig.py) and real HTTP: Take over writes the hand-off in the agent's transcript
 and its parent's; Hand to writes `<repo>/.halo/handoffs/<id>.md`, then stops the agent (3.1.4.0: a leftover
 `paperclip.enabled` changes nothing); a recording is one self-contained HTML with no external URL (the no-URL gate of
-tests/test_studio_dist.py) that the download route serves; the replay is the ordered states of a finished session.
+tests/test_studio_dist.py) that the download route serves. (3.6.0.3 B: the old playback's route left, and its test with it.)
 Companion of tests/test_live_panels_api.py.
 
 Run: python -m tests.test_live_panels_extras
@@ -129,25 +129,6 @@ def test_a_recording_is_self_contained_and_the_route_serves_it(ctx: Ctx):
         ctx.check(f"?agent= keeps that agent, got {got.get('name')} {got.get('agents')}", status == 200
                   and got["name"] == f"{PAST_SID}-{PAST_REVIEWER}.html" and got["agents"] == 1)
         ctx.check("an unknown session is a 404", rig.api("POST", "live/local/nosuchsession/recording")[0] == 404)
-
-
-@test
-def test_the_replay_route_returns_the_ordered_states(ctx: Ctx):
-    from tests.helpers.studio_session_parts import PAST_REVIEWER, PAST_SID
-    from tests.helpers.studio_session_rig import StudioSessionRig
-    with StudioSessionRig() as rig:
-        status, got = rig.api("GET", f"live/replay?session={PAST_SID}")
-        states = got.get("states") or []
-        ctx.check(f"200 with the agents and their states in time order, got {status} {len(states)}", status == 200 and states
-                  and all(states[i]["t"] <= states[i + 1]["t"] for i in range(len(states) - 1))
-                  and {s["agent_id"] for s in states} == {"main", PAST_REVIEWER})
-        ctx.check("the reviewer starts after the main agent and both end done",
-                  min(s["t"] for s in states if s["agent_id"] == PAST_REVIEWER) > min(s["t"] for s in states if s["agent_id"] == "main")
-                  and {s["state"] for s in states if s["activity"] == "done"} == {"done"} and "entries" not in got)
-        ctx.check("the agents carry what the canvas matches on (role, bio, lineup)",
-                  next(a for a in got["agents"] if a["agent_id"] == PAST_REVIEWER)["lineup"] == "halo-dev-cycle")
-        ctx.check("no session is a 422; an unknown one a 404", rig.api("GET", "live/replay")[0] == 422
-                  and rig.api("GET", "live/replay?session=nosuch")[0] == 404)
 
 
 if __name__ == "__main__":

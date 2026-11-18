@@ -3,7 +3,7 @@ tests the no-Pillow path too: `import PIL` (and every `from PIL import ...`) rai
 way it does where Pillow is not installed; after it, the modules are back as they were.
 
     with no_pillow():
-        ...   # replay_clip.encoder() says Pillow is missing; a clip's encode refuses before anything is written
+        ...   # the code under test sees Pillow missing, as on an install without the [images] extra
 
 It is process-wide (sys.modules): an in-process Studio's handler threads see it too, which is what a Chrome driver
 that serves Studio in its own process wants.

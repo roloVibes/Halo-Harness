@@ -101,10 +101,8 @@ def test_halo_update_keeps_the_extras_the_install_was_made_with(ctx: Ctx):
 
 @test
 def test_the_printed_lines_come_from_the_install(ctx: Ctx):
-    from halo_harness import voice
-    from halo_harness.live import replay_clip
+    from halo_harness import voice  # 3.6.0.3 B: the clip's Pillow line left with the clip; no kept code prints the images one
     ctx.check(f"voice's line, got {voice.INSTALL_LINE!r}", voice.INSTALL_LINE == upd.extra_install_line("voice"))
-    ctx.check("replay clips' line", upd.extra_install_line("images") in replay_clip.needs_pillow())
     bare = re.compile(r"""halo-harness\[[\w,]+\]["'`]""")
     hits, unpinned = [], []
     # checker, batch 1: the steward's knowledge (*.md under halo_harness) too, and a line broken after `install`

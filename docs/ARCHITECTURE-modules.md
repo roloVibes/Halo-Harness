@@ -125,22 +125,15 @@ try, and a workflow's `run` on the step runner).
   `live/crew_attention.py` (3.6.0.0 R1: a Try it run that ended unseen)
 - `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
   `live/recording.py`, `live/recording_page.py`
-- time (3.4.1.0 R1, docs/REPLAY.md): `live/timeline.py` (a session's marks and phase bands), `live/replay_file.py` (the
-  `.halo-replay` file; 3.4.1.2: `live/replay_guard.py`, a hostile file's depth cap and control characters), `live/replay_clip.py` + `live/clip_chrome.py` + `live/clip_pipe.py` (the clip, filmed in headless Chrome; 3.4.1.2: DevTools over pipes on POSIX),
-  `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`);
-  R2: `live/replay_run.py` (a goal run's replay), `live/replay_facts.py` (a run's figures from its own record),
-  `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`);
-  3.6.0.3: `live/card_data.py` + `live/card_run.py` + `live/card_facts.py` + `live/card_timeline.py` (the report card's
-  data, moved out of the replay modules above, which re-export it until they leave), `privacy_scrub.py` (the export's
-  and the bug report's redaction, from `live/replay_private.py` + `live/replay_cut.py`), `browser_find.py` (the browser
-  finder realcheck uses, from `live/clip_chrome.py`);
-  R3: `live/report_card.py` + `live/report_card_sections.py` + `live/report_card_text.py` (the run report card and its
-  Markdown, from the record), `report_cli.py` (`halo report`); R4: `studio/glance_door.py` (where the glance is: this
-  machine's address, the SSH door's state and the phone's steps, `GET glance/door`; the terminal's phone line), the
-  page in `studio/ui/src/routes/glance/`, the alert's channels in `studio/ui/src/lib/alerts.ts`; 3.4.1.1:
-  `live/replay_cut.py` (3.4.1.3: a name or a path the 200-character excerpt cut in half is still rewritten),
-  `live/replay_private.py` (a saved replay's paths project-relative or `~/...`, the user and machine names out;
-  `halo audit privacy --replays`)
+- the report card (3.4.1.0 R3; 3.6.0.3 B: the old playback is gone -- its saved files, the clip, Compare, `halo replay`):
+  `live/card_data.py` + `live/card_run.py` + `live/card_facts.py` + `live/card_timeline.py` (the report card's
+  data: a session's or a goal run's record), `privacy_scrub.py` (the export's and the bug report's redaction: paths
+  project-relative or `~/...`, the user and machine names out; 3.4.1.3: a name or a path an excerpt cut in half is
+  still rewritten), `browser_find.py` (the browser finder realcheck uses);
+  `live/report_card.py` + `live/report_card_sections.py` + `live/report_card_text.py` (the run report card and its
+  Markdown, from the record), `report_cli.py` (`halo report`); 3.4.1.0 R4: `studio/glance_door.py` (where the glance
+  is: this machine's address, the SSH door's state and the phone's steps, `GET glance/door`; the terminal's phone
+  line), the page in `studio/ui/src/routes/glance/`, the alert's channels in `studio/ui/src/lib/alerts.ts`
 - `live/session_cost.py` (3.4.0.1: a session's spend from its record, and today's; 3.4.1.0 R5: today by project),
   `live/history_owner.py` (3.4.0.1: which past sessions are a goal run's or a mission's own; R5: each session's own
   repo too), `packs/shipped_newer.py` (3.4.1.0 R5: an installed pack older than the one this Halo ships), Live's

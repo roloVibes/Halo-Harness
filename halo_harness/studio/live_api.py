@@ -1,5 +1,5 @@
 """halo_harness.studio.live_api -- Studio's `live/*` routes: this machine's sessions as Session, Agents -> Live, the
-attention chip and the replay read them (Halo 3.0.5.0 R2; 3.5.0.0: named `live/`, this machine only).
+attention chip read them (Halo 3.0.5.0 R2; 3.5.0.0: named `live/`, this machine only).
 
     GET  live                                       this harness and its live sessions (peers/local_view.py's snapshot)
     POST live/<harness>/<sid>/command               a command to one of this harness's sessions (`local` or its id)
@@ -7,7 +7,7 @@ attention chip and the replay read them (Halo 3.0.5.0 R2; 3.5.0.0: named `live/`
     GET  live/history                               past runs by role or bio (studio/live_agents_api.py)
     live/attention[/answer], live/costs, live/caps, live/conflicts      studio/live_panels_api.py
     live/<h>/<sid>/agents/<aid>/handoff                                 studio/live_handoff_api.py
-    live/<h>/<sid>/recording, live/recordings/<name>, live/replay       studio/live_recording_api.py
+    live/<h>/<sid>/recording, live/recordings/<name>                    studio/live_recording_api.py
     GET  live/report?ref=<ref>                      the run report card (studio/live_report_api.py)
 
 A `<harness>` other than this one is 404: Halo drives this machine's sessions (another machine's models are Local's).

@@ -3,7 +3,7 @@ round 10, telemetry and logs (findings 84, 85, 86, 89):
 
   * f84  a sub-agent's cost landed on the parent model's stats row
   * f85  the stats cache had no schema version and never pruned
-  * f86  replay's list of non-prompt kinds missed what the log writes
+  * f86  (its test left with `halo replay` in 3.6.0.3)
   * f89  readers split logs with splitlines() and lost U+2028/U+2029 lines
 
 The rest of round 10 lives in tests/test_review2_round10b.py (87, 88, 91)
@@ -161,42 +161,6 @@ def test_f85_an_old_cache_is_rebuilt_and_deleted_sessions_are_pruned(ctx: Ctx):
                   str(gone) not in cache and str(keep) in cache)
 
 
-# ---- f86: replay's non-prompt kinds -------------------------------------------
-
-@test
-def test_f86_replay_skips_every_kind_the_log_writes(ctx: Ctx):
-    from halo_harness.replay import parse_turns
-    kinds = ["continuation", "compaction_summary", "compaction_tail", "agent_notice", "job_notice", "steer"]
-    with scoped_home() as home:
-        p = home / "s.jsonl"
-        nodes = [{"type": "user", "content": [{"type": "text", "text": "first real prompt"}]}]
-        nodes += [{"type": "user", "kind": k, "content": [{"type": "text", "text": f"note {k}"}]} for k in kinds]
-        nodes.append({"type": "user", "content": [{"type": "text", "text": "second real prompt"}]})
-        p.write_text("".join(json.dumps(n) + "\n" for n in nodes), encoding="utf-8")
-        turns = parse_turns(p)
-        ctx.check(f"two real turns, got {[t.user_text for t in turns]}", [t.user_text for t in turns] == [
-            "first real prompt", "second real prompt"])
-        ctx.check("--turn 2 lands on the second prompt's own line", turns[1].node_line == len(kinds) + 1)
-
-
-# ---- f89: U+2028 / U+2029 inside a record -------------------------------------
-
-@test
-def test_f89_replay_and_fork_keep_records_with_line_separators(ctx: Ctx):
-    from halo_harness.replay import _truncate_fork, parse_turns
-    with scoped_home() as home:
-        p = home / "s.jsonl"
-        nodes = [{"type": "user", "content": [{"type": "text", "text": f"one{LS}two"}]},
-                 {"type": "assistant", "content": [{"type": "text", "text": f"a{PS}b"}]},
-                 {"type": "user", "content": [{"type": "text", "text": "second"}]}]
-        p.write_text("".join(json.dumps(n, ensure_ascii=False) + "\n" for n in nodes), encoding="utf-8")
-        turns = parse_turns(p)
-        ctx.check(f"both turns found, got {[(t.index, t.user_text) for t in turns]}",
-                  len(turns) == 2 and turns[0].user_text == f"one{LS}two" and turns[1].node_line == 2)
-        ctx.check("the assistant text with a separator survived", turns[0].assistant_text == f"a{PS}b")
-        _truncate_fork(p, keep_lines=turns[1].node_line)
-        kept = [json.loads(x) for x in p.read_text(encoding="utf-8").split("\n") if x]
-        ctx.check(f"the fork keeps exactly the two earlier records, got {len(kept)}", len(kept) == 2)
 
 
 @test

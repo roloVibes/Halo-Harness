@@ -10,9 +10,12 @@ looked at again, so a word beside a kept one (`data-testid="history-report-repla
 A skip that excuses nothing fails the test, so the list cannot rot.
 
 Z4 batch 4 (this file's first scope) is Studio's UI source, halo_harness/studio/ui/src (.ts, .tsx, .css; the built
-bundle is not in it). Z4 batches 5 and 6 widen SCOPE to halo_harness/ (Python, templates with both glossaries and the
-first-run pack), README.md and docs/ (not docs/harness/, plans/, CHANGELOG.md, tests/), and add their skip lines
-(R-B3's list, the retired-verb line of Z12 ...).
+bundle is not in it). Z4 batch 5 (files 06 and 07) widened it to Halo's Python (PY_SCOPE: every string constant of
+every .py under halo_harness/, the first-run pack's too, by an ast scan; docstrings and comments, which no person reads,
+left out; a pack's own tests/ skipped like tests/) with its skip lines (R-B3's list, the retired-verb line of Z12, one
+line per other sense); a skip's glob may be a tuple of globs. Z4 batch 6 widens it to the glossaries, README.md and
+docs/ (not docs/harness/, plans/, CHANGELOG.md, tests/) and takes out glossary.py's temporary line. Below the word
+test: the server's and the terminal's own checks of files 06 and 07.
 Run: python -m tests.test_removed_replays
 """
 from __future__ import annotations
@@ -83,6 +86,81 @@ SKIP = [
 ]
 
 
+#: Z4 batch 5 (file 07): Halo's Python, read as a person reads it -- its string constants (an ast scan, f-string parts
+#: too), docstrings and # comments left out. Not read: the modules nothing ships (a pack's own tests/, like tests/).
+PY_SCOPE = "halo_harness"
+PY_NOT = ("halo_harness/templates/packs/*/tests/*", "halo_harness/studio/ui/*")
+PY = "halo_harness/"
+SKIP += [
+    # Z12: the one retired line, said by `halo replay`, `halo audit privacy --replays`, `halo report <an old file>`
+    (PY + "cli_commands.py", r"halo replay \(playing a session back, re-running a turn on another model\) left Halo",
+     "Z12: the one line the retired verb says (REPLAY_LEFT), word for word"),
+    (PY + "cli_commands.py", r"^replay$|^left Halo in 3\.6\.0\.3 \(halo session export\)$",
+     "Z12: the retired row `replay` (kind retired: in neither help nor completions) and its purpose words"),
+    (PY + "cli.py", r"^replay$", "Z12: cli.py's own branch for the retired verb (it prints REPLAY_LEFT, exit 2)"),
+    (PY + "audit_cli.py", r"^--replays$", "R-B10: `halo audit privacy --replays` is caught to say the retired line"),
+    (PY + "live/report_card.py", r"^\.halo-replay$", "Z13: the old files' name ending, only to refuse them"),
+    (PY + "live/report_card.py", r"^replays$", "Z13: <state>/replays/, read only to refuse an id found there"),
+    (PY + "doctor.py", r"^replays$|^replay_leftovers$|Halo no longer opens replays",
+     "R-B11 / Z14: the doctor's one line about the old saved files and its row (the folder is never deleted)"),
+    (PY + "live/card_data.py", r"^halo-replay$", "Z5: the payload's \"format\" value stays as it is (tests pin it)"),
+    # R-B3: not part of this cut
+    ((PY + "agent/loop.py", PY + "doctor.py", PY + "providers/*", PY + "work_matrix.py"),
+     r"reasoning[-_ ]replay\w*|replayed reasoning_content|reasoning_content replay|^replay$",
+     "R-B3: reasoning replay in the providers (a model's reasoning sent back after a tool call; the work matrix's column)"),
+    ((PY + "events.py", PY + "tui/dispatch.py"), r"^replay$",
+     "R-B3: the transcript replay on resume (the controller's `replay` event)"),
+    (PY + "cli.py", r"--replay-user-messages|replay_user_messages", "R-B3: --replay-user-messages (Claude Code's flag)"),
+    ((PY + "templates/packs/signal/*", PY + "peers/protocol.py"), r"^replay(ed)?$",
+     "R-B3: the Signal pack's and the peers' replay guards (a message sent twice is refused)"),
+    ((PY + "commands/builtins.py", PY + "tui/tips.py"),
+     r"it replays the launch typewriter line|Replay the launch intro|/intro replays the launch intro",
+     "R-B3: /intro replays the launch intro"),
+    # other senses of the words
+    (PY + "agent/prompt.py", r"preserved and replayed back to you",
+     "the agent's prompt: its earlier reasoning is replayed back to the model (a provider's reasoning replay)"),
+    (PY + "providers/experiential.py", r"idempotency_replay_unavailable|the earlier result it would have replayed",
+     "a gateway's idempotency replay (the earlier answer to the same request key), a provider's error"),
+    (PY + "mcp/doctor_deep.py", r"replaying a previously-learned fix",
+     "the MCP doctor's learned fix, applied again (no model call)"),
+    ((PY + "mcp/doctor_deep.py", PY + "agent/prompt_lean_system.py"), r"with what happened|the result is what happened",
+     "'what happened' in plain prose (a probe's evidence, a hook's result), not a drawer page's title"),
+    (PY + "live/report_card_text.py", r"## What failed and what happened next",
+     "the report card's own heading (the same in Studio's card: WHAT FAILED AND WHAT HAPPENED NEXT)"),
+    ((PY + "tui/*", PY + "history.py", PY + "peers/projects.py"),
+     r"history[:-]\w+|#history-\w+|Search prompt history|Search history \(Esc to cancel\)|"
+     r"Ctrl\+R searches your prompt history|^History$|^history\.jsonl$",
+     "prompt history: Ctrl+R searches it, Up / Down walk it (history.jsonl, the TUI's history search)"),
+    ((PY + "agent/*", PY + "commands/builtins.py", PY + "concierge.py", PY + "providers/model_card_words.py",
+      PY + "ollama_steward/*", PY + "studio/builder_api.py", PY + "local_sched/*", PY + "tui/widgets/transcript.py"),
+     r"^history$|prior history to summarize|session with history to digest|a file's history lives per-session|"
+     r"the conversation history|session's recent history|in the history go as text|and the history were the old model's|"
+     r"fits history to|folded-history",
+     "the conversation so far (a prompt's part, a digest's input, the model's window, the builder's turns)"),
+    ((PY + "live/card_run.py", PY + "orchestra/*", PY + "work/adapters/lane.py", PY + "templates/packs/coach/*"),
+     r"^history$", "a lane's history, a wire key of a goal run's lane (each state it went through)"),
+    (PY + "supervise/*", r"^history(\.jsonl)?$|one goal and its history|^\s*history:\s*$",
+     "a goal's history under the supervisor (its rounds and decisions)"),
+    ((PY + "audit_cli.py", PY + "privacy_commits.py", PY + "cli_commands.py"),
+     r"--history|^history$|history: the owner's call|its history for private data",
+     "git history: `halo audit privacy --history` scans every commit"),
+    (PY + "doctor.py", r"no connect-time history recorded yet", "an MCP server's connect-time history (the doctor's timing)"),
+    ((PY + "permissions.py", PY + "review/*", PY + "update.py", PY + "update_artifact.py", PY + "templates/packs/coach/*"),
+     r"(?i)\bcompare\b",
+     "compare in other senses (PowerShell's Compare-Object, a review's base branch, a release's diff, checksums, the coach)"),
+    ((PY + "media/*", PY + "providers/media_models.py"), r"/history/|^CLIP$|^clip$",
+     "ComfyUI: its /history/ route and its CLIP text encoders"),
+    (PY + "templates/packs/design/*", r"^history(\.jsonl)?$|render\.mp4 \(a clip\)",
+     "the design pack: an artboard's edit history and a video clip"),
+    (PY + "studio/live_api.py", r"live/history|halo_harness\.live\.history",
+     "the live session's history route that Session and the Map read (and its module, halo_harness.live.history): it stays"),
+    ((PY + "tui/*", PY + "agent/image_attach.py"), r"clip\.exe|halo-clip-|^clip-\*?$",
+     "the clipboard: clip.exe and a pasted image's halo-clip- / clip- file name"),
+    # glossary.py:49 -- Z4 batch 6 (file 08, Z15) removes the entry and this line
+    (PY + "glossary.py", r".*", "TEMPORARY: the glossary's `replay` entry; Z4 batch 6 (Z15) removes it and this line"),
+]
+
+
 def _files():
     for folder, pats in SCOPE:
         root = REPO / folder
@@ -91,10 +169,43 @@ def _files():
                 yield p.relative_to(REPO).as_posix(), p
 
 
+def _strings(src: str) -> "list[tuple[int, str]]":
+    """(line, text) of every string constant a person can read: f-string parts too; docstrings (the first statement of a
+    module, class or function) left out, and comments are never constants."""
+    import ast
+    tree = ast.parse(src)
+    docs = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+                docs.add(id(first.value))
+    return [(n.lineno, n.value) for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs]
+
+
+def _py_files():
+    for p in sorted((REPO / PY_SCOPE).rglob("*.py")):
+        rel = p.relative_to(REPO).as_posix()
+        if "__pycache__" not in rel and not any(fnmatch.fnmatch(rel, g) for g in PY_NOT):
+            yield rel, p
+
+
+def scan_python() -> "tuple[list[str], set[int]]":
+    hits: list = []
+    used: set = set()
+    for rel, p in _py_files():
+        for n, text in _strings(p.read_text(encoding="utf-8")):
+            for piece in text.splitlines() or [text]:
+                if WORDS.search(piece) and WORDS.search(_left(rel, piece, used)):
+                    hits.append(f"{rel}:{n}: {piece.strip()[:160]}")
+    return hits, used
+
+
 def _left(rel: str, line: str, used: "set[int] | None" = None) -> str:
     """The line with the span of every skip of this file cut out (a skip that cut a word is marked used)."""
     for i, (glob, rx, _why) in enumerate(SKIP):
-        if not fnmatch.fnmatch(rel, glob):
+        if not any(fnmatch.fnmatch(rel, g) for g in ((glob,) if isinstance(glob, str) else glob)):
             continue
         cut = re.sub(rx, " ", line)
         if used is not None and len(WORDS.findall(cut)) < len(WORDS.findall(line)):
@@ -150,11 +261,184 @@ def test_studio_names_no_replay_and_no_history(ctx: Ctx):
 
 
 @test
+def test_halo_python_names_no_replay_and_no_history(ctx: Ctx):
+    """Z6 widened (file 07): the string constants of every .py under halo_harness/ (what a person reads in the terminal
+    and the server's answers); docstrings and comments left out."""
+    hits, _used = scan_python()
+    sep = "\n    "
+    ctx.check(f"{len(hits)} Python strings name a replay, the scrubber, History, Compare, Back to now, What happened or a clip:"
+              + sep + sep.join(hits[:120]), not hits)
+
+
+@test
+def test_the_python_scan_reads_strings_not_docstrings_or_comments(ctx: Ctx):
+    src = ('"""A module docstring about History."""\n# a comment about a replay\n'
+           'def f():\n    """Its docstring: Compare."""\n    return f"see {1} in History under the map"\n'
+           'X = "a clip"\n')
+    got = [t for _n, t in _strings(src)]
+    ctx.check(f"the f-string's part and the constant are read, no docstring, got {got}",
+              any("in History under the map" in t for t in got) and "a clip" in got
+              and not any("docstring" in t for t in got))
+
+
+@test
 def test_every_skip_line_still_matches_something(ctx: Ctx):
     _hits, used = scan()
-    idle = [f"{SKIP[i][0]} /{SKIP[i][1]}/ ({SKIP[i][2]})" for i in range(len(SKIP)) if i not in used]
+    used |= scan_python()[1]
+    idle =[f"{SKIP[i][0]} /{SKIP[i][1]}/ ({SKIP[i][2]})" for i in range(len(SKIP)) if i not in used]
     ctx.check("every skip line matches a line it keeps (a skip that matches nothing is taken out): " + "; ".join(idle), not idle)
     ctx.check("every skip line says its reason", all(len(why) > 10 for _g, _r, why in SKIP))
+
+
+# ---- Z4 batch 5 (files 06 and 07): the server and the terminal ----------------------------------------------------
+
+import contextlib  # noqa: E402
+import io  # noqa: E402
+import os  # noqa: E402
+import tempfile  # noqa: E402
+
+GONE = ("replay_clip", "clip_pipe", "replay_guard", "clip_chrome", "replay_file", "replay_run", "replay_facts", "compare",
+        "compare_text", "timeline", "replay_private", "replay_cut")
+
+
+@contextlib.contextmanager
+def _scratch():
+    """A scratch home (BRIDGE_TEST_HOME) and a scratch project folder as the working directory."""
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "OLLAMA_HOST", "HALO_NO_UPDATER")}
+    cwd = os.getcwd()
+    with tempfile.TemporaryDirectory(prefix="halo-replays-left-") as d:
+        os.environ.update(BRIDGE_TEST_HOME=d, OLLAMA_HOST="http://127.0.0.1:9", HALO_NO_UPDATER="1")
+        os.environ.pop("BRIDGE_STATE_DIR", None)
+        proj = Path(d) / "proj"
+        proj.mkdir()
+        os.chdir(proj)
+        try:
+            from halo_harness.config.paths import bridge_home
+            yield Path(d), bridge_home()
+        finally:
+            os.chdir(cwd)
+            for k, v in saved.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
+def _run(fn, argv) -> "tuple[int, str, str]":
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            code = fn(argv)
+        except SystemExit as e:
+            code = e.code
+    return int(code or 0), out.getvalue(), err.getvalue()
+
+
+@test
+def test_halo_replay_says_one_line_and_exits_2(ctx: Ctx):
+    """Z12: `halo replay ...` is never a prompt: one line on stderr, exit 2, no session log written."""
+    from halo_harness import cli
+    from halo_harness.cli_commands import REPLAY_LEFT
+    ctx.check(f"the line, word for word, got {REPLAY_LEFT!r}", REPLAY_LEFT == (
+        "halo replay (playing a session back, re-running a turn on another model) left Halo in 3.6.0.3. "
+        "To keep a session as a file: halo session export <id>"))
+    with _scratch() as (root, _state):
+        before = sorted(root.rglob("*.jsonl"))
+        for argv in (["replay", "save", "x"], ["replay", "x", "--model", "y"], ["replay"]):
+            code, out, err = _run(cli.main, argv)
+            ctx.check(f"halo {' '.join(argv)}: exit 2, the line once on stderr, nothing on stdout, got {code} {out!r} {err!r}",
+                      code == 2 and err == REPLAY_LEFT + "\n" and out == "")
+        ctx.check("no session log was written", sorted(root.rglob("*.jsonl")) == before)
+
+
+@test
+def test_replay_is_a_retired_row_in_neither_help_nor_completions(ctx: Ctx):
+    import importlib.util
+    from halo_harness.cli_commands import BY_NAME, listed
+    from halo_harness.completion_cli import SUBCOMMANDS
+    ctx.check("cli_commands keeps `replay` as kind retired, with no target",
+              BY_NAME["replay"].kind == "retired" and not BY_NAME["replay"].target)
+    ctx.check("not in `halo --help`", "replay" not in [c.name for c in listed()])
+    ctx.check("not a completion word ('report' stays)", "replay" not in SUBCOMMANDS and "report" in SUBCOMMANDS)
+    for mod in ("halo_harness.replay", "halo_harness.replay_cli", "halo_harness.replay_verbs"):
+        ctx.check(f"{mod} is gone", importlib.util.find_spec(mod) is None)
+
+
+@test
+def test_audit_privacy_replays_says_the_line(ctx: Ctx):
+    """R-B10: `halo audit privacy --replays` prints the retired line and exits 2; the usage and --help stop naming it."""
+    from halo_harness.audit_cli import cmd_audit
+    from halo_harness.cli_commands import REPLAY_LEFT
+    with _scratch():
+        code, out, err = _run(cmd_audit, ["privacy", "--replays"])
+        ctx.check(f"--replays: exit 2, the line on stderr, nothing scanned, got {code} {out!r} {err!r}",
+                  code == 2 and err == REPLAY_LEFT + "\n" and out == "")
+        code, out, _err = _run(cmd_audit, ["--help"])
+        ctx.check(f"the usage has no --replays, got {out!r}", code == 0 and "--replays" not in out and "privacy" in out)
+        code, out, _err = _run(cmd_audit, ["privacy", "--help"])
+        ctx.check("halo audit privacy --help has no --replays", code == 0 and "--replays" not in out and "--history" in out)
+
+
+@test
+def test_the_replay_routes_answer_404(ctx: Ctx):
+    """R-B1, L-B5, Z3: `replays/*` and `live/replay` left (studio/replays_api.py deleted whole); the card reads live/report."""
+    from halo_harness.studio.api import Request, dispatch
+    with _scratch() as (_root, state):
+        def call(method, path, query=None, body=None):
+            return dispatch(Request(method=method, path=path, query=query or {}, body=body or {}, cwd=Path.cwd(),
+                                    state_dir=state, owner=True))
+        for path, q in (("replays", {}), ("replays/plan", {"session": "s"}), ("replays/compare", {"a": "x", "b": "y"}),
+                        ("replays/report", {"ref": "session:s"}), ("replays/x", {}), ("replays/x/clip", {}),
+                        ("replays/clips/x.webp", {}), ("live/replay", {"session": "s"}), ("live/replay", {"run": "r"})):
+            ctx.check(f"GET {path} {q}: 404", call("GET", path, q)[0] == 404)
+        for path in ("replays/save", "replays/import", "replays/x/clip"):
+            ctx.check(f"POST {path} (with the owner's proof): 404", call("POST", path, body={"session": "s"})[0] == 404)
+        ctx.check("the card's own route is still there (no ref: 422)", call("GET", "live/report")[0] == 422)
+    import importlib.util
+    ctx.check("studio/replays_api.py is gone", importlib.util.find_spec("halo_harness.studio.replays_api") is None)
+
+
+@test
+def test_the_old_playback_modules_are_gone_and_nothing_names_them(ctx: Ctx):
+    """R-B1 (b), Z5: the clip, its pipes, the Chrome class, the .halo-replay file code, its guard and the old modules'
+    re-exports left; no .py / .ts / .tsx source names one (strings count); no `only_gets` branch is left."""
+    import importlib.util
+    for name in GONE:
+        ctx.check(f"halo_harness.live.{name} is gone", importlib.util.find_spec(f"halo_harness.live.{name}") is None)
+    names = "|".join(GONE)
+    rx = re.compile(rf"halo_harness\.live\.({names})\b|from halo_harness\.live import [^\n]*\b({names})\b")
+    me = Path(__file__).resolve()
+    bad = []
+    for folder in ("halo_harness", "scripts", "tools", "tests"):
+        for p in (REPO / folder).rglob("*"):
+            rel = p.relative_to(REPO).as_posix()
+            if (p.suffix not in (".py", ".ts", ".tsx") or not p.is_file() or p.resolve() == me or "__pycache__" in rel
+                    or rel.startswith("build/") or ".egg-info" in rel or "/node_modules/" in rel):
+                continue
+            text = p.read_text(encoding="utf-8", errors="replace")
+            bad += [f"{rel}: {m.group(0)}" for m in rx.finditer(text)]
+            if folder == "halo_harness" and "only_gets" in text:
+                bad.append(f"{rel}: only_gets")
+    ctx.check(f"no source names an old module, got {bad[:12]}", not bad)
+
+
+@test
+def test_the_doctor_names_the_old_folder_and_never_deletes_it(ctx: Ctx):
+    """R-B11, Z14: one WARN with its fix while <state>/replays/ exists (clips counted, the home as ~); no row otherwise;
+    the folder and its files are left as they were."""
+    from halo_harness import doctor
+    with _scratch() as (_root, state):
+        ctx.check("no replays/ folder: no row", doctor._check_replay_leftovers(state) is None)
+        folder = state / "replays"
+        (folder / "clips").mkdir(parents=True)
+        for rel in ("a.halo-replay", "b.halo-replay", "clips/a-0-5.webp"):
+            (folder / rel).write_text("x", encoding="utf-8")
+        line = doctor._check_replay_leftovers(state) or ""
+        want = f"~{os.sep}{state.name}{os.sep}replays{os.sep}"
+        ctx.check(f"one WARN: no longer opens replays, 3 files, the folder with ~, its fix, got {line!r}",
+                  line.startswith(doctor.WARN) and "Halo no longer opens replays; 3 saved files are in " in line
+                  and want in line and "(clips counted)" in line and line.endswith("-> fix: delete the folder when you like")
+                  and "\n" not in line)
+        ctx.check("the doctor's own rows carry it", "replay_leftovers" in (REPO / "halo_harness" / "doctor.py").read_text(encoding="utf-8"))
+        ctx.check("nothing moved or deleted", sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file())
+                  == ["a.halo-replay", "b.halo-replay", "clips/a-0-5.webp"])
 
 
 if __name__ == "__main__":

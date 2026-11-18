@@ -538,7 +538,6 @@ def test_status_bar_offline_chip(ctx: Ctx):
 # Each pattern is a raw primitive capable of opening a socket OUTSIDE
 # providers.http's own open_upstream/urlopen_tls. (file, reason):
 _ALLOWED_RAW_NETWORK_CALLERS = {
-    "halo_harness/live/clip_chrome.py": "3.4.1.0 R1: the headless Chrome a replay clip is filmed in (its DevTools on 127.0.0.1); never a remote host",
     "halo_harness/studio/launch.py":
         "3.0.2.0: a loopback probe (socket.create_connection to 127.0.0.1:<port>) that asks whether the "
         "Studio this machine already runs still answers, so `halo studio` and the wizard reuse it instead "

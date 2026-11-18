@@ -81,7 +81,6 @@ COMMANDS = (
     _c("session", "halo_harness.session_trace_cli:cmd_session", RECORDS, "a session's Markdown trace"),
     _c("export", "halo_harness.export_cli:cmd_export", RECORDS, "a session's conversation as text, for a script"),
     _c("stats", "halo_harness.stats_cli:cmd_stats", RECORDS, "tokens, cost and tools across sessions"),
-    _c("replay", "halo_harness.replay_cli:cmd_replay", RECORDS, "run a session's turn again on another model"),
     _c("report", "halo_harness.report_cli:cmd_report", RECORDS, "a finished run's report card"),
     _c("timeline", "halo_harness.bugreport_timeline_cli:cmd_timeline", RECORDS, "the timing of the last turns"),
     _c("recall", "halo_harness.recall:cmd_recall", RECORDS, "search memory and past sessions"),
@@ -102,7 +101,13 @@ COMMANDS = (
     _c("blocks", "", AGENTS, "starters are workflows now (halo workflows)", kind="retired"),
     _c("workflow", "", AGENTS, "now halo workflows", kind="retired"),
     _c("design", "", SETUP, "Design is the design pack's", kind="retired"),
+    _c("replay", "", RECORDS, "left Halo in 3.6.0.3 (halo session export)", kind="retired"),
 )
+
+# 3.6.0.3 B (Z12): the one line `halo replay`, `halo audit privacy --replays`, `halo report <an old file>` and Studio's
+# live/report say; cli.py's own branch prints it to stderr and exits 2 (the verb never falls through to a prompt)
+REPLAY_LEFT = ("halo replay (playing a session back, re-running a turn on another model) left Halo in 3.6.0.3. "
+               "To keep a session as a file: halo session export <id>")
 
 BY_NAME = {c.name: c for c in COMMANDS}
 

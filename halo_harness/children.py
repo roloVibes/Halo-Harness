@@ -207,7 +207,7 @@ def launcher_owner() -> Optional[int]:
 
 def in_session() -> bool:
     """3.4.1.1 (48): this process is a halo session (a TUI or headless row of run/sessions.json), so what it starts
-    is its own; a shell command's (`halo replay open`, `halo init`) is not."""
+    is its own; a shell command's (`halo init`) is not."""
     try:
         from halo_harness.remote import registry
         rows = registry._load(registry.registry_path())

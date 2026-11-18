@@ -1,5 +1,5 @@
 """halo_harness.browser_find -- the browser a person named, or the Chrome on this machine (3.6.0.3: moved here, with no
-change of behaviour, from live/clip_chrome.py, the replay clip's Chrome). realcheck's --browser and the suite's
+change of behaviour, from the old playback's Chrome module, which then left Halo). realcheck's --browser and the suite's
 Chrome driver (tests/helpers/chrome_driver.py) use it. Stdlib only; it opens nothing and starts nothing.
 
     named_browser(value) -> a path that exists, a command on PATH, or None
@@ -47,4 +47,4 @@ def none_found() -> str:
     env = os.environ.get("HALO_CHROME", "")
     if env:
         return f"HALO_CHROME names a browser that does not exist: {env} (fix or unset it)"
-    return "a clip is filmed in Chrome and none was found: install Chrome or set HALO_CHROME"
+    return "this needs Chrome and none was found: install Chrome or set HALO_CHROME"

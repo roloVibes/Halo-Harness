@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from halo_harness.live.card_data import bare, money, secs
 
-KIND = {"session": "session", "run": "goal run", "file": "saved replay"}
+KIND = {"session": "session", "run": "goal run"}
 CELL_ROWS = (("ended", "How it ended"), ("wall", "Wall time"), ("cost", "Cost"), ("tokens", "Tokens"), ("models", "Models used"),
              ("agents", "Agents spawned"), ("asks", "Asks to you"), ("failures", "Failures"), ("retries", "Retries"))
 
@@ -30,10 +30,9 @@ def _cell(text: str) -> str:
 
 def head(c: dict) -> list:
     kind = KIND.get(c.get("kind") or "", c.get("kind") or "run")
-    where = f"from the saved replay `{c['file']}`" if c.get("file") else f"from the {kind}'s own record"
     return [f"# Report card: {c.get('title') or c.get('id') or '(untitled)'}", "",
-            f"{kind} `{c.get('id')}` · {c.get('when')} · {c.get('how')}" + (f" · saved by Halo {c['halo']}" if c.get("halo") else ""),
-            f"Rendered {where}; no model call.", ""]
+            f"{kind} `{c.get('id')}` · {c.get('when')} · {c.get('how')}",
+            f"Rendered from the {kind}'s own record; no model call.", ""]
 
 
 def time_lines(t: dict) -> list:
@@ -84,7 +83,7 @@ def _markdown(c: dict) -> str:
     out += ["", "## The story", ""]
     out += [f"{i}. `{s['at']}` {s['text']}" for i, s in enumerate(c.get("story") or [], 1)]
     if c.get("story_more"):
-        out.append(f"\n...and {c['story_more']} more step{'s' if c['story_more'] != 1 else ''} (Replay shows every one).")
+        out.append(f"\n...and {c['story_more']} more step{'s' if c['story_more'] != 1 else ''}.")  # 3.6.0.3 B (Z10)
     out += ["", "## Where the time went", ""] + time_lines(c.get("time") or {})
     out += ["", "## Where the money went", ""] + money_lines(c.get("money") or {})
     out += ["", "## What failed and what happened next", ""]

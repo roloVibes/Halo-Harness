@@ -39,7 +39,7 @@ COACH_OFF = "The coach (what to change next time) is a pack: halo pack install c
 
 NEXT = (
     ("Agents: Cast", "edit your lineup's cards, their models and tiers", "halo studio --mode agents"),
-    ("Agents: Run a goal", "give your lineup a goal in your own repo from Live's bar: its lanes on Live, its report in History", "halo orchestra new"),
+    ("Agents: Run a goal", "give your lineup a goal in your own repo from Live's bar: its lanes on Live, its report on its own page (Goal run)", "halo orchestra new"),
     ("Local", "the machines that serve your local models and the models they serve", "halo local"),
 )
 

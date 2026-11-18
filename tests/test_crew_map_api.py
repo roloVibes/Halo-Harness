@@ -7,8 +7,7 @@
    with the circle named; every write keeps its before-image (POST builder/undo puts it back byte for byte);
 3. POST use {on}: config crew.map (undo puts config back); DELETE yours only; every write needs the owner's proof;
 4. `halo maps list / show / use` say the same;
-5. (R4) POST crew/from-live: an unsaved agent body from a session's made-up helper, nothing written, owner-only; GET
-   live/replay names the map a session ran on and its hops (its log).
+5. (R4) POST crew/from-live: an unsaved agent body from a session's made-up helper, nothing written, owner-only.
 Run: python -m tests.test_crew_map_api
 """
 from __future__ import annotations
@@ -416,10 +415,9 @@ def test_use_receipt_says_the_mode_outside_a_trusted_project(ctx: Ctx):
 
 
 @test
-def test_from_live_builds_an_unsaved_agent_and_a_replay_knows_its_map(ctx: Ctx):
+def test_from_live_builds_an_unsaved_agent(ctx: Ctx):
     """R4: POST crew/from-live {session, agent_id} -> an unsaved agent/1 body (main's uses and careful), nothing written,
-    owner-only; GET live/replay?session= says the map the session ran on and its hops (from its log)."""
-    import json
+    owner-only. (3.6.0.3 B: the old playback's route left, and this test's half that read it.)"""
     from halo_harness.peers import local_view
     with CrewRig() as rig:
         rig.studio()
@@ -443,17 +441,6 @@ def test_from_live_builds_an_unsaved_agent_and_a_replay_knows_its_map(ctx: Ctx):
             ctx.check("without the owner's proof: 403", rig.api("POST", "crew/from-live", {"session": "s-live-1", "agent_id": "a7"}, owner=False)[0] == 403)
         finally:
             local_view.sessions = saved
-        log = rig.state / "sessions" / "proj" / "s-past-1.jsonl"
-        log.parent.mkdir(parents=True, exist_ok=True)
-        nodes = [{"type": "meta", "ts": 1.0, "title": "a past run"},
-                 {"type": "user", "ts": 2.0, "content": "fix it"},
-                 {"type": "receipt", "kind": "map", "event": "map_start", "ts": 2.0, "data": {"map": "starter", "t": 2.0}},
-                 {"type": "receipt", "kind": "map", "event": "map_hop", "ts": 3.0,
-                  "data": {"map": "starter", "line": "main -> coder", "from": "main", "to": "coder", "state": "start", "t": 3.0}}]
-        log.write_text("".join(json.dumps(n) + "\n" for n in nodes), encoding="utf-8")
-        st, r = rig.api("GET", "live/replay?session=s-past-1&harness=local")
-        ctx.check(f"the replay says its map and its hops, got {st} {r.get('map')} {r.get('map_events')}",
-                  st == 200 and r.get("map") == "starter" and [e["data"]["line"] for e in r.get("map_events") or []] == ["main -> coder"])
 
 
 if __name__ == "__main__":

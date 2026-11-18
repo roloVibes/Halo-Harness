@@ -161,7 +161,7 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
 
 _STUDIO_MODE_LABELS = {"agents": "Agents: your agents, workflows and the map your sessions run on",  # 3.6.0.0 R5: three tabs
                        "roles": "Agents -> 3 · Map (lineups are gone)",
-                       "orchestra": "Agents -> 3 · Map: Run a goal on its bar; a goal run's report in History under the map",
+                       "orchestra": "Agents -> 3 · Map: Run a goal on its bar; a goal run's report is its own page in the Map's drawer (Goal run)",
                        "team": "Agents -> 3 · Map (lineups are gone)",
                        "session": "Session: this session, live",
                        "packs": "Packs: install, grant and enable packs",

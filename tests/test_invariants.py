@@ -626,15 +626,15 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     """2.0.6 round 14 (invariants extended): every command surface this
     cycle ADDED is present in the docs-coverage table and in COMMANDS.md
     -- the exact class of drift invariant D protects against, extended
-    to the new subcommands (halo replay, the teams/gym/update flags)."""
+    to the new subcommands (the gym/update flags; 3.6.0.3 B: `halo replay` left)."""
     import re as _re
     problems = []
     coverage = (REPO_DIR / "tests" / "test_docs_commands.py").read_text(encoding="utf-8")
-    for label in ("halo replay", "halo gym"):  # 3.6.0.0 R5: halo teams went (one line)
+    for label in ("halo gym",):  # 3.6.0.0 R5: halo teams went (one line)
         if f'"{label}"' not in coverage:
             problems.append(f"the docs-coverage table does not gather {label!r}")
     doc = doc_text("COMMANDS.md")
-    for probe in ("halo replay", "--bundle", "--candidates", "--no-verify", "--roles"):
+    for probe in ("--bundle", "--candidates", "--no-verify", "--roles"):
         if probe not in doc:
             problems.append(f"COMMANDS.md does not mention {probe!r}")
     cli_src = (REPO_DIR / "halo_harness" / "cli.py").read_text(encoding="utf-8")

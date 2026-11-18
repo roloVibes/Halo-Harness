@@ -1,22 +1,20 @@
 """halo_harness.live.card_data -- the report card's data: a session's or a goal run's record read for the card (Halo
-3.6.0.3 moved it here, with no change of behaviour, from the modules named for replays: live/replay_file.py's payload
-and build, live/compare.py's resolve and lanes, live/compare_text.py's cells and words). Beside it: live/card_run.py (a
+3.6.0.3 moved it here, with no change of behaviour, from the modules of the old playback, which then left Halo with it:
+the payload and build, resolve and lanes, the cells and their words). Beside it: live/card_run.py (a
 goal run's record), live/card_facts.py (the record's own figures), live/card_timeline.py (the marks and the bands).
 
     build(state_dir, sid, lineup=None, cwd=None) -> payload    a session's record as one payload; the payload's
-                                                               `"format": "halo-replay"` stays as it is
-    resolve(state_dir, ref, cwd) -> payload    ref: "session:<id>" | "run:<id>" | "file:<id>" | a path | a bare id
+                                                               "format" value (FORMAT) stays as it is (Z5)
+    resolve(state_dir, ref, cwd) -> payload    ref: "session:<id>" | "run:<id>" | a bare id (a session, then a goal run)
     lanes(p, window=None) -> [lane]            each agent's block and phase segments
     cells(fig) -> {key: {value, text}}         one run's cells (the report card's nine)
 
-A saved file (`file:`, a path, a `.halo-replay` id) is still read through live/replay_file.py's path_for and load,
-the file code that leaves with the replays (Z13); nothing else here names a replay module.
+3.6.0.3 B (Z13): a saved file of the old playback is no longer read here (live/report_card.resolve refuses one).
 """
 
 from __future__ import annotations
 
 import time
-from pathlib import Path
 from typing import Optional
 
 
@@ -26,7 +24,7 @@ AGENT_KEYS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "s
 
 
 class ReplayError(ValueError):
-    """A file that is not a replay, or one this Halo cannot read; the message says which."""
+    """A record this Halo cannot read (no such session or run, or the redactor failed); the message says which."""
 
 
 class CompareError(ValueError):
@@ -86,8 +84,7 @@ def cells(f: dict) -> dict:
 
 
 def plan_of(_lineup: Optional[str] = None, cwd=None, state_dir=None) -> Optional[dict]:
-    """None: 3.6.0.0 R5b, lineups and their blocks are gone (a 3.4 / 3.5 replay file's `plan` is still read, never
-    drawn); the map a session ran on rides on each of its agents' rows."""
+    """None: 3.6.0.0 R5b, lineups and their blocks are gone; the map a session ran on rides on each of its agents' rows."""
     return None
 
 
@@ -111,7 +108,7 @@ def includes(p: dict) -> list:
 
 
 def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_states: Optional[dict] = None) -> dict:
-    """The replay of session `sid` on this machine. Raises ReplayError when there is no such session."""
+    """The record of session `sid` on this machine, as one payload. Raises ReplayError when there is no such session."""
     from halo_harness import __version__
     from halo_harness.live import card_facts, card_timeline, history
     from halo_harness.privacy_redact import redact
@@ -135,18 +132,10 @@ def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_s
 
 
 def resolve(state_dir, ref: str, cwd=None) -> dict:
-    from halo_harness.live import card_run, history, replay_file  # replay_file: path_for, load, SUFFIX (file code)
-    kind, _, rid = ref.partition(":") if ref.split(":", 1)[0] in ("session", "run", "file") else ("", "", ref)
+    """The record `ref` names: a session of this machine, then a goal run of this repo (3.6.0.3 B, Z13: no saved file)."""
+    from halo_harness.live import card_run, history
+    kind, _, rid = ref.partition(":") if ref.split(":", 1)[0] in ("session", "run") else ("", "", ref)
     try:
-        if kind in ("", "file"):
-            known = replay_file.path_for(state_dir, rid)
-            if known is not None:
-                return replay_file.load(known)
-            if kind == "file" or rid.endswith(replay_file.SUFFIX) or Path(rid).expanduser().is_file():
-                src = Path(rid).expanduser()
-                if not src.is_file():
-                    raise CompareError(f"no saved replay or file {rid!r}")
-                return replay_file.load(src)
         if kind in ("", "session") and history.find(state_dir, rid) is not None:
             return build(state_dir, rid, cwd=cwd)
         if kind in ("", "run"):
@@ -155,7 +144,7 @@ def resolve(state_dir, ref: str, cwd=None) -> dict:
                 return card_run.build_run(state_dir, run_dir)
     except ReplayError as e:
         raise CompareError(str(e)) from None
-    raise CompareError(f"{ref!r} is not a session of this machine, a goal run of this repo or a saved replay")
+    raise CompareError(f"{ref!r} is not a session of this machine or a goal run of this repo")
 
 
 def lanes(p: dict, window=None) -> list:

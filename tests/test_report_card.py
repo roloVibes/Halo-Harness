@@ -1,8 +1,7 @@
 """tests.test_report_card -- Halo 3.4.1.0 R3 "Time": the run report card (live/report_card.py, report_card_sections.py,
 report_card_text.py), rendered from the record with no model call: its sections from a seeded session (a failure, two
-asks, three models, files written), the same card from that session's saved `.halo-replay`, a goal run's card, honest
-figures (an unpriced call; a file saved before R2 / R3 says what it cannot show), `halo report` and Studio's
-`GET replays/report`.
+asks, three models, files written), a goal run's card, honest figures (an unpriced call), `halo report` and Studio's
+`GET live/report`. 3.6.0.3 B (Z13): a saved file of the old playback is refused with the one retired line.
 
 Seed: tests/helpers/card_seed.py. Run: python -m tests.test_report_card
 """
@@ -45,8 +44,7 @@ def _home():
 
 def _card(state, repo, ref: str) -> dict:
     from halo_harness.live import report_card
-    p, from_file = report_card.resolve(state, ref, cwd=repo)
-    return report_card.card(p, ref, from_file)
+    return report_card.card(report_card.resolve(state, ref, cwd=repo), ref)
 
 
 @test
@@ -79,7 +77,7 @@ def test_the_cards_sections_from_a_seeded_session(ctx: Ctx):
                   and arts["notes-outside.md"].get("outside"))
         ctx.check(f"the nine cells are R2's: {c['cells']['cost']}", c["cells"]["cost"]["text"] == "$0.0300" and c["cells"]["asks"]["value"] == 2)
         ctx.check(f"what it cannot show, in words: {c['cannot']}", any(x.startswith("The tokens are not in this record") for x in c["cannot"])
-                  and any("not in the record" in x for x in c["cannot"]) and c["file"] is None)
+                  and any("not in the record" in x for x in c["cannot"]) and "file" not in c and "halo" not in c)
         from halo_harness.live.report_card_text import markdown
         md = markdown(c)
         heads = [line for line in md.splitlines() if line.startswith("## ")]
@@ -87,20 +85,6 @@ def test_the_cards_sections_from_a_seeded_session(ctx: Ctx):
                   "## What failed and what happened next", "## What waited on you", "## Which model did what", "## Artefacts",
                   "## What this record cannot show"] and "- `src/basket.py` -- fixer" in md and "no model call" in md)
 
-
-@test
-def test_the_same_card_from_its_saved_file(ctx: Ctx):
-    from halo_harness.live import replay_file as RF
-    with _home() as (state, repo):
-        live = _card(state, repo, SID)
-        path = RF.save(state, RF.build(state, SID))
-        raw = path.read_bytes().decode("utf-8")
-        ctx.check("the file names the files by their path inside the project, never the project's own path",
-                  "src/basket.py" in raw and "secret-project" not in raw and "Elsewhere" not in raw)
-        got = _card(state, repo, str(path))
-        same = [k for k in SECTIONS if got[k] != live[k]]
-        ctx.check(f"a file gives the same card (sections that differ: {same})", not same and got["file"] == path.stem)
-        ctx.check("the saved id resolves as a file too", _card(state, repo, f"file:{path.stem}")["story"] == live["story"])
 
 
 @test
@@ -119,8 +103,8 @@ def test_a_goal_runs_card(ctx: Ctx):
 
 @test
 def test_honest_figures_and_what_an_older_record_cannot_show(ctx: Ctx):
-    from halo_harness.live import replay_file as RF
-    from halo_harness.live.card_data import build
+    """3.6.0.3 B (Z13): the part that saved and loaded an older FILE (before R2 / R3) left with the file code; a session's
+    figures stay."""
     from halo_harness.live.report_card_text import markdown
     with _home() as (state, repo):
         c = _card(state, repo, SID_B)
@@ -128,15 +112,7 @@ def test_honest_figures_and_what_an_older_record_cannot_show(ctx: Ctx):
         ctx.check(f"a cost Halo cannot price: the priced part with a +, never $0: {c['cells']['cost']}",
                   c["cells"]["cost"]["text"] == "$0.0120+" and "- free: unknown (no price)" in md and "Total $0.0120+." in md)
         ctx.check("said in plain words", any(x.startswith("Halo could not price every call (free)") for x in c["cannot"]))
-        p = build(state, SID)
-        p.pop("facts")
-        p["id"] = "r1-file"
-        RF.save(state, p)
-        old = _card(state, repo, "file:r1-file")
-        ctx.check(f"a file saved before R2 says what it lacks: {old['cannot']}", old["artefacts"] is None
-                  and any("saved before 3.4.1.0 R2" in x for x in old["cannot"]) and any("before 3.4.1.0 R3" in x for x in old["cannot"])
-                  and "Not in this record" in markdown(old))
-        none = __import__("halo_harness.live.card_data", fromlist=["cells"]).cells({"cost_usd": 0.0, "cost_known": False, "cost_unknown": ["x"], "models": []})
+        none =__import__("halo_harness.live.card_data", fromlist=["cells"]).cells({"cost_usd": 0.0, "cost_known": False, "cost_unknown": ["x"], "models": []})
         ctx.check("nothing priced reads unknown", none["cost"]["text"].startswith("unknown"))
 
 
@@ -164,42 +140,63 @@ def test_halo_report(ctx: Ctx):
         ctx.check(f"an unknown run: one line, exit 2: {text!r}", code == 2 and text.startswith("halo report:"))
         from halo_harness.cli_commands import BY_NAME  # 3.6.0.0 R16: cli.py dispatches from the one registry
         ctx.check("`halo report` is dispatched by halo's own CLI",
-                  BY_NAME["report"].target == "halo_harness.report_cli:cmd_report"
-                  and BY_NAME["replay"].target == "halo_harness.replay_cli:cmd_replay")
+                  BY_NAME["report"].target == "halo_harness.report_cli:cmd_report")
+        ctx.check("`halo replay` is a retired row (3.6.0.3 B, Z12)", BY_NAME["replay"].kind == "retired" and not BY_NAME["replay"].target)
         ctx.check("nothing written", not (state / "replays").exists())
 
-
-@test
-def test_studio_report_route(ctx: Ctx):
-    from halo_harness.studio.replays_api import dispatch_replays
-    with _home() as (state, repo):
-        def call(query):
-            return dispatch_replays(SimpleNamespace(method="GET", path="replays/report", query=query, body=None, state_dir=state, cwd=repo, server=None, params={}))
-        code, got = call({"ref": f"session:{SID}"})
-        ctx.check(f"the card and its Markdown, one data: {code}", code == 200 and got["card"]["kind"] == "session"
-                  and got["markdown"].startswith("# Report card:") and got["card"]["story"][0]["text"] in got["markdown"])
-        ctx.check("a goal run", call({"ref": f"run:{RUN}"})[0] == 200)
-        ctx.check("no ref: 422; an unknown one: 404", call({})[0] == 422 and call({"ref": "session:nope"})[0] == 404)
-        ctx.check("nothing written", not (state / "replays").exists())
 
 
 @test
 def test_studio_reads_the_card_at_live_report(ctx: Ctx):
     """3.6.0.3 B (R-B12, Z3): the card's route is `GET live/report` (studio/live_report_api.py, dispatched with the other
-    `live/*` routes); `replays/report` points at the same handler until the server batch deletes replays_api.py."""
+    `live/*` routes); 3.6.0.3 B file 06: `replays/report` left with replays_api.py (the old route's asserts are here)."""
+    from halo_harness.live.report_card_text import markdown
     from halo_harness.studio.live_api import dispatch_live
-    from halo_harness.studio.replays_api import dispatch_replays
     with _home() as (state, repo):
-        def call(fn, path, query):
-            return fn(SimpleNamespace(method="GET", path=path, query=query, body=None, state_dir=state, cwd=repo, server=None, params={}))
+        def call(query):
+            return dispatch_live(SimpleNamespace(method="GET", path="live/report", query=query, body=None, state_dir=state, cwd=repo, server=None, params={}))
+        code, got = call({"ref": f"session:{SID}"})
+        ctx.check(f"the card and its Markdown, one data: {code}", code == 200 and got["card"]["kind"] == "session"
+                  and got["markdown"].startswith("# Report card:") and got["card"]["story"][0]["text"] in got["markdown"])
         for ref in (f"session:{SID}", f"run:{RUN}"):
-            code, got = call(dispatch_live, "live/report", {"ref": ref})
-            old = call(dispatch_replays, "replays/report", {"ref": ref})[1]
-            ctx.check(f"{ref}: 200 with the same card and Markdown as before: {code}",
-                      code == 200 and got.get("card") == old.get("card") and got.get("markdown") == old.get("markdown"))
-        ctx.check("no ref: 422; an unknown one: 404",
-                  call(dispatch_live, "live/report", {})[0] == 422 and call(dispatch_live, "live/report", {"ref": "session:nope"})[0] == 404)
+            code, got = call({"ref": ref})
+            c = _card(state, repo, ref)
+            ctx.check(f"{ref}: 200 with the card and Markdown card() gives: {code}",
+                      code == 200 and got.get("card") == c and got.get("markdown") == markdown(c))
+        ctx.check("no ref: 422; an unknown one: 404", call({})[0] == 422 and call({"ref": "session:nope"})[0] == 404)
         ctx.check("nothing written", not (state / "replays").exists())
+
+
+@test
+def test_an_old_saved_file_gets_the_one_retired_line(ctx: Ctx):
+    """3.6.0.3 B (Z13, R-B5): `halo report` takes a session id, then a goal run id. A `file:` ref, a name ending in
+    .halo-replay, an existing file, or an id found only under <state>/replays/ gets Z12's line (cli_commands.REPLAY_LEFT)
+    on stderr and exit 2; Studio's live/report answers 404 with it. The card has no `halo` and no `file` key."""
+    from halo_harness.cli_commands import REPLAY_LEFT
+    from halo_harness.report_cli import cmd_report
+    from halo_harness.studio.live_api import dispatch_live
+    with _home() as (state, repo):
+        (state / "replays").mkdir(parents=True, exist_ok=True)
+        (state / "replays" / "old-1.halo-replay").write_text("{}", encoding="utf-8")
+        (repo / "x.halo-replay").write_text("{}", encoding="utf-8")
+        (repo / "notes.txt").write_text("hello", encoding="utf-8")
+        os.chdir(repo)
+        for ref in ("file:old-1", "x.halo-replay", "nowhere.halo-replay", str(repo / "notes.txt"), "old-1"):
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = cmd_report([ref])
+            ctx.check(f"halo report {ref}: exit 2, the one line on stderr, nothing on stdout, got {code} {err.getvalue()!r}",
+                      code == 2 and err.getvalue() == REPLAY_LEFT + "\n" and out.getvalue() == "")
+            got = dispatch_live(SimpleNamespace(method="GET", path="live/report", query={"ref": ref}, body=None, state_dir=state,
+                                                cwd=repo, server=None, params={}))
+            ctx.check(f"live/report?ref={ref}: 404 with the line, got {got[0]}", got[0] == 404 and got[1].get("error") == REPLAY_LEFT)
+        code, text = _cli([SID], repo)
+        ctx.check("a session id still prints its card", code == 0 and text.startswith("# Report card:"))
+        code, text = _cli([RUN, "--json"], repo)
+        got = json.loads(text) if code == 0 else {}
+        ctx.check(f"a goal run's --json card has no halo and no file key, got {sorted(got)[:6]}",
+                  code == 0 and got.get("kind") == "run" and "halo" not in got and "file" not in got)
+        ctx.check("the old folder is left as it was", (state / "replays" / "old-1.halo-replay").is_file())
 
 
 @test
@@ -219,7 +216,7 @@ def test_the_cards_page_gets_every_step(ctx: Ctx):
             ctx.check(f"{ref}: story_all is every step of a short story (the card's own), got {code} {len(got.get('story_all') or [])}",
                       code == 200 and got.get("story_all") == c["story"] and c["story_more"] == 0)
             ctx.check(f"{ref}: the card and its Markdown as card() gives them", got.get("card") == c and got.get("markdown") == markdown(c))
-        p, _ff = report_card.resolve(state, f"session:{SID}", cwd=repo)
+        p = report_card.resolve(state, f"session:{SID}", cwd=repo)
         t = p["started"]
         p["marks"] = list(p.get("marks") or []) + [{"t": t + 101 + i, "kind": "fail", "agent_id": "main"} for i in range(6)]
         c = report_card.card(p, f"session:{SID}")

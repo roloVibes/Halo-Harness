@@ -59,25 +59,8 @@ background and the browser opens it. Where no browser can open (SSH, no `DISPLAY
 URL is printed and the `--terminal` listing follows. Nothing here writes: a row in Studio or `halo config set` changes a
 key. `halo studio --edit settings:remote` opens the same page.
 
-## `halo replay`
+## `halo report`
 
-Replay one turn of a recorded session against a different model and
-compare the outcomes side by side -- "did swapping the researcher from
-one model to another help?", answered with a diff over real task
-history instead of a synthetic gym battery. The session is forked
-first (the original file is never appended to), the fork is truncated
-to just before the chosen turn's user prompt, and that turn's own
-prompt is re-sent through plain print mode against the swapped model
--- same cwd, same tools, same hooks as any `halo -p`.
-
-```sh
-halo replay <session-id> --model or:qwen/qwen3.8-flash [--turn 2] [--json]
-```
-
-`--turn N` (1-based, default 1) picks which real user turn to replay;
-the report shows both outcomes (chars, tokens, cost, tools used) and
-`SAME` / `DIFFERENT (first divergence at line N)` for the final
-answer. `--json` prints the machine-readable report. 3.4.1.0: `halo replay list | save <session|run> | open <file> | clip <file> | compare <a> <b>` -- a session's or a goal run's replay as one `.halo-replay` file opened on Studio's Agents -> Live scrubber on any machine, its animated clip, and two runs side by side: [REPLAY.md](REPLAY.md).
 `halo report <session|run|file> [--json]` (3.4.1.0 R3) prints a finished run's report card as Markdown from its record, no model call (`--json`: its data): [REPLAY.md](REPLAY.md#the-report-card).
 
 ## `halo stats`

@@ -1,17 +1,17 @@
-"""halo_harness.live.report_card -- a finished run's report card (Halo 3.4.1.0 R3 "Time"; docs/REPLAY.md "The report
-card"), rendered FROM THE RECORD: never hand-written, no model call. A run is anything with a replay -- a session of this
-machine, a goal run of this repo, a saved `.halo-replay` file made anywhere (live/card_data.resolve reads all three) -- so a
-file opened on another machine gives the same card.
+"""halo_harness.live.report_card -- a finished run's report card (Halo 3.4.1.0 R3 "Time"), rendered FROM THE RECORD:
+never hand-written, no model call. A run is a session of this machine or a goal run of this repo (live/card_data.resolve
+reads both); 3.6.0.3 B (Z13): a saved file of the old playback is no longer read -- resolve raises OldFile, whose message is
+the one retired line (cli_commands.REPLAY_LEFT).
 
-The figures are R2's, not a second set: live/card_facts.figures and live/card_data.cells (the nine cells Compare's
-rows show), live/card_data.lanes (each agent's block and phase segments). On top of them, from the replay's marks, bands,
+The figures are R2's, not a second set: live/card_facts.figures and live/card_data.cells (the card's nine cells),
+live/card_data.lanes (each agent's block and phase segments). On top of them, from the record's marks, bands,
 states and facts: the story in order in about ten lines (who was asked what, what each handed back), where the time went
 (by phase, by block), where the money went (by model, by block), what failed and what happened next, what waited on you
 and for how long, which model did what, the files it wrote, and what this record cannot show, said in plain words.
 
-    resolve(state_dir, ref, cwd) -> (payload, from_file)    ref: session:<id> | run:<id> | file:<id> | a path | a bare id
-    card(p, ref="", from_file=False) -> {format, kind, id, ref, title, started, ended, halo, file, how, ok, cells, story,
-                        story_more, time, money, failures, waits, models, artefacts, cannot}
+    resolve(state_dir, ref, cwd) -> payload    ref: session:<id> | run:<id> | a bare id (a session first, then a goal run)
+    card(p, ref="") -> {format, kind, id, ref, title, started, ended, how, ok, cells, story, story_more, time, money,
+                        failures, waits, models, artefacts, cannot}
     Markdown: live/report_card_text.markdown(card)
 """
 
@@ -21,7 +21,7 @@ import re
 import time
 from typing import Optional
 
-from halo_harness.live.card_data import bare, secs
+from halo_harness.live.card_data import CompareError, bare, secs
 
 FORMAT = "halo-report-card"
 STORY_MAX = 10
@@ -152,19 +152,33 @@ def _failures(p: dict, story_of, names: dict, t0: float) -> list:
     return out
 
 
-def resolve(state_dir, ref: str, cwd=None) -> "tuple[dict, bool]":
-    """The replay `ref` names (live/card_data.resolve; CompareError when none) and whether it was read from a saved file."""
+class OldFile(CompareError):
+    """3.6.0.3 B (Z13): `ref` names a saved file of the old playback; its message is the one retired line."""
+
+
+_OLD_SUFFIX = ".halo-replay"  # the old files' name ending, only to refuse them (Z13)
+
+
+def resolve(state_dir, ref: str, cwd=None) -> dict:
+    """The record `ref` names (live/card_data.resolve: a session, then a goal run; CompareError when none). A `file:` ref, a
+    name ending in the old files' suffix, an existing file, or an id found only among the old saved files raises OldFile
+    (3.6.0.3 B, Z13): `halo report` prints its line and exits 2, Studio's live/report answers 404 with it."""
     from pathlib import Path
-    from halo_harness.live import card_data, replay_file  # replay_file: path_for, SUFFIX (file code; Z13)
-    p = card_data.resolve(state_dir, ref, cwd=cwd)
-    rid = ref.split(":", 1)[1] if ref.split(":", 1)[0] in ("session", "run", "file") else ref
-    from_file = ref.startswith("file:") or (not ref.startswith(("session:", "run:")) and (
-        replay_file.path_for(state_dir, rid) is not None or rid.endswith(replay_file.SUFFIX) or Path(rid).expanduser().is_file()))
-    return p, bool(from_file)
+    from halo_harness.cli_commands import REPLAY_LEFT
+    from halo_harness.live import card_data
+    bare_ref = not ref.startswith(("session:", "run:"))
+    if ref.startswith("file:") or (bare_ref and (ref.endswith(_OLD_SUFFIX) or Path(ref).expanduser().is_file())):
+        raise OldFile(REPLAY_LEFT)
+    try:
+        return card_data.resolve(state_dir, ref, cwd=cwd)
+    except CompareError:
+        if bare_ref and ref and (Path(state_dir) / "replays" / f"{ref}{_OLD_SUFFIX}").is_file():
+            raise OldFile(REPLAY_LEFT) from None
+        raise
 
 
 def story_all(p: dict) -> list:
-    """Every step of the story of replay `p`, in time order, uncapped (3.6.0.3 B, Z10 as ruled: Studio's card page shows the
+    """Every step of the story of record `p`, in time order, uncapped (3.6.0.3 B, Z10 as ruled: Studio's card page shows the
     whole story; card() keeps its ten and counts the rest, so `halo report` and its --json are unchanged)."""
     from halo_harness.live.card_facts import figures
     facts = p.get("facts") if isinstance(p.get("facts"), dict) else {}
@@ -174,8 +188,8 @@ def story_all(p: dict) -> list:
     return _story(p, names, facts, top, str(figures(p).get("how") or "unknown"), _num(p.get("started")) or 0.0, None)[0]
 
 
-def card(p: dict, ref: str = "", from_file: bool = False) -> dict:
-    """The report card of replay `p` (a session's, a goal run's, a saved file's)."""
+def card(p: dict, ref: str = "") -> dict:
+    """The report card of record `p` (a session's or a goal run's)."""
     from halo_harness.live.card_data import cells, lanes as lanes_of
     from halo_harness.live.card_facts import figures
     from halo_harness.live.report_card_sections import cannot, models_did
@@ -194,7 +208,6 @@ def card(p: dict, ref: str = "", from_file: bool = False) -> dict:
     return {"format": FORMAT, "kind": p.get("kind") or "session", "id": p.get("run_id") or p.get("session_id") or p.get("id"),
             "ref": ref, "title": p.get("title") or "", "started": started, "ended": _num(p.get("ended")),
             "when": time.strftime("%Y-%m-%d %H:%M", time.localtime(started)) if started else "when unknown",
-            "halo": (p.get("halo") or "") if from_file else "", "file": p.get("id") if from_file else None,
             "how": how, "ok": fig.get("ok"), "cells": cells(fig), "story": story, "story_more": more,
             "time": _time(p, lanes, fig.get("wall_s")), "money": spend,
             "failures": _failures(p, lambda m: _say(p, m, names, facts, top, how), names, t0),

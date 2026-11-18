@@ -64,8 +64,8 @@ def test_every_dispatched_command_is_in_the_help_or_marked(ctx: Ctx):
     ctx.check(f"every verb cli.py tests by hand is registered, missing {sorted(accepted - set(BY_NAME))}",
               accepted <= set(BY_NAME))
     retired = {c.name for c in COMMANDS if c.kind == "retired"}
-    ctx.check(f"the retired rows are cli.py's GONE_VERBS (but roles, internal) and design, got {sorted(retired)}",
-              retired == (set(cli.GONE_VERBS) - {"roles"}) | {"design"})
+    ctx.check(f"the retired rows are cli.py's GONE_VERBS (but roles, internal), design and replay, got {sorted(retired)}",
+              retired == (set(cli.GONE_VERBS) - {"roles"}) | {"design", "replay"})
     text = cli._build_parser().format_help()
     shown = _listed_in_help(text)
     want = [c.name for c in listed()]

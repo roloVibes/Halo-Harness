@@ -90,9 +90,6 @@ owner POST local/pool/scan
 owner POST local/pool/members
 owner POST local/pool/bench
 owner * recall
-owner POST ^replays/save$
-owner POST ^replays/import$
-owner POST ^replays/(?P<rid>[A-Za-z0-9_.-]{1,120})/clip$
 owner * shutdown
 owner POST ^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/command$
 owner POST ^sessions/new$
