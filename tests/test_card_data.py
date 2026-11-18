@@ -352,6 +352,55 @@ def _private_home(where=None):
                 os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
+def _task_fits(got: str, want: str, user: str, machine: str) -> bool:
+    """The task as the built record may hold it. It is `want`, or an excerpt of it ending in "..." (200 characters of
+    the model's words: where the cut lands depends on how long the scratch home's path is, so every landing place must
+    be judged, not only the ones this machine's temp folder happens to give). A cut INSIDE a name follows the
+    redaction's documented limit (docs/PRIVACY.md, "A text cut short can keep part of a name"): three or more of the
+    name's letters before the "..." are masked (the name's mark stands there); one or two stay as they are; a name with
+    a dash, dot or underscore is masked only while the cut is still in its first part."""
+    if got.startswith(want):
+        return True
+    if not got.endswith("..."):
+        return False
+    cut = got[:-3]
+    if want.startswith(cut):  # cut outside a name, or after a whole mark
+        return True
+    if cut.endswith(("<user>", "<machine>")) and want.startswith(cut.rsplit(" ", 1)[0] + " "):  # masked mid-name
+        return True
+    for mark, name in (("<user>", user), ("<machine>", machine)):
+        at = want.find(mark)
+        if at < 0 or not cut.startswith(want[:at]):
+            continue
+        kept = cut[len(want[:at]):]  # what stands where the mark would: letters of the name left as they are
+        first = len(name) if not any(c in name for c in "-._") else min(name.index(c) for c in "-._" if c in name)
+        if kept and name.startswith(kept) and (len(kept) <= 2 or len(kept) > first):
+            return True
+    return False
+
+
+@test
+def test_the_task_check_accepts_exactly_the_documented_cuts(ctx: Ctx):
+    """The judge of `_private` itself, fed every landing place of the cut (it used to refuse a cut one or two letters
+    into the name, so the test went red whenever a temp folder's length put the cut there)."""
+    want = "count lines of a.txt; read ~/Documents/plan.md and ~/notes, as <user> on <machine>"
+    head, mid = want[:want.index("<user>")], " on "
+    ok = [want, want + " and more", want[:20] + "...", head + "...", head + "z...", head + "ze...", head + "<user>...",
+          head + "<user>" + mid + "...", head + "<user>" + mid + "b...", head + "<user>" + mid + "bo...",
+          head + "<user>" + mid + "<machine>..."]
+    bad = [head + "zed...", head + "zedtes...", head + "zedtester...", head + "<user>" + mid + "box...",
+           head + "<user>" + mid + "boxname7...", head + "x...", want[:20],
+           "read " + "/".join(("C:", "Users", "zedtester", "Documents", "plan.md")) + "..."]  # joined: no literal home path
+    for s in ok:
+        ctx.check(f"accepted: {s[-28:]!r}", _task_fits(s, want, "zedtester", "boxname7"))
+    for s in bad:
+        ctx.check(f"refused: {s[-28:]!r}", not _task_fits(s, want, "zedtester", "boxname7"))
+    w2 = "ran on <machine>"  # a name with a dash: masked only while the cut is still in its first part
+    for s, fits in (("ran on g...", True), ("ran on gp...", True), ("ran on gpu...", False), ("ran on <machine>...", True),
+                    ("ran on gpu-b...", True), ("ran on gpu-bo...", True), ("ran on gpu-box", False)):
+        ctx.check(f"a dashed name, {s!r}: {fits}", _task_fits(s, w2, "zedtester", "gpu-box") is fits)
+
+
 def _private(ctx: Ctx, where=None, label: str = "") -> None:
     """From test_replay_private (3.4.1.1 defect 56): a seeded home path, user name, machine name and key never reach the
     BUILT record; a path inside the project reads project-relative, any other under the home as ~/..."""
@@ -376,10 +425,8 @@ def _private(ctx: Ctx, where=None, label: str = "") -> None:
         want = "count lines of a.txt; read ~/Documents/plan.md and ~/notes, as <user> on <machine>"
         # the task is an excerpt (200 characters of the model's words, live/history.py): how much of `want` it holds
         # depends on how long the scratch home's path was; it is `want` or a cut of it ending in "..."
-        cut = got[:-3] if got.endswith("...") else None
         ctx.check(f"{label}the task (the model's words) reads project-relative, ~ and no names, got {got!r}",
-                  got.startswith(want) or (cut is not None and (want.startswith(cut) or (
-                      cut.endswith(("<user>", "<machine>")) and want.startswith(cut.rsplit(" ", 1)[0] + " ")))))
+                  _task_fits(got, want, USER, MACHINE))
         ctx.check("the includes line says the limit",
                   any("relative to the project" in x and "where you typed it" in x for x in p["includes"]))
 
