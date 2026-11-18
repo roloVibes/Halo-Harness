@@ -104,7 +104,8 @@ def test_when_the_redactor_fails_record_writes_nothing(ctx: Ctx):
         return {"_sanitize_error": "too deep"}
     with _home() as state:
         _path, hist = _seeded(state)
-        for name, fake, want in (("raises", boom, "the redactor broke"),
+        # file 10: a redactor that raises is a failed redaction too -- the same plain sentence (was "the redactor broke")
+        for name, fake, want in (("raises", boom, "the redactor could not clean this session; nothing was written"),
                                  ("gives up", gave_up, "the redactor could not clean this session; nothing was written")):
             privacy_redact.redact = fake
             try:
@@ -120,6 +121,40 @@ def test_when_the_redactor_fails_record_writes_nothing(ctx: Ctx):
             pages = sorted(folder.glob("*")) if folder.is_dir() else []
             ctx.check(f"the redactor {name}: no page is written, got {[p.name for p in pages]}", not pages)
         ctx.check("with the real redactor the page is written again", recording.write(state, hist, harness="local").is_file())
+
+
+@test
+def test_the_record_route_says_a_failed_redaction_in_plain_words(ctx: Ctx):
+    """3.6.0.3 B (file 10): the Record route answers a failed redaction with the plain sentence alone, an error status
+    and no Python class name (was a 500 reading 'ValueError: the redactor could not clean ...' from server.py's rule)."""
+    import types
+    from halo_harness import privacy_redact
+    from halo_harness.studio import live_recording_api as api
+    real, real_hist = privacy_redact.redact, api._history
+
+    def boom(*_a, **_k):
+        raise RuntimeError("the redactor broke")
+
+    def gave_up(node, *_a, **_k):
+        return {"_sanitize_error": "too deep"}
+    with _home() as state:
+        _path, hist = _seeded(state)
+        api._history = lambda _req, _hid, _sid: (hist, "local")
+        req = types.SimpleNamespace(body={}, query={}, params={"hid": "local", "sid": SID}, state_dir=state)
+        try:
+            for name, fake in (("raises", boom), ("gives up", gave_up)):
+                privacy_redact.redact = fake
+                try:
+                    try:
+                        got = api.post_recording(req)
+                    except Exception as e:  # noqa: BLE001 -- server.py would turn it into "<Class>: <words>"
+                        got = (500, {"error": f"{type(e).__name__}: {e}"})
+                finally:
+                    privacy_redact.redact = real
+                ctx.check(f"the redactor {name}: an error status and the plain sentence alone, got {got}",
+                          got[0] >= 400 and got[1] == {"error": "the redactor could not clean this session; nothing was written"})
+        finally:
+            api._history = real_hist
 
 
 @test

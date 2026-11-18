@@ -180,6 +180,33 @@ def test_a_cost_halo_cannot_price_is_never_marked(ctx: Ctx):
     ctx.check(f"nothing priced: unknown, not $0: {c}", c["text"].startswith("unknown") and "$0" not in c["text"] and c["value"] is None)
 
 
+@test
+def test_a_goal_runs_cells_name_each_models_share_and_its_wall_time(ctx: Ctx):
+    """3.6.0.3 B (file 10): the asserts the deleted test_replay_compare::test_rows_name_the_better_figure_with_a_word
+    made on code that stays (card_data.cells), with the same seed and the same texts, without Compare."""
+    from halo_harness.live import card_data, card_facts
+    with _compare_home() as (state, repo):
+        b = card_data.cells(card_facts.figures(card_data.resolve(state, f"run:{RUN}", cwd=repo)))
+        a = card_data.cells(card_facts.figures(card_data.resolve(state, f"session:{SID}", cwd=repo)))
+        ctx.check(f"each model's share of cost and time: {b['models']['text']}",
+                  b["models"]["text"].startswith("glm-5.3: 60 % of cost, 35 % of time"))
+        ctx.check(f"the goal run's wall time in words: {b['wall']}", b["wall"]["text"] == "1 min 30 s" and b["wall"]["value"] == 90)
+        ctx.check(f"tokens not recorded: unknown on both, said: {a['tokens']} {b['tokens']}",
+                  all(x["tokens"].get("unknown") and x["tokens"]["value"] is None and x["tokens"]["text"] == "unknown" for x in (a, b)))
+
+
+@test
+def test_a_goal_runs_lanes_are_its_agents_with_their_phases(ctx: Ctx):
+    """3.6.0.3 B (file 10): card_data.lanes() as the deleted Compare test pinned it: each agent a lane in its block,
+    and a lane carries its phase segments."""
+    from halo_harness.live import card_data
+    with _compare_home() as (state, repo):
+        got = card_data.lanes(card_data.resolve(state, f"run:{RUN}", cwd=repo))
+        lanes = {(x["agent_id"], x["block"]) for x in got}
+        ctx.check(f"each agent a lane in its block: {lanes}", lanes == {("lead", "goal run"), ("lane-1", "goal run"), ("lane-2", "goal run")})
+        ctx.check("a lane carries its phase segments", any(s["phase"] == "writing" for x in got for s in x["segs"]))
+
+
 def _imports(path: Path) -> list:
     """(module, name) for every import of a file, at any depth (a function-local one too)."""
     out = []

@@ -39,6 +39,20 @@ the title keeps your own. Control characters are dropped. `tests/test_privacy_re
 that attacks it (case, separators, encodings, look-alikes, every kind of field). Not caught: a name split across two
 fields, and look-alike letters NFKC does not fold (Cyrillic, Greek).
 
+**A text cut short keeps one or two letters of a name (3.6.0.3).** Where Halo shortens a text and ends it with `...`
+(the report card and Record's page keep the first 200 characters of an agent's task), and the cut lands one or two letters into your account name or machine name, those letters
+stay; from three letters on they are masked. With the account `alexander`, `asked al...` stays as it is, while
+`asked ale...` becomes `asked <user>...`. The same holds for a machine named `gpu-box`: `on gp...` stays and
+`on gpu...` becomes `on <machine>...`.
+
+**Another account's home folder.** The redaction knows your own home folder and your own names, not those of the
+other accounts on the machine. What happens to a path such as `/home/someone/notes.txt`:
+- the session export (Session -> Feed -> **Export**, `/export`, `halo session export`) takes the account name out and
+  writes `~/notes.txt`, which reads like a path in your own home;
+- `halo export --sanitize` and Record's page leave the path as it is, the account name included.
+
+If such a path matters, look for it in the file before you share it.
+
 **An account named by a common word (3.6.0.1).** When your account name is a generic word (`admin`, `user`, `dev`,
 `build`, `runner` ...), the redaction removes it in home folders and in logins only: `name@machine`,
 `machine\name` where `machine` is this computer's own name (a domain account such as `CORP\name` keeps the word), a

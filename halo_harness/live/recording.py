@@ -3,7 +3,9 @@ round R4, D5): a session, or one agent and its sub-agents, as one
 self-contained HTML page that plays it back (recording_page.py: inline CSS
 and JS, the session as a JSON block, no network at all) written to
 `~/.halo/recordings/<sid>[-<aid>].html`. 3.6.0.3 B (Z1): what it writes
-passes the session export's redaction first (keys masked, home as ~).
+passes privacy_redact.redact first (keys masked; this account's home as ~,
+its user and machine names out). It does not mask ANOTHER account's home
+path: unlike the session export's own any-home rule, that path stays as is.
 
     render(hist, harness=, agent=) -> str     the page for a history (live/history.py's shape)
     write(home, hist, harness=, agent=) -> Path
@@ -25,6 +27,11 @@ from halo_harness.live.recording_page import BODY, CSS, JS
 
 DIR = "recordings"
 MAX_ENTRIES = 600
+NOT_CLEANED = "the redactor could not clean this session; nothing was written"
+
+
+class NotCleaned(ValueError):
+    """3.6.0.3 B (file 10): the redaction failed, so no page is written; the Record route answers its words alone."""
 _NAME = re.compile(r"^[A-Za-z0-9_.-]{1,160}\.html$")
 
 
@@ -68,13 +75,16 @@ def _data(hist: dict, harness: str, agent: Optional[str]) -> str:
                 entries={k: (v or [])[-MAX_ENTRIES:] for k, v in (hist.get("entries") or {}).items()})
     if data["cwd"]:
         data["cwd"] = Path(str(data["cwd"])).name  # a full path never leaves in a file meant to be shared
-    # 3.6.0.3 B (Z1): a file made to be sent carries no key -- the session export's redaction (privacy_redact.redact:
-    # keys masked, paths inside the project relative, any other under the home as ~/..., the account's names out)
+    # 3.6.0.3 B (Z1): a file made to be sent carries no key -- privacy_redact.redact (keys masked, paths inside the
+    # project relative, any other under this account's home as ~/..., its names out; another account's home stays)
     from halo_harness.privacy_redact import redact
     from halo_harness.privacy_scrub import project_root
-    data = redact(json.loads(json.dumps(data, ensure_ascii=False, default=str)), root=project_root(hist.get("cwd")))
+    try:
+        data = redact(json.loads(json.dumps(data, ensure_ascii=False, default=str)), root=project_root(hist.get("cwd")))
+    except Exception as e:  # noqa: BLE001 -- a redactor that breaks is a redaction that failed: nothing is written
+        raise NotCleaned(NOT_CLEANED) from e
     if "_sanitize_error" in data:
-        raise ValueError("the redactor could not clean this session; nothing was written")
+        raise NotCleaned(NOT_CLEANED)
     raw = json.dumps(data, ensure_ascii=False, default=str)
     return raw.replace("<", "\\u003c").replace(">", "\\u003e").replace("/", "\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 

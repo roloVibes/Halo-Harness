@@ -7,9 +7,4 @@
 .lh-head .mono { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .lh-title { font: 600 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
 .lh-rows { overflow-y: auto; flex: 1; min-height: 0; }
-.lh-row { display: flex; flex-direction: column; justify-content: center; gap: 3px; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--line);
-  background: transparent; color: var(--text); text-align: left; cursor: pointer; min-width: 0; }
-.lh-row:hover, .lh-row:focus-visible { background: var(--surface-2); outline: none; box-shadow: inset 2px 0 0 var(--accent); }
-.lh-what { font: 400 13px/18px var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lh-facts { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lh-note { padding: 10px 12px; font-size: 12px; }

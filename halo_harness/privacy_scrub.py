@@ -1,8 +1,8 @@
-"""halo_harness.privacy_scrub -- a saved replay is safe to hand to someone else (Halo 3.4.1.1, defect 56).
+"""halo_harness.privacy_scrub -- the paths and names part of the redaction of what leaves this machine (Halo 3.4.1.1,
+defect 56; privacy_redact.redact runs it after the key shapes).
 
-A replay's texts are the model's own words (a sub-agent's task, a hand-back, a tool line), and models write absolute
-paths: `C:\\Users\\<you>\\project\\a.txt`, `/home/<you>/project/b.txt`. Applied when the file is written (and when it
-is built, so the Save dialog shows what the file will hold), to every string of the payload:
+What leaves holds the model's own words (a sub-agent's task, a hand-back, a tool line), and models write absolute
+paths: `C:\\Users\\<you>\\project\\a.txt`, `/home/<you>/project/b.txt`. Applied to every string of the payload:
 
     paths inside the project       -> project-relative (`a.txt`, `src/b.py`; the project itself `.`)
     any other path under the home  -> `~/...` (the home itself `~`)
@@ -20,7 +20,7 @@ format: a file written before still opens, a reader sees only strings.
 3.6.0.3: moved here, with no change of behaviour, from live/replay_private.py (all but `halo audit privacy
 --replays`' audit) and live/replay_cut.py, the rules for a text that was CUT SHORT before the redactor saw it:
 
-live/history.py cuts a task to 200 characters and closes it with "..." before a replay is built, so the cut can
+live/history.py cuts a task to 200 characters and closes it with "..." before a record is built, so the cut can
 land inside a name ("... as zedteste...") or inside a path ("... and /h...", or a Windows home cut after its
 first letters), where the
 whole-name and whole-path rules above cannot match. These rules look only at the last run of

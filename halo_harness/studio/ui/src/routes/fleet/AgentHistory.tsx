@@ -54,7 +54,7 @@ export function RecentSessions() {
             <span className="fa-history-task">{short(r.task || r.session_id, 60)}</span>
             <span className="spacer" />
             <button className="og-link mono" disabled={!!busy} onClick={() => (setBusy(r.session_id), void exportTrace(r.session_id).finally(() => setBusy("")))} data-testid="fleet-history-export" title="this session as one Markdown file: every prompt, reply and tool call, keys masked">export</button>
-            {here && <button className="og-link mono" onClick={() => void record(keyOf(here, r.session_id, "main"), false)}>record</button>}
+            {here && <button className="og-link mono" title="this session as one HTML page you can open anywhere" onClick={() => void record(keyOf(here, r.session_id, "main"), false)}>record</button>}
           </li>
         ))}
       </ul>

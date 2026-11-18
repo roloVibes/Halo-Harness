@@ -58,9 +58,18 @@ def test_session_panel_offers_the_export_not_replay(ctx: Ctx):
               and "trace.md" not in code and "fetch(" not in code)
     rec = _line(code, 'data-testid="fleet-record"')
     ctx.check(f"Record's hover words are Z1's, got {rec.strip()[:200]!r}", f'title="{RECORD_WORDS}"' in rec and "record(r.key, true)" in rec)
-    ctx.check("the rows' record link is unchanged", 'record(keyOf(here, r.session_id, "main"), false)}>record</button>' in code)
+    ctx.check("the rows' record link still records the row's session (main, no download)",'record(keyOf(here, r.session_id, "main"), false)}>record</button>' in code)
     fetchers = [p.relative_to(SRC).as_posix() for p in SRC.rglob("*.ts*") if "trace.md" in _code(p.read_text(encoding="utf-8"))]
     ctx.check(f"one fetch of a session's export under ui/src, got {fetchers}", fetchers == ["routes/session/TraceExport.tsx"])
+
+
+@test
+def test_a_rows_record_link_has_records_hover_words(ctx: Ctx):
+    """3.6.0.3 B (file 10): on a LAST SESSIONS row `export` had hover words and `record` had none."""
+    code = _code(_read("fleet/AgentHistory.tsx"))
+    link = _line(code, 'record(keyOf(here, r.session_id, "main"), false)')
+    ctx.check(f"the row's record link says Record's hover words, got {link.strip()[:200]!r}",
+              f'title="{RECORD_WORDS}"' in link and ">record</button>" in link)
 
 
 @test

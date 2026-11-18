@@ -1,7 +1,8 @@
-"""halo_harness.live.card_run -- a goal run's replay as the same one file a session's is (Halo 3.4.1.0 R2 "Time").
+"""halo_harness.live.card_run -- a goal run's record for the report card, in the same shape as a session's (Halo
+3.4.1.0 R2 "Time").
 
 A goal run (an Orchestra run, `<repo>/.halo/orchestra/<run-id>/`) has no transcript of its own: its record is the run
-folder. The lead and each lane become the replay's agents (`lead`, `lane-<n>` under it), each lane's state history
+folder. The lead and each lane become the record's agents (`lead`, `lane-<n>` under it), each lane's state history
 (`lanes/<n>.json` `history`: joined, writing, written, in review, sent back, merged, failed) its states, marks and
 bands through the same live/card_timeline.py a session's go through, the plan review (`plan.json`) an ask, and its `facts`
 the run's own figures: the report's cost (else the lead's split plus every lane), each model's share, the pieces sent
@@ -17,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-# a lane's word -> (an entry for card_timeline.py, the replay's state); None = no entry (the lane only waits its turn)
+# a lane's word -> (an entry for card_timeline.py, the record's state); None = no entry (the lane only waits its turn)
 ENTRY = {"writing": "text", "waiting": "text", "written": "handback", "in_review": "tool_call"}
 END = {"merged": "done", "failed": "failed"}
 
@@ -72,7 +73,7 @@ def _hist(meta: dict, goal: dict, lanes: list, report: Optional[dict], state: st
         claims = ", ".join(str(c) for c in r.get("claims") or [])
         lane_state = END.get(str(r.get("state") or ""), "running" if r.get("state") else "queued")
         # 3.4.1.1 (60): a lane ends when it last merged (or failed), from its own history -- `ended` is when its last piece
-        # was written, before the review, so the replay drew it merged half a run early
+        # was written, before the review, so the old playback drew it merged half a run early
         last = [float(h["ts"]) for h in rows if h.get("state") == str(r.get("state"))]
         end = (last[-1] if last else _num(r.get("ended"))) if lane_state in ("done", "failed") else None
         agents.append({"agent_id": aid, "parent": "lead", "name": f"lane {r.get('lane')}", "role": "lane", "bio": r.get("bio") or None,
@@ -129,7 +130,7 @@ def _facts(state_dir, run_dir: Path, goal: dict, lanes: list, report: Optional[d
 
 
 def build_run(state_dir, run_dir) -> dict:
-    """The replay of the goal run in `run_dir`. Raises ReplayError when it is not one."""
+    """The record of the goal run in `run_dir`. Raises ReplayError when it is not one."""
     from halo_harness import __version__
     from halo_harness.live import card_timeline, history
     from halo_harness.live.card_data import AGENT_KEYS, FORMAT, VERSION, ReplayError, includes

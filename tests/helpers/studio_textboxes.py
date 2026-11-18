@@ -141,6 +141,45 @@ def session_strips(c, rig) -> dict:
                                      "session-cost", shot, "session")}
 
 
+#: 3.6.0.3 B (file 10): the Run a goal form's labels at the desktop size and at the 1024 and 390 px breakpoints
+LABEL_SIZES = ((1280, 800), (1024, 768), (390, 844))
+_LABELS = """(() => [...document.querySelectorAll('[data-testid="orchestra-goal-form"] .field-label')].map((e) => {
+  const s = getComputedStyle(e), r = e.getBoundingClientRect();
+  return {text: e.textContent, sw: e.scrollWidth, cw: e.clientWidth, h: Math.round(r.height), w: Math.round(r.width),
+          over: s.textOverflow, ws: s.whiteSpace};
+}))()"""
+
+
+def goal_labels(c, rig) -> dict:
+    """Each label of the drawer's goal form (the pack workflow picker's too): cut sideways or not, at each size."""
+    from halo_harness.studio.server import url_for
+    out = {}
+    try:
+        for w, h in LABEL_SIZES:
+            c.call("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1, mobile=False)
+            c.go("about:blank")
+            c.go(url_for(rig.server, "agents").replace("#t=", "&tour=off&view=map#t="))
+            c.wait("!!document.querySelector('[data-testid=\"map-run-goal\"]')", 30)
+            # a drawer opened before is kept across the reload (R10) with the form closed: its own Run a goal opens it
+            c.wait("!!document.querySelector('[data-testid=\"map-drawer-goal-open\"], [data-testid=\"orchestra-goal-form\"]')"
+                   " || !document.querySelector('[data-testid=\"run-goal-drawer\"], .mpf-page')", 10)
+            opener = ("document.querySelector('[data-testid=\"map-drawer-goal-open\"]') || "
+                      "(!document.querySelector('.mpf-page') && document.querySelector('[data-testid=\"map-run-goal\"]'))")
+            if c.js(f"!!({opener})"):
+                c.click_on(opener)
+            try:
+                c.wait("document.querySelectorAll('[data-testid=\"orchestra-goal-form\"] .field-label').length >= 3", 30)
+            except TimeoutError:
+                shot(c, f"goal-labels-{w}-not-open")
+                out[f"{w}x{h}"] = []  # the test says the form was not drawn at this size
+                continue
+            shot(c, f"goal-labels-{w}")
+            out[f"{w}x{h}"] = c.js(_LABELS)
+    finally:
+        c.call("Emulation.clearDeviceMetricsOverride")
+    return {"goal_labels": out}
+
+
 class TextBoxDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1440, 900
@@ -151,7 +190,7 @@ class TextBoxDriver(Driver):
         with PromptRig() as rig:
             SHOTS[:] = self.argv[:1]
             yield ((prompt, (c, rig)), (prompt_long, (c, rig)), (orchestra, (c, rig)),
-                   (fleet_strips, (c, rig)), (session_strips, (c, rig)))
+                   (fleet_strips, (c, rig)), (session_strips, (c, rig)), (goal_labels, (c, rig)))
 
 
 if __name__ == "__main__":

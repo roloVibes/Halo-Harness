@@ -1,7 +1,7 @@
 """halo_harness.privacy_redact -- the one redaction for what leaves this machine (Halo 3.4.1.2, PACKS-5 / SERVERS-6).
 
-A saved replay, `halo export --sanitize`, `/export --sanitize`, `halo session export`, the report card's Markdown and
-`halo bugreport` all call `redact`, so a spelling caught for one is caught for all:
+`halo export --sanitize`, `/export --sanitize`, `halo session export`, the report card's Markdown, Record's page
+(live/recording.py) and `halo bugreport` all call `redact`, so a spelling caught for one is caught for all:
 
     redact(obj, *, root=None, strict=False, known=None) -> obj        (a str, or a list / dict walked leaf by leaf)
 

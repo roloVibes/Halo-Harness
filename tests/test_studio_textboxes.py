@@ -132,6 +132,26 @@ def test_the_orchestra_goal_boxes(ctx: Ctx):
 
 
 @test
+def test_the_goal_forms_labels_wrap_and_are_never_cut(ctx: Ctx):
+    """3.6.0.3 B (file 10): the Run a goal form in the Map's drawer showed 'SHARED FILES (COMMA ...' at 1280 x 800 (a
+    text cut: the owner's rule is never). Every label of the form, OR RUN A PACK'S WORKFLOW too, wraps instead: no
+    ellipsis, nothing cut sideways, at 1280 x 800 and at the 1024 and 390 px breakpoints."""
+    import re
+    css = "\n".join(p.read_text(encoding="utf-8") for p in sorted((UI / "styles").glob("*.css")))
+    forced = [m.group(0)[:120] for m in re.finditer(r"[^{}]*field-label[^{}]*\{[^}]*\}", css)
+              if re.search(r"nowrap|ellipsis", m.group(0).split("{", 1)[1])]
+    ctx.check(f"no rule keeps a field's label on one line or cuts it with an ellipsis (the pack workflow picker's "
+              f"label is one, drawn only when a pack offers a workflow), got {forced}", not forced)
+    got = _got(ctx).get("goal_labels") or {}
+    for size in ("1280x800", "1024x768", "390x844"):
+        rows = got.get(size) or []
+        ctx.check(f"{size}: the form's labels are drawn, SHARED FILES among them, got {[r['text'] for r in rows]}",
+                  any(r["text"].startswith("SHARED FILES") for r in rows))
+        cut = [r for r in rows if r["over"] == "ellipsis" or r["ws"] == "nowrap" or r["sw"] > r["cw"] + 1]
+        ctx.check(f"{size}: no label is cut or kept on one line by force, got {cut}", not cut)
+
+
+@test
 def test_the_strips_breathe(ctx: Ctx):
     """Owner feedback 2026-11-09 (a photo of Fleet: the strips "squished and too small"); 3.6.0.0 R0a: no strips, the
     view bar's buttons instead -- the bar 44 px, each button >= 32 px with its name centred and 12 px at its sides, 8 px

@@ -42,7 +42,9 @@
 .og-goal-form .og-form-row3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
 .og-goal-form .input { min-width: 0; }
 .rail-group { grid-template-columns: minmax(0, 1fr); }
-.og-goal-form .field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 3.6.0.3 B (file 10): a label wraps to a second line, never cut ('SHARED FILES (COMMA ...' at 1280 x 800) */
+.og-goal-form .field-label { overflow-wrap: anywhere; }
+.og-goal-form .og-form-row, .og-goal-form .og-form-row3 { align-items: end; }  /* the boxes of a row keep one line */
 .og-more summary { padding: 2px 0; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .og-more .og-form-row { margin-top: 6px; }
 .og-runline { font-size: 12px; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }

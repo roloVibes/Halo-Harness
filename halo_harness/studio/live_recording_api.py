@@ -41,7 +41,10 @@ def post_recording(req):
     hist, name = _history(req, req.params["hid"], req.params["sid"])
     if hist is None:
         return name
-    path = recording.write(req.state_dir, hist, harness=str(name), agent=agent)
+    try:
+        path = recording.write(req.state_dir, hist, harness=str(name), agent=agent)
+    except recording.NotCleaned as e:  # 3.6.0.3 B (file 10): the plain sentence alone, no class name
+        return 500, {"error": str(e)}
     return 200, {"ok": True, "path": str(path), "name": path.name, "url": f"live/recordings/{path.name}",
                  "bytes": path.stat().st_size, "agents": len(recording.scoped(hist, agent).get("agents") or []),
                  "states": len(recording.scoped(hist, agent).get("states") or [])}

@@ -6,9 +6,6 @@ from __future__ import annotations
 
 Q = "document.querySelector"
 QA = "document.querySelectorAll"
-BAR = f"{Q}('[data-testid=\"replay-bar\"]')"
-ROWS = f"[...{QA}('[data-testid=\"live-history-row\"]')]"
-DIALOG = f"{Q}('[data-testid=\"replay-{{}}-dialog\"]')"
 
 
 def open_page(c, page, query: str) -> None:

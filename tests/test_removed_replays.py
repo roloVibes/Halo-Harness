@@ -56,21 +56,23 @@ SKIP = [
      "Z7: where the door is read, the old link's `replay=` (and its `at=`) leaves the address, nothing said"),
     (UI + "**", r"\bhistory\.(replaceState|state)\b",
      "the browser's History API (history.replaceState drops a door's words from the address), not Halo's History"),
-    (UI + "routes/session/promptDraft.ts", r"history",
+    (UI + "routes/session/promptDraft.ts",
+     r"\bhistory\(sid\b|prompt\.history\.\$\{sid\}|its history per session|or history recall|a private window keeps no history",
      "prompt history: the Prompt box's sent prompts per session, Up / Down walk them (kept in this browser)"),
-    (UI + "routes/session/PromptComposer.tsx", r"history",
+    (UI + "routes/session/PromptComposer.tsx",
+     r"walk this session's history \(kept in this browser\)|import \{ history, setDraft \}|= history\(sid\)",
      "prompt history: Up / Down walk this session's sent prompts (promptDraft.ts)"),
     (UI + "routes/session/promptStore.ts", r"History \(promptDraft\.ts\)",
      "prompt history (promptDraft.ts), per session"),
     (UI + "routes/help-session.ts", r"Up / Down walk this session's history",
      "prompt history: the Prompt panel's help on its Up / Down keys"),
-    (UI + "routes/session/CostComposition.tsx", r"history",
+    (UI + "routes/session/CostComposition.tsx", r'^// history and what you typed|key: "history", label: "history"',
      "the conversation so far, a part of a prompt's composition (the wire key `history` of the session row)"),
     (UI + "routes/fleet/types.ts", r"history: number",
      "the conversation so far, a part of a prompt's composition (the wire key `history`)"),
     (UI + "styles/session.css", r'data-part="history"',
      "the composition bar's part for the conversation so far"),
-    (UI + "routes/crew/builderStore.ts", r"\bhistory\b",
+    (UI + "routes/crew/builderStore.ts", r"const history = s\.msgs|conversation_id: s\.cid, history \}",
      "the builder's conversation so far, sent with each ask (`builder/ask`'s `history` key)"),
     (UI + "routes/orchestra/types.ts", r"history: LaneStep\[\]",
      "a lane's history, a wire key of a goal run's lane (each state it went through)"),
@@ -140,8 +142,9 @@ SKIP += [
      "the report card's own heading (the same in Studio's card: WHAT FAILED AND WHAT HAPPENED NEXT)"),
     ((PY + "tui/*", PY + "history.py", PY + "peers/projects.py"),
      r"history[:-]\w+|#history-\w+|Search prompt history|Search history \(Esc to cancel\)|"
-     r"Ctrl\+R searches your prompt history|^History$|^history\.jsonl$",
+     r"Ctrl\+R searches your prompt history|^history\.jsonl$",
      "prompt history: Ctrl+R searches it, Up / Down walk it (history.jsonl, the TUI's history search)"),
+    (PY + "tui/app.py", r"^History$", "prompt history: Ctrl+R's key label in the TUI (its binding history_search)"),
     ((PY + "agent/*", PY + "commands/builtins.py", PY + "concierge.py", PY + "providers/model_card_words.py",
       PY + "ollama_steward/*", PY + "studio/builder_api.py", PY + "local_sched/*", PY + "tui/widgets/transcript.py"),
      r"^history$|prior history to summarize|session with history to digest|a file's history lives per-session|"
@@ -157,7 +160,8 @@ SKIP += [
      "git history: `halo audit privacy --history` scans every commit"),
     (PY + "doctor.py", r"no connect-time history recorded yet", "an MCP server's connect-time history (the doctor's timing)"),
     ((PY + "permissions.py", PY + "review/*", PY + "update.py", PY + "update_artifact.py", PY + "templates/packs/coach/*"),
-     r"(?i)\bcompare\b",
+     r"^Compare-Object$|default branch (was )?found to compare|overlays, compare, compose|^You compare finished work|"
+     r"^compare$|^/compare/$|nothing to compare with checksums|harness and compare what each",
      "compare in other senses (PowerShell's Compare-Object, a review's base branch, a release's diff, checksums, the coach)"),
     ((PY + "media/*", PY + "providers/media_models.py"), r"/history/|^CLIP$|^clip$",
      "ComfyUI: its /history/ route and its CLIP text encoders"),
@@ -177,10 +181,11 @@ SKIP += [
     ((D + "ARCHITECTURE*.md", D + "README.md", D + "DATABRICKS.md", D + "HANDBOOK.md", D + "MODELS-families.md",
       D + "MODELS-ollama.md", D + "MODELS-openai-codex.md", D + "COMMANDS-providers.md", D + "COMMANDS-health.md",
       D + "DEVELOPMENT.md", D + "TROUBLESHOOTING.md"),
-     r"(?i)(is_)?reasoning[-_ ]replay\w*|replayed signature|replay format|no known replay|the same replayed message|"
-     r"on every replay|^\s*replay;|replaying whatever|on replay\b|documented replay shape|"
-     r"never replayed on (a later request|the wire)|replay machinery|replays as|replays its own history|"
-     r"replaying it would need|malformed replay of its own|a tool_use to replay",
+     r"(is_)?[Rr]easoning[-_ ]replay\w*|replayed signature is bound|replay format, sampling|no known replay|"
+     r"the same replayed message|catalog on every replay|^\s*replay; `None`|replaying whatever|-- on replay\), no|"
+     r"documented replay shape|never replayed on (a later request|the wire)|replay machinery never|"
+     r"tool-result message replays as|replays its own history|replaying it would need|malformed replay of its own|"
+     r"a tool_use to replay",
      "R-B3: reasoning replay in the providers (a model's reasoning and messages sent back on the next request)"),
     ((D + "COMMANDS-main-io.md", D + "HANDBOOK.md"), r"--replay-user-messages", "R-B3: --replay-user-messages (Claude Code's flag)"),
     ((D + "COMMANDS-main-misc.md", D + "SLASH-COMMANDS-tui.md"), r"`/intro` replays|Replays the 2\.0\.0 launch intro|replay it into",
@@ -201,8 +206,9 @@ SKIP += [
      "a goal's history under the supervisor (its rounds and decisions)"),
     ((D + "PRIVACY.md", D + "COMMANDS-health.md", D + "DEVELOPMENT.md", D + "README.md", D + "REVIEW.md"),
      # lower case only: a capital History in these docs is the part of Studio that left, and must be seen
-     r"--history|history[- ]rewrite|in history|from history|Halo's own history|2\.0\.4-history-|a history\b|git history|"
-     r"project's (own )?(build )?history|build[- ]history|the history of|this project's history|its history\)",
+     r"--history|history[- ]rewrite|finds something in history|remove it from history|Halo's own history|"
+     r"2\.0\.4-history-|narrows a history scan|repository: a history$|git history|project's (own )?(build )?history|"
+     r"build[- ]history|want the history of (the first design|milestones|the milestone)|its history\) for secrets",
      "git history and this project's own history (`halo audit privacy --history`, docs/harness/, the dated records)"),
     ((D + "COMMANDS-packs.md", D + "PACKS.md", D + "EXTENSION_API.md"), r"(version )?history on disk",
      "a pack update keeps no version history on disk"),
@@ -223,7 +229,8 @@ SKIP += [
     ((D + "ARCHITECTURE-modules.md", D + "STUDIO-live-panels.md"), r"live/history\.py|`conflicts` and `history`",
      "the live session's history route that Session and the Map read (live/history.py): it stays"),
     (D + "STUDIO-orchestra.md", r"`history-report`", "the goal run report page's test id history-report (kept by batch 1)"),
-    (D + "STUDIO-agents.md", r"`\?mode=agents&replay=<id>`|An old replay link opens the Map as it is now\.",
+    (D + "STUDIO-agents.md",
+     r"^\| `\?mode=agents&replay=<id>` \(with any `view=`\) \| the Map\. An old replay link opens the Map as it is now\. \|$",
      "Z7: an old replay link opens the Map as it is now (the door's row says so)"),
     ((D + "EXTENSION_API.md", D + "INSTALL.md", D + "MAC.md", D + "MEDIA.md", D + "MODELS-catalog.md", D + "ORCHESTRA.md",
       D + "VOICE-glasses.md"),
@@ -233,7 +240,8 @@ SKIP += [
      "compare in other senses (version ranges, hashes, two `halo doctor` cards, SVGs, the coach's judge)"),
     ((D + "COMMANDS-packs.md", D + "EXTENSION_API.md", D + "MODELS-cards.md", D + "PACKS.md", D + "PROVIDERS-copilot.md",
       D + "SLASH-COMMANDS-tui.md", D + "TROUBLESHOOTING.md", D + "ORCHESTRA.md"),
-     r"(?i)(said with|saying|says|told) what happened|\| What happened \|",
+     r"(said with|saying|says|told) what happened|^\| What happened \| (What Halo says|The line \| What to do) \||"
+     r"^\| The line starts \| What happened \| The next step \|",
      "'what happened' in plain prose (an error line's table, a status line), not a drawer page's title"),
     ((D + "COMMANDS-sessions.md", D + "GLOSSARY.md", "halo_harness/templates/glossary/GLOSSARY.md"),
      r"what failed and what happened next",
@@ -357,6 +365,104 @@ def test_the_git_history_skip_still_excuses_git_history(ctx: Ctx):
                      "Fixing that needs a history rewrite (`git filter-repo`)", "this project's own build history"):
             ctx.check(f"docs/{name}: {line!r} is kept (git history, the project's own history)",
                       WORDS.search(_left(D + name, line)) is None)
+
+
+#: 3.6.0.3 B (file 10): one probe per SKIP line, in SKIP's order -- a sentence of the removed feature (a replay, History,
+#: Compare, the scrubber, What happened, a clip) put in a file of that line's glob, worded near the line's own words.
+#: Every probe must be a hit: a skip line never excuses more than its own sense. Every line can be probed (none is
+#: listed with a reason instead). A line with more than one probe names the judge's sentences that it once hid.
+PROBES = [
+    ((UI + "lib/agentsDoor.ts", 'if (q.get("replay")) return { view: "replay" };'),),
+    ((UI + "routes/agents/store.ts", 'toast("this replay is gone"); q.delete("replay");'),),
+    ((UI + "routes/agents/MapView.tsx", 'history.replaceState(null, "", "?replay=" + id);'),),
+    ((UI + "routes/session/promptDraft.ts", "// open a past run from history"),),
+    ((UI + "routes/session/PromptComposer.tsx", "<li>pick a finished session in the history strip</li>"),),
+    ((UI + "routes/session/promptStore.ts", "// History (the Map's list of past runs)"),),
+    ((UI + "routes/help-session.ts", '"Up / Down walk this session\'s history; Replay plays it back"'),),
+    ((UI + "routes/session/CostComposition.tsx", '{ key: "replay", label: "history of past runs" },'),
+     (UI + "routes/session/CostComposition.tsx", "// open a past run from history")),
+    ((UI + "routes/fleet/types.ts", "  replayable: boolean; // shown in History"),),
+    ((UI + "styles/session.css", ".history-row { display: flex; }"),),
+    ((UI + "routes/crew/builderStore.ts", "// open a past run from history"),),
+    ((UI + "routes/orchestra/types.ts", "  replay?: string; // its saved replay"),),
+    ((UI + "routes/crew/run/RunInspector.tsx", "<Button>Replay this lane</Button>"),),
+    ((UI + "routes/fleet/pstore.ts", "// One run's history, opened from History"),),
+    ((UI + "routes/fleet/AgentHistory.tsx", 'api("live/replay")'),),
+    ((UI + "routes/fleet/AgentHistory.tsx", 'data-testid="fleet-history-replay">replay</button>'),),
+    ((UI + "routes/fleet/pstore.ts", "  replays: [], // the History list"),),
+    ((UI + "routes/fleet/AgentHistory.tsx", 'data-testid="fleet-history-compare"'),),
+    ((UI + "routes/crew/run/RunReport.tsx", '<Button data-testid="history-report-replay" title="Replay it">'),),
+    ((UI + "styles/model-select.css", "/* clip-path for the scrubber */"),),
+    ((UI + "styles/map-down.css", "/* text-overflow: clip; the clip export */"),),
+    ((UI + "routes/crew/live/ReportCard.tsx", "<h3>WHAT HAPPENED</h3>"),),
+    ((PY + "cli_commands.py", "halo replay plays a session back on the map"),),
+    ((PY + "cli_commands.py", "replay a past session"),),
+    ((PY + "cli.py", "replay <file>"),),
+    ((PY + "audit_cli.py", "--replays: scan the saved replays"),),
+    ((PY + "live/report_card.py", "open the .halo-replay file"),),
+    ((PY + "live/report_card.py", "replays/<id>.halo-replay"),),
+    ((PY + "doctor.py", "Halo opens replays from <state>/replays"),),
+    ((PY + "live/card_data.py", "a halo-replay file"),),
+    ((PY + "providers/openai.py", "Replay this session on another model"),),
+    ((PY + "events.py", "replay the session on the map"),),
+    ((PY + "cli.py", "--replay-file PATH"),),
+    ((PY + "peers/protocol.py", "replayed on the map"),),
+    ((PY + "tui/tips.py", "Replay the last session on the map"),),
+    ((PY + "agent/prompt.py", "a past session replayed on the map"),),
+    ((PY + "providers/experiential.py", "a replay of the session"),),
+    ((PY + "mcp/doctor_deep.py", "replaying a past session"),),
+    ((PY + "agent/prompt_lean_system.py", "What happened: the drawer page of a past run"),),
+    ((PY + "live/report_card_text.py", "## What happened"),),
+    ((PY + "tui/widgets/sidebar.py", "History"),),
+    ((PY + "tui/app.py", "History of past runs"),),
+    ((PY + "agent/loop.py", "open a past run from history"),),
+    ((PY + "orchestra/run.py", "the run's replay"),),
+    ((PY + "supervise/goal.py", "History of the goal runs"),),
+    ((PY + "audit_cli.py", "open a past run from history"),),
+    ((PY + "doctor.py", "no replay recorded yet"),),
+    ((PY + "update.py", "Compare two runs side by side"), (PY + "review/target.py", "Compare two runs side by side")),
+    ((PY + "media/comfy.py", "Export a clip of the session"),),
+    ((PY + "templates/packs/design/run.py", "Export a clip of the session"),),
+    ((PY + "studio/live_api.py", "live/replay"),),
+    ((PY + "tui/widgets/sidebar.py", "Export a clip"),),
+    ((D + "README.md", "Click on Replay to play a past session back on the Map."),
+     (D + "HANDBOOK.md", "saves a session in the .halo-replay format"),
+     (D + "MODELS-ollama.md", "Studio replays as it ran any past session")),
+    ((D + "COMMANDS-main-io.md", "--replay FILE plays a saved session"),),
+    ((D + "COMMANDS-main-misc.md", "`/replay` replays the last session"),),
+    ((D + "HOST.md", "a replay of the session"),),
+    ((D + "SLASH-COMMANDS-session.md", "replayed on the map"),),
+    ((D + "GOVERNOR.md", "replay a past session"),),
+    ((D + "WORK.md", "open its history in Studio"),),
+    ((D + "ORCHESTRA.md", "Open the run from History."),),
+    ((D + "SUPERVISE.md", "the goal's replay"),),
+    ((D + "README.md", "Open a finished goal run from history on the Agents tab."),
+     (D + "PRIVACY.md", "It is listed in history under the map.")),
+    ((D + "PACKS.md", "a replay on disk"),),
+    ((D + "COMMANDS-mcp.md", "the session history on the map"),),
+    ((D + "STUDIO-session.md", "open a past run from history"),),
+    ((D + "SLASH-COMMANDS-tui.md", "the Map's history"),),
+    (("README.md", "A finished run moves to History under the map, with its report and a replay."),),
+    ((D + "STUDIO-live-panels.md", "live/replay"),),
+    ((D + "STUDIO-orchestra.md", "`history-report-replay`"),),
+    ((D + "STUDIO-agents.md", "Open `?mode=agents&replay=<id>` to see a past session again."),),
+    ((D + "MAC.md", "Compare two runs side by side"),),
+    ((D + "PACKS.md", "The drawer page says What happened for a past run."),),
+    ((D + "GLOSSARY.md", "What happened: the drawer page of a past run"),),
+    ((D + "TROUBLESHOOTING.md", "Export a clip"),),
+    ((D + "COMFYUI.md", "Export a clip of the session"),),
+]
+
+
+@test
+def test_every_skip_line_flags_a_sentence_of_the_removed_feature_in_its_own_file(ctx: Ctx):
+    ctx.check(f"one probe row per skip line: {len(PROBES)} rows, {len(SKIP)} lines", len(PROBES) == len(SKIP))
+    for i, ((glob, rx, _why), probes) in enumerate(zip(SKIP, PROBES)):
+        globs = (glob,) if isinstance(glob, str) else glob
+        for rel, said in probes:
+            ctx.check(f"SKIP {i}: the probe's file {rel} is one of the line's files {globs}",
+                      any(fnmatch.fnmatch(rel, g) for g in globs))
+            ctx.check(f"SKIP {i} /{rx[:60]}/: {said!r} in {rel} is a hit", WORDS.search(_left(rel, said)) is not None)
 
 
 @test
