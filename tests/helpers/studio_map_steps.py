@@ -72,17 +72,22 @@ def first(c, rig) -> dict:
     c.js("document.activeElement?.blur(); 1")
     key(c, "3")
     out = {"view": c.wait(f"{VIEW} === 'map' && {VIEW}", 30)}
-    c.wait(f"{qa('[data-testid=map-label]')}.length === 7 && !!{t('builder-meta')}", 30)
+    # 3.6.0.5 A11: Auto's tab draws main alone and M1 (AutoPlan.tsx): no box to edit, no line, no switch, no Lock
+    c.wait(f"!!{t('map-auto-plan')} && !!{t('map-auto-main')} && !!{t('builder-meta')}", 30)
     out["switch"] = c.js("[...document.querySelectorAll('[data-part=map] [data-testid=agents-views] button')].map((b) => b.innerText)")
     out["first"] = c.js(f"({{map: {t('map-switcher')}.value, dialogs: document.querySelectorAll('[role=dialog]').length,"
                         f" conversation: !!{t('builder-conversation')}, drawer: !!{q('.stage-drawer[data-panel-in=map-add]')},"
-                        f" labels: {qa('[data-testid=map-label]')}.map((l) => l.innerText), hint: {t('builder-input')}.placeholder}})")
-    out["geom"] = c.js(GEOM)
+                        f" main: !!{t('map-auto-main')}, labels: {qa('[data-testid=map-label]')}.length,"
+                        f" boxes: {qa('[data-map-box]')}.map((b) => b.dataset.mapBox), plan: {t('map-auto-plan')}.textContent,"
+                        f" uses: !!{t('map-uses')}, lock: !!{t('map-lock')}, goal: !!{t('map-run-goal')}}})")
     shot(c, "studio-map.png")
-    # 3.6.0.5: Auto is never edited: the steps after this one drag, chain, key and zoom on the scratch map of seven boxes
+    # 3.6.0.5: Auto is never edited: the seven labels, the geometry and the builder's hint are read on the scratch map of
+    # seven boxes, opened from the switcher right after; the steps after this one drag, chain, key and zoom on it
     c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
          f" set.call(s, '{SEVEN}'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
     c.wait(f"{t('map-switcher')}?.value === '{SEVEN}' && {qa('[data-testid=map-label]')}.length === 7", 20)
+    out["seven"] = c.js(f"({{labels: {qa('[data-testid=map-label]')}.map((l) => l.innerText), hint: {t('builder-input')}.placeholder}})")
+    out["geom"] = c.js(GEOM)
     return out
 
 

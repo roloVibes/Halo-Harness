@@ -371,10 +371,18 @@ def result_tail(session, wrote, undo, use_written: bool = False) -> str:
 
 def row(session) -> dict:
     """The status row's map facts (R40): map_since, map_plain, map_next, map_next_none (new sessions start with no map:
-    map_next None is then not "the default"), map_next_since, built, asked. Never raises."""
+    map_next None is then not "the default"), map_next_since, built, asked; on Auto `map_agents` (3.6.0.5 A22: the agents
+    the session had when it started, its own dict, never re-read from disk). Never raises."""
     try:
         f = facts(session)
     except Exception:
         return {}
-    return {"map_since": f["since"], "map_plain": f["plain"], "map_next": f["next"], "map_next_none": f["next_none"],
-            "map_next_since": f["next_since"], "built": f["built"], "asked": f["asked"]}
+    out = {"map_since": f["since"], "map_plain": f["plain"], "map_next": f["next"], "map_next_none": f["next_none"],
+           "map_next_since": f["next_since"], "built": f["built"], "asked": f["asked"]}
+    runtime = getattr(session, "agent_runtime", None)
+    if f["plain"] and runtime is not None:
+        try:
+            out["map_agents"] = list(getattr(runtime, "agents", {}) or {})
+        except Exception:
+            pass
+    return out

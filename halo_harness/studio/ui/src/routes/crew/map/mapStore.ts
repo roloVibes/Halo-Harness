@@ -1,7 +1,8 @@
 // The Map tab's store (3.6.0.0 R3; docs/STUDIO-map.md): the maps (GET crew/maps), the open one (GET crew/map/<name>),
 // every change the page makes -- add a box, connect, a line's When, take a line out, + New map -- saved at once (PUT
 // crew/map/<name>, the before-image kept), then a receipt line with Undo (POST builder/undo: the builder's own store).
-// "New sessions run on this" is POST crew/map/<name>/use (mapSwitch.ts). Lock (off by default, kept in this browser) stops every change.
+// "New sessions run on this" is POST crew/map/<name>/use (mapSwitch.ts). Lock (off by default, kept in this browser) stops every change;
+// 3.6.0.5 A11: so does a read-only map (Auto: `locked` = his Lock or readOnly, autoWords.ts).
 // The builder box on this tab says which map is open and reloads it after an Apply or an Undo (builderStore onTab).
 import { api, ApiError } from "../../../lib/api";
 import { onFilesChanged } from "../../../lib/filesLive";
@@ -11,6 +12,7 @@ import { loadFlows } from "../flows/flowStore";
 import { onTab } from "../builderStore";
 import type { LineWhen, MapDetail, MapFile, MapLine, MapRow } from "./mapTypes";
 import { nameOfTheDefault, openName } from "./truthWords";
+import { readOnly } from "./autoWords";
 
 export type WhenAt = { from: string; to: string; fresh: boolean; before?: MapFile };
 export type MapState = {
@@ -23,6 +25,9 @@ export type MapState = {
   nextNone: boolean;
   name: string;
   detail: MapDetail | null;
+  /** his Lock (kept in this browser; toggleLock) */
+  handLock: boolean;
+  /** nothing can be added, connected or saved: his Lock, or a read-only map (3.6.0.5 A11: Auto) */
   locked: boolean;
   open: Record<string, boolean>;
   hover: string;
@@ -37,7 +42,7 @@ const LOCK = "halo.studio.map-lock";
 export const LAST = "halo.studio.map-open";
 const read = (k: string) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
 
-export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, next: null, nextNone: false, name: "", detail: null, locked: read(LOCK) === "1", open: {}, hover: "",
+export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, next: null, nextNone: false, name: "", detail: null, handLock: read(LOCK) === "1", locked: read(LOCK) === "1", open: {}, hover: "",
   pick: "", when: null, receipt: null, error: "", made: [] });
 export const useMap = <T,>(pick: (s: MapState) => T): T => useStore(maps, pick);
 export const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
@@ -66,7 +71,7 @@ export function firstName(): string {
   return [url, read(LAST), s.rows.find((r) => r.scope === "project")?.name || "", s.inUse || "", "auto"].find(has) || s.rows[0]?.name || "";
 }
 
-export { openName }; // 3.6.0.5: the name a map is opened under (truthWords.ts, pure, beside isAuto)
+export { openName, readOnly }; // 3.6.0.5: the name a map is opened under (truthWords.ts), a read-only map (autoWords.ts)
 
 let opening = 0; // the latest openMap: an earlier one answered late (the tab's own first open) never undoes his pick
 
@@ -77,7 +82,8 @@ export async function openMap(asked: string): Promise<void> {
   const mine = ++opening;
   try {
     const detail = await api.get<MapDetail>(`crew/map/${name}`);
-    if (mine === opening) maps.update((s) => ({ name, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {} }));
+    if (mine === opening) maps.update((s) => ({ name, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {},
+                                                 locked: s.handLock || readOnly(name, detail.scope) }));
   } catch (e) {
     if (mine === opening) maps.update(() => ({ error: msg(e) }));
   }
@@ -180,7 +186,8 @@ export async function newMap(name: string): Promise<boolean> {
   }
   try {
     const r = await api.put<MapDetail & { undo_id: string }>(`crew/map/${n}`, { map: { name: n, boxes: [], lines: [], main: { agent: "main" } } });
-    maps.update(() => ({ name: n, detail: r, receipt: { line: `Made the map ${n}: main only so far.`, undo: r.undo_id }, open: {} }));
+    maps.update((s) => ({ name: n, detail: r, receipt: { line: `Made the map ${n}: main only so far.`, undo: r.undo_id }, open: {},
+                          locked: s.handLock || readOnly(n, r.scope) }));
     writeLocal(LAST, n);
     await loadMaps();
     return true;
@@ -191,9 +198,9 @@ export async function newMap(name: string): Promise<boolean> {
 }
 
 export function toggleLock(): void {
-  const locked = !maps.get().locked;
-  writeLocal(LOCK, locked ? "1" : "0");
-  maps.update(() => ({ locked, pick: "", when: null }));
+  const handLock = !maps.get().handLock;
+  writeLocal(LOCK, handLock ? "1" : "0");
+  maps.update((s) => ({ handLock, locked: handLock || readOnly(s.name, s.detail?.scope || ""), pick: "", when: null }));
 }
 
 export const toggleOpen = (id: string) => maps.update((s) => ({ open: { ...s.open, [id]: !s.open[id] } }));

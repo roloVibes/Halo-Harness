@@ -320,6 +320,19 @@ def test_use_the_owner_and_the_cli(ctx: Ctx):
 
 
 @test
+def test_switch_off_reads_auto(ctx: Ctx):
+    """3.6.0.5 A21 (W18): turning his map's "New sessions run on this" off answers that new sessions run on Auto."""
+    with CrewRig() as rig:
+        rig.studio()
+        st, r = rig.api("POST", "crew/map/ship-it/use", {"on": True})
+        ctx.check(f"on: ship-it in use, got {st} {r.get('in_use')}", st == 200 and r.get("in_use") == "ship-it")
+        st, r = rig.api("POST", "crew/map/ship-it/use", {"on": False})
+        ctx.check(f"off: Auto's words, got {st} {r.get('said')!r}",
+                  st == 200 and r.get("said") == "New sessions run on Auto (the default); a running session keeps its own."
+                  and r.get("in_use") == "auto")
+
+
+@test
 def test_use_receipt_says_when_the_start_mode_changes(ctx: Ctx):
     """3.6.0.1: the person's own doors ask nothing new, but their receipt says so when the switch changes the mode new
     sessions start in (a map of yours whose main of yours is `careful: own`: auto)."""

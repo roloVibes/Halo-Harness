@@ -182,6 +182,8 @@ class DensityDriver(Driver):
         from tests.helpers.prompt_rig import PromptRig
         SHOTS[:] = self.argv[:1]
         state = seeded_home()
+        from tests.helpers.scratch_seven import NAME as SEVEN, write_seven
+        write_seven(state)  # 3.6.0.5 A11: Auto's tab has no strip; the strip under a map is measured on this one
         proj = state.parent / "project"
         proj.mkdir(exist_ok=True)
         srv = start_server(port=0, cwd=proj, state_dir=state)
@@ -191,7 +193,7 @@ class DensityDriver(Driver):
                 live = (("session", rig.url(f"&session={rig.sid}")), ("agents-busy", page_url(rig.server, "agents", "&view=map")))
                 seeded = tuple((n, page_url(srv, m, x)) for n, m, x in SECTIONS if n not in ("session", "agents-busy"))
                 yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((attention, (c, page_url(rig.server, "agents", "&view=map"))),
-                    (living, (c, page_url(srv, "agents", "&view=map"))))
+                    (living, (c, page_url(srv, "agents", f"&view=map&map={SEVEN}"))))
         finally:
             srv.shutdown()
             srv.server_close()

@@ -51,9 +51,13 @@ def test_the_map_holds_still_as_it_opens(ctx: Ctx):
     # P4 batch 12 (rewritten to the truth): "New sessions run on this" is drawn only once the maps are read -- on the default
     # map with none set it is the plain sentence, not a switch that could change nothing -- so it is not there at first
     # paint; its slot sits before the spacer and nothing measured moves when it fills
-    _view(ctx, "map", ("map-run-goal", "map-switcher", "map-lock", "agents-view-map", "viewbar-btn"))
-    _view(ctx, "map_all", ("map-run-goal", "map-switcher", "map-lock"))
+    # 3.6.0.5 A11 (rewritten to the truth): the view opens Auto (a fresh home), whose tab has no Lock: its room is kept
+    # unseen from the first paint (MapBar.tsx mp-lock-room), so no Lock is drawn and then taken away
+    _view(ctx, "map", ("map-run-goal", "map-switcher", "agents-view-map", "viewbar-btn"))
+    _view(ctx, "map_all", ("map-run-goal", "map-switcher"))
     got = _got(ctx)
+    for v in ("map", "map_all"):
+        ctx.check(f"{v}: on Auto no Lock was drawn at any point measured", '"map-lock"' not in " ".join((got.get(v) or {}).get("first") or {}))
     ctx.check("3.6.0.3 B: no control of History's strip is drawn on the Map (it left Studio)",
               not any("map-history" in k for v in ("map", "map_all") for k in (got.get(v) or {}).get("first", {})))
 

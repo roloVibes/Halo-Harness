@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers.driver_got import got as driver_got  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.studio_controls import failures, scrolled  # noqa: E402
+from tests.helpers.scratch_seven import NAME as SEVEN  # noqa: E402
 
 test, TESTS = new_registry()
 _RUN: dict = {}
@@ -32,7 +33,7 @@ SESSION = ["the pair: Running", "the pair: Just built", "Zoom out", "the zoom (1
            "the New session form's x", "↓ n more below", "a step row", "the card: Pause", "the card: Resume",
            "the card: steer field (Enter sends)", "the card: Stop", "Stop's confirm: Cancel", "the card: x", "a box",
            "the card: Open in Agents -> Live", "a line", "an off-map line's card: Open the map at main", "[Open in Agents -> Live]"]
-MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", "New sessions run on this (auto, his map shop)",
+MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", f"New sessions run on this ({SEVEN}, his map shop)",
        "Undo (the switch)", "Run a goal", "Lock", "Lock (off again)", "n new, not connected yet", "Undo (the box)", "[Open it]",
        "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "the tab 1 · Agents",
        "the tab 2 · Workflows", "the tab 4 · Live", "the tab 3 · Map", "Attention", "Attention's x"]
@@ -72,13 +73,12 @@ def test_every_control_changes_something(ctx: Ctx):
     ctx.check(f"P4 batch 12: on the default map with no map set, no switch, the plain sentence, got {got.get('default_uses')}",
               got.get("default_uses") == [False, "New sessions run on Auto (the default)."])
     nu = got.get("none_uses") or {}
-    ctx.check(f"P7: roles off and no map set, the default map says the words file's 'no map' sentence beside a switch (off), "
-              f"got {nu}", nu.get("api") is True and nu.get("off") == [True, "false", "New sessions will run with no map.", ""])
-    ctx.check(f"P8: the 'no map' sentence stands a space (the design's 8 px gap) from the switch, never flush, got {nu.get('gap')}",
-              isinstance(nu.get("gap"), (int, float)) and nu["gap"] >= 8)
-    ctx.check(f"P7: ... and the switch's press changes what the bar says (new sessions on the default map), got {nu.get('pressed')} "
-              f"next_none {nu.get('api_after')}", nu.get("pressed") == [False, "", "", "New sessions run on Auto (the default)."]
-              and nu.get("api_after") is False)
+    # 3.6.0.5 A11 (rewritten to the truth): Auto's tab draws no switch, so with roles off and no map set it says the words
+    # file's 'no map' sentence alone: no switch to stand beside (no gap) and none to press
+    ctx.check(f"P7: roles off and no map set, Auto says the words file's 'no map' sentence, no switch, got {nu}",
+              nu.get("api") is True and nu.get("off") == [False, "", "New sessions will run with no map.", ""])
+    ctx.check(f"P8: no switch on Auto, so no gap to measure and nothing pressed, got {nu.get('gap')} {nu.get('pressed')}",
+              nu.get("gap") is None and "pressed" not in nu)
     ctx.check(f"3 · Map: the run overlay's old controls are gone (R55), got {got.get('gone')}", got.get("gone") == 0)
     _group(ctx, got, "live", LIVE)
     ctx.check(f"4 · Live: no editing handle (R34: no dot, no When label to press), got {got.get('handles')}", got.get("handles") == [0, 0])

@@ -325,6 +325,106 @@ def test_new_map_named_auto_or_starter_refused(ctx: Ctx):
                       "starter" not in t and t.lower().count("auto") == t.count("(Auto)"))
 
 
+# --- batch 2: Auto's Map tab (M1), the switch's off receipt, one in_use per row, the status row's map_agents ---------
+
+def _agent(rig, name: str) -> None:
+    from halo_harness.crew import store
+    store.write_text(store.path_for("agent", name, state_dir=rig.state), store.dump(
+        {"format": "agent/1", "name": name, "does": "Helps.", "model": "auto", "uses": ["read"], "careful": "ask-changes"}))
+
+
+@test
+def test_m1_hand_to_is_what_a_new_session_gets(ctx: Ctx):
+    """A22: M1's {names} are `hand_to` on GET crew/map/auto only: the agents a NEW session on Auto gets now, the seven
+    that ship with Halo first."""
+    with CrewRig() as rig:
+        rig.studio()
+        _agent(rig, "extra")
+        st, m = rig.api("GET", "crew/map/auto")
+        got = m.get("hand_to")
+        ctx.check(f"GET crew/map/auto: hand_to, the seven first, then extra, got {st} {got}",
+                  st == 200 and isinstance(got, list) and set(got[:7]) == set(SEVEN) and "extra" in got)
+        st, m = rig.api("GET", "crew/map/ship-it")
+        ctx.check(f"GET crew/map/ship-it: no hand_to, got {st} {sorted(m)}", st == 200 and "hand_to" not in m)
+
+
+@test
+def test_words_switch_off(ctx: Ctx):
+    """A21 / W18: turning his map's "New sessions run on this" off reads Auto, from the server and in the page's fallback."""
+    off = "New sessions run on Auto (the default); a running session keeps its own"
+    with CrewRig() as rig:
+        rig.studio()
+        rig.api("POST", "crew/map/ship-it/use", {"on": True})
+        st, r = rig.api("POST", "crew/map/ship-it/use", {"on": False})
+        crew = json.loads((rig.state / "config.json").read_text(encoding="utf-8")).get("crew") or {}
+        ctx.check(f"ship-it off: Auto's words, no crew.map, got {st} {r.get('said')!r} {crew}",
+                  st == 200 and r.get("said") == off + "." and "map" not in crew)
+        from halo_harness.crew import store
+        boss = "mine-boss"
+        store.write_text(store.path_for("agent", boss, state_dir=rig.state), store.dump(
+            {"format": "agent/1", "name": boss, "does": "Runs the session.", "model": "auto", "uses": ["read"], "careful": "own"}))
+        store.write_text(store.path_for("map", "mine", state_dir=rig.state), store.dump(
+            {"format": "map/1", "name": "mine", "boxes": [], "lines": [], "main": {"agent": boss}}))
+        rig.api("POST", "crew/map/mine/use", {"on": True})
+        st, r = rig.api("POST", "crew/map/mine/use", {"on": False})
+        said = str(r.get("said"))
+        ctx.check(f"mine off: Auto's words, then the moved clause, then the full stop, got {said!r}",
+                  st == 200 and said.startswith(off + "; ") and "start in default mode" in said and said.endswith(".")
+                  and not said.endswith(".."))
+    src = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map"
+           / "mapSwitch.ts").read_text(encoding="utf-8")
+    ctx.check("mapSwitch.ts setUse's fallback says Auto, never 'as before maps'",
+              f'r.said || "{off}."' in src and "as before maps" not in src)
+
+
+@test
+def test_get_map_in_use_equals_its_row(ctx: Ctx):
+    """The checker of batch 1: one row has ONE answer in GET crew/map/<name> and GET crew/maps -- his old auto.yaml and
+    starter.yaml are never in use (the alias makes them unsettable); the shipped Auto is, with none set."""
+    with CrewRig() as rig:
+        rig.studio()
+        _his_map(rig, "auto")
+        _his_map(rig, "starter")
+        st, r = rig.api("GET", "crew/maps")
+        rows = {(x["name"], x["scope"]): x["in_use"] for x in r.get("maps") or []}
+        for path, key, want in (("crew/map/auto?scope=yours", ("auto", "yours"), False),
+                                ("crew/map/starter?scope=yours", ("starter", "yours"), False),
+                                ("crew/map/auto", ("auto", "starter"), True)):
+            st, m = rig.api("GET", path)
+            ctx.check(f"GET {path}: in_use {want} and equal to its row {key} in crew/maps, got {st} {m.get('in_use')} / {rows.get(key)}",
+                      st == 200 and m.get("in_use") is want and rows.get(key) is want)
+
+
+@test
+def test_status_row_map_agents_on_auto_only(ctx: Ctx):
+    """A22: a session on Auto carries in its status row the agents it had when it started (`map_agents`), never one
+    saved later; a session on another map, or on none, has no key."""
+    from types import SimpleNamespace
+    with CrewRig() as rig:
+        from halo_harness.config.agents_md import discover_agents
+        from halo_harness.crew import map_facts
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.crew.map_session import agents, prepare
+
+        def session(flag):
+            c = prepare(flag, rig.proj)[0]
+            return SimpleNamespace(team_control=control_for(c, cwd=rig.proj) if c is not None else None,
+                                   agent_runtime=SimpleNamespace(agents=agents(discover_agents(rig.proj), c)[0]))
+        s = session(None)
+        _agent(rig, "late")
+        row = map_facts.row(s)
+        ctx.check(f"Auto: map_agents is the session's own dict, without the agent saved after the start, got {row.get('map_agents')}",
+                  row.get("map_agents") == list(s.agent_runtime.agents) and "late" not in row["map_agents"]
+                  and set(SEVEN) <= set(row["map_agents"]))
+        row = map_facts.row(session({"map": "ship-it"}))
+        ctx.check(f"ship-it: no map_agents, got {sorted(row)}", row and "map_agents" not in row)
+        row = map_facts.row(SimpleNamespace(team_control=None, agent_runtime=SimpleNamespace(agents={"x": 1})))
+        ctx.check(f"no map: no map_agents, got {sorted(row)}", "map_agents" not in row)
+        bare = SimpleNamespace(team_control=s.team_control)
+        row = map_facts.row(bare)
+        ctx.check(f"Auto with no runtime: no key, never raises, got {sorted(row)}", row and "map_agents" not in row)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

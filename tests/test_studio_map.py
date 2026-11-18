@@ -46,10 +46,21 @@ def test_the_3_key_opens_the_starter_map(ctx: Ctx):
     f = got.get("first") or {}
     ctx.check(f"Auto (the default), no dialog, no conversation, the list closed, got {f}",
               f.get("map") == "auto" and f.get("dialogs") == 0 and f.get("conversation") is False and f.get("drawer") is False)
-    ctx.check(f"seven lines from main, their When in words, got {f.get('labels')}", f.get("labels") == ["main decides per task"] * 7)
+    # 3.6.0.5 A11, A14 (rewritten to the truth): Auto's tab is main alone and M1; no switch, no Lock; Run a goal stays
+    plan = str(f.get("plan") or "")
+    ctx.check(f"Auto: main alone (no label, no box but main), got {f.get('main')} {f.get('labels')} {f.get('boxes')}",
+              f.get("main") is True and f.get("labels") == 0 and f.get("boxes") == ["main"])
+    ctx.check(f"M1, got {plan!r}", plan.startswith("Auto has no plan to edit: main picks who works on each task as it goes, and "
+                                                   "Live draws each task as a named group. Main can hand work to: ")
+              and plan.endswith("· + New map makes a map of your own."))
+    ctx.check(f"no switch, no Lock, Run a goal, got {f.get('uses')} {f.get('lock')} {f.get('goal')}",
+              f.get("uses") is False and f.get("lock") is False and f.get("goal") is True)
+    s = got.get("seven") or {}
+    ctx.check(f"the scratch map of seven boxes: seven lines from main, their When in words, got {s.get('labels')}",
+              s.get("labels") == ["main decides per task"] * 7)
     g = got.get("geom") or {}
     ctx.check(f"main at the left, no label over a box or another label, got {g}", g.get("main") is True and g.get("over") == 0 and g.get("boxes") == 8)
-    ctx.check(f"the builder's hint on this tab, got {f.get('hint')!r}", f.get("hint") == "Say how things should connect, or ask why something happened")
+    ctx.check(f"the builder's hint on this tab, got {s.get('hint')!r}", s.get("hint") == "Say how things should connect, or ask why something happened")
 
 
 @test
@@ -90,6 +101,7 @@ def test_more_than_one_map_uses_and_lock(ctx: Ctx):
     # 3.6.0.2 R24 (rewritten to the truth): the switch says "New sessions run on this"; a fresh home tags no map
     ctx.check(f"a fresh home: no map tagged; new sessions run on Auto, the default: no switch there (P4 batch 12, rewritten to the truth: it could change nothing), the plain sentence, got {got.get('fresh_tags')} {got.get('uses_off')}",
               not any(" · new sessions" in o or " · running in " in o or "my sessions use this" in o for o in got.get("fresh_tags") or ["?"])
+              and "Auto (the default)" in (got.get("fresh_tags") or [])
               and got.get("uses_off") == [False, "New sessions run on Auto (the default)."])
     ctx.check(f"New sessions run on this (ship-it): config crew.map, got {got.get('in_use')!r}", got.get("in_use") == "ship-it")
     ctx.check(f"... and ship-it is tagged new sessions, got {got.get('tagged')!r}", str(got.get("tagged")).endswith(" · new sessions"))

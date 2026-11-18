@@ -18,7 +18,7 @@
                                        a trusted project's stays the project's): {undo_id, map, problems: []}; 422 with
                                        the problem lines (a line that would make a circle is named); 409 while locked
                                        is the page's own rule, not the route's
-    POST crew/map/<name>/use {on}      config `crew.map` -- what new sessions run on (off: the starter map); {undo_id, in_use}
+    POST crew/map/<name>/use {on}      config `crew.map` -- what new sessions run on (off: Auto, the default); {undo_id, in_use}
     DELETE crew/map/<name>             delete yours (a starter or the project's: 409)
 
 Every write goes through crew/changes.py (the before-image kept: the builder's Undo, `POST builder/undo`, puts it back)
@@ -38,6 +38,15 @@ from halo_harness.studio.owner_proof import owner_only
 _NAME = r"(?P<name>[a-z][a-z0-9-]{0,47})"
 
 
+def _row_in_use(name: str, scope: str, used) -> bool:
+    """3.6.0.5 A4: one row, ONE answer (GET crew/maps and GET crew/map/<name>): a default's name is in use only as the
+    shipped row (scope starter) while Auto is; his own old file named auto or starter never is (the alias makes it
+    impossible to set)."""
+    if store.is_auto(name):
+        return scope == "starter" and store.is_auto(used)
+    return name == used
+
+
 def _rows(req) -> list:
     seen, out = set(), []
     used = in_use(None, req.cwd)[0]
@@ -47,7 +56,7 @@ def _rows(req) -> list:
         if key in seen:
             continue
         seen.add(key)
-        on = (r["_scope"] == "starter" and store.is_auto(used)) if auto else r["name"] == used
+        on = _row_in_use(r["name"], r["_scope"], used)
         out.append({"name": r["name"], "scope": r["_scope"], "in_use": on, "problems": r["_problems"],
                     "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or [])})
     return out
@@ -98,10 +107,17 @@ def _answer(req, name: str, got: dict, cwd) -> dict:
     raw = store.clean(got)
     c = compile_raw(raw, name=name, cwd=cwd, state_dir=req.state_dir)
     main = store.load("agent", c.main.get("agent") or "main", cwd=cwd, state_dir=req.state_dir) or {}
-    return {"map": raw, "scope": got["_scope"], "path": got["_path"], "writable": True,
-            "in_use": in_use(None, req.cwd)[0] == (DEFAULT_MAP if got["_scope"] == "starter" and store.is_auto(name) else name),
-            "next": _next(), "problems": c.problems, "boxes": _box_facts(c, raw, req, cwd),
-            "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")}}
+    out = {"map": raw, "scope": got["_scope"], "path": got["_path"], "writable": True,
+           "in_use": _row_in_use(name, got["_scope"], in_use(None, req.cwd)[0]),
+           "next": _next(), "problems": c.problems, "boxes": _box_facts(c, raw, req, cwd),
+           "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")}}
+    if got["_scope"] == "starter" and store.is_auto(raw.get("name")):
+        # 3.6.0.5 A22 (M1's {names}): the agents a NEW session on Auto gets now, the seven that ship with Halo first
+        from halo_harness.config.agents_md import discover_agents
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_session import agents
+        out["hand_to"] = list(agents(discover_agents(cwd), compile_map(DEFAULT_MAP, cwd=cwd, state_dir=req.state_dir))[0])
+    return out
 
 
 def _one(req, name: str, scope: str = ""):
@@ -222,7 +238,10 @@ def post_use(req):
     # 3.6.0.1: the person's own switch asks nothing, but its receipt says when the mode new sessions start in changes
     # (jf-mapuse: here and in a folder that is no trusted project -- crew.map is global)
     moved = starts_said(before, start_modes(req.cwd, req.state_dir))
-    said = (f"New sessions run on {name}; a running session keeps its own" if on else "New sessions run on no map (as before maps)")
+    # 3.6.0.5 A21 (W18): off with none set is Auto; roles off (no map for new sessions) keeps the true words
+    said = (f"New sessions run on {name}; a running session keeps its own" if on
+            else "New sessions run on Auto (the default); a running session keeps its own"
+            if in_use(None, req.cwd)[1] == "default" else "New sessions run on no map (as before maps)")
     return 200, {"undo_id": undo_id, "in_use": in_use(None, req.cwd)[0], "said": f"{said}{'; ' + moved if moved else ''}."}
 
 

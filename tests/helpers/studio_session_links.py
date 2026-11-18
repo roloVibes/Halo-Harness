@@ -139,7 +139,10 @@ def _starts(c, rig, out: dict) -> dict:
         run_dir = live_run(rig, what)
         rig.server.events.publish_local({"session_id": f"orchestra:{run_dir.name}", "event": "orchestra_state",
                                          "data": {"run": run_dir.name, "kind": "state", "text": "running"}})
-    c.go(url(rig, "mode=agents&view=map&plan=off"))
+    # 3.6.0.5 A11: Auto's tab has no drawing to hold still; this is measured on the scratch map of seven boxes
+    from tests.helpers.scratch_seven import NAME as SEVEN, write_seven
+    write_seven(rig.state)
+    c.go(url(rig, f"mode=agents&view=map&plan=off&map={SEVEN}"))
     c.wait("!!document.querySelector('[data-testid=\"map\"][data-settled]')", 30)
     time.sleep(1.0)
     out["no_run"] = _tops(c)

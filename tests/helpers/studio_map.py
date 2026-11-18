@@ -1,9 +1,10 @@
 """tests.helpers.studio_map -- Agents -> 3 · Map (Halo 3.6.0.0 R3) in headless Chrome, as a first-time user, over
 tests/helpers/crew_rig.py (a scratch home, the builder's scripted model). tests/test_studio_map.py reads what it saw:
 
-    first    from 1 · Agents, the 3 key: the switch, Auto (the default) -- main at the left, seven boxes, a label per line
-             in the lane, never over a box; no dialog, no conversation, the list drawer closed; then the scratch map of
-             seven boxes (tests/helpers/scratch_seven.py) opens from the switcher: the steps after edit it, never Auto
+    first    from 1 · Agents, the 3 key: the switch, Auto (the default) -- main alone and M1, no switch, no Lock (3.6.0.5
+             A11); no dialog, no conversation, the list drawer closed; then the scratch map of seven boxes
+             (tests/helpers/scratch_seven.py) opens from the switcher: main at the left, a label per line in the lane,
+             never over a box; the steps after edit it, never Auto
     drag     the list drawer; a row dragged (real pointer events) over the map: the drop places say what a drop does;
              dropped on main: the When card at the line; "when the task says test", Save: the label and the receipt
     chain    coder's dot dragged onto tester: a chain line, its When card, Always; a line back would make a circle:

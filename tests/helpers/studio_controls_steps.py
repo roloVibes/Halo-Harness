@@ -129,6 +129,8 @@ def session(c, rig, lv, rows) -> dict:
 def map_view(c, rig, lv, rows) -> dict:
     from tests.helpers.studio_map_quiet import RF, built, setup, to_map, use
     from tests.helpers.studio_map_steps import open_list
+    from tests.helpers.scratch_seven import NAME as SEVEN, write_seven
+    write_seven(rig.state)  # 3.6.0.5: Auto is never edited; the controls that edit, lock or zoom are pressed on this map
     P = "[data-part=map]"
     t = lambda tid: vis(f"{P} [data-testid={tid}]")  # noqa: E731
     tab = lambda part, v: vis(f"[data-part={part}] [data-testid=agents-view-{v}]")  # noqa: E731
@@ -137,12 +139,13 @@ def map_view(c, rig, lv, rows) -> dict:
     _size(c, 1500, 900)
 
     def l1():
+        """3.6.0.5 A14: [Watch it in Live] is M1's button on Auto's tab (the rig's session runs on Auto)."""
         setup(rig, lv, rows, flow=False)
         to_map(c, rig, "auto")
-        c.wait(f"!!{t('map-watch-live')}", 30)
+        c.wait(f"!!{t('map-auto-watch')}", 30)
 
-    def shop():
-        to_map(c, rig, "shop")
+    def seven():
+        to_map(c, rig, SEVEN)
 
     def back_to(name: str):
         def go():
@@ -161,7 +164,7 @@ def map_view(c, rig, lv, rows) -> dict:
         c.type_text("Bad Name")
 
     def fresh():
-        back_to("shop")()
+        back_to(SEVEN)()
         open_list(c)
         row = f"([...document.querySelectorAll('{P} [data-testid=map-add-row]')].find((r) => !document.querySelector(`{P} [data-testid=map-world] [data-map-box=\"${{r.dataset.ref}}\"]`)) || null)"
         c.js(f"{row}.focus(); 1")
@@ -169,32 +172,32 @@ def map_view(c, rig, lv, rows) -> dict:
         c.wait(f"!!{t('map-fresh')}", 20)
 
     def l4():
-        back_to("shop")()
+        back_to(SEVEN)()
         built(lv, "review-flow", body=RF)
         c.wait(f"!!{t('map-built-open')}", 20)
 
-    def auto_his_shop():
-        """crew.map = shop (his map set elsewhere): on auto the switch is a switch again (P4 batch 12)."""
+    def seven_his_shop():
+        """crew.map = shop (his map set elsewhere): on the scratch map of seven boxes the switch is off; pressed, it turns on."""
         use(rig, "shop")
-        to_map(c, rig, "auto")
+        to_map(c, rig, SEVEN)
 
     try:
         recs = presses(c, [
-            ("[Watch it in Live]", t("map-watch-live"), l1),
-            ("the map picker", t("map-switcher"), shop, ("choose", "auto")),
-            ("+ New map", t("map-switcher"), back_to("shop"), ("choose", "+")),
+            ("[Watch it in Live]", t("map-auto-watch"), l1),
+            ("the map picker", t("map-switcher"), seven, ("choose", "auto")),
+            ("+ New map", t("map-switcher"), back_to(SEVEN), ("choose", "+")),
             ("Make (a name it refuses)", t("map-new-make"), bad_name),
             ("the error's Dismiss", f"{t('map-error')}?.querySelector('button')"),
             ("the new map's Cancel", f"{t('map-new-make')}?.nextElementSibling"),
-            ("New sessions run on this", t("map-uses"), back_to("shop")),
+            ("New sessions run on this", t("map-uses"), back_to(SEVEN)),
             ("Undo (the switch)", t("map-undo")),
-            ("New sessions run on this (auto, his map shop)", t("map-uses"), auto_his_shop),
+            (f"New sessions run on this ({SEVEN}, his map shop)", t("map-uses"), seven_his_shop),
             ("Run a goal", t("map-run-goal")),
             ("Lock", t("map-lock")), ("Lock (off again)", t("map-lock")),
             ("n new, not connected yet", t("map-fresh"), fresh),
             ("Undo (the box)", t("map-undo")),
             ("[Open it]", t("map-built-open"), l4),
-            ("Zoom out", t("canvas-zoom-out"), back_to("shop")), ("the zoom (100%)", t("canvas-zoom-level")), ("Zoom in", t("canvas-zoom-in")),
+            ("Zoom out", t("canvas-zoom-out"), back_to(SEVEN)), ("the zoom (100%)", t("canvas-zoom-level")), ("Zoom in", t("canvas-zoom-in")),
             ("Fit", t("canvas-fit")),
             ("the tab 1 · Agents", tab("map", "crew")), ("the tab 2 · Workflows", tab("crew", "workflows")),
             ("the tab 4 · Live", tab("workflows", "live")), ("the tab 3 · Map", tab("live", "map")),
@@ -222,8 +225,8 @@ def _roles(on: bool) -> None:
 
 
 def none_uses(c, rig, t) -> dict:
-    """Roles off, crew.map unset, on the default map: [switch drawn, its aria-checked, map-uses-none's words, the plain
-    sentence's]; then its press: the same four once the bar has re-read the maps, and the API's `next_none`."""
+    """Roles off, crew.map unset, on Auto: [switch drawn, its aria-checked, map-uses-none's words, the plain sentence's]
+    (3.6.0.5 A11: no switch on Auto, the 'no map' sentence alone); a switch, if one were drawn, is pressed and read again."""
     from tests.helpers.studio_map_quiet import to_map
     from tests.helpers.studio_run_parts import until
     read = (f"[!!{t('map-uses')}, {t('map-uses')}?.getAttribute('aria-checked') || '', {t('map-uses-none')}?.textContent || '', "

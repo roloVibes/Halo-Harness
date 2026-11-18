@@ -46,6 +46,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.driver_got import got as driver_got  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.scratch_seven import NAME as SEVEN  # noqa: E402
 
 test, TESTS = new_registry()
 _RUN: dict = {}
@@ -238,7 +239,10 @@ def test_map_tab_quiet_line_and_running_workflow_box(ctx: Ctx):
     ctx.check(f"the Map panel's help says the switch in its new words, got {ph!r}",
               "New sessions run on this: new sessions run on this map." in ph and "My sessions use this" not in ph)
     ctx.check(f"[Watch it in Live] lands on 4 · Live on that session, got {q.get('watch')}", q.get("watch") == ["live", sid])
-    ctx.check(f"on auto (its own map): L1, got {q.get('l1')!r}", q.get("l1") == f"{title} runs on this map now. Watch it in Live")
+    # 3.6.0.5 A14 (rewritten to the truth): Auto's tab has no quiet line, M1's Watch button instead; L1 on the scratch
+    # map of seven boxes with a second session fed on it
+    ctx.check(f"on Auto: no quiet line, M1's Watch, got {q.get('auto')}", q.get("auto") == [False, True])
+    ctx.check(f"on {SEVEN} (its own map): L1, got {q.get('l1')!r}", q.get("l1") == f"{q.get('title2')} runs on this map now. Watch it in Live")
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 
@@ -248,14 +252,15 @@ def test_picker_says_running_in_session(ctx: Ctx):
     p = _q(d, "picker")
     title = str(p.get("title"))
     fresh, opts = p.get("fresh") or [], p.get("options") or []
-    ctx.check(f"a fresh home (crew.map unset): auto running in {title}, no map tagged new sessions, got {fresh}",
-              any(o.startswith("auto") and o.endswith(f" · running in {title}") for o in fresh) and not any(o.endswith(" · new sessions") for o in fresh))
-    ctx.check(f"crew.map = shop: auto running in {title}, shop new sessions, no 'my sessions use this', got {opts}",
-              any(o.startswith("auto") and o.endswith(f" · running in {title}") for o in opts)
+    # 3.6.0.5 W14 (rewritten to the truth): the Auto row reads "Auto (the default)" and the picker's own facts
+    ctx.check(f"a fresh home (crew.map unset): Auto (the default) running in {title}, no map tagged new sessions, got {fresh}",
+              f"Auto (the default) · running in {title}" in fresh and not any(o.endswith(" · new sessions") for o in fresh))
+    ctx.check(f"crew.map = shop: Auto (the default) running in {title}, shop new sessions, no 'my sessions use this', got {opts}",
+              f"Auto (the default) · running in {title}" in opts
               and any(o.startswith("shop") and o.endswith(" · new sessions") for o in opts)
               and not any("my sessions use this" in o for o in opts + fresh))
     ctx.check(f"the switch on for shop, its words, got {p.get('switch')}", p.get("switch") == ["true", "New sessions run on this"])
-    ctx.check(f"two sessions on auto, got {p.get('two')!r}", str(p.get("two")).endswith(" · running in 2 sessions"))
+    ctx.check(f"two sessions on Auto, got {p.get('two')!r}", p.get("two") == "Auto (the default) · running in 2 sessions")
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 
@@ -314,7 +319,7 @@ def test_notice_row_reserved_canvas_still(ctx: Ctx):
 def test_quiet_line_never_moves_the_drawing_at_1280(ctx: Ctx):
     d = _got(ctx)
     s = _q(d, "still")
-    for name in ("shop", "auto"):
+    for name in ("shop", SEVEN):  # 3.6.0.5 A14: L1 is never on Auto's tab; it is read on the scratch map of seven boxes
         tops = s.get(name) or []
         ctx.check(f"{name}: the canvas top with the quiet line, without the session, with it again (1280 x 800), got {tops}",
                   len(tops) == 3 and all(isinstance(x, (int, float)) for x in tops) and max(tops) - min(tops) <= 0.5)

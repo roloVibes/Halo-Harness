@@ -1,5 +1,5 @@
-// The Map's bar (3.6.0.0 R3, the design's "More than one map" and "Lock"): the switcher at the top left -- your maps,
-// this project's first ("this project's"), the starters, "+ New map" -- each saying who runs on it now ("· running in
+// The Map's bar (3.6.0.0 R3, the design's "More than one map" and "Lock"): the switcher at the top left -- Auto (the
+// default), your maps, this project's, the ones that ship with Halo, "+ New map" (pickerRows.ts, 3.6.0.5 A8) -- each saying who runs on it now ("· running in
 // {session}", F2) and whether new sessions use it ("· new sessions", F4: the API's `next`; 3.6.0.2 R24), with ONE switch,
 // New sessions run on this (config crew.map; mapSwitch.ts), and Lock (off by default: nothing can be dragged or changed). Under it the map's top line (what a change
 // does and when it takes effect, its problem lines) and the receipt of the last change with Undo.
@@ -12,8 +12,9 @@ import { Extras, RunRow } from "./LitLine";
 import { setDrafting, setUse } from "./mapSwitch";
 import { QuietCtx, useQuiet } from "./mapQuiet";
 import { NoticeRow } from "./NoticeRow";
-import { NEXT_NONE, newSessionsRunOn, nextMap, nextName, pickerSuffix, switchLabel } from "./truth";
-import { onMap } from "./truthWords";
+import { NEXT_NONE, newSessionsRunOn, nextMap, nextName, onMap, switchLabel } from "./truth";
+import { isAuto } from "./truthWords";
+import { pickerRows } from "./pickerRows";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
 
@@ -34,7 +35,6 @@ function Picker() {
   const [making, setMaking] = useState(false);
   const [draft, setDraft] = useState("");
   useEffect(() => (setDrafting(making), () => setDrafting(false)), [making]); // the Map's only unsaved edit (R33)
-  const sorted = [...rows].sort((a, b) => (a.scope === "project" ? -1 : 0) - (b.scope === "project" ? -1 : 0));
   if (making) {
     return (
       <span className="mp-new">
@@ -50,9 +50,7 @@ function Picker() {
       <span className="cw-line">Map</span>
       <select className="input" value={name} data-testid="map-switcher" aria-label="Which map"
               onChange={(e) => (e.target.value === "+" ? (setDraft(""), setMaking(true)) : void openMap(e.target.value))}>
-        {sorted.map((r) => (
-          <option key={r.name} value={r.name}>{r.name}{r.scope === "project" ? " (this project's)" : r.scope === "starter" ? " (starter)" : ""}{pickerSuffix(on.filter((s) => onMap(s.a, r.name, r.scope)).map((s) => s.title), next === r.name)}</option>
-        ))}
+        {pickerRows(rows, on, next).map((r, i) => <option key={`${i}:${r.value}`} value={r.value}>{r.text}</option>)}
         <option value="+">+ New map</option>
       </select>
     </label>
@@ -127,6 +125,8 @@ export function MapBar() {
   const nextNone = useMap((s) => s.nextNone);
   const scope = useMap((s) => s.detail?.scope || "");
   const isNext = onMap(nextMap(next), name, scope); // 3.6.0.5: Auto by any of its names; his old starter file never
+  const auto = isAuto(name, scope); // 3.6.0.5 A11: Auto has no plan to edit -- no switch, no Lock (its room kept,
+  // hidden until a map that is not Auto is open: nothing is drawn that then goes away)
   const problems = useMap((s) => s.detail?.problems) || NONE;
   const receipt = useMap((s) => s.receipt);
   const error = useMap((s) => s.error);
@@ -143,14 +143,20 @@ export function MapBar() {
             default map says the words file's sentence for that, beside a switch (off) whose press puts new sessions on it */}
         {/* P8 repair: the slot has the bar's free room to itself (the spacer gives it up), so its words wrap whole in
             the bar's row and the open map landing moves nothing on the bar (it moved 16 px when they took three lines) */}
-        <span className="mp-uses-slot">{!listed || !name ? null : !next && !nextNone && isNext ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
+        {/* 3.6.0.5 A11 (moved.md Q3): on Auto no switch -- none set: the sentence; new sessions get no map: NEXT_NONE
+            alone; a map of his set: nothing */}
+        <span className="mp-uses-slot">{!listed || !name ? null
+          : auto ? (nextNone ? <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>
+            : !next ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span> : null)
+          : !next && !nextNone && isNext ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
           : <><Switch on={!nextNone && isNext} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextNone || !isNext)}
                     title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />
             {nextNone && isNext && <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>}</>}</span>
         <span className="spacer" />
         <Button size="sm" onClick={() => (openGoalHere(), openMapDrawer("goal"))} data-testid="map-run-goal"
                 title="Run a goal: several agents, one goal, one set of files -- the goal form opens in the drawer">Run a goal</Button>
-        <Switch on={locked} label="Lock" testid="map-lock" onFlip={toggleLock} title="Locked: nothing on the map can be dragged or changed" />
+        {auto || !name ? <span className="mp-lock-room" aria-hidden="true"><Switch on={false} label="Lock" testid="map-lock-room" onFlip={() => undefined} title="" /></span>
+          : <Switch on={locked} label="Lock" testid="map-lock" onFlip={toggleLock} title="Locked: nothing on the map can be dragged or changed" />}
       </div>
       {!!problems.length && (
         <div className="mp-problems" data-testid="map-problems">

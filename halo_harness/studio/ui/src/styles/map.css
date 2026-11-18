@@ -118,3 +118,7 @@
   .mp-strip { padding-left: var(--s-3); }
   .mp-strip .mp-dot { left: auto; right: -15px; }
 }
+/* 3.6.0.5 A11: Auto's Map tab (AutoPlan.tsx): the notice row, M1, main alone, a goal run going; Lock's room kept, unseen */
+.mp-auto { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.mp-auto-main { align-self: flex-start; }
+.mp-lock-room { visibility: hidden; pointer-events: none; }

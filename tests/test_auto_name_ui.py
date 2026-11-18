@@ -97,14 +97,15 @@ out.auto = [W.onMap('starter', 'auto', 'starter'), W.onMap(T.nextMap(null), 'aut
                S=MAPDIR / "truthWords.ts", W=MAPDIR / "truthWords.ts", T=MAPDIR / "truth.ts")
     store_src = (MAPDIR / "mapStore.ts").read_text(encoding="utf-8")
     ctx.check("mapStore.ts exports openName and openMap opens and remembers what it gives",
-              "export { openName }" in store_src and "const name = openName(asked);" in store_src
+              "export { openName, readOnly }" in store_src and "const name = openName(asked);" in store_src
               and "writeLocal(LAST, name);" in store_src)
     ctx.check(f"openName, got {out.get('open')}", out.get("open") == ["auto", "auto", "starter", "shop"])
     ctx.check(f"his old starter file open: a session on starter is not on it (no L1), new sessions not (no L2), got {out.get('mine')}",
               out.get("mine") == [False, False])
     ctx.check(f"Auto open: the session on starter is on it (L1), new sessions too, got {out.get('auto')}", out.get("auto") == [True, True])
-    # mapQuiet.ts imports stores that reach lib/motion.tsx, which node cannot load: its compares are read from the source
-    src = (MAPDIR / "mapQuiet.ts").read_text(encoding="utf-8")
+    # batch 2 moved quietOf to the pure quietOf.ts (test_map_tab_on_auto_draws_main_and_m1 runs it); its compares and
+    # useQuiet's call (mapQuiet.ts, whose stores reach lib/motion.tsx) are read from the two sources
+    src = (MAPDIR / "mapQuiet.ts").read_text(encoding="utf-8") + (MAPDIR / "quietOf.ts").read_text(encoding="utf-8")
     ctx.check("quietOf compares only through onMap with the open map's scope (L3, L1, L2), and useQuiet passes the scope",
               src.count("onMap(s.a, name, scope)") == 3 and "onMap(nextMap(next), name, scope)" in src
               and "s.a !== name" not in src and "s.a === name" not in src
@@ -121,6 +122,75 @@ def test_a_build_frame_naming_starter_runs_auto(ctx: Ctx):
     out = node("""const run = (x) => (!x || W.isAuto(String(x)) ? 'auto' : String(x));
 out.r = ['starter', null, 'shop'].map(run);""", W=MAPDIR / "truthWords.ts")
     ctx.check(f"starter / none / shop -> auto / auto / shop, got {out.get('r')}", out.get("r") == ["auto", "auto", "shop"])
+
+
+M1 = ("Auto has no plan to edit: main picks who works on each task as it goes, and Live draws each task as a named group. "
+      "Main can hand work to: ")
+ON = "{ sid: %r, title: %r, a: %r, plain: false, flow: '' }"
+
+
+@test
+def test_map_tab_on_auto_draws_main_and_m1(ctx: Ctx):
+    """A11, A14, A22: Auto's Map tab says M1 (twelve names, then "and {n} more"); its quiet row never says L1 or L2 (the
+    tab's one Watch button is M1's); Auto is read-only (mapStore's `locked` = his Lock or a read-only map)."""
+    on_auto, on_shop = ON % ("s1", "fix-login", "auto"), ON % ("s2", "tidy", "shop")
+    out = node(f"""out.head = A.m1Head('abcdefghijklmn'.split('')); out.tail = A.M1_TAIL; out.none = A.NOTHING_ON_AUTO;
+out.short = A.m1Head(['planner', 'coder']); out.watch = A.WATCH;
+out.qa = Q.quietOf('auto', {{}}, [{on_auto}], null, 'starter').facts;
+out.qs = Q.quietOf('shop', {{}}, [{on_shop}], null, 'yours').facts;
+out.ro = [A.readOnly('auto', 'starter'), A.readOnly('shop', 'yours'), A.readOnly('starter', 'yours')];""",
+               A=MAPDIR / "autoWords.ts", Q=MAPDIR / "quietOf.ts")
+    ctx.check(f"m1Head of 14 names: twelve, then 'and 2 more', got {out.get('head')!r}",
+              out.get("head") == M1 + "a, b, c, d, e, f, g, h, i, j, k, l and 2 more.")
+    ctx.check(f"m1Head of two names, got {out.get('short')!r}", out.get("short") == M1 + "planner, coder.")
+    ctx.check(f"M1_TAIL, NOTHING_ON_AUTO, WATCH, got {out.get('tail')!r} {out.get('none')!r} {out.get('watch')!r}",
+              out.get("tail") == "· + New map makes a map of your own." and out.get("none") == "Nothing runs on Auto right now."
+              and out.get("watch") == "Watch it in Live")
+    ctx.check(f"quietOf on Auto with a session on it: no L1, no L2, got {out.get('qa')}", out.get("qa") is None)
+    ctx.check(f"quietOf on shop with a session on it: L1, got {out.get('qs')}", (out.get("qs") or {}).get("kind") == "L1")
+    ctx.check(f"readOnly: Auto true, shop false, got {out.get('ro')}", (out.get("ro") or [])[:2] == [True, False])
+    src = (MAPDIR / "mapStore.ts").read_text(encoding="utf-8")
+    ctx.check("mapStore.ts exports readOnly; locked is his Lock or a read-only map, set when a map lands and on toggleLock",
+              "export { openName, readOnly }" in src and src.count("handLock || readOnly(") >= 3
+              and 'handLock: read(LOCK) === "1"' in src)
+    view = (MAPDIR / "MapView.tsx").read_text(encoding="utf-8")
+    ctx.check("MapMain draws AutoPlan in place of the canvas, the strip and the cards on Auto",
+              "isAuto(name, scope) ? <AutoPlan />" in view)
+
+
+@test
+def test_watch_it_in_live_or_nothing_runs(ctx: Ctx):
+    """A14: M1's [Watch it in Live] is the newest session on Auto (openOn's list, newest first); none: ""."""
+    rows = ", ".join(ON % x for x in (("s1", "one", "shop"), ("s2", "two", "starter"), ("s3", "three", "auto")))
+    out = node(f"out.a = A.autoWatch([{rows}]); out.b = A.autoWatch([{ON % ('s1', 'one', 'shop')}]); out.c = A.autoWatch([]);",
+               A=MAPDIR / "autoWords.ts")
+    ctx.check(f"the first on Auto (any of its names), else '', got {out.get('a')!r} {out.get('b')!r} {out.get('c')!r}",
+              out.get("a") == "s2" and out.get("b") == "" and out.get("c") == "")
+
+
+@test
+def test_switcher_rows_auto_first(ctx: Ctx):
+    """A8, A13, W14: Auto (the default) first, his maps, the project's, the shipped ones "(ships with Halo)"; each keeps
+    the picker's own facts; never "starter", never "· in use"."""
+    rows = ("[{ name: 'ship-it', scope: 'starter' }, { name: 'auto', scope: 'starter' }, { name: 'shop', scope: 'yours' },"
+            " { name: 'proj', scope: 'project' }, { name: 'doc-review--review', scope: 'pack' }]")
+    out = node(f"""const rows = {rows};
+out.a = P.pickerRows(rows, [], null);
+out.b = P.pickerRows(rows, [{ON % ('s1', 'fix-login', 'starter')}], null);
+out.c = P.pickerRows(rows, [], 'shop');""", P=MAPDIR / "pickerRows.ts")
+    a = out.get("a") or []
+    ctx.check(f"texts in order, got {[r['text'] for r in a]}", [r["text"] for r in a] == [
+        "Auto (the default)", "shop", "doc-review--review", "proj (this project's)", "ship-it (ships with Halo)"])
+    ctx.check(f"values, got {[r['value'] for r in a]}", [r["value"] for r in a] == ["auto", "shop", "doc-review--review", "proj", "ship-it"])
+    b, c = out.get("b") or [{}], out.get("c") or [{}, {}]
+    ctx.check(f"a session on starter: the Auto row runs in it, got {b[0].get('text')!r}",
+              b[0].get("text") == "Auto (the default) · running in fix-login")
+    ctx.check(f"next shop: shop tagged, Auto not, got {c[0].get('text')!r} {c[1].get('text')!r}",
+              c[1].get("text") == "shop · new sessions" and c[0].get("text") == "Auto (the default)")
+    texts = " ".join(r.get("text", "") for r in a + b + c)
+    ctx.check("no text holds starter or · in use", "starter" not in texts and "· in use" not in texts)
+    src = (MAPDIR / "MapBar.tsx").read_text(encoding="utf-8")
+    ctx.check("MapBar's Picker draws pickerRows", "pickerRows(rows, on, next)" in src and '" (starter)"' not in src)
 
 
 if __name__ == "__main__":

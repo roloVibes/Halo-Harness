@@ -6,9 +6,10 @@ condition.
     quiet     R55: the session runs the workflow review (its reviewer row tagged `crew.workflow`) from auto: on shop
               the one quiet line L3, box check marked "running now in {session}", nothing lit, nothing amber, the old
               live branch's controls gone; Agents' help and the Map panel's help in the new words; [Watch it in Live]
-              lands on 4 · Live on that session; on auto, L1
+              lands on 4 · Live on that session; on Auto no quiet line, M1's Watch instead (3.6.0.5 A14); L1 on the
+              scratch map of seven boxes (tests/helpers/scratch_seven.py) with a second session fed on it
     picker    R24: config crew.map = shop: the picker's options say "· running in {session}" / "· new sessions"; the
-              switch "New sessions run on this" is on for shop; a second session on auto: "· running in 2 sessions"
+              switch "New sessions run on this" is on for shop; a second session on Auto: "· running in 2 sessions"
     receipt   R55 S13: the hand switch's receipt names the open session; with none open, "New sessions run on {B}."
     away      R33: a builder_done for review-flow while the page is on Session: LAST written, no section change, no
               map fetched; Alt+2, 3 opens 3 · Map on review-flow
@@ -16,13 +17,16 @@ condition.
               row, nothing moves (the canvas, the boxes, the When card, the switcher), [Open it] opens it; the canvas top
               equal with the row empty, with L2 and with L4
     reread    R33: the same map changed by a build: re-read in place, the When card and the zoom kept, no notice
-    still     R55 at 1280 x 800: the canvas top with L3 / L1, without the session, with it again: equal
+    still     R55 at 1280 x 800: the canvas top with L3 (shop) / L1 (the scratch map of seven boxes, the session moved
+              onto it), without the session, with it again: equal
     race      the tab's first open answered after his pick: the pick stands (openMap: the latest request wins)
 """
 from __future__ import annotations
 
 import time
 from contextlib import contextmanager
+
+from tests.helpers.scratch_seven import NAME as SEVEN, write_seven
 
 M = "[data-part=map]"
 SW = f"document.querySelector('{M} [data-testid=map-switcher]')"
@@ -85,12 +89,13 @@ def to_map(c, rig, name: str) -> None:
     c.go(rig.url("agents", "&view=map"))
     c.wait(f"{VIEW} === 'map' && [...({SW}?.options || [])].some((o) => o.value === {name!r})", 40)
     choose(c, f"{M} [data-testid=map-switcher]", name)
-    c.wait(f"{SW}.value === {name!r} && !!document.querySelector('{M} [data-testid=map-world] [data-map-box]')", 20)
+    # 3.6.0.5 A11: Auto's tab draws main alone (AutoPlan.tsx), not the drawing
+    c.wait(f"{SW}.value === {name!r} && !!document.querySelector('{M} [data-testid=map-world] [data-map-box], {M} [data-testid=map-auto-main]')", 20)
 
 
 @contextmanager
-def second_session(lv, title: str = "second"):
-    """A second open session on this machine (a copy of the rig's row) in GET live."""
+def second_session(lv, title: str = "second", **fields):
+    """A second open session on this machine (a copy of the rig's row, `fields` over it) in GET live."""
     from halo_harness.studio import live_api
     orig = live_api.view_for
 
@@ -101,7 +106,7 @@ def second_session(lv, title: str = "second"):
             rows = list(h.get("sessions") or [])
             mine = next((r for r in rows if r.get("session_id") == lv.sid), None)
             if mine is not None:
-                rows.append({**mine, "session_id": "two-0001", "title": title, "started": (mine.get("started") or 0) - 60})
+                rows.append({**mine, "session_id": "two-0001", "title": title, "started": (mine.get("started") or 0) - 60, **fields})
             hs.append({**h, "sessions": rows})
         return {**v, "harnesses": hs}
     live_api.view_for = view_for
@@ -152,7 +157,13 @@ def quiet(c, rig, lv, rows) -> dict:
     c.click_on("document.querySelector('[data-part=live] [data-testid=agents-view-map]')")
     c.wait(f"{VIEW} === 'map'", 15)
     choose(c, f"{M} [data-testid=map-switcher]", "auto")
-    out["l1"] = c.wait(f"{SW}.value === 'auto' && {q}?.textContent.includes('runs on this map now') && {q}.textContent", 20)
+    # 3.6.0.5 A14: on Auto's tab no quiet line (L1, L2): its one Watch button is M1's
+    out["auto"] = c.wait(f"{SW}.value === 'auto' && !!{t('map-auto-watch')} && [!!{q}, !!{t('map-auto-watch')}]", 20)
+    write_seven(rig.state)
+    out["title2"] = "second"
+    with second_session(lv, "second", map=SEVEN, map_plain=False):
+        to_map(c, rig, SEVEN)
+        out["l1"] = c.wait(f"{SW}.value === {SEVEN!r} && {q}?.textContent.includes('runs on this map now') && {q}.textContent", 20)
     return out
 
 
@@ -167,7 +178,7 @@ def picker(c, rig, lv, rows) -> dict:
     uses = t("map-uses")
     out["switch"] = c.wait(f"{SW}.value === 'shop' && [{uses}.getAttribute('aria-checked'), {uses}.closest('label').textContent]", 15)
     with second_session(lv):
-        out["two"] = c.wait(f"{OPTS}.find((x) => x.startsWith('auto') && x.includes('running in 2 sessions')) || ''", 20)
+        out["two"] = c.wait(f"{OPTS}.find((x) => x.startsWith('Auto (the default)') && x.includes('running in 2 sessions')) || ''", 20)
     use(rig, None)
     return out
 
@@ -279,14 +290,18 @@ def reread(c, rig, lv, rows) -> dict:
 
 def still(c, rig, lv, rows) -> dict:
     """R55 at 1280 x 800, no scroll made: the quiet line comes and goes as a session runs a workflow from shop (L3) or
-    runs on auto (L1), and ends; the canvas top is read with the line, without the session, with the line again."""
+    runs on the scratch map of seven boxes (L1: the session's row moved onto it), and ends; the canvas top is read with
+    the line, without the session, with the line again."""
     from tests.helpers.studio_agents_live_draw import choose
     c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
     try:
         out: dict = {"title": setup(rig, lv, rows, flow=True)}
+        write_seven(rig.state)
         to_map(c, rig, "shop")
         q = t("map-quiet")
-        for name, words in (("shop", "running the workflow"), ("auto", "runs on this map now")):
+        for name, words in (("shop", "running the workflow"), (SEVEN, "runs on this map now")):
+            if name == SEVEN:  # 3.6.0.5 A14: Auto's tab says no L1; the session runs on the scratch map instead
+                lv.refresh(map=SEVEN, map_plain=False)
             choose(c, f"{M} [data-testid=map-switcher]", name)
             said = f"{SW}.value === {name!r} && {q}?.textContent.includes({words!r})"
             c.wait(said, 20)
@@ -304,6 +319,7 @@ def still(c, rig, lv, rows) -> dict:
         return out
     finally:
         rows.reset()
+        lv.refresh(map="auto", map_plain=True)
         c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
 
 

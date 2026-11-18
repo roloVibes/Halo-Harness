@@ -834,6 +834,16 @@ def test_studio_show_with_no_map_says_t4(ctx: Ctx):
                   re.fullmatch(t4 + r"NEW SESSIONS run on review-flow \(switched on at \d{2}:\d{2}\)\.", got) is not None)
 
 
+def new_sessions_half_clean(show: str, note: str) -> bool:
+    """The new-sessions sentence of `show` (from "NEW SESSIONS") and of `note` (from "New sessions will"), each up to its
+    full stop, holds no "(the default)" (a missing sentence reads the whole text, so it fails closed). The note's next
+    sentence ("This session keeps running on ...") is about THIS session and may name Auto (the default)."""
+    def half(text: str, mark: str) -> str:
+        rest = text[text.index(mark):] if mark in text else text
+        return rest.split(". ")[0]
+    return "(the default)" not in half(show, "NEW SESSIONS") + half(note, "New sessions will")
+
+
 @test
 def test_show_line_and_note_agree_on_new_sessions(ctx: Ctx):
     """R39 ("the same facts") with R38: a session started on a map by flag (`--map starter`) while roles are off and no
@@ -867,6 +877,8 @@ def test_show_line_and_note_agree_on_new_sessions(ctx: Ctx):
         a, b = nxt(show, note)
         ctx.check(f"both say new sessions run with no map, word for word, got {a!r} / {b!r}",
                   a == b == "with no map" and "starter" not in show + note)  # 3.6.0.5: this session's half names Auto
+        ctx.check(f"the NEW-SESSIONS half of both never says (the default) (this session's half may), got {show!r} / {note!r}",
+                  new_sessions_half_clean(show, note))
         set_config_value("crew.map", "review-flow")
         show, note = map_facts.show_line(s), map_facts.note_text(s)
         a, b = nxt(show, note)

@@ -4,7 +4,8 @@
 // drawer that pushes the map (closed until you open it from the view bar); the builder is docked at the foot. The view
 // bar carries Agents' switch and the Attention chip. Nothing opens by itself. 3.6.0.2 R57: the Feed is 4 · Live's; the
 // Map's right drawer keeps Run a goal and a goal run's pages (MapDrawer.tsx), titled by the page it shows. 3.6.0.3 B:
-// the Map draws the plan and what runs now, never the past.
+// the Map draws the plan and what runs now, never the past. 3.6.0.5 A11: Auto has no plan to edit -- its tab draws
+// AutoPlan.tsx (main alone and M1) in place of the drawing, the strip and the cards.
 import { useEffect, useMemo, useLayoutEffect, useRef, useState, type RefObject, type CSSProperties } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";
@@ -17,6 +18,7 @@ import { MapBuilder } from "../Builder";
 import { loadCrew, useCrew } from "../store";
 import { loadFlows, useFlows } from "../flows/flowStore";
 import { AddList } from "./AddList";
+import { AutoPlan } from "./AutoPlan";
 import { MapBar } from "./MapBar";
 import { MapCanvas } from "./MapCanvas";
 import { firstName, loadMaps, openMap, useMap } from "./mapStore";
@@ -28,6 +30,7 @@ import { useFleet } from "../../fleet/store";
 import { LitCtx, useLit } from "./useLit";
 import { QuietCtx, useQuiet } from "./mapQuiet";
 import { markMapDrawn } from "./mapSwitch";
+import { isAuto } from "./truthWords";
 
 export { MAP_SECTION };
 
@@ -88,6 +91,8 @@ function useCanvasRoom(root: RefObject<HTMLDivElement | null>): number {
 
 function MapMain() {
   const locked = useMap((s) => s.locked);
+  const name = useMap((s) => s.name);
+  const scope = useMap((s) => s.detail?.scope || "");
   const root = useRef<HTMLDivElement>(null);
   const room = useCanvasRoom(root);
   const settled = useSettled();
@@ -96,10 +101,9 @@ function MapMain() {
     <QuietCtx.Provider value={quiet}>
     <div className="mp" ref={root} style={room ? ({ "--mp-canvas-min": `${room}px` } as CSSProperties) : undefined} data-testid="map" data-locked={locked || undefined} data-settled={settled || undefined}>
       <MapBar />
-      <MapCanvas />
-      <Strip />
-      <WhenCard />
-      <PickList />
+      {/* no map open yet: the drawing's room only, so nothing drawn for another map goes away when Auto lands */}
+      {!name ? <div className="mp-canvas" data-testid="map-canvas" /> : isAuto(name, scope) ? <AutoPlan />
+        : <><MapCanvas /><Strip /><WhenCard /><PickList /></>}
     </div>
     </QuietCtx.Provider>
   );
