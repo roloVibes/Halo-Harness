@@ -1,5 +1,5 @@
 """tests.test_studio_map_live -- a session's run drawn while it works (3.6.0.0 R4; 3.6.0.2 R34: in Agents -> 4 · Live, the
-Map is the plan), and History replayed on 3 · Map, in headless Chrome as a first-time user (driver
+Map is the plan), in headless Chrome as a first-time user (driver
 tests/helpers/studio_map_live.py over the session rig and the live rig: a real session with the row's `map`, extra agent
 rows and the map frames a session on a map sends; skipped without Chrome). The overlay's own rules are
 tests/test_map_overlay.py's; the frames' source is tests/test_map_chains.py.
@@ -14,7 +14,7 @@ tests/test_map_overlay.py's; the frames' source is tests/test_map_chains.py.
 6. the Map's drawer (P4 batch 4 moves the Feed to Live): filtered by the clicked box, THINK / SAY / TALK rows, an ask's
    answers and its box waiting on you, the keyboard; Steer and Stop reach the session's command route;
 8. another map open on 3 · Map: 4 · Live still draws shop, lit, nothing amber;  9. a session with no map: T4 in Live, over main's box and the run's own blocks (P8);
-10. History (on the Map, R55): the picker, Replay it on the map (quiet colours, a removed box), the scrubber, the card;
+10. (3.6.0.3 B: History's replay on 3 · Map left Studio with History.)
 the room in Live at 1280 / 1500 / 1920 and a zoom step while frames arrive; 11. Session's Live drawer, its link to Live.
 Run: python -m tests.test_studio_map_live
 """
@@ -134,18 +134,6 @@ def test_another_map_open_on_map_live_unchanged_and_a_session_with_no_map(ctx: C
     ctx.check(f"main's box first, then only the run's own blocks, and no Show it, got {got.get('boxes')}",
               bool(ids) and ids[0] == "main" and all(b.startswith("workflow:") for b in ids[1:]) and show is False)
     ctx.check(f"the map again, its lines' labels, got {got.get('again')}", got.get("again") == 5)
-
-
-@test
-def test_history_replays_a_run_on_its_map(ctx: Ctx):
-    got = _got(ctx)
-    ctx.check(f"the picker lists the finished run, got {got.get('rows')}", len(got.get("rows") or []) >= 1)
-    ctx.check(f"replayed on this map in quiet colours, its box done, its line fired, got {got.get('replay')!r} {got.get('quiet')!r} {got.get('fired_end')!r}",
-              got.get("replay") == "replay" and got.get("quiet") == "done" and got.get("fired_end") == "1")
-    ctx.check(f"a box the run used that the map lost: removed since, got {got.get('removed')}", got.get("removed") == ["pdfs"])
-    ctx.check(f"the scrubber at the start: not used yet, got {got.get('at_start')!r}", got.get("at_start") == "idle")
-    ctx.check(f"the report card from the picker row, got {got.get('card')!r}", str(got.get("card")).startswith("session:"))
-    ctx.check(f"back to now: the Map is the plan again, nothing lit (3.6.0.2 R55), got {got.get('now')!r}", got.get("now") == "plan")
 
 
 @test

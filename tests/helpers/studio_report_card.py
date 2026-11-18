@@ -4,11 +4,9 @@ Chrome on the driver base, over a scratch home with two ended sessions and a fin
 
     python -m tests.helpers.studio_report_card
 
-`ended`: Agents -> Live with nothing running: no drawer, no card on load; the row for the session that ended last
-(a row, not a pop-up) opens its card as a page of History: the nine figures (its unpriced cost "$0.0120+"), the story.
-`doors`: History's rows each have a Report door (session, run); session A's card: nine story steps, every section, the
-fixer's file, what the record cannot show, Copy on; Back; the goal run's Report: its report page with the card as its
-FIRST block, before the plan and its lanes.
+`card`: the goal run's card on its own page (its door `&run=<id>`; 3.6.0.3 B: History and a past session's card left
+Studio): the nine figures, the story, every section, its file, what the record cannot show, Copy on; the card is the
+report page's FIRST block, before the plan and its lanes, and the report's doors are kept.
 `mode`: a real Controller behind its control socket, registered in auto mode: Session's bar says "auto" with its meaning
 on hover; set to plan (the session and its registry row) while its feed is held from Studio (3.4.1.0 R6), the
 page's first word after a reload is "plan".
@@ -26,10 +24,9 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_replay_time import Q, QA, history, open_page  # noqa: E402
+from tests.helpers.studio_replay_time import Q, QA, open_page  # noqa: E402
 
 CARD = f"{Q}('[data-testid=\"report-card\"]')"
-DOOR = f"{Q}('[data-testid=\"live-history-card\"][data-kind=\"{{}}\"][data-id=\"{{}}\"]')"
 MODE = f"{Q}('[data-testid=\"session-mode\"]')"
 
 
@@ -43,17 +40,11 @@ def _read(c) -> dict:
             "copy_on": c.js(f"!{Q}('[data-testid=\"report-card-copy\"]').disabled")}
 
 
-def doors(c, sid: str, run: str) -> dict:
-    history(c)
-    out = {"doors": c.js(f"[...{QA}('[data-testid=\"live-history-card\"]')].map((d) => d.dataset.kind + ':' + d.dataset.id)")}
-    c.click_on(DOOR.format("session", sid))
-    c.wait(f"{CARD}?.dataset.state === 'ready' && {CARD}.dataset.ref === 'session:{sid}'", 30)
-    out["a"] = _read(c)
-    c.click_on(f"{Q}('[data-testid=\"report-card-back\"]')")
-    c.wait(f"!{CARD}", 15)
-    c.click_on(DOOR.format("run", run))
+def card(c, page, run: str) -> dict:
+    """The goal run's card from its own page (Z11: the card opens from the run's page; History's door left)."""
+    open_page(c, page, f"mode=agents&run={run}")
     c.wait(f"{Q}('[data-testid=\"history-report\"]')?.dataset.run === '{run}' && {CARD}?.dataset.state === 'ready'", 30)
-    out["run_ref"] = c.js(f"{CARD}.dataset.ref")
+    out = {"a": _read(c), "run_ref": c.js(f"{CARD}.dataset.ref")}
     out["run_first"] = c.js(f"""(() => {{ const r = {Q}('[data-testid="history-report"]');
       const blocks = [...r.querySelectorAll('[data-testid="report-card"], [data-testid^="history-report-"].rr-block')];
       return blocks.length ? blocks[0].dataset.testid : ''; }})()""")
@@ -87,7 +78,7 @@ def _on_report(c, run: str) -> dict:
 def run_page(c, page, run: str) -> dict:
     """3.6.0.3 B batch 1: a finished goal run's report is its own drawer page `report:<id>`, "Goal run", from its doors
     (`&run=<id>`, the palette's "Goal run <id>"); Back (no run page sent him) closes the drawer; the view bar's drawer
-    button keeps one rect on every drawer page (report, goal, history)."""
+    button keeps one rect on every drawer page (report, goal; History's page left in batch 3)."""
     open_page(c, page, f"mode=agents&run={run}")
     out = {"url": _on_report(c, run)}
     c.click_on(f"{Q}('[data-testid=\"history-report-back\"]')")
@@ -102,9 +93,6 @@ def run_page(c, page, run: str) -> dict:
     c.click_on(f"{Q}('[data-testid=\"map-run-goal\"]')")
     c.wait(f"{DRAWER}?.dataset.page === 'goal' && !!{Q}('[data-testid=\"run-goal-drawer\"]')", 15)
     out["goal"] = {"title": c.js(TITLE), "rect": c.js(RECT)}
-    history(c)
-    c.wait(f"{DRAWER}?.dataset.page === 'history'", 15)
-    out["history"] = {"title": c.js(TITLE), "rect": c.js(RECT)}
     return out
 
 
@@ -189,7 +177,7 @@ class ReportCardDriver(Driver):
         from capture_studio import serve
         from halo_harness.config.paths import bridge_home
         from halo_harness.studio.server import url_for
-        from tests.helpers.card_seed import RUN, SID, SID_B, seed_all
+        from tests.helpers.card_seed import RUN, seed_all
         state = bridge_home()
         state.mkdir(parents=True, exist_ok=True)
         repo = seed_all(state)
@@ -199,8 +187,7 @@ class ReportCardDriver(Driver):
         def page(query: str) -> str:
             return base.replace("/#t=", f"/?{query}&tour=off&level=mid#t=")
         try:
-            open_page(c, page, "mode=agents&view=map")  # 3.6.0.0 R5: Live's ended-session row went; History is the Map's
-            yield ((doors, (c, SID, RUN)), (run_page, (c, page, RUN)), (mode, (c, page)))
+            yield ((card, (c, page, RUN)), (run_page, (c, page, RUN)), (mode, (c, page)))
         finally:
             srv.shutdown()
             srv.server_close()

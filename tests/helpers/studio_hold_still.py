@@ -4,11 +4,10 @@ lands (3.6.0.0 R5c; tests/helpers/hold_still.py does the holding), for tests/tes
     python -m tests.helpers.studio_hold_still
     python -m tests.helpers.studio_hold_still --fresh   (3.6.0.0 R5e: the views over a fresh home, see `fresh`)
 
-Over a scratch home with two ended sessions and a finished goal run (the replay seeds: the Map's History has rows), in
+Over a scratch home with two ended sessions and a finished goal run (the replay seeds), in
 headless Chrome, each with every /api/ answer held and then let go one at a time:
-  map       Agents -> Map as it opens: the rail, the view bar, the Map bar, History under the map;
+  map       Agents -> Map as it opens: the rail, the view bar, the Map bar, the strip under the map;
   map_all   the same in the drivers' arrangement (`open=all`) with the drawer of what they think and say;
-  history   Map -> "Goal runs, files, Compare" clicked before anything landed: the drawer's controls;
   goal      Map -> Run a goal clicked before anything landed: the goal form's controls;
   session   Session as it opens with no live session (its Start view, drawn once the sessions are read): New session,
             Open the workspace anyway;
@@ -72,10 +71,8 @@ VIEWBAR_READY = "!!document.querySelector('[data-testid=\"viewbar\"]')"
 
 # name: (query, the containers whose controls are measured, ready, a first click, what that click needs drawn)
 VIEWS = {
-    "map": ("mode=agents&view=map", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-history"]'), MAP_READY, None, None),
-    "map_all": ("mode=agents&view=map&open=all", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-history"]', '[data-testid="map-drawer-panel"]'), MAP_READY, None, None),
-    "history": ("mode=agents&view=map", ('[data-testid="map-drawer-panel"]',), "!!document.querySelector('[data-testid=\"map-history-all\"]')",
-                _click("map-history-all"), None),
+    "map": ("mode=agents&view=map", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-strip"]'), MAP_READY, None, None),
+    "map_all": ("mode=agents&view=map&open=all", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-strip"]', '[data-testid="map-drawer-panel"]'), MAP_READY, None, None),
     "goal": ("mode=agents&view=map", ('[data-testid="map-drawer-panel"]',), MAP_READY, _click("map-run-goal"), FORM),
     "session": ("mode=session", (RAIL, ".section-view"), START, None, None),
     "session_all": ("mode=session&open=all", _plus(clickables(".section-view"), "viewbar-word", "session-truth"), START, _click("session-open-workspace"), VIEWBAR_READY),

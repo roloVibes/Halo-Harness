@@ -27,8 +27,8 @@
 .mp-error > .cw-line { flex: 1 1 200px; color: var(--text); }
 
 /* the drawing */
-/* P4 batch 12: the canvas' least height is what the Map panel's own box leaves after the bar, the strip and History,
-   measured (MapView.tsx useCanvasRoom), not the window's height minus a constant: History's head and Replay in sight at rest */
+/* P4 batch 12: the canvas' least height is what the Map panel's own box leaves after the bar and the strip, measured
+   (MapView.tsx useCanvasRoom), not the window's height minus a constant: the strip in sight at rest */
 .mp-canvas { position: relative; display: flex; flex-direction: column; flex: 1 0 0; min-height: var(--mp-canvas-min, 120px); min-width: 0; } /* the drawing never sizes it: it scrolls inside */
 .mp-zoom { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; justify-content: flex-end; padding-bottom: var(--s-1); }
 .mp-zoom .mp-topline { flex: 1 1 260px; }

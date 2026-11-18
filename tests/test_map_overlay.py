@@ -9,7 +9,9 @@ ship-it-like map below sends (as crew/map_events.py publishes them).
 4. a helper the session made up hangs under the box that started it (by its tag, and by its parent when untagged);
 5. an ask: the box waits on you;
 6. a row that matches nothing is a stranger (shown in the strip), never dropped; a hop on a line the map lost: gone;
-7. replay equals live: the recorded events up to a moment, through the same function, give the same overlay.
+7. folded from nothing equals stepwise: the recorded events up to a moment, given at once to the same function, give
+   the overlay the live stream gave at that moment (3.6.0.3 B: the replay and its eventsAt left; the events are cut
+   inline).
 No model, no browser. Run: python -m tests.test_map_overlay
 """
 from __future__ import annotations
@@ -73,11 +75,12 @@ EVENTS = [
 
 JS = """const m = await import(%s);
 const map = %s, rows = %s, evs = %s, t0 = %s;
+const upTo = (t) => evs.filter((e) => Number(e.data.t) <= t + 1e-6);
 const live = m.overlay(map, rows, evs, t0 + 12);
 const later = m.overlay(map, rows, evs, t0 + 30);
-const replay = m.overlay(map, rows, m.eventsAt(evs, t0 + 12), t0 + 12);
-const mid = m.overlay(map, rows, m.eventsAt(evs, t0 + 3.5), t0 + 3.5);
-console.log(JSON.stringify({live, later, same: JSON.stringify(live) === JSON.stringify(replay), mid}));"""
+const folded = m.overlay(map, rows, upTo(t0 + 12), t0 + 12);
+const mid = m.overlay(map, rows, upTo(t0 + 3.5), t0 + 3.5);
+console.log(JSON.stringify({live, later, same: JSON.stringify(live) === JSON.stringify(folded), mid}));"""
 
 
 def _run() -> dict:
@@ -157,8 +160,8 @@ def test_a_row_that_matches_nothing_is_shown_never_dropped(ctx: Ctx):
 
 
 @test
-def test_replay_equals_live_for_the_same_events(ctx: Ctx):
-    ctx.check("the recorded events up to the moment, through the same function, give the same overlay", got()["same"] is True)
+def test_folded_from_nothing_equals_stepwise(ctx: Ctx):
+    ctx.check("the recorded events up to the moment, folded from nothing through the same function, give the live overlay", got()["same"] is True)
 
 
 # -- 3.6.0.2 batch 4 (P3d): the run drawn as it is (R14 R16 R17 R48 R49) ---------------------------------------------------

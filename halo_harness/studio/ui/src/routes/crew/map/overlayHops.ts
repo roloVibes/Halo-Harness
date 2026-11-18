@@ -1,7 +1,7 @@
 // The trace of a session's hand-offs (3.6.0.2 R49, R16's "until"): exact and bounded. Every `map_hop` frame is folded,
 // as it arrives, into per-session totals -- for each line (or off-line target) how many hand-offs it carried, when the
 // last one started and its few words -- and the hand-offs in flight; litStore.ts keeps these apart from its 600-frame
-// replay window, so a long session's early hand-offs still count. A line stays live only while its start has no end AND a
+// window of recent frames, so a long session's early hand-offs still count. A line stays live only while its start has no end AND a
 // live row carries it, and never once the session is not busy. Pure: `import type` only (tests/test_map_overlay.py runs
 // it in node).
 import type { OvEvent, OvRow } from "./overlay";
@@ -34,7 +34,7 @@ export function foldHop(t: Totals, f: OvEvent): Totals {
   return t;
 }
 
-/** Every frame of a list, folded from nothing (a replay; the tests). */
+/** Every frame of a list, folded from nothing (the tests). */
 export const foldAll = (frames: OvEvent[], from: Totals = NO_TOTALS): Totals => frames.reduce(foldHop, from);
 
 /** Does a live row carry the hand-off `from>to`: its `crew.line`, the workflow a `workflow:{W}` target names, the agent a

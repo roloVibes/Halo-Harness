@@ -183,6 +183,25 @@ def test_studio_report_route(ctx: Ctx):
         ctx.check("nothing written", not (state / "replays").exists())
 
 
+@test
+def test_studio_reads_the_card_at_live_report(ctx: Ctx):
+    """3.6.0.3 B (R-B12, Z3): the card's route is `GET live/report` (studio/live_report_api.py, dispatched with the other
+    `live/*` routes); `replays/report` points at the same handler until the server batch deletes replays_api.py."""
+    from halo_harness.studio.live_api import dispatch_live
+    from halo_harness.studio.replays_api import dispatch_replays
+    with _home() as (state, repo):
+        def call(fn, path, query):
+            return fn(SimpleNamespace(method="GET", path=path, query=query, body=None, state_dir=state, cwd=repo, server=None, params={}))
+        for ref in (f"session:{SID}", f"run:{RUN}"):
+            code, got = call(dispatch_live, "live/report", {"ref": ref})
+            old = call(dispatch_replays, "replays/report", {"ref": ref})[1]
+            ctx.check(f"{ref}: 200 with the same card and Markdown as before: {code}",
+                      code == 200 and got.get("card") == old.get("card") and got.get("markdown") == old.get("markdown"))
+        ctx.check("no ref: 422; an unknown one: 404",
+                  call(dispatch_live, "live/report", {})[0] == 422 and call(dispatch_live, "live/report", {"ref": "session:nope"})[0] == 404)
+        ctx.check("nothing written", not (state / "replays").exists())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

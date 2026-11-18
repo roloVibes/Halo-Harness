@@ -1,11 +1,9 @@
 // The lit Map's overlay (3.6.0.0 R4, the v3 design's "While a session runs, the same map lights up"): ONE pure function
-// from what one session says -- its agent rows (GET fleet / the feed's agent_state; in a replay, the rows at the
-// scrubber's moment) and its map frames (crew/map_events.py: map_hop, map_step; in a replay, the same events from its
-// log) -- to what the map draws over the boxes and lines he built: each box's state, what it does now and its cost;
+// from what one session says -- its agent rows (GET fleet / the feed's agent_state) and its map frames
+// (crew/map_events.py: map_hop, map_step) -- to what the map draws over the boxes and lines he built: each box's state, what it does now and its cost;
 // the hand-off moving along the line the runtime's receipt named; an opened workflow box's steps; the helpers the
 // session made up, under the box that started them; and every row that matches nothing, shown in the strip (never
-// dropped). Live and replay call the same function, so a replay lights the map as the run did. No runtime imports
-// but its pure sibling overlayBlocks.ts (tests/test_map_overlay.py runs both in node).
+// dropped). Agents -> 4 · Live and Session's drawing call it. No runtime imports but its pure sibling overlayBlocks.ts (tests/test_map_overlay.py runs both in node).
 //
 // 3.6.0.2 R14: a row tagged with a workflow (`crew.workflow`) is a step row of that workflow's block (overlayBlocks.ts),
 // whatever its name, before anything else; R15: every other child is a named row inside its box (`kids`); R17: on a map of
@@ -207,8 +205,8 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number,
       hops += 1;
       lines[k] = { t, task: str(d.task), why: str(d.why), background: !!d.background, running: true, skipped: "" };
       // a live frame is timed from when this page heard it (`seen`, litStore.ts): the session's clock and this
-      // page's are two machines' clocks, and a slow feed would otherwise never show a hand-off; a replay has no
-      // `seen` and is timed by the recording
+      // page's are two machines' clocks, and a slow feed would otherwise never show a hand-off; a frame with no
+      // `seen` (the tests' folded lists) is timed by its own `t`
       const at = num(d.seen) ? Math.min(num(d.seen), now) : t; // heard between two ticks of `now`: it is now
       if (now - at <= PULSE_S && now >= at) pulses.push({ from, to, task: str(d.task), t, background: !!d.background });
     } else if (d.state === "end") lines[k] = { ...was, running: false };
@@ -242,6 +240,3 @@ export function under(helpers: Helper[], aid: string): Helper[] {
 
 /** R4b: the helpers drawn on the map: those an agent of a box started (one level; a helper's own helpers are "+N"). */
 export const firstLevel = (helpers: Helper[]): Helper[] => helpers.filter((h) => !helpers.some((x) => x.aid === h.parent));
-
-/** Recorded events up to `t` (a replay at the scrubber's moment). */
-export const eventsAt = (evs: OvEvent[], t: number): OvEvent[] => evs.filter((e) => num(e.data.t) <= t + 1e-6);

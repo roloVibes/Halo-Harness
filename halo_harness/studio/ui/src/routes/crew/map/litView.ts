@@ -1,7 +1,7 @@
 // The map as drawn while it is lit (3.6.0.0 R4): the same drawing (view.ts), with what the running session adds --
 // each helper it made up as a dashed box beside the box that started it (one column right, a dashed line from it, no
 // When label: no line was drawn for it), and a Builder card it parked drawn as the builder's own ghosts. A session that
-// did not start on a map (or a replay of one) draws on an empty map: main and its helpers, no invented lines.
+// did not start on a map draws on an empty map: main and its helpers, no invented lines.
 // 3.6.0.0 R4b: one level only -- a helper a helper started is counted on it ("+N under it"), listed in the drawer.
 import type { Change } from "../types";
 import { firstLevel, type Overlay } from "./overlay";

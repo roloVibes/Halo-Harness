@@ -71,7 +71,7 @@ this list against the tree.
 - Live (this machine's sessions): `studio/live_agents_api.py` (agent
   commands on a live session), `studio/live_api.py` (the `live/*` routes), `studio/live_panels_api.py` (attention, costs, caps, conflicts), `studio/live_answer.py`
   (one key on an attention row), `studio/live_handoff_api.py` (an agent's hand-off),
-  `studio/live_recording_api.py` (flight recordings, the replay's time axis), `studio/live_watch.py` (the watcher),
+  `studio/live_recording_api.py` (flight recordings, the replay's time axis), `studio/live_report_api.py` (the run report card's `live/report`), `studio/live_watch.py` (the watcher),
   `studio/live_watch_sources.py` (what it reads), `studio/live_feed.py` (its tap on the live feed),
   `studio/live_send.py` (a session command)
 - the one unit view (3.1.2.0): `studio/work_api.py`

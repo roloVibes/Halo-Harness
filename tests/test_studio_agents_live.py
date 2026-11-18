@@ -22,7 +22,8 @@ tests/test_agents_door.py, run in node everywhere.
 6. R3: the picker lists other machines' sessions; one picked says T9 and nothing is fetched;
 7. R57: what the agents say and do, line by line, is Live's right drawer titled Feed (WORDS.feed), for Live's session,
    opened by his hand; a click on a box in Live sets it to that box; 3 · Map has no feed and no "What they think and
-   say"; Run a goal and History open in the Map's own right drawer, titled by the page, its button holding still; an
+   say"; Run a goal opens in the Map's own right drawer, titled by the page, its button holding still (3.6.0.3 B: History
+   left; the drawer's own button opens Run a goal's form); an
    agent's "open" door (the palette's "Agents: follow agent ...") lands on Live's Feed for that agent.
 8. R55 R24 R33: 3 · Map is the plan -- one quiet line (L1-L3) in a row reserved from the first draw, box W marked
    "running now in {session}", nothing lit or amber; the picker's "· running in" / "· new sessions" and the switch
@@ -178,12 +179,13 @@ def test_live_has_the_feed_map_does_not(ctx: Ctx):
               d.get("filter") == "code" and d.get("feed_card") == "box:code")
     ctx.check(f"3 · Map has no feed drawer, got {d.get('map_feed')}", d.get("map_feed") == 0)
     ctx.check(f"nothing says 'What they think and say', got {d.get('map_words')!r}", d.get("map_words") is False)
-    ctx.check(f"the Map's own drawer: closed, its button on History, got {d.get('md_closed')}", d.get("md_closed") == ["History", False])
+    ctx.check(f"the Map's own drawer: closed, its button on Run a goal, got {d.get('md_closed')}", d.get("md_closed") == ["Run a goal", False])
     ctx.check(f"Run a goal opens the goal form in the Map's right drawer, titled Run a goal, got {d.get('goal')}", d.get("goal") == ["Run a goal", "Run a goal"])
-    ctx.check(f"History's list opens there, titled History, got {d.get('history')}", d.get("history") == ["History", "History"])
-    ctx.check(f"the drawer's button holds still whatever its page, got {d.get('btn_before')} {d.get('goal_btn')} {d.get('history_btn')}",
-              d.get("btn_before") == d.get("goal_btn") == d.get("history_btn") and d.get("btn_before"))
-    ctx.check(f"History's x closes the drawer with it, got {d.get('closed')!r}", d.get("closed") == "closed")
+    ctx.check(f"the goal form's x closes the drawer with it, got {d.get('closed')!r}", d.get("closed") == "closed")
+    ctx.check(f"3.6.0.3 B: the drawer's own button opens it on Run a goal's form, never History, got {d.get('by_button')}",
+              d.get("by_button") == ["Run a goal", "goal"])
+    ctx.check(f"the drawer's button holds still whatever its page, got {d.get('btn_before')} {d.get('goal_btn')} {d.get('button_btn')}",
+              d.get("btn_before") == d.get("goal_btn") == d.get("button_btn") and d.get("btn_before"))
     door = d.get("agent_door") or []
     ctx.check(f"an agent's open door from 3 · Map lands on Live's Feed for that agent, got {door} (implementer {d.get('aid')!r})",
               door[:2] == ["live", f"agent:{d.get('aid')}"])
@@ -300,8 +302,11 @@ def test_quiet_line_never_moves_the_drawing_at_1280(ctx: Ctx):
                   len(tops) == 3 and all(isinstance(x, (int, float)) for x in tops) and max(tops) - min(tops) <= 0.5)
         gaps = s.get(f"{name}_gaps") or []
         ctx.check(f"P4 batch 12: {name}: nothing in the top line is an unseen copy, no visible gap (with and without the "
-                  f"session; [hidden, gap, Replay drawn] each), got {gaps}",
+                  f"session; [hidden, gap, a Replay part, the plan's offset] each), got {gaps}",
                   len(gaps) == 3 and all(isinstance(g, list) and g[0] == 0 and g[1] is False for g in gaps))
+        ctx.check(f"3.6.0.3 B (R-B8): {name}: the top line has no Replay slot, offer, line or data-lit, and its first control "
+                  f"sits at the row's left edge, got {gaps}",
+                  len(gaps) == 3 and all(isinstance(g, list) and g[2] is False and g[3] == 0 for g in gaps))
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

@@ -6,7 +6,7 @@ Chrome; browser-driven: the Linux VM and CI only).
 
 Groups: `session` (Session's Live drawer: the zoom row and Fit, the pair, [New session], "↓ n more below", [Open in
 Agents -> Live], a box / step row / line click, each button of the step-in card), `map` (3 · Map: the picker, + New map,
-the switch, Run a goal, Lock, Undo, Dismiss, `map-fresh`, [Open it], [Watch it in Live], Replay / Back to now, the tabs,
+the switch, Run a goal, Lock, Undo, Dismiss, `map-fresh`, [Open it], [Watch it in Live], the tabs,
 Attention), `live` (4 · Live: the picker, a box and its card, the Feed and its controls), `agents` and `workflows`
 (every visible control of 1 · Agents and 2 · Workflows at rest, enumerated). A failure lists `name: not found` or
 `name: nothing changed`.
@@ -33,8 +33,8 @@ SESSION = ["the pair: Running", "the pair: Just built", "Zoom out", "the zoom (1
            "the card: steer field (Enter sends)", "the card: Stop", "Stop's confirm: Cancel", "the card: x", "a box",
            "the card: Open in Agents -> Live", "a line", "an off-map line's card: Open the map at main", "[Open in Agents -> Live]"]
 MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", "New sessions run on this (starter, his map shop)",
-       "Undo (the switch)", "Run a goal", "Lock", "Lock (off again)", "n new, not connected yet", "Undo (the box)", "[Open it]", "Replay",
-       "Back to now (History)", "Back to now (the replay line)", "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "the tab 1 · Agents",
+       "Undo (the switch)", "Run a goal", "Lock", "Lock (off again)", "n new, not connected yet", "Undo (the box)", "[Open it]",
+       "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "the tab 1 · Agents",
        "the tab 2 · Workflows", "the tab 4 · Live", "the tab 3 · Map", "Attention", "Attention's x"]
 LIVE = ["Which session", "a box", "the card: Pause", "the card: x", "Feed", "the Feed's filter", "the Feed's Steer", "the Feed's Stop",
         "Stop's No", "the box head's Pause"]
@@ -69,12 +69,6 @@ def test_every_control_changes_something(ctx: Ctx):
     _group(ctx, got, "map", MAP)
     sc = scrolled(got.get("map"))
     print(f"  3 · Map: controls a press reached only by scrolling their panel: {sc}")
-    ctx.check(f"P4 batch 12: History's Replay is pressed where it is seen at rest, no scroll, scrolled: {sc}",
-              "Replay" not in sc and "Back to now (History)" not in sc)
-    sight = got.get("sight") or {}
-    ctx.check(f"P4 batch 12: History's head and Replay in the Map panel's visible box without scrolling at 1280 x 800, "
-              f"1440 x 900, 1500 x 900, 1920 x 1080, got {sight}",
-              len(sight) == 4 and all(isinstance(v, list) and v[0] is True and v[1] is True and v[4] == 0 for v in sight.values()))
     ctx.check(f"P4 batch 12: on the default map with no map set, no switch, the plain sentence, got {got.get('default_uses')}",
               got.get("default_uses") == [False, "New sessions run on starter (the default)."])
     nu = got.get("none_uses") or {}

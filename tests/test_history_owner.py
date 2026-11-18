@@ -3,8 +3,8 @@ sessions under their row. The live check listed "You are the lead orchestrator .
 Orchestra run ..." and a mission's lead and part sessions beside their runs: 24 rows for 2 runs, 2 missions, 3 sessions.
 
 `GET fleet/history?role=main` names each such session's owner (`part_of`, live/history_owner.py, read from the run's
-split.json and lanes and the mission's plan.json and mission.json); the page (historyStore.historyRows) leaves them out
-of its list and counts them on the owner's row.
+split.json and lanes and the mission's plan.json and mission.json). (3.6.0.3 B: History's page, which folded them into
+their owner's row, left Studio; the route's `part_of` stays.)
 Run: python -m tests.test_history_owner
 """
 from __future__ import annotations
@@ -60,11 +60,8 @@ def test_a_runs_and_a_missions_sessions_name_their_owner(ctx: Ctx):
     ctx.check(f"each run or mission session names its owner, the owner's own session none, got {own}", status == 200
               and own["lead-1"] == own["lead-2"] == own["worker-1"] == {"kind": "run", "id": "20261112-000750-5483"}
               and own["m-lead"] == own["m-part"] == {"kind": "mission", "id": "m-20261112-dd68"} and own["mine"] is None)
-    store = (UI / "routes" / "crew" / "live" / "historyStore.ts").read_text(encoding="utf-8")  # 3.6.0.0 R5: moved
-    ctx.check("the page leaves them out of its list and counts them on the owner's row",
-              "s.part_of) continue;" in store and "r.inside = inside.get(" in store)
-    row = (UI / "routes" / "crew" / "live" / "History.tsx").read_text(encoding="utf-8")  # 3.6.0.0 R4b: moved
-    ctx.check("the owner's row says how many sessions it holds", "r.inside ? `${r.inside} session" in row)
+    # 3.6.0.3 B: History's page, which folded these sessions into their owner's row, left Studio with History; the
+    # route's `part_of` stays (Session's LAST SESSIONS reads live/history)
 
 
 @test

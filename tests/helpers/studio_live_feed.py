@@ -118,17 +118,21 @@ def feed_step(c, rig, lv, rows) -> dict:
     out["goal"] = c.wait(f"!!{MD}?.querySelector('[data-testid=run-goal-drawer]') && !!{MD}.closest('.stage-drawer[data-side=right][data-panel-in=map-drawer]')"
                          f" && [{MD}.querySelector('[data-testid=panel-title]')?.textContent, {MD_BTN}.querySelector('.viewbar-name')?.textContent]", 15)
     out["goal_btn"] = c.js(f"{RECT}({MD_BTN})")
-    c.click_on(f"document.querySelector('{MP}[data-testid=map-history-all]')")
-    out["history"] = c.wait(f"!!{MD}?.querySelector('[data-testid=live-history-drawer]') && !{MD}.querySelector('[data-testid=run-goal-drawer]')"
-                            f" && [{MD}.querySelector('[data-testid=panel-title]')?.textContent, {MD_BTN}.querySelector('.viewbar-name')?.textContent]", 15)
-    out["history_btn"] = c.js(f"{RECT}({MD_BTN})")
     out["btn_before"] = before
-    c.click_on(f"{MD}.querySelector('[data-testid=live-history-close]')")
+    # 3.6.0.3 B: History left; the goal form's x closes the drawer with it, and the drawer's own button opens it again on
+    # Run a goal's form (never an empty drawer, never a History page)
+    c.click_on(f"{MD}.querySelector('[data-testid=run-goal-close]')")
     try:
         out["closed"] = c.wait(f"!({MD_SHOWN}) && 'closed'", 10)
     except TimeoutError:
-        probe = f"[!!{MD}, !!{MD}?.querySelector('[data-testid=live-history-drawer]'), {MD}?.querySelector('[data-testid=map-drawer]')?.dataset.page]"
-        raise TimeoutError(f"History's x: the drawer, History's list, its page: {c.js(probe)}")
+        probe = f"[!!{MD}, !!{MD}?.querySelector('[data-testid=run-goal-drawer]'), {MD}?.querySelector('[data-testid=map-drawer]')?.dataset.page]"
+        raise TimeoutError(f"the goal form's x: the drawer, the form, its page: {c.js(probe)}")
+    c.click_on(MD_BTN)
+    out["by_button"] = c.wait(f"!!{MD}?.querySelector('[data-testid=run-goal-drawer]') && !{MD}.querySelector('[data-testid=live-history-drawer]')"
+                              f" && [{MD}.querySelector('[data-testid=panel-title]')?.textContent, {MD}.querySelector('[data-testid=map-drawer]')?.dataset.page]", 15)
+    out["button_btn"] = c.js(f"{RECT}({MD_BTN})")
+    c.click_on(f"{MD}.querySelector('[data-testid=run-goal-close]')")
+    c.wait(f"!({MD_SHOWN})", 10)
     c.click_on(f"document.querySelector('[data-testid=palette-btn], .palette-btn')")
     c.wait("document.activeElement?.classList.contains('palette-input')", 10)
     c.type_text("Agents: follow agent implementer")

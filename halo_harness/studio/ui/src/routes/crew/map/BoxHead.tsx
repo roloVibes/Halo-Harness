@@ -42,7 +42,6 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
   const live = LIVE.includes(a.state);
   const tin = Number(r.tokens_in || 0), tout = Number(r.tokens_out || 0);
   const state = a.state === "paused" ? "paused" : a.state === "waiting" ? STATE_WORDS.waiting : a.state || "not started";
-  const replay = L.mode === "replay";
   return (
     <section className="mpf-head" data-testid="map-feed-head" data-agent={a.id} data-box={box} data-state={a.state}>
       <span className="mpf-fact" data-testid="map-fact-who"><b>{a.name}</b> · {state}{box && box !== a.name ? ` · the box ${box}` : ""}</span>
@@ -52,7 +51,7 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
       {(tin > 0 || tout > 0) && <span className="mpf-fact mono" data-testid="map-fact-tokens">tokens: {count(tin)} in · {count(tout)} out</span>}
       <span className="mpf-fact mono" data-testid="map-fact-cost">cost: {money(a.cost || 0)}</span>
       {ran && <span className="mpf-fact mono" data-testid="map-fact-ran">{live ? "running for" : "ran for"} {ran}</span>}
-      {!replay && (live || (a.state === "failed" && !gone)) && (
+      {(live || (a.state === "failed" && !gone)) && (
         <span className="mpf-buttons" data-testid="map-feed-more">
           {live && (
             <Button onClick={() => void togglePause(a.key)} data-testid="map-feed-pause" data-paused={a.state === "paused" || undefined}
@@ -66,7 +65,7 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
           )}
           {a.state === "failed" && !gone && (
             <Button onClick={() => (dismiss(a.key), ackFailed([{ key: a.key, state: "failed" } as LiveAgent]))} data-testid="map-feed-dismiss"
-                    title={`Seen: ${a.name} failed; its session keeps it in History`}>Dismiss</Button>
+                    title={`Seen: ${a.name} failed; this hides it here`}>Dismiss</Button>
           )}
         </span>
       )}

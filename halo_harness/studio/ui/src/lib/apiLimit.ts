@@ -20,7 +20,7 @@ export const LONG: [RegExp, string][] = [
   [/^models\/(test|analyze|check|think|refresh|best-for)$/, "the answer asks a model"],
   [/^setup\/(check|copilot|ollama)\b/, "setup reaches a provider or a host"],
   [/^crew\/(try|estimate)$/, "a Try it run starts, or a workflow is costed by a model"],
-  [/^replays\/(compare|report|plan|import|clip)$/, "a replay is read, compared or written by a model"],
+  [/^live\/report$/, "a run's report card reads its whole record"],
   [/^sessions\/[^/]+\/(postmortem|eyes|command|slash)$/, "a session's command or a model's look at it"],
   [/^sessions\/new$/, "a session's terminal starting"],
   [/^orchestra\/run$/, "a goal run starting (its worktrees)"],

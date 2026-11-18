@@ -9,8 +9,8 @@ Skipped without Chrome. No model is called.
 4  a helper's own helpers: "+N under it", not drawn; the drawer lists who started whom
 5  the todo plan: "plan: 1 of 3 done", its rows in the drawer
 6  Run a goal from the Map's bar opens the goal form in the Map's own drawer (3.6.0.2 R57)
-7  a replay on the Map opens no Feed (3.6.0.2 R57) and lists its rows up to the scrubber in the Map's own drawer, History's page (P4 batch 12)
-9  J / K between working boxes; with nothing running, "Replay the last session"
+7  (3.6.0.3 B: History and the replay left Studio) with nothing running the Map is the plan: no Replay offer, nothing lit
+9  J / K between working boxes
 10 a hover summary card, by a move only, never over the box's controls
 11 an ask's answer pressed in the drawer reaches the session (a real waiter, its Attention row); two sessions: the picker
 Run: python -m tests.test_studio_map_takeover
@@ -84,32 +84,15 @@ def test_4_depth_and_5_the_plan(ctx: Ctx):
 
 
 @test
-def test_6_7_9_goal_replay_keys(ctx: Ctx):
+def test_6_7_9_goal_ended_keys(ctx: Ctx):
     g = got(ctx)
     ctx.check(f"Run a goal from the Map's bar: the goal form in the Map's own drawer (R57), its x closes it, got {g.get('form')} {g.get('back')}",
               g.get("form") == "goal" and g.get("back") == "back")
-    ctx.check(f"History under the map opens the whole History (goal runs, saved files, Compare) in the Map's drawer, got {g.get('history')}",
-              isinstance(g.get("history"), int) and g["history"] >= 1)
     ctx.check(f"3.6.0.2 R55 (rewritten): no box at work on the Map for J / K to step to, got {g.get('working')}", g.get("working") == [])
-    ctx.check(f"nothing running: Replay the last session, got {g.get('offer')!r} -> {g.get('replaying')!r}", g.get("offer") == "Replay the last session" and g.get("replaying") == "replay")
-    ctx.check(f"3.6.0.2 R57: a replay on the Map opens no feed (the Map has none); its scrubber runs it to the end, got {g.get('drawer')} {g.get('rows')!r}",
-              g.get("drawer") == 0 and g.get("rows") == "end")
-    rows = g.get("drawer_rows")
-    # P8 (rewritten to the truth, the owner's rule a text is never cut): the rows are no longer one line each, cut with an
-    # ellipsis; each row's words are whole, wrapped as the Feed's rows are
-    ctx.check(f"P4 batch 12 (rewritten to the truth): a replay opens no Feed and DOES list its rows (spawns, hand-offs, asks, "
-              f"finishes up to the scrubber) in the Map's own drawer on History's page, each row's words whole (P8), got {rows!r}",
-              isinstance(rows, list) and len(rows) >= 1 and all(whole is True for _, whole in rows))
-    # P7 (the coordinator's ruling): Replay is his own press, so it opens the Map's drawer on that replay's page at once;
-    # the rows follow the scrubber, the newest at the foot, and History's "Back to now" is never covered
-    ctx.check(f"P7: pressing Replay opens the Map's drawer on History's page with the replay's rows, got {g.get('opened')!r}",
-              g.get("opened") == "history")
-    sc = g.get("scrub") or [0, 0, 0]
-    ctx.check(f"P7: the rows are listed up to the scrubber (start <= middle <= end, fewer at the start), got {sc}",
-              len(sc) == 3 and sc[0] <= sc[1] <= sc[2] and sc[0] < sc[2])
-    ctx.check(f"P7: oldest first, the newest at the foot and in sight, got {g.get('foot')}", g.get("foot") == [True, True])
-    ctx.check(f"P7: History's 'Back to now' is in sight and nothing covers it, at 1500 x 900 and 1280 x 800, got {g.get('now')}",
-              g.get("now") == {"1500": True, "1280": True})
+    # 3.6.0.3 B (R-B8, Z8; R-B14: the replay step left with the replay): with nothing running the Map is the plan
+    ctx.check(f"the turn ended, got {g.get('ended')!r}", g.get("ended") == "ended")
+    ctx.check(f"nothing running: no Replay the last session, no Replay slot, no data-lit, no replay line, nothing lit, "
+              f"got {g.get('replay_parts')}", g.get("replay_parts") == [False, False, False, False, False])
 
 
 @test

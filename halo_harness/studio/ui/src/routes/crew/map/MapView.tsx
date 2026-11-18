@@ -3,7 +3,8 @@
 // rules (R0a): the map is the main thing (the bar, the drawing, the strip under it); "Agents and workflows" is a left
 // drawer that pushes the map (closed until you open it from the view bar); the builder is docked at the foot. The view
 // bar carries Agents' switch and the Attention chip. Nothing opens by itself. 3.6.0.2 R57: the Feed is 4 · Live's; the
-// Map's right drawer keeps Run a goal, a goal run's pages and History (MapDrawer.tsx), titled by the page it shows.
+// Map's right drawer keeps Run a goal and a goal run's pages (MapDrawer.tsx), titled by the page it shows. 3.6.0.3 B:
+// the Map draws the plan and what runs now, never the past (History, its strip and the replay left Studio).
 import { useEffect, useMemo, useLayoutEffect, useRef, useState, type RefObject, type CSSProperties } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";
@@ -22,11 +23,9 @@ import { firstName, loadMaps, openMap, useMap } from "./mapStore";
 import { Strip } from "./Strip";
 import { PickList, WhenCard } from "./WhenCard";
 import { MAP_DRAWER, MAP_SECTION, mapPage, mapPageTitle, useMapPage } from "./feedOpen";
-import { MapDrawer, MapDrawerGlance } from "./MapDrawer";
-import { MapHistory, MapHistoryLoad } from "./MapHistory";
-import { loadMapHistory, useMapHist } from "./mapRuns";
+import { MapDrawer, MapDrawerGlance, useGoalOnOpen } from "./MapDrawer";
 import { useFleet } from "../../fleet/store";
-import { LitCtx, useLit, useLitNow } from "./useLit";
+import { LitCtx, useLit } from "./useLit";
 import { QuietCtx, useQuiet } from "./mapQuiet";
 import { markMapDrawn } from "./mapSwitch";
 
@@ -42,21 +41,19 @@ function MainGlance() {
   return <div className="glance"><div className="glance-hint">{name ? `The map ${name}: expand it.` : "Pick a map."}</div></div>;
 }
 
-/** 3.6.0.0 R5c: what sits above History has landed -- the map list and the open map (or why not), the agents, the
- *  workflows, the sessions and History's own runs. Until then History is not drawn: drawn at once it moved 280 px down
- *  and 670 px right as they landed, out from under a click (its "Goal runs, files, Compare" on a slow machine). */
+/** 3.6.0.0 R5c: what the Map is drawn from has landed -- the map list and the open map (or why not), the agents, the
+ *  workflows and the sessions (`data-settled`, what the tests wait on). */
 function useSettled(): boolean {
   const map = useMap((s) => s.listed && (!!s.detail || !!s.error || !s.rows.length));
   const agents = useCrew((s) => s.loaded);
   const flows = useFlows((s) => s.loaded);
   const sessions = useFleet((s) => s.loaded);
-  const runs = useMapHist((s) => s.loaded);
-  return map && agents && flows && sessions && runs;
+  return map && agents && flows && sessions;
 }
 
 /** P4 batch 12 (the coordinator's ruling): the canvas' least height is what the Map panel's real box leaves after the
- *  bar, the strip and History, measured (never the window's height minus a constant), so History's head and its Replay are
- *  in sight at rest; measured again when the panel or a part above or under the canvas changes size. */
+ *  bar and the strip, measured (never the window's height minus a constant), so the strip is in sight at rest; measured
+ *  again when the panel or a part above or under the canvas changes size. */
 function useCanvasRoom(root: RefObject<HTMLDivElement | null>): number {
   const [room, setRoom] = useState(0);
   useLayoutEffect(() => {
@@ -93,18 +90,14 @@ function MapMain() {
   const locked = useMap((s) => s.locked);
   const root = useRef<HTMLDivElement>(null);
   const room = useCanvasRoom(root);
-  const L = useLitNow();
   const settled = useSettled();
   const quiet = useQuiet(); // R55: the one quiet line and the marks of running workflows' boxes
-  const runningKey = L.all.map((s) => s.sid).join(",");
-  useEffect(() => void loadMapHistory(new Set(runningKey ? runningKey.split(",") : [])), [runningKey]); // History's runs (MapHistory.tsx)
   return (
     <QuietCtx.Provider value={quiet}>
-    <div className="mp" ref={root} style={room ? ({ "--mp-canvas-min": `${room}px` } as CSSProperties) : undefined} data-testid="map" data-locked={locked || undefined} data-lit={L.ov ? L.mode : undefined} data-settled={settled || undefined}>
+    <div className="mp" ref={root} style={room ? ({ "--mp-canvas-min": `${room}px` } as CSSProperties) : undefined} data-testid="map" data-locked={locked || undefined} data-settled={settled || undefined}>
       <MapBar />
       <MapCanvas />
       <Strip />
-      {settled ? <MapHistory /> : <MapHistoryLoad />}
       <WhenCard />
       <PickList />
     </div>
@@ -133,8 +126,8 @@ export const mapPanels: PanelSpec[] = [
 /** 3.6.0.2 R57: the Map's right drawer; its title follows its page (the words on the button that opened it). */
 const mapDrawerSpec = (page: string): PanelSpec => ({
   id: MAP_DRAWER, testid: "map-drawer-panel", title: mapPageTitle(page), role: "drawer", side: "right", contentW: 420,
-  about: "Run a goal's form, a goal run's pages, or History: every past session, goal run and saved replay file.",
-  help: "Run a goal (in the map's bar): the goal form opens here.\nGoal runs, files, Compare (under the map): History's whole list.\nIts × closes the page and the drawer.",
+  about: "Run a goal's form, or a goal run's pages: while it runs, then its report.",
+  help: "Run a goal (in the map's bar): the goal form opens here.\nA goal run's Open (in the map's bar): its pages open here.\nIts × closes the page and the drawer.",
   face: "detail", glance: MapDrawerGlance, detail: MapDrawer,
 });
 /** The Map's panels as they are now (the palette's Show panel lines, the Inspector). */
@@ -143,6 +136,7 @@ export const mapPanelsNow = (): PanelSpec[] => [...mapPanels, mapDrawerSpec(mapP
 export function MapView() {
   const crewLoaded = useCrew((s) => s.loaded);
   const flowsLoaded = useFlows((s) => s.loaded);
+  useGoalOnOpen(); // 3.6.0.3 B: his opening of the drawer on Run a goal's page opens the form (MapDrawer.tsx)
   useEffect(() => {
     markMapDrawn(); // 3.6.0.2 R33: a map built from now on waits for him (mapSwitch.ts)
     void loadMaps().then(() => openMap(firstName()));
@@ -155,7 +149,7 @@ export function MapView() {
       <AttentionChip />
     </span>
   );
-  const lit = useLit(); // R55: a replay's overlay for the whole tab, else off (the Map is the plan)
+  const lit = useLit(); // R55, 3.6.0.3 B Z8: always off (the Map is the plan); its running sessions for the quiet line
   const reg = usePacks((s) => s.reg);
   // 3.6.0.0 R5: a pack's panel declared for Agents (or its old words: roles, orchestra, team) joins the Map's workspace,
   // where Cast's workspace held it before

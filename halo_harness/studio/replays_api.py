@@ -8,8 +8,8 @@ this machine's sessions and `<state>/replays/` only, with the fleet pack on or o
                                           (3.4.1.1: the file is written under the name the dialog showed)
     GET  replays/compare?a=<ref>&b=<ref>[&split=<s>]   two runs side by side (live/compare.py), nothing written;
                                           ref: session:<id> | run:<id> | file:<id>; the same ref twice splits it at `split`
-    GET  replays/report?ref=<ref>         3.4.1.0 R3: the run report card (live/report_card.py) -> {card, markdown}; ref as
-                                          compare's; a mission's report is the fleet pack's (422); nothing written
+    GET  replays/report?ref=<ref>         3.4.1.0 R3: the run report card; 3.6.0.3 B: the same handler as `live/report`
+                                          (studio/live_report_api.py), which Studio reads
     POST replays/import {text}                  a file chosen in History: checked, kept under replays/ -> {ok, id, path, row}
     GET  replays/<id>                     the file's payload (format halo-replay, version 1)
     GET  replays/<id>/clip?from&to&speed  what Export a clip would film and write, nothing written
@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 import re
+
+from halo_harness.studio.live_report_api import get_report  # 3.6.0.3 B (Z3): the card's handler, also `live/report`
 
 
 def _live_states(req, sid: str) -> dict:
@@ -120,20 +122,6 @@ def get_compare(req):
     except compare.CompareError as e:
         return 404, {"error": str(e)}
     return 200, compare.compare(pa, pb, split=_num(req.query.get("split")), same=a == b)
-
-
-def get_report(req):
-    from halo_harness.live import compare, report_card
-    from halo_harness.live.report_card_text import markdown
-    ref = str(req.query.get("ref") or "").strip()
-    if not ref:
-        return 422, {"error": "name the run: ?ref=session:<id> | run:<id> | file:<id>", "problems": []}
-    try:
-        p, from_file = report_card.resolve(req.state_dir, ref, cwd=req.cwd)
-    except compare.CompareError as e:
-        return 404, {"error": str(e)}
-    c = report_card.card(p, ref, from_file)
-    return 200, {"card": c, "markdown": markdown(c)}
 
 
 def _num(v):

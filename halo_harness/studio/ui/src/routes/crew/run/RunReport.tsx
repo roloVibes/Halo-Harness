@@ -1,5 +1,5 @@
 // A finished goal run's report (3.4.0.0 D "the runs fold"; Runs' Report panel before; 3.6.0.3 B: its own page of the
-// Map's drawer, ReportPage.tsx, and still drawn inline by History's page until History is cut): how it
+// Map's drawer, ReportPage.tsx): how it
 // ended and why, the goal, the facts (branch, sha, tests, cost, time, models), the plan and its lanes (what each owned,
 // how it ended, how often the gate sent it back, its model and cost), the gate (DONE WHEN, the test and its tail), the
 // merge (the order, what merged, the conflicts), the outcome checks, a workflow run's artifacts; a dry run shows the

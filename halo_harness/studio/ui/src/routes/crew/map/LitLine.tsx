@@ -1,25 +1,13 @@
-// The Map's top line's pieces (3.6.0.2 R55: the Map is the plan): a replay of History's run says what plays, in quiet
-// colours, with Back to now; with nothing replaying, "Replay the last session" and a goal run going (with Open). A
-// running session is not drawn on the Map: its one quiet line is NoticeRow.tsx, its drawing Agents -> 4 · Live.
+// The Map's top line's pieces (3.6.0.2 R55: the Map is the plan; 3.6.0.3 B: it never draws the past): the plan of the
+// session the quiet line names and a goal run going (with Open). A running session is not drawn on the Map: its one
+// quiet line is NoticeRow.tsx, its drawing Agents -> 4 · Live.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../../../lib/ui";
 import { isLiveRun, useOrch } from "../../orchestra/store";
 import { openRun as openOrchRun, startOrchestra } from "../../orchestra/sync";
 import { openFeed, openMapDrawer } from "./feedOpen";
 import { planWords, startTodos, useTodos } from "./todoStore";
-import { closeRun, replayRun, useMapHist } from "./mapRuns";
-import { useMap } from "./mapStore";
 import { WORDS } from "./truthWords";
-
-export const REPLAY_LAST = "Replay the last session";
-
-/** R4b (R4's gap 9): with a finished run in History, the top line offers to replay it. Its room is its own slot in the
- *  top line's row of controls, reserved from the first draw (MapBar.tsx TopLine), so a session ending -- History's first
- *  row -- never moves the drawing; before there is a row nothing is drawn in the slot (P4 batch 12: no unseen copy). */
-export function ReplayLast() {
-  const last = useMapHist((s) => s.rows[0]);
-  return last ? <Button size="sm" onClick={() => void replayRun(last.sid)} data-testid="map-lit-replay-last" title={`Replay "${last.what}" on the map`}>{REPLAY_LAST}</Button> : null;
-}
 
 /** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed. */
 export function Extras({ sid }: { sid: string }) {
@@ -64,15 +52,3 @@ export function RunRow() {
 }
 
 const GOING = "A goal run is going: ";
-
-/** A replay of History's run on the Map (R55: a replay stays on the Map), with Back to now. */
-export function ReplayLine() {
-  const shown = useMap((s) => s.name);
-  const run = useMapHist((s) => s.open);
-  return (
-    <p className="cw-line mp-topline">
-      Replaying {run?.title ? `"${run.title}"` : "a past session"} {run?.map ? (run.map === shown ? "on this map" : `(it ran on ${run.map})`) : "(it did not start on a map)"}, in quiet colours.{" "}
-      <Button size="sm" onClick={closeRun} data-testid="map-replay-close">Back to now</Button>
-    </p>
-  );
-}

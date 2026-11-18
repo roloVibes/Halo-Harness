@@ -35,7 +35,7 @@ import "./styles/agents-live.css"; // 3.3.16.0 R2: Live's inspector, the Attenti
 import "./styles/crew.css"; // 3.6.0.0 R1: Agents -> 1 · Agents (routes/crew/): the form, Try it, the builder box
 import "./styles/flows.css"; // 3.6.0.0 R2: Agents -> 2 · Workflows (routes/crew/flows/): the steps, the drawing, Try it
 import "./styles/map.css"; // 3.6.0.0 R3: Agents -> 3 · Map (routes/crew/map/): boxes, lines, When, the strip, the list
-import "./styles/map-lit.css"; // 3.6.0.0 R4: the lit Map (states, hand-offs, helpers, the feed drawer, History)
+import "./styles/map-lit.css"; // 3.6.0.0 R4: the Map's states, hand-offs, helpers and its drawer's pages
 import "./styles/map-down.css"; // 3.6.0.2 R7-R12: Session's Live drawer, top to bottom
 import "./styles/packs.css";
 import "./styles/manager.css";
@@ -61,8 +61,6 @@ import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import "./styles/live-groups.css"; // 3.3.16.3: Live in groups, the group boxes (after nodes.css)
 import "./styles/live-truth.css"; // 3.3.18.0: Live's empty sentence, History, the replay banner, Cast's plan line
-import "./styles/live-time.css"; // 3.4.1.0 R1: the scrubber under Live's canvas, Save and Export a clip
-import "./styles/live-compare.css"; // 3.4.1.0 R2: History's ticks and the Compare page
 import "./styles/live-card.css"; // 3.4.1.0 R3: the run report card, History's Report door, Session's mode word
 import "./styles/glance.css"; // 3.4.1.0 R4: the glance page, Open the glance, Settings -> Studio -> Alerts
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)

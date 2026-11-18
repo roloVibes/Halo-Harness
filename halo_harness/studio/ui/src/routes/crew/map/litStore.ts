@@ -17,7 +17,7 @@ import { takeBuilt } from "./built";
 import { batcher } from "./frameBatch";
 import { foldHop, NO_TOTALS, type Totals } from "./overlayHops";
 
-export const MAX_EVENTS = 600; // the replay window; the trace's totals (overlayHops.ts) are kept apart, exact (R49)
+export const MAX_EVENTS = 600; // the window of recent frames; the trace's totals (overlayHops.ts) are kept apart, exact (R49)
 /** `plain`: the session runs on the default map (R17); `busy`: its row says a turn runs (R16: no hand-off live once not). */
 export type LitSession = { sid: string; title: string; map: string | null; started: number; live: number; plain?: boolean; busy?: boolean;
   /** 3.6.0.2 R50: the file the session follows (its row's `map_scope`, `map_path`), for the drawing's one soft read */

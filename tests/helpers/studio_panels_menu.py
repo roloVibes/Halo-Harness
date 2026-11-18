@@ -9,7 +9,7 @@ provider request, no model call.
 (Lineups, Bios on the left; Inspector, Problems, Models on the right), every one closed; a focused button and Enter
 open its drawer beside the canvas, the button pressed; the panel's close puts it away again; nothing says "custom
 layout".
-`arrange`: a fresh layout: the palette's Reset layout disabled with its words; the palette's "Show panel: History"
+`arrange`: a fresh layout: the palette's Reset layout disabled with its words; the palette's "Show panel: Run a goal"
 opens its drawer; Alt+Left on it widens it by 40 px (kept in the saved v3 record); Reset layout enabled now.
 `reset`: the "..." menu's Reset layout (the toast) closes the drawers and clears the saved key; its rows then say so.
 `moving`: "How panels open" opens the section help on its Moving panels part; the ? reaches it too.
@@ -103,7 +103,7 @@ def arrange(c, url, ctx) -> dict:
     c.wait(f"!!{CANVAS}", 40)
     out = {"pal_reset_fresh": palette(c, "Reset layout")}
     c.key("Escape")
-    out["pal_show"] = palette(c, "Show panel: History")
+    out["pal_show"] = palette(c, "Show panel: Run a goal")
     c.key("Enter")
     c.wait(f"!!{q('.stage-drawer[data-panel-in=map-drawer] .panel-body')}", 10)
     before = settle(c, DRAWERS)
@@ -112,11 +112,12 @@ def arrange(c, url, ctx) -> dict:
     c.wait(f"JSON.stringify({DRAWERS}) !== {json.dumps(json.dumps(before))}", 10)
     out["widened"] = [before, settle(c, DRAWERS), c.js(SAVED)]
     out["pal_reset_now"] = palette(c, "Reset layout")
-    # 3.6.0.2 R57: the Map's right drawer shows History; Esc over the palette closes the palette only, never History
+    # 3.6.0.2 R57: the Map's right drawer shows Run a goal's form (3.6.0.3 B: History left); Esc over the palette closes
+    # the palette only, never the form
     c.key("Escape")
     c.wait(f"!{q('[data-testid=palette]')}", 10)
     out["esc_palette"] = c.js(f"[!!{q('[data-testid=palette]')}, "
-                              f"!!{q('.stage-drawer[data-panel-in=map-drawer] [data-testid=live-history-drawer]')}]")
+                              f"!!{q('.stage-drawer[data-panel-in=map-drawer] [data-testid=run-goal-drawer]')}]")
     return out
 
 

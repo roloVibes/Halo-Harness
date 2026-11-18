@@ -8,6 +8,7 @@ attention chip and the replay read them (Halo 3.0.5.0 R2; 3.5.0.0: named `live/`
     live/attention[/answer], live/costs, live/caps, live/conflicts      studio/live_panels_api.py
     live/<h>/<sid>/agents/<aid>/handoff                                 studio/live_handoff_api.py
     live/<h>/<sid>/recording, live/recordings/<name>, live/replay       studio/live_recording_api.py
+    GET  live/report?ref=<ref>                      the run report card (studio/live_report_api.py)
 
 A `<harness>` other than this one is 404: Halo drives this machine's sessions (another machine's models are Local's).
 """
@@ -63,7 +64,8 @@ def _routes() -> list:
     from halo_harness.studio.live_handoff_api import ROUTES as handoff
     from halo_harness.studio.live_panels_api import ROUTES as panels
     from halo_harness.studio.live_recording_api import ROUTES as recording
-    return ROUTES + [("GET", r"^live/history$", get_history)] + panels + handoff + recording
+    from halo_harness.studio.live_report_api import ROUTES as report
+    return ROUTES + [("GET", r"^live/history$", get_history)] + panels + handoff + recording + report
 
 
 def dispatch_live(req):

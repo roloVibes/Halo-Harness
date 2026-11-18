@@ -15,7 +15,7 @@ export const useGoal = <S,>(pick: (s: State) => S): S => useStore(goal, pick);
 /** 3.6.0.0 R4b: the goal form open where it is drawn (the Map's drawer), without going to Live. */
 export function openGoalHere(form?: Partial<RunForm>): void {
   startOrchestra();
-  goal.update((s) => ({ open: true, seed: s.seed + 1, form: form || null })); // History closes behind it (historyStore.ts follows `seed`)
+  goal.update((s) => ({ open: true, seed: s.seed + 1, form: form || null }));
 }
 
 export function closeGoal(): void {

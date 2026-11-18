@@ -1,13 +1,13 @@
 """tests.helpers.studio_map_live_more -- the later steps of the lit run's driver (tests/helpers/studio_map_live.py):
-amber (3.6.0.2: another map open on 3 · Map, 4 · Live unchanged and never amber), nomap (T4 in Live), history (stays on
-the Map: a replay is the Map's, R55), zoom and room (in Live), panel (Session's Live drawer, its link to Agents -> Live).
+amber (3.6.0.2: another map open on 3 · Map, 4 · Live unchanged and never amber), nomap (T4 in Live), zoom and room
+(in Live), panel (Session's Live drawer, its link to Agents -> Live). 3.6.0.3 B: History's replay on the Map left Studio.
 Each waits for the value it reads."""
 from __future__ import annotations
 
 import time
 
 from tests.helpers.studio_agents import key
-from tests.helpers.studio_map_live_steps import LP, LWORLD, VIEW, box, hop, lq, lqa, q, qa, shot, t
+from tests.helpers.studio_map_live_steps import LP, LWORLD, VIEW, hop, lq, lqa, t
 
 FD = "document.querySelector('[data-testid=map-feed]')"
 
@@ -46,38 +46,12 @@ def nomap(c, rig, lv, sent) -> dict:
     out["boxes"] = [c.js(f"{lqa('[data-map-box]')}.map((b) => b.dataset.mapBox)"), c.js(f"!!{lq('[data-testid=map-lit-show-nomap]')}")]
     lv.refresh(map="shop")
     out["again"] = c.wait(f"{lq('[data-testid=agents-live]')}?.dataset.map === 'shop' && {lqa('[data-testid=live-label]')}.length", 20)
-    sw = t("map-switcher")  # the Map back on shop for its History (R55: a replay is the Map's)
+    sw = t("map-switcher")  # the Map back on shop (R55: the Map is the plan)
     c.js(f"(() => {{ const s = {sw}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
          f" set.call(s, 'shop'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
     c.js("document.activeElement?.blur(); 1")
     key(c, "3")
     c.wait(f"{VIEW} === 'map' && {sw}.value === 'shop' && !!{t('map-topline')}", 20)  # R55: the Map is the plan, never lit by a run
-    return out
-
-
-def history(c, rig, lv, sent) -> dict:
-    from tests.helpers.studio_session_parts import PAST_SID
-    pick = t("map-history-pick")
-    out = {"rows": c.wait(f"{pick}?.options.length >= 1 && [...{pick}.options].map((o) => o.value)", 20)}
-    c.js(f"(() => {{ const s = {pick}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
-         f" set.call(s, '{PAST_SID}'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
-    press(c, t("map-history-replay"))
-    line = t("map-topline")
-    out["replay"] = c.wait(f"{line}?.dataset.lit === 'replay' && {line}.textContent.includes('on this map') && 'replay'", 20)
-    out["quiet"] = c.wait(f"{q('[data-testid=map-world]')}.dataset.lit === 'replay' && {box('review')}.dataset.state", 15)
-    out["fired_end"] = c.js(f"{q('[data-testid=map-line][data-from=main][data-to=review]')}?.dataset.fired")
-    out["removed"] = c.wait(f"{qa('[data-testid=map-removed]')}.map((x) => x.dataset.box)", 10)
-    shot(c, "studio-map-replay.png")
-    rng = "document.querySelector('[data-testid=replay-scrub]')"
-    c.wait(f"!!{rng}", 10)
-    c.js(f"(() => {{ const r = {rng}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
-         f" set.call(r, '0'); r.dispatchEvent(new Event('input', {{bubbles: true}})); }})(); 1")
-    out["at_start"] = c.wait(f"!{q('[data-testid=map-line][data-from=main][data-to=review]')}?.dataset.fired && {box('review')}.dataset.state", 10)
-    press(c, t("map-history-card"))
-    out["card"] = c.wait("document.querySelector('[data-testid=report-card]')?.dataset.ref", 15)
-    press(c, t("map-history-now"))
-    # 3.6.0.2 R55 (rewritten to the truth): back to now the Map is the plan again -- no replay, nothing lit by the run
-    out["now"] = c.wait(f"!!{t('map-topline')} && !{t('map-topline')}.dataset.lit && !{q('[data-testid=map-world]')}.dataset.lit && 'plan'", 15)
     return out
 
 

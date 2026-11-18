@@ -8,8 +8,7 @@ import { openGoalHere } from "../run/goalStore";
 import { openMapDrawer } from "./feedOpen";
 import { Button } from "../../../lib/ui";
 import { dismissError, newMap, openMap, toggleLock, undoLast, useMap } from "./mapStore";
-import { Extras, REPLAY_LAST, ReplayLast, ReplayLine, RunRow } from "./LitLine";
-import { useLitNow } from "./useLit";
+import { Extras, RunRow } from "./LitLine";
 import { setDrafting, setUse } from "./mapSwitch";
 import { QuietCtx, useQuiet } from "./mapQuiet";
 import { NoticeRow } from "./NoticeRow";
@@ -61,12 +60,12 @@ function Picker() {
 
 const OFF_SAID = "Nothing is running on it now.";
 
-/** The room of the top line's sentence and of its Replay slot, from the first draw (P4 batch 12): a hidden twin, outside
- *  the sentence, measures the longest the sentence can be and the Replay button; measured again only when the width or
- *  the words change, never because a part came or went. */
+/** The room of the top line's sentence, from the first draw (P4 batch 12): a hidden twin, outside the sentence, measures
+ *  the longest the sentence can be; measured again only when the width or the words change, never because a part came
+ *  or went. */
 function useRoom(key: string) {
   const box = useRef<HTMLDivElement>(null), twin = useRef<HTMLDivElement>(null);
-  const [room, setRoom] = useState({ h: 0, w: 0 });
+  const [room, setRoom] = useState({ h: 0 });
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
     const el = box.current;
@@ -76,49 +75,45 @@ function useRoom(key: string) {
     return () => ro.disconnect();
   }, []);
   useLayoutEffect(() => {
-    const [said, btn] = [...(twin.current?.children || [])] as HTMLElement[];
-    const h = said?.offsetHeight || 0, w = Math.ceil(btn?.offsetWidth || 0);
-    if (Math.abs(h - room.h) > 0.5 || Math.abs(w - room.w) > 0.5) setRoom({ h, w });
+    const said = twin.current?.firstElementChild as HTMLElement | null;
+    const h = said?.offsetHeight || 0;
+    if (Math.abs(h - room.h) > 0.5) setRoom({ h });
   }, [key, width]); // eslint-disable-line react-hooks/exhaustive-deps
   return { box, twin, room };
 }
 
-/** The map's top line: the reserved notice row (R55 L1-L3, R33 L4: NoticeRow.tsx), then a sentence -- a replay's line or
- *  R3's words -- in a room as tall as its longest form, then one row of controls, each in its own place: Replay the last
- *  session (its slot kept empty until History has a row), R4's "{n} new, not connected yet" (a box that just landed under
- *  "Not connected yet": a link that brings the strip into view) and the plan; then a goal run going, on a line of its own
- *  the Map's whole width, there from the first draw (LitLine.tsx RunRow, P8 batch 3 repair: the coordinator's ruling; not
- *  drawn while a replay the person chose plays: History in the drawer keeps that room). The row's items sit at its top,
+/** The map's top line: the reserved notice row (R55 L1-L3, R33 L4: NoticeRow.tsx), then R3's sentence in a room as tall
+ *  as its longest form, then one row of controls, each in its own place: R4's "{n} new, not connected yet" (a box that
+ *  just landed under "Not connected yet": a link that brings the strip into view) and the plan, from the row's left edge
+ *  (3.6.0.3 B: no Replay slot before them); then a goal run going, on a line of its own the Map's whole width, there from
+ *  the first draw (LitLine.tsx RunRow, P8 batch 3 repair: the coordinator's ruling). The row's items sit at its top,
  *  so a part that grows it moves no other. A part that is not there is not drawn: no unseen copy in
  *  the sentence (P4 batch 12); the line's height never changes with a session or a row. */
 export function TopLine({ fresh = 0 }: { fresh?: number }) {
   const locked = useMap((s) => s.locked);
   const scope = useMap((s) => s.detail?.scope);
-  const L = useLitNow();
   const quiet = useContext(QuietCtx);
   const runs = ["L1", "L3"].includes(quiet.facts?.kind || ""); // a session runs on it or from it now: L1/L3 says so
   const said = locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`;
   const { box, twin, room } = useRoom(said);
   return (
-    <div className="mp-topwrap" data-testid="map-topline" data-lit={L.mode === "replay" ? "replay" : undefined}>
+    <div className="mp-topwrap" data-testid="map-topline">
       <NoticeRow />
       <div className="mp-topline-room" ref={box} style={room.h ? { minHeight: room.h } : undefined}>
-        {L.mode === "replay" ? <ReplayLine /> : <p className="cw-line mp-topline" data-testid="map-topline-said">{runs ? said : `${OFF_SAID} ${said}`}</p>}
+        <p className="cw-line mp-topline" data-testid="map-topline-said">{runs ? said : `${OFF_SAID} ${said}`}</p>
         <div className="mp-notice-twin" ref={twin} aria-hidden="true">
           <p className="cw-line mp-topline">{OFF_SAID} {said}</p>
-          <button type="button" tabIndex={-1} className="btn btn-default btn-sm"><span className="btn-label">{REPLAY_LAST}</span></button>
         </div>
       </div>
       <div className="mp-topline-acts" data-testid="map-topline-acts">
-        <span className="mp-slot" style={room.w ? { minWidth: room.w } : undefined}>{L.mode !== "replay" && <ReplayLast />}</span>
-        {L.mode !== "replay" && fresh > 0 && (
+        {fresh > 0 && (
           <button type="button" className="mp-link mp-fresh" data-testid="map-fresh" onClick={() => document.querySelector("[data-testid=map-strip]")?.scrollIntoView({ block: "nearest" })}>
             {fresh} new, not connected yet
           </button>
         )}
         <Extras sid={quiet.sid} />
       </div>
-      {L.mode !== "replay" && <RunRow />}
+      <RunRow />
     </div>
   );
 }

@@ -50,7 +50,7 @@ DOCKS = ("map-builder", "crew-builder", "flow-builder")  # 3.6.0.0 R5: the build
 def offenders(got: dict) -> list:
     """Every 'section: testid NN px (rule)' in the order the sections were opened."""
     out = []
-    for name in (*SECTIONS, "agents-attention", "agents-live-history"):
+    for name in (*SECTIONS, "agents-attention", "agents-map-strip"):
         m = got.get(name) or {}
         out += [f"{name}: bar {t} {h} px (< {BAR})" for t, h in m.get("bars") or [] if h < BAR]
         out += [f"{name}: row {t} {h} px (< {ROW})" for t, h in m.get("rows") or [] if h < ROW]
@@ -146,15 +146,16 @@ def test_the_fleet_fold_pieces_pass_the_rules(ctx: Ctx):
 
 @test
 def test_the_living_canvas_pieces_pass_the_rules(ctx: Ctx):
-    """3.3.18.0; 3.6.0.0 R5: the Map over a home with nothing running (its panels too) and the History under it (its
-    rows targets) pass the rules."""
+    """3.3.18.0; 3.6.0.0 R5: the Map over a home with nothing running (its panels too) and the strip under it (its rows
+    targets) pass the rules (3.6.0.3 B: History, under the map before, left Studio)."""
     got = _got(ctx)
     m = got.get("agents-map") or {}
     ctx.check(f"the Map over a home with nothing running: its panels measured, got {len(m.get('panels') or [])} of {m.get('cells')}",
               m.get("cells", 0) >= 3 and len(m.get("panels") or []) == m.get("cells"))
-    h = got.get("agents-live-history") or {}
-    rows = [r for r in h.get("rows") or [] if "history" in str(r[0])]
-    ctx.check(f"History's rows are targets >= 40 px (or none yet), got {rows}", all(v >= ROW for _, v in rows))
+    h = got.get("agents-map-strip") or {}
+    ctx.check(f"the Map with its strip was measured, got {sorted(h)[:6]}", bool(h))
+    rows = [r for r in h.get("rows") or [] if "strip" in str(r[0])]
+    ctx.check(f"the strip's rows are targets >= 40 px (or none yet), got {rows}", all(v >= ROW for _, v in rows))
 
 
 if __name__ == "__main__":

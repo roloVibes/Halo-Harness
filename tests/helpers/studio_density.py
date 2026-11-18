@@ -154,14 +154,15 @@ def attention(c, url: str) -> dict:
 
 
 def living(c, url: str) -> dict:
-    """3.3.18.0 "The living canvas"; 3.6.0.0 R5: the History under the Map over the seeded home (its rows targets)."""
+    """3.3.18.0 "The living canvas"; 3.6.0.0 R5: the strip under the Map over the seeded home (its rows targets; 3.6.0.3 B:
+    History, drawn there before, left Studio)."""
     q = lambda t: f"document.querySelector('[data-testid=\"{t}\"]')"  # noqa: E731
     c.js("try { localStorage.removeItem('halo.studio.layout.agents-map'); } catch (e) {} 1")  # the sections above moved its panels
     c.go("about:blank")
     c.go(url)
-    c.wait(f"!!{q('map-history')}", 40)
-    out = {"agents-live-history": settled(c)}
-    shot(c, "agents-live-history")
+    c.wait(f"!!{q('map-strip')}", 40)
+    out = {"agents-map-strip": settled(c)}
+    shot(c, "agents-map-strip")
     return out
 
 

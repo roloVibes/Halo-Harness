@@ -1,4 +1,4 @@
-// The run report card's data and words (3.4.1.0 R3 "Time"): what `GET replays/report?ref=` answers (live/report_card.py
+// The run report card's data and words (3.4.1.0 R3 "Time"): what `GET live/report?ref=` answers (live/report_card.py
 // builds it from the run's record, no model call; its Markdown comes with it, the text `halo report` prints), read once per
 // card. The words mirror live/compare_text.py and live/report_card_text.py, so the page and the Markdown say the same: a
 // cost Halo cannot price is "unknown" or the priced part with a "+", never $0.
@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
 
-/** One figure: its value, its words, and whether Halo could not know it (3.6.0.3 B: defined here, the card stays when
- *  Compare leaves; compareStore.ts imports it). */
+/** One figure: its value, its words, and whether Halo could not know it (3.6.0.3 B: defined here; the card stayed when
+ *  Compare left). */
 export type Cell = { value: unknown; text: string; unknown?: boolean };
 export type Step = { t: number; at: string; kind: string; text: string };
 export type Phase = { phase: string; words: string; secs: number; share: number | null };
@@ -33,7 +33,7 @@ export function useCard(ref: string): Got {
   const [got, setGot] = useState<Got & { ref: string }>({ ref: "", card: null, markdown: "", error: "" });
   useEffect(() => {
     let live = true;
-    api.get<{ card: Card; markdown: string }>("replays/report", { ref })
+    api.get<{ card: Card; markdown: string }>("live/report", { ref })
       .then((r) => live && setGot({ ref, card: r.card, markdown: r.markdown, error: "" }))
       .catch((e) => live && setGot({ ref, card: null, markdown: "", error: e instanceof ApiError ? e.message : String(e) }));
     return () => {

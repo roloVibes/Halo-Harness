@@ -174,9 +174,6 @@ def test_live_names_only_the_run(ctx: Ctx):
               all(any(k in w for w in pip_words) for k in want))
     off = [w for w in pip_words if ("Map" if to_live else "Live") in w]
     check(f"no Open title names the other view, got {off}", not off)
-    mh = next((ln for ln in _read("crew/map/MapHistory.tsx").splitlines() if "tick two to compare" in ln), "")
-    check(f"the Map's History button does not say Live's History, got {mh.strip()[:120]!r}",
-              bool(mh) and "Live's History" not in mh)
     # Attention's O opens many places (a goal run's Map drawer, Workflows, Agents' Attention, an agent's Live):
     # the ruled words name the sections only, never one view of them
     o_help = next((ln for ln in _read("help-live.ts").splitlines() if "O opens where it belongs" in ln), "")

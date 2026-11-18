@@ -3,9 +3,9 @@ lands (3.6.0.0 R5c), in headless Chrome through tests/helpers/studio_hold_still.
 answer is held, the controls measured at first paint, the answers let go one at a time (tests/helpers/hold_still.py):
 
 1. Agents -> Map as it opens, and in the drivers' arrangement: the rail, the view bar, the Map bar (Run a goal, the
-   switcher, My sessions use this, Lock) hold still; History's "Goal runs, files, Compare" is not drawn until the map
-   above it and the past runs have landed (drawn at once it moved down and right under a click);
-2. "Goal runs, files, Compare" clicked as soon as it shows: the History drawer's controls hold still;
+   switcher, My sessions use this, Lock) and the strip under the map hold still; History's strip is never drawn
+   (3.6.0.3 B: History left Studio);
+2. (3.6.0.3 B: History's drawer left with History.)
 3. Run a goal clicked before anything landed: the form is drawn whole once its help lines and the model catalog have
    landed, and then nothing in it moves (Review the plan first moved 41 px, then 34 px; Back was squeezed);
 4. Session as it opens (its Start view: New session, Open the workspace anyway) and its workspace opened with every
@@ -54,15 +54,8 @@ def test_the_map_holds_still_as_it_opens(ctx: Ctx):
     _view(ctx, "map", ("map-run-goal", "map-switcher", "map-lock", "agents-view-map", "viewbar-btn"))
     _view(ctx, "map_all", ("map-run-goal", "map-switcher", "map-lock"))
     got = _got(ctx)
-    ctx.check("History's Compare door is not drawn before what sits above it has landed",
-              not any("map-history-all" in k for k in (got.get("map") or {}).get("first", {})))
-
-
-@test
-def test_the_history_drawer_holds_still(ctx: Ctx):
-    # 3.6.0.2 R57: the Map's own drawer (map-drawer-panel) has no "Back to what they think and say" (the Feed is 4 · Live's):
-    # History's own controls are measured (its close among them)
-    _view(ctx, "history", ("live-history-close",))
+    ctx.check("3.6.0.3 B: no control of History's strip is drawn on the Map (it left Studio)",
+              not any("map-history" in k for v in ("map", "map_all") for k in (got.get(v) or {}).get("first", {})))
 
 
 @test

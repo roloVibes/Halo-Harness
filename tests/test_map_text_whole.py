@@ -3,9 +3,9 @@ Agents and Session (judge B's musts 1 to 6), checked on the UI source on every p
 tests/test_studio_run_parts.py, test_studio_map_takeover.py and test_studio_session_just_built.py, on the Linux VM).
 
 1. a text is never cut: no ellipsis, no one-line `nowrap` and no line clamp on the wait link (both run drawings), the goal
-   run's words beside its Open, a Map replay's rows, the pair "Running: {A} | Just built: {B}" and the Map bar's "New
-   sessions run on {map}."; no slice of the words a person reads there (the goal at 80, a replay row at 197, a replay's
-   title at 60);
+   run's words beside its Open, the pair "Running: {A} | Just built: {B}" and the Map bar's "New
+   sessions run on {map}."; no slice of the words a person reads there (the goal at 80, a helper's or a plan row's task at
+   197);
 2. the wait link has its own row, its room reserved by twins of the longest links the run can show (truth.ts waitRoom,
    node-run: each twin at least as long as narrate.ts lets a link be);
 3. words that are true: nothing a person reads says the Map tab "comes in the next version"; 2 · Workflows says how a
@@ -33,7 +33,7 @@ CUT = re.compile(r"text-overflow:\s*ellipsis|white-space:\s*nowrap|line-clamp")
 # the selectors of the texts the judge found cut, and the stylesheet each lives in
 WHOLE = {
     "map-down.css": [".mp-wait-link", ".mp-wait-words", ".mp-wait-row", ".mp-pair", ".mp-pair-btn"],
-    "map-lit.css": ["[data-testid=map-lit-extras]", ".mpf-replay .mpf-mark", ".mp-extras-run", ".mp-extras-goal", ".mp-run-row"],
+    "map-lit.css": ["[data-testid=map-lit-extras]", ".mpf-row-task", ".mp-extras-run", ".mp-extras-goal", ".mp-run-row"],
     "map.css": [".mp-uses-default", ".mp-uses-slot"],
 }
 
@@ -54,8 +54,8 @@ def test_no_text_a_person_reads_is_cut(ctx: Ctx):
     lit = (MAP / "LitLine.tsx").read_text(encoding="utf-8")
     feed = (MAP / "FeedParts.tsx").read_text(encoding="utf-8")
     ctx.check("the goal run's words are whole (no goal_what.slice)", "goal_what.slice" not in lit)
-    ctx.check("a replay's title is whole in its line and its offer (no title/what .slice)", ".slice(" not in lit)
-    ctx.check("a replay row's task is whole (no slice at 197 and its dots)", "slice(0, 197)" not in feed and '+ "..."' not in feed)
+    ctx.check("the top line's words are whole (no .slice in LitLine.tsx)", ".slice(" not in lit)
+    ctx.check("a helper's or a plan row's task is whole (no slice at 197 and its dots)", "slice(0, 197)" not in feed and '+ "..."' not in feed)
     ctx.check("Open is the goal run's own item, outside the words", 'className="mp-extras-goal"' in lit
               and lit.index('className="mp-extras-goal"') < lit.index('data-testid="map-lit-run-open"'))
 

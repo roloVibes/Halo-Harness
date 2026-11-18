@@ -9,8 +9,8 @@
     map       Agents -> 3 · Map at 1500 x 900: [Watch it in Live] (L1: the session on starter), the picker, + New map, its
               Make with a name it refuses, the error's Dismiss, the switch New sessions run on this, Undo, Run a goal,
               Lock (on, off), "n new, not connected yet" (a box added from the list to the strip) and Undo, [Open it]
-              (L4: a build of review-flow), Replay, Back to now (History's and the replay line's), the zoom row, the four
-              tabs, the Attention chip and its x; `gone`: the run overlay's old controls (R55) are not on the page
+              (L4: a build of review-flow), the zoom row, the four tabs, the Attention chip and its x (3.6.0.3 B: History's
+              Replay and both Back to now left Studio); `gone`: the run overlay's old controls (R55) are not on the page
 """
 from __future__ import annotations
 
@@ -21,16 +21,6 @@ from tests.helpers.studio_controls import VISIBLE, choose, presses
 
 M = "document.querySelector('[data-testid=\"session-lit-map\"]')"
 VIEW = "document.querySelector('[data-testid=agents]')?.dataset.view"
-# History's head and its Replay inside the visible box of every scrolling ancestor and of the window, no scroll made:
-# [head in sight, Replay in sight, the panel body's visible bottom, Replay's bottom] (P4 batch 12)
-SIGHT = """(() => { const h = [...document.querySelectorAll('[data-part=map] [data-testid=map-history]')].find((e) => e.offsetParent);
-  const head = h?.querySelector('.mp-history-bar > b'), rp = h?.querySelector('[data-testid=map-history-replay]');
-  if (!head || !rp) return 'not drawn';
-  let top = 0, bottom = innerHeight, scrolled = 0;
-  for (let p = h.parentElement; p; p = p.parentElement) { const o = getComputedStyle(p).overflowY;
-    if (['auto', 'scroll', 'hidden'].includes(o)) { const r = p.getBoundingClientRect(); top = Math.max(top, r.top); bottom = Math.min(bottom, r.bottom); scrolled += p.scrollTop; } }
-  const inside = (e) => { const r = e.getBoundingClientRect(); return r.height > 0 && r.top >= top - 0.5 && r.bottom <= bottom + 0.5; };
-  return [inside(head), inside(rp), Math.round(bottom), Math.round(rp.getBoundingClientRect().bottom), scrolled]; })()"""
 
 
 def vis(sel: str) -> str:
@@ -139,7 +129,6 @@ def session(c, rig, lv, rows) -> dict:
 def map_view(c, rig, lv, rows) -> dict:
     from tests.helpers.studio_map_quiet import RF, built, setup, to_map, use
     from tests.helpers.studio_map_steps import open_list
-    from tests.helpers.studio_session_parts import PAST_SID
     P = "[data-part=map]"
     t = lambda tid: vis(f"{P} [data-testid={tid}]")  # noqa: E731
     tab = lambda part, v: vis(f"[data-part={part}] [data-testid=agents-view-{v}]")  # noqa: E731
@@ -184,34 +173,12 @@ def map_view(c, rig, lv, rows) -> dict:
         built(lv, "review-flow", body=RF)
         c.wait(f"!!{t('map-built-open')}", 20)
 
-    def history():
-        to_map(c, rig, "shop")  # a fresh page in a person's layout
-        pick = t("map-history-pick")
-        c.wait(f"{pick}?.options.length >= 1", 20)
-        choose(c, pick, PAST_SID)
-
-    def replayed():
-        """A replay going, so Back to now has something to end (started by the button's own handler: the press measured is
-        Back to now's; Replay's own press is the entry before)."""
-        if not c.js(f"!!{t('map-history-now')}"):
-            history()
-            c.js(f"{t('map-history-replay')}.click(); 1")
-        c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && !!{t('map-replay-close')} && !!{t('map-history-now')}", 20)
-
     def starter_his_shop():
         """crew.map = shop (his map set elsewhere): on starter the switch is a switch again (P4 batch 12)."""
         use(rig, "shop")
         to_map(c, rig, "starter")
 
     try:
-        # P4 batch 12: History's head and its Replay in sight at rest (no scroll made) at four window sizes, a fresh page each
-        out["sight"] = {}
-        for w, h in ((1280, 800), (1440, 900), (1500, 900), (1920, 1080)):
-            _size(c, w, h)
-            to_map(c, rig, "shop")
-            c.wait(f"{t('map-history-pick')}?.options.length >= 1 && !!{t('map-history-replay')}", 20)
-            out["sight"][f"{w}x{h}"] = c.js(SIGHT)
-        _size(c, 1500, 900)
         recs = presses(c, [
             ("[Watch it in Live]", t("map-watch-live"), l1),
             ("the map picker", t("map-switcher"), shop, ("choose", "starter")),
@@ -227,9 +194,6 @@ def map_view(c, rig, lv, rows) -> dict:
             ("n new, not connected yet", t("map-fresh"), fresh),
             ("Undo (the box)", t("map-undo")),
             ("[Open it]", t("map-built-open"), l4),
-            ("Replay", t("map-history-replay"), history),
-            ("Back to now (History)", t("map-history-now"), replayed),
-            ("Back to now (the replay line)", t("map-replay-close"), replayed),
             ("Zoom out", t("canvas-zoom-out"), back_to("shop")), ("the zoom (100%)", t("canvas-zoom-level")), ("Zoom in", t("canvas-zoom-in")),
             ("Fit", t("canvas-fit")),
             ("the tab 1 · Agents", tab("map", "crew")), ("the tab 2 · Workflows", tab("crew", "workflows")),

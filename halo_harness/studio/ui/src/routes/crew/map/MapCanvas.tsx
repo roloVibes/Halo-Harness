@@ -41,11 +41,10 @@ const ID = "crew-map";
 
 export function useMapView() {
   const file = useMap((s) => s.detail?.map || null);
-  const shown = useMap((s) => s.name);
   const made = useMap((s) => s.made);
   const pending = useBuilder((s) => s.pending, "map");
   const L = useLitNow(); // R4: lit -- helpers beside their box, a parked card's ghosts; no map: main and its helpers only
-  const bare = L.nomap || (L.mode === "replay" && L.map !== shown);
+  const bare = L.nomap;
   return withLit(view(litFile(file, bare), withCard(pending, L.card), made), L.ov);
 }
 

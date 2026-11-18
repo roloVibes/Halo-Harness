@@ -67,6 +67,26 @@ out.fast = await M.within(async () => 'ok', 60000);
     ctx.check(f"an answer in time is untouched, got {got.get('fast')!r}", got.get("fast") == "ok")
 
 
+@test
+def test_the_report_card_reads_live_report_with_the_long_limit(ctx: Ctx):
+    """3.6.0.3 B (R-B12, Z3): the card is read at `live/report` and keeps the long limit it had; no long line names a
+    `replays/` route any more, and the card's reader (crew/live/cardData.ts) names none."""
+    got = node("""
+out.report = M.limitFor('live/report');
+out.withRef = M.limitFor('live/report?ref=run:x');
+out.history = M.limitFor('live/history');
+out.long = M.LONG_MS;
+out.replays = M.LONG.filter(([re]) => re.test('replays/report') || /replays/.test(re.source)).length;
+""")
+    ctx.check(f"live/report has the long limit, got {got.get('report')}, {got.get('withRef')}",
+              got.get("report") == got.get("long") and got.get("withRef") == got.get("long"))
+    ctx.check(f"live/history keeps 30 s, got {got.get('history')}", got.get("history") == 30000)
+    ctx.check(f"no long line names replays, got {got.get('replays')}", got.get("replays") == 0)
+    card = (LIMIT.parent.parent / "routes" / "crew" / "live" / "cardData.ts").read_text(encoding="utf-8")
+    ctx.check("cardData.ts reads live/report and names no replays/ route",
+              '"live/report"' in card and "replays/" not in card)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

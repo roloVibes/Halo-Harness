@@ -7,7 +7,7 @@ import json
 
 from tests.helpers.session_rig import wait_for
 from tests.helpers.studio_map_live_more import press
-from tests.helpers.studio_map_live_steps import box, click_box, q, t
+from tests.helpers.studio_map_live_steps import q, t
 from tests.helpers.studio_map_takeover_steps import FD, back_to_map, to_feed
 from tests.helpers.studio_live_feed import MD, MD_SHOWN
 
@@ -103,7 +103,8 @@ def two(c, rig, lv, sent) -> dict:
 
 
 def goal(c, rig, lv, sent) -> dict:
-    """R57: Run a goal and History open in the Map's own right drawer (no feed to go back to: a page's × closes it)."""
+    """R57: Run a goal opens in the Map's own right drawer (no feed to go back to: a page's × closes it; 3.6.0.3 B: History
+    left)."""
     press(c, t("map-run-goal"))
     out = {"form": c.wait(f"{MD}?.querySelector('[data-testid=map-drawer]')?.dataset.page === 'goal' && !!{MD}.querySelector('[data-testid=run-goal-drawer]') && 'goal'", 15)}
     close = f"{MD}.querySelector('[data-testid=run-goal-close]')"
@@ -115,101 +116,19 @@ def goal(c, rig, lv, sent) -> dict:
         out["back"] = c.wait(f"!({MD_SHOWN}) && 'back'", 10)
     except TimeoutError:
         raise TimeoutError(f"the goal's x: the drawer still {c.js(MD_SHOWN)}, under the button {out.get('under_back')!r}")
-    press(c, t("map-history-all"))  # History's whole list in the drawer: goal runs and saved files beside sessions
-    out["history"] = c.wait(f"{MD}?.querySelector('[data-testid=map-drawer]')?.dataset.page === 'history' && !!{MD}.querySelector('[data-testid=live-history-drawer]') && "
-                            f"[...{MD}.querySelectorAll('[data-testid=live-history-drawer] .lh-rows > *')].length", 15)
-    press(c, f"{MD}.querySelector('[data-testid=live-history-close]')")
-    c.wait(f"!({MD_SHOWN})", 10)
     return out
 
 
-# what the top line, the Replay-last button and the toasts say (a failed replay says why in a toast: "No replay: ...",
-# "Nothing to replay: ..."), for the message of a press that started nothing
-SEEN = """JSON.stringify((() => { const b = document.querySelector('[data-part="map"] [data-testid="map-lit-replay-last"]');
-  const r = b && b.getBoundingClientRect(), at = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  return { button: b ? [b.title.slice(7, 60), [r.left, r.top, r.width, r.height].map(Math.round), b.disabled, at ? (at.closest('[data-testid]')?.dataset.testid || at.tagName) : null] : null,
-    toasts: [...document.querySelectorAll('.toast-text')].map((e) => e.textContent.trim().slice(0, 80)),
-    drawer: document.querySelector('[data-part="map"] [data-testid="map-drawer"]')?.dataset.page || null,
-    top: document.querySelector('[data-part="map"] [data-testid="map-topline"]')?.textContent.slice(0, 80) }; })())"""
-
-
-def replay(c, rig, lv, sent) -> dict:
-    """Nothing running: the top line offers "Replay the last session"; the replay's rows fill the drawer."""
-    for gate in ("a", "b"):  # the session's turn ends for real: its helpers finish, main says its last words
+def ended(c, rig, lv, sent) -> dict:
+    """3.6.0.3 B (R-B8): the session's turn ends for real (its helpers finish, main says its last words): with nothing
+    running the Map is the plan -- no "Replay the last session", no Replay slot, nothing lit, no replay line."""
+    for gate in ("a", "b"):
         rig.release(gate)
     for name in ("general-purpose", "reviewer", "stray", "file-counter"):
         lv.state(name, state="done")
     lv.refresh()
-    last = t("map-lit-replay-last")
-    try:
-        out = {"offer": c.wait(f"{last}?.textContent", 60)}
-    except TimeoutError:
-        raise TimeoutError(f"no Replay the last session: the top line says {c.js(t('map-topline') + '?.textContent')!r}")
-    press(c, last)
-    try:
-        out["replaying"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && 'replay'", 30)
-    except TimeoutError:  # P9 batch 4 (macOS CI, not reproduced on the Linux VM): what the page shows, in the message
-        raise TimeoutError("no replay 30 s after the press: " + str(c.js(SEEN))[:600]) from None
-    # P7 (the coordinator's ruling): Replay is his press, so the Map's drawer opens on History's page with that replay's
-    # rows, at once (no click on the drawer's button first)
-    shown = ("[data-part=map] [data-testid=map-drawer][data-page=history] [data-testid=map-drawer-replay]")
-    try:
-        out["opened"] = c.wait(f"!!document.querySelector('{shown}')?.offsetParent && 'history'", 10)
-    except TimeoutError:
-        out["opened"] = c.js("document.querySelector('[data-part=map] [data-testid=map-drawer]')?.dataset.page || null")
-    click_box(c, "main")  # R57: the Map has no feed, so a replay's click opens no drawer of words; its scrubber moves it
-    scrub = q("[data-testid=replay-scrub]")
-    c.wait(f"!!{scrub}", 15)
-    c.js(f"(() => {{ const s = {scrub}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
-         " set.call(s, s.max); s.dispatchEvent(new Event('input', {bubbles: true})); s.dispatchEvent(new Event('change', {bubbles: true})); })(); 1")
-    out["drawer"] = c.js("document.querySelectorAll('[data-part=map] [data-testid=map-feed], [data-part=map] [data-testid=map-feed-panel]').length")
-    out["rows"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && {scrub}.value === {scrub}.max && 'end'", 15)
-    # P4 batch 12 (the coordinator's ruling): the replay's rows, up to the scrubber, in the Map's OWN drawer on History's page
-    rows = "[data-part=map] [data-testid=map-drawer][data-page=history] [data-testid=map-drawer-replay] [data-testid=map-feed-replay-row]"
-    from tests.helpers.studio_live_feed import MD_BTN  # the Map drawer's own button: History's page
-    if c.js(f"{MD_BTN}?.getAttribute('aria-pressed')") != "true":
-        c.click_on(MD_BTN)
-    try:
-        out["drawer_rows"] = c.wait(f"(() => {{ const r = [...document.querySelectorAll('{rows}')].filter((e) => e.offsetParent);"
-                                    f" const cut = (x) => {{ const s = getComputedStyle(x); return s.textOverflow === 'ellipsis' || s.whiteSpace === 'nowrap'; }};"
-                                    f" return r.length ? r.map((e) => [e.dataset.kind, e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1"
-                                    f" && ![e, ...e.querySelectorAll('*')].some(cut)]) : null; }})()", 15)
-    except TimeoutError:
-        out["drawer_rows"] = f"none: drawer {c.js('document.querySelector(`[data-part=map] [data-testid=map-drawer]`)?.dataset.page || null')}"
-    out.update(replay_rows_follow(c, rows, scrub))
-    return out
-
-
-def replay_rows_follow(c, rows: str, scrub: str) -> dict:
-    """P7: the rows follow the scrubber (fewer at its start than at its end), the newest is at the foot and in sight, and
-    History's "Back to now" is in sight and pressable (nothing covers it) at 1500 x 900 and at 1280 x 800."""
-    import time
-    count = f"document.querySelectorAll('{rows}').length"
-
-    def to(v: str) -> int:
-        c.js(f"(() => {{ const s = {scrub}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
-             f" set.call(s, {v}); s.dispatchEvent(new Event('input', {{bubbles: true}})); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
-        last = c.js(count)
-        for _ in range(10):  # settled: two reads 200 ms apart alike
-            time.sleep(0.2)
-            now = c.js(count)
-            if now == last:
-                break
-            last = now
-        return last
-    out = {"scrub": [to("s.min"), to("(+s.min + +s.max) / 2"), to("s.max")]}
-    out["foot"] = c.js(f"""(() => {{ const r = [...document.querySelectorAll('{rows}')]; if (!r.length) return null;
-      const box = r[0].parentElement, B = box.getBoundingClientRect(), L = r[r.length - 1].getBoundingClientRect();
-      const secs = r.map((e) => e.querySelector('.mono')?.textContent.trim().split(':').reduce((a, x) => a * 60 + (+x), 0));
-      return [secs.every((s, i) => i === 0 || s >= secs[i - 1]), L.bottom <= B.bottom + 1 && L.top >= B.top - 1]; }})()""")
-    hit = ("(() => { const b = document.querySelector('[data-part=map] [data-testid=map-history-now]'); if (!b) return 'none';"
-           " const r = b.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;"
-           " const at = document.elementFromPoint(x, y); return y > 0 && y < innerHeight && x > 0 && x < innerWidth && !!at && b.contains(at); })()")
-    out["now"] = {"1500": c.js(hit)}
-    c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
-    try:
-        time.sleep(0.5)
-        out["now"]["1280"] = c.js(hit)
-    finally:
-        c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
+    line = t("map-topline")
+    out = {"ended": c.wait(f"!!{line} && 'ended'", 60)}
+    out["replay_parts"] = c.js(f"[!!{t('map-lit-replay-last')}, !!{line}.querySelector('.mp-slot'), {line}.hasAttribute('data-lit'),"
+                               f" !!{t('map-replay-close')}, !!{q('[data-testid=map-world]')}?.dataset.lit]")
     return out

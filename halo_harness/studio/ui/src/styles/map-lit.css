@@ -1,7 +1,6 @@
-/* The lit Map (3.6.0.0 R4, routes/crew/map/: overlay.ts, LitBits.tsx, LitLine.tsx, Feed.tsx, MapHistory.tsx): each box's
-   state, a row per fact (the box grows); the hand-off moving along its line (a lit line and the label alone when motion
-   is reduced); made-up helpers dashed; a replay in quiet colours; the drawer of what they think and say; History under
-   the map. Room rules: nothing under 12 px, controls 28 px and 8 px apart, no sideways scroll. Tokens only. */
+/* The lit Map (3.6.0.0 R4, routes/crew/map/: overlay.ts, LitBits.tsx, LitLine.tsx, Feed.tsx): each box's state, a row
+   per fact (the box grows); the hand-off moving along its line (a lit line and the label alone when motion is reduced);
+   made-up helpers dashed; the drawer of what they think and say (4 · Live's Feed) and 3 · Map's drawer pages. Room rules: nothing under 12 px, controls 28 px and 8 px apart, no sideways scroll. Tokens only. */
 
 /* the tab's dot while a session runs on a map (CSS-drawn: the button's words stay "3 · Map") */
 .ag-views button[data-running]::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%;
@@ -19,7 +18,6 @@
 /* P4 batch 12: the sentence's room (its longest form, measured) and one row of controls, each part in its own place */
 .mp-topline-room { position: relative; min-width: 0; }
 .mp-topline-acts { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: var(--s-2); min-height: 28px; min-width: 0; }
-.mp-topline-acts .mp-slot { flex: 0 0 auto; display: inline-flex; }
 /* P8 (the owner's rule: a text is never cut): the plan wraps whole in the row's room */
 .mp-topline-acts > [data-testid=map-lit-extras] { flex: 1 1 auto; min-width: 0; min-height: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-2); overflow-wrap: anywhere; }
 /* P8 repair: a goal run in the Map's first draw (the canvas waits for the runs' listing), keeping the tallest room it
@@ -58,17 +56,6 @@
   .mp-pulse-dot { display: none; } /* no travel: the lit line and the label carry the hand-off */
 }
 
-/* a replay: quiet colours */
-.mp-world[data-lit="replay"] .mp-box[data-lit] { filter: saturate(.45); }
-.mp-world[data-lit="replay"] .mp-line[data-fired], .mp-world[data-lit="replay"] .mp-line[data-pulse] { stroke: var(--muted); }
-.mp-world[data-lit="replay"] .mp-pulse-dot { fill: var(--muted); }
-
-/* History under the map */
-.mp-history { flex-shrink: 0; display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-card);
-  background: var(--bg-2); min-width: 0; }
-.mp-history-bar { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
-.mp-history-pick { min-height: 32px; flex: 1 1 260px; max-width: 520px; min-width: 0; }
-
 /* the drawer: what they think and say */
 .mpf { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; min-height: 0; min-width: 0; position: relative; }
 /* 3.6.0.0 R5c: Back keeps its height when the page under it grows (the goal form landing squeezed it 28 -> 15 px) */
@@ -88,8 +75,7 @@
 .mp-mini-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .mp-mini .mp-box { cursor: default; }
 
-/* 3.6.0.0 R4b: the box the session waits on; agents talking; the drawer's head, a helper's helpers, a replay's rows,
-   the plan */
+/* 3.6.0.0 R4b: the box the session waits on; agents talking; the drawer's head, a helper's helpers, the plan */
 .mp-box[data-waited] { outline: 2px solid var(--warn); outline-offset: 3px; }
 .mp-box[data-talk] { box-shadow: 0 0 0 2px var(--accent); }
 .mp-talk { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 6; fill: none; animation: mp-talk-run 1.2s linear infinite; }
@@ -109,15 +95,10 @@
   border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
 .mpf-row-btn:hover, .mpf-row-btn:focus-visible { border-color: var(--accent); outline: none; }
 .mpf-row-task { display: block; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.mpf-mark { font-size: 13px; line-height: 19px; padding: 2px 0; border-bottom: 1px solid var(--line-soft); overflow-wrap: anywhere; }
 .mpf-plan-row { list-style: none; font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
 .mpf-plan-row[data-status="completed"] { color: var(--muted); }
 .mpf-plan-row[data-status="in_progress"] { color: var(--accent); }
 /* the goal form and a goal run's pages, reused in the drawer: in its flow, not floating over the canvas */
 .mpf .lh-drawer { position: static; width: auto; max-width: 100%; flex: 1 1 auto; min-height: 0; }
 .mpf > [data-testid=map-feed-back] { align-self: flex-start; }
-.mpf-replay { flex: 0 1 auto; max-height: 40%; min-height: 0; display: flex; flex-direction: column; padding-bottom: var(--s-2); border-bottom: 1px solid var(--line); }
-.mpf-replay .mpf-rows { min-height: 0; }
-/* P8 (the owner's rule: a text is never cut): a replay's rows wrap whole, as the Feed's rows (.mpf-mark) */
-.mpf-replay .mpf-row-task { display: inline; margin-left: 6px; }
 .mpf-page { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }

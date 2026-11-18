@@ -149,18 +149,14 @@ def approve_runs(c, rig, out: dict) -> None:
     try:
         ended_with_page_open(c, out, page, acts)
         out["left_live"] = c.wait(f"{N.format('map-lit-run')} === 0 && 'gone'", 60)
-        click(c, TID.format("map-history-all"))
-        row = "document.querySelector('[data-testid=\"live-history-row\"][data-kind=\"run\"]')"
-        out["history_row"] = c.wait(f"{row}?.textContent", 15)
-        click(c, row)
+        # 3.6.0.3 B: History left; the run's report is reached by its own door (the run page's "Open its report")
+        click(c, TID.format("run-open-report"))
         out["report"] = c.wait(f"{TID.format('history-report')}?.dataset.state === 'finished' && {N.format('report-check')}"
                                f" && {{checks: {N.format('report-check')}, lanes: {N.format('report-lane')}, replay: !!{TID.format('history-report-replay')}}}", 15)
     finally:
         out["first_report"] = {k: rig.last_report().get(k) for k in ("status", "stop_reason")}
     click(c, TID.format("history-report-back"))
-    c.wait(f"!!{TID.format('live-history-row')}", 5)
-    c.key("Escape")
-    c.wait(f"{N.format('live-history-drawer')} === 0", 5)
+    c.wait(f"!!{TID.format('run-inspector')}", 5)
 
 
 def reject_stops(c, rig, out: dict) -> None:

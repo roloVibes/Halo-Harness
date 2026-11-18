@@ -14,7 +14,7 @@ session, the extra agent rows, the map `shop`, Studio's command route recorded).
     ask       a real pending ask with its Attention row: its answer pressed in the drawer reaches the session
     two       two sessions run on the map: the picker switches which is lit
     goal      Run a goal from the Map's bar opens the goal form in the drawer
-    replay    with nothing running, "Replay the last session" replays it on the map; the drawer shows its rows
+    ended     the turn ends: with nothing running the Map is the plan, no Replay offer (3.6.0.3 B: the replay left)
 
     python -m tests.helpers.studio_map_takeover
 """
@@ -86,7 +86,7 @@ class TakeoverDriver(Driver):
             sent = record_forward(rig)
             record_answers(rig, sent)
             yield tuple((fn, (c, rig, lv, sent)) for fn in (S.facts, M.goal, S.clocks, S.talk, S.depth, S.plan, M.keys, M.hover, M.ask,
-                                                               M.two, M.replay))
+                                                               M.two, M.ended))
 
 
 if __name__ == "__main__":

@@ -17,7 +17,6 @@ session that ran on it (its log holding the map receipts) are seeded in the rig'
               (Enter on a box of Live) sets it too
     amber     another map shown: the amber line and Show the running map
     nomap     the session's row with no map: "Show it" -- main and every agent as a made-up helper, no lines
-    history   the picker, Replay it on the map (quiet colours, a removed box dashed), the scrubber moves it, the report card
     room      at 1280 / 1500 / 1920: no sideways scroll, nothing under 12 px in the lit boxes and the drawer, controls >= 28 px
     zoom      a zoom step while frames arrive keeps his zoom (no re-fit under a hand zoom)
     panel     Session's Map panel: the same lit map, compact and read-only, with a link to the Map tab
@@ -95,7 +94,7 @@ class MapLiveDriver(Driver):
             lv.rows["x0rph4n1"]["parent"] = "nobody"
             lv.refresh(map="shop")
             sent = record_forward(rig)
-            yield tuple((fn, (c, rig, lv, sent)) for fn in (S.lit, S.hop_step, S.steps, S.helper, S.feed, M.amber, M.nomap, M.history,
+            yield tuple((fn, (c, rig, lv, sent)) for fn in (S.lit, S.hop_step, S.steps, S.helper, S.feed, M.amber, M.nomap,
                                                                M.zoom, M.room, M.panel))
 
 

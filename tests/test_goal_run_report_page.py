@@ -3,8 +3,8 @@ the pure half (node through tests/helpers/node_ts.py, and source checks; every p
 tests/test_studio_report_card.py (the doors: `&run=<id>`, the palette; the drawer's title and its button) and
 tests/test_studio_ui.py's plan run (a run that ends with its page open offers "Open its report"), on the Linux VM and CI.
 
-1. the Map drawer's titles: `goal` = "Run a goal"; a goal run's `run:<id>` and `report:<id>` = "Goal run"; `history`
-   keeps "History" while History is there;
+1. the Map drawer's titles: `goal` = "Run a goal"; a goal run's `run:<id>` and `report:<id>` = "Goal run"; no page is
+   titled "History" (batch 3: History left; an old `history` page name reads "Run a goal");
 2. what stays when History leaves (the goal run's doors, the goal form, the report, the report card) imports neither
    History's store nor Compare's: the cut can take them without breaking what stays;
 3. no sentence of the goal run's pages sends him to History.
@@ -57,7 +57,7 @@ out.history = M.mapPageTitle('history');
     ctx.check(f"the goal form's page is 'Run a goal', got {got.get('goal')!r}", got.get("goal") == "Run a goal")
     ctx.check(f"a goal run's pages are 'Goal run', got {got.get('run')!r} / {got.get('report')!r}",
               got.get("run") == "Goal run" and got.get("report") == "Goal run")
-    ctx.check(f"History's page keeps its name while History is there, got {got.get('history')!r}", got.get("history") == "History")
+    ctx.check(f"no page is titled History (it left), got {got.get('history')!r}", got.get("history") == "Run a goal")
 
 
 @test

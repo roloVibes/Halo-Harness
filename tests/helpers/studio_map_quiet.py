@@ -32,12 +32,17 @@ REVIEW = {"workflow": "review", "step": 1, "agent": "reviewer", "saved": True}
 RF = {"name": "review-flow", "boxes": [{"id": "review", "workflow": "review"}], "lines": [{"from": "main", "to": "review", "when": "always"}]}
 RF_YAML = "format: map/1\nname: review-flow\nboxes:\n- {id: review, workflow: review}\nlines:\n- {from: main, to: review, when: always}\n"
 # P4 batch 12: what the top line hides inside its sentence or its row of controls (an unseen copy keeping a room) and
-# whether a visible sentence has a gap of more than one space; [hidden parts, a gap, History's Replay drawn]
+# whether a visible sentence has a gap of more than one space; 3.6.0.3 B (R-B8): whether any Replay part is there (the
+# slot, its offer, the replay line, data-lit) and how far the row's first control sits from the row's left edge;
+# [hidden parts, a gap, a Replay part, the first control's offset]
 GAP = ("(() => { const p = document.querySelector('[data-part=map] [data-testid=map-topline]'); if (!p) return 'no line';"
        " const mine = (e) => !e.closest('.mp-notice-twin');"
        " const hid = [...p.querySelectorAll('.mp-topline, .mp-topline *, .mp-topline-acts *')].filter((e) => mine(e) && getComputedStyle(e).visibility === 'hidden').length;"
        " const gap = [...p.querySelectorAll('.mp-topline')].filter(mine).some((e) => /[^ ] {2,}[^ ]/.test(e.innerText));"
-       " return [hid, gap, !!p.querySelector('[data-testid=map-lit-replay-last]')]; })()")
+       " const rp = !!p.querySelector('[data-testid=map-lit-replay-last], [data-testid=map-replay-close], .mp-slot') || p.hasAttribute('data-lit');"
+       " const acts = p.querySelector('.mp-topline-acts'), k = acts && [...acts.children].find((e) => !e.classList.contains('mp-slot') && e.getBoundingClientRect().width > 0);"
+       " const off = k ? Math.round(k.getBoundingClientRect().left - acts.getBoundingClientRect().left) : 0;"
+       " return [hid, gap, rp, off]; })()")
 OPTS = f"[...({SW}?.options || [])].map((o) => o.textContent)"
 TOP = f"document.querySelector('{M} [data-testid=map-scroll]')?.getBoundingClientRect().top"
 BOXES = f"Object.fromEntries([...document.querySelectorAll('{M} [data-testid=map-world] [data-map-box]')].map((b) => {{ const r = b.getBoundingClientRect(); return [b.dataset.mapBox, [r.left, r.top]]; }}))"
