@@ -1,5 +1,369 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.2] - 2026-11-17
+
+"Session map": what a session really does is drawn on the map it really follows, and what main builds for you in a
+session shows in Studio at once, with one true sentence about which map the session runs on and which map new
+sessions will use. Agents gets a fourth tab, Live, for the run, and the Map tab is the plan. A card in the
+terminal no longer takes a key you meant for the box, and Studio's prompt and the terminal's prompt now behave much
+more alike. The limits that remain are at the end of this section.
+
+### Added
+
+#### Session's Live drawing
+
+- **The drawing shows the session you chose.** Session's left drawer draws the session picked in Session, the same
+  one Cost, Prompt and the Feed speak of, not "the first session on a map". With nothing picked it takes the newest
+  open session and keeps it: another session getting a turn moves nothing. The pick changes only when you pick
+  another (an agent of another session, a link, `/studio`).
+- **Top to bottom, at full size.** Main sits alone on the first row, its boxes two to a row below (one to a row in a
+  drawer narrower than 400 px), a new rank on a new row; nothing scrolls sideways. It opens at 100 %; Ctrl + wheel
+  (Cmd on a Mac), a pinch or the **- / % / + / Fit** buttons zoom from 75 % to 200 %. A box shows its name, then
+  "kind · state", then what it does now; a long name wraps and the box grows. Lines leave the bottom of a box and
+  enter the top of the next, and never pass under a box. A box no line from main reaches is placed below the others.
+- **Nothing is cut and nothing jumps.** At rest no box is cut by the drawer's edge: a slot at the bottom says
+  "↓ 2 more below" and a press scrolls one row. While the pointer is on the drawing, boxes that arrive or grow wait
+  until it leaves (touch: a lifted finger or 2 s still); words change in place. After you scroll, the first box you see
+  keeps its place.
+- **The wait link stays whole.** When the session waits, its wait ("waiting on: coder -> Bash pytest -q", "waiting on
+  you: ...") sits beside "↓ n more below", which keeps its width and its one line. The link's words are whole and wrap
+  on lines kept for it from the first draw, so a usual wait coming or going moves nothing; a longer one takes its room
+  once, when it first shows, and nothing moves when it goes. A press on it brings the box that is waited on into view
+  and opens its card.
+- **One true sentence over the drawing**, never amber, never flipping when a turn ends: "This session runs on shop,
+  as it started at 2:26 PM. New sessions will too." When new sessions run on another map: "This session keeps running
+  on starter (the default), as it started. Start a new session to run on review-flow." with a **New session** button
+  (it opens the New session form; the form starts the session), then when each was switched on. While a workflow of
+  that map runs, "This session is running the workflow W from review-flow." comes first; when the session's map file
+  changed, "shop changed at ...; this session takes it at its next hand-off." A session with no map, one that ended,
+  one Studio started that has no message yet, and no session at all each get their own plain sentence; the Start view
+  says "No session is open here. New sessions will run on review-flow." and, after a build, "Your last session built
+  the map review-flow at ... . New sessions run on it." The block keeps its height, so the drawing does not move.
+- **A plain status line under it**: "tester working on the workflow W, step 3 of 6 · waiting for a model reply ·
+  $2.42", "Waiting for you · $0.40", "Done · $1.10", with "· 1 hand-off outside the map" when work went where the map
+  has no line. Main waiting on what it started is not "working"; the words "delegating", "in main's helpers" and "on 2
+  models" are gone from this line. It keeps room for its longest sentence from the first draw.
+- **What main builds shows at once.** When a Builder card is applied in a session while the drawer is closed, the Live
+  button in the view bar shows a small "new"; nothing opens, nothing pops up, no button moves. In the drawer, "Running:
+  starter (the default) | Just built: review-flow" appears once the session built another map (on a second line when
+  the names are long); each half is a button, only Running is lit. The just-built map is shown by itself once, when
+  the build lands, unless your pointer is on the drawing or a card is open. A head says what was built: "Just built:
+  the workflow solo. It is on no map, so no session runs it yet." with **Open in Workflows**, "Changed in this session
+  at 8:02 PM; this session takes it at its next hand-off.", or "Just built in this session at 8:02 PM. This session
+  does not run on it." Boxes a build wrote carry "new 8:02 PM" until the session ends. The drawing comes from what the
+  build sent; nothing waits on the network, and a map whose file is gone reads "This map was removed at 8:02 PM."
+- **A running workflow is drawn as itself**: a block "workflow W · step 3 of 6" with a row per step ("3 test · tester
+  · {model} · working"; done, working, next, failed), as the box it runs from or on a full-width row under the box that
+  called it. Other agents are named rows in the box that holds them: a saved agent reads "{agent} · {model} · {state}";
+  one made up for its task reads "made up: {the first 40 characters of the task} · {state}" and is the only row with
+  a **Save as an agent** button. After three rows, "+2 under it" is a button that opens the rest in 4 · Live's Feed.
+- **Lines that light.** Every hand-off lights the line it travels for as long as it is in flight, then leaves a
+  quieter trace (heavier for more hand-offs; the newest is marked). Hover a trace: "Carried 3 hand-offs; last at 5:51
+  PM: ...". A line nothing travelled never lights. On a map of yours, work no line brought is dashed in its own colour,
+  "off-map" ("Not on the map: main started this itself"); on the default map main picks every hand-off and nothing is
+  counted. When an agent talks to an agent in another box, the line between them pulses for 4 seconds.
+- **A clock on every box at work**: a working box (and a working row) says the tool it is in and for how long,
+  "Bash · 12 s"; a waiting one says what it waits for, in the status line's words, and for how long, "waiting for
+  you · 12 s". It ticks in place without moving anything, and runs only while the drawing is on screen.
+- **Step in from where you look.** Click a box, a step row, a block's head or a line (a 12 px band): a card opens in a
+  fixed corner of the drawer with that agent's words, Pause (Resume), Stop and a steer field (type and Enter). A box
+  with several live agents gets a row each. Escape, × or a second click closes it. Stop asks first and looks the agent
+  up again when you confirm: if it already ended, nothing is sent and the card says "ended at 7:04 PM". Things not
+  running show their state only. Every card offers "Open in Agents -> Live"; an off-map line's card also offers "Open
+  the map at main". J and K step to the next and previous box with the focus in a drawing; Enter on a box opens its
+  card. Hovering a box shows a summary: name, agent or workflow, model, state, "Starts when: ... (from ...)", children.
+
+#### Agents: four tabs
+
+- **`1 · Agents | 2 · Workflows | 3 · Map | 4 · Live`**, keys 1 to 4 (L opens Live, C the Map, W Workflows). The
+  running dot sits on 4 · Live.
+- **4 · Live is the run**: the session Session chose (newest open one otherwise), its sentence and status line, and
+  the map it really follows drawn left to right like the Map, lit by what runs (workflow blocks, named rows, made-up
+  rows, lit lines with traces, off-map work dashed; a label shows a hand-off's task for a few seconds). It is
+  read-only and never amber, and it draws the session's own map whatever 3 · Map has open. With two or more sessions
+  open, a **Which session** picker lists "{title} · {map}", this machine's first; another machine's session reads
+  "... Its drawing is in that machine's Studio." Clicking a box, row, line or label opens the same step-in card. The
+  wait link sits left of the zoom buttons.
+- **A session with no map is drawn too**, in 4 · Live as in Session's drawer: main's box (and any workflow the run
+  itself started) under "This session runs with no map, as it started at 2:26 PM: main does the work and starts its
+  own agents." Nothing is fetched for it.
+- **Agents opens on Live** while a session you have talked to is open here, otherwise on the tab used last. The tab is
+  decided once and never moves by itself; a reload waits up to 1.5 s for the session list ("Reading the sessions.").
+  A link, a key or a tab click always wins.
+- **3 · Map is the plan.** A running session is one quiet line in a row that is always there: "fix-login runs on
+  this map now. [Watch it in Live]", or that it runs on another map as it started, or that it is running a workflow
+  from this map (that box is marked "running now in {session}"). The picker says "· running in {session}" and "· new
+  sessions". A map built in a session while you are elsewhere opens next time you open 3 · Map; while you are on the
+  Map, the row says "{map} was just built in {session} at {time}. [Open it]". The map you have open, changed by a
+  build, is re-read in place, keeping your card, your pick and your zoom. The top line shows a goal run's whole goal,
+  wrapped beside its **Open** button, on a line of its own that is there from the first draw, so a goal run starting
+  does not push the drawing down.
+- **2 · Workflows** says at its top: "Workflows are fixed lists of steps. A session runs a map, and a box on a map can
+  run a workflow: see Map." A workflow main just built opens by itself the next time you come to the tab (never under
+  you, never over an unsaved edit; the list marks it "new" until you open it). The list, the form of a workflow on no
+  map and the line after Save say how to use one: "To put a workflow on a map: in 3 · Map, drag it from Agents and
+  workflows onto a box, and that box hands work to it."
+
+#### The Feed
+
+- **The Feed lives on 4 · Live**, behind a **Feed** button on its bar: what the session's agents say and do, line by
+  line, with Show, Steer, Stop and Pause / Resume / Dismiss. A click on a box in Live sets the Feed to that box. An
+  agent's "open" from outside Session (the palette's "follow agent", a double-click) lands on Live's Feed for that
+  agent. In Session the same panel is now called the Feed. Its list of the helpers a helper started shows each one's
+  whole task.
+- **The Map keeps its own drawer** for Run a goal, a goal run's pages and History. Pressing Replay (History's button,
+  "Replay the last session" or the palette's replay) opens History at once on that replay's rows: its starts,
+  hand-offs, asks, failures and finishes up to the scrubber, oldest first, each row whole. "Back to now" stays in
+  sight.
+
+#### Attention's Open and the other doors
+
+- **An ask's Open lands on the run's drawing.** O on an Attention row (over Agents, Session's Attention drawer, the
+  Feed's ask) or a click on the browser's alert opens 4 · Live when you are in Agents, otherwise Session with that
+  session chosen, its Live drawer open and Attention open on that row (also when Attention is not in your saved
+  layout). The asking agent's box is selected and its card is open with the ask's own answers ("allow once", "deny",
+  "stop"), Pause, Stop and Steer; for a session with no map that is main's box. If the session ended meanwhile, one
+  line says "This session ended at {time}. Nothing waits on you there now." If Studio has not read that session yet,
+  it reads the sessions once and then lands; if that read fails, "Studio could not read the sessions just now. Try
+  Open again." An ask from an agent on no box opens the Feed on it: "{agent} is not on the map: its question is in
+  the Feed." An ask from another machine's session opens Session's Attention on its row.
+- **A door never leads nowhere.** A door that switches section and opens a panel (Run a goal, a goal run's Open, an
+  agent's open, Steer from outside Session, a pack's link) opens it on the section's first visit too; a panel that is
+  gone says "That panel is not on this page any more: there is nothing to open."
+
+#### One prompt in Studio and the terminal
+
+- **A prompt or steer sent from Studio shows once in the terminal**, as its `❯` row, and brings the transcript down to
+  it. Your turns in Studio's feed carry no "from Studio" badge. A steer is one row with "↳ steering the running turn…"
+  under it; a turn stopped from anywhere shows "Interrupted." in Studio. A slash line typed in the terminal now gets
+  its own `❯ /<line>` row too.
+- **A slash line typed in Studio runs in the terminal as if typed there**: `/model <name>` switches the model,
+  `/status`, `/help` and the rest print in the terminal and come back to Studio. A command that opens a window in the
+  terminal (bare `/model`, `/resume`, `/rewind`, `/permissions` and the like) says "/<name> opens a window in the
+  terminal: type it there."; `/paste`, `/images` and `/screenshot` say "/<name> works on the terminal's own box: type
+  it there." A busy terminal runs nothing: "The terminal is busy: nothing was run. Press Enter to try again." A command
+  still running after 3.5 s answers Studio with what it printed so far and "Still running in the terminal: the rest of
+  its output will show there." `/exit` from Studio answers first, then ends the terminal's Halo. Enter on a bare
+  `/model` in Studio opens Studio's own model picker.
+- **Answers read the same everywhere**: "Answered in Studio: Allow", "Answered in the terminal: ...", "Answered
+  remotely: ...", from one table. A question card answered in the terminal closes in Studio.
+- **Studio's Prompt box keeps what you type after Enter.** When the session answers, only the text that was sent is
+  taken out, and only if you did not touch it; a refused or failed send leaves the box alone. After a send of only an
+  image, what you typed after Enter stays exactly, spaces and line breaks too.
+- **The Prompt panel names the session it types into**: "<folder> · <title> · started 09:05 · in a terminal", with
+  the date for a session from another day, "no messages yet" for one with no message, and an amber "no terminal" chip
+  for a session Studio started. The row is two lines high and never cuts the title. **Change session** lists every
+  open session. A switch from elsewhere says "Now typing into <folder> · <title>." for 6 seconds. After `/clear`, a
+  fork or `/resume` in the terminal, the box follows: "Same terminal, new conversation: <folder>." If the session ends
+  with text in the box, it is kept, read-only, with **Copy** (it reads "Copied." for 2 seconds). When a prompt sent
+  from Studio seemed to do nothing in your terminal, it had gone to another open session: the header now says which.
+- `/studio` in a private session says "This session is private: Studio cannot see it or type into it."
+
+#### The terminal's cards
+
+- **A long card fits the terminal**: its area grows to half the window instead of stopping at 12 lines, and when you
+  resize the window a card that waits keeps the prompt box, the status line and its answers in view.
+- **A waiting card says so.** A card waits when it shows while the box holds text, within 1.5 s of a key into the box,
+  or while a dialog is open; with an empty, idle box it takes the keyboard as before. Above the box: "⏸ Permission
+  waits while you type · Tab goes to it · Enter sends your text" (shorter in a narrow terminal). The box reads "Tab: go
+  to the waiting card · Enter: send a message", and the status tag "permission needed · Tab goes to it". On a question
+  card Tab goes to its first unanswered question; a click on the wait line also turns to the card.
+- **Your draft is set aside, not wiped**, when a card asks for words (a deny reason, "Other...", plan feedback, an
+  approval edit): "Your text is set aside; it comes back after this answer." It comes back exactly, pastes and image
+  chips included. If the ask was already answered elsewhere, your words are kept, not sent: "Kept, not sent: that ask
+  was already answered. Edit the text to send it." When a card also waits, both lines show above the box, the kept
+  line on top.
+- **A paste never answers a card.** It goes into the box and the card waits.
+- **A card answered in Studio stays until you close it**: its line reads "✓ Answered in Studio: <label> · Enter closes
+  it" ("· closes when you send" while the box holds text); your Enter, or a key on the card, closes it and sends it
+  nothing, so words typed for one ask can never answer the next.
+- **`/effort`, `/rewind` and `!cmd` no longer refuse while a card is shown.** The waiting card comes back, still
+  waiting, when the new card closes.
+
+#### The agent knows its own map
+
+- **After the map new sessions use is switched while a session runs**, the agent's next turn starts with one short
+  note naming the map this session runs on and the one new sessions will use, and that nothing needs restarting.
+  The note tells it to answer from it when asked which map or workflow it uses, instead of searching the disk or
+  suggesting a restart.
+- **`/clear` says the map stays**: "This session still runs on shop."
+- **Halo records when the map new sessions use was switched**, whichever way Halo switched it (the Builder, Studio,
+  Setup, `halo maps use`, `halo config set|unset crew.map`, roles on or off); after a hand edit of `crew.map` the time
+  is left out, never a wrong one. A session started on a map while no map is set for new sessions and "One
+  model for everything" is on says "New sessions will run with no map." everywhere.
+- **The Builder's map view, asked from a session, now starts** "THIS SESSION runs on starter (the default), as it
+  started at 14:02. NEW SESSIONS run on review-flow (switched on at 14:05)."
+
+#### The Builder
+
+- **"Build me a review workflow: a coder then a reviewer" is one card** that makes the workflow, a new map with a box
+  running it, and a ticked line "New sessions run on review-flow. This session keeps running on starter (the default),
+  as it started. Start a new session to run on review-flow." (in the terminal it adds how to start one, below). When
+  the new map would let agents do more, that line is its own question, unticked, No first.
+- **In a session on a map of your own, a change with no map named goes to the map this session runs on**, not to the
+  map new sessions use; each line ends "-- this session takes it at its next hand-off".
+- **Editing a map new sessions do not use asks**, unticked: "New sessions do not run on ship-it; they run on shop. Run
+  new sessions on it instead?"
+- **A switch checked again at Apply**: when the map's file changed since the card was shown and now lets agents do
+  more, or cannot be checked, the switch is left out and the result says why; the rest is written. Studio's builder
+  box shows these "Left out: ..." lines too.
+
+### Changed, and you may notice
+
+- **Typing text and pressing Enter in the terminal's box no longer answers a card.** The old "type and press Enter to
+  deny / keep planning / answer Other" is gone: with a card shown, Enter sends the box as with no card, and the card
+  stays. To give a typed reason, go to the card and press its own key for it (a deny reason, "Other..."): what was in
+  the box is set aside and comes back after. Tab no longer answers the lane offer or `/effort`. The permission
+  placeholder reads "1-4 answers the request above".
+- **Agents has four tabs; the run is on Live and the Map is the plan.** 3.6.0.1's lit Map, its amber "another map"
+  line and its "What they think and say" drawer are gone; the Map has no feed. Agents opens on Live while a session
+  you talked to is open.
+- **An ask's Open lands on the run's drawing.** From inside Agents it stays in Agents, on 4 · Live (3.6.0.1 always went
+  to Session). An ask from another machine's session opens Session's Attention on its row (3.6.0.1 opened its agent on
+  Agents -> Map); its drawing is in that machine's Studio.
+- **A session with no map draws main alone on Live**: main's box, and any workflow the run itself started, under
+  "This session runs with no map, as it started at ...".
+- **Session's drawing opens at full size** (100 %), with "↓ n more below" under its last whole row; 3.6.0.1 opened it
+  fitted, panning from main. **Fit** still fits it.
+- **A box on Session's drawing no longer shows its own cost** (3.6.0.1's lit Map did): it is in the box's card, and the
+  session's total is in the status line.
+- **Replies of the remote protocol no longer carry the sender's name.** `fleet.message` answers `{delivered, via}`
+  (3.6.0.1: `{delivered, by}`), a `by` a client sends is not read, and a control record has none. A script that read
+  `by` gets a changed reply.
+- **The Builder's line about a map switch, in the terminal,** ends "In the terminal: quit, then run halo; /clear keeps
+  starter (the default)." (with the map this session runs on).
+- **New words.** Session's left drawer is **Live** and its line-by-line panel is **Feed** (hover says "(was Map)" /
+  "(was Live)" this release), and Session's help speaks of Live and the Feed. The Map's switch "My sessions use this"
+  reads "New sessions run on this". On the boxes of the run drawings the words "helper" and "made up for this task"
+  are gone. Local -> Logs' re-read box reads "Follow". The drawer's link reads "Open in Agents -> Live".
+- **The terminal shows less noise from Studio**: the grey "(from Studio) prompt / steer", "(remote) prompt / steer",
+  "(remote) /<name>", "(remote) permission ..." and Studio's "(remote) interrupt" lines are gone, and so are the "no
+  longer waiting" toasts. An answer given in Studio reads "Answered in Studio", not "Answered remotely".
+- **In a session on the default map (starter), asking the Builder to change "the map" without naming one writes
+  nothing**: main is told to name the map. The Builder's result no longer ends "Studio follows the files.".
+- **`halo replay open` opens the Map** (History is there), and says "History on Agents -> Map lists it."
+- **Studio's requests give up after 30 s** ("Studio server unreachable: no answer in 30 s"), except those that wait on
+  a model, another machine, a download, a run starting or a pack.
+- **The Map's bar on the default map with no map set** says "New sessions run on starter (the default)." in place of a
+  switch that did nothing. With roles off, when new sessions run on no map, it says "New sessions will run with no
+  map." beside the switch **New sessions run on this**, which is off; pressing it turns roles back on.
+
+### Fixed
+
+- **A card in the terminal could answer a key you meant for your sentence.** In earlier releases a card that asks you
+  something (a permission, a question, a plan) took the keyboard while you were typing, and cards answer to single
+  keys, so a letter of your sentence could answer a card you had not read; it could allow something for the whole
+  session. Now, while you type, the box keeps the keyboard and the card waits, with a line above the box that says so.
+  Tab turns to the card and Tab comes back to the box. A card answers to no key in its first 0.6 seconds on screen (a
+  double tap of `1` answers one card, and an Enter in that moment sends nothing). Words already in the box are never a
+  card's answer.
+- **Session's drawing no longer says "No session is running here" each time a turn ends**, and no longer draws "the
+  first session on a map" instead of the one you chose.
+- **Agents no longer flips back and forth**: a busy session within 1.5 s of opening Agents moved it to the Map.
+- **A workflow's step agents were drawn as made-up helpers**, and a saved agent with no line on the default map was
+  "made up for the task". Each step now says its workflow, its step and its agent.
+- **No user or host name in logs.** Nothing Studio sends writes the machine's user or host name into the session log,
+  the feed, receipts, agent records or what the model reads; the lines say "from Studio" (or `halo remote`). A
+  hand-off made from Studio writes "by Studio" into its brief, and names the Halo it went to by the name a person set
+  there, else "another harness, in the folder <folder>" ("~" for a home folder), never by a user and host name.
+- **Studio's Prompt box was emptied whole when the answer to a send arrived**, losing what you typed after Enter.
+- **Studio's map list said "starter" both when you chose it and when nothing was set**; it now says which.
+- **Words were cut**: the 44-character cut of "what it does now" is gone on Session's drawing and on the Map, and so is
+  the 80-character cut of a goal run's goal on the Map's top line. A replay's rows in History and the Feed's list of
+  helpers show their whole text, and the wait link on both run drawings no longer cuts a tool's words at 36
+  characters or a question at 48.
+- **2 · Workflows no longer says the Map tab "comes in the next version".**
+- **A Studio-started session with no message yet** is never picked over another open session, and sorts last.
+- **`/exit` sent from Studio to a terminal that is already closing** no longer prints a traceback over the terminal.
+- **The Builder's result no longer calls a file "new"** that the card changed, when its path was spelled another way
+  (a link such as macOS /var to /private/var, or a Windows drive letter in another case or with other slashes).
+- **The box a session waits on (on you, a tool or a model reply) was not outlined on the run drawings.** It is now, on
+  Session's Live and on 4 · Live.
+- **`halo bugreport` could cut a settings path under your home folder** when the home folder's own path ran 40 or more
+  letters, digits and slashes with no dot, dash or underscore (a macOS temp folder can). The path is now shown as
+  `~/...`; a secret beside it is still cut.
+
+### Known limits
+
+- **A session keeps running on the map it started on until a new session.** Switching a running session to another
+  map comes in the next release.
+- **The default map is still called "starter"**; the next release renames it Auto and draws agents in named groups.
+- **An ask answered in Studio leaves its card in the terminal until you press Enter in the box or a key on the card.**
+  The card says how it was answered, and it gets nothing from that key; the Enter still sends the box's own text.
+- **In Studio's Prompt box, if after Enter you select everything and retype a text that begins like the one just sent,
+  its first characters can be removed when the answer arrives** (for example a word starting with `y` typed over a sent
+  `y`). It never loses more than 3.6.0.1, which emptied the whole box.
+- **Studio and the terminal still keep separate Up-arrow histories**, Studio's unsent text is one text for the whole
+  page, and Studio's Prompt feed does not show turns from before a page reload. Studio does not show the text you are
+  typing in the terminal, and a slash line typed in the terminal is not shown in Studio.
+- **While a turn runs, Studio offers Queue it or Steer** where the terminal steers.
+- **A burst of keys that is not a paste** (a tool that types for you, or a terminal without paste support) reaching a
+  card that already has the keyboard and has been on screen for more than 0.6 seconds can still answer it.
+- **A title longer than two lines makes Studio's Prompt header taller.**
+- **A made-up agent's row shows the first 40 characters of its task.**
+- **Something main builds before Studio follows the session may not be marked as just built.** Studio picks up a
+  terminal session within about two seconds of its start (or of Studio's own start); what the session sends before
+  that does not reach the page. What was built is saved and listed all the same.
+- **On Windows (and wherever the font runs wider) the sentence over Session's drawing can take one more line when the
+  map new sessions use is switched**, which moves the controls under it once, also while the pointer is on the drawer.
+- **A saved replay file does not play in Studio, and has not since 3.6.0.0.** `halo replay open` still checks the file
+  and keeps it, but Studio lands on Agents -> 3 · Map without it, and the file's row in History shows a scrubber over
+  a drawing that does not change. `halo replay clip` gives up after 40 seconds and writes no file; Studio's Export a
+  clip, which films the same way, writes no file either. A session of this machine still replays on the Map from
+  History. Found while this release was checked; the fix is in the next release.
+- **History is still on Agents -> 3 · Map.** It leaves the Agents tab in the next release.
+- **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
+  which removes it and says so; Windows has no reaper. Its `docker run` client ends with Halo at once. Any `halo`
+  command is such a start (`halo ps` too); without Halo, `docker ps --filter label=halo.owner` lists it and
+  `docker rm -f <name>` removes it.
+- **macOS: a program a tool command detaches with an Apple system binary** (`ssh -fN host`, `ssh -f -M`, a
+  `daemon()` fork of a program under /usr/bin) can still outlive Halo, and `halo ps` does not list it: macOS shows no
+  environment for its own binaries. Start such a program with `HALO_OWNER=kept-<name>` if you mean to keep it, or end
+  it by hand; docs/PROCESSES.md ("What Halo cannot end on macOS").
+- **macOS: a program Apple ships can outlive Halo.** Found on a real Mac with System Integrity Protection on,
+  present in 3.6.0.0 too and not fixed here: macOS hides the environment of a program it ships (`sleep`, `ssh`,
+  `tail`, a shell), and Halo finds strays by a marker there. Measured: such a program that a tool command leaves in
+  the background outlives a Halo stopped with Ctrl+C or a closed terminal (a hard kill ended it); one that Halo
+  starts itself, as a pack can, outlives a Halo ended with `kill` and a hard kill too. A background job left by a
+  tool command that finished normally can outlive every way out; that and the other ways out were not measured.
+  The real-use check (`scripts/realcheck.py`) cannot see them either, so its PASS on a Mac does not cover them, and
+  docs/PROCESSES.md does not describe this yet. After Halo has gone, however it ended, look with `ps -ax` and end
+  yours by pid (`kill <pid>`).
+- **Still as in 3.6.0.1** (each is written out in its Known limits below): `halo ps --json` does not list containers
+  and `halo stop` does not stop one; on Windows the MCP HTTP client waits about 2 seconds for an MCP server on this
+  computer that is not running, and a model server named `localhost` that listens on ::1 only is reached after half a
+  second per connection; on Linux a record written by 3.6.0.0, or a local model server's, needs `halo ps --forget
+  <pid>`; Windows `/update` can ask to be run again in one rare case; with the container engine stopped a start can
+  wait up to 3 seconds once every 10 minutes; an Orchestra lane with `isolation: user` did not get the container
+  lane's changes; the container lane ran against a real Docker on Linux only; on Windows a container engine reached
+  through a `.cmd` or `.bat` shim whose daemon hangs can hold a start or a close longer; some 3.5 words remain
+  ("Lineup:" in `halo init`'s summary and other places); Studio's Export a clip form names no browser problem until
+  the export starts; a shared replay keeps a common-word account name outside home folders and logins, and an
+  excerpt cut one or two letters into a name keeps those letters; a listen address `[::]` is saved as `127.0.0.1`;
+  the terminal setup's last line does not mention maps; the Builder's map-switch question looks only at the folder
+  you have open and at a folder outside any project; a click on the browser's alert brings Studio forward only when
+  the browser allows it; `halo local stop` on a model server Halo cannot prove does not name `halo ps --forget`;
+  `/update` and `halo update --keep-running` name no way to stop an unproven pack, shell or schedule process; on
+  Windows and macOS a clock that steps back more than 2 seconds at the wrong moment drops a record; on macOS a stuck
+  `ps` can stall one tool call for tens of seconds.
+- **Where it was checked.** The browser-driven checks of this release run in the automated runs on Linux, Windows and
+  macOS.
+
+### For people who build Halo
+
+- **`scripts/realcheck.py` has two new steps**: `session-map` (main builds a review workflow from chat; the card, the
+  "new" word, the drawing and Agents' tabs are checked in a browser) and `prompt` (`--only prompt`, about 10 s: a real
+  `halo` in a terminal and a Studio; a prompt shows once, `/model` switches, an answer reads "Answered in Studio:
+  Allow", no user or host name in the log or on screen). In CI the realcheck step has 45 minutes and its job 50.
+- **A browser check presses each control the design names** on Session's Live drawer and Agents' four tabs and fails
+  when a press changes nothing.
+- **A plain session sends the model exactly the bytes it sent before**, checked against a recording made before these
+  changes.
+- **CI's `studio-ui` job runs the TypeScript halves of the tests** with `HALO_NODE_TS_REQUIRED=1`: a half that cannot
+  run fails there instead of being skipped.
+- **A `halo` a test starts runs with the real card times** (1.5 s and 0.6 s) unless that test turns them off for it;
+  the test runner's switch reaches only its own process.
+
 ## [3.6.0.1] - 2026-11-16
 
 Fixes for what using 3.6.0.0 turned up on Windows, macOS and Linux; what you already do works as before. The few
@@ -2421,80 +2785,3 @@ cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilo
   dollar band (all of it on Copilot) or after it (part of it) (`workflows/contract.py`, `SquareBlock.tsx`).
 - **Live**: a `cp:work` role's turn shows as text rows with no THINK row (Copilot streams no thoughts and none is
   made up), its hand-back as a TALK row, a `copilot_ask` call as a tool row (tests/test_copilot_fit.py).
-
-## [3.3.16.3] - 2026-11-10
-
-The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents
-tab ... I wish I could see better groupings of these sub-agents ... here's this one task and here's the sub-agents in there".
-
-### Added
-
-- **Live in groups** (Agents -> Live and Session's Map): the sub-agents one step of a parent started together (one
-  reply's Agent calls) are one box titled by their task -- the description they share, else the parent's own line
-  before the calls, else the words the descriptions start with, never a model call -- and the parent's line goes into
-  the box; a square's agents are one box titled `square <name>` with its DOES line; a tier's agents fall back to the
-  tier's purpose; an agent started alone is not boxed. The bar counts working / waiting / done, the cost and the time,
-  says Auto's pick in plain words ("3 readers on kimi-k3 for a pdf in the task"), folds to itself on the chevron (amber
-  while one inside waits on you), and has a hover card. Ten agents are a grid of four to a row; boxes nest one level.
-  `routes/agents/live/groups.ts`, `groupLayout.ts`, `GroupBox.tsx`; Session's timeline gains **by group**.
-- Agent rows carry `spawn: {step, description, lead}` (`agent/agent_hooks.spawn_of`: the parent's id and reply count,
-  the call's description, the parent's last line in that reply) and a square's row its `does`.
-- **Blocks on Cast**: the lineup's enabled squares are blocks beside its tiers on one canvas, main's line into each;
-  a square block opens to show the bios of its lineup on their models (folded: its TAKES / GIVES / COSTS lines; the
-  chevron kept per lineup), its footer its limits and cost band. A click opens its summary in the inspector, with new
-  **Purpose** and **Agents** pages (`PUT workflows/contract` takes `does`; a shipped square says how to copy it).
-- `tiers[].purpose` in a lineup: the tier block's title line on Cast (its `...` menu edits it), Live's tier group,
-  `halo teams show`'s tier line; the shipped auto lineup names both of its tiers.
-- **The when** (part 2; the owner: "add this workflow in there when this situation happens"): a lineup's `workflows:`
-  item may be `{ref, when: {needs, words, mode}}` beside plain refs (which keep their meaning): `needs` narrow what the
-  square covers, `words` fire on what the task says, `mode` is `auto`, `named` (only by name), `always` (first, before
-  main answers) or `off` (not connected). `workflows/router.py` reads it (always, then words, then the needs pick;
-  `when_route.py`), the receipt's reason names the rule that fired (`handing the PDF to media: when main needs pdf`,
-  its `rule` field), the Workflow tool's description says each rule; the auto lineup keeps its rules in config
-  `workflows.when.<ref>` (a new keyed Settings row). `workflows/when.py`, `when_store.py`, `when_tool.py`.
-- **The line carries it** on Cast: main's line into a square block has a short label (`needs pdf`, `says review,
-  audit`, `always first`) with a hover card; a click on it, or the block's new **When** row in the inspector, opens the
-  When page (four choices in plain words, what it writes, Save, Disconnect). A block with no line is dashed, its footer
-  says "not connected: main never uses it", Problems lists it (NOT CONNECTED). Main's edge handle dragged onto a block,
-  or the block's `⋯` menu (Connect to main, When, Disconnect, Take it off), draws the line.
-- **The library on Cast, three kinds**: Workflows (yours / packs / shipped), Blocks you can start from, Agents (the
-  bios), one search over all three; `+ Library` on Agents' bar on Cast too, beside the canvas, closed on load.
-- **Block templates** under `halo_harness/templates/blocks/`: `thinking` (three reasoning agents), `media` (adds as
-  `media-team`), `review-panel` (three reviewers), `local-workers` (a tier); every agent on `auto`, nothing names a
-  provider. `workflows/blocks.py`, `blocks_tier.py`; `GET workflows/templates`, `POST workflows/templates/add | merge |
-  remove`.
-- **The four drags** with the real pointer, each asking first (WHAT / COSTS / WRITES) and saying what changed in one
-  line: a workflow or a template from the library onto the canvas (wired to main by its covers); an agent (a bio, a
-  tier card, another square's agent) into a block (a shipped square is copied to yours as `my-<name>` first and the
-  board swaps to it, its rule kept: `workflows/members.py`, `PUT workflows/members`, `POST workflows/swap`); a square's
-  agent out onto the canvas (the last cannot leave); a block by its title bar (its spot in the lineup's layout,
-  `block:<ref>`). Undo / Redo walk each back in order with the lineup's own edits (`blocks/history.ts`). Keys: Tab
-  reaches blocks and their agents, `M` then the arrows and Enter moves one, Delete asks in the inspector.
-- CLI and TUI: `halo workflows enable <ref> --when needs=pdf,audio | words=review,audit | named | always | off | auto`,
-  `halo workflows when <ref>`, a `when:` column in `halo workflows list` and `/workflows`; `halo blocks list | add
-  <template> [--as <name>] | show <name>` (`blocks_cli.py`); `halo teams show` prints `block <ref> (square): when ...`.
-
-### Changed
-
-- Live's layout draws a group as one child of its parent (`liveLayout.ts` hands a tree with groups to
-  `groupLayout.ts`; a tree without them is laid out as before). The glossary's **block** says the canvas meaning too;
-  **group** is new.
-- A lineup's `workflows:` list keeps its `{ref, when}` items through `halo workflows enable / disable` (edited in place,
-  not rewritten as refs); `halo teams validate` checks each rule. The square inspector's summary has a **When** row; a
-  square's hover card says its when in place of its covers on the board. W keeps its own board with the same library.
-- **One order with 3.3.16.2's lineup roles**, explicit before implicit (`workflows/router.py` `route`, docs/WORKFLOWS-squares.md
-  "The order"): a square named; then a square whose when fires (`always`, then `words`, then `needs`), ahead of a role;
-  then a role of the lineup that covers the need ("to your media role"); then a plain ref's covers; then the line
-  saying what would. An inherited `workflows.enabled` square is a plain ref, so on the auto lineup a PDF still goes to
-  its media member unless the media square has a when. The Workflow tool is not offered when every square on is `off`;
-  `halo doctor`'s squares line names a square's when; `halo workflows list` shows "on for <lineup>" / "off" and the when
-  column. An edit to a lineup with no `workflows:` key (enable, disable, a when) starts from the set it inherits.
-
-### Docs
-
-- docs/STUDIO-blocks.md (a new part of STUDIO.md: "Blocks" and "Live in groups"; STUDIO-agents.md points to it), docs/ROLES.md and docs/AGENTS.md (`tiers[].purpose`),
-  docs/WORKFLOWS-squares.md "A square as a block", the glossary, README's Agents part.
-- Part 2: docs/STUDIO-blocks.md "Composing: the line, the library, the drags"; docs/WORKFLOWS-squares.md "When",
-  "Block templates", "Who is inside a square"; docs/COMMANDS-workflows.md (`--when`, `when`, `halo blocks`); docs/AGENTS.md
-  (`workflows[].when`); docs/CONFIG.md (`workflows.when.<square>`); the glossary's **when**; README's Workflows part;
-  docs/media/studio-workflows.png re-rendered as the composed board.
