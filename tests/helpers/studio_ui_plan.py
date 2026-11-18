@@ -71,6 +71,9 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"his press opens report:<id>, 'Goal run', got {got.get('opened')}",
                   got.get("opened") == {"page": f"report:{rid}", "run": rid, "title": "Goal run"})
         ctx.check(f"the report's Back returns to the run's page, got {got.get('back_to')!r}", bool(rid) and got.get("back_to") == page)
+        bars = [got.get("bar_live"), got.get("bar_ended"), got.get("bar_report")]
+        ctx.check(f"the view bar's drawer button holds still on run:<id> (live, ended) and report:<id>, got {bars}",
+                  bars[0] is not None and all(b == bars[0] for b in bars))
         ctx.check(f"finished, it left the Map's line; History's row and its report, got {got.get('left_live')} / {got.get('history_row')!r} / {got.get('report')}",
                   got.get("left_live") == "gone" and "finished" in str(got.get("history_row")) and got.get("report") == {"checks": 8, "lanes": 5, "replay": True}
                   and (got.get("first_report") or {}).get("status") == "finished")

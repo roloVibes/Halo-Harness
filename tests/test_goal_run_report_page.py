@@ -86,10 +86,22 @@ def test_no_goal_run_sentence_sends_him_to_history(ctx: Ctx):
         for why in SKIP:
             code = code.replace(why, "")
         for n, line in enumerate(code.splitlines(), 1):
-            # a word "history" a person reads: not an identifier (historyStore, toggleHistory, lane.history), not a testid
-            if re.search(r"(?i)(?<![.\w-])history(?![\w.-])", line):
+            if SAYS_HISTORY.search(line):
                 hits.append(f"{f.name}: {line.strip()[:140]}")
     ctx.check(f"no sentence of a goal run's pages names History, got {hits}", not hits)
+
+
+# a word "history" a person reads, also at a sentence's end ("... lands in History."); not an identifier
+# (historyStore, toggleHistory, lane.history, history.length) and not a testid (history-report)
+SAYS_HISTORY = re.compile(r"(?i)(?<![.\w-])history(?![\w-]|\.\w)")
+
+
+@test
+def test_the_word_test_sees_history_at_a_sentences_end(ctx: Ctx):
+    for said in ("its report lands in History.", "its report is in History.", "Back to History", "History's page"):
+        ctx.check(f"the word test sees {said!r}", SAYS_HISTORY.search(said) is not None)
+    for code in ("lane.history.length", "history.length", "historyStore", "toggleHistory(false)", 'data-testid="history-report-error"'):
+        ctx.check(f"the word test skips the code {code!r}", SAYS_HISTORY.search(code) is None)
 
 
 if __name__ == "__main__":

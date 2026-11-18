@@ -116,6 +116,8 @@ def overlap_problem(c, out: dict) -> None:
 
 RUN_ACTS = ("(() => { const r = document.querySelector('[data-testid=\"run-inspector\"] .rn-acts')?.getBoundingClientRect();"
             " return r ? [r.x, r.y, r.width, r.height] : null; })()")
+BAR = ("(() => { const r = document.querySelector('[data-testid=\"viewbar-btn\"][data-panel=\"map-drawer\"]')?.getBoundingClientRect();"
+       " return r ? [r.x, r.y, r.width, r.height] : null; })()")  # the view bar's drawer button: one rect on every page
 
 
 def ended_with_page_open(c, out: dict, page: str, acts: str) -> None:
@@ -124,13 +126,14 @@ def ended_with_page_open(c, out: dict, page: str, acts: str) -> None:
     returns to the run's page."""
     opener = TID.format("run-open-report")
     out["ended_offer"] = c.wait(f"!!{opener} && !{TID.format('run-stop')} && {opener}.textContent", 60)
-    out["ended_page"], out["acts_ended"] = c.js(page), c.js(acts)
+    out["ended_page"], out["acts_ended"], out["bar_ended"] = c.js(page), c.js(acts), c.js(BAR)
     out["ended_first"] = c.js(f"{opener}.parentElement.firstElementChild === {opener}")
     out["ended_words"] = c.js(f"{TID.format('map-drawer')}.textContent")
     click(c, opener)
     report = TID.format("history-report")
     out["opened"] = c.wait(f"{report}?.dataset.state === 'finished' && {{page: {page}, run: {report}.dataset.run, title: document.querySelector("
                            "'[data-testid=\"map-drawer-panel\"] [data-testid=\"panel-title\"]')?.textContent}", 20)
+    out["bar_report"] = c.js(BAR)
     click(c, TID.format("history-report-back"))
     out["back_to"] = c.wait(f"!!{TID.format('run-inspector')} && {page}", 15)
 
@@ -141,7 +144,7 @@ def approve_runs(c, rig, out: dict) -> None:
     out["running"] = c.wait(f"!!{TID.format('map-lit-run')} && !!{TID.format('run-stop')} && 'running'", 20)
     out["stop_offered"] = True
     page, acts = "document.querySelector('[data-testid=\"map-drawer\"]')?.dataset.page", RUN_ACTS
-    out["run_page"], out["acts_live"] = c.js(page), c.js(acts)
+    out["run_page"], out["acts_live"], out["bar_live"] = c.js(page), c.js(acts), c.js(BAR)
     rig.hold.set()
     try:
         ended_with_page_open(c, out, page, acts)
