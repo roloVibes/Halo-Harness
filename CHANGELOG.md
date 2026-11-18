@@ -87,24 +87,24 @@ are. Nothing else changed in how a session runs. The limits that remain are at t
   "History and goal runs" is now "Goal runs, and keeping a session". The goal form's sentences say the report becomes a
   page of its own in the drawer. `/studio orchestra`, the first-run pack's Run a goal step and Session's help name no
   History. When no Chrome is found: "this needs Chrome and none was found: install Chrome or set HALO_CHROME".
-- **docs/PRIVACY.md says two more facts about the redaction**: a text cut short keeps one or two letters of your
-  account or machine name (from three letters on they are masked), and what each thing that leaves does with a path in
-  another account's home.
+- **docs/PRIVACY.md says two more facts about the redaction**: what a text cut short keeps of your account or machine
+  name (one or two letters, or more of a name with a dash, dot or underscore once the cut is past its first part), and
+  what each thing that leaves does with a path in another account's home.
 
 ### Fixed
 
 - **Record's page could carry a key.** Record now passes the session through the session export's redaction before it
   writes: key-shaped tokens are masked, a path inside the project is relative, any other path under your home reads
-  `~/...`, and your user and machine names are taken out. The project's folder name stays, as before. If the redaction
-  fails, no page is written and Studio's toast says so: "the redactor could not clean this session; nothing was
-  written".
-- **In the Map's drawer the Run a goal form's buttons covered its last field.** At 1280 x 800 the model picker sat 4
-  px above Run, partly under the button row's fade. The fields now scroll in a box of their own, and Run, Dry run and
-  Clear the form sit in a row under it: no field slides under the buttons, and Run is still in view without scrolling.
-  A pack workflow's form in the same drawer has the same box and row.
+  `~/...`, and your user and machine names are taken out (a path in another account's home is the exception: see Known
+  limits). The project's folder name stays, as before. If the redaction fails, no page is written and Studio's toast
+  says so: "the redactor could not clean this session; nothing was written".
+- **In the Map's drawer the Run a goal form's buttons covered a field.** At 1280 x 800 the model picker sat 4 px above
+  Run, partly under the button row's fade (at 1440 x 900 the "who plays the parts" line touched it). The fields now
+  scroll in a box of their own, and Run, Dry run and Clear the form sit in a row under it: no field slides under the
+  buttons, and Run is still in view without scrolling. A pack workflow's form in the same drawer has the same box and
+  row.
 - **The Run a goal form cut a label** ("SHARED FILES (COMMA ...") at 1280 x 800 and narrower. A label too long for its
   box now wraps to a second line.
-- **A failed Record showed a Python error name** ("ValueError: ..."). The toast now says only the sentence above.
 - **A dry run's report did not show**: the form closed and nothing opened. A dry run now opens its Goal run page.
 - **Studio's goal-run sentences sent you to History** for a run's report, and the Map's drawer button read History
   over the goal form. Both now name the Goal run page and Run a goal.
@@ -114,10 +114,12 @@ are. Nothing else changed in how a session runs. The limits that remain are at t
 - **Every Known limit of 3.6.0.2 still holds**, except the two this release ends: "A saved replay file does not play
   in Studio" (replays are gone) and "History is still on Agents -> 3 · Map" (it has left). Two of them said "the next
   release": switching a running session to another map, and renaming "starter" to Auto with agents drawn in named
-  groups. Neither is in this release; both come in a later one. The limits there about Studio's Export a clip form
-  leave with it. Two limits of the redaction still hold for the session export, the report card and Record's page: an
-  account named by a common word (docs/PRIVACY.md), and an excerpt cut one or two letters into your account or machine
-  name keeps those letters before its `...`.
+  groups. Neither is in this release. Auto with named groups is planned for a later one; switching a running session's
+  map comes only if Halo can do it safely. The limits there about Studio's Export a clip form leave with it. Two
+  limits of the redaction still hold for the session export, the report card and Record's page (both in
+  docs/PRIVACY.md): an account named by a common word, and an excerpt cut short inside your account or machine name
+  keeps one or two letters before its `...`, or more of a name with a dash, dot or underscore once the cut is past its
+  first part (`on gpu-b...` for a machine named `gpu-box`).
 - **Compare and the re-run of a turn on another model have nothing in their place.** Comparing models is still on the
   list.
 - **The rows' export link covers the sessions that list shows, the last 8.** Export an older one from the terminal:
@@ -128,9 +130,10 @@ are. Nothing else changed in how a session runs. The limits that remain are at t
 - **Each tool result in the session export is cut at 40 lines**, then "... (N more lines)", as before.
 - **A `.halo-replay` file made by 3.4.1.0 to 3.6.0.2 no longer opens anywhere**: Studio, `halo report` and every
   `halo replay` verb are gone or refuse it. The file stays on disk until you delete it.
-- **The Map drawer's head can cut its own title** at 1280 x 800 ("RUN A ..."; 3.6.0.2 cut "HIST..." the same way), and
-  at 1024 px wide and under the view bar's title overlaps the tab names and the drawer heads are cut. A text should
-  never be cut: this is on the list for the next release.
+- **The Map drawer's head cuts its own title** at 1280 x 800 when opened with Run a goal ("RUN A ..."; 3.6.0.2 cut
+  "HIST..." the same way), and the goal form's head line ("several agents, one goal, one set ...") is cut at every
+  size. At 1024 px wide and under, the view bar's title is drawn over the MAP button. A text should never be cut: this
+  is on the list for the next release.
 - **Where it was checked.** The exports, `halo report`, Record's masking, the retired command and the doctor's line
   were run for real on Linux only. No automated check presses a LAST SESSIONS row's export link; its route and its
   saving are each tested.
