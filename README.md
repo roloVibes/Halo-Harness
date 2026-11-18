@@ -59,7 +59,8 @@ Studio, a page in your browser, is where you watch it and change it.
 Every agent of a session in one live column: what it thinks (THINK), what it says to another agent (TALK), each tool
 call with its time and result, and what each agent costs, beside a tree of who spawned whom. Agents -> Map is where
 your agents are connected: while a session runs, its map lights up (who works, who waits on what, one sentence that says
-what is going on). A finished run moves to History under the map, with its report and a replay.
+what is going on). A finished goal run's report is its own page, and any session can be kept as one Markdown file,
+the session export.
 
 **How:** `halo studio`, then Session (`Alt+1`) or Agents -> Map (`Alt+2`, `3`); `/studio` from a terminal session.
 [Session](docs/STUDIO-sections.md#session) · [the lit map](docs/STUDIO-live.md)

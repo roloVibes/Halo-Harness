@@ -27,7 +27,7 @@ halo_harness/            the package
   improve/                 /improve: evidence clustering, drafting, apply
   studio/                  `halo studio`: the server, the JSON routes (one
                            `*_api.py` per area), the React shell in ui/
-  live/                    this machine's sessions live: attention, caps, recording, replay
+  live/                    this machine's sessions live: attention, caps, recording, the report card
   peers/                   another machine's models: pairing, the host door, the relay
   orchestra/               the Orchestra run pipeline and the post-run coach
   *_cli.py                 each `halo <subcommand>`'s own module
@@ -143,8 +143,7 @@ first, then `google-chrome`, `google-chrome-stable`, `chromium`,
 `chromium-browser` or `chrome` on PATH. A `HALO_CHROME` that is set is used
 or nothing: a path, or a bare command name found on PATH (`chromium`); one
 that names no browser is an error naming the variable and its value, never
-a fall-back to the installed Chrome (3.6.0.1; `halo replay clip` follows the
-same rule). `tests/run_all.py` clears every
+a fall-back to the installed Chrome (3.6.0.1). `tests/run_all.py` clears every
 `HALO_*` variable before the run except `HALO_CHROME` (3.2.1.0 R5), so on
 a box whose Chromium is not on PATH you name it there:
 

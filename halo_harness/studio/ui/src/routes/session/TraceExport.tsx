@@ -38,7 +38,7 @@ export async function exportTrace(sid: string): Promise<boolean> {
     toast(`Saved ${name} (${Math.max(1, Math.round(text.length / 1024))} KB): every row of the session, keys masked`, "done", 4000);
     return true;
   } catch (e) {
-    toast(`The trace did not download: ${e instanceof Error ? e.message : String(e)}`, "error", 6000);
+    toast(`The session export did not download: ${e instanceof Error ? e.message : String(e)}`, "error", 6000);
     return false;
   }
 }
@@ -53,7 +53,7 @@ export function TraceExport({ where }: { where: "head" | "timeline" }) {
   };
   return (
     <Button size="sm" variant="ghost" icon={<Icon name="file" />} disabled={!sid || busy} onClick={() => void go()} data-testid="trace-export" data-where={where}
-            title={sid ? `Save this session as one Markdown trace: halo-trace-${sid}-<date>.md` : "No session chosen yet"}>
+            title={sid ? `Save this session export as one Markdown file: halo-trace-${sid}-<date>.md` : "No session chosen yet"}>
       Export
     </Button>
   );

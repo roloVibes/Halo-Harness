@@ -1047,14 +1047,14 @@ after `y/N` (`--yes`) ([COMMANDS-studio.md](COMMANDS-studio.md#halo-coach)).
 ## In Studio
 
 `halo studio`, started in the repo, runs goals from Agents -> Map (3.4.0.0 D: Run a goal on its bar, Live's until 3.6.0.0 R5; the Runs view and
-the Orchestra section before it went): a goal run going shows on the Map ("A goal run is going", Open) and its report is a page of History, as
+the Orchestra section before it went): a goal run going shows on the Map ("A goal run is going", Open) and its report is its own page (Goal run), as
 [STUDIO-orchestra.md](STUDIO-orchestra.md) describes. Its
 backend is `studio/orchestra_api.py`. The routes sit under `/api/orchestra/`
 behind the same loopback, origin and token guard as every Studio route.
 
 | Route | Answer |
 |---|---|
-| `GET orchestra/runs` | `[{run_id, created, state, workers, goal_what, cost_usd, models, elapsed_s, ended, stop_reason}]` (3.4.0.0 D: History's row says how it ended, its wall time and its lanes' models), newest first; `state` is `running`, `planned` (3.0.9.0: waiting for the reviewed plan), `finished`, `stopped`, `dry run`, `new` or `interrupted` |
+| `GET orchestra/runs` | `[{run_id, created, state, workers, goal_what, cost_usd, models, elapsed_s, ended, stop_reason}]` (3.4.0.0 D: how it ended, its wall time and its lanes' models), newest first; `state` is `running`, `planned` (3.0.9.0: waiting for the reviewed plan), `finished`, `stopped`, `dry run`, `new` or `interrupted` |
 | `POST orchestra/run` | body `{what, done_when, stop_when, workers, return_cap, test, files, lineup, lead, worker, model?, dry_run?, review?}` (`review: true` = the goal's `plan: review`) -> `201 {run_id}`; an invalid goal is a 422 with `validate_goal`'s lines, a file that is not in the repo is a 422, and a second run while one is live is a 409 naming it |
 | `GET orchestra/<run>` | `{run, goal, workflow, split, lanes, claims (live), merge, report, dry_run, events_count, live}` |
 | `GET orchestra/<run>/events?since=N` | `{events, next}`: the run log from line N |

@@ -23,6 +23,34 @@ for anything that shouldn't be there before it's shared or pushed.
 - A real machine name, LAN address, account name, or hostname never
   appears in a commit -- see `halo audit privacy` below.
 
+## One redaction for everything that leaves
+
+**One redaction for everything that leaves (3.4.1.2).** The session export (Studio's Session -> Feed -> **Export**,
+`/export`, `halo session export`), `halo export --sanitize`, `/export --sanitize`, the report card's Markdown,
+`halo bugreport` and Record's page (3.6.0.3) all pass `halo_harness/privacy_redact.py`:
+the key shapes (now also Groq, xAI and Perplexity keys, JWTs, a token in a URL such as Studio's `#t=` or a pack's
+`?k=`, a bare random 30-character token, and the current values of your secret environment variables), then the paths
+and names: a path inside the project becomes project-relative (`a.txt`, `src/b.py`; the project itself `.`), any other
+path under your home `~/...`, in any spelling (either separator, any case of a Windows path, Git Bash's `/c/...`, WSL's
+`/mnt/c/...`), and your user name and machine name become `<user>` and `<machine>` -- also inside URLs, `user@host`,
+`..` paths, 8.3 short names (`JSMITH~1`), percent-encoded or full-width
+text, the agent ids, the plan's names and dict keys; only a path the project rule made relative keeps its words, and
+the title keeps your own. Control characters are dropped. `tests/test_privacy_redact.py` keeps the generator
+that attacks it (case, separators, encodings, look-alikes, every kind of field). Not caught: a name split across two
+fields, and look-alike letters NFKC does not fold (Cyrillic, Greek).
+
+**An account named by a common word (3.6.0.1).** When your account name is a generic word (`admin`, `user`, `dev`,
+`build`, `runner` ...), the redaction removes it in home folders and in logins only: `name@machine`,
+`machine\name` where `machine` is this computer's own name (a domain account such as `CORP\name` keeps the word), a
+share `\\machine\name`, an account slot of `ssh -l`, `sudo -u`, `docker -u`, `psql -U`, `mysql -u`, `runas` /
+`net use /user:` (wherever the command stands on the line), of `su`, `chown`, `id`, `passwd`, `groups`, `finger`,
+`useradd` and kin (at the start of a command), and keys such as `user=` or `owner=`. Other commands that take an
+account (`crontab -u`, `getent passwd`, `net user`) are not on that list. Anywhere else (an `ls -l` owner column, a
+process list, an `/etc/passwd` line, an ssh config `User` line, a role value, a path or route word, ordinary prose)
+the word stays, because there it cannot be
+told from the ordinary word, and a generic word identifies nobody. So if you want every occurrence gone, search the
+file for the word yourself before you share it.
+
 ## `halo audit privacy`
 
 Run it before sharing a checkout, opening a pull request from a fork, or

@@ -97,8 +97,8 @@ and its hub, left Halo in 3.5.0.0.
   Read / Edit deny rules cover more shell readers and writers.
 - A fleet member takes only what its part may read from a hub, never a configuration file, and a mission folder is
   never trusted. On Windows Halo never runs a program from the current folder by its bare name.
-- Replays, exports, report cards and bug reports pass one redaction (keys, paths, user and machine names, any
-  spelling), and a hostile replay file cannot crash Halo or write to your terminal.
+- The session export, the report card, the bug report and Record's page pass one redaction (keys, paths, user and
+  machine names, any spelling: docs/PRIVACY.md).
 
 ## Where keys live and who can read them
 

@@ -32,7 +32,9 @@ from halo_harness.redact import (  # noqa: F401 -- re-exported for every existin
 
 def cmd_export(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo export", add_help=True,
-                                      description="Export a session's transcript as JSONL (headless /export).")
+                                      description="The raw session log, JSON lines, for a script; keys are masked only with "
+                                                  "--sanitize. (The Markdown file a person reads is the session "
+                                                  "export: halo session export <id>.)")
     parser.add_argument("--session", default=None, metavar="ID",
                          help="Session id or unique prefix (default: the latest session for this directory)")
     parser.add_argument("--sanitize", action="store_true",

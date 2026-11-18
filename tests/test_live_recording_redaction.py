@@ -90,6 +90,39 @@ def test_the_page_still_holds_everything_play_draws(ctx: Ctx):
 
 
 @test
+def test_when_the_redactor_fails_record_writes_nothing(ctx: Ctx):
+    """3.6.0.3 B (file 08, a should): Record's failure path. When the redactor raises, or says it could not clean the
+    session (`_sanitize_error`), Record raises a plain error and writes no page -- never an unredacted one."""
+    from halo_harness import privacy_redact
+    from halo_harness.live import recording
+    real = privacy_redact.redact
+
+    def boom(*_a, **_k):
+        raise RuntimeError("the redactor broke")
+
+    def gave_up(node, *_a, **_k):
+        return {"_sanitize_error": "too deep"}
+    with _home() as state:
+        _path, hist = _seeded(state)
+        for name, fake, want in (("raises", boom, "the redactor broke"),
+                                 ("gives up", gave_up, "the redactor could not clean this session; nothing was written")):
+            privacy_redact.redact = fake
+            try:
+                try:
+                    recording.write(state, hist, harness="local")
+                    said = None
+                except Exception as e:  # noqa: BLE001 -- the error the person gets
+                    said = str(e)
+            finally:
+                privacy_redact.redact = real
+            ctx.check(f"the redactor {name}: Record raises a plain error, got {said!r}", said == want)
+            folder = Path(state) / recording.DIR
+            pages = sorted(folder.glob("*")) if folder.is_dir() else []
+            ctx.check(f"the redactor {name}: no page is written, got {[p.name for p in pages]}", not pages)
+        ctx.check("with the real redactor the page is written again", recording.write(state, hist, harness="local").is_file())
+
+
+@test
 def test_the_export_masks_the_same(ctx: Ctx):
     """The session export of the same session (session_trace, the export's three doors) masks the key and the home."""
     from halo_harness.session_trace import trace_markdown

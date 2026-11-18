@@ -78,8 +78,8 @@ COMMANDS = (
     _c("gym", "halo_harness.gym_cli:cmd_gym", MODELS, "measure models at each kind of task"),
     _c("work-matrix", "halo_harness.work_matrix:cmd_work_matrix", MODELS, "one short call through every work endpoint"),
 
-    _c("session", "halo_harness.session_trace_cli:cmd_session", RECORDS, "a session's Markdown trace"),
-    _c("export", "halo_harness.export_cli:cmd_export", RECORDS, "a session's conversation as text, for a script"),
+    _c("session", "halo_harness.session_trace_cli:cmd_session", RECORDS, "the session export: a session as one Markdown file"),
+    _c("export", "halo_harness.export_cli:cmd_export", RECORDS, "the raw session log, JSON lines, for a script"),
     _c("stats", "halo_harness.stats_cli:cmd_stats", RECORDS, "tokens, cost and tools across sessions"),
     _c("report", "halo_harness.report_cli:cmd_report", RECORDS, "a finished run's report card"),
     _c("timeline", "halo_harness.bugreport_timeline_cli:cmd_timeline", RECORDS, "the timing of the last turns"),

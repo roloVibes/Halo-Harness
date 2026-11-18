@@ -356,7 +356,7 @@ def test_a_listed_account_slot_counts_behind_a_path_a_prefix_or_a_trace(ctx: Ctx
 
 @test
 def test_a_generic_word_outside_home_folders_and_logins_is_the_documented_limit(ctx: Ctx):
-    """3.6.0.1 jf-words batch 3, the coordinator's ruling (docs/REPLAY.md): for an account named by a common word the
+    """3.6.0.1 jf-words batch 3, the coordinator's ruling (docs/PRIVACY.md): for an account named by a common word the
     scrub removes the name in home folders and logins only; in an `ls -l` owner column, a process list, an ssh config
     `User` line or a `role:` value it cannot be told from the ordinary word and stays. An uncommon name goes there as
     in 3.6.0.0. Pinned so the limit is not 'fixed' by accident."""

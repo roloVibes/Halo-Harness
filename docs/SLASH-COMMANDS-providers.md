@@ -181,14 +181,13 @@ a one-line transcript note, at most once a day, when one is already known
 to be available -- see `docs/INSTALL.md`'s "Update" section.
 
 ### `/export` `[TUI-only]`
-In `-p`, prints a note that export needs the TUI's file picker (use
-`halo export` or `halo session export <id>` instead -- see `docs/COMMANDS.md`).
-In the TUI, `/export [--sanitize] [path]` writes the session as one Markdown
-trace (3.3.0.0: the header with the totals, then one entry per row -- prompts,
+In `-p`, a single turn has no session to export: it says to use `halo session export <id>`
+(see `docs/COMMANDS.md`). In the TUI, `/export [--sanitize] [path]` writes **the session export**, the session
+as one Markdown file (3.3.0.0: the header with the totals, then one entry per row -- prompts,
 text, tool calls and their results trimmed to 40 lines, steers, nudges,
 permission answers, turn ends, compactions, errors -- keys masked, home paths
-as `~`), beside the session log as `halo-trace-<session id>-<yyyy-mm-dd-hhmm>.md`
-unless you name a path, and says the path. It is the same file
+as `~`), beside the session log (`~/.halo/sessions/<project-slug>/`) as
+`halo-trace-<session id>-<yyyy-mm-dd-hhmm>.md` unless you name a path, and says the path. It is the same file
 `halo session export <id>` and Studio's **Export** write
 ([Studio: steering and exporting a session](STUDIO-session.md)); `Ctrl+X Ctrl+S` runs it too.
 

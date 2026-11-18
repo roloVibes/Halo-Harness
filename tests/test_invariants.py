@@ -640,7 +640,8 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     cli_src = (REPO_DIR / "halo_harness" / "cli.py").read_text(encoding="utf-8")
     from halo_harness.cli_commands import COMMANDS  # 3.6.0.0 R16: cli.py dispatches from the one registry
     names = [c.name for c in COMMANDS if c.kind != "retired"]
-    names += [m.group(1) for m in _re.finditer(r'argv\[0\] == "([a-z-]+)"', cli_src)]
+    retired = {c.name for c in COMMANDS if c.kind == "retired"}  # 3.6.0.3 B (Z12): cli.py's own branch for `replay` only says it left
+    names += [m.group(1) for m in _re.finditer(r'argv\[0\] == "([a-z-]+)"', cli_src) if m.group(1) not in retired]
     for name in names:
         if name in ("main", "audit"):
             continue

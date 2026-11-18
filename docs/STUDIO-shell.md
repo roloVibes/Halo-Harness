@@ -13,8 +13,8 @@ folded Team, Roles and Orchestra into Agents (R1, [STUDIO-agents.md](STUDIO-agen
 `ui/src/routes/index.tsx`: the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each section's
 **How this works** and the status bar's key hint all read it. Session is this session, live (the live pieces scoped
 to this harness, [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
-session of this harness is live. Agents is four tabs: make an agent, steps of agents (workflows), the Map that connects them (the plan; what ran is replayed there, a goal run too) and Live, what a session is doing now drawn on its map ([Agents](STUDIO-agents.md), a goal run: [on the Map and in
-History](STUDIO-orchestra.md)); Packs is `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)). A
+session of this harness is live. Agents is four tabs: make an agent, steps of agents (workflows), the Map that connects them (the plan, and a goal run's pages) and Live, what a session is doing now drawn on its map ([Agents](STUDIO-agents.md), a goal run: [on the Map and its
+report](STUDIO-orchestra.md)); Packs is `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)). A
 pack's own sections come after the core ones (the first on `Alt+7`); one may be drawn whole by the pack's own module
 (3.3.13.0 R2: a view, as the design pack's Design section is: [EXTENSION_API.md](EXTENSION_API.md#a-sections-view)).
 The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section is part of the shell.

@@ -82,7 +82,7 @@ background: its chain is not followed" on its line while it runs).
 ## What a session on a map says as it runs
 
 So Studio's Map can light up (3.6.0.0 R4, [STUDIO-map.md](STUDIO-map.md#while-a-session-runs-4--live)), a session on a map
-sends three frames on its feed, and keeps the first two in its log as `receipt` nodes (kind `map`) so History replays
+sends three frames on its feed, and keeps the first two in its log as `receipt` nodes (kind `map`) so the log holds
 the same events (`crew/map_events.py`):
 
 | Frame | Data | When |

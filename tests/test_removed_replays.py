@@ -13,8 +13,9 @@ Z4 batch 4 (this file's first scope) is Studio's UI source, halo_harness/studio/
 bundle is not in it). Z4 batch 5 (files 06 and 07) widened it to Halo's Python (PY_SCOPE: every string constant of
 every .py under halo_harness/, the first-run pack's too, by an ast scan; docstrings and comments, which no person reads,
 left out; a pack's own tests/ skipped like tests/) with its skip lines (R-B3's list, the retired-verb line of Z12, one
-line per other sense); a skip's glob may be a tuple of globs. Z4 batch 6 widens it to the glossaries, README.md and
-docs/ (not docs/harness/, plans/, CHANGELOG.md, tests/) and takes out glossary.py's temporary line. Below the word
+line per other sense); a skip's glob may be a tuple of globs. Z4 batch 6 (file 08) widened it to README.md, docs/
+(not docs/harness/, plans/, CHANGELOG.md, tests/; the four dated records in DATED are skipped whole: a dated record,
+not a guide), both glossaries and the first-run pack's text, and took out glossary.py's temporary line. Below the word
 test: the server's and the terminal's own checks of files 06 and 07.
 Run: python -m tests.test_removed_replays
 """
@@ -33,8 +34,18 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 WORDS = re.compile(r"replay|scrubber|halo-replay|\bHistory\b|\bCompare\b|Back to now|What happened|\bclip\b", re.I)
 
-# (a folder of the repo, the file patterns read in it)
-SCOPE = [("halo_harness/studio/ui/src", ("*.ts", "*.tsx", "*.css"))]
+# (a folder of the repo -- or one file --, the file patterns read in it)
+SCOPE = [("halo_harness/studio/ui/src", ("*.ts", "*.tsx", "*.css")),
+         # Z4 batch 6 (file 08): every line a person reads in the docs, the front page and the templates' text
+         ("README.md", ("README.md",)),
+         ("docs", ("*.md", "*.html", "*.txt")),
+         ("halo_harness/templates/glossary", ("*.md",)),
+         ("halo_harness/templates/packs/first-run", ("*.md", "*.yaml", "*.js"))]
+#: not read: the harness's own design records (docs/harness/), and the four dated records in docs/ -- what they say was
+#: true on their date; a person reads them as history of the project, not as a guide to Halo today
+DOC_NOT = ("docs/harness/*",)
+DATED = ("docs/design-review-2026-09-23.md", "docs/review-findings-m4-6.md", "docs/m4-6-brief.md",
+         "docs/design/studio-instrument/CLAUDE-CODE-PROMPT.md")
 
 UI = "halo_harness/studio/ui/src/"
 # (a glob of the file, relative to the repo; a regex of the line; the reason it keeps its word)
@@ -156,17 +167,91 @@ SKIP += [
      "the live session's history route that Session and the Map read (and its module, halo_harness.live.history): it stays"),
     ((PY + "tui/*", PY + "agent/image_attach.py"), r"clip\.exe|halo-clip-|^clip-\*?$",
      "the clipboard: clip.exe and a pasted image's halo-clip- / clip- file name"),
-    # glossary.py:49 -- Z4 batch 6 (file 08, Z15) removes the entry and this line
-    (PY + "glossary.py", r".*", "TEMPORARY: the glossary's `replay` entry; Z4 batch 6 (Z15) removes it and this line"),
+]
+
+
+#: Z4 batch 6 (file 08): README.md, docs/ and the templates' text. Each line names its files and its words.
+D = "docs/"
+SKIP += [
+    # R-B3: not part of this cut
+    ((D + "ARCHITECTURE*.md", D + "README.md", D + "DATABRICKS.md", D + "HANDBOOK.md", D + "MODELS-families.md",
+      D + "MODELS-ollama.md", D + "MODELS-openai-codex.md", D + "COMMANDS-providers.md", D + "COMMANDS-health.md",
+      D + "DEVELOPMENT.md", D + "TROUBLESHOOTING.md"),
+     r"(?i)(is_)?reasoning[-_ ]replay\w*|replayed signature|replay format|no known replay|the same replayed message|"
+     r"on every replay|^\s*replay;|replaying whatever|on replay\b|documented replay shape|"
+     r"never replayed on (a later request|the wire)|replay machinery|replays as|replays its own history|"
+     r"replaying it would need|malformed replay of its own|a tool_use to replay",
+     "R-B3: reasoning replay in the providers (a model's reasoning and messages sent back on the next request)"),
+    ((D + "COMMANDS-main-io.md", D + "HANDBOOK.md"), r"--replay-user-messages", "R-B3: --replay-user-messages (Claude Code's flag)"),
+    ((D + "COMMANDS-main-misc.md", D + "SLASH-COMMANDS-tui.md"), r"`/intro` replays|Replays the 2\.0\.0 launch intro|replay it into",
+     "R-B3: /intro replays the launch intro"),
+    ((D + "HOST.md", D + "VOICE-glasses.md"), r"(a|the) replay guard", "R-B3: the peers' and the glasses' replay guards"),
+    (D + "SLASH-COMMANDS-session.md", r"replayed into a later request",
+     "R-B3: the transcript replay (nothing a slash command shows is sent to the model again)"),
+    # other senses of the words
+    ((D + "GOVERNOR.md", D + "MODELS-experiential.md"), r"^replay, for instance|idempotency_replay_unavailable",
+     "a gateway's idempotency replay (the earlier answer to the same request key)"),
+    (D + "WORK.md", r"replays each engine's real|fixture history|`history`",
+     "a test feeding a recorded fixture through the work states, and a lane's `history` wire key"),
+    ((D + "ORCHESTRA.md", D + "SUPERVISE.md"), r'"history":|the lane\'s history|its file keeps its history',
+     "a lane's history, a wire key of a goal run's lane (each state it went through)"),
+    ((D + "SUPERVISE.md", D + "COMMANDS-supervise.md", D + "ARCHITECTURE-modules.md"),
+     r"goal's first history line|retries, limits and history|supervise/history\.jsonl|its history lines|"
+     r"supervise/history\.py` \(the history log",
+     "a goal's history under the supervisor (its rounds and decisions)"),
+    ((D + "PRIVACY.md", D + "COMMANDS-health.md", D + "DEVELOPMENT.md", D + "README.md", D + "REVIEW.md"),
+     r"(?i)--history|history[- ]rewrite|in history|from history|Halo's own history|2\.0\.4-history-|a history\b|"
+     r"project's (own )?(build )?history|build[- ]history|the history of|this project's history|its history\)",
+     "git history and this project's own history (`halo audit privacy --history`, docs/harness/, the dated records)"),
+    ((D + "COMMANDS-packs.md", D + "PACKS.md", D + "EXTENSION_API.md"), r"(version )?history on disk",
+     "a pack update keeps no version history on disk"),
+    (D + "COMMANDS-mcp.md", r"`~/\.claude\.json` history", "Claude Code's own project history in ~/.claude.json"),
+    ((D + "CONFIG.md", D + "STUDIO-session.md", D + "SLASH-COMMANDS-keys.md"),
+     r"history\.jsonl|own prompt history|session's history \(kept in this browser|\(history search\)|walk prompt history",
+     "prompt history: Ctrl+R searches it, Up / Down walk it (history.jsonl; Studio's Prompt box keeps its own)"),
+    (D + "SLASH-COMMANDS-tui.md", r"shadow history", "/undo and /redo walk the file-edit history /rewind uses"),
+    (("README.md", D + "ARCHITECTURE*.md", D + "GLOSSARY.md", "halo_harness/templates/glossary/GLOSSARY.md",
+      D + "MODELS-*.md", D + "LOCAL-MODELS.md", D + "SLASH-COMMANDS-session.md", D + "STUDIO-sections.md",
+      D + "STUDIO-session.md", D + "STUDIO-builder.md"),
+     r"the history, tools and rules|no prior history|own history stays|from history every single time|"
+     r"fits history to|history holds images|a history larger than|The history fitted|holds the history|"
+     r"converted history|in the history go as text|switch fits the history|tools_schema, history|"
+     r"the history were the old model's|history-less|\(`history`|· history \d|tools, history, you|"
+     r"session's recent history|conversation_id, history|tool calls still in the history",
+     "the conversation so far (a prompt's part, a digest's input, the model's window, the builder's turns)"),
+    ((D + "ARCHITECTURE-modules.md", D + "STUDIO-live-panels.md"), r"live/history\.py|`conflicts` and `history`",
+     "the live session's history route that Session and the Map read (live/history.py): it stays"),
+    (D + "STUDIO-orchestra.md", r"`history-report`", "the goal run report page's test id history-report (kept by batch 1)"),
+    (D + "STUDIO-agents.md", r"`\?mode=agents&replay=<id>`|An old replay link opens the Map as it is now\.",
+     "Z7: an old replay link opens the Map as it is now (the door's row says so)"),
+    ((D + "EXTENSION_API.md", D + "INSTALL.md", D + "MAC.md", D + "MEDIA.md", D + "MODELS-catalog.md", D + "ORCHESTRA.md",
+      D + "VOICE-glasses.md"),
+     r"compare release numbers|compare its hashes|Compare the two cards|compare with the committed ones|"
+     r"nothing to compare it against|judge compare the deliverables|The compare\*\*|After the compare|"
+     r"reference to compare an app",
+     "compare in other senses (version ranges, hashes, two `halo doctor` cards, SVGs, the coach's judge)"),
+    ((D + "COMMANDS-packs.md", D + "EXTENSION_API.md", D + "MODELS-cards.md", D + "PACKS.md", D + "PROVIDERS-copilot.md",
+      D + "SLASH-COMMANDS-tui.md", D + "TROUBLESHOOTING.md", D + "ORCHESTRA.md"),
+     r"(?i)(said with|saying|says|told) what happened|\| What happened \|",
+     "'what happened' in plain prose (an error line's table, a status line), not a drawer page's title"),
+    ((D + "COMMANDS-sessions.md", D + "GLOSSARY.md", "halo_harness/templates/glossary/GLOSSARY.md"),
+     r"what failed and what happened next",
+     "the report card's own heading (the same in Studio's card and in `halo report`)"),
+    ((D + "SLASH-COMMANDS-tui.md", D + "TROUBLESHOOTING.md", D + "COMMANDS-sessions.md"), r"clip\.exe|`clip` on Windows",
+     "the clipboard: Windows' clip.exe"),
+    (D + "COMFYUI.md", r"render\.mp4` \(a clip\)", "a video clip a ComfyUI artboard renders"),
 ]
 
 
 def _files():
     for folder, pats in SCOPE:
         root = REPO / folder
-        for p in sorted(root.rglob("*")):
+        for p in sorted(root.rglob("*")) if root.is_dir() else [root]:
+            rel = p.relative_to(REPO).as_posix()
+            if any(fnmatch.fnmatch(rel, g) for g in DOC_NOT) or rel in DATED:
+                continue
             if p.is_file() and any(fnmatch.fnmatch(p.name, pat) for pat in pats):
-                yield p.relative_to(REPO).as_posix(), p
+                yield rel, p
 
 
 def _strings(src: str) -> "list[tuple[int, str]]":
@@ -257,6 +342,27 @@ def test_studio_names_no_replay_and_no_history(ctx: Ctx):
     hits, _used = scan()
     sep = "\n    "
     ctx.check(f"{len(hits)} lines name a replay, the scrubber, History, Compare, Back to now, What happened or a clip:"
+              + sep + sep.join(hits[:80]), not hits)
+
+
+@test
+def test_the_docs_read_what_stays_and_the_scope_holds(ctx: Ctx):
+    """Z6 widened (file 08): README.md, docs/ (not docs/harness/) and the templates' glossary and first-run pack are read
+    line by line; the four dated records are skipped whole and must exist (a skip of a gone file would rot); README's
+    old sentence about History would be a hit."""
+    seen = {rel for rel, _p in _files()}
+    for rel in ("README.md", "docs/GLOSSARY.md", "docs/STUDIO-map.md", "halo_harness/templates/glossary/GLOSSARY.md",
+                "halo_harness/templates/packs/first-run/README.md"):
+        ctx.check(f"the word test reads {rel}", rel in seen)
+    ctx.check("the word test does not read docs/harness/", not any(r.startswith("docs/harness/") for r in seen))
+    for rel in DATED:
+        ctx.check(f"the dated record {rel} exists and is not read", (REPO / rel).is_file() and rel not in seen)
+    ctx.check("docs/REPLAY.md is gone", not (REPO / "docs" / "REPLAY.md").exists())
+    old = "what is going on). A finished run moves to History under the map, with its report and a replay."
+    ctx.check("README's old sentence about History would be a hit", WORDS.search(_left("README.md", old)) is not None)
+    hits = [h for h in scan()[0] if not h.startswith(UI)]
+    sep = "\n    "
+    ctx.check(f"{len(hits)} doc lines name a replay, the scrubber, History, Compare, Back to now, What happened or a clip:"
               + sep + sep.join(hits[:80]), not hits)
 
 

@@ -1304,7 +1304,8 @@ def _cmd_update(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_export(args: str, facade: HeadlessFacade) -> str:
-    return "Export needs the interactive TUI's file picker; nothing to export from a single -p turn."
+    return ("A single -p turn has no session to export here. To keep a session as one Markdown file (the session "
+            "export): halo session export <id>")
 
 
 def _cmd_add_dir(args: str, facade: HeadlessFacade) -> str:

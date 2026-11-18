@@ -1,6 +1,6 @@
 # Studio: steering and exporting a session
 
-Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
+Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown file (the session export), or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
 
 Part of [Halo Studio](STUDIO.md), which lists every part. The rest of the Session section (the map, Cost, the view bar's drawers) is in [Session](STUDIO-sections.md#session).
 
@@ -115,13 +115,13 @@ title line shows Live alone, with the whole stage -- the Feed stays open behind 
 this** on the Feed puts Live aside; **Show both** (or Live's button in the view bar) brings both back. The view bar says
 "Live only", "Feed only" or "Live and Feed", and Session remembers it.
 
-## Export: the session as a trace file
+## Export: the session export, one Markdown file
 
 **Export** sits on the Live column's header and on its timeline strip. It
 saves the chosen session as one Markdown file the browser downloads,
 `halo-trace-<session id>-<yyyy-mm-dd-hhmm>.md`:
 
-- a header: the session id, the model and the lineup, when it started and
+- a header: the session id, the model, when it started and
   ended, the totals (turns, tool calls, tokens in and out, cost);
 - then one `###` entry per row, in time order, each led by the clock and
   the agent with its tier and model: a user prompt, the assistant's text, a
@@ -142,7 +142,7 @@ The file carries no provider key (every text passes the same redactor as
 The same bytes come from the terminal: `halo session export <id>` writes the
 file in the current folder (`--md FILE` names it, `--md -` prints it; see
 [`halo session export`](COMMANDS-sessions.md#halo-session-export)), and `/export`
-in the TUI writes it beside the session log and says the path. Studio
+in the TUI writes it beside the session log (`~/.halo/sessions/<project-slug>/`) and says the path. Studio
 serves it at `GET /api/sessions/<sid>/trace.md` (`text/markdown`), behind
 the same token as every route.
 

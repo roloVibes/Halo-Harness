@@ -85,13 +85,14 @@ def test_a_finished_runs_door_opens_its_own_report_page_in_headless_chrome(ctx: 
         raise SkipTest("no Chrome found (the run smoke needs headless Chrome)")
     r, info = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    ctx.check(f"the run's report on its own page, got {info}", info.get("history-report") == 1 and info.get("history-page") == 0
-              and info.get("live-history-drawer") == 0 and info.get("report-check") == 8 and info.get("report-lane") == 5)
+    ctx.check(f"the run's report on its own page, got {info}", info.get("run-report-page") == 1 and info.get("history-report") == 1
+              and info.get("report-check") == 8 and info.get("report-lane") == 5)
+    ctx.check(f"the capture counts only testids Studio still has (3.6.0.3 B), got {sorted(info)}",
+              not {"history-page", "live-history-drawer", "history-report-replay", "orchestra-root", "start-view"} & set(info))
     ctx.check(f"the drawer's page is report:<id>, titled 'Goal run', got {info.get('drawer_page')!r} / {info.get('drawer_title')!r}",
               str(info.get("drawer_page")).startswith("report:") and info.get("drawer_title") == "Goal run")
-    ctx.check(f"Run it again on it and no Replay (3.6.0.3 B), got {info}", info.get("history-report-replay") == 0 and info.get("history-report-again") == 1)
-    ctx.check(f"nothing finished on the Map's line, no console, got {info}", info.get("map-lit-run") == 0
-              and info.get("orchestra-root") == 0 and info.get("start-view") == 0 and info.get("section-tab") == 6)
+    ctx.check(f"Run it again on it (its Replay left Studio in 3.6.0.3 B), got {info}", info.get("history-report-again") == 1)
+    ctx.check(f"nothing finished on the Map's line, got {info}", info.get("map-lit-run") == 0 and info.get("section-tab") == 6)
     plan, old = info.get("plan") or {}, info.get("old_door") or {}
     ctx.check(f"a planned run: the Map says a goal run is going, nothing open, got {plan}", plan.get("map-lit-run") == 1
               and plan.get("run-review") == 0 and plan.get("orchestra-plan") == 0 and plan.get("run-goal-drawer") == 0)

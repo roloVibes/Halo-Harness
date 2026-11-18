@@ -36,7 +36,7 @@ once, in the terminal and in Studio's Attention: they are no longer read, and wh
 | a square / block (`halo workflow`, `halo blocks`, the board) | a workflow (`~/.halo/crew/workflows/*.yaml`): `halo workflows new <name> --from <starter>`, Agents -> 2 · Workflows |
 | `halo teams`, `halo roles`, `halo blocks`, `halo workflow`, `/teams`, `/roles` | each prints one line saying where to go, and exits 0 |
 | the Cast canvas, Live, the Board, the Lineups / Bios / Inspector / Problems / Models panels | the tabs: 1 · Agents, 2 · Workflows, 3 · Map (the plan) and, since 3.6.0.2, 4 · Live (a session's run drawn on its map) |
-| Live's node menu: Take over, Pin its stream, Record | Take over: a button in the Map's drawer beside Pause; Pin: the drawer's filter by box; Record: the scrubber's "Save this run's replay" |
+| Live's node menu: Take over, Pin its stream, Record | Take over: a button in the Map's drawer beside Pause; Pin: the drawer's filter by box; Record: Session's Agent panel, **Record** (this session as one HTML page you can open anywhere) |
 | a lineup's schedules and triggers, tiers, pipeline gates, escalation, shared memory, isolation and secrets | not carried: a map has lines and a money cap (`caps.session_usd`); the run engine keeps its own worktrees |
 | `halo doctor --teams` | `halo doctor --agents` checks your agent files and the map in use |
 | `halo local warm <lineup>`, `halo local place <lineup>` | the same verbs take a map (the one in use when none is named) |
@@ -69,7 +69,7 @@ bios are read as agents, its lineups as maps and its plain workflows as workflow
 
 ## Other machines
 
-A session running on another of your machines is listed (on the Map's picker and in History) and opened on that
+A session running on another of your machines is listed (on the Map's picker) and opened on that
 machine; Studio here does not light it.
 
 ## Also new in 3.6

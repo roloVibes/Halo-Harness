@@ -1,6 +1,6 @@
 # Studio: Agents -> 3 · Map and 4 · Live (3.6.0.2)
 
-Read this when you connect your agents and workflows on Studio's Map tab, add a box, draw a line and say when it hands work on, keep more than one map, pick the map new sessions run on, lock a map, watch a session's run in 4 · Live, or replay a past run on the map.
+Read this when you connect your agents and workflows on Studio's Map tab, add a box, draw a line and say when it hands work on, keep more than one map, pick the map new sessions run on, lock a map, or watch a session's run in 4 · Live.
 
 Part of [Halo Studio](STUDIO.md); the agents are made in [1 · Agents](STUDIO-builder.md), the workflows in
 [2 · Workflows](STUDIO-workflows.md); what a session does with a map is [How a session runs on a map](CREW-sessions.md),
@@ -132,22 +132,14 @@ comes or goes), each with **Watch it in Live**:
   another map, the draft or a When card open, the row says "{B} was just built in {session} at {t}." with **Open it**.
   The map you have open, changed by a build, is re-read in place, keeping your When card, your pick and your zoom.
 
-The Map keeps its own right drawer for **Run a goal**, a goal run's pages and History's whole list; a goal run going is
-named in its top line ("A goal run is going: <its goal>", **Open**), and with nothing running and a finished run in
-History it offers **Replay the last session**.
+The Map keeps its own right drawer for **Run a goal** and a goal run's pages (**Goal run**: its plan review, its
+lanes, and once it ended its report); a goal run going is named in its top line ("A goal run is going: <its goal>",
+**Open**). The Map draws the plan and what runs now; it never draws the past. A finished goal run's report is its own
+page, **Goal run** (from the palette or the run's link); a finished session is exported from Session's LAST SESSIONS
+rows (**export**) or with `halo session export <id>`.
 
 Session's left drawer is **Live** too, the same drawing in Session ([STUDIO-session.md](STUDIO-session.md)), with
 **Open in Agents -> Live**.
-
-## History
-
-Under the map: a picker of finished runs, newest first, **Replay it on the map**, and **Report card** (from the
-record, no model call). A replay lights the map the run ran on (it opens that map when it is another), in quiet
-colours, and the scrubber under it moves it: drag, Play at 1x / 4x / 16x, Now (the same scrubber Live had). A box the
-run used that the map no longer has shows dashed under Not connected yet, "removed since". A run that did not start
-on a map replays as main and its helpers. **Back to now** returns to the plan.
-
-![A past run replayed on the map in quiet colours, the scrubber under it, a box the map no longer has "removed since"](media/studio-map-replay.png)
 
 ## Routes
 
@@ -159,7 +151,7 @@ on a map replays as main and its helpers. **Back to now** returns to the plan.
 | `POST crew/map/<name>/use {on}` | config `crew.map`: `{undo_id, in_use}` |
 | `DELETE crew/map/<name>` | yours only (a starter or the project's: 409) |
 | `POST crew/from-live {session, agent_id}` | Save as an agent: `{agent, from, problems, line}`, an unsaved agent body built from a session's helper; writes nothing |
-| `GET live/replay?session=<id>` | the replay's time axis, plus `map` (the map it ran on) and `map_events` (its hand-offs and steps, from its log) |
+| `GET live/report?ref=session:<id>` (or `run:<id>`) | a finished run's report card: `{card, markdown, story_all}`; 404 when the ref names nothing (an old saved file too) |
 | `GET fleet` session rows, `/api/events` | `map` on each row; the frames `map_hop`, `map_step`, `map_card` ([CREW-sessions.md](CREW-sessions.md#what-a-session-on-a-map-says-as-it-runs)) |
 
 Every write is owner-only and keeps its before-image (`POST builder/undo {undo_id}` puts it back); `crew/from-live` is owner-only too, though it writes nothing (it reads a session's agent).

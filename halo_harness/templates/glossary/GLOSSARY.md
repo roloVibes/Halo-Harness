@@ -45,7 +45,7 @@ A block (3.3.16.3) was one titled box on 3.5 Studio's Agents canvas with a purpo
 
 ## lane
 
-A lane is one worker's share of an Orchestra run: one job of the plan, with its claims, its own git worktree and branch, its state (joined, writing, written, in review, merged, or waiting when its piece came back), how often its piece came back and what it cost. `halo orchestra lanes` lists them; while the run runs, Studio's Agents -> Live draws them as boxes under the run's lead (state, model, cost, what each owns), and a finished run's report in History lists them.
+A lane is one worker's share of an Orchestra run: one job of the plan, with its claims, its own git worktree and branch, its state (joined, writing, written, in review, merged, or waiting when its piece came back), how often its piece came back and what it cost. `halo orchestra lanes` lists them; while the run runs, Studio's Agents -> Live draws them as boxes under the run's lead (state, model, cost, what each owns), and a finished run's report (its own page, Goal run) lists them.
 
 
 ## step
@@ -446,17 +446,13 @@ Agent talk (3.3.16.2) is one agent's words to another, a TALK row in Studio's Li
 
 A consult role (3.3.17.0) is a role whose model takes no tools: it answers from what it holds and hands the answer back, and the agent loop offers it no tool. A role on `cp:work`, your work's Microsoft 365 Copilot, is one: Copilot holds your mail, meetings, chats and files, so a lineup card or a bio that asks for the need `work-data` (`models.needs: [work-data]`) runs on it once you are signed in, while Auto never puts it in a role that needs tool calls. Any agent can also ask Copilot through the `copilot_ask` tool (docs/PROVIDERS-copilot.md).
 
-## replay
-
-A replay (3.3.18.0; 3.4.1.0 with time) is something that already happened -- a session, a goal run or a saved `.halo-replay` file -- drawn on Studio's Agents -> Map as it was at the moment the scrubber under the map stands on: opened from History under the map (newest first: what it was, when, how long, its cost, how it ended; Open a file takes one from disk) or the empty state's Replay the last session, on the Map, under a "replay -- <time>" banner, in muted colours, never the live ones. Drag the scrubber to any moment, Play at 1x / 4x / 16x, Now returns to what runs. Save this run's replay writes it as one file (`halo replay save`) that `halo replay open` opens on any machine; Export a clip films a range as one animated file (docs/REPLAY.md). The scrubber is the one replay control: Cast's replay bar went in 3.4.1.0. A goal run saves as a file too, and History compares two runs -- tick two rows, Compare: their lanes over one axis, the rows with the better figure named by a word, three "what differed" lines (`halo replay compare`; 3.4.1.0 R2).
-
 ## waiting path
 
 The waiting path (3.3.18.0) is the chain on Studio's Agents -> Map from main down to whatever the whole session waits on now: an agent that waits on you first, else main's own wait followed through the agents it waits on, down to a tool, a model reply or an ask. It is drawn as a brighter hairline on those boxes and lines, and the sentence under the bar says it ("waiting on: reviewer -> Bash pytest", with its seconds beside it); a click on the sentence centres that agent. Each live agent's box also says what it waits on: you, a tool, a model reply, another agent, or nothing (working).
 
 ## report card
 
-A report card (3.4.1.0) is one finished run -- a session, a goal run or a saved `.halo-replay` file made on any machine -- told from its record, never hand-written and with no model call: how it ended and its nine figures (the ones Compare's rows show), the story in about ten lines (who was asked what, what each handed back), where the time went (by phase and by block), where the money went (by model and by block), what failed and what happened next, what waited on you and for how long, which model did what, the files it wrote, and what the record cannot show, said in words. A cost Halo cannot price is "unknown" or the priced part with a "+", never $0. It opens from a History row's Report door and from Live's row for the session that ended; a goal run's card is the first block of its report page. `halo report <session|run|file>` prints it as Markdown (`--json` its data; docs/REPLAY.md "The report card").
+A report card (3.4.1.0) is one finished run -- a session or a goal run -- told from its record, never hand-written and with no model call: how it ended and its nine figures, the story in about ten lines (who was asked what, what each handed back), where the time went (by phase and by block), where the money went (by model and by block), what failed and what happened next, what waited on you and for how long, which model did what, the files it wrote, and what the record cannot show, said in words. A cost Halo cannot price is "unknown" or the priced part with a "+", never $0. A finished goal run's card is the first block of its own page in Studio, Goal run (in the Map's drawer); `halo report <session|run>` prints a session's or a goal run's card as Markdown (`--json` its data; docs/COMMANDS-sessions.md "The report card").
 
 ## glance
 

@@ -71,7 +71,7 @@ this list against the tree.
 - Live (this machine's sessions): `studio/live_agents_api.py` (agent
   commands on a live session), `studio/live_api.py` (the `live/*` routes), `studio/live_panels_api.py` (attention, costs, caps, conflicts), `studio/live_answer.py`
   (one key on an attention row), `studio/live_handoff_api.py` (an agent's hand-off),
-  `studio/live_recording_api.py` (flight recordings, the replay's time axis), `studio/live_report_api.py` (the run report card's `live/report`), `studio/live_watch.py` (the watcher),
+  `studio/live_recording_api.py` (Record: a session's flight recording as one HTML page), `studio/live_report_api.py` (the run report card's `live/report`), `studio/live_watch.py` (the watcher),
   `studio/live_watch_sources.py` (what it reads), `studio/live_feed.py` (its tap on the live feed),
   `studio/live_send.py` (a session command)
 - the one unit view (3.1.2.0): `studio/work_api.py`
@@ -125,9 +125,9 @@ try, and a workflow's `run` on the step runner).
   `live/crew_attention.py` (3.6.0.0 R1: a Try it run that ended unseen)
 - `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
   `live/recording.py`, `live/recording_page.py`
-- the report card (3.4.1.0 R3; 3.6.0.3 B: the old playback is gone -- its saved files, the clip, Compare, `halo replay`):
+- the report card (3.4.1.0 R3):
   `live/card_data.py` + `live/card_run.py` + `live/card_facts.py` + `live/card_timeline.py` (the report card's
-  data: a session's or a goal run's record), `privacy_scrub.py` (the export's and the bug report's redaction: paths
+  data: a session's or a goal run's record), `privacy_scrub.py` (the export's, the bug report's and Record's redaction: paths
   project-relative or `~/...`, the user and machine names out; 3.4.1.3: a name or a path an excerpt cut in half is
   still rewritten), `browser_find.py` (the browser finder realcheck uses);
   `live/report_card.py` + `live/report_card_sections.py` + `live/report_card_text.py` (the run report card and its

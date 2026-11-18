@@ -139,14 +139,12 @@ Start view `ui/src/routes/orchestra/Start.tsx`; the help copy
 `lib`); the safe markdown is `ui/src/lib/markdown.tsx`; tests the pack's own `tests/` and the Chrome checks in
 `tests/helpers/studio_design.py` (`tests/test_pack_design_ui.py`). Agents (3.6.0.0 R5: three tabs; Roles' canvas, Cast and Live went) is
 `ui/src/routes/crew/` (1 · Agents `Crew.tsx`, 2 · Workflows `flows/`, 3 · Map `map/`, a goal run's pages `run/`,
-History and the replay `live/`, the model list `models/`) and `ui/src/routes/agents/` (the tab bar and the doors);
+the report card and the live drawing's pieces `live/`, the model list `models/`) and `ui/src/routes/agents/` (the tab bar and the doors);
 tests: `tests/test_studio_crew.py`, `tests/test_studio_flows.py` and `tests/test_studio_map.py`. The live pieces (3.0.5.0) are
 `ui/src/routes/fleet/` (the folder keeps its name: the store and the feed, `store.ts`, `sync.ts`, `streams.ts`;
 `Agent.tsx` + `StreamViews.tsx` + `Steer.tsx`; `Pip.tsx`, `hop.ts`, `frames.ts`, `commands.ts`, `Dialogs.tsx`),
 `styles/fleet.css` and `fleet-agent.css`, the help `routes/help-live.ts`;
-Live Roles is `frames.ts` (the live rows into the Roles store), `hop.ts`
-and `replay.ts` with the Roles section's `live.ts`, `LiveTab.tsx` and
-`Replay.tsx`; the routes `live_api.py` and `live_agents_api.py`
+Live Roles is `frames.ts` (the live rows into the Roles store) and `hop.ts`; the routes `live_api.py` and `live_agents_api.py`
 (`get_history`), R4's `live_panels_api.py`, `live_handoff_api.py` and `live_recording_api.py`
 over the watcher `live_watch.py` (what it reads: `live_watch_sources.py`; its feed tap:
 `live_feed.py`; a session command: `live_send.py`). Tests: `tests/test_studio_live_routes.py` and the Session

@@ -42,9 +42,12 @@ note for whoever picks it up. Then the agent stops. The dialog shows the note's 
 
 ### How this works: Recordings
 
-**Record** in an agent's inspector (one agent) or a session's `...` (the whole session) writes one self-contained HTML
-file: the three streams, a timeline you can scrub, every tool call, the cost curve; no network, so it opens in any
-browser and can be sent to anyone. The dialog's **Download** fetches it with Studio's token and saves it (`POST
+**Record** in an agent's inspector (one agent) or a session's `...` (the whole session) writes this session as one HTML
+page you can open anywhere: the three streams, a timeline you can scrub, every tool call, the cost curve; no network,
+so it opens in any browser. Because it is made to be sent, its data passes the session export's redaction first (3.6.0.3:
+keys masked, a path inside the project relative, any other home path `~/...`, your user and machine names out;
+[PRIVACY.md](PRIVACY.md#one-redaction-for-everything-that-leaves)); if the redaction fails, no page is written. The
+dialog's **Download** fetches it with Studio's token and saves it (`POST
 /api/live/<harness>/<sid>/recording[?agent=]`, then `GET /api/live/recordings/<name>`).
 
 ### Keys: hop around
@@ -68,7 +71,7 @@ its stream; drag it by its bar, its arrow opens the agent on the Map, `x` or `Es
 already shows that agent.
 
 **The palette's Agents group**: Attention, answer next, Activity, follow / steer / pause / stop the picked agent, take
-it over, hand it to..., record it, replay its session, follow any live agent by name, pause all, resume all, open the
+it over, hand it to..., record it, follow any live agent by name, pause all, resume all, open the
 session's run; **Local: the Ollama steward**.
 
 ### Live Roles: the lineup lights up
@@ -86,5 +89,5 @@ every 5 s (a lost end frame never leaves a stopped agent `running`). Commands: `
 /api/live/<harness>/<sid>/agents/<aid>/command` (`local` for this harness) and `.../<sid>/command` for a session; a
 backlog is `GET /api/sessions/<sid>/agents/<aid>/tail`. Another harness's id answers 404: Studio drives this machine's
 sessions (another machine's models are Local's). The glance and the queue read `GET /api/live/attention`, `costs`,
-`caps`, `conflicts`, `replay` and `history`, and post to `attention/answer`, `caps`, `.../handoff`, `.../recording`
+`caps`, `conflicts` and `history`, and post to `attention/answer`, `caps`, `.../handoff`, `.../recording`
 and a session's `command`.

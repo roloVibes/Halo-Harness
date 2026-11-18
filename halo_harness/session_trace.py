@@ -216,7 +216,8 @@ def trace_markdown(source, *, model: Optional[str] = None, lineup: Optional[str]
     cost = tot.get("cost_usd")
     out = [f"# Halo trace: session {sid}", "",
            f"- Session: `{sid}`",
-           f"- Model: {model or 'not recorded'} · lineup: {lineup or 'not recorded'}",
+           # 3.6.0.3 B (Z16): no "· lineup: not recorded" (lineups are gone, 3.6.0.0 R5d); an old log's lineup still shows
+           f"- Model: {model or 'not recorded'}" + (f" · lineup: {lineup}" if lineup else ""),
            f"- Started: {_clock(min(stamps), '%Y-%m-%d %H:%M:%S') if stamps else '?'} · "
            f"ended: {_clock(max(stamps), '%Y-%m-%d %H:%M:%S') if stamps else '?'}",
            f"- Totals: turns {tot['turns']} · tool calls {tot['tool_calls']} · tokens in {tot['tokens_in']} · "

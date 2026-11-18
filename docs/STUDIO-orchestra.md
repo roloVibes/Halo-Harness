@@ -1,6 +1,6 @@
-# Studio: a goal run on the Map and in History
+# Studio: a goal run on the Map and its report
 
-Read this when you run an Orchestra goal from Studio: Run a goal on Agents -> Map, the run's pages in the Map's drawer, its plan review, its lanes, and its report in History.
+Read this when you run an Orchestra goal from Studio: Run a goal on Agents -> Map, the run's pages in the Map's drawer, its plan review, its lanes, and its report on its own page (Goal run).
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -10,13 +10,13 @@ The owner, 2026-11-10: "I always see unused older versions of orchestrations ...
 Agents' old **Runs** view and its Start screen are gone. The [Orchestra](ORCHESTRA.md) engine is unchanged (the
 worktrees, the merge, the test gate, the supervisor, outcomes, replanning; `halo orchestra` and `halo supervise` run on
 it); what changed is where you look at it: a goal run that runs is on the **Map** (its line says "A goal run is going" and
-**Open** shows its pages in the Map's drawer), and one that ended is a row of **History** under the map, opening on its
-report. Nothing finished is drawn on the Map's live picture.
+**Open** shows its pages in the Map's drawer), and one that ended has its report as its own page of that drawer,
+**Goal run**. Nothing finished is drawn on the Map.
 
 Every old door lands there: `R` (Runs' key), `?mode=orchestra`, `?mode=team`, `?mode=agents&view=runs`, `halo studio
 --mode orchestra` and `/studio orchestra` open Agents on the Map (3.6.0.0 R5); a door that
 names a run (`?mode=agents&run=<id>`, an attention row's `o`, the palette's run lines) opens it where it is: its pages
-in the Map's drawer while it runs or waits on you, its report in History once it ended.
+in the Map's drawer while it runs or waits on you, its report (its own page, Goal run) once it ended.
 
 ## Run a goal
 
@@ -33,7 +33,7 @@ beside the map (`run-goal-drawer`), closed on load, closed again by its `x`, Esc
   **where it writes** (the run's record in `.halo/orchestra/<run>/`, one worktree and branch per lane, the finished
   branch `orchestra/<run>`; your checkout is not touched) -- `run-goal-says`;
 - **Run** starts it (the Map says "A goal run is going" at once); **Dry run** asks the lead for the split alone (one call): its jobs open as
-  the dry run's report page in History.
+  the dry run's report page (Goal run).
 
 Under
 the form, **or run a pack's workflow** lists the workflows of the packs that run here; a pick (or the Pack Manager's
@@ -72,18 +72,20 @@ outlines its card and holds **Approve and run**; each card carries its cost chip
 the goal's `budget_usd`. **Approve and run** hands the plan to the run, the panel closes and the run's pages show
 the lanes; **Reject** asks for a reason and the run stops with it.
 
-## History: a finished run's report
+## A finished run's report
 
-History (under the Map, `live-history`) lists the past newest first; a goal run's row says how it ended (and why), its wall
-time, its cost and the models its lanes ran on. A click opens its **report** as a page of the drawer
-(`history-report`): how it ended, the goal, the facts (run, branch and sha, tests, cost, time, models), **the plan and
+A goal run that ended opens its **report** as its own page of the Map's drawer, **Goal run** (`run-report-page`, the
+report `history-report`): from the run's link (`?mode=agents&run=<id>`), Attention's `o`, the palette's line **Goal run
+<id>**, or **Open its report** on the run's page when it ends. It holds the run's report card first (how it ended, the
+story with every step, where the time and the money went: [COMMANDS-sessions.md](COMMANDS-sessions.md#the-report-card)),
+then how it ended, the goal, the facts (run, branch and sha, tests, cost, time, models), **the plan and
 its lanes** (what each owned, how it ended, how often the gate sent it back, its model and cost), **the gate** (done
 when, the test, its tail), **the merge** (the order, what merged, the conflicts), **outcomes** (every check with a tick
 or a cross), a workflow run's **artifacts**, and a dry run's jobs. **Copy** puts the report text (`halo orchestra
-report`) on the clipboard, **Replay** draws it on the Map as it ended, **Run it again** opens the goal panel with this goal
-filled in (nothing runs until Run), **Back** returns to the list.
+report`) on the clipboard, **Run it again** opens the goal panel with this goal filled in (nothing runs until Run),
+**Back** returns to the run's page (or closes the drawer).
 
-![A finished goal run's report in History](media/studio-run-report.png)
+![A finished goal run's report, its own page in the Map's drawer](media/studio-run-report.png)
 
 ## Routes
 

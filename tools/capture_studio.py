@@ -11,8 +11,8 @@ went); with --dom it counts the page's data-testid values. 3.0.7.0 R3's `--mode 
 old Orchestra door and the old Roles door, both on Agents -> 3 · Map since 3.6.0.0 R5) and, with --dom, counts its
 data-testid values. `--mode
 orchestra` (tools/capture_orchestra.py; 3.4.0.0 D "the runs fold": Runs' console and Start view went) seeds a finished
-goal run (the R2 fixture: basket.py, five lanes, one judged conflict, the report) and renders its report as a page of
-History (studio-run-report.png), and a run waiting for its plan on the Map (studio-run-live.png). The Session
+goal run (the R2 fixture: basket.py, five lanes, one judged conflict, the report) and renders its report, its own
+page of the Map's drawer, Goal run (studio-run-report.png), and a run waiting for its plan on the Map (studio-run-live.png). The Session
 dashboard is tools/capture_session_anim.py's, with its GIF. 3.3.16.0 R1: `--mode team` (the Team section) went with
 Team's board; 3.6.0.0 R5: `--mode workflows` (the board of squares) and `--mode picker` (Cast's model picker) went
 with Cast. 3.2.0.0 R7: `--mode packs`
@@ -141,7 +141,7 @@ def _render(args) -> int:
             return capture_local(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "orchestra":  # a goal run: its report in History, a planned run on Live (tools/capture_orchestra.py)
+    if args.mode == "orchestra":  # a goal run: its report on its own page, a planned run on the Map (tools/capture_orchestra.py)
         from capture_orchestra import capture as capture_orchestra
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-orchestra.png"

@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
+REPO = Path(__file__).resolve().parent.parent
 FAKE_KEY = "sk-or-v1-" + "a1b2c3d4" * 4  # built here: never a key-shaped literal in the tree
 SID = "trace0001"
 T0 = 1_790_000_000.0
@@ -107,7 +108,8 @@ def test_the_header_and_its_totals(ctx: Ctx):
     with _home() as home:
         text, _ = _trace(home)
     ctx.check("the title names the session", text.startswith(f"# Halo trace: session {SID}\n"))
-    ctx.check("the model and the lineup", "- Model: or:mock/glm-5-coder · lineup: not recorded" in text)
+    # 3.6.0.3 B (Z16): the header drops "· lineup: not recorded" (lineups are gone since 3.6.0.0 R5d)
+    ctx.check("the model, and no lineup part", "- Model: or:mock/glm-5-coder\n" in text and "lineup: not recorded" not in text)
     ctx.check("started and ended", re.search(r"- Started: \d{4}-\d\d-\d\d \d\d:\d\d:\d\d · ended: \d{4}-\d\d-\d\d \d\d:\d\d:\d\d", text) is not None)
     ctx.check(f"the totals, got {[ln for ln in text.splitlines() if 'Totals' in ln]}",
               "- Totals: turns 1 · tool calls 1 · tokens in 2000 · tokens out 500 · cost $0.0223" in text)
@@ -209,6 +211,43 @@ def test_the_turn_timeline_keeps_the_turn_end_marker(ctx: Ctx):
 def test_the_download_name(ctx: Ctx):
     from halo_harness.session_trace_cli import trace_name
     ctx.check("halo-trace-<id>-<yyyy-mm-dd-hhmm>.md", re.fullmatch(r"halo-trace-abc-\d{4}-\d\d-\d\d-\d{4}\.md", trace_name("abc")) is not None)
+
+
+@test
+def test_the_session_export_is_said_plainly(ctx: Ctx):
+    """3.6.0.3 B (R-B13 with Z16, words only): the Markdown file is "the session export" wherever a person reads about it
+    (not "trace"); `halo export`'s help says it is the raw session log, JSON lines, for a script, keys masked only with
+    --sanitize; the headless `/export` reply names no file picker. The file's name and its first line stay."""
+    from halo_harness import cli_commands, export_cli, session_trace_cli
+    from halo_harness.commands.builtins import _cmd_export
+
+    def helped(fn, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            try:
+                fn(argv)
+            except SystemExit:
+                pass
+        return " ".join(out.getvalue().split())
+    raw = helped(export_cli.cmd_export, ["--help"])
+    ctx.check(f"halo export --help says what it is, got {raw[:240]!r}",
+              "The raw session log, JSON lines, for a script; keys are masked only with --sanitize" in raw)
+    md = helped(session_trace_cli.cmd_session, ["export", "--help"])
+    ctx.check(f"halo session export --help says session export, not trace, got {md[:240]!r}",
+              "session export" in md and "trace file" not in md and "Markdown trace" not in md)
+    sub = helped(session_trace_cli.cmd_session, ["--help"])
+    ctx.check(f"halo session --help's export row says session export, got {sub[-240:]!r}", "Markdown trace" not in sub)
+    rows = {c.name: c.purpose for c in cli_commands.COMMANDS}
+    ctx.check(f"halo help's session row says the session export, got {rows.get('session')!r}",
+              "export" in rows.get("session", "") and "trace" not in rows.get("session", ""))
+    ctx.check(f"halo help's export row says the raw log, got {rows.get('export')!r}", "raw session log" in rows.get("export", ""))
+    reply = _cmd_export("", None)
+    ctx.check(f"the headless /export reply names no file picker and says halo session export, got {reply!r}",
+              "picker" not in reply and "halo session export <id>" in reply)
+    ui = (REPO / "halo_harness/studio/ui/src/routes/session/TraceExport.tsx").read_text(encoding="utf-8")
+    ctx.check("the Export button's tooltip and its toast say the session export",
+              "Save this session export as one Markdown file: halo-trace-${sid}-<date>.md" in ui
+              and "The session export did not download" in ui and "Markdown trace" not in ui and "The trace did not" not in ui)
 
 
 if __name__ == "__main__":

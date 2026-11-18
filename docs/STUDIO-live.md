@@ -10,8 +10,9 @@ Agents -> Live (the living canvas: the session tree, the plan drawn under it, wh
 levels, the groups) went in 3.6.0.0 R5. What runs now is the map your session runs on, lit up
 ([STUDIO-map.md](STUDIO-map.md#while-a-session-runs-4--live)): the boxes light as their agents work, the line under the Map
 says in one sentence what happens and what waits on whom, "What they think and say" is the drawer beside it, and a
-goal run going is a line with Open. What ran is History under the Map, with the same scrubber (Play at 1x / 4x / 16x,
-Save this run's replay, Export a clip, Now; [REPLAY.md](REPLAY.md)). Session's own Map is the same lit map, smaller.
+goal run going is a line with Open. The Map never draws the past: a finished goal run's report is its own page
+(Goal run), and a finished session is exported (the session export: Session's LAST SESSIONS rows, `halo session export
+<id>`). Session's own Map is the same lit map, smaller.
 `?mode=agents&view=live` lands on 4 · Live (3.6.0.2), the session's run drawn on its map.
 
 ## The glance
@@ -25,7 +26,7 @@ room or from a phone (`routes/glance/`):
   stop, approve / send back, answer ...), each saying in one line what it does; an answer that needs words opens a text
   box first, a permission's deny takes an optional reason;
 - **the spend** against its cap: today's spend as the caps count it (`GET live/costs`: each harness's today from its
-  records, finished sessions too -- the figure History and the Cost panel read; 3.4.1.1) for the first cap
+  records, finished sessions too -- the figure the report card and the Cost panel read; 3.4.1.1) for the first cap
   set of this machine's, the session's project's, else this machine's; a model Halo cannot price makes it
   `$x+`, never `$0`; none set reads **no cap set**; a cap reached says its sessions are paused;
 - **the elapsed time** of that session, and **the last three events** (a tool run, a line written, an ask), newest first;

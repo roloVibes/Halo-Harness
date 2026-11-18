@@ -63,8 +63,8 @@ def write_trace(path: Path, out: Path) -> Path:
 def cmd_session(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo session", description="A session's records.")
     sub = parser.add_subparsers(dest="verb")
-    exp = sub.add_parser("export", help="Write a session as one Markdown trace file",
-                         description="Write a session as one Markdown trace file: a header with the totals, then one "
+    exp = sub.add_parser("export", help="Write the session export: a session as one Markdown file",
+                         description="Write the session export, a session as one Markdown file: a header with the totals, then one "
                                      "entry per row (prompts, text, tool calls and results, steers, nudges, permission "
                                      "answers, turn ends, compactions, errors), keys masked, home paths as ~.")
     exp.add_argument("session", metavar="ID", help="Session id or unique prefix")

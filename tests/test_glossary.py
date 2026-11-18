@@ -55,7 +55,7 @@ BRIEF = ("agent", "workflow", "map", "starter",  # 3.6.0.0: the words 3.6 is bui
          "palette", "posture", "pack palette",
          "pack kit", "requirement", "entry command",
          "pack service", "transport",
-         "thought", "agent talk", "consult role", "replay", "waiting path", "report card", "glance")  # 3.4.1.0 R4: the glance; R3: the run report card; 3.3.18.0: Live's replay and waiting path; 3.3.17.0 R2: a role on cp:work; 3.3.16.2: Live's THINK and TALK rows; 3.3.13.0 R3: the services seam and the transport seam; 3.3.12.0 R4: the pack kit's three; 3.3.12.0 R2: a pack's own palette; 3.3.12.0 R1: the palette set's two; 3.3.11.0 R3: a pack's own Setup page; 3.3.11.0 R2: no terminal and Roles Live; 3.3.11.0 R1: the Prompt panel's two; 3.3.10.0 R3: the doctor's note; 3.3.9.3: TensorFold's one; 3.3.9.2: Strata's one; 3.3.9.1: FreeToken's two; 3.3.10.0 R1: the policy contract's two (the verdict paragraph covers a policy's); 3.3.9.0 R3: the host's door and Studio's Talk; 3.3.9.0 R2: the loop's three; 3.3.9.0 R1: the speech servers' three; 3.3.8.0 R4: the bundles' and placement's two; 3.3.8.0 R3: the controller's two; 3.3.8.0 R2: the local servers' two; 3.3.8.0 R1: the pool's four; 3.3.7.0 R5: the bundles' three; 3.3.7.0 R4: the guards' four; 3.3.7.0 R3: the scheduler's four; 3.3.7.0 R2: fix, duty steward, offline promise; 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths and the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three; 3.3.5.0 R1: Local's two
+         "thought", "agent talk", "consult role", "waiting path", "report card", "glance")  # 3.6.0.3 B (Z15): "replay" left; 3.4.1.0 R4: the glance; R3: the run report card; 3.3.18.0: Live's waiting path; 3.3.17.0 R2: a role on cp:work; 3.3.16.2: Live's THINK and TALK rows; 3.3.13.0 R3: the services seam and the transport seam; 3.3.12.0 R4: the pack kit's three; 3.3.12.0 R2: a pack's own palette; 3.3.12.0 R1: the palette set's two; 3.3.11.0 R3: a pack's own Setup page; 3.3.11.0 R2: no terminal and Roles Live; 3.3.11.0 R1: the Prompt panel's two; 3.3.10.0 R3: the doctor's note; 3.3.9.3: TensorFold's one; 3.3.9.2: Strata's one; 3.3.9.1: FreeToken's two; 3.3.10.0 R1: the policy contract's two (the verdict paragraph covers a policy's); 3.3.9.0 R3: the host's door and Studio's Talk; 3.3.9.0 R2: the loop's three; 3.3.9.0 R1: the speech servers' three; 3.3.8.0 R4: the bundles' and placement's two; 3.3.8.0 R3: the controller's two; 3.3.8.0 R2: the local servers' two; 3.3.8.0 R1: the pool's four; 3.3.7.0 R5: the bundles' three; 3.3.7.0 R4: the guards' four; 3.3.7.0 R3: the scheduler's four; 3.3.7.0 R2: fix, duty steward, offline promise; 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths and the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three; 3.3.5.0 R1: Local's two
 
 
 def _explain(*argv):
@@ -187,6 +187,21 @@ def test_api_route_and_the_tui(ctx: Ctx):
     ctx.check(f"the TUI card: packs -> pack, got {title}", title == "pack" and "Pack Manager" in body_text)
     title, body_text = card_parts("nope-nope")
     ctx.check(f"an unknown word's card lists the words, got {title}", title.startswith("No word") and "lineup" in body_text)
+
+
+@test
+def test_no_replay_entry_and_the_report_card_is_a_goal_runs_or_halo_reports(ctx: Ctx):
+    """3.6.0.3 B (Z15): the entry `replay` left both glossaries (docs/ and the template Studio's help reads); the entry
+    `report card` is a finished goal run's card, on its Goal run page or from `halo report <session|run>`, and names no
+    saved file, no Compare and no History."""
+    for path in (REPO / "docs" / "GLOSSARY.md", REPO / "halo_harness" / "templates" / "glossary" / "GLOSSARY.md"):
+        text = path.read_text(encoding="utf-8")
+        ctx.check(f"{path.parent.name}/GLOSSARY.md has no `## replay`", "\n## replay\n" not in text)
+        card = text.split("\n## report card\n", 1)[-1].split("\n## ", 1)[0]
+        ctx.check(f"{path.parent.name}/GLOSSARY.md's report card names its two doors",
+                  "Goal run" in card and "halo report <session|run>" in card)
+        for gone in (".halo-replay", "Compare", "History", "REPLAY.md", "replay"):
+            ctx.check(f"{path.parent.name}/GLOSSARY.md's report card no longer says {gone!r}", gone not in card)
 
 
 if __name__ == "__main__":

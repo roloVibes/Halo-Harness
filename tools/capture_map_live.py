@@ -1,8 +1,8 @@
-"""tools/capture_map_live.py -- render docs/media/studio-map-lit.png, studio-map-helper.png, studio-map-feed.png and
-studio-map-replay.png (Halo 3.6.0.0 R4): Studio's Agents -> 3 · Map lit while a session runs, over the session rig
+"""tools/capture_map_live.py -- render docs/media/studio-map-lit.png, studio-map-helper.png and studio-map-feed.png
+(Halo 3.6.0.0 R4): Studio's Agents -> 3 · Map lit while a session runs, over the session rig
 (tests/helpers/studio_session_rig.py + studio_live_rig.py: a scratch home, a fake session's frames), driven by
 tests/helpers/studio_map_live.py in headless Chrome at 1500 x 900 -- a hand-off moving on a line, a made-up helper with
-Save as an agent, the drawer with an ask, and a past run replayed on the map.
+Save as an agent, and the drawer with an ask. (3.6.0.3 B: the Map never draws the past; its picture left.)
 
     python tools/capture_map_live.py [--out DIR]     (default: docs/media)
 """
@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-NAMES = ("studio-map-lit.png", "studio-map-helper.png", "studio-map-feed.png", "studio-map-replay.png")
+NAMES = ("studio-map-lit.png", "studio-map-helper.png", "studio-map-feed.png")
 
 
 def main(argv=None) -> int:

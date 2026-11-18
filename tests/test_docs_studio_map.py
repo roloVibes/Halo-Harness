@@ -55,6 +55,24 @@ def test_agents_docs_say_the_four_tabs_and_where_each_door_lands(ctx: Ctx):
     stale = [n for n, t in docs.items() if re.search(r"`?\?mode=agents&view=live`? lands on the Map|`&view=live`, lands on the Map", t)]
     ctx.check(f"no doc says view=live lands on the Map, got {stale}", not stale)
 
+
+@test
+def test_the_map_docs_draw_no_past_and_an_old_replay_link_opens_the_map(ctx: Ctx):
+    """3.6.0.3 B (R-B8, Z7, Z8): the Map draws the plan and what runs now, never the past -- its doc names no scrubber,
+    no History under the map, no Back to now and no picture of a replay; STUDIO-agents.md says an old `replay=` link
+    opens the Map as it is now; Esc no longer closes a replay."""
+    flat = lambda p: " ".join(p.read_text(encoding="utf-8").split())  # noqa: E731
+    text = flat(DOC)
+    for gone in ("scrubber", "## History", "Back to now", "Replay the last session", "studio-map-replay.png", "live/replay"):
+        ctx.check(f"STUDIO-map.md no longer says {gone!r}", gone not in text)
+    ctx.check("STUDIO-map.md says the Map never draws the past", "never draws the past" in text)
+    agents = flat(AGENTS_DOC)
+    ctx.check("STUDIO-agents.md says an old replay link opens the Map as it is now",
+              "An old replay link opens the Map as it is now." in agents)
+    ctx.check("no Studio doc says Esc closes a replay",
+              not any("closes a replay" in flat(p) for p in sorted(DOC.parent.glob("STUDIO*.md"))))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

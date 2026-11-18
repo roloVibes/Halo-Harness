@@ -1,6 +1,6 @@
 # Commands: config, sessions, stats and reports
 
-Read this when you read or set config (`halo settings` opens Studio's Settings), replay or export a session, read stats, or file a bug report.
+Read this when you read or set config (`halo settings` opens Studio's Settings), export a session, read a run's report card, read stats, or file a bug report.
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -61,7 +61,21 @@ key. `halo studio --edit settings:remote` opens the same page.
 
 ## `halo report`
 
-`halo report <session|run|file> [--json]` (3.4.1.0 R3) prints a finished run's report card as Markdown from its record, no model call (`--json`: its data): [REPLAY.md](REPLAY.md#the-report-card).
+`halo report <session|run> [--json]` (3.4.1.0 R3) prints a finished run's report card as Markdown from its record, no model call (`--json`: its data). It takes a session id first, then a goal run id.
+
+### The report card
+
+One card per finished run -- a session or a goal run -- rendered **from its record**: never hand-written, no model call, nothing written (`live/report_card.py`). Nine cells first (how it ended, wall time, cost, tokens, models, agents spawned, asks, failures, retries), then:
+
+- **the story** in about ten lines, in order: who was asked what, what each handed back, each ask and failure, how it ended (main's last answer's first line); a longer run keeps every ask and failure and says how many steps it left out (a goal run's own page in Studio shows every step);
+- **where the time went**: by phase (waiting on you, running a tool, thinking, writing, idle) and by block (each block's agents and their agent time); **where the money went**: by model (each one's cost and share) and by block;
+- **what failed and what happened next** (the next thing the record holds), the failed model calls, the retries (a goal run's: the pieces the gate sent back); **what waited on you** and for how long (a question until its answer, a permission card until you answered it);
+- **which model did what**: each model and the agents that ran on it with their tasks; **the artefacts**: the files it wrote with their paths inside the project;
+- **what this record cannot show**, in words, never a blank: a goal run's coarse record, an older permission card's words, an untimed wait, a cost Halo could not price ("unknown" or the priced part with a "+", never $0), what only the Feed showed as it happened.
+
+**Where it opens**: in Studio, a finished goal run's card is the FIRST block of its own page, **Goal run** (from the palette or the run's link; the plan, the lanes, the gate, the merge, the outcomes and the artefacts follow it), and **Copy Markdown** puts the same card on the clipboard. In the terminal, `halo report <session|run>` prints the Markdown for a session or a goal run; `--json` prints the card's data (`format: halo-report-card`, `story`, `time`, `money`, `failures`, `waits`, `models`, `artefacts`, `cannot`, `cells`). The Markdown passes the one redaction ([PRIVACY.md](PRIVACY.md#one-redaction-for-everything-that-leaves)).
+
+**What a record can and cannot show.** Everything comes from the session's transcripts on disk (`<state>/sessions/<project>/<id>.jsonl` and each sub-agent's beside it), so a session from before 3.4.1.0 has a card too. They hold who started when with what task, every text, thought, tool call and result with its time, each hand-back, each failure, the running cost, a question or plan review the agent put to you (its words, and when you answered), and each permission card it waited on (when it opened, when you answered, and how). An older session cannot show **what a permission card asked**: before 3.4.1.0 the turn's record kept only its times and the answer, so its line reads "a permission card (answered allow after 6 s)". From 3.4.1.0 on the record keeps the card's words ("Bash: rm -rf build"). Feed-only facts (a tool's last output line, the pieces of a thought as they streamed) are not in the transcript, so no card shows them.
 
 ## `halo stats`
 
@@ -191,8 +205,8 @@ project's sessions instead of just the current directory's.
 
 ## `halo export`
 
-A headless version of the TUI's own `/export` -- writes a session's raw
-JSONL transcript to a file or stdout, optionally sanitized.
+The raw session log, JSON lines, for a script: writes a session's log to a file or stdout. Keys are masked only
+with `--sanitize`. The Markdown file a person reads is the session export ([`halo session export`](#halo-session-export)).
 
 ```sh
 halo export --help
@@ -201,7 +215,9 @@ halo export --help
 usage: halo export [-h] [--session ID] [--sanitize] [-o FILE]
                           [--cwd DIR]
 
-Export a session's transcript as JSONL (headless /export).
+The raw session log, JSON lines, for a script; keys are masked only with
+--sanitize. (The Markdown file a person reads is the session export: halo
+session export <id>.)
 
 options:
   -h, --help            show this help message and exit
@@ -232,9 +248,9 @@ TUI's own `/export --sanitize` calls, so the two can never disagree.
 
 ## `halo session export`
 
-Halo 3.3.0.0: a session as one Markdown **trace** file, the same bytes
+Halo 3.3.0.0: **the session export**, a session as one Markdown file, the same bytes
 Studio's **Export** button downloads and the TUI's `/export` writes: a
-header (the session id, the model and the lineup, when it started and
+header (the session id, the model, when it started and
 ended, the totals: turns, tool calls, tokens in and out, cost), then one
 `###` entry per row in time order (the clock, the agent with its tier and
 model, then a user prompt, the assistant's text, a tool call and a one-line
@@ -260,8 +276,9 @@ wrote ./halo-trace-3f2a9c41d0e8-2026-10-26-1412.md
 halo session export 3f2a9c --md -  # print it
 ```
 
-The id is looked up across every project's sessions in the state dir. How
-the trace reads in Studio: [Export](STUDIO-session.md#export-the-session-as-a-trace-file).
+The id is looked up across every project's sessions in the state dir. `/export` with no name writes the same file
+beside the session's log, in `~/.halo/sessions/<project-slug>/`. In Studio:
+[Export](STUDIO-session.md#export-the-session-export-one-markdown-file).
 
 ## `halo bugreport`
 

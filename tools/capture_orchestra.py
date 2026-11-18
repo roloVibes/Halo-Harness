@@ -22,9 +22,11 @@ from pathlib import Path
 
 from capture_identity import checked_dump, placeholder
 
-IDS = ("section-tab", "orchestra-root", "start-view", "map", "map-run-goal", "map-lit-run", "run-review", "live-history-drawer",
-       "history-report", "history-page", "report-check", "report-lane", "history-report-replay", "history-report-again",
-       "orchestra-plan", "plan-canvas", "run-goal-drawer", "legacy-frame", "panel-title", "section-help")  # 3.6.0.0 R5: the Map
+#: the testids Studio still has (3.6.0.3 B: History's list, its page, the report's Replay, the old console's and Start
+#: view's ids left; a finished run's report is the drawer page `run-report-page`)
+IDS = ("section-tab", "map", "map-run-goal", "map-lit-run", "run-review", "run-report-page",
+       "history-report", "report-check", "report-lane", "history-report-again",
+       "orchestra-plan", "plan-canvas", "run-goal-drawer", "panel-title", "section-help")  # 3.6.0.0 R5: the Map
 WINDOW = "--window-size=1500,900"
 
 

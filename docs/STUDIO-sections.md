@@ -64,7 +64,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    timeline strip for this session, one lane per live agent over 5, 15 or
    60 minutes (a lane click shows only that agent); the header has an
    agent pick and a kind pick (tools, text, states, asks; your own steers
-   always show) beside Follow, and **Export** (the session as one Markdown trace). Follow is on: scroll up (or type a steer) and the view
+   always show) beside Follow, and **Export** (the session export: the session as one Markdown file). Follow is on: scroll up (or type a steer) and the view
    holds, **N new rows · follow** brings you back. Click a tag (or pick the agent) and the
    column shows only that agent; the tag again (or `Esc`) shows everyone.
    Hover a line and that agent's node lights on the map. The newest 500
@@ -180,7 +180,7 @@ session read like the terminal, a box to type into it (the slash list, Queue it 
 **1 · Agents** (make an agent: the form, Try it, the builder; [STUDIO-builder.md](STUDIO-builder.md)), **2 · Workflows**
 (steps of agents; [STUDIO-workflows.md](STUDIO-workflows.md)), **3 · Map** (connect them: who main hands work to and
 when; every session runs on a map, the plan; a goal run is started from the Map's **Run a
-goal**, [STUDIO-orchestra.md](STUDIO-orchestra.md); History under the map replays past runs,
+goal**, [STUDIO-orchestra.md](STUDIO-orchestra.md); the Map never draws the past,
 [STUDIO-live.md](STUDIO-live.md), [STUDIO-map.md](STUDIO-map.md)) and **4 · Live** (what a session is doing now, drawn
 on the map it really follows, with the Feed in its drawer). Keys `1` / `2` / `3` / `4` switch tabs; `C` lands on the
 Map, `L` on Live, `W` on Workflows. Agents opens on Live while a session you have talked to is open, else on the tab used
@@ -225,8 +225,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
    `Ctrl+Z` undoes any edit.
 7. **Watch it work**: while a session runs, the cards whose agents work
    glow; click one and the Live tab shows exactly what it types, with
-   Steer, Pause and Stop ([Live Roles](STUDIO-live-panels.md#live-roles-the-lineup-lights-up)). A
-   finished session's replay plays back on the canvas.
+   Steer, Pause and Stop ([Live Roles](STUDIO-live-panels.md#live-roles-the-lineup-lights-up)).
 8. **Read the glow**: hover a glowing card's state glyph or its live badge
    and the card explains its glow (below). The tier box takes the strongest
    state of its cards, and the edges into a card take that card's colour.
@@ -255,13 +254,13 @@ pickers read, per provider, and why it is empty when it is.
 
 **Keys.** Agents `Alt+2`, then `C` Cast; `L` Plan | Live (3.3.11.0 R2; Agents' Live); on the canvas (click it first) `A` lays out, `F` fits, `+` / `-` zoom, the arrows nudge the selected card (`Shift`: further),
 `Del` removes it (asks first); `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S` saves; `J` / `K` the next / previous card whose agent works (on Live: the next / previous working agent of the tree),
-its Live tab open; `Space` pins that agent's mini stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins (or closes a replay).
+its Live tab open; `Space` pins that agent's mini stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins.
 
 
 #### Orchestra
 
 Moved: Orchestra was Agents' **Runs** from 3.3.16.0 R1; since 3.4.0.0 D a goal run is started from Agents -> **Map** (Run a
-goal on its bar; 3.6.0.0 R5) and its report is a page of History (`?mode=orchestra` lands on the Map); what follows is the engine
+goal on its bar; 3.6.0.0 R5) and its report is its own page, Goal run (`?mode=orchestra` lands on the Map); what follows is the engine
 ([STUDIO-orchestra.md](STUDIO-orchestra.md), [STUDIO-agents.md](STUDIO-agents.md#who-owns-what-the-owns-line)).
 
 
