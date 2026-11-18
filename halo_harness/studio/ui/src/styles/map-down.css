@@ -18,9 +18,11 @@
 :is(.mp-down, .ag-run) .mp-mini-scroll { flex: none; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
 /* R11 R12: the bottom slot, at the drawer's bottom, there whether it says something or not: "↓ {n} more below" in its own
    column, its width kept from the first draw (P7: never shrinks or wraps, one line), then the wait link's own reserved
-   lines beside it; the slot is 32 px tall unless the twins of the longest wait link need more lines, from the first draw */
+   lines beside it; the slot is 32 px tall unless the twins of the longest wait link need more lines, from the first draw.
+   P9 batch 4: a link longer than that room grows the slot upwards (it stands on the drawer's bottom), so "more below"
+   stands on the slot's bottom and never moves */
 .mp-down-below { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s-2); min-height: 32px; min-width: 0; }
-.mp-down-more { height: 32px; display: flex; align-items: center; min-width: 15ch; font-size: 12.5px; }
+.mp-down-more { height: 32px; display: flex; align-items: center; align-self: end; min-width: 15ch; font-size: 12.5px; }
 .mp-down-below > .mp-wait-row { align-self: center; }
 .mp-down-more > [data-testid=map-more-below] { flex: 0 0 auto; white-space: nowrap; }
 /* P8 (the owner's rule: a text is never cut): the wait link's row (runWait.tsx WaitRow; Session: beside "more below",

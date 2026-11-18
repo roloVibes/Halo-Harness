@@ -13,7 +13,8 @@ tests/helpers/studio_run_parts.py; skipped without Chrome; the Linux VM and CI o
    link is whole on its own reserved row, which keeps its height;
 7. a waiting row says what it waits for and for how long, ticking while nothing moves;
 8. (P7) in Session's bottom slot the wait link never squeezes or wraps "↓ n more below", and sits inside the slot whole
-   (P8: on its own reserved lines; the slot keeps its height).
+   (P8: on its own reserved lines; the slot keeps its height); (P9 batch 4) a link one line longer than the room kept
+   grows the slot once, in the frame it shows in, and "more below" stays where it was.
 Run: python -m tests.test_studio_run_parts
 """
 from __future__ import annotations
@@ -149,18 +150,51 @@ def test_the_wait_link_never_squeezes_more_below(ctx: Ctx):
     line when the link appears (a control never moves after the first draw). P8 (rewritten to the truth, the owner's rule
     a text is never cut): the link has its own reserved lines beside the control (the twins of the longest link this run
     can show), so the slot is at least 32 px tall from the first draw and keeps that height when the link comes; the
-    link's words are whole."""
+    link's words are whole. P9 batch 4 (rewritten to the truth, the coordinator's ruling of P8 batch 3: the room kept is
+    a number of lines, and on macOS CI's long link took one more): the link's words are found BY MEASURING at the page's
+    own font, the longest whose link fits the room kept from the first draw."""
     x = _of(_got(ctx), "session", "below")
-    b, a = x.get("before") or {}, x.get("after") or {}
+    b = x.get("before") or {}
+    f = x.get("fit") or {}
+    a, fr = f.get("settled") or {}, (f.get("frames") or {})
     ctx.check(f"the drawer at its least width (360 px), got {x.get('drawer')} ({x.get('error')})", x.get("drawer") == 360)
     ctx.check(f"at 1280 x 800 '↓ n more below' is shown, its own width, one line, got {b} ({x.get('error')})",
               bool(b.get("more")) and b.get("lines") == 1 and b.get("natural") is True)
     sb, sa = (b.get("slot") or [0, 0])[1], (a.get("slot") or [0, 0])[1]
-    ctx.check(f"a long wait link shows inside the slot, its words whole, the slot's height kept (at least 32 px), got {b.get('slot')} -> {a}",
-              a.get("wait") is True and a.get("inside") is True and a.get("whole") is True and sb >= 32 and sa == sb)
+    ctx.check(f"a wait link whose words fit the room kept shows inside the slot, its words whole, the slot's height kept (at least "
+              f"32 px) at its first frame and after, got {b.get('slot')} -> {fr} -> {a} (measured {x.get('measure')}, link {x.get('fit_link')!r})",
+              a.get("wait") is True and a.get("inside") is True and a.get("whole") is True and sb >= 32 and sa == sb
+              and (fr.get("first") or {}).get("slot") == sb and (fr.get("later") or {}).get("slot") == sb)
     ctx.check(f"'↓ n more below' keeps its rect, its own width and its one line beside it, got {b.get('more')} -> {a.get('more')} "
               f"lines {a.get('lines')} natural {a.get('natural')}",
               bool(b.get("more")) and a.get("more") == b.get("more") and a.get("lines") == 1 and a.get("natural") is True)
+
+
+@test
+def test_a_wait_link_longer_than_its_room_grows_the_slot_once_and_moves_nothing(ctx: Ctx):
+    """P9 batch 4 (red on 12878d78, macOS CI: the slot 42 -> 56 px and '↓ n more below' 14 px up with it): a link of words
+    one line longer than the room kept (measured at the page's font) grows the slot ONCE, in the frame the link first shows
+    in, to exactly the link's own lines, the same five frames later; '↓ n more below' keeps its rect, its own width and its
+    one line (the slot stands on the drawer's bottom: the control stands on the slot's bottom); the link lies inside the slot,
+    its words whole."""
+    x = _of(_got(ctx), "session", "below")
+    b, m = x.get("before") or {}, x.get("measure") or {}
+    g = x.get("grow") or {}
+    a, fr = g.get("settled") or {}, (g.get("frames") or {})
+    first, later = fr.get("first") or {}, fr.get("later") or {}
+    room, need = m.get("room") or 0, (m.get("grow") or [None, 0])[1]
+    ctx.check(f"the driver measured a link one line longer than the room kept, got {m} ({x.get('error')})",
+              room > 0 and need > room)
+    ctx.check(f"in the frame the link first shows in the slot is the link's own lines (at least 32 px), and so five frames later "
+              f"and once settled, got {first} -> {later} -> {a.get('slot')} (link {x.get('grow_link')!r})",
+              bool(first.get("link")) and first.get("link") == need and first.get("slot") == max(32, need)
+              and later.get("slot") == first.get("slot") and (a.get("slot") or [0, 0])[1] == first.get("slot"))
+    ctx.check(f"'↓ n more below' keeps its rect (at the link's first frame and after), its own width and its one line, got "
+              f"{b.get('more')} -> {first.get('more')} -> {a.get('more')} lines {a.get('lines')} natural {a.get('natural')}",
+              bool(b.get("more")) and first.get("more") == b.get("more") and a.get("more") == b.get("more")
+              and a.get("lines") == 1 and a.get("natural") is True)
+    ctx.check(f"the link lies inside the slot, its words whole, got {a}",
+              a.get("wait") is True and a.get("inside") is True and a.get("whole") is True)
 
 
 if __name__ == "__main__":

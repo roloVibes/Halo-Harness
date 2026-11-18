@@ -18,12 +18,14 @@ Chrome over tests/helpers/studio_session_rig.py and tests/helpers/studio_live_ri
              a press picks that box (selected, its card open)
     waited   a drawn helper asks and waits on him: its row says "waiting for you · {n} s", the seconds grow, no box moves
     below    (P7, Session only) at 1280 x 800, before and while the wait link shows: "↓ n more below" keeps its rect and
-             one line, the slot its 32 px, the wait link sits inside the slot with its words whole
+             one line, the wait link sits inside the slot with its words whole; a link that fits the room kept leaves
+             the slot's height, a longer one grows it once, in the frame it shows in (P9 batch 4: measured, any font)
 
     python -m tests.helpers.studio_run_parts
 """
 from __future__ import annotations
 
+import json
 import sys
 import time
 from contextlib import contextmanager
@@ -194,9 +196,10 @@ def settled(c, expr: str, tries: int = 12):
 
 
 def below(c, lv, where: str) -> dict:
-    """At 1280 x 800, before and while a long wait link shows: "↓ n more below" keeps its rect, its own (natural) width and
-    one line; the slot keeps its height (P8: "more below"'s 32 px row and the wait link's reserved row); the wait link lies
-    inside the slot, its words whole."""
+    """At 1280 x 800, before and while a wait link shows: "↓ n more below" keeps its rect, its own (natural) width and one
+    line; the wait link lies inside the slot, its words whole. `fit`: a link whose words fit the room kept from the first
+    draw (measured at this font) leaves the slot's height as it was; `grow`: a link one line longer grows the slot once, in
+    the frame the link first shows in, to the link's own lines (P9 batch 4)."""
     out: dict = {}
     c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
     try:
@@ -225,20 +228,57 @@ def below(c, lv, where: str) -> dict:
             settled(c, f"Math.round({drawer}?.getBoundingClientRect().width || 0)")
         out["drawer"] = settled(c, "Math.round(document.querySelector('[data-testid=session-map-below]')?.closest('[data-testid=stage-drawer]')?.getBoundingClientRect().width || 0)")
         out["before"] = settled(c, BELOW)
-        lv.tool("main", "Agent", "call-below-agent")
-        lv.tool("implementer", "Bash", "call-below-bash", current="pytest -q tests/test_a_rather_long_module_name_for_the_slot.py")
+        # P9 batch 4 (CI, macOS: the slot 42 -> 56 px with a long link): the room kept from the first draw is a number of
+        # lines (the twins of a usual link); a link of longer words takes its room when it appears (the coordinator's
+        # ruling of P8 batch 3). So the driver measures, at this page's own font, a tool line whose link fits the room
+        # kept and the shortest one whose link needs more, and shows both, one after the other.
+        m = out["measure"] = c.js(MEASURE.replace("$TEXTS", json.dumps([FIT, GROW]))) or {}
+        if not m.get("fit") or not m.get("grow"):
+            raise RuntimeError(f"no tool line measured to fit and to need one more line: {m}")
         link = "document.querySelector('[data-testid=session-map-below] [data-testid=run-wait]')?.textContent"
-        try:
-            c.wait(f"{link}?.includes('rather_long')", 15)
-        except TimeoutError:
-            out["link"] = c.js(f"{link} || null")
-        out["after"] = settled(c, BELOW)
+        for case, words, mark in (("fit", m["fit"][0], "test_fits_"), ("grow", m["grow"][0], "test_grows_")):
+            c.js(GROWS.replace("$MARK", mark))
+            lv.tool("main", "Agent", f"call-below-{case}-agent")
+            lv.tool("implementer", "Bash", f"call-below-{case}", current=words)
+            try:
+                try:
+                    c.wait(f"{link}?.includes({json.dumps(mark)})", 15)
+                    c.wait("window.__grows && window.__grows.later !== null", 15)
+                except TimeoutError:
+                    out[f"{case}_link"] = c.js(f"{link} || null")
+                out[case] = {"frames": c.js("window.__grows"), "settled": settled(c, BELOW)}
+            finally:
+                lv.result("main", f"call-below-{case}-agent", "done", tool="Agent")
+                lv.result("implementer", f"call-below-{case}", "ok")
+            c.wait(f"!({link} || '').includes({json.dumps(mark)})", 15)  # that wait is over (another may show)
     finally:
-        lv.result("main", "call-below-agent", "done", tool="Agent")
-        lv.result("implementer", "call-below-bash", "ok")
         lv.state("implementer", current="thinking")
         c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
     return out
+
+
+# P9 batch 4: tool lines of growing length (`n` of them, by letter), each a link "waiting on: implementer -> Bash {words}"
+# measured in a hidden copy of the slot's own twin (its class, its width), out of the row's flow: the longest whose link
+# fits the row kept from the first draw, and the shortest whose link needs more
+FILL = "a_rather_long_module_name_for_the_slot_" * 8
+FIT, GROW = "pytest -q tests/test_fits_", "pytest -q tests/test_grows_"
+MEASURE = """(() => { const s = document.querySelector('[data-testid=session-map-below]'), row = s?.querySelector('[data-testid=run-wait-row]');
+  const tw = row?.querySelector('.mp-wait-twin'); if (!tw) return null; const room = row.getBoundingClientRect().height;
+  const k = tw.cloneNode(false); k.style.cssText = `position:absolute;left:0;top:0;width:${row.clientWidth}px`; row.appendChild(k);
+  const words = (head, n) => head + '""" + FILL + """'.slice(0, n) + '.py', h = (t) => { k.textContent = 'waiting on: implementer -> Bash ' + t; return k.getBoundingClientRect().height; };
+  const [fh, gh] = $TEXTS; let fit = null, grow = null;
+  for (let n = 1; n < """ + str(len(FILL)) + """; n++) { const f = words(fh, n), hf = h(f); if (hf <= room + 0.5) fit = [f, Math.round(hf)]; else break; }
+  for (let n = 1; n < """ + str(len(FILL)) + """; n++) { const g = words(gh, n), hg = h(g); if (hg > room + 0.5) { grow = [g, Math.round(hg)]; break; } }
+  k.remove(); return { room: Math.round(room), fit, grow }; })()"""
+# the frame the link with `$MARK` first shows in, and five frames later: the slot's height, "more below"'s rect, the link's
+GROWS = """(() => { const w = window.__grows = {first: null, later: null}; let n = -1;
+  const read = () => { const s = document.querySelector('[data-testid=session-map-below]'), m = s?.querySelector('[data-testid=map-more-below]');
+    const l = s?.querySelector('[data-testid=run-wait]'), r = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round); };
+    return { slot: s ? Math.round(s.getBoundingClientRect().height) : 0, more: m ? r(m) : null, link: l ? Math.round(l.getBoundingClientRect().height) : 0 }; };
+  const tick = () => { const l = document.querySelector('[data-testid=session-map-below] [data-testid=run-wait]');
+    if (n < 0 && l && (l.textContent || '').includes('$MARK')) { n = 0; w.first = read(); }
+    else if (n >= 0 && ++n === 5) { w.later = read(); return; }
+    requestAnimationFrame(tick); }; requestAnimationFrame(tick); return 1; })()"""
 
 
 def waited(c, lv, where: str) -> dict:

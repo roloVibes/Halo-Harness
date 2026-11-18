@@ -123,6 +123,16 @@ def goal(c, rig, lv, sent) -> dict:
     return out
 
 
+# what the top line, the Replay-last button and the toasts say (a failed replay says why in a toast: "No replay: ...",
+# "Nothing to replay: ..."), for the message of a press that started nothing
+SEEN = """JSON.stringify((() => { const b = document.querySelector('[data-part="map"] [data-testid="map-lit-replay-last"]');
+  const r = b && b.getBoundingClientRect(), at = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return { button: b ? [b.title.slice(7, 60), [r.left, r.top, r.width, r.height].map(Math.round), b.disabled, at ? (at.closest('[data-testid]')?.dataset.testid || at.tagName) : null] : null,
+    toasts: [...document.querySelectorAll('.toast-text')].map((e) => e.textContent.trim().slice(0, 80)),
+    drawer: document.querySelector('[data-part="map"] [data-testid="map-drawer"]')?.dataset.page || null,
+    top: document.querySelector('[data-part="map"] [data-testid="map-topline"]')?.textContent.slice(0, 80) }; })())"""
+
+
 def replay(c, rig, lv, sent) -> dict:
     """Nothing running: the top line offers "Replay the last session"; the replay's rows fill the drawer."""
     for gate in ("a", "b"):  # the session's turn ends for real: its helpers finish, main says its last words
@@ -136,7 +146,10 @@ def replay(c, rig, lv, sent) -> dict:
     except TimeoutError:
         raise TimeoutError(f"no Replay the last session: the top line says {c.js(t('map-topline') + '?.textContent')!r}")
     press(c, last)
-    out["replaying"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && 'replay'", 30)
+    try:
+        out["replaying"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && 'replay'", 30)
+    except TimeoutError:  # P9 batch 4 (macOS CI, not reproduced on the Linux VM): what the page shows, in the message
+        raise TimeoutError("no replay 30 s after the press: " + str(c.js(SEEN))[:600]) from None
     # P7 (the coordinator's ruling): Replay is his press, so the Map's drawer opens on History's page with that replay's
     # rows, at once (no click on the drawer's button first)
     shown = ("[data-part=map] [data-testid=map-drawer][data-page=history] [data-testid=map-drawer-replay]")
