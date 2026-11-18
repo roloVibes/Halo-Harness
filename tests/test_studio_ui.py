@@ -67,8 +67,10 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # 3.6.0.0 R5: the old Orchestra and Roles doors land on Agents -> 3 · Map: the starter map, Run a goal on its bar
-    # (3.6.0.3 B: History's strip under the map left Studio)
-    want = {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "legacy-frame": 0, "map": 1, "map-canvas": 1, "map-run-goal": 1, "map-history": 0}
+    # (3.6.0.3 B: History's strip under the map left Studio). 3.6.0.5 A11 (rewritten to the truth): a fresh home opens
+    # Auto, whose tab draws main alone and M1 (AutoPlan) in the canvas' place: no canvas, Auto's tab and main once
+    want = {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "legacy-frame": 0, "map": 1, "map-canvas": 0,
+            "map-auto": 1, "map-auto-main": 1, "map-run-goal": 1, "map-history": 0}
     ctx.check(f"the old Orchestra door: the Map, Run a goal on its bar, no Start view, got {orch}", orch == want)
     ctx.check(f"the old Roles door: the Map too, no frame, got {roles}", roles == want)
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))

@@ -121,4 +121,4 @@
 /* 3.6.0.5 A11: Auto's Map tab (AutoPlan.tsx): the notice row, M1, main alone, a goal run going; Lock's room kept, unseen */
 .mp-auto { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
 .mp-auto-main { align-self: flex-start; }
-.mp-lock-room { visibility: hidden; pointer-events: none; }
+.mp-lock-room { display: contents; visibility: hidden; pointer-events: none; } /* no box of its own: the Lock's room is the Lock's own size */

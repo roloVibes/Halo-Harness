@@ -4,7 +4,8 @@ answer is held, the controls measured at first paint, the answers let go one at 
 
 1. Agents -> Map as it opens, and in the drivers' arrangement: the rail, the view bar, the Map bar (Run a goal, the
    switcher, My sessions use this, Lock) and the strip under the map hold still; History's strip is never drawn
-   (3.6.0.3 B: History left Studio);
+   (3.6.0.3 B: History left Studio); 3.6.0.5 A11: Auto has no Lock and no strip, so the Lock and the strip are measured
+   on the scratch map of his (tests/helpers/scratch_seven);
 2. (3.6.0.3 B: History's drawer left with History.)
 3. Run a goal clicked before anything landed: the form is drawn whole once its help lines and the model catalog have
    landed, and then nothing in it moves (Review the plan first moved 41 px, then 34 px; Back was squeezed);
@@ -58,8 +59,22 @@ def test_the_map_holds_still_as_it_opens(ctx: Ctx):
     got = _got(ctx)
     for v in ("map", "map_all"):
         ctx.check(f"{v}: on Auto no Lock was drawn at any point measured", '"map-lock"' not in " ".join((got.get(v) or {}).get("first") or {}))
+    # the Lock stays on every map of his: on the scratch map the bar holds still while the Lock arrives into its kept
+    # room (map_seven, measured at first paint), and the Lock, once drawn, holds still while the rest lands. The kept room
+    # (map-lock-room, unseen) is the one thing that goes away there: the Lock takes its place, on the room's own rect
+    seven, room, lock = got.get("map_seven") or {}, '[data-testid="map-lock-room"]', '[data-testid="map-lock"]'
+    first = seven.get("first") or {}
+    ctx.check(f"map_seven: the view was read, got {seven.get('error') or sorted(seven)}", "first" in seven and not seven.get("error"))
+    for testid in ("map-run-goal", "map-switcher", "map-lock-room"):
+        ctx.check(f"map_seven: {testid} was on the page at first paint and measured", f'"{testid}"' in " ".join(first))
+    others = [m for m in seven.get("moved") or [] if not m.startswith(f"{room} went away after ")]
+    ctx.check(f"map_seven: nothing moved, went away or was covered as the map of his opened (the Lock's room aside), got {others}", others == [])
+    drawn = ((got.get("map_seven_open") or {}).get("first") or {}).get(lock)
+    ctx.check(f"map_seven: the Lock is drawn on its kept room's rect, room {first.get(room)} Lock {drawn}",
+              bool(drawn and first.get(room)) and all(abs(a - b) <= 1 for a, b in zip(first[room], drawn)))
+    _view(ctx, "map_seven_open", ("map-run-goal", "map-switcher", "map-lock"))
     ctx.check("3.6.0.3 B: no control of History's strip is drawn on the Map (it left Studio)",
-              not any("map-history" in k for v in ("map", "map_all") for k in (got.get(v) or {}).get("first", {})))
+              not any("map-history" in k for v in ("map", "map_all", "map_seven", "map_seven_open") for k in (got.get(v) or {}).get("first", {})))
 
 
 @test

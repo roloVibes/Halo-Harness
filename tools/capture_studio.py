@@ -79,6 +79,7 @@ def serve(state: Path, shell: bool = True, proj: "Path | None" = None, slow_ms: 
 
 def shell_counts(dom: str) -> dict:
     return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "legacy-frame", "map", "map-canvas",
+                                                         "map-auto", "map-auto-main",  # 3.6.0.5 A11: Auto's own tab, not the canvas
                                                          "map-run-goal", "map-history")}  # 3.6.0.0 R5: the old doors land on the Map
 
 
@@ -169,7 +170,8 @@ def _render(args) -> int:
             budget = "--virtual-time-budget=20000"  # the map needs its file fetched: 6 s is short on the Windows runner
             roles_url = url.replace("mode=orchestra", "mode=roles")
             a, b = checked_dump(chrome, url, "shell orchestra", budget), checked_dump(chrome, roles_url, "shell roles", budget)
-            if b is not None and shell_counts(b.stdout).get("map-canvas") == 0:  # a slow runner: one more try, twice the budget
+            drawn = shell_counts(b.stdout) if b is not None else {}
+            if b is not None and drawn.get("map-canvas") == 0 and drawn.get("map-auto-main") == 0:  # a slow runner: one more try, twice the budget
                 b = checked_dump(chrome, roles_url, "shell roles", "--virtual-time-budget=40000")
             if a is None or b is None:
                 print("no Chrome found")

@@ -8,6 +8,7 @@ Over a scratch home with two ended sessions and a finished goal run (the replay 
 headless Chrome, each with every /api/ answer held and then let go one at a time:
   map       Agents -> Map as it opens: the rail, the view bar, the Map bar, the strip under the map;
   map_all   the same in the drivers' arrangement (`open=all`) with the drawer of what they think and say;
+  map_seven, map_seven_open  (3.6.0.5 A11) the same on the scratch map of his: at first paint, and once its Lock is drawn;
   goal      Map -> Run a goal clicked before anything landed: the goal form's controls;
   session   Session as it opens with no live session (its Start view, drawn once the sessions are read): New session,
             Open the workspace anyway;
@@ -33,11 +34,13 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.hold_still import clickables, release_until, still, survives  # noqa: E402
+from tests.helpers.scratch_seven import NAME as SEVEN, write_seven  # noqa: E402
 
 RAIL = '[data-testid="rail"]'
 VIEWBAR = '[data-testid="viewbar"]'
 MAP_BAR = '[data-testid="map-bar"]'
 MAP_READY = "!!document.querySelector('[data-testid=\"map-bar\"]')"
+LOCK_READY = "!!document.querySelector('[data-testid=\"map-lock\"]')"
 
 
 def _click_expr(expr: str):
@@ -73,6 +76,10 @@ VIEWBAR_READY = "!!document.querySelector('[data-testid=\"viewbar\"]')"
 VIEWS = {
     "map": ("mode=agents&view=map", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-strip"]'), MAP_READY, None, None),
     "map_all": ("mode=agents&view=map&open=all", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-strip"]', '[data-testid="map-drawer-panel"]'), MAP_READY, None, None),
+    # 3.6.0.5 A11: Auto has no Lock and no strip; they are measured on the scratch map of his (tests/helpers/scratch_seven):
+    # at first paint (the Lock arrives later into its kept room: nothing measured may move then), and once the Lock is drawn
+    "map_seven": (f"mode=agents&view=map&map={SEVEN}", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-strip"]'), MAP_READY, None, None),
+    "map_seven_open": (f"mode=agents&view=map&map={SEVEN}", (RAIL, VIEWBAR, MAP_BAR, '[data-testid="map-strip"]'), LOCK_READY, None, None),
     "goal": ("mode=agents&view=map", ('[data-testid="map-drawer-panel"]',), MAP_READY, _click("map-run-goal"), FORM),
     "session": ("mode=session", (RAIL, ".section-view"), START, None, None),
     "session_all": ("mode=session&open=all", _plus(clickables(".section-view"), "viewbar-word", "session-truth"), START, _click("session-open-workspace"), VIEWBAR_READY),
@@ -202,6 +209,7 @@ class HoldStillDriver(Driver):
         seed(state)
         seed_catalog(state)  # a catalog of every provider (fixture caches; no network) for the model picker
         seed_b(state)
+        write_seven(state)  # 3.6.0.5 A11: the scratch map the Lock and the strip are measured on
         proj = state.parent / "project"
         seed_run(proj)
         srv, _url = serve(state, proj=proj)
