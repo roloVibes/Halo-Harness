@@ -59,11 +59,52 @@ def rects(where: str) -> str:
     return f"Object.fromEntries({boxes(where)}.map((b) => {{ const r = b.getBoundingClientRect(); return [b.dataset.box, [r.left, r.top, r.width, r.height]]; }}))"
 
 
+def served(rig, sid: str) -> dict:
+    """What Studio's server answers on GET live for the rig's session: its agents (main among them), busy, map."""
+    try:
+        status, v = rig.api("GET", "live")
+    except Exception as e:  # the answer itself is the fact a red run needs
+        return {"error": f"{type(e).__name__}: {e}"[:160]}
+    rows = [s for h in v.get("harnesses") or [] for s in h.get("sessions") or [] if s.get("session_id") == sid]
+    agents = [a.get("agent_id") for a in (rows[0].get("agents") or [])] if rows else []
+    return {"status": status, "listed": bool(rows), "agents": len(agents), "main": "main" in agents,
+            "busy": rows[0].get("busy") if rows else None, "map": rows[0].get("map") if rows else None}
+
+
+# 3.6.0.3 S: what the page held when a drawing did not draw (a macOS runner waited 40 s for five boxes on both drawings,
+# from Session's `below` step on, and got none; not reproduced on the Linux VM under CPU throttling 20, two copies at
+# once, a late feed and a slow session socket): shown, focused, its size, the drawing's frame and world, its boxes
+PAGE = """(() => { const f = document.querySelector('$ROOT'), w = f && f.querySelector('$WORLD');
+  const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round); };
+  return { visibility: document.visibilityState, focus: document.hasFocus(), size: [innerWidth, innerHeight],
+    section: document.querySelector('[data-testid=section-tab][aria-selected=true]')?.textContent || null, frame: r(f), world: r(w),
+    boxes: w ? [...w.querySelectorAll(':scope > [data-box]')].map((b) => b.dataset.box) : null,
+    main_rows: w ? w.querySelectorAll('[data-box=main] [data-row]').length : null, errors: (window.__errs || []).slice(-3) }; })()"""
+ERRS = ("window.__errs = []; addEventListener('error', (e) => window.__errs.push(String(e.message || e.error)));"
+        " addEventListener('unhandledrejection', (e) => window.__errs.push('rejected: ' + String(e.reason)));")
+
+
 def open_where(c, rig, lv, where: str) -> None:
+    """The drawing opened, waited for on its facts in order within one 40 s budget, each named in its timeout: the
+    server lists the session's agents, the page shows the drawing's frame, the drawing draws its boxes."""
     from tests.helpers.studio_session import boot_go, url
     lv.refresh(map="shop", map_next="shop", busy=True)
+    end = time.monotonic() + 40
+    got = served(rig, lv.sid)
+    while not (got.get("main") and got.get("agents", 0) >= 5) and time.monotonic() < end:
+        time.sleep(0.25)
+        got = served(rig, lv.sid)
+    if not (got.get("main") and got.get("agents", 0) >= 5):
+        raise TimeoutError(f"waited 40s for the server to list the session's agents (main and five more) on GET live, it answers {got}")
     boot_go(c, url(rig, f"mode=session&session={lv.sid}&open=session-map") if where == "session" else rig.url("agents", "&view=live"))
-    c.wait(f"{boxes(where)}.length >= 5 && !!{q(where, '[data-box=main] [data-row]')}", 40)
+    page = PAGE.replace("$ROOT", ROOT[where]).replace("$WORLD", WORLD[where])
+    for what, expr in ((f"the page to show the {where} drawing's frame", f"!!document.querySelector('{ROOT[where]}')"),
+                       (f"the {where} drawing to draw five boxes and main's rows",
+                        f"{boxes(where)}.length >= 5 && !!{q(where, '[data-box=main] [data-row]')}")):
+        try:
+            c.wait(expr, max(1.0, end - time.monotonic()))
+        except TimeoutError:
+            raise TimeoutError(f"waited 40s for {what}: the page {c.js(page)}; the server {served(rig, lv.sid)}") from None
     c.mouse("mouseMoved", 2, 890)  # the pointer off the drawing (R12 holds it still under the pointer)
 
 
@@ -407,6 +448,7 @@ class RunPartsDriver(Driver):
                 lv.rows[aid]["crew"] = {"map": "shop", "box": "main", "made_up": True}
             c.call("Page.enable")
             c.call("Page.addScriptToEvaluateOnNewDocument", source=IV)
+            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS)  # the page's errors, for open_where's message
             try:
                 yield tuple((drawing, (c, rig, lv, w)) for w in ("session", "live") if not self.argv or w in self.argv)
             finally:

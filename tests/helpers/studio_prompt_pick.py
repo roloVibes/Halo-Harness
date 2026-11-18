@@ -73,12 +73,13 @@ def _focus(rig, sid: str) -> int:
         return r.status
 
 
-def _retitle(rig, sid: str, title: str) -> None:
+def _retitle(rig, sid: str, title: str, **more) -> None:
     """A title change (a session sends its own `registry` frame for it; these rows have no session of their own): the
-    row in the registry, then the bridge's `sessions` frame, on which the page reads GET live again."""
+    row in the registry (with `more` of its fields), then the bridge's `sessions` frame, on which the page reads GET
+    live again."""
     from halo_harness.remote import registry
     from halo_harness.studio.events import bridge_for
-    registry.update(sid, title=title)
+    registry.update(sid, title=title, **more)
     b = bridge_for(rig.server)
     b.publish(b._sessions_frame())
 
@@ -139,15 +140,28 @@ def change(c, rig) -> dict:
     gone = c.wait(f"!{MOVED} && 'gone'", 12)
     out.update(shown_s=round(time.monotonic() - t1, 1), gone=gone, before=before, during=during, after=c.js(GEOM),
                pick_after_focus=c.js(f"{P}.dataset.session"))
-    # a title past two lines: the short line, the header's height held
+    # a title past two lines: the short line, the header's height held. Both rows carry the same header WORDS here (the
+    # same long title, a folder of the same name, the same start), so the header has one height for both in any font:
+    # `-other` in one folder's name made the second row's words one line longer than the first's in some fonts (the
+    # macOS runner's: 121 -> 105 px, 3.6.0.3 S), and a header rightly takes the height of the session it names
+    from halo_harness.remote import registry
     long = ("parser " * 400)[: int(c.js(f"{TO}.clientWidth") * 3.2 / 5.9)].strip()  # about three lines
-    for sid in (rig.sid, sid2):
-        _retitle(rig, sid, long)
+    kept = {k: registry.entry_for(sid2).get(k) for k in ("cwd", "started")}
+    twin = other / rig.cwd.name
+    twin.mkdir(exist_ok=True)
+    _retitle(rig, rig.sid, long)
+    _retitle(rig, sid2, long, cwd=str(twin), started=registry.entry_for(rig.sid).get("started"))
     c.wait(f"{TO}.textContent.includes('parser parser') && 'ok'", 25)
+    same = c.js(f"{TO}.textContent")
     c.click_on("document.querySelector('[data-testid=\"prompt-change\"]')")
     c.wait(f"{ITEMS}.length === 2 && 'ok'", 10)
     c.click_on(f"{ITEMS}.find((i) => i.dataset.session === {sid2!r})")
     _session_is(c, sid2)
+    try:
+        c.wait(f"{TO}.textContent === {same!r} && 'ok'", 25)
+    except TimeoutError:
+        raise TimeoutError(f"the second session's header never showed the first one's words {same!r}, it shows "
+                           f"{c.js(f'{TO}.textContent')!r}") from None
     time.sleep(0.5)
     lb = c.js(GEOM)
     _focus(rig, rig.sid)
@@ -155,8 +169,8 @@ def change(c, rig) -> dict:
     out["long"] = {"line": short, "before": lb, "during": c.js(GEOM)}
     c.wait(f"!{MOVED} && 'gone'", 12)
     out["long"]["after"] = c.js(GEOM)
-    for sid in (rig.sid, sid2):
-        _retitle(rig, sid, "Fix the parser" if sid == rig.sid else "Second session")
+    _retitle(rig, rig.sid, "Fix the parser")
+    _retitle(rig, sid2, "Second session", **kept)
     c.wait(f"{TO}.textContent.includes('Fix the parser') && 'ok'", 25)
     return {"change": out}
 
