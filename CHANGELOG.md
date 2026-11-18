@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.3] - unreleased
+## [3.6.0.3] - 2026-11-18
 
 Replays and History leave Halo. Both things called a replay are gone, in Studio and in the terminal: the playback of a
 past session or goal run on the Map, and `halo replay`'s re-run of a turn on another model. History leaves Agents ->

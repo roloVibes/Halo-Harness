@@ -1,5 +1,165 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.3] - 2026-11-18
+
+Replays and History leave Halo. Both things called a replay are gone, in Studio and in the terminal: the playback of a
+past session or goal run on the Map, and `halo replay`'s re-run of a turn on another model. History leaves Agents ->
+3 · Map with them. What you keep: the session export (one Markdown file of a session, from three places), a goal
+run's report on a page of its own, `halo report`, Record and `halo bugreport`; your old saved files stay where they
+are. Nothing else changed in how a session runs. The limits that remain are at the end of this section.
+
+### Removed
+
+- **Replays, both of them.** The playback of 3.4.1.0 (a past session or goal run played on the Map with a scrubber)
+  and `halo replay <session> --model` (one turn sent again to another model, with the difference shown). With them
+  went `.halo-replay` files, Studio's Save, **Export a clip** and **Compare** (two runs side by side), every
+  `halo replay` verb (`list`, `save`, `open`, `clip`, `compare`), `halo audit privacy --replays`, and `halo report`
+  of a saved file.
+- **`halo replay` says one line and stops.** With or without words after it, it prints this on stderr and exits 2; it
+  never becomes a prompt and writes no session log: "halo replay (playing a session back, re-running a turn on another
+  model) left Halo in 3.6.0.3. To keep a session as a file: halo session export <id>". `halo audit privacy --replays`
+  says the same line, and so does `halo report` given a `file:` ref, a name ending in `.halo-replay`, any existing
+  file, or an id found only among the old saved files. `halo replay` is no longer in `halo --help` or in the
+  completions; `report` stays.
+- **History left Agents -> 3 · Map**: the strip under the map ("Replay it on the map", "Report card", "Back to now"),
+  the drawer's History page with its lists and ticks, **Open a file**, a past session's report card in Studio, and
+  "Replay the last session" on the top line. The Map's drawer button reads **Run a goal** (it read History).
+- **No Replay door is left in Studio**: not on Session's Agent panel, not on a LAST SESSIONS row, not in the palette
+  ("Agents: replay this session on the Map"), not on a goal run's report page.
+- **Two things have nothing in their place.** Compare: the nearest thing is two `halo report` cards side by side.
+  The re-run of a turn on another model: comparing models is still on the list, as its own piece of work.
+- **The word "replay" left the glossary** (`halo explain replay` finds nothing), and the docs page docs/REPLAY.md
+  and its picture docs/media/studio-map-replay.png are gone. Its rules of the redaction, with their documented
+  limit, are in docs/PRIVACY.md ("One redaction for everything that leaves"); its report card is in
+  docs/COMMANDS-sessions.md, under `halo report`.
+
+### Changed, and you may notice
+
+- **The session export is the way to keep a session.** It is one Markdown file you read without Halo: every prompt,
+  every reply and every tool call, keys masked, your home read as `~`. Its three doors give the same bytes:
+  - Studio: Session -> Feed -> **Export** (hover: "Save this session export as one Markdown file:
+    halo-trace-<id>-<date>.md");
+  - in the terminal's session, `/export` (with no name it writes beside the session's log, in
+    `~/.halo/sessions/<project-slug>/`);
+  - `halo session export <id>`.
+  The file's name stays `halo-trace-<id>-<yyyy-mm-dd-hhmm>.md` and its first line is unchanged. Its header no longer
+  says "· lineup: not recorded" (an old log's recorded lineup still shows).
+- **Each row of LAST SESSIONS ON THIS HARNESS** (Session's Agent panel with no agent picked, the last 8 sessions)
+  offers **export** where it offered replay: it saves that session's export, the same file as the Export button, and
+  a toast says what was saved or why not. Each row keeps **record**.
+- **The words say "session export".** `halo --help` reads "the session export: a session as one Markdown file" for
+  `halo session` and "the raw session log, JSON lines, for a script" for `halo export`; `halo export --help` adds that
+  keys are masked only with `--sanitize`. A failed download in Studio says "The session export did not download: ...".
+  A headless `/export` says "A single -p turn has no session to export here." and names `halo session export <id>`.
+- **A finished goal run's report is its own page in the Map's drawer, titled Goal run.** Every way to it lands there:
+  the run's `&run=<id>` link, Attention's `o` on a run, the palette's "Goal run <id>" line (now in the Agents group)
+  and a dry run. A running goal run's page has the same title. When the run ends while its page is open, the page stays
+  and offers **Open its report** where **Stop the run** was; a run gone from Studio reads "Run <id> is not going any
+  more." with the same button. The report page has **Back**, **Copy** and **Run it again**; Back returns to the run's
+  page when **Open its report** sent you, and otherwise closes the drawer.
+- **The report card on that page shows every step**, and says "from the record · no model call"; the old "...and N
+  more steps (Replay shows every one)" is gone. `halo report` keeps ten steps and ends "...and N more steps."
+  (`--json`: `story` and `story_more`), as before. `halo report` takes a session id first, then a goal run id; its
+  head always says it was rendered from the session's (or the goal run's) own record.
+- **Agents -> 3 · Map draws the plan and what runs now, never the past.** There is no "Replaying ... Back to now"
+  line, no replay rows, no replay colours and no dashed "removed since" boxes; "{n} new, not connected yet" and the
+  plan start at the row's left edge. The Map's drawer holds Run a goal's form, a goal run's page while it runs and its
+  report when it ends. Opening the drawer with **Run a goal** (or the palette's Show panel line) opens the form; a
+  drawer already open when the page loads shows "Run a goal: several agents, one goal, one set of files." with a **Run
+  a goal** button. Agents -> 4 · Live is still the live drawing.
+- **An old replay link** (`?mode=agents&replay=<id>`, with any `at=` or `view=`) opens Agents -> 3 · Map as it is
+  now; `replay=` and `at=` leave the address, which names the Map, so a reload opens the Map again.
+- **`halo doctor` names your old files and leaves them.** While `<state>/replays/` exists it shows one line, for
+  example "[WARN] Halo no longer opens replays; 3 saved files are in ~/.halo/replays/ (clips counted) -> fix: delete
+  the folder when you like". Nothing is moved or deleted; with no folder there is no row.
+- **Record stays**, and its hover reads "this session as one HTML page you can open anywhere" (on the button, on a
+  LAST SESSIONS row's **record** link and on the palette's "Agents: record <name>"). Its page, its Play and its scrub
+  bar are as before.
+- **Other words.** A failed agent's Dismiss reads "Seen: <name> failed; this hides it here". Agents' help item
+  "History and goal runs" is now "Goal runs, and keeping a session". The goal form's sentences say the report becomes a
+  page of its own in the drawer. `/studio orchestra`, the first-run pack's Run a goal step and Session's help name no
+  History. When no Chrome is found: "this needs Chrome and none was found: install Chrome or set HALO_CHROME".
+- **docs/PRIVACY.md says two more facts about the redaction**: what a text cut short keeps of your account or machine
+  name (one or two letters, or more of a name with a dash, dot or underscore once the cut is past its first part), and
+  what each thing that leaves does with a path in another account's home.
+
+### Fixed
+
+- **Record's page could carry a key.** Record now passes the session through the session export's redaction before it
+  writes: key-shaped tokens are masked, a path inside the project is relative, any other path under your home reads
+  `~/...`, and your user and machine names are taken out (a path in another account's home is the exception: see Known
+  limits). The project's folder name stays, as before. If the redaction fails, no page is written and Studio's toast
+  says so: "the redactor could not clean this session; nothing was written".
+- **In the Map's drawer the Run a goal form's buttons covered a field.** At 1280 x 800 the model picker sat 4 px above
+  Run, partly under the button row's fade (at 1440 x 900 the "who plays the parts" line touched it). The fields now
+  scroll in a box of their own, and Run, Dry run and Clear the form sit in a row under it: no field slides under the
+  buttons, and Run is still in view without scrolling. A pack workflow's form in the same drawer has the same box and
+  row.
+- **The Run a goal form cut a label** ("SHARED FILES (COMMA ...") at 1280 x 800 and narrower. A label too long for its
+  box now wraps to a second line.
+- **A dry run's report did not show**: the form closed and nothing opened. A dry run now opens its Goal run page.
+- **Studio's goal-run sentences sent you to History** for a run's report, and the Map's drawer button read History
+  over the goal form. Both now name the Goal run page and Run a goal.
+
+### Known limits
+
+- **Every Known limit of 3.6.0.2 still holds**, except the two this release ends: "A saved replay file does not play
+  in Studio" (replays are gone) and "History is still on Agents -> 3 · Map" (it has left). Two of them said "the next
+  release": switching a running session to another map, and renaming "starter" to Auto with agents drawn in named
+  groups. Neither is in this release. Auto with named groups is planned for a later one; switching a running session's
+  map comes only if Halo can do it safely. The limits there about Studio's Export a clip form leave with it. Two
+  limits of the redaction still hold for the session export, the report card and Record's page (both in
+  docs/PRIVACY.md): an account named by a common word, and an excerpt cut short inside your account or machine name
+  keeps one or two letters before its `...`, or more of a name with a dash, dot or underscore once the cut is past its
+  first part (`on gpu-b...` for a machine named `gpu-box`).
+- **Compare and the re-run of a turn on another model have nothing in their place.** Comparing models is still on the
+  list.
+- **The rows' export link covers the sessions that list shows, the last 8.** Export an older one from the terminal:
+  `halo session export <id>`.
+- **`halo export --sanitize` and Record's page do not mask another account's home path** (a path under some other
+  user's home on this machine): the export as before, Record like it. The session export takes that account's name
+  out, but writes the path as `~/...`, which reads like your own home.
+- **Each tool result in the session export is cut at 40 lines**, then "... (N more lines)", as before.
+- **A `.halo-replay` file made by 3.4.1.0 to 3.6.0.2 no longer opens anywhere**: Studio, `halo report` and every
+  `halo replay` verb are gone or refuse it. The file stays on disk until you delete it.
+- **The Map drawer's head cuts its own title** at 1280 x 800 when opened with Run a goal ("RUN A ..."; 3.6.0.2 cut
+  "HIST..." the same way), and the goal form's head line ("several agents, one goal, one set ...") is cut at every
+  size. At 1024 px wide and under, the view bar's title is drawn over the MAP button. A text should never be cut: this
+  is on the list for the next release.
+- **Where it was checked.** The exports, `halo report`, Record's masking, the retired command and the doctor's line
+  were run for real on Linux only. No automated check presses a LAST SESSIONS row's export link; its route and its
+  saving are each tested.
+
+### For people who build Halo
+
+- **Three things that stay left modules named after replays**, with no change of behaviour: the redaction's paths
+  and names are `halo_harness/privacy_scrub.py` (was `live/replay_private.py`); the report card's data is
+  `halo_harness/live/card_data.py`, beside `live/card_run.py`, `live/card_facts.py` and `live/card_timeline.py` (were
+  `live/replay_run.py`, `live/replay_facts.py`, `live/timeline.py`); finding Chrome is `halo_harness/browser_find.py`
+  (realcheck's `--browser` and the suite's Chrome driver use it).
+- **Deleted**: `halo_harness/replay.py`, `replay_cli.py`, `replay_verbs.py`, `studio/replays_api.py`, and
+  `live/replay_clip.py`, `clip_pipe.py`, `clip_chrome.py`, `replay_guard.py`, `replay_file.py`, `replay_cut.py`,
+  `compare.py`, `compare_text.py`; in Studio's source `History.tsx`, `Compare.tsx`, `ReplaySave.tsx`, `Scrubber.tsx`,
+  `historyStore.ts`, `compareStore.ts` and `replay.ts`.
+- **Routes.** The report card is `GET live/report?ref=session:<id>` (or `run:<id>`) in `studio/live_report_api.py`:
+  422 without a ref, 404 when it names nothing, 404 with the retired line for an old saved file. `replays/*` and
+  `live/replay` answer 404. No pack or extension API ever exposed replays.
+- **The retired verb's shape**: one row in `cli_commands.py`, `_c("replay", "", RECORDS, "left Halo in 3.6.0.3 (halo
+  session export)", kind="retired")`, and one line, `cli_commands.REPLAY_LEFT`; `cli.py` prints it to stderr and
+  returns 2 before anything else reads the words. `audit_cli.py` (`--replays`), `report_card.OldFile` (`halo report`)
+  and `live/report` say the same line.
+- **`tests/test_removed_replays.py` keeps them gone.** It greps Studio's UI source, every string constant of Halo's
+  Python (by an ast scan; docstrings and comments left out), README.md, docs/ and both glossaries for `replay`,
+  `scrubber`, `halo-replay`, `History`, `Compare`, `Back to now`, `What happened` and `clip`. Each skip excuses only
+  the words its regex matches, and a skip that excuses nothing fails. It also checks the one line and exit 2, that
+  `replay` is in neither help nor completions, the 404 routes, that the old modules are gone and nothing names them,
+  and that the doctor names the old folder and never deletes it.
+- **New and changed tests**: `test_privacy_scrub` (was `test_replay_private`), `test_card_data`,
+  `test_browser_find`, `test_goal_run_report_page`, `test_history_leaves_the_map`, `test_replays_leave_studio`,
+  `test_live_recording_redaction`. The tests of the old playback, its clips and Compare are deleted.
+- **Two browser checks are steadier.** The long-title pick test holds both headers' words equal in any font, and the
+  run-parts driver waits on its facts in order and names the one it stopped at.
+
 ## [3.6.0.2] - 2026-11-17
 
 "Session map": what a session really does is drawn on the map it really follows, and what main builds for you in a
@@ -2717,71 +2877,3 @@ sentence of what goes on, and zoom levels that change what is drawn (docs/STUDIO
 - "What it feels like" leads with Studio: `docs/media/studio-model-picker.png` (new, `capture_studio.py --mode picker`) and
   `docs/media/studio-auto.png` (new, `capture_steer.py --only auto`) replace the terminal model picker and auto-mode pictures;
   the steer animation and the phase-line picture left the README for one sentence each. The TUI captures stay in `docs/media`.
-
-## [3.3.17.0] - 2026-11-10
-
-**Copilot at work.** Halo signs in to your work's Microsoft 365 Copilot in the browser (or with a device code) and
-talks to it as a provider with one model, `cp:work`, over the Work IQ API or Graph's preview Copilot Chat API. A
-session or a lineup role can run on it as a consult role, any agent can ask it through the `copilot_ask` tool, and its
-cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilot.md).
-
-### R1: the door
-
-#### Added
-
-- **The settings** `copilot.tenant`, `copilot.client_id` (your own Entra app registration, a public client),
-  `copilot.api` (`workiq` default | `graph-beta`), `copilot.web`, `copilot.timezone` and `copilot.scopes`: Settings ->
-  Providers, docs/CONFIG.md (`providers/copilot_config.py`).
-- **Sign-in** (`providers/copilot_auth.py`, `copilot_tokens.py`): the authorization-code flow with PKCE (S256) against
-  the tenant's Entra endpoints, the redirect `http://localhost:<free port>` served once by a listener on 127.0.0.1
-  (the state checked, one request, then it closes; a 5-minute wait, said in the terminal), Halo opens the browser and
-  prints the URL; `--device` and any box with no browser (SSH, no DISPLAY, `HALO_NO_BROWSER`) use the device code.
-  The refresh token goes to the env file as `HALO_SECRET_COPILOT_REFRESH`; access tokens stay in memory, refreshed
-  60 s early; who signed in and until when is in `~/.halo/copilot/account.json` (no token).
-- **The adapter** (`providers/copilot.py`, on `providers/http.py` only): Work IQ's JSON-RPC `SendMessage` with
-  `A2A-Version: 1.0`, the `contextId` kept per conversation and the time zone in the metadata; Graph's
-  `/beta/copilot/conversations` and `.../chat` with the text, `locationHint.timeZone`, `additionalContext`, the file
-  URIs and web grounding. Both answer `{text, citations, sensitivity, conversation, api}`. Every failure is one line
-  with its next step: not set up, not signed in, the sign-in expired, consent missing (the scopes named), no licence,
-  billing not enabled, throttled after one `Retry-After` wait, offline mode.
-- **`halo copilot signin [--device]`, `signout`, `status [--json]`, `ask "<prompt>" [--file URL]... [--no-web] [--api
-  workiq|graph-beta] [--json]`** (docs/COMMANDS-copilot.md); `halo copilot` alone is `status`.
-- **The mock** (`tests/helpers/mock_copilot.py`): Entra (authorize, token with PKCE, refresh, a revoked refresh, the
-  device code), Work IQ's A2A endpoint and Graph's beta conversations, for every test here.
-
-### R2: in the harness
-
-#### Added
-
-- **`cp:work`** (`model.py`'s prefix table, `providers/copilot_route.py`): a session or a role runs on the session's
-  one Copilot conversation; the loop sends it no tools. Its catalog row (`providers/copilot_catalog.py`) says `takes:
-  text, files, web`, `tools: no`, no context window and "Copilot Credits or your licence"; `halo models` lists it once
-  you are signed in. Auto picks it for the need `work-data` ("research over your work data") when signed in, and
-  never for a role that needs tool calls (`models_auto_work.py`).
-- **The `copilot_ask` tool** (`tools/copilot_ask.py`, the `web` capability), registered once Copilot is set up: the
-  answer with its citations as numbered lines, in the transcript like any tool result.
-- **Cost**: a `cp:work` turn and a `copilot_ask` call add no dollars and mark the cost incomplete; `/cost`, `/status`
-  and Studio's Cost panel say "Copilot: billed by your tenant (credits or licence)" (`providers/copilot_cost.py`).
-- **Studio**: Setup -> Providers has a Copilot card (the status a row per fact, the tenant and app id, the door, Sign
-  in / Sign out, the scopes to consent to as a copyable list, Register the app's steps); Sign in starts the browser
-  flow on the machine Studio runs on ("finish in the browser tab that opened"), or shows the device code when there is no
-  browser (`studio/setup_copilot_api.py`, `routes/setup/CopilotCard.tsx`).
-- **`halo doctor`**: one Copilot row (not set up / signed in as ... until ... / token expired / consent missing /
-  billing not enabled / no licence), each with its next step (`providers/copilot_doctor.py`).
-- **Docs**: docs/PROVIDERS-copilot.md, docs/COMMANDS-copilot.md, the glossary's "consult role".
-
-### On 3.3.16.1-3.3.16.3 (the round, merged onto master)
-
-- **The prompt diet**: `copilot_ask` has its lean description (`tools/lean_descriptions.py`) and goes out right after
-  what the lineup needs (`agent/prompt_diet.py` `AFTER_NEEDS`). Copilot not set up, the tool is not registered and the
-  pinned first turns do not move; set up, a lean first turn grows by at most the tool's lean size
-  (tests/test_prompt_budget_pins.py).
-- **The shared ranking**: a model that states no tool calls is never ranked for code (`model_rank.ranks_for`), and
-  `cp:work`'s missing dollar price never wins "cheapest"; Auto's `work-data` pick goes through `model_rank`'s one
-  comparator (`models_auto_work.py`).
-- **Studio**: a Cast hover on `cp:work` says it takes text, files, web; no tools, and "your tenant's credits or
-  licence" as its price (the model row's `price_note`); a hover leaves out a context window nobody states. A square or
-  a block template may name a bio on `cp:work`; its Costs line and block footer say "tenant credits" in place of the
-  dollar band (all of it on Copilot) or after it (part of it) (`workflows/contract.py`, `SquareBlock.tsx`).
-- **Live**: a `cp:work` role's turn shows as text rows with no THINK row (Copilot streams no thoughts and none is
-  made up), its hand-back as a TALK row, a `copilot_ask` call as a tool row (tests/test_copilot_fit.py).
