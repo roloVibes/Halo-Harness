@@ -1,12 +1,12 @@
 """tests.helpers.studio_controls_steps -- the `session` and `map` groups of tests/helpers/studio_controls.py (Halo 3.6.0.2 R42).
 
     session   Session's Live drawer at 1280 x 800: the pair "Running: {A} | Just built: {B}" (a builder_done for review-flow
-              while the session runs on starter), Zoom out, the zoom, Zoom in, Fit (pressed after a hand zoom; fitted, it is
+              while the session runs on auto), Zoom out, the zoom, Zoom in, Fit (pressed after a hand zoom; fitted, it is
               hidden with its slot kept: `fit`), the T-state line's [New session] and its form's x; "↓ n more below" (the
               map `seven` at 1280 x 640); a step row, a box and a line (each opens the step-in card), the card's Pause,
               Resume, the steer field (Enter sends), Stop (up to its confirm) and the confirm's Cancel, its x, [Open in
               Agents -> Live], an off-map line's "Open the map at main"; the drawer's [Open in Agents -> Live]
-    map       Agents -> 3 · Map at 1500 x 900: [Watch it in Live] (L1: the session on starter), the picker, + New map, its
+    map       Agents -> 3 · Map at 1500 x 900: [Watch it in Live] (L1: the session on auto), the picker, + New map, its
               Make with a name it refuses, the error's Dismiss, the switch New sessions run on this, Undo, Run a goal,
               Lock (on, off), "n new, not connected yet" (a box added from the list to the strip) and Undo, [Open it]
               (L4: a build of review-flow), the zoom row, the four tabs, the Attention chip and its x (3.6.0.3 B: History's
@@ -60,10 +60,10 @@ def session(c, rig, lv, rows) -> dict:
 
     def built():
         rows.reset()
-        rows.idle(a, map="starter", map_plain=True, map_next="review-flow")
+        rows.idle(a, map="auto", map_plain=True, map_next="review-flow")
         _size(c, 1280, 800)
         boot_go(c, url(rig, f"mode=session&session={a}&open=session-map"))
-        c.wait(f"!!{M} && {M}.dataset.map === 'starter' && !!{M}.querySelector('[data-box=main]')", 40)
+        c.wait(f"!!{M} && {M}.dataset.map === 'auto' && !!{M}.querySelector('[data-box=main]')", 40)
         built_frame(rig, a, [{"kind": "workflow", "name": "review", "added": True}, {"kind": "map", "name": "review-flow", "added": True}],
                     {"review-flow": body}, undo="ctl-1", next_="review-flow")
         c.wait(f"{vis('[data-testid=session-map-pair]')}?.textContent.includes('Just built: review-flow')", 20)
@@ -138,7 +138,7 @@ def map_view(c, rig, lv, rows) -> dict:
 
     def l1():
         setup(rig, lv, rows, flow=False)
-        to_map(c, rig, "starter")
+        to_map(c, rig, "auto")
         c.wait(f"!!{t('map-watch-live')}", 30)
 
     def shop():
@@ -173,22 +173,22 @@ def map_view(c, rig, lv, rows) -> dict:
         built(lv, "review-flow", body=RF)
         c.wait(f"!!{t('map-built-open')}", 20)
 
-    def starter_his_shop():
-        """crew.map = shop (his map set elsewhere): on starter the switch is a switch again (P4 batch 12)."""
+    def auto_his_shop():
+        """crew.map = shop (his map set elsewhere): on auto the switch is a switch again (P4 batch 12)."""
         use(rig, "shop")
-        to_map(c, rig, "starter")
+        to_map(c, rig, "auto")
 
     try:
         recs = presses(c, [
             ("[Watch it in Live]", t("map-watch-live"), l1),
-            ("the map picker", t("map-switcher"), shop, ("choose", "starter")),
+            ("the map picker", t("map-switcher"), shop, ("choose", "auto")),
             ("+ New map", t("map-switcher"), back_to("shop"), ("choose", "+")),
             ("Make (a name it refuses)", t("map-new-make"), bad_name),
             ("the error's Dismiss", f"{t('map-error')}?.querySelector('button')"),
             ("the new map's Cancel", f"{t('map-new-make')}?.nextElementSibling"),
             ("New sessions run on this", t("map-uses"), back_to("shop")),
             ("Undo (the switch)", t("map-undo")),
-            ("New sessions run on this (starter, his map shop)", t("map-uses"), starter_his_shop),
+            ("New sessions run on this (auto, his map shop)", t("map-uses"), auto_his_shop),
             ("Run a goal", t("map-run-goal")),
             ("Lock", t("map-lock")), ("Lock (off again)", t("map-lock")),
             ("n new, not connected yet", t("map-fresh"), fresh),
@@ -203,7 +203,7 @@ def map_view(c, rig, lv, rows) -> dict:
         out["gone"] = c.js("document.querySelectorAll('[data-testid=map-lit-pick], [data-testid=map-show-running], [data-testid=map-lit-show-nomap]').length")
         # P4 batch 12: no map set, on the default map: no switch (it could change nothing), the plain sentence instead
         use(rig, None)
-        to_map(c, rig, "starter")
+        to_map(c, rig, "auto")
         out["default_uses"] = [c.js(f"!!{t('map-uses')}"), c.js(f"{t('map-uses-default')}?.textContent || ''")]
         # P7: roles off and no map set, new sessions run on NO map (`next_none`): the default map says the words file's
         # sentence for that, beside a switch (off); its press puts new sessions on the default map, and the bar says so
@@ -230,7 +230,7 @@ def none_uses(c, rig, t) -> dict:
             f"{t('map-uses-default')}?.textContent || '']")
     _roles(False)
     out = {"api": rig.api("GET", "crew/maps")[1].get("next_none")}
-    to_map(c, rig, "starter")
+    to_map(c, rig, "auto")
     out["off"] = c.js(read)
     # P8 batch 2: the space between the switch (its label: the button and its words) and the 'no map' sentence (with
     # roles off the words ran into the sentence, 0 px)
@@ -238,6 +238,6 @@ def none_uses(c, rig, t) -> dict:
                       "return Math.round(w.getBoundingClientRect().left - s.getBoundingClientRect().right); })()")
     if out["off"][0]:
         c.js(f"{t('map-uses')}.click(); 1")
-        out["pressed"] = until(c, read, [False, "", "", "New sessions run on starter (the default)."], 20)
+        out["pressed"] = until(c, read, [False, "", "", "New sessions run on Auto (the default)."], 20)
         out["api_after"] = rig.api("GET", "crew/maps")[1].get("next_none")
     return out

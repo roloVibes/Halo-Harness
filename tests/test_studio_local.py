@@ -127,7 +127,7 @@ def test_the_models_page_and_the_intent_filter(ctx: Ctx):
               str(got.get("lane_said")).startswith("roles.coder = ol:qwen3-coder:30b@box")
               and got.get("lane_config") == ["ol:qwen3-coder:30b@box", "ol:qwen3.5:9b@box"])
     ctx.check(f"a new session runs a plain map, its coder on the model and main on the orchestrator, got {got.get('lane_runs')}",
-              got.get("lane_runs") == ["starter", "ol:qwen3-coder:30b@box", "ol:qwen3.5:9b@box"])
+              got.get("lane_runs") == ["auto", "ol:qwen3-coder:30b@box", "ol:qwen3.5:9b@box"])
 
 
 if __name__ == "__main__":

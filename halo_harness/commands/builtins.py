@@ -874,17 +874,22 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
 
 
 def _map_line(session) -> str:
-    """`Map: starter (the default: it draws what this session does)`, `Map: ship-it`, or no map at all."""
+    """`Map: Auto (the default: main picks who works on each task, and a model for each one)` (3.6.0.5 W1),
+    `Map: ship-it`, or no map at all."""
+    auto = "Map: Auto (the default: main picks who works on each task, and a model for each one)"
     if session is None:
         from halo_harness.crew.in_use import map_name
+        from halo_harness.crew.store import is_auto
         name = map_name()
+        if is_auto(name):
+            return auto
         return f"Map: {name} (in use for new sessions)" if name else "Map: none (One model for everything)"
     mc = getattr(session, "team_control", None)
     c = getattr(mc, "map", None) if getattr(mc, "is_map", False) else None
     if c is None:
         return "Map: none (One model for everything, a bare session or --agent)"
     from halo_harness.crew.compile import is_default
-    return f"Map: {c.name}" + (" (the default: it draws what this session does)" if is_default(c) else "")
+    return auto if is_default(c) else f"Map: {c.name}"
 
 
 def _cmd_config(args: str, facade: HeadlessFacade) -> str:

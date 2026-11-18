@@ -17,7 +17,7 @@ import time
 
 S13 = "This session keeps running on {old}, as it started. Start a new session to run on {new}."
 TERMINAL_TAIL = "In the terminal: quit, then run halo; /clear keeps {old}."
-DEFAULT_WORDS = "{name} (the default)"
+DEFAULT_WORDS = "Auto (the default)"  # 3.6.0.5 A7: `auto`, `starter` and no map set are one map
 
 
 def s13(old: str, new: str) -> str:
@@ -34,11 +34,11 @@ def hhmm(t) -> str:
 
 
 def words_of(name, plain: bool = False) -> str:
-    """{A}/{B}/{old}/{new}: "starter (the default)" for the default map (or no map named: new sessions draw the
-    default), else the map's name."""
-    if plain or not name:
-        from halo_harness.crew.compile import DEFAULT_MAP
-        return DEFAULT_WORDS.format(name=name or DEFAULT_MAP)
+    """{A}/{B}/{old}/{new}: "Auto (the default)" for the default map (or no map named, or `auto`/`starter`: new
+    sessions draw the default), else the map's name."""
+    from halo_harness.crew.store import is_auto
+    if plain or not name or is_auto(name):
+        return DEFAULT_WORDS
     return str(name)
 
 
@@ -84,6 +84,9 @@ def next_map() -> "tuple":
     """F4: (the map new sessions use or None, since when or None). One read of config's `crew` section."""
     crew = _crew_config()
     name = _name(crew.get("map"))
+    from halo_harness.crew.store import is_auto
+    if is_auto(name):  # 3.6.0.5 A2: an old `crew.map: starter` is the default, as unset
+        name = None
     since = crew.get("map_since")
     at = None
     if isinstance(since, dict) and _name(since.get("map")) == name:
@@ -270,6 +273,8 @@ def compacted(session) -> None:
 # ---- R36 R37 R21: the Builder's card and result in a session (section 4, letter for letter) --------------------------
 NAME_THE_MAP = ("Name the map: this session runs on {A}, where main chooses who works. Pass a new name in args.map to "
                 "make a map that routes.")
+NAME_A_NEW_MAP = ("Name the map: Auto (the default) stays as it is, where main chooses who works. Pass a new name in "
+                  "args.map to make a map that routes.")  # 3.6.0.5 RULINGS 3: no name typed and none to take
 NEXT_HANDOFF = "this session takes it at its next hand-off"
 ROW_NEW_MAP = "Make a new map {B} (main, then the boxes below)"
 ROW_WORKFLOW = "Make the workflow {W}: {steps}"  # steps: "1 {a}, 2 {b}"

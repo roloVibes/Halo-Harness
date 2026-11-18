@@ -1,6 +1,7 @@
-# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+# Ships with Halo (3.6.0.0): read-only; Copy makes yours.
 format: map/1
-name: starter
+name: auto
+about: Main picks who works on each task; each one's model is picked for its task, and the reason is shown.
 boxes:
 - id: planner
   agent: planner

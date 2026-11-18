@@ -39,7 +39,7 @@ def _cli(fn, argv, cwd: Path) -> "tuple[int, str, str]":
 def test_a_starters_copy_is_yours_and_reads_the_same(ctx: Ctx):
     from halo_harness.crew import store
     with ConfigHome() as h:
-        for kind, name in (("agent", "coder"), ("workflow", "code"), ("map", "starter")):
+        for kind, name in (("agent", "coder"), ("workflow", "code"), ("map", "auto")):
             path, new = store.own_copy(kind, name, cwd=h.repo, state_dir=h.state)
             ctx.check(f"{kind} {name}: my-{name} in your folder, got {new} {path}",
                       new == f"my-{name}" and path == h.state / "crew" / f"{kind}s" / f"my-{name}.yaml" and path.is_file())
@@ -48,6 +48,11 @@ def test_a_starters_copy_is_yours_and_reads_the_same(ctx: Ctx):
                       mine["_scope"] == "yours" and {**store.clean(starter), "name": new, "from": f"starter {name}"} == store.clean(mine))
             ctx.check(f"{kind}: the copy reads clean, got {store.PROBLEMS[kind](store.clean(mine), name=new)}",
                       not store.PROBLEMS[kind](store.clean(mine), name=new))
+        path, new = store.own_copy("map", "starter", as_name="my-auto-2", cwd=h.repo, state_dir=h.state)
+        mine = store.load("map", new, cwd=h.repo, state_dir=h.state)
+        ctx.check(f"3.6.0.5: starter with no scope reads Auto: my-auto-2 from starter auto, got {new} {mine.get('from')}",
+                  new == "my-auto-2" and {**store.clean(store.load("map", "auto", cwd=h.repo, state_dir=h.state)),
+                                          "name": new, "from": "starter auto"} == store.clean(mine))
         try:
             store.own_copy("agent", "coder", cwd=h.repo, state_dir=h.state)
             again = ""

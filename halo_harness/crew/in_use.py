@@ -45,12 +45,13 @@ def map_name(cwd=None) -> Optional[str]:
 
 
 def _is_plain(name: str, cwd=None) -> bool:
-    from halo_harness.crew.compile import DEFAULT_MAP, in_use
+    from halo_harness.crew.compile import in_use
+    from halo_harness.crew.store import is_auto
     try:
-        got, source = in_use(None, cwd)
+        _got, source = in_use(None, cwd)
     except Exception:
         return False
-    return name == DEFAULT_MAP and got == name and source == "default"
+    return is_auto(name) and source == "default"  # 3.6.0.5 A2: `auto`, `starter` and none set are one map
 
 
 def role_table(name: Optional[str] = None, *, cwd=None, state_dir=None) -> Optional[dict]:

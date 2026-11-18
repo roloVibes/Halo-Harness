@@ -30,7 +30,7 @@ def _parser() -> argparse.ArgumentParser:
     cp.add_argument("--as", dest="as_name", default=None, metavar="NAME", help="the copy's name (default my-<name>)")
     use = sub.add_parser("use", help="new sessions run on this map (config crew.map)")
     use.add_argument("name", nargs="?")
-    use.add_argument("--off", action="store_true", help="stop using a map of your choice: new sessions run as by default")
+    use.add_argument("--off", action="store_true", help="goes back to Auto (the default)")
     use.add_argument("--none", action="store_true", help="One model for everything: no map, main does every job (roles off)")
     edit = sub.add_parser("edit", help="open it in your editor, or in Studio")
     edit.add_argument("name")
@@ -48,18 +48,24 @@ def cmd_maps(argv) -> int:
     from halo_harness.crew.compile import in_use
     if args.cmd in (None, "list"):
         used, source = in_use(None, cwd)
+        print(f"{'*' if source == 'default' else ' '} {'auto':<20} {'default':<8} main picks who works on each task")
         seen = set()
         for r in store.rows("map", cwd=cwd):
-            if r["name"] in seen:
+            auto = store.is_auto(r["name"])  # 3.6.0.5 W4/A4: his old auto/starter file is listed, never in use
+            if auto and r["_scope"] == "starter":
+                continue  # the shipped default: its row is the first one
+            key = (r["name"], False) if auto else r["name"]
+            if key in seen:
                 continue
-            seen.add(r["name"])
-            mark = "*" if r["name"] == used else " "
+            seen.add(key)
+            mark = "*" if r["name"] == used and not auto else " "
             bad = f"  problem: {r['_problems'][0]}" if r["_problems"] else ""
             print(f"{mark} {r['name']:<20} {r['_scope']:<8} {len(r.get('boxes') or [])} boxes, {len(r.get('lines') or [])} lines{bad}")
             gone = store.dangling_line(r, cwd=cwd) if r["_scope"] != "starter" and not r["_problems"] else ""
             if gone:  # 3.6.0.0 R5d: a copy of a pack's map outlives the pack
                 print(f"    {gone}")
-        print(f"in use: {used} ({source})" if used else "in use: none (One model for everything: roles off)")
+        print("in use: Auto (the default)" if source == "default" else
+              f"in use: {used} ({source})" if used else "in use: none (One model for everything: roles off)")
         return 0
     if args.cmd == "copy":  # 3.6.0.0 R5d: own_copy
         from halo_harness.crew_cli_parts import copy
@@ -74,7 +80,7 @@ def cmd_maps(argv) -> int:
         from halo_harness.crew.tools_show import studio_show
         print(studio_show({"what": "map", "name": args.name}, {"cwd": cwd, "state_dir": None})["text"])
         return 0
-    if not (args.off or args.none) and args.name:
+    if not (args.off or args.none) and args.name and not store.is_auto(args.name):
         args.name, said = store.resolve("map", args.name, cwd=cwd)  # 3.6.0.0 R5c: a pack's map named bare
         if said:
             print(said, file=sys.stderr)
@@ -83,7 +89,6 @@ def cmd_maps(argv) -> int:
         return 1
     from halo_harness.crew.changes import write_all
     from halo_harness.crew.changes_map import ONE_MODEL, config_path, config_text
-    from halo_harness.crew.compile import DEFAULT_MAP
     choice = ONE_MODEL if args.none else None if args.off else args.name
     from halo_harness.theme import CorruptConfigError
     try:
@@ -96,11 +101,11 @@ def cmd_maps(argv) -> int:
     before = start_modes(cwd)
     undo_id = write_all({config_path(): text})
     said = ("One model for everything: no map, main does every job on your model (roles off)." if args.none else
-            f"New sessions run as by default (the {DEFAULT_MAP} map draws what they do; no map of yours is set)."
-            if choice in (None, DEFAULT_MAP) else f"New sessions run on the map {args.name}; a running session keeps its own.")
+            "New sessions run on Auto (the default); no map of yours is set."
+            if choice is None or store.is_auto(choice) else f"New sessions run on the map {args.name}; a running session keeps its own.")
     after, here = start_modes(cwd), True  # 3.6.0.1: said when the mode new sessions start in changes (jf-mapuse: and outside)
     line = ""
-    if choice not in (None, DEFAULT_MAP, ONE_MODEL):  # batch01 #2: what its main does to your permission mode
+    if choice is not None and choice != ONE_MODEL and not store.is_auto(choice):  # batch01 #2: what its main does to your permission mode
         from halo_harness.crew.compile import compile_map
         from halo_harness.crew.map_session import main_mode
         _m, line = main_mode(compile_map(args.name, cwd=cwd), resolved)

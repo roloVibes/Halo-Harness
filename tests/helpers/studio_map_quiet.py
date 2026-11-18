@@ -1,14 +1,14 @@
 """tests.helpers.studio_map_quiet -- Agents -> 3 · Map is the plan (Halo 3.6.0.2 R24 R33 R55), steps of the driver
 tests/helpers/studio_agents_live.py over the same rig (the map `shop` seeded, its box `check` runs the workflow
-`review`; the rig's session on `starter`, the default). Each waits for the value it reads; no fixed sleep is a pass
+`review`; the rig's session on `auto`, the default). Each waits for the value it reads; no fixed sleep is a pass
 condition.
 
-    quiet     R55: the session runs the workflow review (its reviewer row tagged `crew.workflow`) from starter: on shop
+    quiet     R55: the session runs the workflow review (its reviewer row tagged `crew.workflow`) from auto: on shop
               the one quiet line L3, box check marked "running now in {session}", nothing lit, nothing amber, the old
               live branch's controls gone; Agents' help and the Map panel's help in the new words; [Watch it in Live]
-              lands on 4 · Live on that session; on starter, L1
+              lands on 4 · Live on that session; on auto, L1
     picker    R24: config crew.map = shop: the picker's options say "· running in {session}" / "· new sessions"; the
-              switch "New sessions run on this" is on for shop; a second session on starter: "· running in 2 sessions"
+              switch "New sessions run on this" is on for shop; a second session on auto: "· running in 2 sessions"
     receipt   R55 S13: the hand switch's receipt names the open session; with none open, "New sessions run on {B}."
     away      R33: a builder_done for review-flow while the page is on Session: LAST written, no section change, no
               map fetched; Alt+2, 3 opens 3 · Map on review-flow
@@ -74,7 +74,7 @@ def setup(rig, lv, rows, flow: bool) -> str:
     rows.reset()
     use(rig, None)
     lv.rows["r3v1e2w0"].update(crew=dict(REVIEW) if flow else None, state="running" if flow else "done")
-    lv.refresh(map="starter", map_plain=True, map_next=None)
+    lv.refresh(map="auto", map_plain=True, map_next=None)
     return title_of(rig, lv.sid)
 
 
@@ -115,7 +115,7 @@ def second_session(lv, title: str = "second"):
 
 def built(lv, name: str, added: bool = True, body: "dict | None" = None) -> None:
     lv.frame("main", "builder_done", {"id": f"c-{name}", "outcome": "applied", "wrote": [{"kind": "map", "name": name, "added": added}],
-                                      "undo": f"u-{name}", "next": None, "this_session": "starter", "maps": {name: body} if body else {},
+                                      "undo": f"u-{name}", "next": None, "this_session": "auto", "maps": {name: body} if body else {},
                                       "t": time.time()})
 
 
@@ -151,14 +151,14 @@ def quiet(c, rig, lv, rows) -> dict:
     from tests.helpers.studio_agents_live_draw import choose
     c.click_on("document.querySelector('[data-part=live] [data-testid=agents-view-map]')")
     c.wait(f"{VIEW} === 'map'", 15)
-    choose(c, f"{M} [data-testid=map-switcher]", "starter")
-    out["l1"] = c.wait(f"{SW}.value === 'starter' && {q}?.textContent.includes('runs on this map now') && {q}.textContent", 20)
+    choose(c, f"{M} [data-testid=map-switcher]", "auto")
+    out["l1"] = c.wait(f"{SW}.value === 'auto' && {q}?.textContent.includes('runs on this map now') && {q}.textContent", 20)
     return out
 
 
 def picker(c, rig, lv, rows) -> dict:
     out: dict = {"title": setup(rig, lv, rows, flow=False)}
-    to_map(c, rig, "starter")
+    to_map(c, rig, "auto")
     out["fresh"] = c.wait(f"{OPTS}.some((x) => x.includes(' · running in ')) && {OPTS}", 20)
     use(rig, "shop")
     out["options"] = c.wait(f"{OPTS}.some((x) => x.endsWith(' · new sessions')) && {OPTS}", 20)
@@ -167,7 +167,7 @@ def picker(c, rig, lv, rows) -> dict:
     uses = t("map-uses")
     out["switch"] = c.wait(f"{SW}.value === 'shop' && [{uses}.getAttribute('aria-checked'), {uses}.closest('label').textContent]", 15)
     with second_session(lv):
-        out["two"] = c.wait(f"{OPTS}.find((x) => x.startsWith('starter') && x.includes('running in 2 sessions')) || ''", 20)
+        out["two"] = c.wait(f"{OPTS}.find((x) => x.startsWith('auto') && x.includes('running in 2 sessions')) || ''", 20)
     use(rig, None)
     return out
 
@@ -201,7 +201,7 @@ def away(c, rig, lv, rows) -> dict:
     c.wait("location.href === 'about:blank'", 10)
     c.go(rig.url("session"))
     c.wait("!!document.querySelector('[data-testid=session-lit-line]')?.dataset.state", 40)
-    c.js("localStorage.setItem('halo.studio.map-open', 'starter'); 1")
+    c.js("localStorage.setItem('halo.studio.map-open', 'auto'); 1")
     time.sleep(2)  # the map file's own files_changed (written above) has passed: what is tapped is the frame's doing
     gets, untap = _tap_gets()
     try:
@@ -279,14 +279,14 @@ def reread(c, rig, lv, rows) -> dict:
 
 def still(c, rig, lv, rows) -> dict:
     """R55 at 1280 x 800, no scroll made: the quiet line comes and goes as a session runs a workflow from shop (L3) or
-    runs on starter (L1), and ends; the canvas top is read with the line, without the session, with the line again."""
+    runs on auto (L1), and ends; the canvas top is read with the line, without the session, with the line again."""
     from tests.helpers.studio_agents_live_draw import choose
     c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
     try:
         out: dict = {"title": setup(rig, lv, rows, flow=True)}
         to_map(c, rig, "shop")
         q = t("map-quiet")
-        for name, words in (("shop", "running the workflow"), ("starter", "runs on this map now")):
+        for name, words in (("shop", "running the workflow"), ("auto", "runs on this map now")):
             choose(c, f"{M} [data-testid=map-switcher]", name)
             said = f"{SW}.value === {name!r} && {q}?.textContent.includes({words!r})"
             c.wait(said, 20)
@@ -308,7 +308,7 @@ def still(c, rig, lv, rows) -> dict:
 
 
 def race(c, rig, lv, rows) -> dict:
-    """The tab's own first open (`&map=starter`) answered after his pick of shop: the pick stands (latest request wins)."""
+    """The tab's own first open (`&map=auto`) answered after his pick of shop: the pick stands (latest request wins)."""
     from halo_harness.studio import api as A
     from tests.helpers.studio_agents_live_draw import choose
     setup(rig, lv, rows, flow=False)
@@ -317,7 +317,7 @@ def race(c, rig, lv, rows) -> dict:
     orig, served, order = A.dispatch, [], []  # order: what happened, in turn (P4 batch 12: the test asserts it)
 
     def slow(req):
-        if req.method == "GET" and str(req.path) == "crew/map/starter" and not req.query and not served:
+        if req.method == "GET" and str(req.path) == "crew/map/auto" and not req.query and not served:
             picked.wait(30)  # the first open's answer is held until his pick is drawn (an event, not a delay)
             try:
                 return orig(req)
@@ -329,7 +329,7 @@ def race(c, rig, lv, rows) -> dict:
     try:
         c.go("about:blank")
         c.wait("location.href === 'about:blank'", 10)
-        c.go(rig.url("agents", "&view=map&map=starter"))
+        c.go(rig.url("agents", "&view=map&map=auto"))
         c.wait(f"{VIEW} === 'map' && [...({SW}?.options || [])].some((o) => o.value === 'shop')", 40)
         choose(c, f"{M} [data-testid=map-switcher]", "shop")
         c.wait(f"{SW}.value === 'shop' && !!document.querySelector('{M} [data-map-box=check]')", 20)
@@ -340,7 +340,7 @@ def race(c, rig, lv, rows) -> dict:
             time.sleep(0.05)
         out: dict = {"served": bool(served), "order": list(order)}
         # the late answer has reached the page (its resource entry is complete), then two frames for React to draw it
-        c.wait("performance.getEntriesByType('resource').some((e) => /\\/crew\\/map\\/starter$/.test(e.name))", 20)
+        c.wait("performance.getEntriesByType('resource').some((e) => /\\/crew\\/map\\/auto$/.test(e.name))", 20)
         c.js("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))")
         out["after"] = [c.js(f"{SW}.value"), c.js(f"!!document.querySelector('{M} [data-map-box=check]')")]
         return out

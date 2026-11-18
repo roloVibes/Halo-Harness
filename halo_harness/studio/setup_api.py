@@ -110,7 +110,7 @@ def post_team(req):
     if name != ONE_MODEL and not _known(name, req):
         return _refused([f"no map named {name!r} here (halo maps list names them)"])
     from halo_harness.crew.changes import write_all
-    from halo_harness.crew.compile import DEFAULT_MAP
+    from halo_harness.crew.store import is_auto
     from halo_harness.theme import CorruptConfigError
     try:
         text = config_text(name)
@@ -118,7 +118,7 @@ def post_team(req):
         return _refused([str(e)])
     write_all({config_path(): text})
     line = (ONE_MODEL_LINE if name == ONE_MODEL else
-            f"crew.map unset: new sessions draw the map {name} (the default)" if name == DEFAULT_MAP else
+            "crew.map unset: new sessions run on Auto (the default)" if is_auto(name) else
             f"crew.map = {name}: new sessions run on the map {name}")
     return 200, {**_state(req), "lines": [line]}
 

@@ -67,12 +67,13 @@ def config_text(value) -> str:
     shipped default map takes the key out (the default: sessions draw the starter map); ONE_MODEL ("One model for
     everything") takes it out and sets `roles.enabled` false (no map at all); any other choice turns roles back on
     when they were off."""
-    from halo_harness.crew.compile import DEFAULT_MAP, _roles_on
+    from halo_harness.crew.compile import _roles_on
     from halo_harness.theme import _load_config_for_write
     data = _load_config_for_write(config_path())  # 3.6.0.0 fx: CorruptConfigError, never {} written over the file
     before = data.get("crew") if isinstance(data.get("crew"), dict) else {}
     crew = {k: v for k, v in before.items() if k != "map"}
-    if value and value not in (DEFAULT_MAP, ONE_MODEL):
+    from halo_harness.crew.store import is_auto
+    if value and value != ONE_MODEL and not is_auto(value):  # 3.6.0.5 A3: `auto` or `starter` takes the key out, as Off
         crew["map"] = value
     from halo_harness.crew.map_facts import roles_flip, since_for  # 3.6.0.2 R40: when it was switched, in the same text
     crew["map_since"] = since_for(before, crew.get("map"), switched=roles_flip(data, value != ONE_MODEL))

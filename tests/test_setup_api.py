@@ -105,10 +105,10 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         ctx.check("and the key is nowhere in the answer", "sk-or-v1" not in json.dumps(s) and "0123456789abcdef" not in json.dumps(s))
         team = s["team"]  # 3.6.0.0 R5: the Map step (its block id stays team)
         rows = {r["name"]: r for r in team["maps"]}
-        ctx.check(f"a fresh home runs the starter map by default, got {team['active']} {team['source']}",
-                  team["active"] == "starter" and team["source"] == "default")
-        ctx.check(f"every map listed, the starter checked as the default, got {list(rows)}",
-                  rows["starter"]["default"] and rows["starter"]["active"] and "ship-it" in rows and not rows["ship-it"]["active"])
+        ctx.check(f"a fresh home runs Auto by default, got {team['active']} {team['source']}",
+                  team["active"] == "auto" and team["source"] == "default")
+        ctx.check(f"every map listed, Auto checked as the default, got {list(rows)}",
+                  rows["auto"]["default"] and rows["auto"]["active"] and "ship-it" in rows and not rows["ship-it"]["active"])
         ctx.check("R3: no check ran yet; the Linux fixes block's shape (its items depend on the box)",
                   s["last_check"] is None and set(s["linux_fixes"]) == {"needed", "items", "platform"}
                   and s["linux_fixes"]["needed"] == bool(s["linux_fixes"]["items"]))
@@ -151,7 +151,7 @@ def test_the_map_step_writes_crew_map(ctx: Ctx):
                   and (cfg.get("crew") or {}).get("map") == "ship-it" and s["team"]["active"] == "ship-it" and s["team"]["source"] == "config"
                   and s["lines"] == ["crew.map = ship-it: new sessions run on the map ship-it"])
         rows = {r["name"]: r for r in s["team"]["maps"]}
-        ctx.check("the rows follow: ship-it checked, the starter no longer the default", rows["ship-it"]["active"] and not rows["starter"]["default"])
+        ctx.check("the rows follow: ship-it checked, Auto no longer the default", rows["ship-it"]["active"] and not rows["auto"]["default"])
         before = e.config()
         for body in ({"map": "no-such-map"}, {}, {"map": "../x"}, {"lineup": "balanced"}):
             status, got = e.call("POST", "setup/team", body)

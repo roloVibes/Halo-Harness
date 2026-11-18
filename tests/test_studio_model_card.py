@@ -73,7 +73,7 @@ def test_setup_default_model_shows_the_card_and_the_offer_points_the_coder(ctx: 
               f"{got.get('coder_role')} {got.get('model')}", got.get("team") is None
               and got.get("coder_role") == "ol:qwen3-coder:30b" and got.get("model") == "ol:qwen3.8:27b")
     ctx.check(f"a new session: the plain map, its coder on the model, main on the orchestrator, got {got.get('runs')}",
-              got.get("runs") == ["starter", "ol:qwen3-coder:30b", "ol:qwen3.8:27b"])
+              got.get("runs") == ["auto", "ol:qwen3-coder:30b", "ol:qwen3.8:27b"])
 
 
 @test

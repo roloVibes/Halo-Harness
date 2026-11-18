@@ -34,7 +34,7 @@ def run_problems(name: Optional[str] = None, *, cwd=None, state_dir=None) -> "li
         except Exception:
             have = []
         return [_finding("map-missing", "blocks", f"map `{name}` does not exist (the maps here: "
-                         f"{', '.join(have) or 'none'})", "name one that exists (halo maps list), or none for the starter")]
+                         f"{', '.join(have) or 'none'})", "name one that exists (halo maps list), or auto for the default")]
     try:
         c = compile_map(name, cwd=cwd, state_dir=state_dir)
     except Exception:

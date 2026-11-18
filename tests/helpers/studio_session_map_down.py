@@ -132,7 +132,7 @@ def _seed_shop(rig) -> None:
 def follows(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.reset()
     rows.set(a, map="shop")
-    rows.turn(b, map="starter")
+    rows.turn(b, map="auto")
     _page(c, rig, f"mode=session&session={b}")
     c.wait(f"!!{DRAWN} && !!{COST}?.dataset.session", 30)
     return {"follows": _read(c)}
@@ -141,7 +141,7 @@ def follows(c, rig, rows: Rows, a: str, b: str) -> dict:
 def kept(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.reset()
     rows.idle(a, map="shop")
-    rows.idle(b, map="starter")
+    rows.idle(b, map="auto")
     _page(c, rig, "mode=session")
     c.wait(f"!!({DRAWN} || ({LINE} && !{WAIT})) && !!{COST}?.dataset.session", 30)
     seen = [_read(c)]
@@ -159,7 +159,7 @@ def kept(c, rig, rows: Rows, a: str, b: str) -> dict:
 def turns(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.reset()
     rows.idle(a, map="shop")
-    rows.idle(b, map="starter")
+    rows.idle(b, map="auto")
     _page(c, rig, "mode=session")
     c.wait(f"!!{DRAWN} && {BOXES}.length >= 1 && !!{LINE}", 30)
     snaps, during = [_read(c)], []

@@ -13,11 +13,28 @@ export type Line = { text: string; act?: Act; label?: string };
 /** R41: the one locale-aware formatter for every {t} (epoch seconds; "" for no time). */
 export const clock = (t: number): string => (t ? new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
 
-/** {A} as a person reads it (R21): "starter (the default)" when the session took starter by default, else the name. */
-export const DEFAULT_MAP = "starter (the default)";
-export const mapName = (a: string, plain: boolean): string => (plain ? DEFAULT_MAP : a);
-/** {B}: the map new sessions use, "starter (the default)" when none is set. */
-export const nextName = (b: string | null): string => b || DEFAULT_MAP;
+/** 3.6.0.5 (decisions J1 M1): `auto`, `starter` and no map set are ONE map, the default, everywhere the page compares map
+ *  names: the ONE test of a default's name (as crew/store.py is_auto). A session row carries no scope (it always ran the
+ *  shipped default, A4); an open map passes its scope, so his old file named starter is NOT Auto. */
+export const isAuto = (name?: string | null, scope = ""): boolean =>
+  !!name && /^(auto|starter)$/i.test(name.trim()) && (!scope || scope === "starter");
+/** His own old file named auto or starter (scope yours or project): listed under its own name, never in use (A4). */
+export const isOldDefault = (name?: string | null, scope = ""): boolean =>
+  !!name && /^(auto|starter)$/i.test(name.trim()) && !!scope && scope !== "starter";
+/** Does a session whose map is `a` run on the map open as `name` (its `scope`)? */
+export const onMap = (a: string | null, name: string, scope = ""): boolean =>
+  isAuto(name, scope) ? isAuto(a) : !!a && !isAuto(a) && a === name;
+/** The name a map is opened under: a default's name with no scope is Auto's own (`auto`), so a LAST of 3.6.0.x holding
+ *  "starter", or `halo studio --edit map:starter`, opens and remembers Auto; his old file keeps its name. mapStore.ts
+ *  exports it (openMap stores and remembers what it gives). */
+export const openName = (name: string, scope = ""): string => (!scope && isAuto(name) ? "auto" : name);
+/** {A} as a person reads it (R21): "Auto (the default)" when the session runs on the default, else the name. */
+export const DEFAULT_MAP = "Auto (the default)";
+export const mapName = (a: string, plain: boolean): string => (plain || isAuto(a) ? DEFAULT_MAP : a);
+/** {B}: the map new sessions use, "Auto (the default)" when none is set (or it names the default). */
+export const nextName = (b: string | null): string => (!b || isAuto(b) ? DEFAULT_MAP : b);
+/** W16 (A6): a new map is never saved under a default's name; {name} exactly as he typed it (crew/store.py DEFAULT_NAME). */
+export const nameOfTheDefault = (name: string): string => `${name} is a name of the default (Auto); give your map another name.`;
 /** The coordinator's ruling (P4 batch 10): new sessions with no map (roles off, crew.map unset), the same string as
  *  crew/map_facts.py NOTE_NEXT_NONE (tests/test_map_s13_three_places.py holds the two equal). */
 export const NEXT_NONE = "New sessions will run with no map.";

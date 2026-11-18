@@ -53,7 +53,8 @@ def _plain(tc) -> bool:
 
 def map_name(args: dict, ctx) -> str:
     """The map a change goes to: `map`, else (3.6.0.2 R36, in a session) the map the session runs on -- "" on the
-    default map, which a change must name -- else the map open on the tab, else the map in use, else the starter."""
+    default map, which a change must name -- else the map open on the tab, else the map in use, else "" (3.6.0.5:
+    never a literal default; `_refused` answers a default's name)."""
     got = str(args.get("map") or (ctx.get("selection") or {}).get("map") or "").strip()
     if got:
         return got
@@ -61,7 +62,20 @@ def map_name(args: dict, ctx) -> str:
     if tc is not None:
         return "" if _plain(tc) else str(getattr(tc, "map_name", "") or "")
     from halo_harness.crew.compile import in_use
-    return in_use(None, ctx.get("cwd"))[0] or "starter"
+    return in_use(None, ctx.get("cwd"))[0] or ""
+
+
+def _refused(name: str, args: dict):
+    """3.6.0.5 A6: a map edit never goes to a default's name (so `_view` never copies Auto as his map): W16 echoing the
+    name he typed in args.map; with none typed (taken from Studio's open map or the map in use), NAME_A_NEW_MAP.
+    None for any other name."""
+    if not store.is_auto(name):
+        return None
+    typed = str(args.get("map") or "").strip()
+    if typed:
+        return {"text": store.default_name_refusal(typed), "rows": []}
+    from halo_harness.crew.map_facts import NAME_A_NEW_MAP
+    return {"text": NAME_A_NEW_MAP, "rows": []}
 
 
 def _unnamed(ctx) -> str:
@@ -132,6 +146,8 @@ def map_box_add(args: dict, ctx) -> dict:
     name, kind, ref = map_name(args, ctx), str(args.get("kind") or "agent"), str(args.get("ref") or "").strip()
     if not name:
         return {"text": _unnamed(ctx), "rows": []}
+    if _refused(name, args):
+        return _refused(name, args)
     if kind not in ("agent", "workflow") or name_problem(ref):
         return {"text": "kind: agent or workflow, and ref: its name", "rows": []}
     made = any(r.get("target") == f"{kind}:{ref}" and r["op"].get("op") in ("create", "copy") for r in ctx.get("made") or [])
@@ -155,6 +171,8 @@ def map_box_remove(args: dict, ctx) -> dict:
     name = map_name(args, ctx)
     if not name:
         return {"text": _unnamed(ctx), "rows": []}
+    if _refused(name, args):
+        return _refused(name, args)
     body, first = _view(name, ctx)
     bid = _box_of(body or {}, str(args.get("box") or args.get("ref") or ""))
     if body is None or not bid or bid == "main":
@@ -169,6 +187,8 @@ def _line_args(args: dict, ctx):
     name = map_name(args, ctx)
     if not name:
         return name, None, [], "", "", _unnamed(ctx)
+    if _refused(name, args):
+        return name, None, [], "", "", _refused(name, args)["text"]
     body, first = _view(name, ctx)
     if body is None:
         return name, None, first, "", "", f"no map named {name}"

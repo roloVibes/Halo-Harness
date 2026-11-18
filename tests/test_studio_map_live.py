@@ -122,7 +122,7 @@ def test_the_drawer_steer_stop_and_an_ask(ctx: Ctx):
 @test
 def test_another_map_open_on_map_live_unchanged_and_a_session_with_no_map(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"3 · Map on starter: 4 · Live still draws shop, nothing amber, got {got.get('amber')}", got.get("amber") == ["shop", 0])
+    ctx.check(f"3 · Map on auto: 4 · Live still draws shop, nothing amber, got {got.get('amber')}", got.get("amber") == ["shop", 0])
     ctx.check(f"and lit, got {got.get('unlit')}", (got.get("unlit") or 0) >= 1)
     head = str(got.get("nomap_head"))
     ctx.check(f"no map: T4 in section 4's words, got {head!r}",

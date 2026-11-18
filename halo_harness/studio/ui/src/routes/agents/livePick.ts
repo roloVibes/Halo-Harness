@@ -20,7 +20,7 @@ import { livePickAway as away } from "./store";
 export type LiveOpt = { sid: string; text: string; away?: boolean };
 export type LivePick = { sid: string; f: TruthFacts; row: SessionRow | null; local: boolean; opts: LiveOpt[]; value: string };
 
-/** One option of the picker: "{title} · {map}" ({map} as truth.ts writes {A}: "starter (the default)" for the default). */
+/** One option of the picker: "{title} · {map}" ({map} as truth.ts writes {A}: "Auto (the default)" for the default). */
 export function optText(r: Pick<SessionRow, "session_id" | "title" | "map" | "map_plain">): string {
   const a = typeof r.map === "string" && r.map ? mapName(r.map, !!r.map_plain) : "no map";
   return `${String(r.title || r.session_id.slice(0, 8))} · ${a}`;

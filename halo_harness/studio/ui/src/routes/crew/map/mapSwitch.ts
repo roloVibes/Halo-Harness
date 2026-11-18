@@ -15,6 +15,7 @@ import { pickLive } from "../../agents/livePick";
 import { LAST, loadMaps, maps, msg, openMap, rereadDetail } from "./mapStore";
 import { openOn } from "./mapQuiet";
 import { mapName, newSessionsRunOn, s13For } from "./truth";
+import { onMap } from "./truthWords";
 
 export type Notice = { map: string; session: string; t: number };
 type State = { notice: Notice | null; pending: Notice | null; drafting: boolean; drawn: boolean };
@@ -29,7 +30,7 @@ export async function setUse(on: boolean): Promise<void> {
     const moved = (/keeps its own; (.+?)\.?$/.exec(r.said || "")?.[1] || "").trim();
     const tail = moved ? ` ${moved[0].toUpperCase()}${moved.slice(1)}.` : "";
     const st = fleet.get();
-    const keeps = on ? openOn(st, localId(st)).find((x) => x.a !== s.name) : undefined; // the newest open session on another map
+    const keeps = on ? openOn(st, localId(st)).find((x) => !onMap(x.a, s.name, s.detail?.scope || "")) : undefined; // the newest open session on another map
     const line = !on ? r.said || "New sessions run on no map (as before maps)."
       : (keeps ? s13For(keeps.title, mapName(keeps.a, keeps.plain), s.name) : newSessionsRunOn(s.name)) + tail;
     maps.update(() => ({ inUse: r.in_use, receipt: { line, undo: r.undo_id } }));

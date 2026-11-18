@@ -13,6 +13,7 @@ import { setDrafting, setUse } from "./mapSwitch";
 import { QuietCtx, useQuiet } from "./mapQuiet";
 import { NoticeRow } from "./NoticeRow";
 import { NEXT_NONE, newSessionsRunOn, nextMap, nextName, pickerSuffix, switchLabel } from "./truth";
+import { onMap } from "./truthWords";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
 
@@ -50,7 +51,7 @@ function Picker() {
       <select className="input" value={name} data-testid="map-switcher" aria-label="Which map"
               onChange={(e) => (e.target.value === "+" ? (setDraft(""), setMaking(true)) : void openMap(e.target.value))}>
         {sorted.map((r) => (
-          <option key={r.name} value={r.name}>{r.name}{r.scope === "project" ? " (this project's)" : r.scope === "starter" ? " (starter)" : ""}{pickerSuffix(on.filter((s) => s.a === r.name).map((s) => s.title), next === r.name)}</option>
+          <option key={r.name} value={r.name}>{r.name}{r.scope === "project" ? " (this project's)" : r.scope === "starter" ? " (starter)" : ""}{pickerSuffix(on.filter((s) => onMap(s.a, r.name, r.scope)).map((s) => s.title), next === r.name)}</option>
         ))}
         <option value="+">+ New map</option>
       </select>
@@ -124,6 +125,8 @@ export function MapBar() {
   const name = useMap((s) => s.name);
   const next = useMap((s) => s.next);
   const nextNone = useMap((s) => s.nextNone);
+  const scope = useMap((s) => s.detail?.scope || "");
+  const isNext = onMap(nextMap(next), name, scope); // 3.6.0.5: Auto by any of its names; his old starter file never
   const problems = useMap((s) => s.detail?.problems) || NONE;
   const receipt = useMap((s) => s.receipt);
   const error = useMap((s) => s.error);
@@ -140,10 +143,10 @@ export function MapBar() {
             default map says the words file's sentence for that, beside a switch (off) whose press puts new sessions on it */}
         {/* P8 repair: the slot has the bar's free room to itself (the spacer gives it up), so its words wrap whole in
             the bar's row and the open map landing moves nothing on the bar (it moved 16 px when they took three lines) */}
-        <span className="mp-uses-slot">{!listed || !name ? null : !next && !nextNone && nextMap(next) === name ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
-          : <><Switch on={!nextNone && nextMap(next) === name} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextNone || nextMap(next) !== name)}
+        <span className="mp-uses-slot">{!listed || !name ? null : !next && !nextNone && isNext ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
+          : <><Switch on={!nextNone && isNext} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextNone || !isNext)}
                     title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />
-            {nextNone && nextMap(next) === name && <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>}</>}</span>
+            {nextNone && isNext && <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>}</>}</span>
         <span className="spacer" />
         <Button size="sm" onClick={() => (openGoalHere(), openMapDrawer("goal"))} data-testid="map-run-goal"
                 title="Run a goal: several agents, one goal, one set of files -- the goal form opens in the drawer">Run a goal</Button>

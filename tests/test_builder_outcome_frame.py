@@ -31,6 +31,20 @@ WORKFLOW_CALL = [{"tool": "workflow_make", "args": {"name": "review", "for": "re
                                                               {"name": "fix", "agents": ["coder"]}]}}]
 
 
+def _shop(state) -> None:
+    """3.6.0.5: his map `shop` (the shipped auto.yaml's boxes and lines, `name: shop`): a card is applied to a map of
+    his, never to the default."""
+    from halo_harness.crew import store
+    raw = store.read(store.SHIPPED / "maps" / "auto.yaml")
+    mine = state / "crew" / "maps" / "shop.yaml"
+    mine.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text(mine, store.dump({"format": raw["format"], "name": "shop", "main": raw.get("main") or {"agent": "main"},
+                                       "boxes": raw["boxes"], "lines": raw["lines"]}))
+
+
+SHOP_CALLS = reviewer_calls("shop")
+
+
 def _run(answer_fn, calls=None, *, before=None, inspect=None) -> dict:
     """A real Session whose model calls Builder once; `answer_fn(questions)` answers the card (None: dismiss).
     `before(state)` runs once the scratch home is set; `inspect(session, state)` before it is removed. Returns
@@ -97,7 +111,7 @@ def _done(out) -> list:
 
 @test
 def test_done_after_the_write_with_files_and_undo(ctx: Ctx):
-    out = _run(approve_all)
+    out = _run(approve_all, SHOP_CALLS, before=_shop)
     got = _done(out)
     ctx.check(f"exactly one builder_done frame, got {len(got)} (frames {[(k, d.get('done')) for k, d, _ in out['frames']]})",
               len(got) == 1)
@@ -109,11 +123,12 @@ def test_done_after_the_write_with_files_and_undo(ctx: Ctx):
     ctx.check(f"outcome applied, got {d.get('outcome')!r}", d.get("outcome") == "applied")
     wrote = d.get("wrote") or []
     ctx.check(f"wrote names the new agent, got {wrote}", {"kind": "agent", "name": "my-reviewer", "added": True} in wrote)
-    ctx.check(f"wrote names the map starter, got {wrote}",
-              any(w.get("kind") == "map" and w.get("name") == "starter" and isinstance(w.get("added"), bool) for w in wrote))
+    ctx.check(f"wrote names his map shop, got {wrote}",
+              any(w.get("kind") == "map" and w.get("name") == "shop" and isinstance(w.get("added"), bool) for w in wrote))
     undo = out["result"].split("Undo id ", 1)[-1].split(" ", 1)[0] if "Undo id " in out["result"] else ""
     ctx.check(f"undo is the id the tool result names, got {d.get('undo')!r} vs {undo!r}", bool(undo) and d.get("undo") == undo)
-    ctx.check(f"next is config crew.map (unset: None), got {d.get('next')!r}", "next" in d and d["next"] is None)
+    ctx.check(f"next is config crew.map (the card's use row set it to his map shop), got {d.get('next')!r}",
+              "next" in d and d["next"] == "shop")
     ctx.check(f"this_session is the session's map, got {d.get('this_session')!r} vs {out['this_session']!r}",
               "this_session" in d and d["this_session"] == out["this_session"])
     ctx.check("the files were on disk when the frame was sent", on_disk is True)
@@ -188,14 +203,14 @@ def test_workflow_only_card_frames(ctx: Ctx):
 def test_frame_carries_bodies_receipt_does_not(ctx: Ctx):
     def inspect(s, state):
         from halo_harness.crew import store
-        return store.clean(store.load("map", "starter", scope="yours") or {})
-    out = _run(approve_all, inspect=inspect)
+        return store.clean(store.load("map", "shop", scope="yours") or {})
+    out = _run(approve_all, SHOP_CALLS, before=_shop, inspect=inspect)
     got = _done(out)
     ctx.check(f"one builder_done, got {len(got)}", len(got) == 1)
     if got:
         d = got[0][0]
-        ctx.check(f"maps['starter'] is the map as written, got keys {sorted((d.get('maps') or {}))}",
-                  bool(out["inspect"]) and (d.get("maps") or {}).get("starter") == out["inspect"])
+        ctx.check(f"maps['shop'] is the map as written, got keys {sorted((d.get('maps') or {}))}",
+                  bool(out["inspect"]) and (d.get("maps") or {}).get("shop") == out["inspect"])
         rec = out["receipts"]
         ctx.check(f"exactly one builder_done receipt in the log, got {len(rec)}", len(rec) == 1)
         if rec:
@@ -266,10 +281,8 @@ def test_change_and_applied_undo_say_what_each_file_was(ctx: Ctx):
     from halo_harness.crew import store
     from halo_harness.crew.session_tool import finish
 
-    def before(state):  # yours `starter` already there: the card's box and line CHANGE it
-        mine = state / "crew" / "maps" / "starter.yaml"
-        mine.parent.mkdir(parents=True, exist_ok=True)
-        mine.write_bytes((store.SHIPPED / "maps" / "starter.yaml").read_bytes())
+    def before(state):  # yours `shop` already there (the shipped auto.yaml's boxes): the card's box and line CHANGE it
+        _shop(state)
 
     def inspect(s, state):
         text = str(next((n.get("content") for n in s.log.nodes() if n.get("type") == "tool_result"), ""))
@@ -278,23 +291,34 @@ def test_change_and_applied_undo_say_what_each_file_was(ctx: Ctx):
         said = finish(pv, {"Undo it?": "Yes"}, s)
         return {"undo": undo, "outcome": pv.get("outcome"), "said": said,
                 "agent_gone": not (state / "crew" / "agents" / "my-reviewer.yaml").is_file()}
-    out = _run(approve_all, before=before, inspect=inspect)
+    out = _run(approve_all, SHOP_CALLS, before=before, inspect=inspect)
     got = _done(out)
     ctx.check(f"one builder_done for the card, got {len(got)}", len(got) == 1)
     wrote = (got[0][0].get("wrote") or []) if got else []
-    ctx.check(f"the card: your map starter changed (added false), the agent new (added true), got {wrote}",
-              {"kind": "map", "name": "starter", "added": False} in wrote
+    ctx.check(f"the card: your map shop changed (added false), the agent new (added true), got {wrote}",
+              {"kind": "map", "name": "shop", "added": False} in wrote
               and {"kind": "agent", "name": "my-reviewer", "added": True} in wrote)
     u = out["inspect"] or {}
     o = u.get("outcome") or {}
     ctx.check(f"the undo was applied and took the agent away, got {o} {u.get('said')!r}",
               o.get("outcome") == "applied" and u.get("agent_gone") is True)
     ctx.check(f"the undo: the map put back (added false, not removed), got {o.get('wrote')}",
-              {"kind": "map", "name": "starter", "added": False} in (o.get("wrote") or []))
+              {"kind": "map", "name": "shop", "added": False} in (o.get("wrote") or []))
     ctx.check(f"the undo: the agent removed (added false, removed true), got {o.get('wrote')}",
               {"kind": "agent", "name": "my-reviewer", "added": False, "removed": True} in (o.get("wrote") or []))
     ctx.check(f"nothing in an undo is marked added, got {o.get('wrote')}",
               bool(o.get("wrote")) and not any(w.get("added") for w in o.get("wrote") or []))
+
+
+@test
+def test_a_card_naming_the_map_starter_is_refused(ctx: Ctx):
+    """3.6.0.5 A6: a Builder call naming the map `starter` is refused with W16: no card row for the map, nothing of the
+    map written, no builder_done frame for it."""
+    calls = [c for c in reviewer_calls("starter") if c["tool"] != "agent_make"]
+    out = _run(approve_all, calls)
+    w16 = "starter is a name of the default (Auto); give your map another name."
+    ctx.check(f"W16 in the result, no card, got {out['result'][:200]!r}", w16 in out["result"] and "question_id" not in out)
+    ctx.check(f"no builder_done frame, got {[k for k, _d, _ in out['frames']]}", _done(out) == [])
 
 
 @test

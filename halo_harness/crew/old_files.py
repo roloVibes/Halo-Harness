@@ -84,6 +84,9 @@ def team_line() -> str:
         return ""
     if not (isinstance(team, str) and team.strip()):
         return ""
+    if team.strip().lower() == "auto":  # 3.6.0.5 W8
+        return ("Your config sets team: auto, which no session reads any more: lineups are gone; Auto is the default, "
+                "so team: auto needs nothing. Clear the old key with halo config set team null.")
     got = pack_maps(team.strip())  # 3.6.0.0 R5c: a pack lineup's name: the map it reads as now
     use = (f"halo maps use {got[0]}" if len(got) == 1 else
            f"halo maps use one of {', '.join(got)}" if got else "pick a map with halo maps use <name>")

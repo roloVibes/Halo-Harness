@@ -107,6 +107,8 @@ def resolve(kind: str, name: str, *, cwd=None, state_dir=None) -> "tuple[str, st
     """(the name a bare `name` reads, one line or ""): no file of yours, the project's or a starter's by that name and
     exactly one enabled pack's `<pack>--<name>` -- that one, the line naming it; several -- the name as typed, the line
     listing them."""
+    if kind == "map" and is_auto(name):  # 3.6.0.5 A2: the default's names never read a pack's map
+        return name, ""
     if not name or _packed(name) or any((f / f"{name}.yaml").is_file() for f, _s in folders(kind, cwd=cwd, state_dir=state_dir)):
         return name, ""
     got = pack_match(kind, name, cwd=cwd, state_dir=state_dir)
@@ -124,7 +126,23 @@ def _pack_name(kind: str, name: str, cwd, state_dir) -> Optional[str]:
     return got[0] if len(got) == 1 else None
 
 
+def is_auto(name) -> bool:
+    """3.6.0.5 A2: `auto` and `starter` (any case) both name the default, Auto: the one test of a default's name."""
+    return isinstance(name, str) and name.strip().lower() in ("auto", "starter")
+
+
+DEFAULT_NAME = "{name} is a name of the default (Auto); give your map another name."
+
+
+def default_name_refusal(name) -> str:
+    """3.6.0.5 A6 (W16): the line refusing a new map under a default's name, echoing the name as typed; "" else."""
+    return DEFAULT_NAME.format(name=name) if is_auto(name) else ""
+
+
 def find(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> "Optional[tuple[Path, str]]":
+    if kind == "map" and not scope and is_auto(name):  # A2/A4: the default reads only the shipped auto.yaml
+        p = SHIPPED / "maps" / "auto.yaml"
+        return (p, "starter") if p.is_file() else None
     for folder, sc in folders(kind, cwd=cwd, state_dir=state_dir):
         if scope and sc != scope:
             continue
@@ -278,7 +296,7 @@ def own_copy(kind: str, name: str, *, as_name: Optional[str] = None, cwd=None, s
     if got is None:
         raise ValueError(f"no {kind} named {name!r} to copy (halo {kind}s list)")
     new = (as_name or f"my-{str(got.get('name') or name).split('--')[-1]}").strip()
-    bad = name_problem(new)
+    bad = (default_name_refusal(new) if kind == "map" else "") or name_problem(new)  # 3.6.0.5 A6: W16 first
     if bad:
         raise ValueError(bad)
     path = path_for(kind, new, cwd=cwd, state_dir=state_dir)

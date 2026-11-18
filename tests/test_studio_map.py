@@ -2,7 +2,7 @@
 tests/helpers/studio_map.py over tests/helpers/crew_rig.py; skipped without Chrome). The room rules over this tab at
 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `map` view).
 
-1. the 3 key opens 3 · Map: the switch reads 1 · Agents | 2 · Workflows | 3 · Map; the starter map,
+1. the 3 key opens 3 · Map: the switch reads 1 · Agents | 2 · Workflows | 3 · Map; Auto (the default),
    main at the left, a label per line in the lane, never over a box; no dialog, no conversation, the list closed;
 2. a row dragged with the pointer: the drop places light up and say what a drop does; dropped on main, the When card at
    the line; "when the task says test" saved: the label, the receipt, the file;
@@ -44,8 +44,8 @@ def test_the_3_key_opens_the_starter_map(ctx: Ctx):
     ctx.check(f"3 lands on 3 · Map, got {got.get('view')!r}", got.get("view") == "map")
     ctx.check(f"the switch, got {got.get('switch')}", got.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"])  # 3.6.0.2 R52
     f = got.get("first") or {}
-    ctx.check(f"the starter map, no dialog, no conversation, the list closed, got {f}",
-              f.get("map") == "starter" and f.get("dialogs") == 0 and f.get("conversation") is False and f.get("drawer") is False)
+    ctx.check(f"Auto (the default), no dialog, no conversation, the list closed, got {f}",
+              f.get("map") == "auto" and f.get("dialogs") == 0 and f.get("conversation") is False and f.get("drawer") is False)
     ctx.check(f"seven lines from main, their When in words, got {f.get('labels')}", f.get("labels") == ["main decides per task"] * 7)
     g = got.get("geom") or {}
     ctx.check(f"main at the left, no label over a box or another label, got {g}", g.get("main") is True and g.get("over") == 0 and g.get("boxes") == 8)
@@ -88,9 +88,9 @@ def test_more_than_one_map_uses_and_lock(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"+ New map: main only, got {got.get('new')}", got.get("new") == 1)
     # 3.6.0.2 R24 (rewritten to the truth): the switch says "New sessions run on this"; a fresh home tags no map
-    ctx.check(f"a fresh home: no map tagged; new sessions run on starter, the default: no switch there (P4 batch 12, rewritten to the truth: it could change nothing), the plain sentence, got {got.get('fresh_tags')} {got.get('uses_off')}",
+    ctx.check(f"a fresh home: no map tagged; new sessions run on Auto, the default: no switch there (P4 batch 12, rewritten to the truth: it could change nothing), the plain sentence, got {got.get('fresh_tags')} {got.get('uses_off')}",
               not any(" · new sessions" in o or " · running in " in o or "my sessions use this" in o for o in got.get("fresh_tags") or ["?"])
-              and got.get("uses_off") == [False, "New sessions run on starter (the default)."])
+              and got.get("uses_off") == [False, "New sessions run on Auto (the default)."])
     ctx.check(f"New sessions run on this (ship-it): config crew.map, got {got.get('in_use')!r}", got.get("in_use") == "ship-it")
     ctx.check(f"... and ship-it is tagged new sessions, got {got.get('tagged')!r}", str(got.get("tagged")).endswith(" · new sessions"))
     ctx.check("Lock: no dot, no Add", got.get("locked") is True)

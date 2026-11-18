@@ -67,7 +67,7 @@ class Compiled:
         return [AUTO_NEEDS.get(str(n), str(n)) for n in raw.get("needs") or []]
 
 
-DEFAULT_MAP = "starter"
+DEFAULT_MAP = "auto"  # 3.6.0.5 A1: the default, Auto (`starter` is read as it too: store.is_auto)
 
 
 def _roles_on() -> bool:
@@ -82,14 +82,14 @@ def in_use(flag: Optional[str] = None, cwd=None) -> "tuple[Optional[str], str]":
     """`--map` (this run), else config `crew.map`, else -- roles off ("One model for everything") -- no map at all
     (None, "none"), else the starter map as the default ("default")."""
     if isinstance(flag, str) and flag.strip():
-        return flag.strip(), "flag"
+        return (DEFAULT_MAP, "default") if store.is_auto(flag) else (flag.strip(), "flag")  # 3.6.0.5 A2
     try:
         from halo_harness.theme import get_config_value
         name = get_config_value("crew.map", default=None)
     except Exception:
         name = None
     if isinstance(name, str) and name.strip():
-        return name.strip(), "config"
+        return (DEFAULT_MAP, "default") if store.is_auto(name) else (name.strip(), "config")  # 3.6.0.5 A2
     if not _roles_on():  # 3.6.0.0 R5 fix (M6): one model, no hand-offs, nothing added -- as 3.5's roles off
         return None, "none"
     return DEFAULT_MAP, "default"  # 3.6.0.0 R5: with none set, the starter map, drawn (is_default below)
@@ -183,6 +183,9 @@ def compile_raw(raw: dict, *, name: str = "", cwd=None, state_dir=None, extra=No
 
 
 def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
+    auto = store.is_auto(name)  # 3.6.0.5 A2/F3: `auto` or `starter` named anywhere runs as Auto (a PlainMap)
+    if auto:
+        name = DEFAULT_MAP
     name = store.resolve("map", name, cwd=cwd, state_dir=state_dir)[0]  # 3.6.0.0 R5c: a pack's map named bare
     got = store.find("map", name, cwd=cwd, state_dir=state_dir)
     if got is None:
@@ -193,6 +196,8 @@ def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
         return Compiled(name=name, path=str(path), scope=scope, problems=[f"the map {name} is not YAML Halo can read"])
     out = compile_raw(raw, name=name, cwd=cwd, state_dir=state_dir)
     out.path, out.scope = str(path), scope
+    if auto:
+        out.source = "default"
     try:
         out.mtime = os.path.getmtime(path)
     except OSError:
@@ -207,7 +212,7 @@ def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
 
 
 def problem_lines(c: Compiled) -> list:
-    head = f"halo: the map {c.name} has a problem, so this session runs on the map {DEFAULT_MAP}:"
+    head = f"halo: the map {c.name} has a problem, so this session runs on Auto (the default):"
     return [head] + [f"  {p}" for p in c.problems]
 
 
@@ -222,8 +227,8 @@ def for_session(flag: Optional[str], *, cwd=None, state_dir=None) -> "tuple[Opti
     if not c.problems:
         return c, told
     lines = problem_lines(c)
-    if name == DEFAULT_MAP:
-        return None, told + [lines[0].replace(f"runs on the map {DEFAULT_MAP}", "runs as with no map")] + lines[1:]
+    if store.is_auto(name):
+        return None, told + [lines[0].replace("runs on Auto (the default)", "runs as with no map")] + lines[1:]
     lines = told + lines
     back = compile_map(DEFAULT_MAP, cwd=cwd, state_dir=state_dir)  # 3.6.0.0 R5: never a session on no map
     back.source = "default"

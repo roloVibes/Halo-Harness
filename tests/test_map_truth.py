@@ -4,7 +4,7 @@ the words Live / Feed / Map, built once in routes/crew/map/truth.ts and run in n
 browser, no wall clock: every time is a fixed local instant of 2026-01-15, every {t} is matched as clock(t)).
 
 1. each truth state's lines, letter for letter (T1-T12, Empty), Agents -> Map's L1-L4 and every other line of the rules;
-2. S13 says "starter (the default)" for the default, and its terminal tail;
+2. S13 says "Auto (the default)" for the default, and its terminal tail;
 3. one locale-aware formatter for every time (matched by pattern, never a fixed format);
 4. the order T7, S13, the started line, T5/T6, decided by whether the session is open, never by whether it is busy;
 5. the status line: who works (working rows only), on what, waiting for whom, the cost, the hand-offs outside the map;
@@ -28,8 +28,8 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 test, TESTS = new_registry()
 MAPDIR = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map"
 TIMES = ["00:05", "09:07", "10:24", "11:30", "11:40", "12:30", "12:45", "23:59"]
-DEF = "starter (the default)"
-BASE = dict(title="fix-login", a="starter", plain=True, b=None, bSince=None, started="@10:24", turns=2, studio=False,
+DEF = "Auto (the default)"
+BASE = dict(title="fix-login", a="auto", plain=True, b=None, bSince=None, started="@10:24", turns=2, studio=False,
             ended=None, machine=None, unreadable=None, changed=None, workflow=None, busy=False)
 STATES = {
     "T1": dict(BASE, a="shop", plain=False, b="shop", bSince="@09:07"),
@@ -48,7 +48,7 @@ STATES = {
     "Empty": dict(BASE, none=True, b="review-flow"),
     "Empty unset": dict(BASE, none=True),
     # the coordinator's ruling (P4 batch 10): new sessions with no map (roles off, crew.map unset: the row's map_next_none)
-    "T2 no map next": dict(BASE, a="starter", plain=False, bNone=True),
+    "T2 no map next": dict(BASE, a="auto", plain=False, bNone=True),
     "T10 no map next": dict(BASE, studio=True, turns=0, bNone=True),
     "Empty no map next": dict(BASE, none=True, bNone=True),
 }
@@ -60,8 +60,8 @@ WANT = {
     "T2": ("T2", [(S13.format("shop", "review-flow"), NEW),
                   ("It started at {10:24}, before review-flow was switched on at {11:30}.", None)]),
     "T2 switched before": ("T2", [(S13.format("shop", "review-flow"), NEW), ("It started at {10:24}.", None)]),
-    "T3": ("T3", [("This session runs on starter (the default), as it started at {10:24}. On starter main chooses who to "
-                   "hand work to; the dashed lines show what it chose.", None)]),
+    "T3": ("T3", [("This session runs on Auto (the default), as it started at {10:24}. Main picks who works on each task; "
+                   "each task shows as a named, coloured group.", None)]),
     "T3 with B": ("T2", [(S13.format(DEF, "review-flow"), NEW),
                          ("It started at {10:24}, before review-flow was switched on at {11:30}.", None)]),
     "T4": ("T4", [("This session runs with no map, as it started at {10:24}: main does the work and starts its own agents.",
@@ -74,8 +74,8 @@ WANT = {
                      None)]),
     "T12": ("T12", [("This session runs on review-flow from ~/maps/review-flow.yaml, which Studio cannot read here.", None)]),
     "Empty": ("Empty", [("No session is open here. New sessions will run on review-flow.", NEW)]),
-    "Empty unset": ("Empty", [("No session is open here. New sessions will run on starter (the default).", NEW)]),
-    "T2 no map next": ("T2", [("This session runs on starter, as it started at {10:24}. New sessions will run with no map.", None)]),
+    "Empty unset": ("Empty", [("No session is open here. New sessions will run on Auto (the default).", NEW)]),
+    "T2 no map next": ("T2", [("This session runs on Auto (the default), as it started at {10:24}. New sessions will run with no map.", None)]),
     "T10 no map next": ("T10", [("New session from Studio, no message yet. It will run with no map.", None)]),
     "Empty no map next": ("Empty", [("No session is open here. New sessions will run with no map.", NEW)]),
 }
@@ -94,10 +94,10 @@ const st = (f) => ({ state: T.truthState(f), lines: T.truthLines(f) });
 out.states = Object.fromEntries(Object.entries(D.states).map(([k, f]) => [k, st(f)]));
 const t = at('12:30');
 out.L = [T.mapLine({ kind: 'L1', session: 'fix-login' }),
-  T.mapLine({ kind: 'L2', on: [{ session: 'fix-login', a: 'starter', plain: true }] }),
-  T.mapLine({ kind: 'L2', on: [{ session: 'a', a: 'x', plain: false }, { session: 'b', a: 'starter', plain: true },
+  T.mapLine({ kind: 'L2', on: [{ session: 'fix-login', a: 'auto', plain: true }] }),
+  T.mapLine({ kind: 'L2', on: [{ session: 'a', a: 'x', plain: false }, { session: 'b', a: 'auto', plain: true },
                                { session: 'c', a: 'y', plain: false }] }),
-  T.mapLine({ kind: 'L3', session: 'fix-login', workflow: 'W', a: 'starter', plain: true }),
+  T.mapLine({ kind: 'L3', session: 'fix-login', workflow: 'W', a: 'auto', plain: true }),
   T.mapLine({ kind: 'L4', map: 'review-flow', session: 'fix-login', t })];
 out.bits = {
   start1: T.startLines('review-flow', { map: 'review-flow', t }), start2: T.startLines(null, { map: 'review-flow', t }),
@@ -108,10 +108,10 @@ out.bits = {
   trace1: T.traceHover(1, t, 'fix the retry'), trace3: T.traceHover(3, t, 'fix the retry'), off: T.offHover('coder'),
   ended: T.endedAt(t), openMap: T.openMapAt('coder'), card: T.openInAgents(),
   pick1: T.pickerSuffix(['fix-login']), pick2: T.pickerSuffix(['a', 'b']), pickNext: T.pickerSuffix([], true),
-  switch: T.switchLabel(), removed: T.removedAt(t), tag: T.newTag(t), pair: T.pair('starter (the default)', 'review-flow'),
+  switch: T.switchLabel(), removed: T.removedAt(t), tag: T.newTag(t), pair: T.pair('Auto (the default)', 'review-flow'),
   jbW: T.justBuilt('workflow', { workflow: 'W' }), jbRun: T.justBuilt('running', { t }), jbOther: T.justBuilt('other', { t }),
   jbOtherNext: T.justBuilt('other', { t, map: 'review-flow', next: 'review-flow' }),
-  jbOtherNot: T.justBuilt('other', { t, map: 'review-flow', next: 'starter' }),
+  jbOtherNot: T.justBuilt('other', { t, map: 'review-flow', next: 'auto' }),
   hover1: T.hoverLines({ name: 'coder', workflow: null, model: 'm-code', state: 'working', when: 'always', source: 'main',
                          children: ['made up: check it · working'], built: t }),
   hover2: T.hoverLines({ name: 'check', workflow: 'W', model: 'm-small', state: 'next', when: 'always', source: 'main',
@@ -119,7 +119,7 @@ out.bits = {
   unreached: T.unreachedHead(), workflows: T.workflowsHead(),
 };
 out.status = D.status.map((s) => T.statusLine(s));
-out.s13 = [T.s13(T.mapName('starter', true), 'review-flow'), T.s13(T.mapName('starter', true), 'review-flow', true),
+out.s13 = [T.s13(T.mapName('auto', true), 'review-flow'), T.s13(T.mapName('auto', true), 'review-flow', true),
            T.s13(T.mapName('shop', false), 'review-flow')];
 out.reserve = T.reserve(D.states.T2, 408);
 """
@@ -187,11 +187,11 @@ def test_truth_each_state(ctx: Ctx):
     # Agents -> Map's lines (L1-L4)
     L = out["L"]
     want_l = [("fix-login runs on this map now.", "watch-live", "Watch it in Live"),
-              ("fix-login runs on starter (the default), as it started; new sessions run on this map.", "watch-live",
+              ("fix-login runs on Auto (the default), as it started; new sessions run on this map.", "watch-live",
                "Watch it in Live"),
               ("3 sessions run on other maps, as they started; new sessions run on this map.", "watch-live",
                "Watch them in Live"),
-              ("fix-login is running the workflow W from this map. It runs on starter (the default), as it started.",
+              ("fix-login is running the workflow W from this map. It runs on Auto (the default), as it started.",
                "watch-live", "Watch it in Live"),
               (X(clk, "review-flow was just built in fix-login at {12:30}."), "open-it", "Open it")]
     for i, (text, act, label) in enumerate(want_l):
@@ -207,7 +207,7 @@ def test_truth_each_state(ctx: Ctx):
               texts(b["start1"]) == [first, X(clk, "Your last session built the map review-flow at {12:30}. New sessions run on it.")]
               and b["start1"][-1].get("act") == "new-session" and b["start1"][-1].get("label") == "New session")
     ctx.check(f"R4 start view, B unset: no 'New sessions run on it.', got {texts(b['start2'])}",
-              texts(b["start2"]) == ["No session is open here. New sessions will run on starter (the default).",
+              texts(b["start2"]) == ["No session is open here. New sessions will run on Auto (the default).",
                                       X(clk, "Your last session built the map review-flow at {12:30}.")])
     ctx.check(f"R4 start view, no build seen: one sentence + [New session], got {b['start3']}",
               texts(b["start3"]) == [first] and b["start3"][0].get("act") == "new-session")
@@ -221,7 +221,7 @@ def test_truth_each_state(ctx: Ctx):
         "openMap": "Open the map at coder", "pick1": " · running in fix-login", "pick2": " · running in 2 sessions",
         "pickNext": " · new sessions", "switch": "New sessions run on this",
         "removed": X(clk, "This map was removed at {12:30}."), "tag": X(clk, "new {12:30}"),
-        "pair": ["Running: starter (the default)", "Just built: review-flow"],
+        "pair": ["Running: Auto (the default)", "Just built: review-flow"],
         "hover1": ["coder", "agent", "m-code", "working", "Starts when: always (from main)", "made up: check it · working",
                    X(clk, "Built {12:30} in this session")],
         "hover2": ["check", "workflow W", "m-small", "next", "Starts when: always (from main)"],
@@ -252,7 +252,7 @@ def test_s13_says_the_default(ctx: Ctx):
     s = S13.format(DEF, "review-flow")
     ctx.check(f"S13 for a plain session, got {out['s13'][0]!r}", out["s13"][0] == s)
     ctx.check(f"S13 in the terminal adds its tail, got {out['s13'][1]!r}",
-              out["s13"][1] == s + " In the terminal: quit, then run halo; /clear keeps starter (the default).")
+              out["s13"][1] == s + " In the terminal: quit, then run halo; /clear keeps Auto (the default).")
     ctx.check(f"S13 on its own map 'shop' has no '(the default)', got {out['s13'][2]!r}",
               out["s13"][2] == S13.format("shop", "review-flow"))
 
@@ -281,10 +281,10 @@ def test_t7_first_then_s13(ctx: Ctx):
                        h=dict(BASE, a="N", plain=False, b="N", workflow="W")))
     want = ["This session is running the workflow W from N.", S13.format(DEF, "N"),
             X(clk, "It started at {10:24}, before N was switched on at {11:30}."),
-            X(clk, "starter (the default) changed at {11:40}; this session takes it at its next hand-off.")]
+            X(clk, "Auto (the default) changed at {11:40}; this session takes it at its next hand-off.")]
     ctx.check(f"T7, S13, the started line, T5 in that order, got {texts(out['a'])}", texts(out["a"]) == want)
     ctx.check(f"S13 carries [New session], got {out['a'][1]}", out["a"][1].get("act") == "new-session")
-    t6 = X(clk, "starter (the default) changed at {11:40} but has a problem, so this session keeps the last good version: "
+    t6 = X(clk, "Auto (the default) changed at {11:40} but has a problem, so this session keeps the last good version: "
                 "line main -> qa names no box.")
     ctx.check(f"with a problem the last line is T6, got {texts(out['b'])}", texts(out["b"]) == want[:3] + [t6])
     ctx.check(f"B = A with W: T7 then T1, got {texts(out['c'])}",
@@ -315,13 +315,13 @@ def test_open_not_busy_decides(ctx: Ctx):
 @test
 def test_own_map_while_none_is_set_is_not_t1(ctx: Ctx):
     """P1 batch 2's checker: a session started on its own map (`--map mine`) while no map is set for new sessions is NOT
-    T1 ("New sessions will too." is false: they run on starter). The two maps are compared by identity (unset = starter),
-    and it reads S13 with {B} = "starter (the default)"."""
+    T1 ("New sessions will too." is false: they run on Auto). The two maps are compared by identity (unset = auto),
+    and it reads S13 with {B} = "Auto (the default)"."""
     own = dict(BASE, a="mine", plain=False, b=None, bSince=None)
     clk, out = ts("""out.none = T.truthLines(D.own); out.st = T.truthState(D.own);
       out.unset = T.truthLines({ ...D.own, bSince: at('11:30') }); out.unsetSt = T.truthState({ ...D.own, bSince: at('11:30') });
       out.before = T.truthLines({ ...D.own, b: 'review-flow', bSince: at('09:07') });
-      out.starter = T.truthState({ ...D.own, a: 'starter' }); out.plain = T.truthState({ ...D.own, a: 'starter', plain: true });
+      out.starter = T.truthState({ ...D.own, a: 'auto' }); out.plain = T.truthState({ ...D.own, a: 'auto', plain: true });
       out.res = T.reserve(D.own, 408).lines;""", dict(own=own))
     ctx.check(f"own map, none set: not T1, got {out['st']}", out["st"] != "T1" and out["st"] == "T2")
     ctx.check(f"own map, none set: S13 with the default, then when it started (no false 'switched on'), got {texts(out['none'])}",
@@ -329,10 +329,10 @@ def test_own_map_while_none_is_set_is_not_t1(ctx: Ctx):
               and out["none"][0].get("act") == "new-session")
     ctx.check(f"own map, the default switched back on at 11:30 through Halo: T2 with that time, got {out['unsetSt']} {texts(out['unset'])}",
               out["unsetSt"] == "T2" and texts(out["unset"]) == [S13.format("mine", DEF),
-                                                                X(clk, "It started at {10:24}, before starter (the default) was switched on at {11:30}.")])
+                                                                X(clk, "It started at {10:24}, before Auto (the default) was switched on at {11:30}.")])
     ctx.check(f"B switched on before this session started: no false 'before', got {texts(out['before'])}",
               texts(out["before"]) == [S13.format("mine", "review-flow"), X(clk, "It started at {10:24}.")])
-    ctx.check(f"started on starter by name, none set: the same map (T1); taken by default: T3, got {out['starter']} {out['plain']}",
+    ctx.check(f"started on auto by name, none set: the same map (T1); taken by default: T3, got {out['starter']} {out['plain']}",
               out["starter"] == "T1" and out["plain"] == "T3")
     ctx.check(f"the reserve holds S13 for the default too, got {texts(out['res'])}", S13.format("mine", DEF) in texts(out["res"]))
 

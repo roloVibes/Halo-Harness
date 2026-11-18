@@ -17,7 +17,7 @@ from typing import Optional
 
 ONE_MODEL_ID = "@one-model"
 ONE_MODEL_LABEL = "One model for everything"
-HEADER_TEXT = ("Halo runs the auto lineup (the default) unless you pick a lineup of your own: main hands each "
+HEADER_TEXT = ("Halo runs Auto (the default) unless you pick a map of your own: main hands each "
                "sub-task to an agent whose model is picked for it. A lineup gives each job (planning, coding, "
                "reviewing, research) its own agent and model; One model for everything runs every job on one.")
 #: A "typical turn" for the cost line: tokens in / tokens out per role call.

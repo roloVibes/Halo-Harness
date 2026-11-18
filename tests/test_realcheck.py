@@ -279,9 +279,9 @@ def test_the_fake_provider_plays_the_map_build_and_the_question(ctx: Ctx):
                   all(SCENARIOS.get(k) is v for k, v in before.items()))
 
 
-S13 = ("This session keeps running on starter (the default), as it started. Start a new session to run on "
+S13 = ("This session keeps running on Auto (the default), as it started. Start a new session to run on "
        "review-flow.")
-NOTE = ("[Halo] This session runs on starter (the default), as it started at 10:24. New sessions will run on "
+NOTE = ("[Halo] This session runs on Auto (the default), as it started at 10:24. New sessions will run on "
         "review-flow (switched on at 10:25, by this session).")
 BUILD, ASK = "RC-MAPBUILD: build me a review workflow: a coder then a reviewer", "RC-MAPASK: which workflow are you using?"
 BUILD_DONE, ASK_DONE = "RC-MAPBUILD-DONE", "RC-MAPASK-DONE"
@@ -1069,7 +1069,7 @@ def test_session_map_reads_the_truth_block_once_it_says_s13(ctx: Ctx):
     ev, bad = {}, []
     M._drawn(Page(), ev, bad)
     waits = [i for i, x in enumerate(calls) if isinstance(x, tuple) and "session-truth" in x[1]
-             and "keeps running on starter" in x[1] and x[2] >= M.WORD_S]
+             and "keeps running on Auto (the default)" in x[1] and x[2] >= M.WORD_S]
     first_js = calls.index("js") if "js" in calls else -1
     ctx.check(f"(3) waits for the truth block to say S13 before it reads the drawer, got {calls}",
               bool(waits) and 0 <= waits[0] < first_js)

@@ -38,14 +38,14 @@ def test_read_the_maps_and_one_map(ctx: Ctx):
     with CrewRig() as rig:
         rig.studio()
         st, r = rig.api("GET", "crew/maps")
-        ctx.check(f"the two starters, the starter in use by default (3.6.0.0 R5), got {st} {[m['name'] for m in r['maps']]} {r['in_use']}",
-                  st == 200 and {m["name"] for m in r["maps"]} == {"starter", "ship-it"} and r["in_use"] == "starter")
+        ctx.check(f"the two shipped maps, Auto in use by default (3.6.0.0 R5, 3.6.0.5 A1), got {st} {[m['name'] for m in r['maps']]} {r['in_use']}",
+                  st == 200 and {m["name"] for m in r["maps"]} == {"auto", "ship-it"} and r["in_use"] == "auto")
         st, m = rig.api("GET", "crew/map/ship-it")
         ctx.check(f"ship-it: its boxes' facts (a workflow's steps), no problem, got {st} {m.get('problems')}",
                   st == 200 and m["problems"] == [] and m["boxes"]["plan"]["kind"] == "workflow"
                   and m["boxes"]["plan"]["facts"][0]["steps"][0]["agents"] == ["planner"] and m["main"]["agent"] == "main")
-        st, m = rig.api("GET", "crew/map/starter")
-        ctx.check("starter: an agent box's model and what it does", m["boxes"]["coder"]["facts"][0]["model"] == "auto"
+        st, m = rig.api("GET", "crew/map/auto")
+        ctx.check("auto: an agent box's model and what it does", m["boxes"]["coder"]["facts"][0]["model"] == "auto"
                   and "change" in m["boxes"]["coder"]["facts"][0]["does"])
         ctx.check("no such map: 404", rig.api("GET", "crew/map/nope")[0] == 404)
         st, r = rig.api("GET", "crew/maps")
@@ -88,8 +88,8 @@ def test_get_reads_the_given_scope_and_path(ctx: Ctx):
                   st == 200 and sorted(m["boxes"]) == ["b0"] and m["scope"] == "yours")
         st, m = rig.api("GET", f"crew/map/shop?scope=yours&path={_q(mine)}")
         ctx.check(f"yours by its path, got {st} {m.get('path')}", st == 200 and m["path"] == str(mine) and sorted(m["boxes"]) == ["b0"])
-        shipped = store.SHIPPED / "maps" / "starter.yaml"
-        st, m = rig.api("GET", f"crew/map/starter?scope=starter&path={_q(shipped)}")
+        shipped = store.SHIPPED / "maps" / "auto.yaml"
+        st, m = rig.api("GET", f"crew/map/auto?scope=starter&path={_q(shipped)}")
         ctx.check(f"a starter by its path, got {st} {m.get('scope')}", st == 200 and m["scope"] == "starter" and "coder" in m["boxes"])
         stray = rig.root / "stray" / "shop.yaml"  # a shop.yaml outside any crew/maps folder
         stray.parent.mkdir()
@@ -253,17 +253,17 @@ def test_soft_read_asks_nothing_of_an_unknown_project(ctx: Ctx):
 
 @test
 def test_next_is_null_when_unset(ctx: Ctx):
-    """3.6.0.2 R50 (F4): `next` is config crew.map, null when unset -- `in_use` says `starter` either way."""
+    """3.6.0.2 R50 (F4): `next` is config crew.map, null when unset -- `in_use` says `auto` either way."""
     with CrewRig() as rig:
         rig.studio()
         st, r = rig.api("GET", "crew/maps")
-        ctx.check(f"fresh: next None, in_use starter, got {r.get('next', 'absent')} {r.get('in_use')}",
-                  st == 200 and "next" in r and r["next"] is None and r["in_use"] == "starter")
-        st, m = rig.api("GET", "crew/map/starter")
+        ctx.check(f"fresh: next None, in_use auto, got {r.get('next', 'absent')} {r.get('in_use')}",
+                  st == 200 and "next" in r and r["next"] is None and r["in_use"] == "auto")
+        st, m = rig.api("GET", "crew/map/auto")
         ctx.check(f"one map: next None, got {m.get('next', 'absent')}", "next" in m and m["next"] is None)
         rig.api("POST", "crew/map/ship-it/use", {"on": True})
         _st, r = rig.api("GET", "crew/maps")
-        _st, m = rig.api("GET", "crew/map/starter")
+        _st, m = rig.api("GET", "crew/map/auto")
         ctx.check(f"after use ship-it: next ship-it in both, got {r.get('next')} {m.get('next')}",
                   r.get("next") == "ship-it" and m.get("next") == "ship-it")
 
@@ -288,7 +288,7 @@ def test_save_a_circle_a_new_map_and_undo(ctx: Ctx):
         ctx.check(f"+ New map: a map with main only, got {st}", st == 200 and r["map"]["main"] == {"agent": "main"} and r["map"]["format"] == "map/1")
         st, r = rig.api("DELETE", "crew/map/release-day")
         ctx.check("delete yours", st == 200 and rig.api("GET", "crew/map/release-day")[0] == 404)
-        ctx.check("a starter is not deleted", rig.api("DELETE", "crew/map/starter")[0] == 409)
+        ctx.check("a map that ships with Halo is not deleted", rig.api("DELETE", "crew/map/auto")[0] == 409)
 
 
 @test
@@ -314,8 +314,9 @@ def test_use_the_owner_and_the_cli(ctx: Ctx):
         finally:
             os.chdir(cwd)
         text = out.getvalue()
-        ctx.check(f"halo maps use / list / show, got {text[:300]!r}", code == 0 and "New sessions run as by default" in text
-                  and "* starter" in text and "line main -> plan: always" in text and "in use: starter (default)" in text)
+        ctx.check(f"halo maps use / list / show, got {text[:300]!r}", code == 0
+                  and "New sessions run on Auto (the default); no map of yours is set." in text
+                  and "* auto" in text and "line main -> plan: always" in text and "in use: Auto (the default)" in text)
 
 
 @test
@@ -360,7 +361,7 @@ def test_use_receipt_says_when_the_start_mode_changes(ctx: Ctx):
                   code == 0 and "main runs in auto (careful: own)" in first and "your own mode was default" in first
                   and "start in auto mode" not in first and first.count("auto") == 1)
         ctx.check(f"halo maps use starter (from mine) says they start in default mode again, got {back!r}",
-                  "New sessions run as by default" in back and "start in default mode" in back)
+                  "New sessions run on Auto (the default); no map of yours is set" in back and "start in default mode" in back)
 
 
 @test

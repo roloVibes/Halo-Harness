@@ -22,8 +22,8 @@ def press(c, expr: str) -> None:
 def amber(c, rig, lv, sent) -> dict:
     sw = t("map-switcher")
     c.js(f"(() => {{ const s = {sw}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
-         f" set.call(s, 'starter'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
-    c.wait(f"{sw}.value === 'starter'", 15)
+         f" set.call(s, 'auto'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{sw}.value === 'auto'", 15)
     c.js("document.activeElement?.blur(); 1")
     key(c, "4")
     live = lq("[data-testid=agents-live]")

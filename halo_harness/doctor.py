@@ -1314,13 +1314,16 @@ def _dangling_maps(cwd) -> "list[tuple[str, str]]":
 
 
 def _check_lineup() -> str:
-    """3.6.0.0 R5b: `Map: starter (the default) -- ...; change it with ...` (crew/in_use.py), where it was the lineup."""
+    """3.6.0.0 R5b: `Map: Auto (the default: ...); halo maps use <name> changes it, ...` (3.6.0.5 W2), where it was
+    the lineup."""
     try:
         from halo_harness.crew.compile import in_use
         name, source = in_use(None)
         if not name:
             return f"{OK} Map: none (One model for everything: roles off); halo maps use <name> picks one"
-        how = {"default": "the default: it draws what a plain session does", "config": "config crew.map"}.get(source, source)
+        if source == "default":
+            return f"{OK} Map: Auto (the default: main picks who works on each task); halo maps use <name> changes it, halo maps list shows them"
+        how = {"config": "config crew.map"}.get(source, source)
         return f"{OK} Map: {name} ({how}); halo maps use <name> changes it, halo maps list shows them"
     except Exception as e:
         return f"{OK} Map: could not be read ({type(e).__name__})"

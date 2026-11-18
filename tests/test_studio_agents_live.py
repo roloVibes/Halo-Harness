@@ -123,7 +123,7 @@ def test_opening_tab_never_flips_once_drawn(ctx: Ctx):
 @test
 def test_live_view_follows_the_session_never_amber(ctx: Ctx):
     d = _got(ctx)
-    ctx.check(f"3 · Map shows starter, got {d.get('map_shows')!r}", d.get("map_shows") == "starter")
+    ctx.check(f"3 · Map shows auto, got {d.get('map_shows')!r}", d.get("map_shows") == "auto")
     ctx.check(f"Live draws the session's map shop, >= 6 boxes, got {d.get('drawn')}", (d.get("drawn") or ["", 0])[0] == "shop" and d["drawn"][1] >= 6)
     lefts = d.get("lefts") or [None, []]
     ctx.check(f"left to right: main's box leftmost, two or more columns, got {lefts}",
@@ -224,7 +224,7 @@ def test_map_tab_quiet_line_and_running_workflow_box(ctx: Ctx):
     q = _q(d, "quiet")
     title, sid = str(q.get("title")), q.get("sid")
     ctx.check(f"L3 in the reserved row, got {q.get('l3')!r}", re.fullmatch(
-        rf"{re.escape(title)} is running the workflow review from this map\. It runs on starter \(the default\), as it started\. Watch it in Live",
+        rf"{re.escape(title)} is running the workflow review from this map\. It runs on Auto \(the default\), as it started\. Watch it in Live",
         str(q.get("l3"))) is not None)
     ctx.check(f"box check marked running now in {title}, got {q.get('mark')}", q.get("mark") == [sid, f"running now in {title}"])
     ctx.check(f"nothing lit on the Map, got {q.get('lit')}", q.get("lit") == 0)
@@ -238,7 +238,7 @@ def test_map_tab_quiet_line_and_running_workflow_box(ctx: Ctx):
     ctx.check(f"the Map panel's help says the switch in its new words, got {ph!r}",
               "New sessions run on this: new sessions run on this map." in ph and "My sessions use this" not in ph)
     ctx.check(f"[Watch it in Live] lands on 4 · Live on that session, got {q.get('watch')}", q.get("watch") == ["live", sid])
-    ctx.check(f"on starter (its own map): L1, got {q.get('l1')!r}", q.get("l1") == f"{title} runs on this map now. Watch it in Live")
+    ctx.check(f"on auto (its own map): L1, got {q.get('l1')!r}", q.get("l1") == f"{title} runs on this map now. Watch it in Live")
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 
@@ -248,14 +248,14 @@ def test_picker_says_running_in_session(ctx: Ctx):
     p = _q(d, "picker")
     title = str(p.get("title"))
     fresh, opts = p.get("fresh") or [], p.get("options") or []
-    ctx.check(f"a fresh home (crew.map unset): starter running in {title}, no map tagged new sessions, got {fresh}",
-              any(o.startswith("starter") and o.endswith(f" · running in {title}") for o in fresh) and not any(o.endswith(" · new sessions") for o in fresh))
-    ctx.check(f"crew.map = shop: starter running in {title}, shop new sessions, no 'my sessions use this', got {opts}",
-              any(o.startswith("starter") and o.endswith(f" · running in {title}") for o in opts)
+    ctx.check(f"a fresh home (crew.map unset): auto running in {title}, no map tagged new sessions, got {fresh}",
+              any(o.startswith("auto") and o.endswith(f" · running in {title}") for o in fresh) and not any(o.endswith(" · new sessions") for o in fresh))
+    ctx.check(f"crew.map = shop: auto running in {title}, shop new sessions, no 'my sessions use this', got {opts}",
+              any(o.startswith("auto") and o.endswith(f" · running in {title}") for o in opts)
               and any(o.startswith("shop") and o.endswith(" · new sessions") for o in opts)
               and not any("my sessions use this" in o for o in opts + fresh))
     ctx.check(f"the switch on for shop, its words, got {p.get('switch')}", p.get("switch") == ["true", "New sessions run on this"])
-    ctx.check(f"two sessions on starter, got {p.get('two')!r}", str(p.get("two")).endswith(" · running in 2 sessions"))
+    ctx.check(f"two sessions on auto, got {p.get('two')!r}", str(p.get("two")).endswith(" · running in 2 sessions"))
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 
@@ -265,7 +265,7 @@ def test_hand_switch_receipt_is_s13(ctx: Ctx):
     r = _q(d, "receipt")
     title = str(r.get("title"))
     ctx.check(f"the receipt is S13 naming the open session, Undo beside it, got {r.get('s13')}",
-              r.get("s13") == [f"{title} keeps running on starter (the default), as it started. Start a new session to run on shop.", True])
+              r.get("s13") == [f"{title} keeps running on Auto (the default), as it started. Start a new session to run on shop.", True])
     ctx.check(f"with no open session: R36's words, got {r.get('none')!r}", r.get("none") == "New sessions run on ship-it.")
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
@@ -287,7 +287,7 @@ def test_on_another_map_it_says_and_waits(ctx: Ctx):
     w = _q(d, "waits")
     title = str(w.get("title"))
     ctx.check(f"L2, one session, got {w.get('l2_one')!r}",
-              w.get("l2_one") == f"{title} runs on starter (the default), as it started; new sessions run on this map. Watch it in Live")
+              w.get("l2_one") == f"{title} runs on Auto (the default), as it started; new sessions run on this map. Watch it in Live")
     ctx.check(f"L2, two sessions, got {w.get('l2_two')!r}",
               w.get("l2_two") == "2 sessions run on other maps, as they started; new sessions run on this map. Watch them in Live")
     ctx.check(f"L4 in the reserved row, got {w.get('notice')!r}",
@@ -314,7 +314,7 @@ def test_notice_row_reserved_canvas_still(ctx: Ctx):
 def test_quiet_line_never_moves_the_drawing_at_1280(ctx: Ctx):
     d = _got(ctx)
     s = _q(d, "still")
-    for name in ("shop", "starter"):
+    for name in ("shop", "auto"):
         tops = s.get(name) or []
         ctx.check(f"{name}: the canvas top with the quiet line, without the session, with it again (1280 x 800), got {tops}",
                   len(tops) == 3 and all(isinstance(x, (int, float)) for x in tops) and max(tops) - min(tops) <= 0.5)
@@ -335,7 +335,7 @@ def test_latest_map_pick_wins(ctx: Ctx):
     ctx.check(f"the tab's first open was answered after his pick, got {r.get('served')!r}", r.get("served") is True)
     ctx.check(f"in that ORDER: his pick drawn, then the first open answered, got {r.get('order')!r}",
               r.get("order") == ["his pick drawn", "first open answered"])
-    ctx.check(f"his pick (shop) still open after the late answer for starter, got {r.get('after')}", r.get("after") == ["shop", True])
+    ctx.check(f"his pick (shop) still open after the late answer for auto, got {r.get('after')}", r.get("after") == ["shop", True])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

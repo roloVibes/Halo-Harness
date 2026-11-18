@@ -28,6 +28,15 @@ def _ask(rig, text: str, cid: str, mp: str = "ship-it"):
     return rig.api("POST", "builder/ask", {"tab": "map", "text": text, "conversation_id": cid, "selection": {"map": mp}})
 
 
+def _shop(rig) -> None:
+    """3.6.0.5: a map of his named shop, the shipped auto.yaml's boxes and lines (the default is never edited)."""
+    from halo_harness.crew import store
+    raw = store.read(store.SHIPPED / "maps" / "auto.yaml")
+    store.write_text(store.path_for("map", "shop", state_dir=rig.state), store.dump(
+        {"format": raw["format"], "name": "shop", "main": raw.get("main") or {"agent": "main"}, "boxes": raw["boxes"],
+         "lines": raw["lines"]}))
+
+
 def _files(rig) -> dict:
     out = {str(p.relative_to(rig.state)): p.read_bytes() for p in (rig.state / "crew").rglob("*.yaml")} if (rig.state / "crew").is_dir() else {}
     cfg = rig.state / "config.json"
@@ -70,11 +79,12 @@ def test_one_preview_ghosts_apply_undo(ctx: Ctx):
 def test_one_request_across_agents_and_the_map(ctx: Ctx):
     with CrewRig() as rig:
         rig.studio()
-        st, r = _ask(rig, "make me a reviewer agent and hand reviews to it", "m2", "starter")
+        _shop(rig)
+        st, r = _ask(rig, "make me a reviewer agent and hand reviews to it", "m2", "shop")
         rows = r.get("changes") or []
         targets = [c["target"] for c in rows]
-        ctx.check(f"one preview: the agent, its widening line, the map's copy, box and line, got {targets}",
-                  targets == ["agent:my-reviewer", "agent:my-reviewer", "map:starter", "map:starter", "map:starter"])
+        ctx.check(f"one preview: the agent, its widening line, his map's box and line, got {targets}",
+                  targets == ["agent:my-reviewer", "agent:my-reviewer", "map:shop", "map:shop"])
         wide = [c for c in rows if c["widen"]]
         ctx.check(f"only the agent's Run commands line widens, unticked, got {[c['summary'] for c in wide]}",
                   len(wide) == 1 and "Run commands" in wide[0]["summary"] and not wide[0]["ticked"])
@@ -95,9 +105,9 @@ def test_a_circle_is_refused_and_map_use_says_more_power(ctx: Ctx):
         from halo_harness.theme import set_config_value
         set_config_value("crew.map", "ship-it")
         before = _files(rig)["config.json"]
-        st, r = _ask(rig, "use ship-it", "m4", "starter")
+        st, r = _ask(rig, "use ship-it", "m4", "auto")
         ctx.check(f"in use already: no line, got {r['changes']}", r["changes"] == [])
-        st, r = _ask(rig, "use starter", "m5", "starter")
+        st, r = _ask(rig, "use starter", "m5", "auto")
         rows = r["changes"]
         ctx.check(f"map_use: one line, amber and unticked, saying whose agents may do more, got {[c['summary'] for c in rows]}",
                   len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "may do more than the map ship-it's (researcher" in rows[0]["summary"])
@@ -137,7 +147,7 @@ def test_map_use_compares_main_mode_and_tools(ctx: Ctx):
         c = compile_map("mine", cwd=rig.proj, state_dir=rig.state)
         ctx.check(f"the probe's shape: mine is yours, main yours, auto from default, got {c.problems} {own_map(c)}",
                   not c.problems and own_map(c) and main_mode(c, "default")[0] == "auto")
-        rows = _use_rows(rig, "mine")  # the map in use: the default (starter, drawn)
+        rows = _use_rows(rig, "mine")  # the map in use: the default (Auto, drawn)
         ctx.check(f"from the default map: map_use mine is ONE widening row, unticked, saying auto mode, got "
                   f"{[(r['summary'], r['widen']) for r in rows]}",
                   len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "start in auto mode" in rows[0]["summary"])
@@ -160,8 +170,8 @@ def test_map_use_compares_main_mode_and_tools(ctx: Ctx):
             ctx.check(f"from mine to {target} (main as careful or more, no more tools): a plain row, ticked, got "
                       f"{[(r['summary'], r['widen']) for r in rows]}",
                       len(rows) == 1 and not rows[0]["widen"] and rows[0]["ticked"] and "mode" not in rows[0]["summary"])
-        rows = _use_rows(rig, "starter")
-        ctx.check(f"from mine to the starter: its agents and main's web / hand-offs widen, the mode does not rise, got "
+        rows = _use_rows(rig, "auto")
+        ctx.check(f"from mine to Auto: its agents and main's web / hand-offs widen, the mode does not rise, got "
                   f"{[r['summary'] for r in rows]}",
                   len(rows) == 1 and rows[0]["widen"] and "may do more than the map mine's" in rows[0]["summary"]
                   and "Hand work to agents" in rows[0]["summary"] and "mode" not in rows[0]["summary"])
@@ -328,10 +338,12 @@ def test_questions_answer_from_studio_show_with_no_change(ctx: Ctx):
 
 
 # ---- 3.6.0.2 R36 R37 R54 R21: the Builder in a session (crew/session_tool.py over crew/tools_map.py) -------------------
-NAME_IT = ("Name the map: this session runs on starter (the default), where main chooses who works. Pass a new name in "
+NAME_IT = ("Name the map: this session runs on Auto (the default), where main chooses who works. Pass a new name in "
            "args.map to make a map that routes.")
-S13_RF = "This session keeps running on starter (the default), as it started. Start a new session to run on review-flow."
-TAIL = "In the terminal: quit, then run halo; /clear keeps starter (the default)."
+NAME_NEW = ("Name the map: Auto (the default) stays as it is, where main chooses who works. Pass a new name in args.map to "
+            "make a map that routes.")  # 3.6.0.5 RULINGS 3: no name typed and none to take
+S13_RF = "This session keeps running on Auto (the default), as it started. Start a new session to run on review-flow."
+TAIL = "In the terminal: quit, then run halo; /clear keeps Auto (the default)."
 HANDOFF = "this session takes it at its next hand-off"
 
 
@@ -343,7 +355,7 @@ class _S:
         from types import SimpleNamespace
         from halo_harness.crew.compile import compile_map
         from halo_harness.crew.map_control import control_for
-        c = compile_map(mp or "starter", cwd=rig.proj, state_dir=rig.state)
+        c = compile_map(mp or "auto", cwd=rig.proj, state_dir=rig.state)
         c.source = "flag" if mp else "default"
         self.cwd = rig.proj
         self.team_control = control_for(c, cwd=rig.proj, state_dir=rig.state)
@@ -379,7 +391,8 @@ def _uses(rows) -> list:
 @test
 def test_plain_session_asks_for_a_map_name(ctx: Ctx):
     """R36: in a session on the default map a map tool with no `map` gets no rows, only the sentence; named, as before;
-    Studio's builder box (no session) as before."""
+    3.6.0.5 A6: a map named `starter` (or `auto`) is refused with W16; Studio's builder box with no session and none
+    set, and with Auto open, gets NAME_A_NEW_MAP: nothing written, no row (the default is never copied as his)."""
     with CrewRig() as rig:
         from halo_harness.crew import session_tool, tools
         _save_reviewer(rig)
@@ -392,12 +405,15 @@ def test_plain_session_asks_for_a_map_name(ctx: Ctx):
             ctx.check(f"{call['tool']} with no map: no rows, no card, the sentence, got {pv['text']!r}",
                       pv["rows"] == [] and "card" not in pv and NAME_IT in pv["text"])
         pv = session_tool.preview(s, _box("starter", "my-reviewer"))
-        ctx.check(f"named: the starter copied as yours and the box, as before, got {[r['summary'] for r in pv['rows']]}",
-                  [r["target"] for r in pv["rows"]] == ["map:starter", "map:starter"] and "card" in pv)
-        got = tools.run("map_box_add", {"kind": "agent", "ref": "my-reviewer"},
-                        {"cwd": rig.proj, "state_dir": rig.state, "selection": {}})
-        ctx.check(f"Studio's builder box (no session): the map in use, as before, got {[r['target'] for r in got['rows']]}",
-                  [r["target"] for r in got["rows"]] == ["map:starter", "map:starter"])
+        ctx.check(f"named starter: W16, no rows, got {pv['text']!r} {[r['summary'] for r in pv['rows']]}",
+                  pv["rows"] == [] and "card" not in pv
+                  and "starter is a name of the default (Auto); give your map another name." in pv["text"])
+        maps = rig.state / "crew" / "maps"
+        for sel in ({}, {"map": "auto"}):  # outside a session with none set; Studio's builder box with Auto open
+            got = tools.run("map_box_add", {"kind": "agent", "ref": "my-reviewer"},
+                            {"cwd": rig.proj, "state_dir": rig.state, "selection": sel})
+            ctx.check(f"no session, selection {sel}: NAME_A_NEW_MAP word for word, no row, no file, got {got}",
+                      got.get("text") == NAME_NEW and got.get("rows") == [] and not (maps.is_dir() and list(maps.iterdir())))
 
 
 @test
@@ -448,8 +464,8 @@ def test_new_name_creates_and_offers_its_use_row_ticked(ctx: Ctx):
         ctx.check(f"the use row: ticked, its words S13 + the tail (literal and map_facts), got {use['summary']!r}",
                   use["target"] == "use:crew.map" and use["op"]["op"] == "use" and use["op"]["value"] == "review-flow"
                   and not use["widen"] and use["ticked"] and use["summary"] == want
-                  and use["summary"] == "New sessions run on review-flow. " + map_facts.s13("starter (the default)", "review-flow")
-                  + " " + map_facts.terminal_tail("starter (the default)"))
+                  and use["summary"] == "New sessions run on review-flow. " + map_facts.s13("Auto (the default)", "review-flow")
+                  + " " + map_facts.terminal_tail("Auto (the default)"))
         qs = pv["card"]["questions"]
         ctx.check(f"one question, Apply these 4 changes, got {[q['question'][:40] for q in qs]}",
                   len(qs) == 1 and qs[0]["question"].startswith("Apply these 4 changes"))
@@ -679,32 +695,36 @@ def test_copy_of_running_project_map_is_checked_like_map_use(ctx: Ctx):
 @test
 def test_card_row_and_tail_say_s13_golden(ctx: Ctx):
     """R21 + section 4: the use row and the result tail say S13 (+ the terminal tail); the result keeps Applied and the
-    undo id, and no longer says "Studio follows the files."; an agent-only card ends with T1."""
+    undo id, and no longer says "Studio follows the files."; an agent-only card ends with T1. 3.6.0.5: the card is
+    APPLIED, so the session runs on a map of his (shop), never on the default."""
     import re
     import time
+    s13_rf = "This session keeps running on shop, as it started. Start a new session to run on review-flow."
+    tail = "In the terminal: quit, then run halo; /clear keeps shop."
     with CrewRig() as rig:
         from halo_harness.crew import session_tool
-        from halo_harness.theme import unset_config_value
-        s = _S(rig)
+        from halo_harness.theme import set_config_value
+        _map_of(rig, "shop", ("read",))
+        s = _S(rig, "shop")
         s._map_started_at = time.time()
         pv = session_tool.preview(s, {"changes": [
             {"tool": "agent_make", "args": {"name": "my-reviewer", "does": "Reviews.", "uses": ["read"]}},
             _box("review-flow", "my-reviewer"), _line("review-flow", "my-reviewer")]})
         use = _uses(pv["rows"])
         ctx.check(f"the use row's words, got {[u['summary'] for u in use]}",
-                  len(use) == 1 and use[0]["summary"] == "New sessions run on review-flow. " + S13_RF + " " + TAIL)
+                  len(use) == 1 and use[0]["summary"] == "New sessions run on review-flow. " + s13_rf + " " + tail)
         out = session_tool.finish(pv, "Apply them", s)
         u = pv["outcome"]["undo"]
         ctx.check(f"Applied, the undo id, the tail (Written, Undo, word for word S13 + tail), got {out[-420:]!r}",
                   "Applied 5 line(s)" in out and f"Undo id {u}" in out and "Studio follows the files." not in out
                   and out.endswith(f"Written: the map review-flow (new); the agent my-reviewer (new). Undo: {u}. "
-                                   f"Tell the person, word for word: {S13_RF} {TAIL}"))
-        unset_config_value("crew.map")
+                                   f"Tell the person, word for word: {s13_rf} {tail}"))
+        set_config_value("crew.map", "shop")
         pv = session_tool.preview(s, {"tool": "agent_make", "args": {"name": "quiet", "does": "Reads."}})
         out = session_tool.finish(pv, "Apply them", s)
         ctx.check(f"an agent only: the tail is T1, got {out[-200:]!r}",
                   re.search(r"Written: the agent quiet \(new\)\. Undo: [\w-]+\. Tell the person, word for word: This session "
-                            r"runs on starter \(the default\), as it started at \d{2}:\d{2}\. New sessions will too\.$", out))
+                            r"runs on shop, as it started at \d{2}:\d{2}\. New sessions will too\.$", out))
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+from tests.helpers.scratch_seven import NAME as SEVEN, write_seven
 from tests.helpers.studio_agents import key
 
 P = '[data-part="map"] '
@@ -51,6 +52,7 @@ def seed(rig) -> None:
     from halo_harness.crew import store
     raw = {"format": "agent/1", "name": "my-reviewer", "does": "Reviews auth changes.", "model": "auto", "uses": ["read"], "careful": "ask-changes"}
     store.write_text(store.path_for("agent", "my-reviewer", state_dir=rig.state), store.dump(raw))
+    write_seven(rig.state)  # 3.6.0.5: the steps that edit, drag or lock do it on a map of his of seven boxes
 
 
 GEOM = f"""(() => {{
@@ -77,6 +79,10 @@ def first(c, rig) -> dict:
                         f" labels: {qa('[data-testid=map-label]')}.map((l) => l.innerText), hint: {t('builder-input')}.placeholder}})")
     out["geom"] = c.js(GEOM)
     shot(c, "studio-map.png")
+    # 3.6.0.5: Auto is never edited: the steps after this one drag, chain, key and zoom on the scratch map of seven boxes
+    c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
+         f" set.call(s, '{SEVEN}'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{t('map-switcher')}?.value === '{SEVEN}' && {qa('[data-testid=map-label]')}.length === 7", 20)
     return out
 
 
@@ -109,7 +115,7 @@ def drag(c, rig) -> dict:
     c.js(f"{t('map-when-save')}.click(); 1")
     out["label"] = c.wait(f"{q('[data-testid=map-label][data-to=tester]')}?.innerText === 'says test' && 'says test'", 20)
     out["receipt"] = c.wait(f"{t('map-receipt')}?.innerText.includes('says test') && {t('map-receipt')}.innerText.split('\\n')[0]", 20)
-    out["file"] = [ln for ln in rig.api("GET", "crew/map/starter")[1]["map"]["lines"] if ln["to"] == "tester"]
+    out["file"] = [ln for ln in rig.api("GET", f"crew/map/{SEVEN}")[1]["map"]["lines"] if ln["to"] == "tester"]
     return out
 
 
@@ -182,14 +188,14 @@ def maps(c, rig) -> dict:
     c.key("Enter")
     out = {"new": c.wait(f"{t('map-switcher')}?.value === 'release-day' && {qa('[data-testid=map-world] [data-map-box]')}.length", 20)}
     c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
-         f" set.call(s, 'starter'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
-    c.wait(f"{t('map-switcher')}?.value === 'starter' && {qa('[data-testid=map-label]')}.length >= 8", 20)
+         f" set.call(s, 'auto'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{t('map-switcher')}?.value === 'auto' && !!{t('map-uses-default')}", 20)
     opts = f"[...{t('map-switcher')}.options].map((o) => o.textContent)"
     out["fresh_tags"] = c.js(opts)  # 3.6.0.2 R24: a fresh home (crew.map unset) tags no map
     # P4 batch 12: on the default map with none set the switch could change nothing: no switch, the plain sentence
     out["uses_off"] = [c.js(f"!!{t('map-uses')}"), c.js(f"{t('map-uses-default')}?.textContent || ''")]
-    # none set: new sessions run on the default, starter (config never holds it): the switch is on there; ship-it switched on
-    # is config crew.map and tagged; switched off again, new sessions are back on starter
+    # none set: new sessions run on the default, Auto (config never holds it): no switch there; ship-it switched on
+    # is config crew.map and tagged; switched off again, new sessions are back on Auto
     c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
          f" set.call(s, 'ship-it'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
     c.wait(f"{t('map-switcher')}?.value === 'ship-it' && {t('map-uses')}.getAttribute('aria-checked') === 'false'", 20)
@@ -200,8 +206,8 @@ def maps(c, rig) -> dict:
     c.js(f"{t('map-uses')}.click(); 1")
     c.wait(f"{t('map-uses')}.getAttribute('aria-checked') === 'false'", 20)
     c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
-         f" set.call(s, 'starter'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
-    c.wait(f"{t('map-switcher')}?.value === 'starter' && {qa('[data-testid=map-label]')}.length >= 8", 20)
+         f" set.call(s, '{SEVEN}'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{t('map-switcher')}?.value === '{SEVEN}' && {qa('[data-testid=map-label]')}.length >= 8", 20)
     c.js(f"{t('map-lock')}.click(); 1")
     out["locked"] = c.wait(f"{t('map-lock')}.getAttribute('aria-checked') === 'true' && {qa('[data-testid=map-dot]')}.length === 0"
                            f" && {qa('[data-testid=map-add]')}.every((b) => b.disabled)", 10)

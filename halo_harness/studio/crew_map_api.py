@@ -31,7 +31,7 @@ import os
 from pathlib import Path
 
 from halo_harness.crew import changes, store
-from halo_harness.crew.compile import compile_raw, in_use
+from halo_harness.crew.compile import DEFAULT_MAP, compile_raw, in_use
 from halo_harness.crew.formats import MAP, map_problems
 from halo_harness.studio.owner_proof import owner_only
 
@@ -42,10 +42,13 @@ def _rows(req) -> list:
     seen, out = set(), []
     used = in_use(None, req.cwd)[0]
     for r in store.rows("map", cwd=req.cwd, state_dir=req.state_dir):
-        if r["name"] in seen:
+        auto = store.is_auto(r["name"])  # 3.6.0.5 A4: his old auto/starter file is listed beside Auto, never in use
+        key = (r["name"], r["_scope"] == "starter") if auto else r["name"]
+        if key in seen:
             continue
-        seen.add(r["name"])
-        out.append({"name": r["name"], "scope": r["_scope"], "in_use": r["name"] == used, "problems": r["_problems"],
+        seen.add(key)
+        on = (r["_scope"] == "starter" and store.is_auto(used)) if auto else r["name"] == used
+        out.append({"name": r["name"], "scope": r["_scope"], "in_use": on, "problems": r["_problems"],
                     "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or [])})
     return out
 
@@ -95,7 +98,8 @@ def _answer(req, name: str, got: dict, cwd) -> dict:
     raw = store.clean(got)
     c = compile_raw(raw, name=name, cwd=cwd, state_dir=req.state_dir)
     main = store.load("agent", c.main.get("agent") or "main", cwd=cwd, state_dir=req.state_dir) or {}
-    return {"map": raw, "scope": got["_scope"], "path": got["_path"], "writable": True, "in_use": in_use(None, req.cwd)[0] == name,
+    return {"map": raw, "scope": got["_scope"], "path": got["_path"], "writable": True,
+            "in_use": in_use(None, req.cwd)[0] == (DEFAULT_MAP if got["_scope"] == "starter" and store.is_auto(name) else name),
             "next": _next(), "problems": c.problems, "boxes": _box_facts(c, raw, req, cwd),
             "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")}}
 
@@ -181,6 +185,9 @@ def get_map(req):
 
 def put_map(req):
     name = req.params["name"]
+    bad = store.default_name_refusal(name)  # 3.6.0.5 A6 (W16): never a map of his under a default's name
+    if bad:
+        return 422, {"error": bad, "problems": [bad]}
     raw = (req.body or {}).get("map")
     if not isinstance(raw, dict):
         return 400, {"error": "the body needs the map ('map')"}

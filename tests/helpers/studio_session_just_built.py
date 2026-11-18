@@ -33,6 +33,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
+from tests.helpers.scratch_seven import NAME as SEVEN, write_seven  # noqa: E402
 from tests.helpers.studio_session_map_down import FLEET_READS, MapDownDriver, Rows, _reload, _seed_shop  # noqa: E402
 
 Q = "document.querySelector"
@@ -157,7 +158,7 @@ def _parse(rig, text: str) -> dict:
     return store.read(p) or {}
 
 
-def _frame(rig, sid: str, wrote: list, maps: dict, outcome: str = "applied", undo: str = "u", this: str = "starter",
+def _frame(rig, sid: str, wrote: list, maps: dict, outcome: str = "applied", undo: str = "u", this: str = "auto",
            next_: "str | None" = None) -> dict:
     from halo_harness.peers.identity import harness
     now = time.time()
@@ -211,7 +212,7 @@ def _press(c, which: str) -> None:
 def word(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.reset()
     rows.idle(b)
-    rows.idle(a, map="starter", map_plain=True)
+    rows.idle(a, map="auto", map_plain=True)
     _open(c, rig, f"mode=session&session={a}")
     c.wait(f"!!{BTN} && {FLEET_READS} >= 1", 30)
     if c.js(f"{BTN}.getAttribute('aria-pressed') === 'true'"):  # the drivers' arrangement opens every panel: closed first
@@ -268,19 +269,20 @@ def once(c, rig, rows: Rows, a: str, b: str) -> dict:
     out: dict = {}
     body = _body(rig, "review-flow", REVIEW_FLOW)
     built = [{"kind": "workflow", "name": "review", "added": True}, {"kind": "map", "name": "review-flow", "added": True}]
+    write_seven(rig.state)  # 3.6.0.5: R30/R31 on a map of his of seven boxes, where 3.6.0.2's heads stand
     rows.reset()
     rows.idle(b)
-    rows.idle(a, map="starter", map_plain=True)
+    rows.idle(a, map=SEVEN, map_plain=False)
     _open(c, rig, f"mode=session&session={a}&open=session-map")
     c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
     out["plain"] = _pair(c)
-    _frame(rig, a, built, {"review-flow": body}, undo="o1")
+    _frame(rig, a, built, {"review-flow": body}, undo="o1", this=SEVEN)
     _wait(c, f"{PAIR}?.textContent.includes('Just built: review-flow') && {DRAWN}?.dataset.map === 'review-flow'", 10)
     out["first"] = _pair(c)
     _press(c, "running")
-    _wait(c, f"{DRAWN}?.dataset.map === 'starter'", 10)
+    _wait(c, f"{DRAWN}?.dataset.map === '{SEVEN}'", 10)
     out["back"] = _pair(c)
-    _frame(rig, a, built, {"review-flow": body}, undo="o2")
+    _frame(rig, a, built, {"review-flow": body}, undo="o2", this=SEVEN)
     _wait(c, f"{PAIR}?.querySelector('[data-which=built]')?.hasAttribute('data-new')", 10)
     time.sleep(0.5)
     out["second"] = _pair(c)
@@ -290,7 +292,7 @@ def once(c, rig, rows: Rows, a: str, b: str) -> dict:
     r = c.js(f"(() => {{ const r = {DRAWN}.querySelector('.mp-mini-scroll').getBoundingClientRect(); return [r.left + r.width / 2, r.top + 20]; }})()")
     c.mouse("mouseMoved", r[0], r[1])
     time.sleep(0.3)
-    _frame(rig, a, built, {"review-flow": body}, undo="o3")
+    _frame(rig, a, built, {"review-flow": body}, undo="o3", this=SEVEN)
     _wait(c, f"{PAIR}?.querySelector('[data-which=built]')?.hasAttribute('data-new')", 10)
     out["held"] = _pair(c)
     c.mouse("mouseMoved", 1279, 799)
@@ -298,7 +300,7 @@ def once(c, rig, rows: Rows, a: str, b: str) -> dict:
     out["held_out"] = _pair(c)
     # (c) the pair pressed once: a later build only marks its tab
     _press(c, "running")
-    _frame(rig, a, [{"kind": "map", "name": "third", "added": True}], {"third": _body(rig, "third", THIRD)}, undo="o4")
+    _frame(rig, a, [{"kind": "map", "name": "third", "added": True}], {"third": _body(rig, "third", THIRD)}, undo="o4", this=SEVEN)
     _wait(c, f"{PAIR}?.textContent.includes('Just built: third')", 10)
     time.sleep(0.5)
     out["pressed"] = _pair(c)
@@ -345,7 +347,7 @@ def heads(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.set(a, map_next="fourth", map_next_since=time.time())  # the row as P2 sends it once the use row was applied
     # P9 batch 3 (CI, Windows): the switch of {B} is a fact of its own, read from the row: the truth block names fourth and
     # measures its twin again, once (R20, P4 batch 11: nothing is held for a name it does not have; R12 lets the block grow
-    # while the pointer is outside). With Windows' font that takes one more line than starter's did; on Linux it happened
+    # while the pointer is outside). With Windows' font that takes one more line than the default's did; on Linux it happened
     # to take the same. So the heads below are compared with the drawer once the switch has reached the block: a head
     # landing still moves no control. (Before, other_next was read before the row reached the block, on every system.)
     named = _wait(c, f"({Q}('[data-testid=session-truth]')?.textContent || '').includes('run on fourth')", 15)
@@ -478,7 +480,7 @@ def room(c, rig, rows: Rows, a: str, b: str) -> dict:
     for w, h in ((1280, 800), (1440, 900), (1920, 1080)):
         rows.reset()
         rows.idle(b)
-        rows.idle(a, map="starter", map_plain=True)
+        rows.idle(a, map="auto", map_plain=True)
         _open(c, rig, f"mode=session&session={a}&open=session-map", w, h)
         c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
         time.sleep(1.0)  # past the drawing's settle (200 ms) and its measured boxes

@@ -11,7 +11,7 @@ fakes.BUILD_CHANGES); then, each assert alone, every one reported as '(n) what a
       nothing popped up; which path carried it (the builder_done frame or the status row's `built`) is logged
   (3) pressing Live shows the just-built map drawn down, the new box marked, every text at least 12 px, no box cut,
       and the truth block with the same S13 the card said
-  (4) Agents (Alt+2) opens on its fourth view Live, drawing the session's own map starter, nothing amber; its Map view
+  (4) Agents (Alt+2) opens on its fourth view Live, drawing the session's own map auto, nothing amber; its Map view
       shows review-flow with the quiet line L2
   (5) the next question's model request carries the [Halo] facts note naming both maps, the build's request none, and
       the Builder result the model read named both maps, said S13 and offered no restart
@@ -31,12 +31,12 @@ from realcheck.core import Fail, Skip, browser, excerpt, split_url, wait_address
 from realcheck.steps_a import _no_leftovers
 from realcheck.steps_b import WATCH
 
-S13 = "This session keeps running on starter (the default), as it started. Start a new session to run on review-flow."
+S13 = "This session keeps running on Auto (the default), as it started. Start a new session to run on review-flow."
 R37_ROW = "Your review workflow: the workflow review (coder, then reviewer), run from a box on the new map review-flow."
 CREATE_ROW = "Make a new map review-flow"
-USE_ROW = ("New sessions run on review-flow. " + S13 + " In the terminal: quit, then run halo; /clear keeps starter "
+USE_ROW = ("New sessions run on review-flow. " + S13 + " In the terminal: quit, then run halo; /clear keeps Auto "
            "(the default).")
-L2 = "runs on starter (the default), as it started; new sessions run on this map."
+L2 = "runs on Auto (the default), as it started; new sessions run on this map."
 WORD_S, WORD_WINDOWS_S = 5.0, 10.0  # the word `new` after the outcome reached the page (Windows: 5-10 s is slow)
 
 Q = "document.querySelector"
@@ -414,7 +414,7 @@ def _drawn(c, ev: dict, bad: list) -> None:
         bad.append(f"(3) the drawer shows {d.get('drawer', '')[:100]!r}, not the map review-flow")
         return
     says = []
-    if "Running: starter" not in d.get("pair", "") or "Just built: review-flow" not in d.get("pair", "") \
+    if "Running: Auto (the default)" not in d.get("pair", "") or "Just built: review-flow" not in d.get("pair", "") \
             or d.get("built_pressed") != "true":
         says.append(f"no Running / Just built pair with Just built chosen ({d.get('pair', '')[:80]!r})")
     if d.get("dir") != "down":
@@ -457,8 +457,8 @@ def _agents(c, ev: dict, bad: list) -> None:
                                                                        else ", it has no Live view"))
     elif a.get("tabs") != ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"]:
         says.append(f"the views read {a.get('tabs')}")
-    if a.get("view") == "live" and a.get("live_map") != "starter":
-        says.append(f"Live draws {a.get('live_map')!r}, not starter")
+    if a.get("view") == "live" and a.get("live_map") != "auto":
+        says.append(f"Live draws {a.get('live_map')!r}, not auto")
     if a.get("amber"):
         says.append("an amber line shows")
     ev["agents"]["waited"] = view
@@ -493,7 +493,7 @@ def _note(ctx, t, ev: dict, bad: list) -> None:
     p = ctx.provider
     ask, build = (p.requests_with("RC-MAPASK") or [{}])[0], (p.requests_with("RC-MAPBUILD") or [{}])[0]
     notes = [u[u.find("[Halo]"):] for u in _users(ask) if "[Halo]" in u]
-    note = next((n for n in notes if "review-flow" in n and "starter" in n), notes[0] if notes else "")
+    note = next((n for n in notes if "review-flow" in n and "Auto (the default)" in n), notes[0] if notes else "")
     build_note = next((u for u in _users(build) if "[Halo]" in u), "")
     result = ""
     for r in p.requests_with("RC-MAPBUILD"):
@@ -508,11 +508,11 @@ def _note(ctx, t, ev: dict, bad: list) -> None:
     says = []
     if not answered:
         says.append("no answer to RC-MAPASK in 30 s")
-    if not note or "review-flow" not in note or "starter" not in note:
+    if not note or "review-flow" not in note or "Auto (the default)" not in note:
         says.append("the RC-MAPASK request carries no [Halo] note naming both maps")
     if build_note:
         says.append("the RC-MAPBUILD request carried a note")
-    lacks = [k for k, w in (("review-flow", "review-flow"), ("starter (the default)", "starter (the default)"),
+    lacks = [k for k, w in (("review-flow", "review-flow"), ("Auto (the default)", "Auto (the default)"),
                             ("S13", S13)) if w not in result]
     if lacks:
         says.append("the Builder result names neither " + " nor ".join(lacks) if len(lacks) > 1

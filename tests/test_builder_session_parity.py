@@ -127,10 +127,10 @@ def test_the_widening_line_is_never_ticked_for_them(ctx: Ctx):
     files, _qs, result = through_main(lambda qs: None)
     ctx.check(f"dismissed: nothing written, got {sorted(files)} {result[-60:]!r}", files == {} and "nothing was written" in result)
     files, qs, result = through_main(lambda qs: None, calls=[{"tool": "studio_show", "args": {"what": "map", "name": "starter"}}])
-    ctx.check(f"studio_show: no card, the answer at once, got {result[:80]!r}", qs == [] and "MAP starter" in result and files == {})
+    ctx.check(f"studio_show: no card, the answer at once, got {result[:80]!r}", qs == [] and "MAP Auto (the default)" in result and files == {})
     files, qs, result = through_main(lambda qs: None, calls=[{"tool": "map_box_add", "args": {"kind": "agent", "ref": "reviewer"}}])
     ctx.check(f"a nameless map change in a plain session: refused in the R36 sentence, no card, nothing written, got {result[:160]!r}",
-              qs == [] and files == {} and "Name the map: this session runs on starter (the default), where main chooses who "
+              qs == [] and files == {} and "Name the map: this session runs on Auto (the default), where main chooses who "
               "works. Pass a new name in args.map to make a map that routes." in result)
 
 

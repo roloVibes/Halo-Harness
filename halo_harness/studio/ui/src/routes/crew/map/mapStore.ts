@@ -10,6 +10,7 @@ import { loadCrew } from "../store";
 import { loadFlows } from "../flows/flowStore";
 import { onTab } from "../builderStore";
 import type { LineWhen, MapDetail, MapFile, MapLine, MapRow } from "./mapTypes";
+import { nameOfTheDefault, openName } from "./truthWords";
 
 export type WhenAt = { from: string; to: string; fresh: boolean; before?: MapFile };
 export type MapState = {
@@ -56,19 +57,22 @@ export async function loadMaps(): Promise<void> {
   }
 }
 
-/** The map a link names (`&map=`), else the one opened last here, else this project's, else the one in use, else starter. */
+/** The map a link names (`&map=`), else the one opened last here, else this project's, else the one in use, else Auto. */
 export function firstName(): string {
   const s = maps.get();
   let url = "";
   try { url = new URLSearchParams(location.search).get("map") || ""; } catch { /* no URL */ }
   const has = (n: string) => !!n && s.rows.some((r) => r.name === n);
-  return [url, read(LAST), s.rows.find((r) => r.scope === "project")?.name || "", s.inUse || "", "starter"].find(has) || s.rows[0]?.name || "";
+  return [url, read(LAST), s.rows.find((r) => r.scope === "project")?.name || "", s.inUse || "", "auto"].find(has) || s.rows[0]?.name || "";
 }
+
+export { openName }; // 3.6.0.5: the name a map is opened under (truthWords.ts, pure, beside isAuto)
 
 let opening = 0; // the latest openMap: an earlier one answered late (the tab's own first open) never undoes his pick
 
-export async function openMap(name: string): Promise<void> {
-  if (!name) return;
+export async function openMap(asked: string): Promise<void> {
+  if (!asked) return;
+  const name = openName(asked);
   writeLocal(LAST, name); // 3.6.0.0 R5: first, so the tab's own first load (firstName) opens this one too (an edit door)
   const mine = ++opening;
   try {
@@ -165,6 +169,10 @@ export async function removeLine(l: MapLine): Promise<void> {
 }
 
 export async function newMap(name: string): Promise<boolean> {
+  if (/^(auto|starter)$/i.test(name.trim())) { // A6 (W16): never a map of his under a default's name; no request
+    maps.update(() => ({ error: nameOfTheDefault(name.trim()) }));
+    return false;
+  }
   const n = name.trim().toLowerCase();
   if (!/^[a-z][a-z0-9-]{0,47}$/.test(n) || maps.get().rows.some((r) => r.name === n)) {
     maps.update(() => ({ error: `A new map needs a name of its own: lowercase letters, digits and dashes (${n || "empty"}).` }));

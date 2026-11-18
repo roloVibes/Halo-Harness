@@ -12,6 +12,7 @@
 import { createStore, useStore } from "../../../lib/store";
 import { current, putBody, bump } from "./mapFiles";
 import type { DrawBox, MapFile } from "./mapTypes";
+import { isAuto } from "./truthWords";
 
 export type BuiltKind = "workflow" | "running" | "other";
 export type Built = { t: number; kind: BuiltKind | null; map: string; workflow: string; next: string };
@@ -35,7 +36,7 @@ export function takeBuilt(sid: string, d: Record<string, unknown>, now = Date.no
   const wrote = (Array.isArray(d.wrote) ? d.wrote : []).filter((w): w is Wrote => !!w && typeof w === "object" && !(w as Wrote).removed);
   const maps = wrote.filter((w) => w.kind === "map" && w.name).map((w) => ({ name: String(w.name), added: !!w.added }));
   const flows = wrote.filter((w) => w.kind === "workflow" && w.name).map((w) => String(w.name));
-  const running = String(d.this_session || "starter");
+  const running = !d.this_session || isAuto(String(d.this_session)) ? "auto" : String(d.this_session);
   const bodies = d.maps && typeof d.maps === "object" ? (d.maps as Record<string, MapFile>) : {};
   const v = String(d.undo || `b${t}`);
   const tags: Record<string, number> = {};

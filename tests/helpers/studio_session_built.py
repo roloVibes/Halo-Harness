@@ -1,6 +1,6 @@
 """tests.helpers.studio_session_built -- the owner's sentence in a browser on the Linux VM, without a model and without
 a terminal (Halo 3.6.0.2 "Session map", design section 11, the VM browser test): over this harness's REAL session
-(tests/helpers/studio_session_rig.py: open, on the map starter, two agents held mid-work) the workflow `review` and the
+(tests/helpers/studio_session_rig.py: open, on Auto, two agents held mid-work) the workflow `review` and the
 new map `review-flow` are written as an applied Builder card writes them, new sessions are switched to review-flow
 (config `crew.map`), and the Builder's outcome frame `builder_done` (R25, built by hand from the documented wire shape)
 is published through Studio's own bridge. Then, at 1280 x 800, Studio's page is read:
@@ -11,7 +11,7 @@ is published through Studio's own bridge. Then, at 1280 x 800, Studio's page is 
     drawn    (3) a press on Live: the pair, the just-built map drawn down, the new box marked, text >= 12 px, no box
              cut, the truth block S13 with New session; S0 kept for (6)
     turns    (6) the rig's turn ends and two more come and go: the drawer stays exactly as S0
-    agents   (4) Alt+2 opens Agents on its fourth view Live (starter, nothing amber); 3 · Map shows review-flow with L2
+    agents   (4) Alt+2 opens Agents on its fourth view Live (auto, nothing amber); 3 · Map shows review-flow with L2
 
 Every step catches its own waits and returns what it saw (no step raises); `verdicts(got)` says, per assert, what a
 person would have seen wrong. The words and the page reads are scripts/realcheck/steps_map.py's (one place).
@@ -78,7 +78,7 @@ def frame(lv, body: dict) -> dict:
     """The `builder_done` frame an applied card in this session sends (design section 6 / R25), from main."""
     data = {"id": "card-rc-1", "outcome": "applied",
             "wrote": [{"kind": "workflow", "name": "review", "added": True}, {"kind": "map", "name": "review-flow", "added": True}],
-            "undo": "u-rc-1", "next": "review-flow", "this_session": "starter", "maps": {"review-flow": body}, "t": time.time()}
+            "undo": "u-rc-1", "next": "review-flow", "this_session": "auto", "maps": {"review-flow": body}, "t": time.time()}
     lv.frame("main", "builder_done", data)
     return data
 
@@ -208,7 +208,7 @@ def _word_says(w: dict) -> list:
 def _drawn_says(d: dict) -> list:
     says = []
     pair = d.get("pair") or ""
-    if "Running: starter" not in pair or "Just built: review-flow" not in pair or d.get("built_pressed") != "true":
+    if "Running: Auto (the default)" not in pair or "Just built: review-flow" not in pair or d.get("built_pressed") != "true":
         says.append(f"no Running / Just built pair with Just built chosen ({pair[:80]!r})")
     if d.get("map") != "review-flow":
         says.append(f"the drawer shows {(d.get('drawer') or '')[:100]!r} (data-map {d.get('map')!r}), not the map review-flow")
@@ -276,8 +276,8 @@ def _agents_says(a: dict) -> list:
         says.append(f"Agents opened on {a.get('view') or 'nothing'}" + ("" if "4 · Live" in (a.get("tabs") or []) else ", it has no Live view"))
     if a.get("tabs") != TABS or (a.get("live_tab") or {}).get("text") != "4 · Live":
         says.append(f"the views read {a.get('tabs')}")
-    if a.get("view") == "live" and a.get("live_map") != "starter":
-        says.append(f"Live draws {a.get('live_map')!r}, not starter")
+    if a.get("view") == "live" and a.get("live_map") != "auto":
+        says.append(f"Live draws {a.get('live_map')!r}, not auto")
     if a.get("amber"):
         says.append("an amber line shows")
     if a.get("map_value") != "review-flow" or L2 not in (a.get("topline") or "") or not a.get("watch_button"):
@@ -308,9 +308,9 @@ class BuiltDriver(Driver):
             rig.full = False  # no `open=all`: the drawer must start closed
             lv = Live(rig, extra=())
             # this session started on the default: its row says so as the engine's does (map_facts.row: map_plain True);
-            # P8: without it the row described a session started on a map NAMED starter, which reads "starter", not S13's
-            # "starter (the default)"
-            lv.refresh(map="starter", map_plain=True)
+            # P8: without it the row described a session started on a map NAMED auto, not the default (S13's
+            # "Auto (the default)")
+            lv.refresh(map="auto", map_plain=True)
             st = {"body": seed_built(rig)}
             yield tuple((fn, (c, rig, lv, st)) for fn in (built, word, drawn, turns, agents))
 

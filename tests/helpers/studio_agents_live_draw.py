@@ -2,7 +2,7 @@
 Halo 3.6.0.2 R3 R34 R12), over the same rig: the session's row on `shop` (the map seeded from tests/helpers/studio_map_live.py),
 `code` (the implementer) and `check` (the reviewer, the workflow review's step) working. Each waits for the value it reads.
 
-    follows   3 · Map shows starter; 4 · Live draws the session's own map shop left to right, lit (code working), with no
+    follows   3 · Map shows auto; 4 · Live draws the session's own map shop left to right, lit (code working), with no
               connect dot, no label that is a button, no When card from a label's click, nothing amber; 3 · Map's picker
               changed afterwards leaves Live on shop
     holds     R12: the pointer on check's box; a made-up child under main, a second child under code and a hand-off
@@ -48,9 +48,9 @@ def follows(c, rig, lv, rows) -> dict:
     c.go(rig.url("agents", "&view=map"))
     c.wait(f"{VIEW} === 'map'", 40)
     sw = "[data-part=map] [data-testid=map-switcher]"
-    c.wait(f"[...(document.querySelector('{sw}')?.options || [])].some((o) => o.value === 'starter')", 30)
-    choose(c, sw, "starter")
-    out["map_shows"] = c.wait(f"document.querySelector('{sw}').value === 'starter' && 'starter'", 15)
+    c.wait(f"[...(document.querySelector('{sw}')?.options || [])].some((o) => o.value === 'auto')", 30)
+    choose(c, sw, "auto")
+    out["map_shows"] = c.wait(f"document.querySelector('{sw}').value === 'auto' && 'auto'", 15)
     c.click_on("document.querySelector('[data-part=map] [data-testid=agents-view-live]')")
     try:
         out["drawn"] = c.wait(f"{LIVE}?.dataset.map === 'shop' && {LIVE}.dataset.sid === '{lv.sid}' && {BOXES}.length >= 6"
@@ -74,7 +74,7 @@ def follows(c, rig, lv, rows) -> dict:
       return [getComputedStyle(t).color, warn]; }})()""")
     out["code"] = c.wait(f"{box('code')}?.dataset.state === 'working' && [{box('code')}.dataset.lit, {box('code')}.dataset.state]", 20)
     choose(c, sw, "shop")
-    choose(c, sw, "starter")
+    choose(c, sw, "auto")
     time.sleep(0.5)  # a pick of the Map that would move Live would land within this; the value is read, not timed
     out["after_map_pick"] = c.js(f"{LIVE}?.dataset.map")
     return out

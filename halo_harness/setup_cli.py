@@ -46,7 +46,7 @@ def _print_map_in_use() -> int:
     from halo_harness.crew.compile import in_use
     name, source = in_use(None, Path.cwd())
     print("map: none (One model for everything: roles off)" if name is None else
-          f"map: {name} (the default: it draws what a session does)" if source == "default" else f"map: {name} ({source})")
+          "map: Auto (the default)" if source == "default" else f"map: {name} ({source})")
     return 0
 
 

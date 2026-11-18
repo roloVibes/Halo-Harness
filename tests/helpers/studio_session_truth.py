@@ -218,14 +218,14 @@ def start(c, rig, rows: Rows, a: str, b: str) -> dict:
     out: dict = {}
     rows.reset()
     rows.idle(b, map_next="review-flow")
-    rows.idle(a, map="starter", map_plain=True, map_next=None, map_next_since=None)
+    rows.idle(a, map="auto", map_plain=True, map_next=None, map_next_since=None)
     _open(c, rig, f"mode=session&session={a}&open=session-map")
     c.wait(f"!!{TRUTH} && !!document.querySelector('.mp-mini-scroll')", 30)
     now = time.time()
     set_config_value("crew.map", "review-flow")
     rig.server.events.publish({"session_id": a, "harness": harness()["id"], "event": "builder_done", "agent_id": "main", "turn": 1,
                                "data": {"id": "card-t-1", "outcome": "applied", "undo": "u-t-1", "next": "review-flow",
-                                        "this_session": "starter", "maps": {}, "t": now,
+                                        "this_session": "auto", "maps": {}, "t": now,
                                         "wrote": [{"kind": "map", "name": "review-flow", "added": True}]}, "ts": now})
     rows.set(a, map_next="review-flow", map_next_since=now)
     time.sleep(1.0)  # the frame and the row read (no wait condition shows a frame that changes nothing on screen)

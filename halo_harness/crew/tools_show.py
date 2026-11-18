@@ -26,7 +26,11 @@ def _map_text(name: str, ctx) -> str:
     used, _src = in_use(None, ctx.get("cwd"))
     c = compile_map(name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir"))
     raw = store.load("map", name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir")) or {}
-    lines = [f"MAP {name} ({raw.get('_scope') or 'missing'}){' -- new sessions use it' if used == name else ''}:",
+    if store.is_auto(name) and raw.get("_scope") == "starter":  # 3.6.0.5 W: the shipped default is Auto
+        head = f"MAP Auto (the default){' -- new sessions use it' if store.is_auto(used) else ''}:"
+    else:
+        head = f"MAP {name} ({raw.get('_scope') or 'missing'}){' -- new sessions use it' if used == name else ''}:"
+    lines = [head,
              f"main: the agent {c.main.get('agent')} (model {c.main.get('model') or 'auto'}, careful {c.main.get('careful')})"]
     targets = set()
     for ln in raw.get("lines") or []:

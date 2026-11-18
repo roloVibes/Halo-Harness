@@ -158,7 +158,8 @@ def start(name=None, *, cwd=None, state_dir=None, resolved: str = "default") -> 
     removed_names), so the Builder's check and a real session can never disagree. The starter map is the default
     (config_text takes the key out); a map with a problem runs as the starter does."""
     from halo_harness.crew.compile import DEFAULT_MAP, compile_map, for_session
-    if name == DEFAULT_MAP:
+    from halo_harness.crew.store import is_auto
+    if is_auto(name):  # 3.6.0.5 A2: `auto` or `starter`
         c = compile_map(DEFAULT_MAP, cwd=cwd, state_dir=state_dir)
         c.source = "default"
         c = None if c.problems else c

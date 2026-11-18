@@ -32,7 +32,7 @@ SESSION = ["the pair: Running", "the pair: Just built", "Zoom out", "the zoom (1
            "the New session form's x", "↓ n more below", "a step row", "the card: Pause", "the card: Resume",
            "the card: steer field (Enter sends)", "the card: Stop", "Stop's confirm: Cancel", "the card: x", "a box",
            "the card: Open in Agents -> Live", "a line", "an off-map line's card: Open the map at main", "[Open in Agents -> Live]"]
-MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", "New sessions run on this (starter, his map shop)",
+MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", "New sessions run on this (auto, his map shop)",
        "Undo (the switch)", "Run a goal", "Lock", "Lock (off again)", "n new, not connected yet", "Undo (the box)", "[Open it]",
        "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "the tab 1 · Agents",
        "the tab 2 · Workflows", "the tab 4 · Live", "the tab 3 · Map", "Attention", "Attention's x"]
@@ -70,14 +70,14 @@ def test_every_control_changes_something(ctx: Ctx):
     sc = scrolled(got.get("map"))
     print(f"  3 · Map: controls a press reached only by scrolling their panel: {sc}")
     ctx.check(f"P4 batch 12: on the default map with no map set, no switch, the plain sentence, got {got.get('default_uses')}",
-              got.get("default_uses") == [False, "New sessions run on starter (the default)."])
+              got.get("default_uses") == [False, "New sessions run on Auto (the default)."])
     nu = got.get("none_uses") or {}
     ctx.check(f"P7: roles off and no map set, the default map says the words file's 'no map' sentence beside a switch (off), "
               f"got {nu}", nu.get("api") is True and nu.get("off") == [True, "false", "New sessions will run with no map.", ""])
     ctx.check(f"P8: the 'no map' sentence stands a space (the design's 8 px gap) from the switch, never flush, got {nu.get('gap')}",
               isinstance(nu.get("gap"), (int, float)) and nu["gap"] >= 8)
     ctx.check(f"P7: ... and the switch's press changes what the bar says (new sessions on the default map), got {nu.get('pressed')} "
-              f"next_none {nu.get('api_after')}", nu.get("pressed") == [False, "", "", "New sessions run on starter (the default)."]
+              f"next_none {nu.get('api_after')}", nu.get("pressed") == [False, "", "", "New sessions run on Auto (the default)."]
               and nu.get("api_after") is False)
     ctx.check(f"3 · Map: the run overlay's old controls are gone (R55), got {got.get('gone')}", got.get("gone") == 0)
     _group(ctx, got, "live", LIVE)

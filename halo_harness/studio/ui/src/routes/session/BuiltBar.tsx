@@ -49,7 +49,7 @@ export function BuiltBar({ s }: { s: LitSession }) {
   const two = b?.kind === "other" && !!b.map;
   const head = b?.kind ? justBuilt(b.kind, { workflow: b.workflow, t: b.t, map: b.map, next: b.next }) : null;
   if (!two && !head) return null;
-  const [run, just] = pair(mapName(s.map || "starter", s.plain !== false), b?.map || "");
+  const [run, just] = pair(mapName(s.map || "auto", s.plain !== false), b?.map || "");
   const flows = () => { // R31: Agents -> Workflows with W open, on this press only
     setAgentsView("workflows");
     void openFlow(b!.workflow);

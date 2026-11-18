@@ -154,7 +154,7 @@ def test_plain_session_request_unchanged(ctx: Ctx):
     if os.environ.get("HALO_RECORD_MAP_FACTS") == "1":
         FIXTURE.parent.mkdir(parents=True, exist_ok=True)
         FIXTURE.write_text(json.dumps(got, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    ctx.check(f"the session runs on the default map (the starter), got {facts['map']!r}", facts["map"] == "starter")
+    ctx.check(f"the session runs on the default map (Auto), got {facts['map']!r}", facts["map"] == "auto")
     ctx.check(f"the Workflow call ran the crew workflow on the step runner, got {facts['result'][:160]!r}",
               "crew workflow review · ran on the step runner · done" in facts["result"])
     ctx.check(f"three requests: turn 1, turn 2's call, turn 2 after the result, got {len(got)}", len(got) == 3)
@@ -236,8 +236,8 @@ def test_facts_running_next_since(ctx: Ctx):
         logged = next((n["data"] for n in s.log.nodes() if n.get("event") == "map_start"), {})
         set_config_value("crew.map", "review-flow")
         f = map_facts.facts(s)
-        ctx.check(f"running map starter, its words 'starter (the default)', plain, got {f}",
-                  f["map"] == "starter" and f["words"] == "starter (the default)" and f["plain"] is True)
+        ctx.check(f"running map auto, its words 'Auto (the default)', plain, got {f}",
+                  f["map"] == "auto" and f["words"] == "Auto (the default)" and f["plain"] is True)
         ctx.check(f"F1: the start time is map_start's t ({logged.get('t')}), got {f['since']}",
                   f["since"] is not None and f["since"] == logged.get("t"))
         ctx.check(f"F4: next review-flow since about now, got {f['next']} {f['next_since']}",
@@ -246,7 +246,7 @@ def test_facts_running_next_since(ctx: Ctx):
         unset_config_value("crew.map")
         f = map_facts.facts(s)
         ctx.check(f"crew.map unset: next None (new sessions draw the default), got {f['next']} {f['next_words']}",
-                  f["next"] is None and f["next_words"] == "starter (the default)")
+                  f["next"] is None and f["next_words"] == "Auto (the default)")
 
 
 @test
@@ -254,15 +254,15 @@ def test_s13_golden(ctx: Ctx):
     import re
     import time
     from halo_harness.crew import map_facts
-    got = map_facts.s13("starter (the default)", "review-flow")
-    ctx.check(f"S13 letter for letter, got {got!r}", got == "This session keeps running on starter (the default), as it "
+    got = map_facts.s13("Auto (the default)", "review-flow")
+    ctx.check(f"S13 letter for letter, got {got!r}", got == "This session keeps running on Auto (the default), as it "
               "started. Start a new session to run on review-flow.")
-    tail = map_facts.terminal_tail("starter (the default)")
+    tail = map_facts.terminal_tail("Auto (the default)")
     ctx.check(f"the terminal tail, got {tail!r}",
-              tail == "In the terminal: quit, then run halo; /clear keeps starter (the default).")
+              tail == "In the terminal: quit, then run halo; /clear keeps Auto (the default).")
     ctx.check("the words of the default and of a named map",
-              map_facts.words_of("starter", True) == "starter (the default)"
-              and map_facts.words_of("review-flow") == "review-flow" and map_facts.words_of(None) == "starter (the default)")
+              map_facts.words_of("starter", True) == "Auto (the default)"
+              and map_facts.words_of("review-flow") == "review-flow" and map_facts.words_of(None) == "Auto (the default)")
     ctx.check(f"%H:%M by pattern, got {map_facts.hhmm(time.time())!r}",
               re.fullmatch(r"\d{2}:\d{2}", map_facts.hhmm(time.time())) is not None)
 
@@ -437,7 +437,7 @@ def test_status_row_carries_built(ctx: Ctx):
         ctx.check(f"asked False before the first turn, built None, got {st.get('asked')!r} {st.get('built')!r}",
                   st.get("asked") is False and "built" in st and st["built"] is None)
         built = {"id": "r1", "outcome": "applied", "wrote": [{"kind": "map", "name": "review-flow", "added": True}],
-                 "undo": "u1", "next": "review-flow", "this_session": "starter", "t": 1.5}
+                 "undo": "u1", "next": "review-flow", "this_session": "auto", "t": 1.5}
         s._builder_built = {**built, "maps": {"review-flow": {"boxes": []}}}
         s.turn_count = 1
         st = _status(s, env.repo)
@@ -523,8 +523,8 @@ def test_map_start_carries_scope_and_path(ctx: Ctx):
 # ---- 3.6.0.2 P2 batch 5 (R37 R38 R39): the agent knows ---------------------------------------------------------------
 
 NOTE = "[Halo] This session runs on "
-NOTE_RE = (r"\[Halo\] This session runs on starter \(the default\), as it started at \d\d:\d\d\. New sessions will run on "
-           r"{B}{when}\. This session keeps running on starter \(the default\) until a new session starts; nothing needs "
+NOTE_RE = (r"\[Halo\] This session runs on Auto \(the default\), as it started at \d\d:\d\d\. New sessions will run on "
+           r"{B}{when}\. This session keeps running on Auto \(the default\) until a new session starts; nothing needs "
            r"restarting, Studio included\. Asked which map or workflow you use, answer from this note\.")
 NOTE_MODEL = "or:mock/map-facts-note"
 
@@ -693,7 +693,7 @@ def test_note_never_on_the_first_turn(ctx: Ctx):
 @test
 def test_note_after_a_build_and_after_compact(ctx: Ctx):
     """R38: turn 1's Builder card switches new sessions to review-flow; turn 2's request carries exactly one note naming
-    starter (the default) and review-flow, by this session; turn 3 none; after a compaction turn 4 carries it again."""
+    Auto (the default) and review-flow, by this session; turn 3 none; after a compaction turn 4 carries it again."""
     with _NoteRig() as rig:
         rig.turn("please build: new sessions on review-flow")
         from halo_harness.crew.map_facts import next_map
@@ -734,7 +734,7 @@ def test_note_after_each_switch_path(ctx: Ctx):
         cmd_config(["set", "crew.map", "review-flow"])
         check("halo config set", "review-flow", TIMED)
         theme.set_config_value("crew.map", None)  # as agent/main_model_check.py clears it
-        check("the main-model check", r"starter \(the default\)", TIMED)
+        check("the main-model check", r"Auto \(the default\)", TIMED)
         path = _config_path()
         cfg = json.loads(path.read_text(encoding="utf-8"))
         cfg.setdefault("crew", {})["map"] = "shop"  # by hand: crew.map_since still names none (T11)
@@ -796,7 +796,7 @@ def test_studio_show_first_line_names_both(ctx: Ctx):
         lines = text.split("\n")
         first = lines[0][len("studio_show: "):] if lines[0].startswith("studio_show: ") else lines[0]
         ctx.check(f"line 1 names both maps and both times, got {first!r}", re.fullmatch(
-            r"THIS SESSION runs on starter \(the default\), as it started at \d{2}:\d{2}\. NEW SESSIONS run on review-flow "
+            r"THIS SESSION runs on Auto \(the default\), as it started at \d{2}:\d{2}\. NEW SESSIONS run on review-flow "
             r"\(switched on at \d{2}:\d{2}\)\.", first) is not None)
         bare = tools_show.studio_show({"what": "map"}, {"cwd": env.repo, "state_dir": None, "selection": {}})["text"]
         ctx.check(f"the MAP lines follow unchanged, got {lines[1:3]!r}", "\n".join(lines[1:]) == bare and bare.startswith("MAP "))
@@ -808,7 +808,7 @@ def test_studio_show_first_line_names_both(ctx: Ctx):
 def test_studio_show_with_no_map_says_t4(ctx: Ctx):
     """R39 with T4: a session with no map (roles off, "One model for everything": compile.in_use is (None, "none")) is
     told T4's words, "This session runs with no map, as it started at {t}: main does the work and starts its own
-    agents.", never "starter (the default)"; new sessions with no map are said to run with no map; with crew.map set, they
+    agents.", never "Auto (the default)"; new sessions with no map are said to run with no map; with crew.map set, they
     run on it."""
     import re
     import time
@@ -839,7 +839,7 @@ def test_show_line_and_note_agree_on_new_sessions(ctx: Ctx):
     """R39 ("the same facts") with R38: a session started on a map by flag (`--map starter`) while roles are off and no
     map is set for new sessions. `studio_show`'s line 1 and the facts note come from ONE source (map_facts.facts) and
     say the same about new sessions: what a new session really starts on there (map_session.prepare with no flag, as
-    headless and the TUI call it), here no map; never "starter (the default)". With crew.map set, both name it."""
+    headless and the TUI call it), here no map; never "Auto (the default)". With crew.map set, both name it."""
     import re
     import time
     from tests.helpers.config_seed import ConfigHome
@@ -861,12 +861,12 @@ def test_show_line_and_note_agree_on_new_sessions(ctx: Ctx):
             b = re.search(r"New sessions will run (.*?)\.(?: |$)", note)
             return (a.group(1) if a else None), (b.group(1) if b else None)
         show, note = map_facts.show_line(s), map_facts.note_text(s)
-        ctx.check(f"this session runs on starter (both), got {show!r} / {note!r}",
-                  show.startswith("THIS SESSION runs on starter, as it started at ")
-                  and note.startswith("[Halo] This session runs on starter, as it started at "))
+        ctx.check(f"--map starter is Auto now (3.6.0.5 A2): this session runs on Auto (both), got {show!r} / {note!r}",
+                  show.startswith("THIS SESSION runs on Auto (the default), as it started at ")
+                  and note.startswith("[Halo] This session runs on Auto (the default), as it started at "))
         a, b = nxt(show, note)
         ctx.check(f"both say new sessions run with no map, word for word, got {a!r} / {b!r}",
-                  a == b == "with no map" and "(the default)" not in show + note)
+                  a == b == "with no map" and "starter" not in show + note)  # 3.6.0.5: this session's half names Auto
         set_config_value("crew.map", "review-flow")
         show, note = map_facts.show_line(s), map_facts.note_text(s)
         a, b = nxt(show, note)
@@ -893,8 +893,8 @@ def test_tell_row_and_note_key_know_no_map_for_new_sessions(ctx: Ctx):
         s.cwd = env.repo
         s._map_started_at = time.time()
         said = map_facts.tell(s)
-        ctx.check(f"tell: this session on starter, new sessions with no map, got {said!r}",
-                  said.startswith("This session runs on starter, as it started at ")
+        ctx.check(f"tell: this session on Auto, new sessions with no map, got {said!r}",
+                  said.startswith("This session runs on Auto (the default), as it started at ")
                   and said.endswith(". New sessions will run with no map.") and "will too" not in said)
         ctx.check(f"the new-sessions half is next_sentence()'s, got {said!r}",
                   said.endswith(" " + map_facts.next_sentence(s, map_facts.facts(s), show=False)))
@@ -905,10 +905,10 @@ def test_tell_row_and_note_key_know_no_map_for_new_sessions(ctx: Ctx):
         map_facts.turn_note(s)  # the first turn: the baseline only
         map_facts.sent(s)
         ctx.check("no note on the first turn", not map_facts.turn_note(s))
-        set_config_value("roles.enabled", True)  # crew.map still unset: new sessions now take starter, the default
+        set_config_value("roles.enabled", True)  # crew.map still unset: new sessions now take Auto, the default
         note = map_facts.turn_note(s) or ""
         ctx.check(f"roles on: a fresh note names the default for new sessions, got {note!r}",
-                  "New sessions will run on starter (the default)" in note)
+                  "New sessions will run on Auto (the default)" in note)
         ctx.check(f"the row follows, got {map_facts.row(s).get('map_next_none')!r}", map_facts.row(s).get("map_next_none") is False)
 
 
@@ -1033,8 +1033,8 @@ def test_clear_relogs_map_start_and_says_the_map(ctx: Ctx):
         set_config_value("crew.map", "shop")  # a switch the old conversation was never told of
         s.clear()
         starts = _map_starts(s.log)
-        ctx.check(f"default map: one map_start naming starter, got {[n.get('data', {}).get('map') for _, n in starts]}",
-                  len(starts) == 1 and starts[0][1]["data"].get("map") == "starter")
+        ctx.check(f"default map: one map_start naming auto, got {[n.get('data', {}).get('map') for _, n in starts]}",
+                  len(starts) == 1 and starts[0][1]["data"].get("map") == "auto")
         st = _status(s, rig.cwd)
         t = starts[0][1]["data"].get("t") if starts else None
         ctx.check(f"the status row's map_since is the re-logged map_start's t, got {st.get('map_since')} vs {t} (was {before})",
@@ -1043,7 +1043,7 @@ def test_clear_relogs_map_start_and_says_the_map(ctx: Ctx):
                   st.get("asked") is True)
         notes = _clear_notes(s)
         ctx.check(f"the terminal names the default, got {notes}",
-                  notes == [(cleared, "note"), ("This session still runs on starter (the default).", "note")])
+                  notes == [(cleared, "note"), ("This session still runs on Auto (the default).", "note")])
         first = rig.turn("Start over.")
         ctx.check("the first turn after /clear went out and carries no note",
                   first is not None and NOTE not in json.dumps(first))

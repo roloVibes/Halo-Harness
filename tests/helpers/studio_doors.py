@@ -249,7 +249,7 @@ STAND_IN = """(() => { const real = window.fetch.bind(window);
 def builder_left(c, rig, lv) -> dict:
     from halo_harness.crew.map_facts import USE_LEFT
     out: dict = {}
-    left = USE_LEFT.format(B="review-flow", F4="starter (the default)")
+    left = USE_LEFT.format(B="review-flow", F4="Auto (the default)")
     out["left_sent"] = left
     c.call("Page.enable")
     c.call("Page.addScriptToEvaluateOnNewDocument", source=STAND_IN.replace("LEFT", json.dumps(left)))

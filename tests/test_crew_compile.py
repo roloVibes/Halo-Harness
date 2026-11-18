@@ -125,8 +125,8 @@ def test_the_default_session_is_a_plain_session(ctx: Ctx):
             "---\nname: my-helper\ndescription: a project's own helper\n---\nYou help.\n", encoding="utf-8")
         s = _session(repo, {})
         tc = s.team_control
-        ctx.check(f"no map set: the session draws the starter map, got {getattr(getattr(tc, 'map', None), 'name', None)}",
-                  getattr(tc, "is_map", False) and tc.map.name == "starter" and tc.map.source == "default")
+        ctx.check(f"no map set: the session draws Auto, the default map, got {getattr(getattr(tc, 'map', None), 'name', None)}",
+                  getattr(tc, "is_map", False) and tc.map.name == "auto" and tc.map.source == "default")
         have = sorted(set(s.tool_registry.names()) - SHELL)
         ctx.check(f"main's tools are a plain session's (Workflow too), got only-recorded "
                   f"{sorted(set(RECORDED_MAIN_TOOLS) - set(have))} only-now {sorted(set(have) - set(RECORDED_MAIN_TOOLS))}",
@@ -194,10 +194,10 @@ def test_the_starter_carries_the_lineup_needs_and_no_cap(ctx: Ctx):
     """The starter's agents say the needs a plain session's cards picked by (one source in a session: crew/plain.py's
     file; this pins the drawing to it), the starter has no cap, and a cap on a default map is never applied."""
     from halo_harness.crew.compile import compile_map
-    from halo_harness.crew.map_control import MapControl, control_for
+    from halo_harness.crew.map_control import MapControl, PlainMap, control_for
     from halo_harness.crew.plain import load
     with S.home("crew-starter-") as (root, _state):
-        c = compile_map("starter", cwd=root)
+        c = compile_map("auto", cwd=root)
         plain = load()
         ctx.check("a plain session's answers are read (templates/crew/plain/session.yaml)", plain is not None)
         for alias in plain.cards:
@@ -211,8 +211,8 @@ def test_the_starter_carries_the_lineup_needs_and_no_cap(ctx: Ctx):
         capped.source = "default"
         ctx.check("a default map's cap is never applied", MapControl(capped).budget_refusal() is None
                   and "max_budget_usd" not in MapControl(capped).budget and capped.cap_usd == 20.0)
-        mc = control_for(c)
-        ctx.check("the starter as a chosen map is a map with rules", type(mc) is MapControl and not hasattr(mc, "plain"))
+        mc = control_for(compile_map("starter", cwd=root))
+        ctx.check("starter named anywhere runs as Auto (a PlainMap)", type(mc) is PlainMap and mc.map.name == "auto")
 
 
 @test
@@ -228,8 +228,8 @@ def test_a_map_that_mirrors_the_auto_lineup_runs_as_it(ctx: Ctx):
         repo.mkdir()
         default, mapped = _session(repo, {}), _session(repo, {"map": "mirror"})
         dc, mc = default.team_control, mapped.team_control
-        ctx.check(f"no map set: the session runs on the starter map, got {getattr(getattr(dc, 'map', None), 'name', None)}",
-                  getattr(dc, "is_map", False) and dc.map.name == "starter" and getattr(mc, "is_map", False))
+        ctx.check(f"no map set: the session runs on Auto, the default map, got {getattr(getattr(dc, 'map', None), 'name', None)}",
+                  getattr(dc, "is_map", False) and dc.map.name == "auto" and getattr(mc, "is_map", False))
         ctx.check(f"the starter map hands work to the auto lineup's pool, got {sorted(dc.map.agent_targets())}",
                   sorted(dc.map.agent_targets()) == sorted(["planner", "researcher", "coder", "reviewer", "writer",
                                                             "media-reader", "ops"]))
@@ -274,8 +274,8 @@ def test_the_compile_main_handoffs_chains_specs_cap(ctx: Ctx):
         ctx.check(f"the chain plan -> code -> review, got {c.chains}",
                   [e["line"] for e in c.chains["plan"]] == ["plan -> code"] and [e["line"] for e in c.chains["code"]] == ["code -> review"])
         ctx.check("the cap", c.cap_usd == 20.0)
-        s = compile_map("starter", cwd=root)
-        ctx.check("starter: seven agent targets, each spec's role its own name, modes from careful",
+        s = compile_map("auto", cwd=root)
+        ctx.check("auto: seven agent targets, each spec's role its own name, modes from careful",
                   len(s.agent_targets()) == 7 and all(sp.role == n for n, sp in s.specs.items())
                   and s.specs["coder"].permission_mode == "acceptEdits" and s.specs["planner"].permission_mode == "default")
         ctx.check("an agent's needs reach Auto in its words", s.needs_of("researcher") == ["long-context"])
@@ -292,11 +292,11 @@ def test_a_map_with_a_problem_runs_the_session_on_the_starter_map(ctx: Ctx):
             "lines:\n- {from: main, to: a}\n- {from: a, to: b}\n- {from: b, to: a}\n", encoding="utf-8")
         got, lines = for_session("broken", cwd=root)
         text = "\n".join(lines)
-        ctx.check(f"the problem lines (the circle named, the missing agent) and the starter map instead, got {lines}",
-                  getattr(got, "name", None) == "starter" and "circle (a -> b -> a)" in text and "no agent named nobody" in text
-                  and "runs on the map starter" in lines[0])
+        ctx.check(f"the problem lines (the circle named, the missing agent) and Auto instead, got {lines}",
+                  getattr(got, "name", None) == "auto" and "circle (a -> b -> a)" in text and "no agent named nobody" in text
+                  and "runs on Auto (the default)" in lines[0])
         got, lines = for_session(None, cwd=root)
-        ctx.check("no map set: the starter map (3.6.0.0 R5)", getattr(got, "name", None) == "starter" and lines == [])
+        ctx.check("no map set: Auto (3.6.0.0 R5, 3.6.0.5 A1)", getattr(got, "name", None) == "auto" and lines == [])
         set_config_value("crew.map", "ship-it")
         got, lines = for_session(None, cwd=root)
         ctx.check("config crew.map: that map", got is not None and got.name == "ship-it" and lines == [])

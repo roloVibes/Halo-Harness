@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.scratch_seven import NAME as SEVEN  # noqa: E402
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -63,7 +64,7 @@ def test_the_map_follows_the_selected_session(ctx: Ctx):
     f = _ran(ctx, got, "follows")
     b = _b()
     ctx.check(f"R1: B chosen in Session is the session drawn (not the newest on a map), got {f}",
-              f.get("sid") == b and f.get("map") == "starter")
+              f.get("sid") == b and f.get("map") == "auto")
     ctx.check(f"R1: the drawer and Cost speak of one session, got {f.get('sid')!r} and {f.get('cost')!r}", f.get("cost") == f.get("sid") == b)
 
 
@@ -234,7 +235,7 @@ def test_a_pick_never_listed_is_given_up_after_two_reads(ctx: Ctx):
 
 
 LIST_JS = """const m = await import(%s);
-const rows = (...ids) => ids.map((id) => ({session_id: id, parent: null, turns: 1, started: 100, map: 'starter'}));
+const rows = (...ids) => ids.map((id) => ({session_id: id, parent: null, turns: 1, started: 100, map: 'auto'}));
 const busy = (n) => rows('B').map((r) => ({...r, agents: Array.from({length: n}, (_, i) => ({agent_id: 'a' + i, state: 'running'}))}));
 const held = [m.staleList(1, rows('B'), 'GONE1')];
 for (let i = 1; i <= 6; i++) held.push(m.staleList(1, busy(i), 'GONE1'));  // agent frames of B: the same list read
@@ -795,7 +796,7 @@ def test_start_view_names_the_last_build(ctx: Ctx):
     fresh = _TRUTH["got"].get("start_fresh") or {}
     ctx.check(f"(a) T8 while another session is open, got {ended.get('state')!r} {ended.get('lines')}",
               ended.get("state") == "T8" and len(ended.get("lines") or []) == 1
-              and re.fullmatch(f"This session ended at {TIME}\\. It ran on starter \\(the default\\)\\.", (ended.get("lines") or [""])[0]))
+              and re.fullmatch(f"This session ended at {TIME}\\. It ran on Auto \\(the default\\)\\.", (ended.get("lines") or [""])[0]))
     ctx.check(f"(b) the Start view's first sentence, got {view.get('map')!r}",
               view.get("map") == "No session is open here. New sessions will run on review-flow.")
     ctx.check(f"(b) the last build, got {view.get('built')!r}",
@@ -1092,21 +1093,21 @@ def test_just_built_selected_once_only_when_untouched(ctx: Ctx):
     ctx.check(f"R30: one map and nothing built: no pair row and no head, got {p.get('text')!r} buttons {p.get('buttons')} bar {p.get('bar')}",
               p.get("text") == "" and p.get("buttons") == 0 and p.get("bar") is False)
     ctx.check(f"R30 (a): two maps: the pair on one 24 px line, Just built chosen and unlit, got {f}",
-              "Running: starter (the default)" in (f.get("text") or "") and "Just built: review-flow" in (f.get("text") or "")
+              f"Running: {SEVEN}" in (f.get("text") or "") and "Just built: review-flow" in (f.get("text") or "")
               and f.get("h") == 24 and (f.get("built") or {}).get("pressed") == "true" and f.get("map") == "review-flow"
               and f.get("lit") == 0 and f.get("working") == 0)
     ctx.check(f"P8: both buttons of the pair say their words whole (no ellipsis, nothing overflows), got "
               f"{(f.get('running') or {}).get('whole')} {(f.get('built') or {}).get('whole')}",
               (f.get("running") or {}).get("whole") is True and (f.get("built") or {}).get("whole") is True)
-    ctx.check(f"R30 (a): Running: starter draws it again, lit, got {bk.get('map')!r} lit {bk.get('lit')}",
-              bk.get("map") == "starter" and (bk.get("lit") or 0) > 0)
+    ctx.check(f"R30 (a): Running: {SEVEN} draws it again, lit, got {bk.get('map')!r} lit {bk.get('lit')}",
+              bk.get("map") == SEVEN and (bk.get("lit") or 0) > 0)
     ctx.check(f"R30 (a): a second build in the session only marks the tab, got {s}",
-              s.get("map") == "starter" and (s.get("built") or {}).get("marked") is True and (s.get("built") or {}).get("pressed") == "false")
+              s.get("map") == SEVEN and (s.get("built") or {}).get("marked") is True and (s.get("built") or {}).get("pressed") == "false")
     h, ho, pr = d.get("held") or {}, d.get("held_out") or {}, d.get("pressed") or {}
     ctx.check(f"R30 (b): the pointer on the drawing: only marked, and no jump once it leaves, got {h.get('map')!r} -> {ho.get('map')!r}",
-              h.get("map") == "starter" and (h.get("built") or {}).get("marked") is True and ho.get("map") == "starter")
+              h.get("map") == SEVEN and (h.get("built") or {}).get("marked") is True and ho.get("map") == SEVEN)
     ctx.check(f"R30 (c): the pair pressed before: a later build only marks its tab, got {pr}",
-              pr.get("map") == "starter" and (pr.get("built") or {}).get("marked") is True and "Just built: third" in (pr.get("text") or ""))
+              pr.get("map") == SEVEN and (pr.get("built") or {}).get("marked") is True and "Just built: third" in (pr.get("text") or ""))
 
 
 @test

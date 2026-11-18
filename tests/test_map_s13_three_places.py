@@ -18,27 +18,29 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 TRUTH = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map" / "truth.ts"
-S13_RF = "This session keeps running on starter (the default), as it started. Start a new session to run on review-flow."
-TAIL = "In the terminal: quit, then run halo; /clear keeps starter (the default)."
+# 3.6.0.5: the card is APPLIED, so its session runs on a map of his (shop), never on the default (design section 5)
+S13_RF = "This session keeps running on shop, as it started. Start a new session to run on review-flow."
+TAIL = "In the terminal: quit, then run halo; /clear keeps shop."
 USE_PREFIX = "New sessions run on review-flow. "
 WORD = "Tell the person, word for word: "
 
 TS = """const T = await import(%s);
-const f = { title: 's', a: 'starter', plain: true, b: 'review-flow', bSince: 2000, started: 1000, turns: 1, studio: false,
+const f = { title: 's', a: 'shop', plain: false, b: 'review-flow', bSince: 2000, started: 1000, turns: 1, studio: false,
   ended: null, machine: null, unreadable: null, changed: null, workflow: null, busy: false };
 const lines = T.truthLines(f);
-console.log(JSON.stringify({ first: lines[0], s13: T.s13(T.mapName('starter', true), 'review-flow'),
-  term: T.s13(T.mapName('starter', true), 'review-flow', true) }));"""
+console.log(JSON.stringify({ first: lines[0], s13: T.s13(T.mapName('shop', false), 'review-flow'),
+  term: T.s13(T.mapName('shop', false), 'review-flow', true) }));"""
 
 
 def _card_and_tail() -> tuple:
-    """The use row and the result tail of one Builder card that makes the map review-flow in a plain session."""
+    """The use row and the result tail of one Builder card that makes the map review-flow in a session on his map shop."""
     import time
     from tests.helpers.crew_rig import CrewRig
-    from tests.test_builder_map import _S, _box, _line, _uses
+    from tests.test_builder_map import _S, _box, _line, _map_of, _uses
     with CrewRig() as rig:
         from halo_harness.crew import session_tool
-        s = _S(rig)
+        _map_of(rig, "shop", ("read",))
+        s = _S(rig, "shop")
         s._map_started_at = time.time()
         pv = session_tool.preview(s, {"changes": [
             {"tool": "agent_make", "args": {"name": "my-reviewer", "does": "Reviews.", "uses": ["read"]}},
@@ -72,7 +74,7 @@ def test_the_same_sentence_in_three_places(ctx: Ctx):
 
 
 NONE_TS = """const T = await import(%s);
-const f = { title: 's', a: 'starter', plain: false, b: null, bNone: true, bSince: null, started: %s, turns: 1, studio: false,
+const f = { title: 's', a: 'auto', plain: true, b: null, bNone: true, bSince: null, started: %s, turns: 1, studio: false,
   ended: null, machine: null, unreadable: null, changed: null, workflow: null, busy: false };
 console.log(JSON.stringify({ word: T.NEXT_NONE, lines: T.truthLines(f).map((l) => l.text), clock: T.clock(%s),
   empty: T.truthLines({ ...f, none: true }).map((l) => l.text), start: T.startLines(null, null, true).map((l) => l.text) }));"""
@@ -82,8 +84,9 @@ console.log(JSON.stringify({ word: T.NEXT_NONE, lines: T.truthLines(f).map((l) =
 def test_no_map_for_new_sessions_is_one_sentence_in_both_languages(ctx: Ctx):
     """The coordinator's ruling (P4 batch 10): "New sessions will run with no map." is the new-sessions half of the facts
     note, of studio_show's twin, of what main repeats after a card (map_facts.tell) and of Studio's truth block, and the
-    whole sentence of a session on starter by flag while roles are off and no map is set is the same in Python and in
-    TypeScript: "This session runs on starter, as it started at {t}. New sessions will run with no map."."""
+    whole sentence of a session on starter by flag (3.6.0.5: Auto) while roles are off and no map is set is the same in
+    Python and in TypeScript: "This session runs on Auto (the default), as it started at {t}. New sessions will run with
+    no map."."""
     import time
     from tests.helpers import node_ts
     from tests.helpers.config_seed import ConfigHome
@@ -102,7 +105,7 @@ def test_no_map_for_new_sessions_is_one_sentence_in_both_languages(ctx: Ctx):
     got = node_ts.run(NONE_TS % (json.dumps(TRUTH.resolve().as_uri()), t, t))
     ctx.check(f"one string in both languages, got {map_facts.NOTE_NEXT_NONE!r} / {got.get('word')!r}",
               map_facts.NOTE_NEXT_NONE == got.get("word") == "New sessions will run with no map.")
-    said = "This session runs on starter, as it started at {}. New sessions will run with no map."
+    said = "This session runs on Auto (the default), as it started at {}. New sessions will run with no map."
     want = said.format(got.get("clock"))  # each side writes {t} its own way (map_facts.hhmm, truth.ts clock)
     ctx.check(f"tell() says it, got {told!r}", told == said.format(map_facts.hhmm(t)))
     ctx.check(f"the row says no map (map_next_none), got {row.get('map_next_none')!r}", row.get("map_next_none") is True)

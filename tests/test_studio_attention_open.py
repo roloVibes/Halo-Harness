@@ -90,7 +90,7 @@ def test_a_rows_o_lands_on_the_ask_from_session(ctx: Ctx):
 def test_a_rows_o_lands_on_the_ask_from_the_map(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"(c) the session's map, (d) another: {got.get('row_c_map')!r} {got.get('row_d_map')!r}",
-              got.get("row_c_map") == "starter" and got.get("row_d_map") == "ship-it")
+              got.get("row_c_map") == "auto" and got.get("row_d_map") == "ship-it")
     _landed(ctx, got, "row_c", "O from Agents -> Map on the session's map", "agents")
     _landed(ctx, got, "row_d", "O from Agents -> Map on another map", "agents")
 

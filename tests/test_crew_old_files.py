@@ -146,11 +146,11 @@ def test_the_old_team_flag_is_one_line_and_the_map_in_use(ctx: Ctx):
         s = built.session
         try:
             tc = s.team_control
-            ctx.check(f"the session runs on the starter map, got {getattr(getattr(tc, 'map', None), 'name', None)}",
-                      getattr(tc, "is_map", False) and tc.map.name == "starter")
+            ctx.check(f"the session runs on Auto, got {getattr(getattr(tc, 'map', None), 'name', None)}",
+                      getattr(tc, "is_map", False) and tc.map.name == "auto")
             lines = [ln for ln in err.getvalue().splitlines() if "--team" in ln]
             ctx.check(f"one line: --team is gone, the map in use, got {lines}",
-                      len(lines) == 1 and "--team is gone" in lines[0] and "starter" in lines[0] and "--map" in lines[0])
+                      len(lines) == 1 and "--team is gone" in lines[0] and "auto" in lines[0] and "starter" not in lines[0] and "--map" in lines[0])
         finally:
             s.close_runtimes()
 

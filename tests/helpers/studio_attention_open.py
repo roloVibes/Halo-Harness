@@ -257,7 +257,7 @@ def _row_on_map(c, x: Ctx, case: str, name: str) -> dict:
 
 
 def row_c(c, x: Ctx) -> dict:
-    return _row_on_map(c, x, "c", "starter")
+    return _row_on_map(c, x, "c", "auto")
 
 
 def row_d(c, x: Ctx) -> dict:

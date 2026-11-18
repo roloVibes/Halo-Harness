@@ -1,16 +1,16 @@
 """tests.test_studio_session_built -- the owner's sentence, in a real browser (Halo 3.6.0.2 "Session map", design
 section 11, the VM browser test; headless Chrome through tests/helpers/studio_session_built.py, skipped without one).
 
-Over this harness's real session (open, on starter, two agents mid-work) the workflow review and the map review-flow
+Over this harness's real session (open, on Auto, two agents mid-work) the workflow review and the map review-flow
 are written as an applied Builder card writes them, new sessions are switched to review-flow, and the `builder_done`
 frame arrives on the page. Then, as a person sees it:
 
 2. within 10 s the word `new` on Session's Live button, in a slot that was already there; nothing moved, opened or
    popped up;
-3. a press on Live shows the pair "Running: starter | Just built: review-flow", the map drawn down, the new box
+3. a press on Live shows the pair "Running: Auto (the default) | Just built: review-flow", the map drawn down, the new box
    marked, every text at least 12 px, no box cut, and the truth block S13 with New session;
 6. the rig's turn ends and two more turns come and go: the drawer stays exactly as it was;
-4. Alt+2 opens Agents on its fourth view Live (starter, nothing amber); 3 · Map shows review-flow with L2.
+4. Alt+2 opens Agents on its fourth view Live (auto, nothing amber); 3 · Map shows review-flow with L2.
 
 All under 60 s from the frame. Seen red on the base first (P2, P3 and P4 make it green).
 Run: python -m tests.test_studio_session_built   (the Linux VM; browser modules never run on the PC)
@@ -70,9 +70,9 @@ _BOX = {"x": 20, "w": 200}
 GREEN = {
     "word": {"seconds": 0.8, "name": "Live", "title": "Open Live (was Map): ...", "pressed": "false", "drawer": False,
              "sections_shown": ["session"], "dialogs": 0, "toasts": 0, "slot_before": True, "moved": []},
-    "drawn": {"pair": "Running: starter | Just built: review-flow", "built_pressed": "true", "map": "review-flow", "dir": "down",
+    "drawn": {"pair": "Running: Auto (the default) | Just built: review-flow", "built_pressed": "true", "map": "review-flow", "dir": "down",
               "zoom": 1.0, "small_px": [], "ellipsis": [], "more_below": "", "new_session": True, "drawer": "",
-              "truth": "This session keeps running on starter (the default), as it started. Start a new session to run on "
+              "truth": "This session keeps running on Auto (the default), as it started. Start a new session to run on "
                        "review-flow. New session",
               "scroll": {"x": 0, "y": 100, "w": 455, "h": 600},
               "boxes": [{"box": "main", "y": 110, "h": 60, "new": False, "text": "main", "all": "main", **_BOX},
@@ -81,21 +81,21 @@ GREEN = {
               "s0": {"truth": "S13 ...", "truth_h": 64, "map": "review-flow", "top": 100, "main_top": 110}},
     "rig_turn": {"ended": True, "seconds": 2.0},
     "agents": {"view": "live", "live_tab": {"selected": "true", "text": "4 · Live"},
-               "tabs": ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"], "live_map": "starter", "amber": 0,
+               "tabs": ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"], "live_map": "auto", "amber": 0,
                "map_value": "review-flow", "watch_button": True,
-               "topline": "This session runs on starter (the default), as it started; new sessions run on this map. Watch it in Live"},
+               "topline": "This session runs on Auto (the default), as it started; new sessions run on this map. Watch it in Live"},
 }
 GREEN["turns"] = [dict(GREEN["drawn"]["s0"], when=w) for w in ("idle after the rig's turn", "during 2", "after 2", "during 3", "after 3")]
 BASE = {
     "word": {"seconds": None, "name": "Map", "title": "Open Map: The map this session runs on", "pressed": "false",
              "drawer": False, "sections_shown": ["session"], "dialogs": 0, "toasts": 0, "slot_before": False, "moved": []},
-    "drawn": {"pair": "", "built_pressed": "", "map": "starter", "dir": "", "truth": "", "new_session": False,
-              "drawer": "MAP drawer 455 px", "s0": {"truth": None, "truth_h": None, "map": "starter", "top": 120, "main_top": 130}},
+    "drawn": {"pair": "", "built_pressed": "", "map": "auto", "dir": "", "truth": "", "new_session": False,
+              "drawer": "MAP drawer 455 px", "s0": {"truth": None, "truth_h": None, "map": "auto", "top": 120, "main_top": 130}},
     "turns": [{"when": "idle after the rig's turn", "truth": None, "truth_h": None, "map": None, "top": None, "main_top": None,
                "shows": "MAP drawer No session is running here"}],
     "rig_turn": {"ended": True, "seconds": 2.0},
     "agents": {"view": "crew", "live_tab": None, "tabs": ["1 · Agents", "2 · Workflows", "3 · Map"], "live_map": "", "amber": 0,
-               "map_value": "starter", "topline": "Nothing is running on it now.", "watch_button": False},
+               "map_value": "auto", "topline": "Nothing is running on it now.", "watch_button": False},
 }
 
 

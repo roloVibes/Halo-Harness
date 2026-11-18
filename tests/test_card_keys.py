@@ -1176,9 +1176,9 @@ def test_p7_a_halo_a_test_starts_runs_with_the_real_card_times(ctx: Ctx):
     ctx.check(f"a child whose test asks for the switch has them off, got {asked!r}", asked == "(0.0, 0.0)")
 
 
-BUILDER_USE_ROW = ("New sessions run on review-flow. This session keeps running on starter (the default), as it started. "
+BUILDER_USE_ROW = ("New sessions run on review-flow. This session keeps running on Auto (the default), as it started. "
                    "Start a new session to run on review-flow. In the terminal: quit, then run halo; /clear keeps "
-                   "starter (the default).")
+                   "Auto (the default).")
 
 
 def _builder_card_event():

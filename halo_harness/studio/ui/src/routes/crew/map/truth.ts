@@ -3,7 +3,7 @@
 // lines L1-L4 and the worst case the truth block reserves (R20). The other lines of the rules (R4, R14-R18, R24, R28-R31,
 // R43, R45, R47) are in truthBits.ts, re-exported here. Pure: no React, no store, no DOM. The words Live / Feed / Map live
 // in truthWords.ts (decision 5), re-exported here; Session, Agents -> Live, Agents -> Map and the Start view read only this.
-import { clock, DEFAULT_MAP, mapName, NEXT_NONE, nextName, T10_NONE, WORDS, type Line } from "./truthWords";
+import { clock, DEFAULT_MAP, isAuto, mapName, NEXT_NONE, nextName, onMap, T10_NONE, WORDS, type Line } from "./truthWords";
 
 export * from "./truthWords";
 export * from "./truthBits";
@@ -13,8 +13,8 @@ export type TruthFacts = {
   none?: boolean; // no session row: the Start view's Empty
   title: string;
   a: string | null; // the map this session runs on (F1/F2); null = no map
-  plain: boolean; // it took starter by default (the row's `map_plain`)
-  b: string | null; // the map new sessions use (F4); null = unset (starter, the default)
+  plain: boolean; // it took the default, Auto (the row's `map_plain`)
+  b: string | null; // the map new sessions use (F4); null = unset (Auto, the default)
   bNone?: boolean; // new sessions start with NO map (roles off, crew.map unset: the row's `map_next_none`); b is then null
   bSince: number | null; // when B was switched on; null = not known
   started: number;
@@ -41,11 +41,12 @@ export function s13(old: string, next: string, terminal = false): string {
 export const s13For = (who: string, old: string, next: string): string =>
   `${who} keeps running on ${old}, as it started. Start a new session to run on ${next}.`;
 
-/** The map new sessions use, by identity: none set is the default, starter (R19, R20: T1 only when it IS {A}). */
-export const nextMap = (b: string | null): string => b || "starter";
+/** The map new sessions use, by identity: none set (or a default's name) is the default, auto (R19, R20: T1 only when
+ *  it IS {A}; 3.6.0.5: compared through onMap, so `auto`, `starter` and none set are one map). */
+export const nextMap = (b: string | null): string => (b && !isAuto(b) ? b : "auto");
 
 /** Which state the truth block is in: read from whether the session is open and its maps, never from `busy`. A session
- *  on its own map while new sessions use another (none set: starter) is T2, or T11 when a set {B}'s time is not known. */
+ *  on its own map while new sessions use another (none set: Auto) is T2, or T11 when a set {B}'s time is not known. */
 export function truthState(f: TruthFacts): TruthState {
   if (f.none) return "Empty";
   if (f.machine) return "T9";
@@ -53,7 +54,7 @@ export function truthState(f: TruthFacts): TruthState {
   if (f.studio && !f.turns) return "T10";
   if (f.unreadable) return "T12";
   if (!f.a) return "T4";
-  if (f.a !== (f.bNone ? "" : nextMap(f.b))) return f.bNone || f.bSince || !f.b ? "T2" : "T11";
+  if (!(!f.bNone && onMap(f.a, nextMap(f.b)))) return f.bNone || f.bSince || !f.b ? "T2" : "T11";
   return f.plain ? "T3" : "T1";
 }
 
@@ -83,7 +84,7 @@ export function truthLines(f: TruthFacts): Line[] {
     out.push({ text: st === "T11" ? `It started at ${t}. ${B} was set outside Halo, so when it was switched on is not known.`
                                   : before ? `It started at ${t}, before ${B} was switched on at ${clock(f.bSince || 0)}.` : `It started at ${t}.` });
   } else if (st === "T3") {
-    out.push({ text: `This session runs on ${DEFAULT_MAP}, as it started at ${t}. On starter main chooses who to hand work to; the dashed lines show what it chose.` });
+    out.push({ text: `This session runs on ${DEFAULT_MAP}, as it started at ${t}. Main picks who works on each task; each task shows as a named, coloured group.` });
   } else {
     out.push({ text: `This session runs on ${A}, as it started at ${t}. New sessions will too.` });
   }
@@ -110,7 +111,7 @@ export function reserve(f: TruthFacts, width: number): { lines: Line[]; est: num
   const open: TruthFacts = { ...f, none: false, machine: null, ended: null, unreadable: null, studio: false, turns: Math.max(1, f.turns) };
   const after = (f.bSince && f.bSince > f.started ? f.bSince : f.started + 60) || 60;
   const bs: Partial<TruthFacts>[] = [{ b: f.a }];
-  if (f.a && f.a !== nextMap(f.b)) bs.push({ b: f.b, bSince: after }, ...(f.b ? [{ b: f.b, bSince: null }] : []));
+  if (f.a && !onMap(f.a, nextMap(f.b))) bs.push({ b: f.b, bSince: after }, ...(f.b ? [{ b: f.b, bSince: null }] : []));
   const cands: Line[][] = [];
   for (const b of bs) for (const workflow of f.workflow ? [f.workflow, null] : [null])
     for (const changed of [{ t: f.changed?.t || f.started }, null]) cands.push(truthLines({ ...open, ...b, workflow, changed }));

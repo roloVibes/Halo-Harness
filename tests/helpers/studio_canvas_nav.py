@@ -83,11 +83,14 @@ def wheels(c, scroller: str, world: str, target: str) -> dict:
 
 def session_map(c, rig) -> dict:
     from tests.helpers.studio_live_rig import Live
+    from tests.helpers.scratch_seven import NAME as SEVEN, write_seven
     from tests.helpers.studio_session_map_down import Rows
     lv = rig.canvas_live = Live(rig, extra=())
-    # 3.6.0.2 R15: the session's children are rows inside main's box, no boxes of their own: the session runs on starter
-    # (main + seven boxes, 380 px), the drawing these zooms and wheels need
-    Rows(rig).set(rig.act.session_id, map="starter", map_plain=True)
+    # 3.6.0.2 R15: the session's children are rows inside main's box, no boxes of their own: the session runs on a map of
+    # his named seven (main + seven boxes, 380 px), the drawing these zooms and wheels need (3.6.0.5: Auto is drawn as
+    # groups from package b on; this scratch map keeps the seven boxes)
+    write_seven(rig.state)
+    Rows(rig).set(rig.act.session_id, map=SEVEN, map_plain=False)
     for aid, name, role, model, task in SPAWNED:
         lv.spawn(aid, name, role, model, task)
         lv.state(name, lineup="auto", bio=role, kind="member")

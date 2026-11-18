@@ -29,14 +29,14 @@ REVIEW = {"format": "workflow/1", "name": "review", "for": "Code a change, then 
 
 
 def default_rt(h):
-    """A runtime on the default map (the starter, as crew/map_session.py builds it), with the saved workflow `review`."""
+    """A runtime on the default map (Auto, as crew/map_session.py builds it), with the saved workflow `review`."""
     from halo_harness.crew import store
     from halo_harness.crew.compile import compile_map
     from halo_harness.crew.map_control import control_for
     p = store.path_for("workflow", "review")
     p.parent.mkdir(parents=True, exist_ok=True)
     store.write_text(p, store.dump(REVIEW))
-    c = compile_map("starter", cwd=h.repo)
+    c = compile_map("auto", cwd=h.repo)
     c.source = "default"
     rt = FakeRuntime(h.repo)
     rt.team_control = control_for(c, cwd=h.repo, session=rt.parent)
@@ -100,7 +100,7 @@ def test_workflow_tool_step_children_are_tagged(ctx: Ctx):
         for i, c in enumerate(calls, 1):
             crew = row(rt, c["aid"]).get("crew")
             ctx.check(f"step {i}'s child is the workflow's step under main, a saved agent, got {crew}",
-                      crew == {"map": "starter", "box": "main", "workflow": "review", "step": i, "agent": c["who"], "saved": True})
+                      crew == {"map": "auto", "box": "main", "workflow": "review", "step": i, "agent": c["who"], "saved": True})
         ctx.check("the step rows keep their workflow receipt mark (square)",
                   all((row(rt, c["aid"]).get("square") or {}).get("name") == "review" for c in calls))
 
@@ -117,7 +117,7 @@ def test_saved_agent_by_name_is_not_made_up(ctx: Ctx):
                              tool_input={"subagent_type": "implementer", "description": "do it", "prompt": "do it"}, tool_name="Agent")
         crew = row(rt, calls[-1]["aid"]).get("crew")
         ctx.check(f"implementer is the saved agent working for main, not made up, got {crew}",
-                  crew == {"map": "starter", "box": "main", "agent": "implementer", "saved": True})
+                  crew == {"map": "auto", "box": "main", "agent": "implementer", "saved": True})
         ctx.check(f"the call ran as a plain session's (its result untouched), got {tr.content!r}",
                   tr.content == "<task_result>implementer did its part</task_result>" and not tr.is_error)
 
@@ -133,7 +133,7 @@ def test_general_purpose_child_is_made_up(ctx: Ctx):
                        tool_input={"subagent_type": name, "description": "look", "prompt": "look"}, tool_name="Agent")
             crew = row(rt, calls[-1]["aid"]).get("crew")
             ctx.check(f"{name} on the default map: made up, not saved, got {crew}",
-                      crew == {"map": "starter", "box": "main", "agent": name, "saved": False, "made_up": True})
+                      crew == {"map": "auto", "box": "main", "agent": name, "saved": False, "made_up": True})
         mrt, mcalls = map_runtime(h), []
         call(mrt, spawning(mcalls, mrt), description="look around", prompt="list what the repo holds")
         crew = row(mrt, mcalls[-1]["aid"]).get("crew")
@@ -156,7 +156,7 @@ def test_workflow_tool_run_sends_hop_and_steps(ctx: Ctx):
         ctx.check(f"one start and one end, got {[d.get('state') for d in hs]}", [d.get("state") for d in hs] == ["start", "end"])
         ctx.check(f"each from main to workflow:review, the workflow named, on the default map (not off), no line, got {hs}",
                   all(d.get("from") == "main" and d.get("to") == "workflow:review" and d.get("workflow") == "review"
-                      and d.get("off") is False and "line" not in d and d.get("map") == "starter" for d in hs))
+                      and d.get("off") is False and "line" not in d and d.get("map") == "auto" for d in hs))
         ss = steps(rt)
         ctx.check(f"the runner's step frames, start to end, keyed to the workflow, got {[d.get('kind') for d in ss]}",
                   len(ss) >= 2 and ss[0].get("kind") == "start" and ss[-1].get("kind") == "end"
@@ -176,9 +176,9 @@ def test_hop_from_is_the_callers_box(ctx: Ctx):
             rt.parent.agent_id = "a7"
             tree = tree_for(rt.parent)
             tree.add("p1", parent="main", name="planner", state="running", kind="subagent",
-                     crew={"map": "starter", "box": "planner", "agent": "planner", "saved": True} if case == "parent" else None)
+                     crew={"map": "auto", "box": "planner", "agent": "planner", "saved": True} if case == "parent" else None)
             tree.add("a7", parent="p1", name="coder", state="running", kind="subagent",
-                     crew={"map": "starter", "box": "coder", "line": "main -> coder", "agent": "coder", "saved": True}
+                     crew={"map": "auto", "box": "coder", "line": "main -> coder", "agent": "coder", "saved": True}
                      if case == "own" else None)
             run_tool(rt, {"name": "review", "task": "fix the retry"}, spawn=spawning(calls, rt))
             cases.append((case, [d.get("from") for d in hops(rt)]))

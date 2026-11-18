@@ -9,6 +9,7 @@ import { openList } from "./litStore";
 import { useMap } from "./mapStore";
 import type { MapFile } from "./mapTypes";
 import { mapLine, nextMap, type Line, type MapLineFacts } from "./truth";
+import { onMap } from "./truthWords";
 
 const LIVE = ["queued", "running", "waiting", "paused"];
 
@@ -35,15 +36,16 @@ export function flowBoxes(m: MapFile | null): Record<string, string> {
   return out;
 }
 
-/** Which line (R55): L3, else L1, else L2 (new sessions run on this map: `next`, none set = starter), else none; the marks on the boxes of running workflows. */
-export function quietOf(name: string, boxes: Record<string, string>, on: QuietOn[], next: string | null): Quiet {
+/** Which line (R55): L3, else L1, else L2 (new sessions run on this map: `next`, none set = Auto), else none; the marks on
+ *  the boxes of running workflows. `scope`: the open map's (3.6.0.5: his old file named starter is not Auto, onMap). */
+export function quietOf(name: string, boxes: Record<string, string>, on: QuietOn[], next: string | null, scope = ""): Quiet {
   const marks: Record<string, Mark> = {};
   for (const s of on) if (s.flow && boxes[s.flow] && !marks[boxes[s.flow]]) marks[boxes[s.flow]] = { sid: s.sid, title: s.title };
-  const l3 = on.find((s) => s.flow && boxes[s.flow] && s.a !== name);
+  const l3 = on.find((s) => s.flow && boxes[s.flow] && !onMap(s.a, name, scope));
   if (l3) return { facts: { kind: "L3", session: l3.title, workflow: l3.flow, a: l3.a, plain: l3.plain }, sid: l3.sid, marks };
-  const l1 = on.find((s) => s.a === name);
+  const l1 = on.find((s) => onMap(s.a, name, scope));
   if (l1) return { facts: { kind: "L1", session: l1.title }, sid: l1.sid, marks };
-  const away = nextMap(next) === name ? on.filter((s) => s.a !== name) : [];
+  const away = onMap(nextMap(next), name, scope) ? on.filter((s) => !onMap(s.a, name, scope)) : [];
   if (away.length) return { facts: { kind: "L2", on: away.map((s) => ({ session: s.title, a: s.a, plain: s.plain })) }, sid: away[0].sid, marks };
   return { facts: null, sid: "", marks };
 }
@@ -69,10 +71,11 @@ export function useQuiet(): Quiet & { on: QuietOn[] } {
   const name = useMap((s) => s.name);
   const file = useMap((s) => s.detail?.map || null);
   const next = useMap((s) => s.next);
+  const scope = useMap((s) => s.detail?.scope || "");
   return useMemo(() => {
     const on = openOn({ harnesses }, here);
-    return { ...quietOf(name, flowBoxes(file), on, next), on };
-  }, [harnesses, here, name, file, next]);
+    return { ...quietOf(name, flowBoxes(file), on, next, scope), on };
+  }, [harnesses, here, name, file, next, scope]);
 }
 
 /** MapMain computes it once; a box reads its mark here. */
