@@ -8,6 +8,98 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.4] - unreleased
+
+A small release with one fix at its heart: a running terminal session could vanish from Studio for good after one
+failed connect to it, while the terminal went on working. Now one failed connect no longer removes it. Beside it are
+three small fixes found while flaky tests were looked into, and steadier tools for people who build Halo. Nothing else
+changed in how a session runs. The limits that remain are at the end of this section.
+
+### Fixed
+
+- **A running session could vanish from Studio for good.** One failed connect to a terminal session (a heavily loaded
+  machine, or a terminal paused with Ctrl+Z or a debugger while Studio read its list) took the session off the list
+  every Halo reads. Session and Agents' Live drawing lost it, the Prompt panel showed it ended and its box went
+  read-only, and `halo remote sessions` stopped showing it, while the terminal went on working. Only `/clear` brought
+  it back. Now a refused connect keeps the session listed and only notes when connects began to fail; one answered
+  connect clears that. It leaves the list only when its process has ended, its socket file is gone, or it has not
+  answered for 30 seconds in a row. `halo ps` and `halo doctor` count such a session the same way.
+- **A session whose row was removed puts it back.** If a session left the list anyway (paused long enough, or removed
+  by an older Halo), it writes its row back at a status event soon after (it looks at most once a second), without
+  `/clear`. Status events come at the start and end of every turn and on a mode change. A session that has ended never
+  writes its row back.
+- **A session refused connects once about ten were waiting.** Its control socket now holds a much longer queue (129
+  waiting connects on Linux, where it held 9), so a burst of reads while the session is slow to accept waits instead
+  of failing.
+- **Stopping a session with no terminal could say it failed.** When Studio's Stop or another caller sent `shutdown`,
+  the session could close its socket before its answer was written, and on a loaded machine the caller read "control
+  socket closed" for a stop that had worked. The session now begins to end once its answer has gone out, or two
+  seconds after the command when the answer cannot be written (a caller that has stopped reading); only then can the
+  caller still read "control socket closed". It ends within the same time as before, and still ends if the caller has
+  gone.
+- **The terminal app logged "worker git-branch raised" as it closed.** A background worker whose call into the app was
+  cancelled because the app was closing was logged as an error, and could show a red notice. Such a call now ends the
+  worker quietly, for every worker, but only while the app is closing. The same errors while the app runs, and any
+  other error while it closes, are logged and shown as before.
+- **Studio's palette missed an agent that arrived while it was open.** Opened with Ctrl+K (Cmd+K on a Mac) right
+  after a page load and typed into before the session list was read, it did not show "Agents: follow agent <name>"
+  until you typed again. The line now shows as soon as the agent arrives.
+
+### Changed, and you may notice
+
+- **The palette's list follows the live agents while it is open.** Its "Agents: follow agent <name>" lines are worked
+  out again whenever the live agents change, not only when it opens and on each key, so a line can appear or go while
+  you look at it, the way the Settings lines that load late already did.
+
+### Known limits
+
+- **Every Known limit of 3.6.0.3 still holds.** The cut titles in the Map drawer that 3.6.0.3 put on the list for the
+  next release are not in this one.
+- **An idle session whose row was removed comes back at its next turn, not before.** It puts its row back only at a
+  status event, and an idle session that nobody types into sends none.
+- **A paused or hung session leaves the list late, not at once.** While its process is alive but does not answer, it
+  stays listed until its queue of waiting connects is full, and then for 30 seconds more. On Linux, with one process
+  reading the list each second, that was about two and a half minutes. A command sent to it meanwhile fails as it did
+  before. A session whose process has ended still leaves at once.
+- **Two refused connects more than 30 s apart, with nothing reading the list in between, still remove the row once.**
+  The session puts it back at its next status event.
+- **A Halo older than 3.6.0.4 running beside this one still uses the old rule**: one refused connect removes the
+  session's row, and it can leave an old mark that makes a new Halo remove the row at its first refused connect. A
+  session running 3.6.0.4 puts its row back at its next status event; a session running an older Halo does not.
+- **Where it was checked.** On Linux, real separate processes were run on 3.6.0.3 and on this release: a session with
+  no terminal, a second process reading the list each second, and a third filling the session's queue of connects
+  while it was paused. On 3.6.0.3 a session paused for about nine seconds left the list and never came back, not even
+  after its next turn. On this release a session paused for 45 seconds stayed listed; with its queue filled it stayed
+  listed for 30 seconds, then left, and came back at its next turn. A session that ended or was killed left at the
+  next read on both. Nothing was run on macOS; a real Ctrl+Z in a terminal and a really loaded machine were not run;
+  the lost answer to a shutdown did not show on either version on a quiet machine.
+- **Session's Live drawing can still stop under its last whole row and leave empty room below it** when its boxes are
+  tall, as they are mid-run. This release does not change it.
+
+### For people who build Halo
+
+- **The release tool no longer crashes on Windows when it resumes a release.** Picking up a release it had started
+  (for example after a red CI gate), `scripts/release.py` read the candidate's CHANGELOG through git in the Windows
+  code page and died with "AttributeError: 'NoneType' object has no attribute 'strip'". Every text it and
+  `scripts/release_gate.py` read from git, gh, curl or `git credential fill` is now read as UTF-8; a byte that is not
+  UTF-8 becomes a replacement mark, never a crash. Nothing it writes or prints changed.
+- **The test driver ends its own Chrome's helpers before its close returns.** It waits up to 10 s until no process
+  with its own throwaway profile folder is left, then ends any still there by pid after matching its start time: never
+  by name, never another Chrome. A Windows runner no longer marks a browser module red because the test's own Chrome
+  was still closing its crash handler or a utility process. The leftover check in `tests/run_all.py` is as strict as
+  before. `scripts/realcheck` opens its browser through the same driver and gets the same close. A browser test's
+  close can take up to 10 s longer while its Chrome's helpers are slow to go, as they are on Windows.
+- **The test that proves lazy MCP servers connect in parallel counts overlap, not seconds**: 3 connects in flight at
+  once when parallel, 1 when one after another. A slow runner can no longer turn it red.
+- **The run-parts driver's timeouts name the registry**: the file's row ids, the row's `unreachable_since` and one
+  timed probe.
+- **New and changed tests**: `test_remote_registry` (one failed probe keeps the row; 30 s of failures, or a missing
+  socket file, removes it; `halo ps` and `halo doctor` count a live session), `test_remote_control_socket`,
+  `test_session_registry` (a session puts its row back; an ended one never does), `test_headless_session`,
+  `test_review3_z2`, `test_review3_d1`, `test_chrome_close` (new; no browser), `test_release_script`,
+  `test_mcp_lazy_cache`, and the browser tests `test_studio_prompt` (one refused connect keeps the box editable) and
+  `test_studio_agents_live` (the palette lists an agent that arrives while it is open).
+
 ## [3.6.0.3] - 2026-11-18
 
 Replays and History leave Halo. Both things called a replay are gone, in Studio and in the terminal: the playback of a
