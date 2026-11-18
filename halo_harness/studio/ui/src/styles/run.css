@@ -13,7 +13,13 @@
 
 /* -- Run a goal: the panel ------------------------------------------------------------------------------------ */
 .rg-drawer { width: min(520px, calc(100% - 16px)); }
-.rg-body { overflow-y: auto; flex: 1; min-height: 0; padding: var(--s-3); display: grid; gap: var(--s-3); align-content: start; }
+/* 3.6.0.3 B: the body does not scroll; the form's fields do, in their own box (og-fields), and its Run row is the drawer's
+   foot under that box -- sticky over the scrolling fields it sat 4 px under the model picker (R7: 8 px between neighbours) */
+.rg-body { overflow: hidden; flex: 1; min-height: 0; padding: var(--s-3); display: flex; flex-direction: column; gap: var(--s-3); }
+.rg-body > .og-form { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.rg-body .og-fields { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; gap: inherit; align-content: start;
+  grid-template-columns: minmax(0, 1fr); padding: 2px; margin: -2px; }  /* 2px: a focus ring is not cut by the box */
+.rg-body .fl-actions { position: static; flex: none; margin: 0; padding: var(--s-2) 0 0; background: none; border-top: 1px solid var(--line-soft); }
 .rg-says { display: grid; gap: var(--s-1); margin: 0; padding: var(--s-3); border: 1px solid var(--line-soft); border-radius: var(--radius-sm);
   background: var(--panel-2, transparent); font-size: var(--fs-sm); }
 .rg-says dt { color: var(--faint); font-size: 12px; letter-spacing: .08em; }

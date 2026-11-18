@@ -30,35 +30,38 @@ export function WorkflowForm({ onStarted }: { onStarted: () => void }) {
   const why = live ? `Run ${live} is live: stop it or wait for its report` : "";
   return (
     <form className="og-form og-goal-form og-goal-start" onSubmit={(e) => (e.preventDefault(), void go())} data-testid="orchestra-workflow-form">
-      <div className="glance-kicker mono">WORKFLOW</div>
-      <p className="og-wf-ref mono" data-testid="orchestra-workflow-ref">{wf.ref}</p>
-      <p className="muted">{wf.description}</p>
-      <p className="mono muted" data-testid="orchestra-workflow-stages">stages: {wf.stages.join(" -> ")}</p>
-      {wf.inputs.map((i) => (
-        <Field key={i.name} label={`${i.name.toUpperCase()} (${i.type}${i.required ? ", required" : ""})`} hint={i.description || undefined}>
-          {(id) => (
-            <input id={id} className="input mono" value={values[i.name] ?? ""} onChange={(e) => setInput(i.name, e.target.value)}
-                   placeholder={i.required ? "required" : i.default !== null && i.default !== undefined ? `default ${String(i.default)}` : "optional"}
-                   data-testid="orchestra-workflow-input" data-key={i.name} />
-          )}
-        </Field>
-      ))}
-      <ModelSelect label="MODEL" hint={help.orchestra} value={model} onPick={setModel} testid="orchestra-workflow-model" inherit={{ label: "each stage's bio", model: "" }} />
-      <dl className="rg-says" data-testid="run-goal-says">
-        <dt>WHAT IT DOES</dt>
-        <dd>Compiles to a goal run as <code>halo workflow run</code> does: its stages as lanes on each stage's bio, the gate, the merge; the Map says it is going, and when it ends its report is a page of its own in the Map's drawer.</dd>
-        <dt>WHAT IT MAY COST</dt>
-        <dd>One worker session per stage lane on its bio's model (or the MODEL above), again for each part the gate sends back; no dollar cap.</dd>
-        <dt>WHERE IT WRITES</dt>
-        <dd>The run's record in <code>.halo/orchestra/&lt;run&gt;/</code>, one worktree per lane and the finished branch; your checkout is not touched.</dd>
-      </dl>
-      {problems.length > 0 && (
-        <ul className="og-problems" role="alert" data-testid="orchestra-workflow-problems">
-          {problems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-      )}
+      {/* 3.6.0.3 B: the fields scroll in their own box and the Run row sits under it, never over a field (R7) */}
+      <div className="og-fields">
+        <div className="glance-kicker mono">WORKFLOW</div>
+        <p className="og-wf-ref mono" data-testid="orchestra-workflow-ref">{wf.ref}</p>
+        <p className="muted">{wf.description}</p>
+        <p className="mono muted" data-testid="orchestra-workflow-stages">stages: {wf.stages.join(" -> ")}</p>
+        {wf.inputs.map((i) => (
+          <Field key={i.name} label={`${i.name.toUpperCase()} (${i.type}${i.required ? ", required" : ""})`} hint={i.description || undefined}>
+            {(id) => (
+              <input id={id} className="input mono" value={values[i.name] ?? ""} onChange={(e) => setInput(i.name, e.target.value)}
+                     placeholder={i.required ? "required" : i.default !== null && i.default !== undefined ? `default ${String(i.default)}` : "optional"}
+                     data-testid="orchestra-workflow-input" data-key={i.name} />
+            )}
+          </Field>
+        ))}
+        <ModelSelect label="MODEL" hint={help.orchestra} value={model} onPick={setModel} testid="orchestra-workflow-model" inherit={{ label: "each stage's bio", model: "" }} />
+        <dl className="rg-says" data-testid="run-goal-says">
+          <dt>WHAT IT DOES</dt>
+          <dd>Compiles to a goal run as <code>halo workflow run</code> does: its stages as lanes on each stage's bio, the gate, the merge; the Map says it is going, and when it ends its report is a page of its own in the Map's drawer.</dd>
+          <dt>WHAT IT MAY COST</dt>
+          <dd>One worker session per stage lane on its bio's model (or the MODEL above), again for each part the gate sends back; no dollar cap.</dd>
+          <dt>WHERE IT WRITES</dt>
+          <dd>The run's record in <code>.halo/orchestra/&lt;run&gt;/</code>, one worktree per lane and the finished branch; your checkout is not touched.</dd>
+        </dl>
+        {problems.length > 0 && (
+          <ul className="og-problems" role="alert" data-testid="orchestra-workflow-problems">
+            {problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="og-actions fl-actions">
         <Button variant="primary" type="submit" disabled={busy || !!why} title={why || "Compile it (halo workflow run) and start the run"} data-testid="orchestra-workflow-run">
           Run

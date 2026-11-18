@@ -71,6 +71,22 @@ def test_the_stage_in_the_source(ctx: Ctx):
 
 
 @test
+def test_r7_the_goal_forms_run_row_is_the_drawers_foot(ctx: Ctx):
+    # 3.6.0.3 B: the Map's drawer opens on Run a goal; its Run row was sticky over the scrolling form and sat 4 px under the
+    # model picker at 1280 x 800 (R7: 8 px between neighbours). The fields scroll in their own box, the Run row under it.
+    for rel in ("routes/orchestra/GoalForm.tsx", "routes/orchestra/WorkflowForm.tsx"):
+        src = (UI / rel).read_text(encoding="utf-8")
+        fields, actions = src.find('className="og-fields"'), src.find('className="og-actions fl-actions"')
+        ctx.check(f"{rel}: the fields are in one box (og-fields) and the Run row comes after it", -1 < fields < actions)
+        ctx.check(f"{rel}: the Run row is outside the fields' box", src.rfind("</div>", fields, actions) > fields)
+    css = (UI / "styles" / "run.css").read_text(encoding="utf-8")
+    rule = lambda sel: (re.search(re.escape(sel) + r"\s*\{([^}]*)\}", css) or [None, ""])[1]  # noqa: E731
+    ctx.check("run.css: the drawer's body does not scroll (its form's fields do)", "overflow: hidden" in rule(".rg-body"))
+    ctx.check("run.css: the fields' box scrolls", "overflow-y: auto" in rule(".rg-body .og-fields"))
+    ctx.check("run.css: the Run row is not sticky in the drawer", "position: static" in rule(".rg-body .fl-actions"))
+
+
+@test
 def test_r1_r2_r8_the_main_thing_and_its_drawers(ctx: Ctx):
     room = _room(_got(ctx))
     ctx.check(f"every view measured at three sizes ({len(room)} records)", len(room) >= 21)

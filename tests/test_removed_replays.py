@@ -200,7 +200,8 @@ SKIP += [
      r"supervise/history\.py` \(the history log",
      "a goal's history under the supervisor (its rounds and decisions)"),
     ((D + "PRIVACY.md", D + "COMMANDS-health.md", D + "DEVELOPMENT.md", D + "README.md", D + "REVIEW.md"),
-     r"(?i)--history|history[- ]rewrite|in history|from history|Halo's own history|2\.0\.4-history-|a history\b|"
+     # lower case only: a capital History in these docs is the part of Studio that left, and must be seen
+     r"--history|history[- ]rewrite|in history|from history|Halo's own history|2\.0\.4-history-|a history\b|git history|"
      r"project's (own )?(build )?history|build[- ]history|the history of|this project's history|its history\)",
      "git history and this project's own history (`halo audit privacy --history`, docs/harness/, the dated records)"),
     ((D + "COMMANDS-packs.md", D + "PACKS.md", D + "EXTENSION_API.md"), r"(version )?history on disk",
@@ -335,6 +336,27 @@ def test_a_skip_excuses_only_its_own_words(ctx: Ctx):
         got = WORDS.search(_left(rel, line)) is not None
         ctx.check(f"{rel.rsplit('/', 1)[-1]}: {line.strip()!r} is {'a hit' if seen else 'kept'}, got {'a hit' if got else 'kept'}",
                   got == seen)
+
+
+#: the five docs whose skip line excuses git history and this project's own history (lower case only)
+GIT_HISTORY_DOCS = ("PRIVACY.md", "COMMANDS-health.md", "DEVELOPMENT.md", "README.md", "REVIEW.md")
+
+
+@test
+def test_the_git_history_skip_never_excuses_a_capital_history(ctx: Ctx):
+    for name in GIT_HISTORY_DOCS:
+        for line in ("Open it from History on the Map.", "It is listed in History.", "A History row opens it."):
+            ctx.check(f"docs/{name}: {line!r} is a hit (History, the part of Studio that left)",
+                      WORDS.search(_left(D + name, line)) is not None)
+
+
+@test
+def test_the_git_history_skip_still_excuses_git_history(ctx: Ctx):
+    for name in GIT_HISTORY_DOCS:
+        for line in ("The audit scans the git history.", "deleting it again doesn't remove it from history.",
+                     "Fixing that needs a history rewrite (`git filter-repo`)", "this project's own build history"):
+            ctx.check(f"docs/{name}: {line!r} is kept (git history, the project's own history)",
+                      WORDS.search(_left(D + name, line)) is None)
 
 
 @test

@@ -58,10 +58,7 @@ export function GoalDrawer() {
       </div>
       <div className="rg-body">
         {!help || !catalog ? <p className="cw-line mono muted" data-testid="run-goal-wait">Opening the form: reading the model catalog...</p> : wf ? <WorkflowForm onStarted={closeGoal} /> : (
-          <>
-            <GoalForm initial={form} seed={seed} onStarted={started} />
-            <WorkflowPicker />
-          </>
+          <GoalForm initial={form} seed={seed} onStarted={started} more={<WorkflowPicker />} />
         )}
       </div>
     </aside>

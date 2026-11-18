@@ -3,7 +3,7 @@
 // the MODEL (its first option the lead's), Review the plan first, then who plays the parts under a disclosure; what it
 // will do, what it may cost and where it writes (GoalSays.tsx) right above Run and Dry run, which post it (POST
 // orchestra/run). The LINEUP field went with lineups (3.6.0.0 R5); the three goal boxes are the one text box.
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { useStore } from "../../lib/store";
 import { Button, Field, Icon } from "../../lib/ui";
@@ -56,9 +56,10 @@ function Num({ label, value, set, min, max, title }: { label: string; value: num
   );
 }
 
-type Props = { initial: Partial<RunForm> | null; seed: number; onStarted: (id: string, dry: boolean) => void };
+// `more`: what follows the fields in their scrolling box (the drawer's "or run a pack's workflow")
+type Props = { initial: Partial<RunForm> | null; seed: number; onStarted: (id: string, dry: boolean) => void; more?: ReactNode };
 
-export function GoalForm({ initial, seed, onStarted }: Props) {
+export function GoalForm({ initial, seed, onStarted, more }: Props) {
   const runId = useOrch((s) => s.runId);
   const live = useOrch((s) => (s.data?.live ? s.runId : ""));
   const [form, setForm] = useState<RunForm>(() => fromSeed(initial));
@@ -88,36 +89,40 @@ export function GoalForm({ initial, seed, onStarted }: Props) {
   );
   return (
     <form className="og-form og-goal-form og-goal-start" onSubmit={(e) => (e.preventDefault(), void go(false))} data-testid="orchestra-goal-form">
-      <Text label="WHAT YOU WANT" value={form.what} set={set("what")} example={EXAMPLE.what} />
-      <Text label="DONE WHEN" value={form.done_when} set={set("done_when")} example={EXAMPLE.done_when} hint="what the gate checks before the result lands" />
-      <Text label="STOP WHEN" value={form.stop_when} set={set("stop_when")} example={EXAMPLE.stop_when} hint="when the run gives up" />
-      <div className="og-form-row">
-        <Line label="SHARED FILES (comma separated)" value={form.files.join(", ")} set={(v) => set("files")(v.split(",").map((f) => f.trim()).filter(Boolean))} mono example={EXAMPLE.files} />
-        <Line label="THE GATE'S TEST" value={form.test} set={set("test")} mono example={EXAMPLE.test} />
-      </div>
-      {took && <p className="og-took mono muted" data-testid="orchestra-test-from-lineup">test from the lineup: {took}</p>}
-      <div className="og-form-row og-form-row3" role="group" aria-label="Budget">
-        <Num label="WORKERS" value={form.workers} set={set("workers")} min={1} max={50} title="How many lanes, one worker each (1 to 50)" />
-        <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} title="How many times the gate may send one part back" />
-      </div>
-      <ModelSelect label="MODEL" hint={help.orchestra} value={form.model} onPick={set("model")} testid="orchestra-model"
-                   inherit={{ label: "the lead's", model: lead?.ref || "" }} />
-      <details className="md-support og-more">
-        <summary className="mono">who plays the parts ({form.lead} leads, {form.worker} works)</summary>
+      {/* 3.6.0.3 B: the fields scroll in their own box and the Run row sits under it, never over a field (R7) */}
+      <div className="og-fields">
+        <Text label="WHAT YOU WANT" value={form.what} set={set("what")} example={EXAMPLE.what} />
+        <Text label="DONE WHEN" value={form.done_when} set={set("done_when")} example={EXAMPLE.done_when} hint="what the gate checks before the result lands" />
+        <Text label="STOP WHEN" value={form.stop_when} set={set("stop_when")} example={EXAMPLE.stop_when} hint="when the run gives up" />
         <div className="og-form-row">
-          <Line label="LEAD ROLE" value={form.lead} set={set("lead")} />
-          <Line label="WORKER ROLE" value={form.worker} set={set("worker")} />
+          <Line label="SHARED FILES (comma separated)" value={form.files.join(", ")} set={(v) => set("files")(v.split(",").map((f) => f.trim()).filter(Boolean))} mono example={EXAMPLE.files} />
+          <Line label="THE GATE'S TEST" value={form.test} set={set("test")} mono example={EXAMPLE.test} />
         </div>
-      </details>
-      {review}
-      <GoalSays form={form} lead={lead?.ref || ""} />
-      {problems.length > 0 && (
-        <ul className="og-problems" role="alert">
-          {problems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-      )}
+        {took && <p className="og-took mono muted" data-testid="orchestra-test-from-lineup">test from the lineup: {took}</p>}
+        <div className="og-form-row og-form-row3" role="group" aria-label="Budget">
+          <Num label="WORKERS" value={form.workers} set={set("workers")} min={1} max={50} title="How many lanes, one worker each (1 to 50)" />
+          <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} title="How many times the gate may send one part back" />
+        </div>
+        <ModelSelect label="MODEL" hint={help.orchestra} value={form.model} onPick={set("model")} testid="orchestra-model"
+                     inherit={{ label: "the lead's", model: lead?.ref || "" }} />
+        <details className="md-support og-more">
+          <summary className="mono">who plays the parts ({form.lead} leads, {form.worker} works)</summary>
+          <div className="og-form-row">
+            <Line label="LEAD ROLE" value={form.lead} set={set("lead")} />
+            <Line label="WORKER ROLE" value={form.worker} set={set("worker")} />
+          </div>
+        </details>
+        {review}
+        <GoalSays form={form} lead={lead?.ref || ""} />
+        {problems.length > 0 && (
+          <ul className="og-problems" role="alert">
+            {problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        )}
+        {more}
+      </div>
       <div className="og-actions fl-actions">
         <Button variant="primary" type="submit" disabled={busy || !!why} title={why || "Start the run"} data-testid="orchestra-run">
           Run
