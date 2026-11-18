@@ -29,7 +29,7 @@ ensure_scoped_state_dir_once()
 test, TESTS = new_registry()
 
 REPO = Path(__file__).resolve().parent.parent
-BRIEF = ("agent", "workflow", "map", "starter",  # 3.6.0.0: the words 3.6 is built on
+BRIEF = ("agent", "workflow", "map", "auto",  # 3.6.0.0: the words 3.6 is built on (3.6.0.5: auto, not starter)
          "lineup", "bio", "role", "tier", "block", "lane", "step",
          "gate", "claim", "hand-off", "square", "router", "group", "when", "plan", "coach", "orchestra run", "harness", "capability", "unit",
          "pack", "guided first run", "setup", "provider", "env file",
@@ -134,15 +134,19 @@ def test_the_3600_words_are_explained_and_the_35_words_say_so(ctx: Ctx):
     3.5 words that are no longer read, and must say so the way `lineup` does."""
     from halo_harness import glossary as G
     words = G.load()
-    ctx.check(f"the file opens with agent, workflow, map, starter, got {list(words)[:4]}",
-              list(words)[:4] == ["agent", "workflow", "map", "starter"])
+    ctx.check(f"the file opens with agent, workflow, map, auto, got {list(words)[:4]}",
+              list(words)[:4] == ["agent", "workflow", "map", "auto"])
     for query, want in (("agent", "agent"), ("agents", "agent"), ("workflow", "workflow"), ("workflows", "workflow"),
-                        ("map", "map"), ("maps", "map"), ("starter", "starter"), ("starters", "starter")):
+                        ("map", "map"), ("maps", "map"), ("auto", "auto"), ("Auto", "auto")):
         rc, out, err = _explain(query)
         ctx.check(f"`halo explain {query}` -> {want}, got {rc} {(out or err)[:80]!r}",
                   rc == 0 and out.startswith(want + "\n\n"))
+    auto = ("Auto: the default. Main picks who works on each task, and a model for each one; Live draws each task as a "
+            "named, coloured group.")
+    ctx.check(f"3.6.0.5: the auto entry's text, got {words.get('auto', '')!r}", words.get("auto", "").strip() == auto)
+    ctx.check(f"3.6.0.5: no starter entry (F7), find -> {G.find('starter')}", "starter" not in words and G.find("starter")[0] is None)
     for word, must in (("agent", "~/.halo/crew/agents/"), ("workflow", "~/.halo/crew/workflows/"),
-                       ("map", "halo maps use"), ("starter", "halo agents copy")):
+                       ("map", "halo maps use"), ("auto", "Main picks who works on each task")):
         ctx.check(f"{word!r} names {must!r}", must in words[word])
     for word in ("bio", "tier", "block"):
         ctx.check(f"{word!r} says it is a 3.5 word no longer read, got {words[word][:100]!r}",

@@ -283,6 +283,7 @@ ROW_LINE = "Add line {a} -> {x} (When: {words})"
 USE_NEW = "New sessions run on {B}. "  # + S13 (+ " " + the terminal tail)
 USE_EDITED = "New sessions do not run on {B}; they run on {F4}. Run new sessions on it instead?"
 FIRST_WORKFLOW = "Your {words} workflow: the workflow {W} ({steps}), run from a box on the new map {M}."
+FIRST_WORKFLOW_AUTO = "Your {words} workflow: the workflow {W} ({steps})."  # A15: on Auto, a card that makes no map
 T1 = "This session runs on {A}, as it started at {t}. New sessions will too."
 RESULT_TAIL = "Written: {written}. Undo: {u}. Tell the person, word for word: "
 USE_LEFT = "Left out: new sessions still run on {F4}: {B} changed after the card was shown and now lets agents do more."

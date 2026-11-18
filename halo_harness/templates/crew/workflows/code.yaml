@@ -1,4 +1,4 @@
-# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+# Ships with Halo (3.6.0.0): read-only; Copy makes yours.
 format: workflow/1
 name: code
 for: Make a change in its own copy, test it, hand back the report.

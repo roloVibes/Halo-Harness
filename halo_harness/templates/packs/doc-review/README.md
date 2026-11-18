@@ -89,7 +89,7 @@ A pack's Python imports `halo_harness.ext` and nothing else of Halo.
 | `README.md` | This guide. |
 | `crew/agents/reviewer.yaml` | The reviewer agent (`doc-review--reviewer`, agent/1, extension API 2.0): a model picked for long text, reads and runs commands, changes nothing. |
 | `crew/agents/writer.yaml` | The writer agent (`doc-review--writer`, agent/1): reads and edits the documents the findings name. |
-| `crew/maps/review.yaml` | The pack's starter map (`doc-review--review`, map/1): the writer is main and hands a review to the reviewer when the request says review or check (`halo maps use doc-review--review`). |
+| `crew/maps/review.yaml` | The pack's map (`doc-review--review`, map/1): the writer is main and hands a review to the reviewer when the request says review or check (`halo maps use doc-review--review`). |
 | `crew/workflows/review-docs.yaml` | A workflow (`doc-review--review-docs`, workflow/1): the reviewer reads, then the writer fixes what matters; the Workflow tool runs it by name. |
 | `agents/reviewer.yaml` | The 1.x reviewer bio, kept for the run engine's workflow below (its `role: reviewer`); a session reads `crew/agents/reviewer.yaml`. |
 | `agents/writer.yaml` | The 1.x writer bio, kept for the run engine's workflow below (its `role: writer`). |

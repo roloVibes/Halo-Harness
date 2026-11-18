@@ -1,4 +1,4 @@
-# A shipped starter (Halo 3.6.0.0): read-only; Copy in Studio's Agents tab makes yours.
+# Ships with Halo (3.6.0.0): read-only; Copy in Studio's Agents tab makes yours.
 format: agent/1
 name: main
 does: Talks with you, plans the work and hands parts of it to the other agents.

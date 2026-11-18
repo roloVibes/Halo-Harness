@@ -87,7 +87,7 @@ value; Halo does not read `.env`), Claude Code's `settings.json` layers
 (managed, `--settings`, local, project, user), the MCP server files
 (`managed-mcp.json`, `~/.claude.json` and its entry for this folder,
 `.mcp.json`), the agent, workflow and map folders (3.6.0.0 R5d: the project's `.halo/crew/<kind>s/`, listed
-and marked not read in a folder you have not trusted, yours `~/.halo/crew/<kind>s/`, the shipped starters, and
+and marked not read in a folder you have not trusted, yours `~/.halo/crew/<kind>s/`, the ones that ship with Halo, and
 each enabled pack's, read-only), the Databricks preset (`team.json`) and the packs.
 Each row: the
 file, its scope (`home`, `repo`, `env`, `shipped`), whether it exists, what

@@ -7,29 +7,29 @@ Part of [Commands](COMMANDS.md), which lists every part.
 ## `halo agents`
 
 (3.6.0.0 R5) Your agents: one file each in `~/.halo/crew/agents/` (agent/1), a trusted project's in
-`.halo/crew/agents/`, and the starters Halo ships (read-only; copy one to make it yours). Studio's Agents -> 1 · Agents
+`.halo/crew/agents/`, and the ones that ship with Halo (read-only; copy one to make it yours). Studio's Agents -> 1 · Agents
 is the full editor ([CREW-FORMATS.md](CREW-FORMATS.md)).
 
 ```sh
-halo agents list                       # yours, this project's, then the starters; a file with a problem says it
+halo agents list                       # yours, this project's, then the ones that ship with Halo; a file with a problem says it
 halo agents show coder                 # its file, and the workflows and maps that use it
 halo agents new my-coder --from coder  # one of yours: a copy (or, without --from, a blank one)
-halo agents copy reviewer --as my-reviewer  # your own copy of a starter, a pack's or the project's, to edit (3.6.0.0 R5d)
-halo agents edit my-coder              # your $VISUAL / $EDITOR on your file; else Studio on it (a starter: how to copy it)
+halo agents copy reviewer --as my-reviewer  # your own copy of one that ships with Halo, a pack's or the project's, to edit (3.6.0.0 R5d)
+halo agents edit my-coder              # your $VISUAL / $EDITOR on your file; else Studio on it (one that ships with Halo: how to copy it)
 halo agents try my-coder "fix the retry in client.py"   # on a throwaway copy of this repo: its reply, what it used, cost
 ```
 
 ## `halo maps`
 
 (3.6.0.0 R3; R5) Your maps: what main hands work to, and when ([CREW-sessions.md](CREW-sessions.md)). Every session
-runs on a map: `--map <name>` for one run, else config `crew.map`, else the shipped `starter`. Editing one is Studio's
+runs on a map: `--map <name>` for one run, else config `crew.map`, else Auto (the default). Editing one is Studio's
 Map tab (Agents -> 3 · Map) or its builder box.
 
 ```sh
-halo maps list            # every map (yours, this project's in a trusted folder, the starters); * marks the one in use
+halo maps list            # every map (yours, this project's in a trusted folder, the ones that ship with Halo); * marks the one in use
 halo maps show ship-it    # main, each box, each line with its When in words, the cap, any problem
 halo maps use ship-it     # new sessions run on it (config crew.map); a running session keeps its own
-halo maps use --off       # back to the default (the starter map drawn, no rules of its own)
+halo maps use --off       # back to Auto (the default), no rules of its own
 halo maps use --none      # One model for everything: no map, main does every job (roles off)
 halo maps copy ship-it    # your own copy (my-ship-it), to edit; --as names it (3.6.0.0 R5d)
 halo maps edit my-map     # your $VISUAL / $EDITOR on your file; else Studio's Map on it

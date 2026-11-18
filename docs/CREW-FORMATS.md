@@ -14,10 +14,10 @@ reads or converts them.
 |---|---|---|
 | `~/.halo/crew/agents/`, `workflows/`, `maps/` | yours | the Agents tab, the builder, you |
 | `<repo>/.halo/crew/...` | this project's, read only in a trusted folder | you (Studio saves a project agent where it was) |
-| `halo_harness/templates/crew/...` | the starters Halo ships: 10 agents, 5 workflows, 2 maps | read-only; Copy in Studio makes yours |
+| `halo_harness/templates/crew/...` | the ones that ship with Halo: 10 agents, 5 workflows, 2 maps | read-only; Copy in Studio makes yours |
 
 A name is lowercase letters, digits and dashes, starting with a letter, at most 48 characters; the file is
-`<name>.yaml`. When two scopes hold the same name, the project's is nearest, then yours, then the starter.
+`<name>.yaml`. When two scopes hold the same name, the project's is nearest, then yours, then the one that ships with Halo.
 
 ## An agent: `format: agent/1`
 

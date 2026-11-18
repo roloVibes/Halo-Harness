@@ -730,6 +730,129 @@ def test_studio_lists_say_ships_with_halo(ctx: Ctx):
     ctx.check("the test ids crew-starter and flow-starter stay (A19)", 'data-testid="crew-starter"' in ids and 'data-testid="flow-starter"' in ids)
 
 
+# --- batch 5 entry 1 (A15, W-B): on Auto a workflow is made with no map ----------------------------------------------
+
+W_B = "In a session on Auto, make the workflow and the agents it needs, with no map, unless the person asks for a map."
+R37 = "A workflow the person wants run is a saved workflow in a box on a map, made and named in the same card."
+
+
+class _Sess:
+    """The parts of a session the Builder reads (as tests/test_builder_map.py `_S`): on Auto, or on his map `mp`."""
+
+    def __init__(self, rig, mp=None) -> None:
+        from types import SimpleNamespace
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_control import control_for
+        c = compile_map(mp or "auto", cwd=rig.proj, state_dir=rig.state)
+        c.source = "flag" if mp else "default"
+        self.cwd = rig.proj
+        self.team_control = control_for(c, cwd=rig.proj, state_dir=rig.state)
+        self.permission_engine = SimpleNamespace(mode="default")
+        self.interactive = True
+        self.agent_depth = 0
+
+
+REVIEW_CARD = [{"tool": "agent_make", "args": {"name": "checker", "does": "Checks the code."}},
+               {"tool": "workflow_make", "args": {"name": "review", "for": "code then check",
+                                                  "steps": [{"name": "code", "agents": ["coder"]},
+                                                            {"name": "check", "agents": ["checker"]}]}}]
+
+
+@test
+def test_auto_build_makes_no_map_or_use_row(ctx: Ctx):
+    """A15: on Auto, "a coder then a checker" is ONE card (the agent not saved yet, the workflow), no map row, no use
+    row, headed by FIRST_WORKFLOW_AUTO; on his map the same card keeps 3.6.0.2's (no such line)."""
+    from halo_harness.crew import session_tool
+    from halo_harness.crew.map_facts import FIRST_WORKFLOW_AUTO
+    want = "Your review workflow: the workflow review (coder, then checker)."
+    ctx.check("FIRST_WORKFLOW_AUTO's words", FIRST_WORKFLOW_AUTO.format(words="review", W="review", steps="coder, then checker") == want)
+    with CrewRig() as rig:
+        pv = session_tool.preview(_Sess(rig), {"changes": REVIEW_CARD})
+        targets = [str(r.get("target")) for r in pv["rows"]]
+        ctx.check(f"agent + workflow rows, none for a map or a use, got {targets}",
+                  "agent:checker" in targets and "workflow:review" in targets
+                  and not any(t.startswith(("map:", "use:")) for t in targets))
+        q = pv["card"]["questions"][0]["question"].splitlines()
+        ctx.check(f"the card's first line and the text's line 1, got {q[:2]} / {pv['text'].splitlines()[:1]}",
+                  len(q) > 1 and q[1] == want and pv["text"].splitlines()[0] == want)
+    with CrewRig() as rig:
+        _his_map(rig, "shop")
+        pv = session_tool.preview(_Sess(rig, "shop"), {"changes": REVIEW_CARD})
+        targets = [str(r.get("target")) for r in pv["rows"]]
+        ctx.check(f"on his map: no FIRST_WORKFLOW_AUTO, no map or use row, got {pv['text'].splitlines()[:1]} / {targets}",
+                  want not in pv["text"] and "Your review workflow" not in pv["text"]
+                  and not any(t.startswith(("map:", "use:")) for t in targets))
+
+
+@test
+def test_card_and_builder_words_never_promise_this_session(ctx: Ctx):
+    """Decision 2: no line of (a) promises "usable in this session"; W-B replaces R37's sentence before the tool list."""
+    from halo_harness.crew.map_facts import FIRST_WORKFLOW_AUTO
+    from halo_harness.tools.builder_tool import BuilderTool
+    for name, text in (("FIRST_WORKFLOW_AUTO", FIRST_WORKFLOW_AUTO), ("W-B", W_B)):
+        low = text.lower()
+        bad = [w for w in ("usable", "this session") if w in low] + (["now"] if "now" in low.replace(",", " ").replace(".", " ").split() else [])
+        ctx.check(f"{name} promises nothing for now, got {bad}", not bad)
+    d = BuilderTool().description
+    ctx.check("W-B before 'The tools:'", 0 <= d.find(W_B) < d.find("The tools:"))
+    ctx.check("R37's sentence is gone", R37 not in d)
+
+
+# --- batch 5 entry 3 (A18, A23): the docs and the shipped comments say Auto and "ships with Halo" ---------------------
+
+# Where "starter" means something else, by file: None keeps the whole file (ComfyUI's starter workflows); else the
+# phrases that keep it (each must still be there, so a stale skip shows). CHANGELOG.md and data/changelog.md are not
+# read: past release notes keep the word.
+DOCS_KEEP = {
+    "docs/COMFYUI.md": None,
+    "docs/STUDIO-local-media.md": None,
+    "docs/LOCAL-MODELS.md": ["whose starter has"],  # the process that started a server
+    "docs/REMOTE.md": ["the starter's `HALO_SESSION_PARENT`"],  # the process that started a session
+    "docs/review-findings-m4-6.md": ["BridgeStartError"],  # line 81: a class name
+    # `halo media`: ComfyUI's starter workflows, as `halo media`'s own help and output say them (media/*, kept)
+    "docs/COMMANDS-studio.md": ["saved workflows, the starters, the entry", "and the Halo starters",
+                                "starter workflows into ComfyUI's workflow browser", "asking once when a starter",
+                                "the text-to-image starter"],
+    # the JSON keys of the two list routes (code identifiers, unchanged)
+    "docs/STUDIO-builder.md": ["`{agents, starters}`"],
+    "docs/STUDIO-workflows.md": ["`{workflows, starters}`"],
+}
+
+
+@test
+def test_starter_absent_from_docs_and_shipped_comments(ctx: Ctx):
+    """A18 A23: every docs/*.md and README.md, the first line of every file under templates/crew/, the doc-review
+    pack's README and its map's first line hold no "starter" (any case) outside DOCS_KEEP."""
+    root = Path(__file__).resolve().parent.parent
+    left, stale = [], []
+    for p in sorted([*(root / "docs").glob("*.md"), root / "README.md"]):
+        rel = p.relative_to(root).as_posix()
+        keep = DOCS_KEEP.get(rel, [])
+        if keep is None:
+            continue
+        text = p.read_text(encoding="utf-8")
+        for phrase in keep:
+            if phrase not in text:
+                stale.append(f"{rel}: {phrase}")
+            text = text.replace(phrase, "")
+        left += [f"{rel}:{i}" for i, line in enumerate(text.splitlines(), 1) if "starter" in line.lower()]
+    tpl = root / "halo_harness" / "templates"
+    for p in sorted((tpl / "crew").rglob("*")):
+        if p.is_file():
+            first = (p.read_text(encoding="utf-8").splitlines() or [""])[0]
+            if "starter" in first.lower():
+                left.append(f"{p.relative_to(root).as_posix()}:1")
+    pack = tpl / "packs" / "doc-review"
+    left += [f"doc-review/README.md:{i}" for i, line in enumerate((pack / "README.md").read_text(encoding="utf-8").splitlines(), 1)
+             if "starter" in line.lower()]
+    if "starter" in (pack / "crew" / "maps" / "review.yaml").read_text(encoding="utf-8").splitlines()[0].lower():
+        left.append("doc-review/crew/maps/review.yaml:1")
+    ctx.check(f"no starter left, got {left}", not left)
+    ctx.check(f"every kept phrase is still there, stale {stale}", not stale)
+    first = (tpl / "crew" / "workflows" / "code.yaml").read_text(encoding="utf-8").splitlines()[0]
+    ctx.check(f"a shipped file's first line, got {first!r}", first == "# Ships with Halo (3.6.0.0): read-only; Copy makes yours.")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

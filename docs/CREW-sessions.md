@@ -7,9 +7,9 @@ The map is drawn on [Studio's Map tab](STUDIO-map.md) and kept as a `map/1` [cre
 ## Which map
 
 A session runs on a map when one is named: `halo --map <name>` for this one run, else config `crew.map` (Studio's
-**My sessions use this**, `halo maps use <name>`). With neither, the session runs on the **default map**: it draws the
-shipped `starter` map so the Map tab shows what it does, but sets no rules (3.6.0.0 R5): it runs exactly as a 3.5
-session with no lineup set -- every agent it finds can be spawned (yours win over a starter agent of the same name),
+**My sessions use this**, `halo maps use <name>`). With neither, the session runs on the **default map**: it draws
+Auto (the default) so the Map tab shows what it does, but sets no rules (3.6.0.0 R5): it runs exactly as a 3.5
+session with no lineup set -- every agent it finds can be spawned (yours win over one that ships with Halo of the same name),
 no money cap, delegation two deep and four at a time, each sub-agent's model picked as before, `halo roles point`
 honoured, the Workflow tool there, nothing added to the system prompt (`crew/compile.py` `is_default` is the one
 check; `crew/map_control.py` `PlainMap` answers from one shipped file, `templates/crew/plain/session.yaml`, through
@@ -20,15 +20,15 @@ write does. Each session row (Studio's sessions, `GET fleet`) carries `map`: the
 ## What compiles to what
 
 At session start `halo_harness/crew/compile.py` reads the map and the agent and workflow files it names (yours, this
-project's in a trusted folder, the starters: nearest wins) and makes three things the loop already runs:
+project's in a trusted folder, the ones that ship with Halo: nearest wins) and makes three things the loop already runs:
 
-1. **Main's session config** (from the map's `main`, the starter `main` by default): its model (`auto`: the session's
+1. **Main's session config** (from the map's `main`, the `main` that ships with Halo by default): its model (`auto`: the session's
    own model, as today; a model ref pins it when no `--model` is given), its instructions (added to the system prompt),
    its tools (the kinds its `uses` does not list -- read, edit, bash, web -- are taken out; every other tool stays) and
    its permission mode from `careful` (ask-changes: default, ask-commands: acceptEdits, own: auto; a `--permission-mode`
    flag still wins). `careful` only narrows the mode you set (config `permission_mode`, settings), never raises it, and
    plan stays plan -- unless the map and its main agent are both yours (`~/.halo/crew`): then it may raise it, and the
-   session and `halo maps use` say so in one line. A pack's, a project's or a starter's main never raises it.
+   session and `halo maps use` say so in one line. The main of a pack's, a project's or one that ships with Halo never raises it.
 2. **The hand-off table**: one entry per line from main, `{line, box, kind: agent | workflow, name, when}` (a box that
    names a list of agents is one entry per agent). The existing **Agent** tool spawns exactly the agents main has a line
    to; the existing **Workflow** tool runs exactly its workflows (on the step runner); a tool with nothing to hand to is
@@ -122,6 +122,6 @@ as one approval card -- the lines that let no agent do more in one question, eac
 No first. A change with no map named goes to the map this session runs on (on the default map it must name one; a new
 name makes the map), and a map made in the card comes with "New sessions run on it", ticked unless it lets agents do
 more. Only what the person picks is written; the result names the undo id and ends with the sentence main repeats word
-for word ("This session keeps running on starter (the default), as it started. Start a new session to run on
+for word ("This session keeps running on Auto (the default), as it started. Start a new session to run on
 review-flow."). Print mode has
 no one to answer, so it previews and writes nothing ([STUDIO-builder.md](STUDIO-builder.md#in-a-session)).

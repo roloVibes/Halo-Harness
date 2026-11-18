@@ -96,7 +96,7 @@ this list against the tree.
 **Crew** (`halo_harness/crew/`, 3.6.0.0 R1, docs/CREW-FORMATS.md, docs/STUDIO-builder.md; R2 the step runner
 `crew/runner.py` + `runner_session.py`, Try it for a workflow `trial_flow.py` / `try_flow.py`, the builder's workflow
 tools `tools_flow.py`, docs/STUDIO-workflows.md): `crew/formats.py` (agent/1,
-workflow/1, map/1: a problem per line, the circle), `crew/store.py` (yours / a trusted project's / the starters),
+workflow/1, map/1: a problem per line, the circle), `crew/store.py` (yours / a trusted project's / the ones that ship with Halo),
 `crew/spec.py` (an agent file as the AgentSpec the Agent tool spawns), `crew/tools.py` (the builder's agent_* tools),
 `crew/changes.py` (preview rows, apply, undo), `crew/builder.py` + `crew/builder_cap.py` (one builder turn, its model
 and its daily cap), `crew/trial.py` + `crew/trial_run.py` (Try it on a throwaway worktree); Studio's routes

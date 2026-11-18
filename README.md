@@ -80,7 +80,7 @@ agent you pin), and run a goal (several agents writing the same files, each in i
 
 ## Mix
 
-<a href="docs/media/studio-agents-tab.png"><img alt="Studio's Agents section on 1 · Agents: your agents and the starters to copy, an agent's form with how careful it is, Try it run once on a throwaway copy with what it cost, and the builder box under it" src="docs/media/studio-agents-tab.png" width="100%"></a>
+<a href="docs/media/studio-agents-tab.png"><img alt="Studio's Agents section on 1 · Agents: your agents and the ones that ship with Halo to copy, an agent's form with how careful it is, Try it run once on a throwaway copy with what it cost, and the builder box under it" src="docs/media/studio-agents-tab.png" width="100%"></a>
 
 One job, many models: each agent runs on its own model, across OpenRouter, Databricks, Anthropic, OpenAI,
 Ollama, Hugging Face, your work's Microsoft 365 Copilot or any OpenAI-compatible server. An agent on `model: auto` gets

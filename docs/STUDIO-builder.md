@@ -15,7 +15,7 @@ door that names one, such as `?mode=roles`, lands on the Map (`&view=live` on 4 
 
 - **The list** (a drawer on the left, open with the tab): **+ New agent**, then **Yours** (yours and this project's;
   `new` when made in the last day, `not used yet` when no workflow or map names it, `problem` when the file has one),
-  then **Starters to copy**: a click copies a starter into the form as yours, not saved yet.
+  then **Ships with Halo · Copy makes it yours**: a click copies one into the form as yours, not saved yet.
 - **The form**: name (and where it is used), **what it does**, **Write it for me**, the instructions it gets, the
   **model** (the shared picker; **Auto** is its first row), **what it may use** (a switch per kind of tool, each with
   what it can do on and what it cannot off), **how careful**, **Try it**, **More** (fallback model, effort, thinking,
@@ -89,7 +89,7 @@ stops there. A call with no catalog price counts at $3 / $15 per million tokens;
 | `map_use {map}` | config `crew.map`: what new sessions run on. A map whose agents may do more than the map in use says so in its line, amber and unticked |
 | `studio_show {what: map, lists, connections or run, name?}` | read-only: the map in words, the lists, where a thing is used, the last hand-offs from the session records ("why did reviewer run?"); no change lines |
 
-`map` is the map open on the tab (else the one in use, else `starter`). A map that is not yours yet is copied as yours
+`map` is the map open on the tab (else the one in use); on Auto (the default) a change with no `map` writes nothing and answers "Name the map: Auto (the default) stays as it is, where main chooses who works. Pass a new name in args.map to make a map that routes." A map that is not yours yet is copied as yours
 first: one create line, then the change lines. A map line widens nothing by itself (what an agent may do is in its own
 file). The page draws each map line where it lands: a dashed ghost box, a dashed line with its When.
 
@@ -105,23 +105,23 @@ question round trip, shown in the terminal and in Studio's ask card:
 
 In a session the map a change goes to is the one the session runs on (3.6.0.2): a change with no `map` goes there,
 and each of its lines says "this session takes it at its next hand-off"; a box whose agent may do more than the
-session's main is asked on its own, "No" first. On the default map (starter) a change with no `map` gets no lines,
-only: "Name the map: this session runs on starter (the default), where main chooses who works. Pass a new name in
+session's main is asked on its own, "No" first. On the default map (Auto) a change with no `map` gets no lines,
+only: "Name the map: this session runs on Auto (the default), where main chooses who works. Pass a new name in
 args.map to make a map that routes." A new name makes the map: "Make a new map review-flow (main, then the boxes
 below)", then "Add box review (workflow review)" and "Add line main -> review (When: always)". A map made in the card
-comes with a ticked line "New sessions run on review-flow. This session keeps running on starter (the default), as it
-started. Start a new session to run on review-flow." (in the terminal it adds "In the terminal: quit and run halo
-again; /clear keeps starter (the default)."), unless the new map lets agents do more than the map new sessions use:
+comes with a ticked line "New sessions run on review-flow. This session keeps running on Auto (the default), as it
+started. Start a new session to run on review-flow." (in the terminal it adds "In the terminal: quit, then run halo;
+/clear keeps Auto (the default)."), unless the new map lets agents do more than the map new sessions use:
 then it is its own question, "No" first. Editing a map new sessions do not use asks, unticked: "New sessions do not run
 on ship-it; they run on shop. Run new sessions on it instead?" The session's own map never gets that line. That check
 runs on the map as the card leaves it (agents made in the same card included), and again at Apply if the map's file
 changed since the card was shown (then the line is left out and the result says why). "Build me a review workflow: a
 coder then a reviewer" is one card that opens with "Your review workflow: the workflow review (coder, then reviewer),
-run from a box on the new map review-flow." and lists "Make the workflow review: 1 coder, 2 reviewer".
+run from a box on the new map review-flow." and lists "Make the workflow review: 1 coder, 2 reviewer". In a session on Auto, unless the person asks for a map, the same request makes the agents and the workflow with no map and no "New sessions run on it" line; the card opens with "Your review workflow: the workflow review (coder, then reviewer)."
 
 Only what the person picks is written (the format checked first, the before-image kept); the result names the files and
 the undo id, and ends "Written: the map review-flow (new); the agent my-reviewer (new). Undo: <id>. Tell the person,
-word for word: " and the sentence above ("This session runs on starter (the default), as it started at 14:02. New
+word for word: " and the sentence above ("This session runs on Auto (the default), as it started at 14:02. New
 sessions will too." when nothing differs). Dismissed: nothing is written. With no one to answer (print mode), the tool
 previews and writes nothing. `studio_show` answers at once. The permission engine lets the tool through in every mode
 but dontAsk (it asks on its own card). Tests: `tests/test_builder_session_parity.py` (the same request through main's
@@ -134,7 +134,7 @@ Every write is owner-only (the owner proof, [the shell](STUDIO-shell.md)).
 | Route | What |
 |---|---|
 | `GET crew/agents` | `{agents, starters}`: name, does, model, uses, careful, scope, new, used, problems |
-| `GET / POST / PUT / DELETE crew/agent/<name>` | read, make, save, delete one of yours (422 with the problem lines; 409 for a starter or a name in use) |
+| `GET / POST / PUT / DELETE crew/agent/<name>` | read, make, save, delete one of yours (422 with the problem lines; 409 for one that ships with Halo or a name in use) |
 | `GET crew/maps`, `GET / PUT / DELETE crew/map/<name>`, `POST crew/map/<name>/use` | the Map tab's: [its routes](STUDIO-map.md#routes); workflows: [their routes](STUDIO-workflows.md#routes) |
 | `GET crew/estimate?model=<ref>` | `{usd, line}` before a Try it |
 | `POST crew/try {kind: agent \| workflow, body, request}` | starts a run: `{try}`; `crew` frames on `/api/events` (a workflow's: [Try it](STUDIO-workflows.md#try-it)) |

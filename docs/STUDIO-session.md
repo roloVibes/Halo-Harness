@@ -83,7 +83,7 @@ and `?open=session-map` are unchanged.
 **The truth block.** On top of Live, one block says which map the chosen session runs on and since when, in plain
 sentences: "This session runs on shop, as it started at 2:26 PM. New sessions will too." When new sessions will run on
 another map it says so, with a **New session** button that opens the New session form in the drawer's corner: "This
-session keeps running on starter (the default), as it started. Start a new session to run on review-flow." and "It
+session keeps running on Auto (the default), as it started. Start a new session to run on review-flow." and "It
 started at 2:25 PM, before review-flow was switched on at 2:31 PM." A session running a workflow that is a box on that
 map reads "This session is running the workflow review from review-flow." first; when its own map was changed it adds
 "shop changed at 2:40 PM; this session takes it at its next hand-off." The block keeps the same height from the first

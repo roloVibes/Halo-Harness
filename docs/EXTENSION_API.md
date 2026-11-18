@@ -207,10 +207,10 @@ a person writes, read in place:
 |---|---|---|
 | `crew/agents/<name>.yaml` | `agent/1` | an agent: spawnable by name in every session (`Agent(subagent_type="<id>--<name>")`), on a map's box, in a workflow's step |
 | `crew/workflows/<name>.yaml` | `workflow/1` | a workflow: the Workflow tool runs it by name, a map's box hands work to it |
-| `crew/maps/<name>.yaml` | `map/1` | a map: `halo maps use <id>--<name>` or `--map <id>--<name>` runs a session on it (the pack's starter map) |
+| `crew/maps/<name>.yaml` | `map/1` | a map: `halo maps use <id>--<name>` or `--map <id>--<name>` runs a session on it (the pack's map) |
 
 Every name is `<id>--<name>` (the pack's id, two dashes, the file's stem), so a pack never shadows an agent, workflow or
-map of yours or a starter; inside the pack, a map's box and a workflow's step may name the pack's own agents with the
+map of yours or one that ships with Halo; inside the pack, a map's box and a workflow's step may name the pack's own agents with the
 qualified name. A pack file is never written: Copy in Studio's Agents tabs makes yours. Nothing needs a manifest key:
 the folder is read when it is there.
 
@@ -229,7 +229,7 @@ the meaning is clear (`halo_harness/packs/crew_v1.py`):
   from main (`when: {says: [...]}` from its `routing` words, else main decides), `caps.session_usd` its
   `budget.max_budget_usd`, `caps.max_depth` / `caps.max_parallel` its `delegation`'s. A card may name the pack's own
   bios or Halo's: `default-model` as main is main (the session's model), `auto-coder` / `auto-reviewer` / ... the
-  starter agent that does that job now (coder, reviewer, ...). A lineup that names an agent nobody has is not read as a
+  agent that ships with Halo for that job now (coder, reviewer, ...). A lineup that names an agent nobody has is not read as a
   map, and the pack's line names it with why;
 - a pack workflow (`workflows/<n>.yaml`) whose stages are plain (no `for_each`, no required input, no human gate) is
   the workflow `<id>--<n>`, a step per stage on its `role`'s agent.
@@ -246,7 +246,7 @@ session's workflow; its lineups' tiers are not carried (Halo 3.6 reads a 1.x pac
 
 **A 3.5 name, typed bare.** `--map hunt`, `halo maps use hunt`, `--agent scout` or a workflow named `sweep` read the
 pack's `old-pack--hunt` / `--scout` / `--sweep` when exactly one enabled pack has that name and nothing of yours, the
-project's or a starter's does, with one line naming the full name; several packs: one line lists them. `--team hunt`
+project's or one that ships with Halo does, with one line naming the full name; several packs: one line lists them. `--team hunt`
 and a config `team: hunt` say the exact command (`--map old-pack--hunt`, `halo maps use old-pack--hunt`).
 
 **Moving a pack to 2.0.** Write each bio as `crew/agents/<name>.yaml` (`format: agent/1`, the fields above), each

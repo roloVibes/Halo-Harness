@@ -74,7 +74,7 @@ Three words, in this order: **agent -> workflow -> map** ([AGENTS.md](AGENTS.md)
 - An **agent** is one file saying what it does, which model it runs on and which tools it may use. `coder`,
   `planner`, `reviewer`, `researcher`, `tester`, `writer` and others ship with Halo. (`halo agents`.)
 - A **workflow** is steps of agents: `code`, `plan`, `research`, `review` and `media` ship. (`halo workflows`.)
-- A **map** connects the agents and workflows main may hand work to: `starter` and `ship-it` ship, and you can copy
+- A **map** connects the agents and workflows main may hand work to: `auto` (Auto, the default) and `ship-it` ship, and you can copy
   one and make it yours. (`halo maps`.)
 - The **model table** names a model per role: `halo config get roles` shows it; `halo roles point <role>
   <model>` sets one.

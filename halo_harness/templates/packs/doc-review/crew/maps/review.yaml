@@ -1,4 +1,4 @@
-# The doc-review pack's starter map (extension API 2.0: map/1, `halo maps use doc-review--review`): the writer
+# The doc-review pack's map (extension API 2.0: map/1, `halo maps use doc-review--review`): the writer
 # is main and hands a review to the reviewer when the request says review or check.
 format: map/1
 name: review

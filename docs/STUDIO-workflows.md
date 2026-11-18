@@ -13,14 +13,14 @@ Agents (`Alt+2`), then **2 · Workflows** (the `2` key). The switch reads **1 ·
 
 - **The list** (a drawer on the left, open with the tab): **+ New workflow**, then **Yours** (yours and this project's,
   each tagged `on the map` or `not on the map`; maps come with the Map tab, so in this version nothing is on one and a
-  line under the list says so), then **Starters to copy** (code, plan, review, research, media): a click copies one
+  line under the list says so), then **Ships with Halo · Copy makes it yours** (code, plan, review, research, media): a click copies one
   into the form as yours, not saved yet.
 - **The form**, in the order you think:
   1. **Name**, and where it is used.
   2. **What it is for**, in your words, with **Write it for me**: it fills the builder box with "Draft the steps from what
      it is for"; the builder drafts the steps from your agents and proposes a new agent only when none fits.
   3. **The steps, in order.** A row per step: its name; up / down; take it out; its agents as chips (several chips work
-     at the same time; **+ agent** adds one of yours or a starter; a chip naming an agent you do not have says so);
+     at the same time; **+ agent** adds one of yours or one that ships with Halo; a chip naming an agent you do not have says so);
      **Gets**; **Hands on**; **When it runs** (always / only when the task needs ... / only when the task says ... / only
      when I ask); **Repeat until** with "at most N times" (10 at most). **+ Add a step** picks one of your agents, or
      **Make a new agent for it**: the agent form opens filled in; Save there brings you back with the step added.
@@ -93,7 +93,7 @@ cost is the run's, not the builder's). The builder's daily cap covers its calls 
 ## A session runs a workflow
 
 A session's **Workflow** tool takes a saved workflow by name (`Workflow(name: "ship-a-fix", task: ...)`): yours or a
-trusted project's (a starter is copied first). A crew workflow's name wins over a square of the same name, it runs on
+trusted project's (one that ships with Halo is copied first). A crew workflow's name wins over a square of the same name, it runs on
 the step runner, and the receipt's first line says so: `crew workflow ship-a-fix · ran on the step runner · done ·
 $0.0123 -- ...`, then a line per step. The tool is offered when you have one, even with no square enabled.
 
@@ -106,7 +106,7 @@ Every write is owner-only (the owner proof, [the shell](STUDIO-shell.md)); the w
 |---|---|
 | `GET crew/workflows` | `{workflows, starters}`: name, for, steps, own_copy, max_usd, scope, new, problems, maps |
 | `GET crew/workflow/<name>` | `{workflow, scope, path, problems, maps, writable, cost, writes, missing}` |
-| `POST / PUT / DELETE crew/workflow/<name>` | make, save, delete one of yours (422 with the lines; 409 for a starter, a name in use, a workflow on a map) |
+| `POST / PUT / DELETE crew/workflow/<name>` | make, save, delete one of yours (422 with the lines; 409 for one that ships with Halo, a name in use, a workflow on a map) |
 | `POST crew/workflow-cost {workflow}` | the band, what it writes and the missing agents for the form as it stands |
 | `POST crew/try {kind: workflow, body, request}` | starts a Try it on the step runner: `{try}`; progress on `/api/events` |
 | `POST builder/ask {tab: workflows, ...}` | the builder on this tab (the rest as on 1 · Agents) |

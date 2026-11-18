@@ -378,7 +378,7 @@ seconds, or an ISO time (`2026-11-03T12:00`, local when it has no zone). Anythin
 ## A pack in `halo agents list`, `halo workflows list` and `halo maps list`
 
 With a pack enabled, its agents, workflows and maps are listed after yours,
-the project's and the starters, each as `<id>--<name>` with the scope `pack`
+the project's and the ones that ship with Halo, each as `<id>--<name>` with the scope `pack`
 (3.6.0.0 R5b). `halo agents copy <id>--<name>` (and the same verb of
 `workflows` and `maps`) makes your own copy to edit; the copy says where it
 came from (`from: pack <id>--<name>`), and once the pack is disabled `halo

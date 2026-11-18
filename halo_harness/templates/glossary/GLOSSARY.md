@@ -17,11 +17,11 @@ A workflow (format `workflow/1`, `~/.halo/crew/workflows/<name>.yaml`) is steps 
 
 ## map
 
-A map (format `map/1`, `~/.halo/crew/maps/<name>.yaml`) connects the agents and workflows main may hand work to: its boxes are agents or workflows, and each line says when main uses one (a need such as a PDF, words in the task, or always). A session runs on the map in use: `halo maps use <name>`, `halo --map <name>` for one session, or Studio's Agents -> 3 · Map. With no map set a session runs as a plain session always did, drawn as the `starter` map.
+A map (format `map/1`, `~/.halo/crew/maps/<name>.yaml`) connects the agents and workflows main may hand work to: its boxes are agents or workflows, and each line says when main uses one (a need such as a PDF, words in the task, or always). A session runs on the map in use: `halo maps use <name>`, `halo --map <name>` for one session, or Studio's Agents -> 3 · Map. With no map set a session runs as a plain session always did, drawn as Auto (the default).
 
-## starter
+## auto
 
-A starter is an agent, workflow or map Halo ships (10 agents, 5 workflows and 2 maps under `halo_harness/templates/crew/`). Starters are read-only: `halo agents copy <starter>` (`--as <name>` names it), or Copy in Studio, makes your own copy to edit, and when two files share a name the project's wins, then yours, then the starter. The `starter` map is what a session with no map set is drawn as.
+Auto: the default. Main picks who works on each task, and a model for each one; Live draws each task as a named, coloured group.
 
 ## lineup
 

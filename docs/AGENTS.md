@@ -14,7 +14,7 @@ workflows main may hand work to. Bios and lineups (3.5) are gone and their files
 | Yours | `~/.halo/crew/agents/<name>.yaml` | the ones you make |
 | This project's | `<repo>/.halo/crew/agents/<name>.yaml` | read only in a folder you trusted |
 | An enabled pack's | the pack's `crew/agents/` | named `<pack>--<name>`, read in place |
-| The starters | shipped with Halo | read-only; `halo agents copy <starter>` makes your own copy to edit (`--as <name>` names it) |
+| The ones that ship with Halo | shipped with Halo | read-only; `halo agents copy <name>` makes your own copy to edit (`--as <name>` names it) |
 
 The format (`agent/1`: `does`, `instructions`, `model`, `needs`, `uses`, `careful`, `more`) is in
 [CREW-FORMATS.md](CREW-FORMATS.md). `model: auto` picks a model for each task from your catalog by what the agent
@@ -30,7 +30,7 @@ The format (`agent/1`: `does`, `instructions`, `model`, `needs`, `uses`, `carefu
 ## How a session reaches an agent
 
 A session runs on the map in use (`halo maps use <name>`, `--map <name>`, Studio's Agents -> 3 · Map). With no map
-set it runs exactly as a plain session always did, drawn as the shipped `starter` map
+set it runs exactly as a plain session always did, drawn as Auto (the default)
 ([CREW-sessions.md](CREW-sessions.md)). Main hands work along the map's lines through the `Agent` tool; each line
 says when (a need such as a PDF, words in the task, or always).
 

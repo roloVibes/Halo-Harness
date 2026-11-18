@@ -946,14 +946,16 @@ def test_compaction_sends_the_note_once(ctx: Ctx):
 
 @test
 def test_builder_description_says_workflow_on_a_map(ctx: Ctx):
-    """R37 R39: the Builder tool's description says both sentences, letter for letter, before the tool list."""
+    """W-B (3.6.0.5 A15, replaces R37's sentence) and R39: the Builder tool's description says both sentences, letter
+    for letter, before the tool list."""
     from halo_harness.tools.builder_tool import BuilderTool
     d = BuilderTool().description
-    r37 = "A workflow the person wants run is a saved workflow in a box on a map, made and named in the same card."
+    w_b = "In a session on Auto, make the workflow and the agents it needs, with no map, unless the person asks for a map."
     r39 = ("Asked which map or workflow this session uses, answer from the [Halo] note or call studio_show (what: map); "
            "never search the disk; nothing needs a restart.")
     tools_at = d.find("The tools:")
-    ctx.check("R37's sentence, before the tool list", 0 <= d.find(r37) < tools_at)
+    ctx.check("W-B's sentence, before the tool list", 0 <= d.find(w_b) < tools_at)
+    ctx.check("R37's sentence is gone", "a saved workflow in a box on a map" not in d)
     ctx.check("R39's sentence, before the tool list", 0 <= d.find(r39) < tools_at)
 
 

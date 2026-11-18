@@ -606,18 +606,24 @@ def apply_check(rows: list, ids, ctx) -> "tuple[list, list]":
 
 def first_line(rows: list, ctx) -> str:
     """R37: "Your {words} workflow: ..." when the card makes a workflow AND a new map with a box running it (a line,
-    not a change: no id, nothing written)."""
-    from halo_harness.crew.map_facts import FIRST_WORKFLOW
+    not a change: no id, nothing written). A15: in a session on Auto, a card that makes a workflow and creates or edits
+    no map says FIRST_WORKFLOW_AUTO."""
+    from halo_harness.crew.map_facts import FIRST_WORKFLOW, FIRST_WORKFLOW_AUTO
     from halo_harness.crew.tools_flow import step_who
-    made = {r["target"][9:] for r in rows if str(r.get("target")).startswith("workflow:") and r["op"].get("op") == "create"}
+    made = [r["target"][9:] for r in rows if str(r.get("target")).startswith("workflow:") and r["op"].get("op") == "create"]
     final = {**ctx, "made": list(rows)}
+
+    def steps_of(w: str) -> str:
+        steps = [s for s in (card_body("workflow", w, final) or {}).get("steps") or [] if isinstance(s, dict)]
+        return ", then ".join(step_who(s) for s in steps)
     for r in rows:
         box = (r["op"].get("box") or {}) if r["op"].get("op") == "map_box_add" else {}
         m = str(r.get("target"))[4:]
         if box.get("workflow") in made and _new(m, final):
             w = str(box["workflow"])
-            steps = [s for s in (card_body("workflow", w, final) or {}).get("steps") or [] if isinstance(s, dict)]
-            return FIRST_WORKFLOW.format(words=w, W=w, steps=", then ".join(step_who(s) for s in steps), M=m)
+            return FIRST_WORKFLOW.format(words=w, W=w, steps=steps_of(w), M=m)
+    if made and _plain(_tc(ctx)) and not any(str(r.get("target")).startswith("map:") for r in rows):
+        return FIRST_WORKFLOW_AUTO.format(words=made[0], W=made[0], steps=steps_of(made[0]))
     return ""
 
 

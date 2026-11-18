@@ -21,13 +21,13 @@ one word each:
 - **Live** is what a session is doing now, drawn on the map it really follows (4 · Live, and Session's left drawer);
 - the **Feed** is what the agents say and do, line by line (Session's main panel, and Live's drawer).
 
-3 · Map is the plan: it opens on the starter map, or the map you opened last, a link's `&map=<name>`, this project's
+3 · Map is the plan: it opens on Auto (the default), or the map you opened last, a link's `&map=<name>`, this project's
 map, or the one new sessions use. Nothing opens by itself: the list to add from is a drawer you open from the bar
 ("Agents and workflows"), the builder is a box docked below.
 
 ## Adding
 
-Open **Agents and workflows** from the bar: a slim list, your agents (this project's, then the starters) and then the
+Open **Agents and workflows** from the bar: a slim list, your agents (this project's, then the ones that ship with Halo) and then the
 workflows. Every row has a grip and **Add**; Enter on a row adds it.
 
 - **Add** (or Enter) puts it under **Not connected yet**, the strip under the map: on this map, but nothing hands it
@@ -69,14 +69,14 @@ careful it is, with a link to its form.
 
 Each change -- a box, a line, a When, a line taken out, a new map -- is saved at once, and a receipt line says what
 changed with **Undo**. It is the builder's own undo store (`~/.halo/crew/.undo/`, the last 20): Undo puts the file back
-byte for byte. A starter map is saved as yours, under its name, on its first change; a trusted project's map stays the
+byte for byte. A map that ships with Halo is saved as yours, under its name, on its first change (Auto stays as it is: a change names a new map); a trusted project's map stays the
 project's.
 
 ## More than one map
 
-The switcher at the top left lists your maps, this project's first ("this project's", a trusted folder's
-`.halo/crew/maps/`), then the starters (`starter`: main decides per task among seven agents; `ship-it`: main -> plan ->
-code -> review), and **+ New map** (a name, then main alone). Each row says two facts in plain words: "· running in
+The switcher at the top left lists Auto (the default: main decides per task among seven agents) first, then your
+maps, then this project's ("this project's", a trusted folder's `.halo/crew/maps/`), then the others that ship with
+Halo (`ship-it`: main -> plan -> code -> review), and **+ New map** (a name, then main alone). Each row says two facts in plain words: "· running in
 {session}" (or "· running in {n} sessions") for a map open sessions run on, "· new sessions" for the map new sessions
 use. Beside it is the one switch, **New sessions run on this**: new sessions run on that map (config `crew.map`; `halo
 maps use <name>` writes the same). A running session keeps the map it started with: turned on while one runs on
@@ -89,7 +89,7 @@ label card.
 
 The box at the foot: "Say how things should connect, or ask why something happened". "send anything touching auth to
 my-reviewer after the code workflow" comes back as one preview -- a line for the box, a line for the line with its When
-in words (and, on a starter, the copy that makes it yours) -- drawn on the map as a dashed ghost box and a dashed line
+in words (and, on one that ships with Halo, the copy that makes it yours) -- drawn on the map as a dashed ghost box and a dashed line
 with its label. Untick what you do not want, **Apply**, **Undo**. One request may touch agents, workflows and the map:
 it is one preview. "what is my map?", "show me my workflows" or "why did reviewer run?" are answered from `studio_show`
 with no change lines ([STUDIO-builder.md](STUDIO-builder.md#on-the-map-tab)).
@@ -149,7 +149,7 @@ Session's left drawer is **Live** too, the same drawing in Session ([STUDIO-sess
 | `GET crew/map/<name>` | `{map, scope, path, writable, in_use, problems, boxes: {id: {kind, names, facts}}, main}` |
 | `PUT crew/map/<name> {map}` | save (a new name makes a map): `{undo_id, map, ...}`; 422 with the problem lines (a circle named) |
 | `POST crew/map/<name>/use {on}` | config `crew.map`: `{undo_id, in_use}` |
-| `DELETE crew/map/<name>` | yours only (a starter or the project's: 409) |
+| `DELETE crew/map/<name>` | yours only (one that ships with Halo or the project's: 409) |
 | `POST crew/from-live {session, agent_id}` | Save as an agent: `{agent, from, problems, line}`, an unsaved agent body built from a session's helper; writes nothing |
 | `GET live/report?ref=session:<id>` (or `run:<id>`) | a finished run's report card: `{card, markdown, story_all}`; 404 when the ref names nothing (an old saved file too) |
 | `GET fleet` session rows, `/api/events` | `map` on each row; the frames `map_hop`, `map_step`, `map_card` ([CREW-sessions.md](CREW-sessions.md#what-a-session-on-a-map-says-as-it-runs)) |

@@ -1,4 +1,4 @@
-# A shipped starter (Halo 3.6.0.0): read-only; Copy in Studio's Agents tab makes yours.
+# Ships with Halo (3.6.0.0): read-only; Copy in Studio's Agents tab makes yours.
 format: agent/1
 name: planner
 does: Turns a goal into ordered steps, each with what it changes and how it is checked.

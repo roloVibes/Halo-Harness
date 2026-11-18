@@ -1,4 +1,4 @@
-# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+# Ships with Halo (3.6.0.0): read-only; Copy makes yours.
 format: workflow/1
 name: plan
 for: Turn an ask into numbered steps, each with what it changes and how it is checked.

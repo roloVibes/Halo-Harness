@@ -15,7 +15,7 @@ terminal's `halo agents` (list / show / new / edit / try) does the same from a s
 ### `/map`
 Halo 3.6.0.0 R5: the map this session runs on, read-only: its name, main, one line per hand-off (`main -> coder (agent
 coder): main decides per task`), the chains, and the boxes nothing hands work to yet. Every session runs on a map --
-the shipped `starter` until you pick one (`halo maps use <name>`, or **My sessions use this** on Studio's Map). To
+Auto (the default) until you pick one (`halo maps use <name>`, or **New sessions run on this** on Studio's Map). To
 change it, open Studio (`halo studio`, Agents -> 3 · Map).
 
 ### `/teams`, `/roles`

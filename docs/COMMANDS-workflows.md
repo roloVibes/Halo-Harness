@@ -8,12 +8,12 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 (3.6.0.0 R5) Your workflows: one file each in `~/.halo/crew/workflows/` (workflow/1: your agents in steps, in order;
 side by side ones work at the same time; Repeat until), a trusted project's in `.halo/crew/workflows/`, and the
-starters Halo ships (code, plan, review, research, media; read-only, copy one to make it yours). Studio's Agents -> 2
+ones that ship with Halo (code, plan, review, research, media; read-only, copy one to make it yours). Studio's Agents -> 2
 · Workflows is the full editor ([CREW-FORMATS.md](CREW-FORMATS.md)); when main hands a workflow work is a line on the
 map (`halo maps`, Agents -> 3 · Map).
 
 ```sh
-halo workflows list                                  # yours, this project's, then the starters
+halo workflows list                                  # yours, this project's, then the ones that ship with Halo
 halo workflows show review                           # its file, and the maps it is on
 halo workflows new my-review --from review           # one of yours: a copy (or, without --from, a blank one-step one)
 halo workflows copy review                         # your own copy (my-review), to edit; --as names it (3.6.0.0 R5d)
@@ -28,8 +28,8 @@ work.
 
 ## `halo workflow`, `halo blocks` (gone in 3.6.0.0)
 
-(3.6.0.0 R5) Each prints one line and exits 0: `halo workflow` -- "use halo workflows"; `halo blocks` -- "starters:
-halo workflows new <name> --from <starter>". A pack's Orchestra workflow still compiles to a goal run:
+(3.6.0.0 R5) Each prints one line and exits 0: `halo workflow` -- "use halo workflows"; `halo blocks` -- "shipped workflows:
+halo workflows new <name> --from <a shipped one> (halo workflows list)". A pack's Orchestra workflow still compiles to a goal run:
 
 ### `halo orchestra new --workflow`
 

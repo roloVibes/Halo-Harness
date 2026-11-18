@@ -193,7 +193,7 @@ persisted. A map with a problem prints its problem lines on stderr and the sessi
 replaces the lineup for that session (`--team` is not read beside it).
 ```sh
 halo --map ship-it
-halo -p --map starter "fix the failing test in basket.py"
+halo -p --map auto "fix the failing test in basket.py"
 ```
 
 #### `--role NAME=MODEL[:EFFORT]`

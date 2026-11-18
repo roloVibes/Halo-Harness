@@ -20,8 +20,8 @@ does not see the LAN host. From 3.6.0.0 on, `halo update` sees and stops it itse
 
 Nothing changes in a session you start the way you always did. A session that names no map runs exactly as a 3.5
 session with no lineup set: the same tools, the same sub-agents and model picks, the same depth, no money cap, nothing
-added to the prompt ([CREW-sessions.md](CREW-sessions.md#which-map)). Studio's Map tab draws it on the shipped
-`starter` map.
+added to the prompt ([CREW-sessions.md](CREW-sessions.md#which-map)). Studio's Map tab draws it as
+Auto (the default).
 
 If your `~/.halo` holds lineups, bios or squares you wrote (Halo's own shipped copies do not count), Halo says ONE line,
 once, in the terminal and in Studio's Attention: they are no longer read, and where the new files live. A configured
@@ -33,7 +33,7 @@ once, in the terminal and in Studio's Attention: they are no longer read, and wh
 |---|---|
 | a lineup (`~/.halo/teams/*.yaml`, `halo teams`, `--team`, config `team:`) | a map (`~/.halo/crew/maps/*.yaml`): `halo maps use <name>`, `--map <name>`, Studio's Agents -> 3 · Map |
 | a bio (`~/.halo/agents/*.yaml`, `halo agents` on bios) | an agent (`~/.halo/crew/agents/*.yaml`): `halo agents new / edit / try`, Agents -> 1 · Agents |
-| a square / block (`halo workflow`, `halo blocks`, the board) | a workflow (`~/.halo/crew/workflows/*.yaml`): `halo workflows new <name> --from <starter>`, Agents -> 2 · Workflows |
+| a square / block (`halo workflow`, `halo blocks`, the board) | a workflow (`~/.halo/crew/workflows/*.yaml`): `halo workflows new <name> --from <a shipped one>`, Agents -> 2 · Workflows |
 | `halo teams`, `halo roles`, `halo blocks`, `halo workflow`, `/teams`, `/roles` | each prints one line saying where to go, and exits 0 |
 | the Cast canvas, Live, the Board, the Lineups / Bios / Inspector / Problems / Models panels | the tabs: 1 · Agents, 2 · Workflows, 3 · Map (the plan) and, since 3.6.0.2, 4 · Live (a session's run drawn on its map) |
 | Live's node menu: Take over, Pin its stream, Record | Take over: a button in the Map's drawer beside Pause; Pin: the drawer's filter by box; Record: Session's Agent panel, **Record** (this session as one HTML page you can open anywhere) |
@@ -48,7 +48,7 @@ once, in the terminal and in Studio's Attention: they are no longer read, and wh
 | the squares a lineup enabled (`workflows:` in a lineup), `halo workflows enable / disable / when` | config `workflows.enabled` and `workflows.when.<square>` (`halo config set`, Studio's Settings); the `Workflow` tool reads only these |
 | a `roles` table in config.json turned into the lineup `migrated` at session start | nothing is migrated: `roles.*` is the model table a session reads as it is |
 | `halo config where`'s Active lineup, Lineup folders and Bio folders rows; `halo doctor --config`'s lineup and bio checks | gone with the files they listed (the old-files line still names your old files); `halo config where` lists the agent, workflow and map folders in their place |
-| the block templates (`halo blocks add`, Studio's "Blocks you can start from") | the workflow starters: `halo workflows new <name> --from <starter>` |
+| the block templates (`halo blocks add`, Studio's "Blocks you can start from") | the workflows that ship with Halo: `halo workflows new <name> --from <a shipped one>` |
 
 Old addresses still land somewhere sensible: `?view=cast|live|roles|team|orchestra` open the Map, `?view=workflows`
 the Workflows tab, `--edit bio:<n>` / `lineup:<n>` the Agents tab with the old files' line.

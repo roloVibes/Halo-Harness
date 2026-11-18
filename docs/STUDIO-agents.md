@@ -12,7 +12,7 @@ Agents (`Alt+2`) is four tabs, first on its bar:
 |---|---|---|---|
 | **1 · Agents** | `1` | make an agent: its name, what it does, its model, what it may use, how careful; Try it, Save; the builder box writes one for you | [STUDIO-builder.md](STUDIO-builder.md) |
 | **2 · Workflows** | `2` | put your agents in steps, in order: what each step gets and hands on; Try it on a throwaway copy | [STUDIO-workflows.md](STUDIO-workflows.md) |
-| **3 · Map** | `3` | connect them: who main hands work to, and when; every session runs on a map (the shipped `starter` until you pick one); it is the plan: a quiet line says which session runs on it; it never draws the past | [STUDIO-map.md](STUDIO-map.md) |
+| **3 · Map** | `3` | connect them: who main hands work to, and when; every session runs on a map (Auto, the default, until you pick one); it is the plan: a quiet line says which session runs on it; it never draws the past | [STUDIO-map.md](STUDIO-map.md) |
 | **4 · Live** | `4` | what a session is doing now, drawn on the map it really follows, left to right: pick the session, click a box for its card and the Feed (the line-by-line panel) in its right drawer | [STUDIO-map.md](STUDIO-map.md) |
 
 Agents opens on Live while a session you have talked to is open, else on the tab used last; it is decided once, as
@@ -62,7 +62,7 @@ as `GET orchestra/<run>` carries it (`claims`); nothing new is stored.
 
 The board of squares went in 3.6.0.0 R5; a workflow is steps of your agents now, on 2 · Workflows
 ([STUDIO-workflows.md](STUDIO-workflows.md)), and when main hands one work is a line on the Map. `halo workflows new
-<name> --from <starter>` copies a starter.
+<name> --from <a shipped one>` copies one that ships with Halo.
 
 ### Hover and click (3.3.16.1)
 

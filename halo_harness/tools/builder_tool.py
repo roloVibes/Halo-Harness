@@ -18,8 +18,8 @@ DESCRIPTION = (
     "(one approval card). Nothing is written until the person approves the card; a line that lets an agent do more is "
     "its own choice and never ticked for them. {\"undo\": <id>} puts an applied change back. studio_show answers questions "
     "about a map, the lists or a run and changes nothing. Use it when the person asks for an agent, a workflow or a map "
-    "change, never on your own. A workflow the person wants run is a saved workflow in a box on a map, made and named "
-    "in the same card. Asked which map or workflow this session uses, answer from the [Halo] note or call studio_show "
+    "change, never on your own. In a session on Auto, make the workflow and the agents it needs, with no map, unless "
+    "the person asks for a map. Asked which map or workflow this session uses, answer from the [Halo] note or call studio_show "
     "(what: map); never search the disk; nothing needs a restart. The tools:")
 
 

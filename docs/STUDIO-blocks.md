@@ -8,7 +8,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part; the Agents section its
 
 Went in 3.6.0.0 R5 with Cast. A workflow is steps of your agents on Agents -> 2 · Workflows
 ([STUDIO-workflows.md](STUDIO-workflows.md)); who main hands work to, and when, is a line on Agents -> 3 · Map
-([STUDIO-map.md](STUDIO-map.md)). `halo workflows new <name> --from <starter>` copies a starter (`halo workflows
+([STUDIO-map.md](STUDIO-map.md)). `halo workflows new <name> --from <a shipped one>` copies one that ships with Halo (`halo workflows
 list` names them).
 
 ## Composing: the line, the library, the drags (3.3.16.3 part 2)
