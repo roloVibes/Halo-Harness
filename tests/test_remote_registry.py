@@ -104,10 +104,15 @@ def test_dead_pid_and_dead_endpoint_are_swept(ctx: Ctx):
             registry.register(_entry("alive", live.endpoint))
             registry.register(_entry("deadpid", dead_pid_listener.endpoint, pid=424242))
             registry.register(_entry("deadsock", gone_endpoint))
-            ctx.check("endpoint_for before the sweep", registry.endpoint_for("deadsock") is None)  # sweeps
+            # 3.6.0.4: a refused endpoint is "not answering now" (kept, marked); it leaves after 30 s of refusals
+            ctx.check("endpoint_for keeps a refused one at first", registry.endpoint_for("deadsock") == gone_endpoint)
             ids = {r["session_id"] for r in json.loads(registry.registry_path().read_text("utf-8"))["sessions"]}
-            ctx.check("dead pid + refused endpoint removed from the file, live kept", ids == {"alive"})
-            ctx.check("list_live returns only the live one", [r["session_id"] for r in registry.list_live()] == ["alive"])
+            ctx.check(f"dead pid removed from the file at once, got {ids}", ids == {"alive", "deadsock"})
+            later = registry.time.time() + registry.UNREACHABLE_PRUNE_S + 1
+            ctx.check("30 s of refusals later only the live one is listed",
+                      [r["session_id"] for r in registry.list_live(now=later)] == ["alive"])
+            ids = {r["session_id"] for r in json.loads(registry.registry_path().read_text("utf-8"))["sessions"]}
+            ctx.check(f"and the file keeps only the live one, got {ids}", ids == {"alive"})
             ctx.check("endpoint_for finds the live one", registry.endpoint_for("alive") == live.endpoint)
         finally:
             registry.pid_alive = real
@@ -198,6 +203,97 @@ def test_title_and_mode_refresh_and_cli(ctx: Ctx):
         with contextlib.redirect_stdout(buf):
             main(["remote", "sessions"])
         ctx.check("after quit the session is gone from the listing", sid[:8] not in buf.getvalue())
+
+
+class _Probe:
+    """client.probe stand-in: answers from `answers` in turn, then `rest`."""
+
+    def __init__(self, answers=(), rest=True):
+        from halo_harness.remote import client
+        self.client, self.real, self.answers, self.rest = client, client.probe, list(answers), rest
+        client.probe = self
+
+    def __call__(self, endpoint, *a, **kw):
+        return self.answers.pop(0) if self.answers else self.rest
+
+    def close(self):
+        self.client.probe = self.real
+
+
+def _file_rows():
+    from halo_harness.remote import registry
+    return {r["session_id"]: r for r in json.loads(registry.registry_path().read_text("utf-8"))["sessions"]}
+
+
+@test
+def test_one_failed_probe_keeps_the_row_and_marks_it(ctx: Ctx):
+    """3.6.0.4 S1: one refused connect (a full accept queue) pruned a running session's row for good and Studio lost
+    it. Now the row stays, listed, with `unreachable_since`; the next good probe clears the mark."""
+    from halo_harness.remote import registry
+    with _Home():
+        lst = _Listener()
+        probe = _Probe(answers=[False])
+        try:
+            registry.register(_entry("s1", lst.endpoint))
+            got = registry.list_live()  # as every caller calls it
+            ctx.check(f"one failed probe: still listed, got {[r['session_id'] for r in got]}",
+                      [r["session_id"] for r in got] == ["s1"])
+            since = got[0].get("unreachable_since")
+            ctx.check(f"the listed row carries the first failure's time, got {since}", isinstance(since, float))
+            ctx.check("and so does the file", _file_rows().get("s1", {}).get("unreachable_since") == since)
+            got = registry.list_live()
+            ctx.check("the next good probe lists it without the mark",
+                      [r["session_id"] for r in got] == ["s1"] and "unreachable_since" not in got[0])
+            ctx.check("and the file loses the mark", "unreachable_since" not in _file_rows()["s1"])
+        finally:
+            probe.close()
+            lst.close()
+
+
+@test
+def test_failing_for_30_s_prunes_and_every_reader_counts_from_the_first_failure(ctx: Ctx):
+    from halo_harness.remote import registry
+    with _Home():
+        lst = _Listener()
+        probe = _Probe(rest=False)
+        real_alive = registry.pid_alive
+        registry.pid_alive = lambda pid: pid != 424242
+        try:
+            registry.register(_entry("hung", lst.endpoint))
+            registry.register(_entry("deadpid", lst.endpoint, pid=424242))
+            got = [r["session_id"] for r in registry.list_live(now=1000.0)]
+            ctx.check(f"a dead pid leaves at once, a refused one stays, got {got}", got == ["hung"])
+            ctx.check("the dead pid's row is gone from the file", set(_file_rows()) == {"hung"})
+            other = registry.list_live(now=1010.0)  # another process's reader, its own clock
+            ctx.check(f"a second reader keeps the first failure's time, got {other[0].get(registry.UNREACHABLE)}",
+                      other[0].get(registry.UNREACHABLE) == 1000.0
+                      and _file_rows()["hung"].get(registry.UNREACHABLE) == 1000.0)
+            ctx.check("29.9 s of failures: still listed",
+                      [r["session_id"] for r in registry.list_live(now=1029.9)] == ["hung"])
+            ctx.check("30 s of failures without one success: gone", registry.list_live(now=1030.0) == [])
+            ctx.check("and gone from the file", _file_rows() == {})
+        finally:
+            registry.pid_alive = real_alive
+            probe.close()
+            lst.close()
+
+
+@test
+def test_a_missing_socket_file_prunes_at_once(ctx: Ctx):
+    from halo_harness.remote import registry
+    with _Home():
+        probe = _Probe(rest=False)
+        try:
+            base = Path(os.environ["BRIDGE_TEST_HOME"])
+            there = base / "there.ctl"
+            there.write_text("", encoding="utf-8")  # a file that refuses connects: "not answering now"
+            registry.register(_entry("gone", f"unix:{base / 'gone.ctl'}"))
+            registry.register(_entry("there", f"unix:{there}"))
+            got = [r["session_id"] for r in registry.list_live(now=1000.0)]
+            ctx.check(f"the row whose socket file is gone leaves at once, got {got}", got == ["there"])
+            ctx.check("and leaves the file", set(_file_rows()) == {"there"})
+        finally:
+            probe.close()
 
 
 if __name__ == "__main__":

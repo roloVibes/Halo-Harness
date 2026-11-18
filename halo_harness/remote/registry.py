@@ -14,9 +14,10 @@ round (reserved for a token handed over through the environment).
 Written atomically (temp file + `os.replace` through
 `privateio.write_private_atomic`) under the `filelock.py` best-effort lock,
 so two halo processes registering at once keep both entries. `list_live`
-drops (and removes from the file) entries whose pid is gone or whose
-endpoint refuses a connect probe, so a crashed process never leaves a
-stale row behind.
+drops (and removes from the file) entries whose pid is gone or whose socket
+file is gone, so a crashed process never leaves a stale row behind; a
+refused connect probe only marks the row `unreachable_since` (3.6.0.4) and
+it leaves after UNREACHABLE_PRUNE_S of failures without one success.
 """
 
 from __future__ import annotations
@@ -41,6 +42,8 @@ FIELDS = ("session_id", "cwd", "pid", "endpoint", "token_env", "started", "title
           "follows", "first_words")  # 3.6.0.2 P16: the id this row took over from; P70: its first prompt's words
 PUBLIC = ("session_id", "title", "cwd", "mode", "kind", "started", "pid", "harness", "project", "parent",
           "mission", "part", "follows", "first_words")
+UNREACHABLE = "unreachable_since"  # 3.6.0.4: the first failed probe's time (time.time) in a run of failures
+UNREACHABLE_PRUNE_S = 30.0  # probes failing this long without one success: the row leaves
 FIRST_WORDS = 6  # 3.6.0.2 P70: the first six words of the first user message,
 FIRST_WORDS_CAP = 60  # at most 60 characters
 
@@ -135,26 +138,52 @@ def pid_alive(pid) -> bool:
     return pid_running(pid)
 
 
-def _entry_alive(entry: dict) -> bool:
+def _socket_file_gone(endpoint: str) -> bool:
+    """3.6.0.4: a `unix:` endpoint whose socket file is not there any more can never answer again."""
+    return endpoint.startswith("unix:") and bool(endpoint[5:]) and not os.path.lexists(endpoint[5:])
+
+
+def _entry_alive(entry: dict, now: float) -> bool:
+    """3.6.0.4: a refused connect means "not answering now", never "dead" (one refused probe while the session's
+    accept queue was full pruned its row for good: Studio lost a running terminal session). A row leaves only when its
+    pid is not running, its socket file is gone, or its probes have failed for UNREACHABLE_PRUNE_S without one success;
+    the first failure's time rides in the row (UNREACHABLE) so every process reading the file counts from it."""
     pid = entry.get("pid")
     if isinstance(pid, int) and not pid_alive(pid):
         return False
-    return client.probe(str(entry.get("endpoint") or ""))
+    endpoint = str(entry.get("endpoint") or "")
+    if client.probe(endpoint):
+        entry.pop(UNREACHABLE, None)
+        return True
+    if _socket_file_gone(endpoint):
+        return False
+    since = entry.get(UNREACHABLE)
+    if not isinstance(since, (int, float)) or isinstance(since, bool):
+        entry[UNREACHABLE] = now
+        return True
+    return now - since < UNREACHABLE_PRUNE_S
 
 
-def list_live() -> list:
-    """Every registered session still reachable; dead ones are pruned from
-    the file. Entries are returned whole (a `token` included -- callers that
-    print must leave it out)."""
+def list_live(now: Optional[float] = None) -> list:
+    """Every registered session not known dead; dead ones are pruned from the file, and a row whose probe failed
+    carries `unreachable_since` (the first failure's time) until a probe succeeds. Entries are returned whole (a
+    `token` included -- callers that print must leave it out). `now` is the tests' clock (time.time by default)."""
     path = registry_path()
     if not path.exists():
         return []
+    now = time.time() if now is None else now
     with file_lock(path, timeout=LOCK_S):
         rows = _load(path)
-        live = [r for r in rows if _entry_alive(r)]
-        if len(live) != len(rows):
+        before = json.dumps(rows, sort_keys=True)
+        live = [r for r in rows if _entry_alive(r, now)]
+        if json.dumps(live, sort_keys=True) != before:
             _write(path, live)
     return live
+
+
+def listed(session_id: str) -> bool:
+    """3.6.0.4: is this id's row in the file? One plain read, no lock, no probe (a session asks it of itself)."""
+    return any(r.get("session_id") == session_id for r in _load(registry_path()))
 
 
 def entry_for(session_id: str) -> Optional[dict]:

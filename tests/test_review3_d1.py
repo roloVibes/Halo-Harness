@@ -40,7 +40,8 @@ def test_item28_child_status_never_rekeys_the_registry(ctx: Ctx):
     from halo_harness.remote import agent_frames, registry, runtime
     calls: list = []
     saved = (list(runtime._actives), registry.register, registry.unregister, registry.update,
-             agent_frames.registry_frame)
+             agent_frames.registry_frame, registry.listed)
+    registry.listed = lambda sid: True  # 3.6.0.4: the row is in the file (register is a stub here), nothing to put back
     registry.register = lambda e: calls.append(("register", e["session_id"]))
     registry.unregister = lambda sid: calls.append(("unregister", sid))
     registry.update = lambda sid, **f: calls.append(("update", sid, f)) or True
@@ -68,7 +69,8 @@ def test_item28_child_status_never_rekeys_the_registry(ctx: Ctx):
                   calls[1:] == [("register", "forked-sid"), ("unregister", "parent-sid")])
     finally:
         runtime._actives[:] = saved[0]
-        registry.register, registry.unregister, registry.update, agent_frames.registry_frame = saved[1:]
+        (registry.register, registry.unregister, registry.update, agent_frames.registry_frame,
+         registry.listed) = saved[1:]
 
 
 # ---- item 29 -------------------------------------------------------------------

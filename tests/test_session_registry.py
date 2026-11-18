@@ -180,6 +180,54 @@ def test_print_mode_shutdown_ends_its_input_and_the_wire_lists_the_commands(ctx:
                                             "shutdown", "agent_follow"} <= set(CMDS))
 
 
+def _rows():
+    from halo_harness.remote import registry
+    return {r["session_id"]: r for r in registry._load(registry.registry_path())}
+
+
+@test
+def test_a_session_puts_its_missing_row_back_and_an_ended_one_never_does(ctx: Ctx):
+    """3.6.0.4 S3: a session whose row left the file (an older Halo's list_live after one refused probe, or 30 s of
+    a paused terminal) was gone from Studio until /clear. It puts its own row back at its next status event (at most
+    one file read a second, no thread of its own); a session that has ENDED never writes it back."""
+    from halo_harness.events import Event
+    from halo_harness.remote import runtime
+    from halo_harness.remote import registry
+    with SessionRig() as rig:
+        clock = [1000.0]
+        real_clock = getattr(runtime, "_clock", None)
+        runtime._clock = lambda: clock[0]
+        try:
+            act = runtime.start_for_controller(_fake_controller(rig))
+            sid = act.session_id
+            first = dict(_rows()[sid])
+
+            def status():
+                act.handle.hub.publish(Event("status", {"session_id": act.session_id, "permission_mode": act.mode}))
+            registry.unregister(sid)  # what a 3.6.0.3 reader did after one refused probe
+            status()
+            back = _rows().get(sid)
+            ctx.check(f"the row is back after the next status event, got {back and sorted(back)}", back is not None
+                      and all(back.get(k) == first.get(k) for k in ("session_id", "pid", "endpoint", "started")))
+            registry.unregister(sid)
+            clock[0] += 0.5
+            status()
+            ctx.check("within the same second no second read: still missing", sid not in _rows())
+            clock[0] += 1.0
+            status()
+            ctx.check("a second later it is back", sid in _rows())
+            runtime.stop_one(act)
+            ctx.check("an ended session's row leaves", sid not in _rows())
+            clock[0] += 5.0
+            status()
+            ctx.check("and an ended session never writes it back", sid not in _rows())
+        finally:
+            if real_clock is not None:
+                runtime._clock = real_clock
+            else:
+                del runtime._clock
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

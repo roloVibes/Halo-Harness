@@ -260,7 +260,7 @@ class ControlServer:
         if os.name == "nt":
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.bind((LOOPBACK, 0))
-            sock.listen(8)
+            sock.listen(socket.SOMAXCONN)  # 3.6.0.4: a burst of probes against a lagging accept loop queues
             self.port = sock.getsockname()[1]
             self.token = secrets.token_hex(16)
             self.endpoint = f"tcp:{LOOPBACK}:{self.port}"
@@ -279,7 +279,7 @@ class ControlServer:
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             try:
                 sock.bind(str(bind_path))
-                sock.listen(8)  # at once: a bound socket that refuses connects reads as stale to a sibling's sweep
+                sock.listen(socket.SOMAXCONN)  # at once: a bound socket that refuses connects reads as stale to a sibling's sweep
                 os.chmod(bind_path, 0o600)
                 if pointer is not None:
                     from halo_harness.privateio import write_private_atomic

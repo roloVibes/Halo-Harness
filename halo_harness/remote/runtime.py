@@ -24,6 +24,8 @@ _private_flag: Optional[bool] = None  # /private on|off in this process; None: -
 _atexit_registered = False
 _last_error: Optional[str] = None  # R12: why the last open failed, one plain line (None after a success)
 log = logging.getLogger(__name__)
+LISTED_CHECK_S = 1.0  # 3.6.0.4: a session reads sessions.json for its own row at most this often
+_clock = time.monotonic  # the tests' clock for that
 control_enabled, remote_enabled = FI.control_enabled, FI.remote_enabled
 
 
@@ -42,6 +44,7 @@ class Active:
     entry: dict = field(default_factory=dict)
     reopen: Optional[Callable] = None
     listener: Optional[Callable] = None
+    listed_at: float = float("-inf")  # 3.6.0.4: when _keep_listed last read the file (by _clock)
 
     @property
     def endpoint(self) -> str:
@@ -141,6 +144,27 @@ def _watch_status(act: Active, ev) -> None:
     elif mode and mode != act.mode:
         act.mode = act.entry["mode"] = str(mode)
         registry.update(act.session_id, mode=act.mode)
+    _keep_listed(act)
+
+
+def _keep_listed(act: Active) -> None:
+    """3.6.0.4: a session whose row left sessions.json (an older Halo pruned it after one refused probe, or its probes
+    failed for 30 s while the terminal was paused) puts the row back here, at a status event it publishes anyway: no
+    thread, no timer, at most one file read per LISTED_CHECK_S. Checked and written under `_lock`, so a session that
+    has ended (stop_one took it out of `_actives` first) never writes its row back."""
+    now = _clock()
+    if now - act.listed_at < LISTED_CHECK_S:
+        return
+    act.listed_at = now
+    from halo_harness.remote import registry
+    try:
+        if registry.listed(act.session_id):
+            return
+        with _lock:
+            if act in _actives:
+                registry.register(dict(act.entry))
+    except Exception:
+        log.debug("could not put the session's registry row back", exc_info=True)
 
 
 def _logged_first_words(handle) -> str:

@@ -181,6 +181,23 @@ def _deep_home() -> Path:
 
 
 @test
+def test_a_burst_of_connects_queues_while_the_accept_loop_waits(ctx: Ctx):
+    """3.6.0.4 S2: the socket listened with a backlog of 8, so while its accept loop lagged a burst of Studio's
+    probes was refused at once (and one refused probe pruned the session's row). It listens with SOMAXCONN now.
+    The accept loop is held on the server's own lock (after its first accept); refusals are counted, never timed."""
+    from halo_harness.remote.client import probe
+    with Rig() as rig:
+        server = rig.server
+        server._lock.acquire()
+        try:
+            refused = sum(1 for _ in range(40) if not probe(server.endpoint, timeout=2.0))
+        finally:
+            server._lock.release()
+        ctx.check(f"40 connects while the accept loop waits: none refused, got {refused} refused", refused == 0)
+        ctx.check("the server still answers afterwards", probe(server.endpoint, timeout=5.0))
+
+
+@test
 def test_a_deep_home_still_opens_its_control_socket(ctx: Ctx):
     """3.6.0.0 R12: on an Apple silicon Mac a session under /var/folders/.../T/... got no control socket (AF_UNIX path
     too long) and some sixty tests failed behind it. Every platform: a deep home still gives a session its socket."""

@@ -71,6 +71,23 @@ def served(rig, sid: str) -> dict:
             "busy": rows[0].get("busy") if rows else None, "map": rows[0].get("map") if rows else None}
 
 
+def registry_facts(sid: str) -> dict:
+    """3.6.0.4 S4, for a timeout message only (never in a polling loop: a probe is a connect to the session): the ids of
+    the rows in sessions.json, the session's row's `unreachable_since`, and one timed connect probe of its endpoint.
+    "not in file_rows" = the row left the registry; "in file_rows, probe False" = its accept queue is still full."""
+    try:
+        from halo_harness.remote import client, registry, runtime
+        rows = registry._load(registry.registry_path())
+        row = next((r for r in rows if r.get("session_id") == sid), {})
+        endpoint = row.get("endpoint") or next((a.endpoint for a in runtime.actives() if a.session_id == sid), "")
+        t0 = time.monotonic()
+        ok = client.probe(endpoint) if endpoint else None
+        return {"file_rows": [r.get("session_id") for r in rows], "unreachable_since": row.get("unreachable_since"),
+                "probe": ok, "probe_ms": round((time.monotonic() - t0) * 1000)}
+    except Exception as e:  # the message must still be raised
+        return {"error": f"{type(e).__name__}: {e}"[:160]}
+
+
 # 3.6.0.3 S: what the page held when a drawing did not draw (a macOS runner waited 40 s for five boxes on both drawings,
 # from Session's `below` step on, and got none; not reproduced on the Linux VM under CPU throttling 20, two copies at
 # once, a late feed and a slow session socket): shown, focused, its size, the drawing's frame and world, its boxes
@@ -95,7 +112,8 @@ def open_where(c, rig, lv, where: str) -> None:
         time.sleep(0.25)
         got = served(rig, lv.sid)
     if not (got.get("main") and got.get("agents", 0) >= 5):
-        raise TimeoutError(f"waited 40s for the server to list the session's agents (main and five more) on GET live, it answers {got}")
+        raise TimeoutError(f"waited 40s for the server to list the session's agents (main and five more) on GET live, it answers "
+                           f"{got}; the registry {registry_facts(lv.sid)}")
     boot_go(c, url(rig, f"mode=session&session={lv.sid}&open=session-map") if where == "session" else rig.url("agents", "&view=live"))
     page = PAGE.replace("$ROOT", ROOT[where]).replace("$WORLD", WORLD[where])
     for what, expr in ((f"the page to show the {where} drawing's frame", f"!!document.querySelector('{ROOT[where]}')"),
@@ -104,7 +122,8 @@ def open_where(c, rig, lv, where: str) -> None:
         try:
             c.wait(expr, max(1.0, end - time.monotonic()))
         except TimeoutError:
-            raise TimeoutError(f"waited 40s for {what}: the page {c.js(page)}; the server {served(rig, lv.sid)}") from None
+            raise TimeoutError(f"waited 40s for {what}: the page {c.js(page)}; the server {served(rig, lv.sid)}; "
+                               f"the registry {registry_facts(lv.sid)}") from None
     c.mouse("mouseMoved", 2, 890)  # the pointer off the drawing (R12 holds it still under the pointer)
 
 

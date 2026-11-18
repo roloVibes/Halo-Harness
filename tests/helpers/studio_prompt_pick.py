@@ -233,6 +233,42 @@ def follow_and_end(c, rig) -> dict:
     return {"pick": out}
 
 
+def one_refused_connect(c, rig) -> dict:
+    """3.6.0.4 S4: every row's next connect probe is refused ONCE (what a full accept queue does on a loaded machine),
+    then Studio reads GET live: the picked session stays listed, the box editable with its text, never the ended line.
+    Before 3.6.0.4 that one refusal pruned the row for good and the box went read-only ("ended")."""
+    from halo_harness.remote import client, registry
+    from halo_harness.studio.events import bridge_for
+    out: dict = {"picked": _session_is(c, rig.sid), "box_before": c.js(f"{INPUT}.value")}
+    c.js(WATCH_ENDED)
+    real, left = client.probe, [len(registry._load(registry.registry_path()))]
+
+    def refused_once(endpoint, *a, **kw):
+        if left[0] > 0:
+            left[0] -= 1
+            return False
+        return real(endpoint, *a, **kw)
+    client.probe = refused_once
+    try:
+        b = bridge_for(rig.server)
+        b.publish(b._sessions_frame())  # the page reads GET live on it
+        end = time.monotonic() + 25
+        while left[0] > 0 and time.monotonic() < end:
+            time.sleep(0.1)
+        out["refusals_used"] = left[0] == 0
+        time.sleep(1.5)  # past local_view's 1 s cache
+        b.publish(b._sessions_frame())
+        time.sleep(3.0)
+    finally:
+        client.probe = real
+    row = next((r for r in registry._load(registry.registry_path()) if r.get("session_id") == rig.sid), None)
+    box = f"({INPUT} || null)"  # the box itself may be gone (a red run): say so, never raise
+    out.update(listed=row is not None, ended_seen=c.js("window.__ended"), box=c.js(f"{box} && {box}.value"),
+               editable=c.js(f"!!{box} && !{box}.readOnly && !{box}.disabled"), ended_gone=c.js(f"!{ENDED}"),
+               box_shown=c.js(f"!!{box}"))
+    return {"refused": out}
+
+
 class PromptPickDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -242,7 +278,8 @@ class PromptPickDriver(Driver):
         with PromptRig() as rig:
             rig.extra = []
             try:
-                yield ((opened, (c, rig)), (header, (c, rig)), (change, (c, rig)), (follow_and_end, (c, rig)))
+                yield ((opened, (c, rig)), (header, (c, rig)), (change, (c, rig)), (follow_and_end, (c, rig)),
+                       (one_refused_connect, (c, rig)))
             finally:
                 from halo_harness.remote import registry
                 for sid in rig.extra:

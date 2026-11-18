@@ -270,6 +270,19 @@ def test_clear_in_the_terminal_never_shows_ended(ctx: Ctx):
 
 
 @test
+def test_one_refused_connect_keeps_the_box_editable(ctx: Ctx):
+    """3.6.0.4 S4: one refused connect to the picked session (a full accept queue on a loaded machine) pruned its row
+    for good: the box went read-only, "ended", while the terminal went on. Now the row stays and the box with it."""
+    r = _pick(ctx).get("refused") or {}
+    ctx.check(f"the refused connects were used by Studio's read, got {r}", r.get("picked") is True and r.get("refusals_used") is True)
+    ctx.check(f"the session's row is still in the registry, got {r.get('listed')}", r.get("listed") is True)
+    ctx.check(f"the ended line never showed, got {r.get('ended_seen')} {r.get('ended_gone')}",
+              r.get("ended_seen") == 0 and r.get("ended_gone") is True)
+    ctx.check(f"the box keeps its text and stays editable, got {r.get('box_before')!r} -> {r.get('box')!r} {r.get('editable')}",
+              r.get("box") == r.get("box_before") == "a draft he keeps" and r.get("editable") is True)
+
+
+@test
 def test_ended_session_keeps_text_read_only(ctx: Ctx):
     """P32: the picked session ends, nothing follows: read-only with its text, the line, Copy -> `Copied.` for 2 s with
     the text on the clipboard; picking another session makes the box editable with the same text."""
