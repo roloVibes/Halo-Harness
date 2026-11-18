@@ -66,7 +66,8 @@ def skipped_jobs(*, macos: "bool | None" = None, realcheck: "bool | None" = None
 
 def head_sha(repo_dir: Path) -> str:
     """HEAD of `repo_dir` (read-only, local)."""
-    r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo_dir), capture_output=True, text=True)
+    r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo_dir), capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
     sha = (r.stdout or "").strip()
     if r.returncode != 0 or len(sha) < 40:
         raise GateError(f"could not read HEAD in {repo_dir}: {(r.stderr or '').strip()[:200]}")
@@ -75,7 +76,8 @@ def head_sha(repo_dir: Path) -> str:
 
 def _gh(run_fn: Callable, args: list, repo_dir: Path, want_json: bool = True):
     try:
-        r = run_fn(["gh", *args], cwd=str(repo_dir), capture_output=True, text=True, check=False)
+        r = run_fn(["gh", *args], cwd=str(repo_dir), capture_output=True, text=True, check=False,
+                   encoding="utf-8", errors="replace")
     except FileNotFoundError:
         raise GateError("the CI gate needs the `gh` CLI on PATH (logged in to github.com)")
     except subprocess.SubprocessError as e:

@@ -34,7 +34,9 @@ import os
 import shutil
 import subprocess
 import sys
+import re
 import tempfile
+import time
 import traceback
 from contextlib import contextmanager
 from pathlib import Path
@@ -144,6 +146,62 @@ def emulate_motion(c, value: str = "no-preference") -> None:
     c.call("Emulation.setEmulatedMedia", media="", features=[{"name": "prefers-reduced-motion", "value": value}])
 
 
+#: 3.6.0.4 S batch 2: how long a close waits for the processes of its own Chrome to go before it ends them by pid
+CLOSE_BOUND_S = 10.0
+
+
+def _scan_all() -> dict:
+    from tests.helpers.leftovers import scan
+    return scan(lambda _pid, _start: True)
+
+
+def _end_by_pid(p) -> bool:
+    from tests.helpers.leftovers import end_one
+    return end_one(p)
+
+
+_clock, _sleep = time.monotonic, time.sleep
+
+
+def _carries_profile(cmd: str, profile: str) -> bool:
+    """`cmd` holds `--user-data-dir=<a folder named as profile's last segment>` (quoted or not, any slashes; the
+    folder name is mkdtemp's, unique; a parent folder may be written in its short or long form)."""
+    name = os.path.basename(os.path.normpath(profile))
+    flags = re.IGNORECASE if os.name == "nt" else 0
+    pattern = re.compile(r"(?:^|[\\/=])" + re.escape(name) + r"(?=$|[\s\"'])", flags)
+    for part in (cmd or "").split("--user-data-dir=")[1:]:
+        if pattern.search(part.split(" --", 1)[0].strip()):
+            return True
+    return False
+
+
+def end_profile_processes(profile: str, *, bound_s: "float | None" = None, scan=None, end=None, clock=None,
+                          sleep=None) -> list:
+    """3.6.0.4 S batch 2: every process whose command line carries THIS driver's throwaway `--user-data-dir` (the
+    browser and its helpers: a utility, the crash handler) is gone when this returns. Waits up to CLOSE_BOUND_S for
+    them to go by themselves, then ends by pid (its start time matched, tests/helpers/leftovers.end_one) each still
+    there, the newest first. Never by name, never another profile's Chrome. Returns the processes it ended."""
+    scan, end = scan or _scan_all, end or _end_by_pid
+    clock, sleep = clock or _clock, sleep or _sleep
+    deadline = clock() + (CLOSE_BOUND_S if bound_s is None else bound_s)
+    me = os.getpid()
+
+    def mine() -> list:
+        try:
+            table = scan()
+        except OSError:  # no look at the table this time: tests/run_all.py's leftover check still names what is left
+            return []
+        return [p for p in table.values() if p.pid != me and _carries_profile(p.cmd, profile)]
+
+    left = mine()
+    while left and clock() < deadline:
+        sleep(0.25)
+        left = mine()
+    for p in sorted(left, key=lambda p: p.start, reverse=True):
+        end(p)
+    return left
+
+
 def one_shot(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
     """One `--dump-dom` / `--screenshot` run of headless Chrome under the lock
     (a throwaway profile); None without Chrome. Output decoded as utf-8."""
@@ -158,6 +216,7 @@ def one_shot(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | No
             return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout,
                                   env=rig_browser_env())
         finally:
+            end_profile_processes(profile)  # 3.6.0.4 S batch 2: its helpers too, before the lock goes
             shutil.rmtree(profile, ignore_errors=True)
 
 

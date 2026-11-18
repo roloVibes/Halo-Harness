@@ -711,6 +711,54 @@ def test_a_release_starts_from_origin_master_and_refuses_a_foreign_branch(ctx: C
               rc == 1 and "exists but is not the version commit" in err and "git branch -D rc/9.9.9" in err)
 
 
+# 3.6.0.4 S batch 2: the release of 3.6.0.3 died on its resume on Windows -- `git show rc/<v>:CHANGELOG.md` was decoded
+# with the locale's code page (cp1252), which has no byte 0x9d of the terminal's prompt glyph (U+276F).
+_CP1252_CHILD = r"""
+import importlib.util, json, locale, sys
+locale.getencoding = lambda: "cp1252"            # what a Windows console's Python decodes a pipe with
+locale.getpreferredencoding = lambda do_setlocale=True: "cp1252"
+spec = importlib.util.spec_from_file_location("halo_release_script", sys.argv[1])
+release = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(release)
+from pathlib import Path
+repo = Path(sys.argv[2])
+out = {}
+try:
+    out["state"] = list(release.candidate_state("9.9.9", repo))
+    out["changelog"] = release._git_out(repo, "show", "rc/9.9.9:CHANGELOG.md")
+except Exception as e:
+    out["error"] = f"{type(e).__name__}: {e}"
+print(json.dumps(out))
+"""
+
+
+@test
+def test_the_resume_reads_a_non_ascii_changelog_through_git_as_utf8_whatever_the_code_page(ctx: Ctx):
+    import json
+    from tests.helpers.fake_gh import FakeGh
+    repo = _scratch_repo("9.9.9")
+    glyph = "❯"  # bytes E2 9D AF; cp1252 has no 0x9d
+    log = (repo / "CHANGELOG.md").read_text(encoding="utf-8")
+    log = log.replace("- Nothing interesting yet.", f"- Type at the {glyph} prompt; café, naïve, — dashes.")
+    (repo / "CHANGELOG.md").write_text(log, encoding="utf-8")
+    _g(repo, "commit", "-qam", "a changelog with the prompt glyph")
+    _g(repo, "push", "-q", "origin", "master")
+    rc, _o, err = _release(repo, FakeGh(conclusions={"suites (windows, py3.12, shard 2/4)": "failure"}))
+    ctx.check(f"1st run, red gate: exit 1, rc/9.9.9 holds the version commit, got {rc} {err!r}",
+              rc == 1 and _g(repo, "rev-parse", "rc/9.9.9") != "")
+    # The read runs in a child Python with UTF-8 mode OFF (CI sets PYTHONUTF8=1) and the locale's encoding forced to
+    # cp1252, so the child decodes a pipe as a Windows console's Python does, on every platform.
+    child = subprocess.run([sys.executable, "-X", "utf8=0", "-c", _CP1252_CHILD,
+                            str(REPO_DIR / "scripts" / "release.py"), str(repo)],
+                           capture_output=True, encoding="utf-8", errors="replace", timeout=120)
+    lines = (child.stdout or "").strip().splitlines()
+    got = json.loads(lines[-1]) if lines and lines[-1].startswith("{") else {"error": (child.stderr or "")[-400:]}
+    ctx.check(f"the resume's own read succeeds under cp1252: (True, <rc sha>), got {got}",
+              got.get("state") == [True, _g(repo, "rev-parse", "rc/9.9.9")])
+    ctx.check(f"git's UTF-8 text comes through whole, the glyph included, got {str(got)[:300]}",
+              f"Type at the {glyph} prompt; café, naïve" in (got.get("changelog") or ""))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

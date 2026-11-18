@@ -231,22 +231,43 @@ def test_bootstrap_connects_multiple_uncached_lazy_servers_in_parallel_not_seria
     own connect time. It now shares `start_all()`'s concurrent-gather
     machinery (`McpManager.start_many`), so 3 slow ones should finish in
     roughly ONE slow-start's worth of wall clock, not three (same shape as
-    `test_mcp_manager.py::test_h9_ensure_lazy_started_all_starts_targets_in_parallel`)."""
-    import time
+    `test_mcp_manager.py::test_h9_ensure_lazy_started_all_starts_targets_in_parallel`).
+    3.6.0.4 S batch 2: proved by OVERLAP, never by seconds (a starved macOS runner took 4.17 s while the connects
+    still overlapped): each handle's own connect counts itself in flight; parallel means all 3 were in flight at
+    once, one after another means never more than 1."""
+    import threading
     from halo_harness.mcp_setup import bootstrap_lazy_from_cache
     with _isolated_state_dir():
         names = ["slowA", "slowB", "slowC"]
         configs = {n: _fake_cfg(n, lazy=True, extra_env={"FAKE_MCP_MODE": "slow", "FAKE_MCP_SLEEP_S": "1.5"})
                    for n in names}
         mgr = M.McpManager(configs, tool_env=dict(os.environ), cwd=REPO_DIR, lazy_names=set(names))
+        lock, flight = threading.Lock(), {"now": 0, "peak": 0, "began": 0}
+
+        def _counted(connect):
+            async def _connect_once() -> None:
+                with lock:
+                    flight["now"] += 1
+                    flight["began"] += 1
+                    flight["peak"] = max(flight["peak"], flight["now"])
+                try:
+                    await connect()
+                finally:
+                    with lock:
+                        flight["now"] -= 1
+            return _connect_once
+
+        for n in names:
+            h = mgr.handles[n]
+            h._connect_once = _counted(h._connect_once)  # the one connect both the parallel and the serial path await
         try:
             mgr.start_all()  # no-op: all 3 are lazy
-            t0 = time.monotonic()
             bootstrap_lazy_from_cache(mgr, configs, set(names))
-            elapsed = time.monotonic() - t0
             states = [mgr.handles[n].state for n in names]
             ctx.check(f"all 3 connected, got {states}", states == ["connected"] * 3)
-            ctx.check(f"parallel (~1.5s), not serial (~4.5s) -- took {elapsed:.2f}s", elapsed < 4.0)  # 4.0: hosted CI runners took 3.02s
+            ctx.check(f"each server connected once, got {flight['began']}", flight["began"] == 3)
+            ctx.check(f"in parallel: all 3 connects were in flight at the same time (one after another peaks at 1), "
+                      f"got a peak of {flight['peak']}", flight["peak"] == 3)
         finally:
             mgr.close_all()
 

@@ -312,6 +312,9 @@ class Chrome:
                         self.proc.wait(timeout=10)
                     except Exception:
                         pass
+                # 3.6.0.4 S batch 2: its helpers (a utility, the crash handler) end too before close() returns
+                from tests.helpers.chrome_driver import end_profile_processes
+                end_profile_processes(self.profile)
             shutil.rmtree(self.profile, ignore_errors=True)
         finally:
             self._release()

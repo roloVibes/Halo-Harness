@@ -96,7 +96,8 @@ def dirty_files(repo_dir: Path = REPO_DIR, paths=_DIRTY_PATHS) -> "list[str]":
     does. Includes untracked files (git's own default), so a brand-new,
     never-added file under one of these roots refuses too."""
     result = subprocess.run(["git", "status", "--porcelain", "--", *paths],
-                             cwd=str(repo_dir), capture_output=True, text=True, check=True)
+                             cwd=str(repo_dir), capture_output=True, text=True, check=True,
+                             encoding="utf-8", errors="replace")
     return [line[3:] for line in result.stdout.splitlines() if line.strip()]
 
 
@@ -229,8 +230,10 @@ def dated_section_body(version: str, repo_dir: Path = REPO_DIR) -> str:
 
 def _git_out(repo_dir: Path, *args: str) -> "Optional[str]":
     """A read-only git question, asked for real (local only); None when git says no."""
-    r = subprocess.run(["git", *args], cwd=str(repo_dir), capture_output=True, text=True)
-    return r.stdout.strip() if r.returncode == 0 else None
+    # git writes UTF-8; without an encoding Windows decodes the pipe as cp1252 and a resume died on the prompt glyph
+    r = subprocess.run(["git", *args], cwd=str(repo_dir), capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    return r.stdout.strip() if r.returncode == 0 and isinstance(r.stdout, str) else None
 
 
 def _rev(repo_dir: Path, ref: str) -> "Optional[str]":
@@ -302,7 +305,7 @@ def git_credential_token(repo_dir: Path = REPO_DIR, *, run_fn: "Optional[Callabl
     quiet_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "true", "SSH_ASKPASS": "true"}
     try:
         result = run_fn(["git", "credential", "fill"], cwd=str(repo_dir), capture_output=True, text=True,
-                         input="protocol=https\nhost=github.com\n\n", check=False,
+                         encoding="utf-8", errors="replace", input="protocol=https\nhost=github.com\n\n", check=False,
                          env=quiet_env, timeout=10)
     except Exception:  # includes subprocess.TimeoutExpired
         return None
@@ -390,7 +393,7 @@ def publish_github_release(version: str, notes: str, *, repo_dir: Path = REPO_DI
         os.chmod(cfg_path, 0o600)
         created = run_fn(["curl", "-sS", "-f", "-K", cfg_path, "-X", "POST", url,
                           "-H", "Accept: application/vnd.github+json", "-d", payload],
-                         check=True, capture_output=True, text=True)
+                         check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
         # 2.0.6 round 8: upload the artifact + checksums to the release we
         # just made -- the release's numeric id comes from that same response
         # (the upload endpoint needs it). Unparseable response -> the release
