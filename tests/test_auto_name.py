@@ -853,6 +853,170 @@ def test_starter_absent_from_docs_and_shipped_comments(ctx: Ctx):
     ctx.check(f"a shipped file's first line, got {first!r}", first == "# Ships with Halo (3.6.0.0): read-only; Copy makes yours.")
 
 
+# --- batch 6 entry 2 (A9, A10, A16): the scans that keep "starter" away from him -------------------------------------
+
+LINEUP = "The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose yourself."
+PLAIN_FIXTURE_SHA = "289547bec4e6b518aec8c25b8bf21d0e8ad82ad4fcb27ea99588c9971d854d2c"  # map_facts_plain_requests.json at 3.6.0.4
+
+
+def _said(fn, *a) -> str:
+    """What `fn(*a)` prints on stdout and stderr; argparse's exit (a --help) ends it."""
+    from contextlib import redirect_stderr
+    buf = io.StringIO()
+    with redirect_stdout(buf), redirect_stderr(buf):
+        try:
+            fn(*a)
+        except SystemExit:
+            pass
+    return buf.getvalue()
+
+
+def _with_starter(said: dict) -> list:
+    return [f"{k}: {v!r}" for k, v in said.items() if "starter" in str(v).lower()]
+
+
+def _api_words(v, key: str = "") -> list:
+    """Every string value of an API answer, except the `scope` VALUE (a code word); JSON field names are not read."""
+    if isinstance(v, dict):
+        return [w for k, x in v.items() if k != "scope" for w in _api_words(x, k)]
+    if isinstance(v, list):
+        return [w for x in v for w in _api_words(x, key)]
+    return [v] if isinstance(v, str) else []
+
+
+@test
+def test_starter_absent_from_terminal_output(ctx: Ctx):
+    """A9: nothing the terminal prints, no `halo` command's output or help, no tool result and nothing the Builder's model
+    is given says "starter"; it reaches him only as his own old file's name (A5)."""
+    import os
+    with CrewRig() as rig:
+        from halo_harness import crew_cli_parts as P
+        from halo_harness import doctor, setup_cli
+        from halo_harness.agents_cli import cmd_agents
+        from halo_harness.cli import GONE_VERBS
+        from halo_harness.cli_commands import BY_NAME
+        from halo_harness.commands.builtins import _map_line
+        from halo_harness.crew import builder, flow_door, map_facts, old_files, preflight, store, tools_map
+        from halo_harness.crew import compile as C
+        from halo_harness.crew.tools_show import studio_show
+        from halo_harness.maps_cli import cmd_maps
+        from halo_harness.tui.dialogs import team_preview
+        from halo_harness.workflows_cli import cmd_workflows
+        cx = {"cwd": rig.proj, "state_dir": None}
+        auto = _Session(C.for_session(None, cwd=rig.proj)[0])
+        said = {"/status, no session": _map_line(None), "/status, a session on Auto": _map_line(auto),
+                "doctor": doctor._check_lineup(), "halo setup": _said(setup_cli._print_map_in_use),
+                "[Halo] note, none set": map_facts.note_text(auto), "studio_show's line, none set": map_facts.show_line(auto),
+                "name_the_map": map_facts.name_the_map(auto), "name_the_map, no session": map_facts.name_the_map(None)}
+        for verb, fn, subs in (("maps", cmd_maps, ("list", "show", "copy", "use", "edit")),
+                               ("agents", cmd_agents, ("list", "show", "new", "copy", "edit", "try")),
+                               ("workflows", cmd_workflows, ("list", "show", "new", "copy", "edit"))):
+            said[f"halo {verb} list"] = _said(fn, ["list"])
+            said[f"halo {verb} --help"] = _said(fn, ["--help"])
+            for sub in subs:
+                said[f"halo {verb} {sub} --help"] = _said(fn, [sub, "--help"])
+        said["halo maps use --off"] = _said(cmd_maps, ["use", "--off"])
+        said["halo agents show coder"] = _said(P.show, "agent", "coder", rig.proj)
+        saved_env = {k: os.environ.pop(k, None) for k in ("VISUAL", "EDITOR")}
+        try:
+            said["halo agents edit coder"] = _edit_out("agent", "coder", rig.proj)
+            said["halo workflows edit review"] = _edit_out("workflow", "review", rig.proj)
+        finally:
+            os.environ.update({k: v for k, v in saved_env.items() if v is not None})
+        said["halo blocks (the row)"] = BY_NAME["blocks"].purpose
+        said["halo blocks (the hint)"] = GONE_VERBS["blocks"]
+        empty = rig.state / "empty-shipped"
+        empty.mkdir()
+        real, store.SHIPPED = store.SHIPPED, empty
+        try:
+            for kind in ("agent", "workflow"):
+                said[f"no {kind}s at all"] = _said(P.print_list, kind, rig.proj)
+        finally:
+            store.SHIPPED = real
+        said["/workflows"] = "\n".join(flow_door.listing(rig.proj, state_dir=None))
+        said["studio_show lists"] = studio_show({"what": "lists"}, cx)["text"]
+        for name in ("ship-it", "auto"):
+            said[f"studio_show map {name}"] = studio_show({"what": "map", "name": name}, cx)["text"]
+        said["the Builder's context"] = builder.context(rig.proj, None, {}, "", [])
+        said["the Builder's copy row"] = json.dumps(tools_map._view("ship-it", cx)[1])
+        cfg = rig.state / "config.json"
+        data = json.loads(cfg.read_text(encoding="utf-8"))
+        cfg.write_text(json.dumps({**data, "team": "auto"}), encoding="utf-8")
+        said["team: auto"] = old_files.team_line()
+        cfg.write_text(json.dumps(data), encoding="utf-8")
+        said["team preview"] = team_preview.HEADER_TEXT
+        said["preflight, a missing map"] = json.dumps(preflight.run_problems("nosuch", cwd=rig.proj))
+        store.write_text(rig.state / "crew" / "maps" / "gap.yaml", store.dump(
+            {"format": "map/1", "name": "gap", "main": {"agent": "main"}, "boxes": [{"id": "a", "agent": "nobody"}],
+             "lines": [{"from": "main", "to": "a"}]}))
+        said["--map gap (a box with no agent)"] = "\n".join(C.for_session("gap", cwd=rig.proj)[1])
+        _config(rig, map="ship-it")
+        said["[Halo] note, ship-it set"] = map_facts.note_text(auto)
+        said["studio_show's line, ship-it set"] = map_facts.show_line(auto)
+        _config(rig)
+        ctx.check(f"the scan read every surface ({len(said)}), none empty: "
+                  f"{[k for k, v in said.items() if not str(v).strip()]}", all(str(v).strip() for v in said.values()))
+        bad = _with_starter(said)
+        ctx.check(f"no line he reads says starter: {len(bad)} found:\n  " + "\n  ".join(bad), not bad)
+        _his_map(rig, "starter")
+        rows = _said(cmd_maps, ["list"]).splitlines()
+        named = [r for r in rows if "starter" in r.lower()]
+        ctx.check(f"halo maps list with his old starter.yaml: the word only as that row's own name, got {named}",
+                  len(named) == 1 and named[0].lstrip("* ").split()[0] == "starter"
+                  and "starter" not in named[0].lstrip("* ").split(None, 1)[1].lower())
+
+
+@test
+def test_starter_absent_from_api_answers(ctx: Ctx):
+    """A9: no Studio API answer he reads says "starter" (field names and the `scope` value are not words he reads);
+    the one allowed echo is W16 repeating the name he typed."""
+    with CrewRig() as rig:
+        rig.studio()
+        agent = {"format": "agent/1", "name": "coder", "does": "Writes code.", "model": "auto", "uses": ["read"], "careful": "own"}
+        wf = {"format": "workflow/1", "name": "review", "for": "x", "steps": [{"name": "a", "agents": ["coder"]}]}
+        answers = {}
+        for label, method, path, body, want in (
+                ("PUT crew/agent/coder", "PUT", "crew/agent/coder", {"agent": agent}, 409),
+                ("PUT crew/workflow/review", "PUT", "crew/workflow/review", {"workflow": wf}, 409),
+                ("DELETE crew/map/ship-it", "DELETE", "crew/map/ship-it", None, 409),
+                ("ship-it on", "POST", "crew/map/ship-it/use", {"on": True}, 200),
+                ("ship-it off", "POST", "crew/map/ship-it/use", {"on": False}, 200),
+                ("setup/team starter", "POST", "setup/team", {"map": "starter"}, 200),
+                ("setup/team auto", "POST", "setup/team", {"map": "auto"}, 200)):
+            st, r = rig.api(method, path, body) if body is not None else rig.api(method, path)
+            ctx.check(f"{label}: {want}, got {st}", st == want)
+            answers[label] = _api_words(r)
+        st, r = rig.api("GET", "setup/state")
+        rows = ((r.get("team") or {}).get("maps")) or []
+        ctx.check(f"GET setup/state: the team's map rows, got {st} {len(rows)}", st == 200 and len(rows) > 2)
+        answers["setup/state team rows"] = [str(x.get(k)) for x in rows for k in ("label", "description") if x.get(k)]
+        ctx.check("setup/team's receipts and the off receipt are read", answers["setup/team starter"] and answers["ship-it off"])
+        bad = _with_starter(answers)
+        ctx.check(f"no API answer he reads says starter: {bad}", not bad)
+        st, r = rig.api("PUT", "crew/map/starter", {"map": {"main": {"agent": "main"}, "boxes": [], "lines": []}})
+        ctx.check(f"PUT crew/map/starter: 422, W16 echoing the name he typed and nothing else holds it, got {st} {r}",
+                  st == 422 and r.get("error") == _w16("starter")
+                  and not _with_starter({"rest": [w for w in _api_words(r) if w != _w16("starter")]}))
+
+
+@test
+def test_start_words_say_auto_never_starter(ctx: Ctx):
+    """A16, A10: what main is told at the start of a session on Auto (system text, tool descriptions, messages) holds
+    the Agent tool's "The lineup is auto: ..." letter for letter and no "starter"; the recorded plain-session requests
+    are byte for byte those of 3.6.0.4."""
+    import hashlib
+    from tests import test_map_facts as MF
+    got, facts = MF.plain_requests()
+    ctx.check(f"a session on Auto, got {facts.get('map')!r} and {len(got)} requests", facts.get("map") == "auto" and got)
+    ctx.check("the first request holds the lineup sentence letter for letter", LINEUP in got[0])
+    bad = [i for i, b in enumerate(got) if "starter" in b.lower()]
+    ctx.check(f"no request main sent says starter, got requests {bad}", not bad)
+    raw = MF.FIXTURE.read_bytes()
+    ctx.check("the plain-request fixture is byte for byte unchanged", hashlib.sha256(raw).hexdigest() == PLAIN_FIXTURE_SHA)
+    ctx.check("the fixture holds the lineup sentence and no starter",
+              LINEUP in raw.decode("utf-8") and b"starter" not in raw.lower())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

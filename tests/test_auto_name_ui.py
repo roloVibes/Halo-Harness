@@ -265,6 +265,90 @@ out.q = Q.quietOf('starter', {{}}, [{ON % ('s1', 'fix-login', 'starter')}], null
               'data-testid="setup-map-old"' in team and 'data-testid="map-old-copy"' in team and "openMap(r.name, r.scope)" in team)
 
 
+# A19 (decisions' last part, J2 M3): the four exceptions, and only these. Media keeps ComfyUI's word ("Keeps the word").
+MEDIA_KEEPS = ("media/MediaPanels.tsx", "media/commands.ts", "media/store.ts")
+HELP_KEEPS = ("help.ts", "Halo's starters and your saved ones")
+SCAN = r"""import { createRequire } from 'node:module';
+import fs from 'node:fs';
+const ts = createRequire(import.meta.url)(TSC);
+const S = ts.SyntaxKind;
+const KINDS = new Set([S.StringLiteral, S.NoSubstitutionTemplateLiteral, S.TemplateHead, S.TemplateMiddle, S.TemplateTail, S.JsxText]);
+const COMPARE = new Set([S.EqualsEqualsEqualsToken, S.ExclamationEqualsEqualsToken, S.EqualsEqualsToken, S.ExclamationEqualsToken]);
+function testid(n) {
+  let p = n.parent;
+  if (p && p.kind === S.JsxExpression) p = p.parent;
+  return !!p && p.kind === S.JsxAttribute && p.name.getText() === 'data-testid';
+}
+function code(n) {
+  if (n.kind !== S.StringLiteral && n.kind !== S.NoSubstitutionTemplateLiteral) return false;
+  if (n.text !== 'starter') return false;
+  const p = n.parent;
+  if (p.kind === S.BinaryExpression) return COMPARE.has(p.operatorToken.kind);
+  if (p.kind === S.CallExpression) return p.arguments.includes(n);
+  if (p.kind === S.PropertyAssignment) return p.initializer === n && p.name.getText() === 'scope';
+  return p.kind === S.LiteralType;
+}
+function scan(rel, text) {
+  if (MEDIA.includes(rel)) return [];
+  const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.ES2022, true, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const bad = [];
+  const visit = (n) => {
+    if (KINDS.has(n.kind) && /starter/i.test(n.text) && !code(n) && !testid(n)
+        && !(rel === HELP[0] && n.text.includes(HELP[1]))) {
+      const line = sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+      bad.push(`${rel}:${line}: ${JSON.stringify(n.text.trim())}`);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return bad;
+}
+out.bad = []; out.files = 0;
+for (const f of fs.readdirSync(ROOT, { recursive: true }).map(String).sort()) {
+  const rel = f.split('\\').join('/');
+  if (!/\.tsx?$/.test(rel) || !fs.statSync(ROOT + '/' + rel).isFile()) continue;
+  out.files += 1; out.bad.push(...scan(rel, fs.readFileSync(ROOT + '/' + rel, 'utf8')));
+}
+out.fix = Object.fromEntries(Object.entries(FIXTURES).map(([k, src]) => [k, scan('fixture.tsx', src).length]));
+"""
+FIXTURES = {
+    "default": 'const x = a || "starter";', "element": 'const y = ["starter"];', "jsx": "const z = <b>starter</b>;",
+    "template": "const t = `on starter now`;", "title": '<i title="starter" />;',
+    "compare": 'if (s.scope === "starter") go();', "argument": 'f("starter");', "scope": 'const o = {scope: "starter"};',
+    "type": 'type S = "starter";', "testid": '<i data-testid="crew-starter" />;', "comment": "// starter here\n/* starter */ const c = 1;",
+}
+MUST_FAIL = {"default", "element", "jsx", "template", "title"}
+
+
+@test
+def test_starter_absent_from_ui_words(ctx: Ctx):
+    """A19 / J2 M3: every string, template and JSX text under routes/ that holds "starter" (any case; comments never
+    count) fails, except a literal exactly "starter" that is compared, passed as an argument, a `scope` value or a type;
+    a `data-testid` value; the media files; help.ts's "Halo's starters and your saved ones". A `||` default, an array
+    element and text he sees always fail. The scan proves itself on fixtures first."""
+    from tests.helpers import node_ts
+    if not (node_ts.TSC / "package.json").is_file():
+        raise node_ts._cannot(f"{node_ts.TSC} is not there: `npm ci` under halo_harness/studio/ui")
+    files = sorted(p for p in SRC.rglob("*") if p.suffix in (".ts", ".tsx") and p.is_file())
+    pairs = [p.relative_to(SRC).as_posix() for p in files]
+    js = (SCAN.replace("TSC)", json.dumps(str(node_ts.TSC)) + ")", 1)
+          .replace("MEDIA.", json.dumps(list(MEDIA_KEEPS)) + ".", 1).replace("HELP[0]", json.dumps(HELP_KEEPS[0]), 1)
+          .replace("HELP[1]", json.dumps(HELP_KEEPS[1]), 1).replace("ROOT", json.dumps(SRC.as_posix()))
+          .replace("entries(FIXTURES)", "entries(" + json.dumps(FIXTURES) + ")", 1))
+    out = node_ts.run("const out = {};\n" + js + "\nconsole.log(JSON.stringify(out));")
+    fix = out.get("fix") or {}
+    ctx.check(f"the scan proves itself (fails: {sorted(MUST_FAIL)}; passes: the rest), got {fix}",
+              fix and all((fix.get(k, 0) > 0) == (k in MUST_FAIL) for k in FIXTURES))
+    ctx.check(f"it read every .ts/.tsx under routes/ ({len(pairs)}), got {out.get('files')}",
+              out.get("files") == len(pairs) and len(pairs) > 100)
+    for keep in MEDIA_KEEPS:
+        ctx.check(f"the media file {keep} is there (the keep-list cannot go stale)", (SRC / keep).is_file())
+    ctx.check("help.ts still holds the kept phrase (the keep-list cannot go stale)",
+              HELP_KEEPS[1] in (SRC / HELP_KEEPS[0]).read_text(encoding="utf-8"))
+    bad = out.get("bad") or []
+    ctx.check(f"no text he reads under routes/ says starter: {len(bad)} found:\n  " + "\n  ".join(bad), not bad)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
