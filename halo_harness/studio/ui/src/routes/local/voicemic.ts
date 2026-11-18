@@ -1,7 +1,7 @@
 // Talk's browser side (3.3.9.0 R3): the microphone through getUserMedia (the permission asked once, by the browser),
 // recorded as 16-bit mono PCM at the audio context's rate until the second press (a terminal-style press-then-press,
 // the same as the TUI's push-to-talk), and the reply's PCM played as it streams in (one AudioBuffer per piece, queued
-// back to back) and kept, so the page's <audio> sink can replay the whole reply as a WAV. No PortAudio, nothing to
+// back to back) and kept, so the page's <audio> sink can play the whole reply again as a WAV. No PortAudio, nothing to
 // install: the browser is the audio device.
 export const MAX_S = 30;
 

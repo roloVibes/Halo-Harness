@@ -85,7 +85,7 @@ def _say(p: dict, m: dict, names: dict, facts: dict, top: dict, how: str) -> str
     return f"{_who(a, False)} finished (no hand-back recorded)"
 
 
-def _story(p: dict, names: dict, facts: dict, top: dict, how: str, t0: float) -> "tuple[list, int]":
+def _story(p: dict, names: dict, facts: dict, top: dict, how: str, t0: float, cap: Optional[int]) -> "tuple[list, int]":
     handed = {str(m.get("agent_id")) for m in p.get("marks") or [] if m.get("kind") == "handoff"}
     first = (f"You set the goal, for {_who(top)}: {p.get('title') or top.get('task') or '(not recorded)'}" if p.get("kind") == "run"
              else f"You asked {_who(top)}: {top.get('task') or p.get('title') or '(the first prompt is not recorded)'}")
@@ -97,9 +97,10 @@ def _story(p: dict, names: dict, facts: dict, top: dict, how: str, t0: float) ->
         rows.append((m["t"], m["kind"], 2 if m["kind"] in ("ask", "fail") or a is top else 1, _say(p, m, names, facts, top, how)))
     rows.sort(key=lambda r: r[0])
     pri = [i for i, r in enumerate(rows) if r[2] == 2]
-    keep = set(range(len(rows))) if len(rows) <= STORY_MAX else set(pri[: STORY_MAX - 1] + pri[-1:])
+    cap = len(rows) if cap is None else cap  # None: every step (story_all, the card's page in Studio)
+    keep = set(range(len(rows))) if len(rows) <= cap else set(pri[: cap - 1] + pri[-1:])
     for i in range(len(rows)):  # the rest in time order, up to about ten lines
-        if len(keep) >= STORY_MAX:
+        if len(keep) >= cap:
             break
         keep.add(i)
     kept = [rows[i] for i in sorted(keep)]
@@ -162,6 +163,17 @@ def resolve(state_dir, ref: str, cwd=None) -> "tuple[dict, bool]":
     return p, bool(from_file)
 
 
+def story_all(p: dict) -> list:
+    """Every step of the story of replay `p`, in time order, uncapped (3.6.0.3 B, Z10 as ruled: Studio's card page shows the
+    whole story; card() keeps its ten and counts the rest, so `halo report` and its --json are unchanged)."""
+    from halo_harness.live.card_facts import figures
+    facts = p.get("facts") if isinstance(p.get("facts"), dict) else {}
+    agents = [a for a in p.get("agents") or [] if isinstance(a, dict)]
+    names = {str(a.get("agent_id")): a for a in agents}
+    top = next((a for a in agents if not a.get("parent")), {}) or {}
+    return _story(p, names, facts, top, str(figures(p).get("how") or "unknown"), _num(p.get("started")) or 0.0, None)[0]
+
+
 def card(p: dict, ref: str = "", from_file: bool = False) -> dict:
     """The report card of replay `p` (a session's, a goal run's, a saved file's)."""
     from halo_harness.live.card_data import cells, lanes as lanes_of
@@ -174,7 +186,7 @@ def card(p: dict, ref: str = "", from_file: bool = False) -> dict:
     top = next((a for a in agents if not a.get("parent")), {}) or {}
     t0 = _num(p.get("started")) or 0.0
     how = str(fig.get("how") or "unknown")
-    story, more = _story(p, names, facts, top, how, t0)
+    story, more = _story(p, names, facts, top, how, t0, STORY_MAX)
     marks = [m for m in p.get("marks") or [] if m.get("kind") == "ask" and _num(m.get("t")) is not None]
     waits = [{"t": round(m["t"] - t0, 1), "at": clock(m["t"] - t0), "who": _who(names.get(str(m.get("agent_id"))), False),
               "text": str(m.get("text") or "a question"), "secs": wait_secs(p, m)} for m in marks]

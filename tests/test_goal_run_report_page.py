@@ -29,9 +29,8 @@ CREW = SRC / "routes" / "crew"
 STAYS = ["run/door.ts", "run/GoalDrawer.tsx", "run/goalStore.ts", "run/RunReport.tsx", "run/reportStore.ts",
          "live/ReportCard.tsx", "live/cardData.ts"]
 # The words a person reads that may still say History in routes/crew/run/, each with its reason (data, not code).
-SKIP = {
-    'group: "History"': "the palette line's GROUP stays History until the cut (batch 1's ruling 4); the cut removes it",
-}
+# 3.6.0.3 B file 05 (the cut): the palette line's GROUP is "Agents" now, so nothing is skipped any more.
+SKIP: dict = {}
 
 
 def node(mod: str, body: str):

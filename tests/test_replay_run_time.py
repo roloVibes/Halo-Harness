@@ -1,7 +1,7 @@
-"""tests.test_replay_run_time -- Halo 3.4.1.1 defect 60: a goal run on the scrubber is the canvas AS IT WAS. Its lanes'
-states and its costs at a past moment come from its record's own times (live/replay_run.py through `GET
-fleet/replay?run=`), and where the record cannot give a figure at a moment the page says "unknown at this moment",
-never $0 (routes/crew/live/timeline.ts -- moved there in 3.6.0.0 R4b --, run in node through tests/helpers/node_ts.py).
+"""tests.test_replay_run_time -- Halo 3.4.1.1 defect 60: a goal run's record gives its lanes' states and its costs at
+their own times (live/replay_run.py through `GET fleet/replay?run=`). 3.6.0.3 B (Z4 batch 4): Studio's scrubber and its
+timeline.ts left, and with them the node half of this file (the scrubber said "unknown at this moment", never $0); the
+server half stays until the server batch takes the route.
 
 Seed: tests/helpers/compare_seed.py's goal run, lane 1 written at +70 and merged at +80 (its `ended` says +70, as a
 real lane's does: the end of its last piece, before the review). Run: python -m tests.test_replay_run_time
@@ -22,7 +22,6 @@ from tests.helpers.compare_seed import RUN, TR, seed_run  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-LIVE = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "live"  # 3.6.0.0 R4b: timeline.ts moved here
 
 
 @contextlib.contextmanager
@@ -64,34 +63,6 @@ def test_studio_draws_a_goal_run_from_its_record(ctx: Ctx):
         bad = SimpleNamespace(query={"run": "nope"}, cwd=repo, state_dir=state, params={})
         from halo_harness.studio.live_recording_api import get_replay
         ctx.check("an unknown run is 404", get_replay(bad)[0] == 404)
-
-
-JS = """const m = await import(%s);
-const p = %s;
-const tl = m.fromSession(p, "run");
-const at = (s) => { const t = p.started + s; const ns = m.nodesAt(tl, t);
-  const l1 = ns.find((n) => n.id === "lane-1"); return { cost: m.costAt(tl, t), l1: l1 && l1.state, l1cost: l1 && l1.cost, unk: !!(l1 && l1.costUnknown) }; };
-const s = m.fromSession({ ...p, kind: "session" }, "s");
-console.log(JSON.stringify({ ends: tl.endsOnly, mid: at(%s), late: at(%s), end: at(%s), session: m.costAt(s, p.started + %s) }));
-"""
-
-
-@test
-def test_the_scrubber_says_unknown_never_zero(ctx: Ctx):
-    from tests.helpers import node_ts
-    with _run() as (state, repo):
-        _code, p = _payload(state, repo)
-        mid, late, end = TR + 60 - p["started"], TR + 75 - p["started"], TR + 90 - p["started"]
-        got = node_ts.run(JS % (json.dumps((LIVE / "timeline.ts").resolve().as_uri()), json.dumps(p), mid, late, end, mid))
-        ctx.check(f"a goal run's axis gives costs at ends only: {got['ends']}", got["ends"] is True)
-        ctx.check(f"mid-run: the cost and lane 1's are unknown at this moment, never $0: {got['mid']}",
-                  got["mid"]["cost"] is None and got["mid"]["l1cost"] is None and got["mid"]["unk"] is True)
-        ctx.check(f"at +75 lane 1 is still at work (written at +70, merged at +80): {got['late']['l1']}",
-                  got["late"]["l1"] not in ("done", "failed"))
-        ctx.check(f"at the end: the run's $0.05 and lane 1 done: {got['end']}",
-                  abs((got["end"]["cost"] or 0) - 0.05) < 1e-9 and got["end"]["l1"] == "done" and got["end"]["unk"] is False)
-        ctx.check(f"a session's axis is unchanged (its usage lines price each call when it lands): {got['session']}",
-                  isinstance(got["session"], (int, float)))
 
 
 if __name__ == "__main__":

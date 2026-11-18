@@ -3,9 +3,9 @@
 // AgentView). The header (harness, session, role, model, cost, elapsed, state), why an `auto` pick runs on its model,
 // Watch in Session for an agent of this harness, its opt-in lines, what it was asked, its three streams (Thinking /
 // Working / Output, tabbed or side by side), Pause / Resume, Stop (asks first), Follow (the stream scrolls with it), Pin
-// (the mini stream), Take over, Hand to..., Record, Replay (AgentHistory.tsx), a mission part's packs' inspector lines
+// (the mini stream), Take over, Hand to..., Record (AgentHistory.tsx), a mission part's packs' inspector lines
 // (PackCaps.tsx) and the Steer box. Opening an agent loads its backlog (`agent_tail`) and follows it (`agent_follow`),
-// so the rest is pushed. With no agent picked (Session's strip), this harness's last sessions to replay.
+// so the rest is pushed. With no agent picked (Session's strip), this harness's last sessions, each to export or record.
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Button, Empty, Icon, Kbd } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";

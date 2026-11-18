@@ -78,6 +78,14 @@ def doors(c, rig, lv) -> dict:
     out["palette_first"] = c.js(f"{rows}[0]?.querySelector('.palette-label').textContent || ''")
     c.key("Enter")
     out["palette_to"] = c.wait(f"!document.querySelector('[data-testid=palette]') && {VIEW}", 15)
+    # 3.6.0.3 B (Z7): an old replay link opens 3 · Map as it is now; `replay=` and its `at=` leave the address, nothing said
+    c.go("about:blank")
+    c.wait("location.href === 'about:blank'", 10)
+    c.go(rig.url("agents", "&view=live&replay=old-1&at=22"))
+    out["old_replay"] = c.wait(f"{VIEW} === 'map' && {VIEW}", 40)
+    out["old_replay_search"] = c.wait("!/replay=|[?&]at=/.test(location.search) && location.search", 10)
+    out["old_replay_said"] = c.js("[document.querySelector('.toasts')?.textContent || '', "
+                                  "[...document.querySelectorAll('[data-part=map] .ag-note, [data-testid=agents-note]')].map((n) => n.textContent).join(' ')]")
     return out
 
 

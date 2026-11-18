@@ -166,7 +166,7 @@ export type RolesDialog =
   /** 3.2.0.0 R2: Clone or Customize met a name that is yours (or Halo's): replace it, or pick another. */
   | { kind: "clone-exists"; what: "bio" | "lineup"; name: string; target: string; shipped: boolean; error: string; open: boolean };
 
-/** A live agent on a card (routes/fleet/frames.ts liveRows, or a replay frame). */
+/** A live agent on a card (routes/fleet/frames.ts liveRows). */
 export type LiveAgent = {
   key: string;
   harness: string;
@@ -193,10 +193,3 @@ export type LiveAgent = {
   /** 3.1.5.0 R3: when it ended (ms), for the done glow's ten-second fade (glow.ts). */
   endedAt?: number;
 };
-
-export type ReplayMeta = { harness: string; session_id: string; title: string; started: number; ended: number; cost_usd: number; agents: Raw[]; costs: { t: number; usd: number }[] };
-export type ReplayEvent = { t: number; agent_id: string; state: string; activity?: string; tool?: string };
-export type Replay = { meta: ReplayMeta; events: ReplayEvent[]; t: number; t0: number; t1: number; speed: number; playing: boolean };
-
-export type HistoryRun = { session_id?: string; bio?: string; role?: string; status?: string; is_error?: boolean; cost_usd?: number; task?: string; started?: number; finished?: number;
-  part_of?: { kind: "run" | "mission"; id: string } }; // 3.4.0.1: a goal run's or a mission's own session (History folds it)

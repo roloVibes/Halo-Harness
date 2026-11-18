@@ -1,6 +1,6 @@
 /* A goal run on Live (3.4.0.0 D "the runs fold"): the run's boxes on the canvas (a row per fact, never squished: a
-   row is one line, ellipsis and its tooltip), the Run a goal panel beside the canvas (the History drawer's frame:
-   styles/live-truth.css .lh-drawer), the run's inspector and its pages, History's report page. Tokens only. */
+   row is one line, ellipsis and its tooltip), the Run a goal panel beside the canvas (its frame:
+   styles/live-truth.css .lh-drawer), the run's inspector and its pages, a finished run's report page. Tokens only. */
 
 /* -- the lead and the lanes on the canvas ------------------------------------------------------------------- */
 .ag-run-row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: var(--s-2); align-items: baseline; }
@@ -45,7 +45,7 @@
 .rp-k { color: var(--accent); }
 .rp-log li[data-kind="gate"] .rp-k { color: var(--warn); }
 
-/* -- History: a finished run's report page ----------------------------------------------------------------- */
+/* -- a finished run's report page -------------------------------------------------------------------------- */
 .lh-page { padding: var(--s-3); }
 .rr { display: grid; gap: var(--s-3); align-content: start; font-size: var(--fs-sm); }
 .rr-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }

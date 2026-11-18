@@ -110,7 +110,7 @@ function followLive(runs: RunRow[]): void {
   if (live && live.run_id !== orch.get().runId && !orch.get().data?.live) void openRun(live.run_id);
 }
 
-/** Start once, from Live (the canvas, History, the goal panel). */
+/** Start once, from what shows goal runs (the Map, its drawer's pages, the goal panel). */
 export function startOrchestra(): void {
   if (orch.get().started) return;
   orch.update(() => ({ started: true, loading: true }));
@@ -161,7 +161,7 @@ export async function startRun(form: RunForm, dryRun: boolean): Promise<string[]
     const r = await api.post<{ run_id: string; taken?: string[]; test?: string }>("orchestra/run", { ...goal, ...(model ? { model } : {}), ...(review ? { review: true } : {}), dry_run: dryRun });
     const tookTest = (r.taken || []).some((l) => l.startsWith("test: "));
     lineupTook.update(() => (tookTest ? { run: r.run_id, test: r.test || "" } : { run: "", test: "" }));
-    toast(dryRun ? `Dry run ${r.run_id}: the lead's jobs, in History` : `Run ${r.run_id} started: the Map says a goal run is going${review ? "; its plan waits on you (Open, then Review the plan)" : ""}`, "info");
+    toast(dryRun ? `Dry run ${r.run_id}: the lead's jobs, on its Goal run page` : `Run ${r.run_id} started: the Map says a goal run is going${review ? "; its plan waits on you (Open, then Review the plan)" : ""}`, "info");
     lastStarted.id = r.run_id;
     await loadRuns();
     await openRun(r.run_id);

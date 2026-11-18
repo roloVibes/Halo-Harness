@@ -28,7 +28,7 @@ export function Extras({ sid }: { sid: string }) {
  *  run ending moves nothing; a run started later (Run a goal) grows it once.
  *  P8 batch 3 (the coordinator's ruling): the run's room is there from the Map's FIRST draw, one line high, empty and
  *  not announced while no goal run exists: a line of its own under the top line's row of controls, the Map's whole
- *  width (MapBar.tsx TopLine; the repair: beside Replay it had 319 px at 1500 x 900, and a 40-character goal took two
+ *  width (MapBar.tsx TopLine; the repair: beside the button before it it had 319 px at 1500 x 900, and a 40-character goal took two
  *  lines). It costs the drawing that one line. A goal that fits the line moves nothing when it starts; a longer one
  *  grows the row once (its words are never cut). */
 export function RunRow() {

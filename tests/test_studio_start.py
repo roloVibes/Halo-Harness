@@ -53,9 +53,9 @@ def test_glossary_and_a_word_link(ctx: Ctx):
     ctx.check(f"the ? menu's Glossary: {len(TERMS)} words, agent first (3.6.0.0), got {got.get('words')} {got.get('first')}",
               got.get("words") == len(TERMS) and got.get("first") == "agent")
     ctx.check(f"How Agents works names its words (3.6.0.0 R5: the three tabs' words), got {got.get('terms')}",
-              got.get("terms") == ["step", "hand-off", "when", "live map", "replay", "report card", "waiting path", "orchestra run", "gate"])
+              got.get("terms") == ["step", "hand-off", "when", "live map", "report card", "waiting path", "orchestra run", "gate"])
     ctx.check(f"a word link opens the Glossary on it and closes the help, got {got.get('opened_on')}",
-              got.get("opened_on") == "replay" and got.get("help_closed") is True)
+              got.get("opened_on") == "report card" and got.get("help_closed") is True)
 
 
 if __name__ == "__main__":

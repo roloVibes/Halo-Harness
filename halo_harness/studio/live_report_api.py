@@ -1,7 +1,9 @@
 """halo_harness.studio.live_report_api -- the run report card's route (3.4.1.0 R3; 3.6.0.3 B, R-B12: `live/report`).
 
-    GET  live/report?ref=<ref>    the card (live/report_card.py) -> {card, markdown}; ref: session:<id> | run:<id> |
-                                  file:<id>; 422 without one, 404 when it names nothing; no model call, nothing written
+    GET  live/report?ref=<ref>    the card (live/report_card.py) -> {card, markdown, story_all}; ref: session:<id> |
+                                  run:<id> | file:<id>; 422 without one, 404 when it names nothing; no model call,
+                                  nothing written. story_all: every step of the story (the card keeps about ten), for
+                                  the card's page (3.6.0.3 B, Z10)
 
 Studio's report card (crew/live/cardData.ts) reads it here. Registered with the other `live/*` routes (studio/live_api.py);
 `replays/report` points at this same handler until the replay routes leave.
@@ -22,7 +24,7 @@ def get_report(req):
     except CompareError as e:
         return 404, {"error": str(e)}
     c = report_card.card(p, ref, from_file)
-    return 200, {"card": c, "markdown": markdown(c)}
+    return 200, {"card": c, "markdown": markdown(c), "story_all": report_card.story_all(p)}
 
 
 ROUTES = [("GET", r"^live/report$", get_report)]

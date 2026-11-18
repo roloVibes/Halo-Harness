@@ -1,6 +1,6 @@
 // A goal run's one store (the lib/store pattern): the runs of the repo, the run Live draws (the live one, else the
 // newest), its event log, the one-file views of its goal files, the focused lane. sync.ts fills it; Live's run block
-// (routes/agents/live/runLanes.tsx), the run's inspector (routes/agents/run/) and History's report page read slices with
+// (routes/agents/live/runLanes.tsx), the run's inspector (routes/agents/run/) and the run's report page read slices with
 // useOrch(selector). 3.4.0.0 D "the runs fold": Runs' Start view and its panels' options went with that view.
 import { createStore, useStore } from "../../lib/store";
 import { settle, type MotionState } from "../../lib/motion";

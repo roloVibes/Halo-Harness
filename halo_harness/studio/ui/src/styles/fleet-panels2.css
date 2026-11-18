@@ -2,7 +2,7 @@
    strip: one lane per live agent, a bar per state, ticks for tool calls,
    the hover tip; the filters and the merged live log), the map's conflict
    edge and chips and the By project git chips, the agent panel's extras and
-   history, the R4 dialogs, and the "While you were away" card. Tokens only. */
+   last sessions, the R4 dialogs, and the "While you were away" card. Tokens only. */
 
 /* -- Activity: the timeline strip ---------------------------------------------------- */
 .fac { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; height: 100%; min-height: 0; }
@@ -57,7 +57,7 @@
 /* -- the map: conflicts and project rooms --------------------------------------------- */
 .fm-edge-conflict { stroke: var(--warn); stroke-width: 2.2; stroke-dasharray: 5 4; filter: drop-shadow(0 0 4px var(--warn)); animation: og-dash 1.2s linear infinite; pointer-events: stroke; }
 
-/* -- the agent panel: a column, the extras row, the history ---------------------------- */
+/* -- the agent panel: a column, the extras row, the last sessions------------------------ */
 .fa { display: flex; flex-direction: column; }
 .fa > * { flex: none; }
 .fa > .fa-stream { flex: 1 1 0; min-height: 90px; }

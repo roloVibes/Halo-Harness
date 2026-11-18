@@ -2,7 +2,7 @@
 // here -- Run a goal's form (`goal`, crew/run/GoalDrawer.tsx), a goal run's pages (`run:<id>`, crew/run/RunInspector.tsx)
 // and a finished goal run's report (`report:<id>`, crew/run/ReportPage.tsx; 3.6.0.3 B). Opened by Run a goal, a goal
 // run's door, or its own button in the view bar (on Run a goal's form, which his opening opens with it). 3.6.0.3 B:
-// History and its lists left Studio. A page's own close (its ×, Esc) closes the drawer with it: the drawer never stays
+// it holds only these. A page's own close (its ×, Esc) closes the drawer with it: the drawer never stays
 // open on nothing.
 import { useEffect, useRef } from "react";
 import { Button } from "../../../lib/ui";

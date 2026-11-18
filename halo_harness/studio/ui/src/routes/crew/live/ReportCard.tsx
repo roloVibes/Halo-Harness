@@ -1,11 +1,10 @@
-// The run report card (3.4.1.0 R3 "Time"; docs/REPLAY.md "The report card"): one finished run -- a session, a goal run, a
-// saved replay file made anywhere -- rendered from its record by live/report_card.py, never hand-written, no model call
-// (cardData.ts reads it). Summary first: how it ended and R2's nine figures, then the story in about ten lines (who was
-// asked what, what each handed back), where the time went (by phase, by block), where the money went (by model, by
-// block), what failed and what happened next, what waited on you and for how long, which model did what, the files it
-// wrote, and what this record cannot show (said in words, never a blank). Copy puts the same card's Markdown (`halo
-// report`) on the clipboard. A session's or a file's card is a page of History (History.tsx CardPage: its row's Report
-// door); a goal run's is the FIRST block of its report page (run/RunReport.tsx).
+// The run report card (3.4.1.0 R3 "Time"): one finished goal run, rendered from its record by live/report_card.py, never
+// hand-written, no model call (cardData.ts reads it). Summary first: how it ended and R2's nine figures, then the whole
+// story, every step (3.6.0.3 B, Z10: the route's `story_all`; the Markdown keeps about ten), where the time went (by
+// phase, by block), where the money went (by model, by block), what failed and what came of it, what waited on you and
+// for how long, which model did what, the files it wrote, and what this record cannot show (said in words, never a
+// blank). Copy puts the card's Markdown (`halo report`) on the clipboard. It is the FIRST block of a goal run's report
+// page (run/RunReport.tsx); a session's card is printed by `halo report <session id>`.
 import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import { short } from "../../orchestra/format";
@@ -119,12 +118,12 @@ function Files({ c }: { c: Card }) {
 
 /** The card of `refId` (session:<id> | run:<id> | file:<id>): its figures and sections, with Copy. */
 export function ReportCard({ refId }: { refId: string }) {
-  const { card: c, markdown, error } = useCard(refId);
+  const { card: c, markdown, error, all } = useCard(refId);
   return (
     <div className="rcd" data-testid="report-card" data-ref={refId} data-state={error ? "error" : c ? "ready" : "reading"} data-kind={c?.kind}>
       <div className="rcd-head" data-density="bar">
         <span className="glance-kicker mono">REPORT CARD</span>
-        <span className="mono muted rcd-from">{c?.file ? `from the saved replay ${c.file}` : "from the record"} · no model call</span>
+        <span className="mono muted rcd-from">from the record · no model call</span>
         <span className="spacer" />
         <Button size="sm" variant="ghost" disabled={!markdown} onClick={() => copyMarkdown(markdown)} data-testid="report-card-copy"
                 title="The card as Markdown on the clipboard: the same text halo report prints (nothing written)">Copy Markdown</Button>
@@ -138,9 +137,8 @@ export function ReportCard({ refId }: { refId: string }) {
               </div>))}
           </dl>
           <Part k="story" title="THE STORY">
-            <ol className="rcd-story" data-testid="report-card-story">{c.story.map((s, i) => (
+            <ol className="rcd-story" data-testid="report-card-story">{all.map((s, i) => (
               <li key={i} data-testid="report-card-step" data-kind={s.kind} data-t={s.t}><span className="mono rcd-at">{s.at}</span> {s.text}</li>))}</ol>
-            {c.story_more > 0 && <p className="muted">...and {c.story_more} more step{c.story_more === 1 ? "" : "s"} (Replay shows every one).</p>}
           </Part>
           <Time c={c} />
           <Money c={c} />

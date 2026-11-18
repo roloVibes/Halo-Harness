@@ -9,7 +9,7 @@ export type AgentsCommand = { id: string; group: string; label: string; hint?: s
 const VIEWS: [AgentsView, string, string, string][] = [
   ["crew", "1 · Agents", "1", "make an agent: its name, what it does, its model, what it may use; try it, save it"],
   ["workflows", "2 · Workflows", "2", "your agents in steps, in order; try it, save it"],
-  ["map", "3 · Map", "3", "who main hands work to, and when; History replays on it"], // R55: Map is the plan
+  ["map", "3 · Map", "3", "who main hands work to, and when"], // R55: Map is the plan
   ["live", `4 · ${WORDS.live}`, "4", "what a session is doing now, drawn on the map it really follows"],
 ];
 

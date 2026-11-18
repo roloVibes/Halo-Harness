@@ -1,15 +1,14 @@
-// The agent panel's extras (3.0.5.0 R4): under the controls, Take over,
-// Hand to..., Record (this agent as one HTML file) and Replay (its session
-// on the Roles canvas); and when no agent is picked, this harness's last
-// sessions (`GET fleet/history?role=main`) with Replay and Record, so a
-// finished session can be played back even when nothing is live.
-import { useEffect } from "react";
+// The agent panel's extras (3.0.5.0 R4): under the controls, Take over, Hand to... and Record (this session as one
+// HTML page); and when no agent is picked, this harness's last sessions (`GET live/history?role=main`, the last 8), each
+// with "export" (3.6.0.3 B, Z9: that session's Markdown export, TraceExport's own fetch-and-save, the same bytes as
+// Session -> Feed -> Export) and "record". An older session is exported from the terminal (`halo session export <id>`).
+import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import { askHandoff, record } from "./extras";
 import { age, panels, usePanels, type Run } from "./pstore";
-import { replaySession } from "../crew/live/replay"; // 3.4.1.0 R1: Live's scrubber
+import { exportTrace } from "../session/TraceExport";
 import { keyOf, localId, useFleet } from "./store";
 import type { AgentRef } from "./types";
 
@@ -23,14 +22,9 @@ export function AgentExtras({ r, done, noControl }: { r: AgentRef; done: boolean
       <Button size="sm" variant="ghost" icon={<Icon name="link" />} disabled={done || noControl} title={why || "another harness picks it up; this one stops"} onClick={() => askHandoff("hand_to", r.key)} data-testid="fleet-handto-open">
         Hand to...
       </Button>
-      <Button size="sm" variant="ghost" icon={<Icon name="file" />} title="this agent as one HTML file you can replay anywhere" onClick={() => void record(r.key, true)} data-testid="fleet-record">
+      <Button size="sm" variant="ghost" icon={<Icon name="file" />} title="this session as one HTML page you can open anywhere" onClick={() => void record(r.key, true)} data-testid="fleet-record">
         Record
       </Button>
-      {r.h.local && (
-        <Button size="sm" variant="ghost" icon={<Icon name="play" />} title="play its session back on Agents -> Map (the scrubber)" onClick={() => void replaySession(r.s.session_id)} data-testid="fleet-replay">
-          Replay
-        </Button>
-      )}
     </div>
   );
 }
@@ -47,6 +41,7 @@ async function loadHistory(): Promise<void> {
 export function RecentSessions() {
   const runs = usePanels((s) => s.history);
   const here = useFleet((s) => localId(s));
+  const [busy, setBusy] = useState(""); // the session being saved; its toast says what was saved, or why not
   useEffect(() => void loadHistory(), []);
   if (!runs?.length) return null;
   return (
@@ -58,7 +53,7 @@ export function RecentSessions() {
             <span className="mono muted">{age(r.finished || r.started || 0)} ago</span>
             <span className="fa-history-task">{short(r.task || r.session_id, 60)}</span>
             <span className="spacer" />
-            <button className="og-link mono" onClick={() => void replaySession(r.session_id)} data-testid="fleet-history-replay">replay</button>
+            <button className="og-link mono" disabled={!!busy} onClick={() => (setBusy(r.session_id), void exportTrace(r.session_id).finally(() => setBusy("")))} data-testid="fleet-history-export" title="this session as one Markdown file: every prompt, reply and tool call, keys masked">export</button>
             {here && <button className="og-link mono" onClick={() => void record(keyOf(here, r.session_id, "main"), false)}>record</button>}
           </li>
         ))}

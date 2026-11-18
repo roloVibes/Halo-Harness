@@ -78,6 +78,11 @@ def test_old_live_door_and_l_key_open_live(ctx: Ctx):
     ctx.check(f"the palette's line with its key, got {d.get('palette')} (first {d.get('palette_first')!r})",
               d.get("palette") == [["Agents: 4 · Live", "4"]])
     ctx.check(f"Enter lands on Live, got {d.get('palette_to')!r}", d.get("palette_to") == "live")
+    ctx.check(f"3.6.0.3 B (Z7): an old replay link opens 3 · Map, got {d.get('old_replay')!r}", d.get("old_replay") == "map")
+    search = str(d.get("old_replay_search") or "")
+    ctx.check(f"its replay= and at= left the address, the rest kept, got {search!r}",
+              "mode=agents" in search and "replay=" not in search and "&at=" not in search and "?at=" not in search)
+    ctx.check(f"and nothing was said about it, got {d.get('old_replay_said')!r}", d.get("old_replay_said") == ["", ""])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

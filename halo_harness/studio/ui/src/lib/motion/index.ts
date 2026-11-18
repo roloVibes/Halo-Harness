@@ -17,7 +17,7 @@ export const MOTION_STATES: MotionState[] = ["idle", "working", "waiting", "done
 
 export type MotionAttrs = { "data-motion": MotionState; "data-tick"?: "a" | "b" };
 
-/** The attributes for `state`. Pass `tick` (any counter) for `live`: each change replays the tick. */
+/** The attributes for `state`. Pass `tick` (any counter) for `live`: each change plays the tick again. */
 export function useStateMotion(state: MotionState, tick?: number): MotionAttrs {
   const parity = useRef<"a" | "b">("a");
   const last = useRef(tick);

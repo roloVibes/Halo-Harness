@@ -12,8 +12,8 @@ call). tests/test_studio_ui.py runs it as a subprocess with a scrubbed environme
 * a claim of lane 5's added to lane 4 (both in the first box) shows a problem on both cards and disables Approve and
   run; Undo clears it;
 * Approve and run: the plan panel closes, the run's pages say it runs (the fake workers are held), Claims one page;
-  released, the run finishes and leaves the Map's line, and History holds it: its row opens its report (the checks, the
-  lanes), Replay on it;
+  released, the run finishes and leaves the Map's line; its own page offers its report (the checks, the lanes), with no
+  Replay (3.6.0.3 B, Z4 batch 4);
 * a second run from the Map's Run a goal panel (the form says what it does, may cost and writes) with Review the plan
   first on: Reject asks for a reason on a card and the run stops with it.
 

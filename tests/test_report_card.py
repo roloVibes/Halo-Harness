@@ -202,6 +202,36 @@ def test_studio_reads_the_card_at_live_report(ctx: Ctx):
         ctx.check("nothing written", not (state / "replays").exists())
 
 
+@test
+def test_the_cards_page_gets_every_step(ctx: Ctx):
+    """3.6.0.3 B (Z10 as ruled): the text card keeps about ten steps ("...and N more steps"), so Studio's card page shows
+    the whole story: `GET live/report` answers every step as `story_all` beside {card, markdown}; card(), its Markdown
+    and `halo report --json` are unchanged (the same `story` and `story_more`)."""
+    from halo_harness.live import report_card
+    from halo_harness.live.report_card_text import markdown
+    from halo_harness.studio.live_api import dispatch_live
+    with _home() as (state, repo):
+        def call(ref):
+            return dispatch_live(SimpleNamespace(method="GET", path="live/report", query={"ref": ref}, body=None, state_dir=state, cwd=repo, server=None, params={}))
+        for ref in (f"session:{SID}", f"run:{RUN}"):
+            code, got = call(ref)
+            c = _card(state, repo, ref)
+            ctx.check(f"{ref}: story_all is every step of a short story (the card's own), got {code} {len(got.get('story_all') or [])}",
+                      code == 200 and got.get("story_all") == c["story"] and c["story_more"] == 0)
+            ctx.check(f"{ref}: the card and its Markdown as card() gives them", got.get("card") == c and got.get("markdown") == markdown(c))
+        p, _ff = report_card.resolve(state, f"session:{SID}", cwd=repo)
+        t = p["started"]
+        p["marks"] = list(p.get("marks") or []) + [{"t": t + 101 + i, "kind": "fail", "agent_id": "main"} for i in range(6)]
+        c = report_card.card(p, f"session:{SID}")
+        every = report_card.story_all(p)
+        ctx.check(f"a long story: the card keeps {report_card.STORY_MAX} and counts the rest, got {len(c['story'])} + {c['story_more']}",
+                  len(c["story"]) == report_card.STORY_MAX and c["story_more"] == len(every) - report_card.STORY_MAX > 0)
+        ctx.check(f"story_all holds every step in time order, the card's among them, got {len(every)}",
+                  all(s in every for s in c["story"]) and [s["t"] for s in every] == sorted(s["t"] for s in every))
+        ctx.check("the text card still says how many more", f"...and {c['story_more']} more step" in markdown(c))
+        ctx.check("nothing written", not (state / "replays").exists())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

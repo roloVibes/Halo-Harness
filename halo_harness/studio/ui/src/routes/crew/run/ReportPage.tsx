@@ -1,5 +1,5 @@
-// A finished goal run's report as its own page of the Map's drawer (3.6.0.3 B: `report:<id>`, titled "Goal run"; a page of
-// History before). Opened by every door to a finished run (crew/run/door.ts openRunReport: `&run=<id>`, Attention's `o`,
+// A finished goal run's report as its own page of the Map's drawer (3.6.0.3 B: `report:<id>`, titled "Goal run").
+// Opened by every door to a finished run (crew/run/door.ts openRunReport: `&run=<id>`, Attention's `o`,
 // the palette's "Goal run <id>", a dry run, the run page's "Open its report"). Back returns to the run's page when that
 // page's "Open its report" sent him here, else closes the drawer.
 import { useEffect } from "react";

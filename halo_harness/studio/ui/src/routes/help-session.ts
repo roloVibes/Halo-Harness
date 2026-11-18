@@ -55,7 +55,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "On top, one true block: which map this session runs on and since when; when new sessions run on another map, the sentence that says so and a New session button. Under it, one status line: who works on what, what it waits for, the cost.",
       "Below, the session drawn: main on the first row, then its boxes two a row; a lit box works now. Nothing is cut: \"↓ n more below\" scrolls one row.",
       "A cyan pulse works, amber waits on you, green just finished, red failed. While the pointer is on the drawing it holds still.",
-      `Open it on the ${WORDS.map} tab (Agents -> 3 · ${WORDS.map}) for the plan itself, what they think and say, and History under it.`,
+      `Open it on the ${WORDS.map} tab (Agents -> 3 · ${WORDS.map}) for the plan itself; a goal run's pages and its report open in that tab's drawer.`,
       `${NAV_HELP} It opens at 100 %, never smaller than its text reads; Fit (or 0) goes back to the top.`,
     ),
   },

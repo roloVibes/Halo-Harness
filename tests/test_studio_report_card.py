@@ -43,6 +43,13 @@ def test_a_goal_runs_card_on_its_own_page(ctx: Ctx):
               got.get("run_first") == "report-card" and str(got.get("run_ref")).startswith("run:"))
     ctx.check(f"the run's story and its doors kept: {got.get('run_story')}", got.get("run_kept") is True
               and str((got.get("run_story") or [""])[-1]).endswith("The run ended: finished"))
+    # 3.6.0.3 B (Z4 batch 4, Z10 as ruled): the card capped at 3 steps by the helper, the page shows all 8 of the run's
+    # (the route's story_all), no "...more steps" sentence, no Replay, and the card says it comes from the record
+    text = str(got.get("card_text") or "")
+    ctx.check(f"every step of the story on the page, not the card's 3: {len(got.get('run_story') or [])}", len(got.get("run_story") or []) == 8)
+    ctx.check("no '...more steps' sentence and no word of a replay on the card", "more step" not in text and "replay" not in text.lower())
+    ctx.check(f"the source line: {got.get('from')!r}", got.get("from") == "from the record · no model call")
+    ctx.check("the report has no Replay button", got.get("replay_btn") is False)
 
 
 @test

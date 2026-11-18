@@ -1,7 +1,7 @@
 // The two right drawers of Agents (3.6.0.2 R57). The Feed -- what the agents say and do, line by line -- is 4 · Live's
 // drawer, keyed to Live's session: a door to it (an agent's "open", a helper's "+n under it", a wait, the plan) lands on
 // Live with the Feed filtered to it and opened. 3 · Map keeps its own drawer for Run a goal and a goal run's pages
-// (R42: those buttons still change the page; 3.6.0.3 B: History left); its title follows the page it shows. Nothing
+// (R42: those buttons still change the page); its title follows the page it shows. Nothing
 // opens by itself.
 import { createStore, goSection, useStore } from "../../../lib/store";
 import { patchPanel } from "../../../lib/workspace/persist";

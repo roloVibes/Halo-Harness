@@ -28,6 +28,22 @@ function noteOnce(word: string): string {
 }
 
 const first = urlDoor();
+dropOldLink();
+
+/** 3.6.0.3 B (Z7): an old link of a past session's playback (`&replay=<id>`, with the `&at=` it came with) has picked
+ *  3 · Map (urlDoor); its words leave the address, the way settings/door.ts drops its own, and nothing is said. */
+function dropOldLink(): void {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get("mode") !== "agents" || !q.has("replay")) return;
+    q.delete("replay");
+    q.delete("at");
+    const rest = q.toString();
+    history.replaceState(history.state, "", location.pathname + (rest ? `?${rest}` : "") + location.hash);
+  } catch {
+    /* a browser that keeps the address as it is: the Map opens as it is now either way */
+  }
+}
 function lastView(): AgentsView {
   try {
     return lastViewOf(localStorage.getItem(LAST));

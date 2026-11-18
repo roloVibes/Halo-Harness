@@ -142,7 +142,7 @@ export async function stopChecks(): Promise<void> {
   try {
     await api.post("setup/check/stop");
   } catch {
-    /* the poll shows what happened */
+    /* the poll shows how it ended */
   }
 }
 

@@ -77,7 +77,7 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
 @test
 def test_a_finished_runs_door_opens_its_own_report_page_in_headless_chrome(ctx: Ctx):
     """3.4.0.0 D "the runs fold": over a seeded finished run (the R2 fixture: five lanes, one judged conflict, eight
-    checks) its door `?mode=agents&run=<id>` opens the run's report -- every check, every lane, Replay and Run it again
+    checks) its door `?mode=agents&run=<id>` opens the run's report -- every check, every lane and Run it again (no Replay: 3.6.0.3 B)
     -- and nothing finished is on the Map's line; a run waiting for its plan is the Map's line "A goal run is going", the
     plan panel NOT open (nothing opens by itself); the old Orchestra door is the Map (3.6.0.0 R5). 3.6.0.3 B: the report
     is its own drawer page `report:<id>`, titled "Goal run", History's list not open."""
@@ -89,7 +89,7 @@ def test_a_finished_runs_door_opens_its_own_report_page_in_headless_chrome(ctx: 
               and info.get("live-history-drawer") == 0 and info.get("report-check") == 8 and info.get("report-lane") == 5)
     ctx.check(f"the drawer's page is report:<id>, titled 'Goal run', got {info.get('drawer_page')!r} / {info.get('drawer_title')!r}",
               str(info.get("drawer_page")).startswith("report:") and info.get("drawer_title") == "Goal run")
-    ctx.check(f"Replay and Run it again on it, got {info}", info.get("history-report-replay") == 1 and info.get("history-report-again") == 1)
+    ctx.check(f"Run it again on it and no Replay (3.6.0.3 B), got {info}", info.get("history-report-replay") == 0 and info.get("history-report-again") == 1)
     ctx.check(f"nothing finished on the Map's line, no console, got {info}", info.get("map-lit-run") == 0
               and info.get("orchestra-root") == 0 and info.get("start-view") == 0 and info.get("section-tab") == 6)
     plan, old = info.get("plan") or {}, info.get("old_door") or {}

@@ -1,6 +1,6 @@
 // Zoom and pan, the same on every drawing in Studio (3.4.1.3; the owner, 2026-11-12, at Session's Map drawn too small to
 // read: "a ctrl+mouse up and down would be nice to zoom in via a mouse. It should work for Mac and windows style
-// mouse's"). One module, used by Agents -> Live (and a replay on its scrubber), Session's Map, Agents -> Cast and the
+// mouse's"). One module, used by Agents -> Live, Session's Map, Agents -> Cast and the
 // design pack's artboards:
 // - Ctrl + wheel (Windows, Linux) or Cmd + wheel (macOS) zooms around the pointer; a trackpad pinch arrives as a wheel
 //   event with ctrlKey and small pixel deltas and zooms smoothly; a wheel notch (lines, or a big pixel delta) is one
@@ -146,7 +146,7 @@ function attach(el: HTMLElement, cur: { current: Nav }): () => void {
   const hand = () => setHand(cur.current, el, true);
   let width = 0;
   // R8: the box got wider or narrower (a drawer, a breakpoint): fit again unless it is the person's view. Its height alone
-  // changing (a banner, a sentence or a scrubber above or below the drawing) leaves the zoom: that is not a new box.
+  // changing (a banner, a sentence or a bar above or below the drawing) leaves the zoom: that is not a new box.
   // R4b: during a drag of a drawer's line the fit waits for the drag's end (holdFits).
   const refit = () => {
     if (handOf(cur.current, el)) return;

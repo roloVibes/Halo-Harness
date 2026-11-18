@@ -85,7 +85,7 @@ function useRoom(key: string) {
 /** The map's top line: the reserved notice row (R55 L1-L3, R33 L4: NoticeRow.tsx), then R3's sentence in a room as tall
  *  as its longest form, then one row of controls, each in its own place: R4's "{n} new, not connected yet" (a box that
  *  just landed under "Not connected yet": a link that brings the strip into view) and the plan, from the row's left edge
- *  (3.6.0.3 B: no Replay slot before them); then a goal run going, on a line of its own the Map's whole width, there from
+ *  (3.6.0.3 B: nothing before them); then a goal run going, on a line of its own the Map's whole width, there from
  *  the first draw (LitLine.tsx RunRow, P8 batch 3 repair: the coordinator's ruling). The row's items sit at its top,
  *  so a part that grows it moves no other. A part that is not there is not drawn: no unseen copy in
  *  the sentence (P4 batch 12); the line's height never changes with a session or a row. */

@@ -1,6 +1,6 @@
 // Agents (Alt+2): four tabs and nothing else (3.6.0.0 R5, 3.6.0.2 R52) -- 1 · Agents (make an agent: routes/crew/),
-// 2 · Workflows (your agents in steps: routes/crew/flows/), 3 · Map (the plan: who main hands work to and when; History
-// replays on it: routes/crew/map/), 4 · Live (what a session is doing now, drawn on the map it really follows:
+// 2 · Workflows (your agents in steps: routes/crew/flows/), 3 · Map (the plan: who main hands work to and when, and the
+// goal runs' pages in its drawer: routes/crew/map/), 4 · Live (what a session is doing now, drawn on the map it really follows:
 // LiveView.tsx). Each tab draws the switch in its own view bar (ViewSwitch.tsx).
 // The Attention queue floats over every tab (AttentionChip.tsx, closed on load, A toggles it). A tab mounts the first
 // time it shows and stays mounted (its state kept), as the shell keeps a visited section. A page that boots on Agents with

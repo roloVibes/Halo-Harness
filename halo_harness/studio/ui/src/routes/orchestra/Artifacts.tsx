@@ -1,4 +1,4 @@
-// A finished run's artifacts (3.2.0.0 R5; 3.4.0.0 D: a block of its report page in History): a workflow run's typed
+// A finished run's artifacts (3.2.0.0 R5; 3.4.0.0 D: a block of its report page): a workflow run's typed
 // outputs (report.json `artifacts`, halo_harness/workflows/outputs.py), each
 // read through GET orchestra/<run>/artifact/<name> and drawn by its schema's
 // view hint (packs/ArtifactView.tsx). A skipped or missing output says why.

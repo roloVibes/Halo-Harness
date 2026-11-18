@@ -114,7 +114,7 @@ export type DryRun = { jobs: { id: string; worker: number; title: string; claims
 
 // 3.0.9.0 R2: planned = the split waits for the reviewed plan (the plan canvas takes the console's place)
 export type RunState = "running" | "planned" | "finished" | "stopped" | "dry run" | "new" | "interrupted";
-// 3.4.0.0 D: History's row says how it ended, how long it took and on which models (studio/orchestra_model.run_row)
+// 3.4.0.0 D: a finished run's row: how it ended, how long it took and on which models (studio/orchestra_model.run_row)
 export type RunRow = { run_id: string; created: number; state: RunState; workers: number; goal_what: string; cost_usd: number;
   elapsed_s?: number | null; ended?: number | null; models?: string[]; stop_reason?: string };
 

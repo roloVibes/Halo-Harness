@@ -51,7 +51,7 @@ export function useLive<S>(select: (s: LiveState) => S): S {
   return useStore(live, select);
 }
 
-const clip = (t: string) => (t.length > TEXT_MAX ? "..." + t.slice(-(TEXT_MAX - 3)) : t);
+const keepEnd = (t: string) => (t.length > TEXT_MAX ? "..." + t.slice(-(TEXT_MAX - 3)) : t);
 export const firstLine = (t: string | undefined) => String(t || "").split(/\r?\n/).map((x) => x.trim()).find(Boolean)?.slice(0, 160) || "";
 const fullOf = (t: string | undefined) => (String(t || "").length > FULL_MAX ? String(t).slice(0, FULL_MAX) + "\n..." : String(t || "")).replace(/\s+$/, "");
 
@@ -81,20 +81,20 @@ export function addText(key: AgentKey, kind: "text" | "thinking", text: string, 
     if (x.key !== key) continue;
     if (x.kind === kind && now - (x.ended || x.t0) < JOIN_MS && !steered.has(key)) {
       const lines = s.lines.slice();
-      lines[j] = { ...x, text: clip(x.text + text), ended: now };
+      lines[j] = { ...x, text: keepEnd(x.text + text), ended: now };
       live.update(() => ({ lines }));
       return;
     }
     break;
   }
-  addLine({ key, kind, ts, text: clip(text), ended: now });
+  addLine({ key, kind, ts, text: keepEnd(text), ended: now });
 }
 
 /** A steer you sent to `key` (`to`: its name): one row under the target row, after any steer already there. */
 export function addSteer(key: AgentKey, text: string, ts: number, to: string): void {
   const anchor = anchorOf(key);
   live.update((s) => {
-    const line: LiveLine = { key, kind: "you", ts, t0: Date.now(), text: clip(text), to, n: ++seq };
+    const line: LiveLine = { key, kind: "you", ts, t0: Date.now(), text: keepEnd(text), to, n: ++seq };
     let i = anchor ? s.lines.findIndex((x) => x.n === anchor) : -1;
     if (i < 0) return { lines: [...s.lines, line].slice(-MAX_LINES) };
     for (i++; i < s.lines.length && s.lines[i].kind === "you" && s.lines[i].key === key; i++);
@@ -139,12 +139,12 @@ export function fromEntry(key: AgentKey, e: Entry, at = false): void {
   const target = label.startsWith(name + ":") ? label.slice(name.length + 1).trim() : "";
   if (e.kind === "thinking" && !at && thinkSeen.has(key)) return;
   if ((e.kind === "text" || e.kind === "thinking") && !at) return addText(key, e.kind, String(e.text || ""), ts);
-  if (e.kind === "text" || e.kind === "thinking") return addLine({ key, kind: e.kind, ts, text: clip(String(e.text || "")) }, true);
+  if (e.kind === "text" || e.kind === "thinking") return addLine({ key, kind: e.kind, ts, text: keepEnd(String(e.text || "")) }, true);
   if (e.kind === "tool_call") return at ? addLine({ key, kind: "tool", ts, text: "", tool: name, id: String(e.id || ""), target, ended: ts * 1000 }, true) : toolStart(key, String(e.id || ""), name, ts, target);
   if (e.kind === "tool_result") return at ? backlogResult(key, e) : toolEnd(key, String(e.id || ""), String(e.text || ""), !!e.is_error, String(e.policy || ""));
   if (e.kind === "spawn") return addLine({ key, kind: "spawn", ts, text: label || `${name}: ${e.task || ""}` }, at);
-  if (e.kind === "handback") return at || !talkedBack(key) ? addLine({ key, kind: "output", ts, text: clip(String(e.text || "")) }, at) : undefined;
-  if (e.kind === "user") return addLine({ key, kind: e.you ? "you" : "asked", ts, text: clip(String(e.text || "")) }, at);
+  if (e.kind === "handback") return at || !talkedBack(key) ? addLine({ key, kind: "output", ts, text: keepEnd(String(e.text || "")) }, at) : undefined;
+  if (e.kind === "user") return addLine({ key, kind: e.you ? "you" : "asked", ts, text: keepEnd(String(e.text || "")) }, at);
   if (e.kind === "error") return addLine({ key, kind: "error", ts, text: String(e.text || e.reason || "error").slice(0, 300) }, at);
 }
 

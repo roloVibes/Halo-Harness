@@ -6,7 +6,9 @@ Chrome on the driver base, over a scratch home with two ended sessions and a fin
 
 `card`: the goal run's card on its own page (its door `&run=<id>`; 3.6.0.3 B: History and a past session's card left
 Studio): the nine figures, the story, every section, its file, what the record cannot show, Copy on; the card is the
-report page's FIRST block, before the plan and its lanes, and the report's doors are kept.
+report page's FIRST block, before the plan and its lanes, and the report's doors are kept (Replay left: Z4 batch 4).
+Z10 as ruled: with the card capped at 3 steps for this step (live/report_card.STORY_MAX, read at each card() call), the
+page still shows every step (the route's `story_all`), with no "...more steps" sentence and no word of a replay.
 `mode`: a real Controller behind its control socket, registered in auto mode: Session's bar says "auto" with its meaning
 on hover; set to plan (the session and its registry row) while its feed is held from Studio (3.4.1.0 R6), the
 page's first word after a reload is "plan".
@@ -42,14 +44,23 @@ def _read(c) -> dict:
 
 def card(c, page, run: str) -> dict:
     """The goal run's card from its own page (Z11: the card opens from the run's page; History's door left)."""
-    open_page(c, page, f"mode=agents&run={run}")
-    c.wait(f"{Q}('[data-testid=\"history-report\"]')?.dataset.run === '{run}' && {CARD}?.dataset.state === 'ready'", 30)
+    from halo_harness.live import report_card
+    keep = report_card.STORY_MAX
+    report_card.STORY_MAX = 3  # Z10: the card keeps 3 steps here; the page must still show every one
+    try:
+        open_page(c, page, f"mode=agents&run={run}")
+        c.wait(f"{Q}('[data-testid=\"history-report\"]')?.dataset.run === '{run}' && {CARD}?.dataset.state === 'ready'", 30)
+    finally:
+        report_card.STORY_MAX = keep
     out = {"a": _read(c), "run_ref": c.js(f"{CARD}.dataset.ref")}
+    out["card_text"] = c.js(f"{CARD}.textContent")
+    out["from"] = c.js(f"{CARD}.querySelector('.rcd-from')?.textContent || ''")
+    out["replay_btn"] = c.js(f"!!{Q}('[data-testid=\"history-report-replay\"]')")
     out["run_first"] = c.js(f"""(() => {{ const r = {Q}('[data-testid="history-report"]');
       const blocks = [...r.querySelectorAll('[data-testid="report-card"], [data-testid^="history-report-"].rr-block')];
       return blocks.length ? blocks[0].dataset.testid : ''; }})()""")
     out["run_story"] = c.js(f"[...{QA}('[data-testid=\"report-card-step\"]')].map((s) => s.textContent)")
-    out["run_kept"] = c.js(f"['history-report-back', 'history-report-replay', 'history-report-again', 'history-report-lanes']"
+    out["run_kept"] = c.js(f"['history-report-back', 'history-report-again', 'history-report-lanes']"
                            f".every((t) => !!{Q}(`[data-testid=\"${{t}}\"]`))")
     return out
 
@@ -69,7 +80,7 @@ def _on_report(c, run: str) -> dict:
     return {"page": c.js(f"{DRAWER}.dataset.page"), "title": c.js(TITLE), "rect": c.js(RECT),
             "history_open": c.js(f"!!{Q}('[data-testid=\"live-history-drawer\"]') || !!{Q}('[data-testid=\"history-page\"]')"),
             "back_title": c.js(f"{Q}('[data-testid=\"history-report-back\"]').title"),
-            "kept": c.js(f"['history-report-back', 'history-report-replay', 'history-report-again', 'history-report-lanes']"
+            "kept": c.js(f"['history-report-back', 'history-report-again', 'history-report-lanes']"
                          f".every((t) => !!{Q}(`[data-testid=\"${{t}}\"]`))"),
             "first": c.js(f"""(() => {{ const blocks = [...{REPORT}.querySelectorAll('[data-testid="report-card"], [data-testid^="history-report-"].rr-block')];
               return blocks.length ? blocks[0].dataset.testid : ''; }})()""")}

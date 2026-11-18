@@ -1,13 +1,13 @@
 // The run report card's data and words (3.4.1.0 R3 "Time"): what `GET live/report?ref=` answers (live/report_card.py
-// builds it from the run's record, no model call; its Markdown comes with it, the text `halo report` prints), read once per
-// card. The words mirror live/compare_text.py and live/report_card_text.py, so the page and the Markdown say the same: a
-// cost Halo cannot price is "unknown" or the priced part with a "+", never $0.
+// builds it from the run's record, no model call; its Markdown comes with it, the text `halo report` prints; and every
+// step of its story, `story_all`, for the page: 3.6.0.3 B, Z10), read once per card. The words mirror the card's own
+// Python words (live/card_data.py, live/report_card_text.py), so the page and the Markdown say the same: a cost Halo
+// cannot price is "unknown" or the priced part with a "+", never $0.
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
 
-/** One figure: its value, its words, and whether Halo could not know it (3.6.0.3 B: defined here; the card stayed when
- *  Compare left). */
+/** One figure: its value, its words, and whether Halo could not know it (3.6.0.3 B: defined here, beside the card). */
 export type Cell = { value: unknown; text: string; unknown?: boolean };
 export type Step = { t: number; at: string; kind: string; text: string };
 export type Phase = { phase: string; words: string; secs: number; share: number | null };
@@ -26,21 +26,21 @@ export type Card = {
   failures: Fail[]; failed_calls: number; retries: number | null; waits: Wait[]; waited_s: number;
   models: ModelDid[]; artefacts: Artefact[] | null; cannot: string[];
 };
-export type Got = { card: Card | null; markdown: string; error: string };
+export type Got = { card: Card | null; markdown: string; error: string; all: Step[] };
 
 /** The card of `ref` (session:<id> | run:<id> | file:<id>), read when the ref changes. */
 export function useCard(ref: string): Got {
-  const [got, setGot] = useState<Got & { ref: string }>({ ref: "", card: null, markdown: "", error: "" });
+  const [got, setGot] = useState<Got & { ref: string }>({ ref: "", card: null, markdown: "", error: "", all: [] });
   useEffect(() => {
     let live = true;
-    api.get<{ card: Card; markdown: string }>("live/report", { ref })
-      .then((r) => live && setGot({ ref, card: r.card, markdown: r.markdown, error: "" }))
-      .catch((e) => live && setGot({ ref, card: null, markdown: "", error: e instanceof ApiError ? e.message : String(e) }));
+    api.get<{ card: Card; markdown: string; story_all?: Step[] }>("live/report", { ref })
+      .then((r) => live && setGot({ ref, card: r.card, markdown: r.markdown, error: "", all: r.story_all || r.card.story }))
+      .catch((e) => live && setGot({ ref, card: null, markdown: "", error: e instanceof ApiError ? e.message : String(e), all: [] }));
     return () => {
       live = false;
     };
   }, [ref]);
-  return got.ref === ref ? got : { card: null, markdown: "", error: "" };
+  return got.ref === ref ? got : { card: null, markdown: "", error: "", all: [] };
 }
 
 /** "1 min 40 s", "16 s", "unknown" (live/compare_text.secs). */

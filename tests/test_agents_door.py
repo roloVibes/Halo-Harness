@@ -5,8 +5,8 @@ tests/helpers/node_ts.py on every platform; the browser half is tests/test_studi
 1. the views are four, `live` the fourth; `?mode=agents&view=live` (an old link, a bookmark, a saved section) opens Live,
    no longer the Map; every other old door lands where it did (cast, roles, team, orchestra, runs -> map; flows ->
    workflows; ?mode=roles|orchestra|team|fleet -> map), and Fleet's note is unchanged;
-2. a replay stays on Map (R55): `halo replay open`'s `view=live&replay=<id>` of 3.6.0.1 and before lands on the Map, where
-   the scrubber is;
+2. an old replay link (`view=live&replay=<id>` of 3.6.0.1 and before, `view=map&replay=`) opens the Map as it is now
+   (3.6.0.3 B, Z7; routes/agents/store.ts drops the parameter: tests/test_studio_agents_live.py);
 3. the live panels' old doors (`showFleetPanel`: fleet-activity, fleet-costs, ...) land on Agents -> Live, where a run is
    now watched; the Attention panel, an agent's rows and Local -> Hosts keep their homes;
 4. R56 (decision 4): the opening tab (`openingView`): a door's tab, else 4 · Live while a session he has talked to is open

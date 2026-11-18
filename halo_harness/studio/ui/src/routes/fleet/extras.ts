@@ -30,7 +30,7 @@ const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid
 export function openTarget(t: OpenTarget, row?: AttnRow): void {
   if (t.section !== "live" && t.section !== "fleet") {
     const view = viewOf(String(t.view || "")) || undefined; // 3.6.0.0 R5: an old view word lands on the tab that replaced it
-    // a goal run's row (its `view` is "live", 3.4.0.0 D, or "map"): its pages in the Map's drawer while it runs, else History
+    // a goal run's row (its `view` is "live", 3.4.0.0 D, or "map"): its pages in the Map's drawer while it runs, else its report there
     if (t.run && !t.stage && (view === "map" || view === "live")) return void openRun(t.run);
     goSection(t.section as SectionId, view);
     if (t.view === "crew" && t.agent) void openCrewTry(t.agent, t.try || ""); // 3.6.0.0 R1: a Try it run's row

@@ -1,5 +1,5 @@
-// What lights the Map now (3.6.0.2 R55: the Map is the plan, no run overlay; 3.6.0.3 B Z8: it never draws the past --
-// History and the replay left Studio): nothing. `useLit` is always off and only carries this machine's running sessions
+// What lights the Map now (3.6.0.2 R55: the Map is the plan, no run overlay; 3.6.0.3 B Z8: it never draws the past):
+// nothing. `useLit` is always off and only carries this machine's running sessions
 // (`all`) and other machines' (`away`) for the Map's one quiet line (NoticeRow.tsx). A running session is drawn in
 // Agents -> 4 · Live (agents/liveLit.tsx gives Live's session in this same shape through LitCtx).
 import { createContext, useContext, useEffect } from "react";

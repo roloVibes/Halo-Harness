@@ -52,8 +52,8 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_a_goal_run_on_the_map_offers_its_own_report_page_when_it_ends(ctx: Ctx):
         """3.6.0.0 R5: Approve and run closes the plan; the run's pages (the Map's drawer) offer Stop the run while it
-        runs; released, it finishes and leaves the Map's line; its report (eight checks, five lanes) with Replay is
-        reached by its own door (3.6.0.3 B: History left). (The lanes as boxes under a lead went with Live.) L-B2: it
+        runs; released, it finishes and leaves the Map's line; its report (eight checks, five lanes; no Replay: 3.6.0.3 B
+        Z4 batch 4) is reached by its own door (3.6.0.3 B: History left). (The lanes as boxes under a lead went with Live.) L-B2: it
         ends with its page open: the page stays, its actions row holds still and offers "Open its report" where Stop
         was, no word names History; the press opens `report:<id>` ("Goal run"), whose Back returns to the run's page."""
         got = run(ctx)
@@ -75,7 +75,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the view bar's drawer button holds still on run:<id> (live, ended) and report:<id>, got {bars}",
                   bars[0] is not None and all(b == bars[0] for b in bars))
         ctx.check(f"finished, it left the Map's line; its report by its own door, got {got.get('left_live')} / {got.get('report')}",
-                  got.get("left_live") == "gone" and got.get("report") == {"checks": 8, "lanes": 5, "replay": True}
+                  got.get("left_live") == "gone" and got.get("report") == {"checks": 8, "lanes": 5, "replay": False}
                   and (got.get("first_report") or {}).get("status") == "finished")
 
     @test

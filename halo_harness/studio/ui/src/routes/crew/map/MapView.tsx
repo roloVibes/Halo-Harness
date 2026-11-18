@@ -4,7 +4,7 @@
 // drawer that pushes the map (closed until you open it from the view bar); the builder is docked at the foot. The view
 // bar carries Agents' switch and the Attention chip. Nothing opens by itself. 3.6.0.2 R57: the Feed is 4 · Live's; the
 // Map's right drawer keeps Run a goal and a goal run's pages (MapDrawer.tsx), titled by the page it shows. 3.6.0.3 B:
-// the Map draws the plan and what runs now, never the past (History, its strip and the replay left Studio).
+// the Map draws the plan and what runs now, never the past.
 import { useEffect, useMemo, useLayoutEffect, useRef, useState, type RefObject, type CSSProperties } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";

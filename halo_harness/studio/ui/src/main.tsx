@@ -8,7 +8,7 @@ import "./styles/shell.css";
 import "./styles/workspace.css";
 import "./styles/orchestra.css";
 import "./styles/orchestra-plan.css";
-import "./styles/run.css"; // 3.4.0.0 D: a goal run on Live, the Run a goal panel, History's report page
+import "./styles/run.css"; // 3.4.0.0 D: a goal run on Live, the Run a goal panel, a goal run's report page
 import "./styles/start-view.css";
 import "./styles/media.css";
 import "./styles/help.css";
@@ -60,8 +60,8 @@ import "./styles/local-steward.css"; // 3.3.7.0 R5: the Steward page's chat box 
 import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the scan, the recommendation, the Pool badge
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import "./styles/live-groups.css"; // 3.3.16.3: Live in groups, the group boxes (after nodes.css)
-import "./styles/live-truth.css"; // 3.3.18.0: Live's empty sentence, History, the replay banner, Cast's plan line
-import "./styles/live-card.css"; // 3.4.1.0 R3: the run report card, History's Report door, Session's mode word
+import "./styles/live-truth.css"; // 3.3.18.0: Live's empty sentence, Cast's plan line
+import "./styles/live-card.css"; // 3.4.1.0 R3: the run report card, Session's mode word
 import "./styles/glance.css"; // 3.4.1.0 R4: the glance page, Open the glance, Settings -> Studio -> Alerts
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
 import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picker's one-line rows (after model-card.css)

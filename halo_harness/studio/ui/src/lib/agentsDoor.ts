@@ -1,8 +1,8 @@
 // Agents (Alt+2) has four tabs (3.6.0.2 R52): `crew` 1 · Agents, `workflows` 2 · Workflows, `map` 3 · Map, `live` 4 · Live
 // (what a session is doing now, drawn on the map it really follows). Every older door lands on one of them:
 // `?mode=agents&view=live` on Live; `?mode=roles|orchestra|team|fleet` and `?mode=agents&view=cast|roles|team|orchestra|runs`
-// on the Map, `view=flows` (3.6.0.0 R2's id for the Workflows tab) on Workflows; a replay (`&replay=<id>`, `halo replay
-// open`) stays on the Map, where its scrubber is (R55). A saved section, a `focus` frame, an attention row's `o` and a
+// on the Map, `view=flows` (3.6.0.0 R2's id for the Workflows tab) on Workflows; an old link of a past session's playback
+// opens the Map as it is now (3.6.0.3 B, Z7: routes/agents/store.ts drops its words from the address). A saved section, a `focus` frame, an attention row's `o` and a
 // pack's route that name an old word land the same way (lib/store.ts goSection). routes/agents/store.ts takes the view
 // (onAgentsView); this file has no React and no store of its own, so lib/store.ts may import it and node runs it
 // (tests/test_agents_door.py). `&run=<id>` (a goal run) opens on the Map's drawer.
@@ -32,7 +32,7 @@ export function urlDoor(search?: string): { view: AgentsView | ""; word: string 
   if (!q) return { view: "", word: "" };
   const word = q.get("mode") || "";
   const view = q.get("view") || "";
-  if (word === "agents" && q.get("replay")) return { view: "map", word }; // R55: a replay stays on the Map
+  if (word === "agents" && q.get("replay")) return { view: "map", word }; // Z7: an old replay link opens the Map as it is now
   if (word === "agents") return { view: isView(view) ? view : OLD_VIEWS[view] || "", word };
   return { view: AGENTS_DOORS[word] || "", word: AGENTS_DOORS[word] ? word : "" };
 }

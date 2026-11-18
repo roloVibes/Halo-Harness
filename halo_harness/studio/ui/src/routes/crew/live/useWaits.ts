@@ -17,8 +17,8 @@ export const useWaitOf = (id: string): Wait | undefined => useStore(waitStore, (
 export const useOnPath = (id: string | null | undefined): boolean => useStore(waitStore, (s) => !!id && s.path.includes(id));
 export const usePathIds = (): string[] => useStore(waitStore, (s) => s.path);
 
-/** The waits of `nodes` and the waiting path; `on` false (Session's thumbnail) leaves the store alone. `fixed` (3.4.1.0 R1, a
- *  replay at the scrubber's moment: timeline.ts waitsAt) stands in for the feed's. */
+/** The waits of `nodes` and the waiting path; `on` false (Session's thumbnail) leaves the store alone. `fixed` (waits
+ *  a caller already has) stands in for the feed's. */
 export function useWaits(nodes: LiveNode[], now: number, on: boolean, fixed: Map<string, Wait> | null = null): { waits: Map<string, Wait>; path: WaitPath } {
   useEffect(() => startLiveTree(), []);
   const open = useLive((s) => s.open);

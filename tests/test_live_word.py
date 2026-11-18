@@ -158,13 +158,12 @@ def test_live_names_only_the_run(ctx: Ctx):
     check("no help entry for fleet-activity (no panel has that id)", '"fleet-activity"' not in _read("help-live.ts"))
 
     # 2. a button's words name where its click lands
+    #    3.6.0.3 B (Z9, rewritten to the truth): the panel's Replay left; a LAST SESSIONS row's "export" saves that
+    #    session's Markdown export (TraceExport's exportTrace), it goes nowhere in Studio
     hist = _read("fleet/AgentHistory.tsx")
-    replay_btn = next((ln for ln in hist.splitlines() if "fleet-replay" in ln), "")
-    replay_fn = _between(_read("crew/live/replay.ts"), "export function replaySession", "\n}\n")
-    check("replaySession plays the session back on Agents -> Map", 'goSection("agents", "map")' in replay_fn)
-    title = _attr(replay_btn, "title")
-    check(f"History's Replay says Agents -> Map, where it goes, got {title!r}",
-              "Agents -> Map" in title and "Agents -> Live" not in title)
+    check("no Replay button in Session's agent panel (fleet-replay)", "fleet-replay" not in hist)
+    export_link = next((ln for ln in hist.splitlines() if "fleet-history-export" in ln), "")
+    check(f"a row's export link calls exportTrace, got {export_link.strip()[:160]!r}", "exportTrace(r.session_id)" in export_link)
     pip = _read("fleet/Pip.tsx")
     door = _between(_read("fleet/actions.ts"), "export function openAgentPanel", "\n}\n")
     to_live = 'goSection("agents", "live")' in door

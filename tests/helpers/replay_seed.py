@@ -1,8 +1,8 @@
 """tests.helpers.replay_seed -- one session on disk for the replay tests (Halo 3.4.1.0 R1 "Time"): main thinks, spawns
 a scout (reads, hands back at +50 s, done at +59) and a fixer (fails at +90), waits on a permission card (+20 to +26,
 answered allow) and asks a question (+70 to +80), done at +100. A fake key sits in the title, the scout's task, the
-question and the hand-back; the project path in the meta. tests/test_replay_file.py and the Chrome driver
-tests/helpers/studio_replay_time.py read it.
+question and the hand-back; the project path in the meta. tests/test_replay_file.py, tests/test_card_data.py, the
+seeds card_seed.py and compare_seed.py and the Chrome driver tests/helpers/studio_hold_still.py read it.
 """
 from __future__ import annotations
 

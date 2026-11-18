@@ -1,9 +1,6 @@
-/* The run report card (3.4.1.0 R3, routes/agents/live/ReportCard.tsx): History's Report door beside each row, the card
-   as a page of History or as the first block of a goal run's report, Live's row for the session that ended, and
-   Session's permission-mode word. A row per fact; text wraps, never squished; colours are tokens. */
-.lh-door { flex: 0 0 auto; align-self: center; margin: 0 8px; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
-.lh-door:hover, .lh-door:focus-visible { color: var(--text); border-color: var(--accent); outline: none; }
+/* The run report card (3.4.1.0 R3, routes/crew/live/ReportCard.tsx): the first block of a goal run's report page,
+   Live's row for the session that ended, and Session's permission-mode word. A row per fact; text wraps, never squished;
+   colours are tokens. */
 
 .rr-goal-inline { min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
 

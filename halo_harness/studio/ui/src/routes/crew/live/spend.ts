@@ -2,7 +2,7 @@
 // a session or a mission part is a node too, and it carries the money its agents spent (a session's spend IS its
 // agents'), so summing every node said $0.015 for a member's one `halo -p` session of $0.0075. No imports: tests run it.
 // 3.4.1.1: `spendText` never prints a spend that is not zero as $0.000 (defect 44: $0.0004 read "$0.000"); `spendWords`
-// says "cost unknown at this moment" for a replay whose record cannot give the figure then (defect 60), never $0.
+// says "cost unknown at this moment" for an agent whose record cannot give the figure then (defect 60), never $0.
 export type Costed = { kind?: string; cost: number | null; costUnknown?: boolean };
 
 export function liveSpend(nodes: Costed[]): number {

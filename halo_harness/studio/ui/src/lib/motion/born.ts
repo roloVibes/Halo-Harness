@@ -2,7 +2,7 @@
 // animations that carry meaning (a node that starts, a meter that fills, a rung that climbs) play only for a thing
 // that appears after its page has drawn. `useBorn()` says so at mount: more than BORN_AFTER_MS after the page or the
 // section it lives in showed. It answers [born, grown]: call `grown` from onAnimationEnd, so a section shown again
-// (a hidden section's animations restart when it shows) never replays it. `ackFailed` / `failedAcked`: a failed
+// (a hidden section's animations restart when it shows) never plays it again. `ackFailed` / `failedAcked`: a failed
 // node keeps its red rule and edge until it is clicked.
 import { useCallback, useState } from "react";
 import { studio } from "../store";

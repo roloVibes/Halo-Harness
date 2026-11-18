@@ -1,8 +1,8 @@
 /* A goal run's shared pieces (3.0.3.0 R4's Orchestra view; 3.4.0.0 D "the runs fold": what is left once Runs' panels
    went -- the lane colour ramp, the metric tones, the state badge, the goal form, the lane number, the report's facts
    and checks). Colours are the tokens only: the 10-step lane ramp mixes the accent, accent-2, ok, text and muted
-   tokens (never amber or red, which mean "needs you" and "failed"). Live's run block, the goal panel and History's
-   report page: styles/run.css. */
+   tokens (never amber or red, which mean "needs you" and "failed"). Live's run block, the goal panel and a finished
+   run's report page: styles/run.css. */
 
 [data-lc="0"] { --lane: var(--accent); }
 [data-lc="1"] { --lane: var(--accent-2); }
@@ -51,7 +51,7 @@
 
 @keyframes og-dash { to { stroke-dashoffset: -28; } }
 
-/* -- a finished run's facts and checks (History's report page) ------------------------ */
+/* -- a finished run's facts and checks (its report page) ------------------------------ */
 .og-chips { display: inline-flex; gap: 3px; flex-wrap: wrap; }
 .og-chip { font-size: 12px; padding: 2px 7px; border-radius: 99px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
 .og-chip[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
