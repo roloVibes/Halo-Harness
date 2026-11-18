@@ -21,7 +21,7 @@ def print_list(kind: str, cwd: Path, extra=None) -> int:
     from halo_harness.crew import store
     rows = store.rows(kind, cwd=cwd)
     if not rows:
-        print(f"no {kind}s (the starters ship with Halo: check the install)")
+        print(f"no {kind}s (the ones that ship with Halo are missing: check the install)")
         return 0
     seen = set()
     for r in rows:
@@ -30,7 +30,7 @@ def print_list(kind: str, cwd: Path, extra=None) -> int:
         what = str(r.get("does") or r.get("for") or "").strip().replace("\n", " ")
         bad = f"  problem: {r['_problems'][0]}" if r.get("_problems") else ""
         more = f"  {extra(r)}" if extra else ""
-        print(f"  {r['name']:<22} {r['_scope']:<8}{' (shadowed)' if shadowed else ''} {what[:70]}{more}{bad}")
+        print(f"  {r['name']:<22} {store.scope_words(r['_scope'], short=True):<8}{' (shadowed)' if shadowed else ''} {what[:70]}{more}{bad}")
     return 0
 
 
@@ -40,7 +40,7 @@ def show(kind: str, name: str, cwd: Path) -> int:
     if got is None:
         print(f"halo {kind}s show: no {kind} named {name!r} (halo {kind}s list)", file=sys.stderr)
         return 1
-    print(f"# {got['_path']} ({got['_scope']})")
+    print(f"# {got['_path']} ({store.scope_words(got['_scope'])})")
     print(store.dump(store.clean(got)).rstrip())
     used = store.used_by(name, cwd=cwd) if kind == "agent" else store.maps_with(name, cwd=cwd)
     if used:
@@ -101,7 +101,8 @@ def edit(kind: str, name: str, cwd: Path) -> int:
                   f"to one that runs, or open it in Studio: halo studio --edit {kind}:{name}", file=sys.stderr)
             return 1
     if scope == "starter":
-        print(f"{name} is a starter (read-only): halo {kind}s copy {name} makes yours (my-{name})")
+        own = path.stem  # 3.6.0.5: the found file's own name (`starter` finds auto), which own_copy really copies
+        print(f"{own} ships with Halo (read-only): halo {kind}s copy {own} makes yours (my-{own})")
     print(f"opening Studio on it: halo studio --edit {kind}:{name} (Agents -> {TABS[kind]})")
     from halo_harness.studio_edit_cli import open_in_studio
     return open_in_studio(kind, name, no_open=False, prog=f"halo {kind}s edit")

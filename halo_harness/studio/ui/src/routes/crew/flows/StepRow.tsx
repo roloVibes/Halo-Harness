@@ -37,7 +37,7 @@ function Chips({ s, i }: { s: Step; i: number }) {
       <select className="input fl-add-agent" value="" aria-label={`Add an agent to step ${i + 1}`} data-testid="flow-chip-add"
               onChange={(e) => e.target.value && setStep(i, { agents: [...s.agents, e.target.value] })}>
         <option value="">+ agent</option>
-        {left.map((a) => <option key={`${a.scope}:${a.name}`} value={a.name}>{a.name}{a.scope === "starter" ? " (starter)" : ""}</option>)}
+        {left.map((a) => <option key={`${a.scope}:${a.name}`} value={a.name}>{a.name}{a.scope === "starter" ? " (ships with Halo)" : ""}</option>)}
       </select>
       {s.agents.length > 1 && <span className="cw-line fl-same">these work at the same time</span>}
     </div>

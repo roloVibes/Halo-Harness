@@ -34,7 +34,7 @@ function Row({ it, on, locked }: { it: Item; on: boolean; locked: boolean }) {
       <span className="mp-grip mono" aria-hidden="true">⋮⋮</span>
       <span className="mp-row-text">
         <b>{it.name}</b>
-        {it.scope !== "yours" && <span className="mp-scope"> {it.scope === "project" ? "this project's" : "starter"}</span>}
+        {it.scope !== "yours" && <span className="mp-scope"> {it.scope === "project" ? "this project's" : "ships with Halo"}</span>}
         <span className="mp-row-line">{it.line}</span>
       </span>
       <button type="button" className="btn mp-add" disabled={on || locked} onClick={add} data-testid="map-add"

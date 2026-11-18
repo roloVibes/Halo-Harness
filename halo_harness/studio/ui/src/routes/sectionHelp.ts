@@ -31,10 +31,10 @@ export const STEP_KEYS: [string, string] = ["J / K", `in the drawing of a run ($
 export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   agents: { // 3.6.0.0 R5, 3.6.0.2 R52: four tabs -- make an agent, make a workflow, connect them on the map, watch a session run
     terms: ["step", "hand-off", "when", "live map", "report card", "waiting path", "orchestra run", "gate"],
-    what: "Your agents in four tabs: 1 · Agents makes an agent (its name, what it does, its model, what it may use, how careful; Try it, Save), 2 · Workflows puts your agents in steps, in order, and 3 · Map connects them -- who main hands work to, and when; 4 · Live shows what a session is doing now, drawn on the map it really follows. Every session runs on a map (the starter map until you pick one). The files live in ~/.halo/crew/.",
+    what: "Your agents in four tabs: 1 · Agents makes an agent (its name, what it does, its model, what it may use, how careful; Try it, Save), 2 · Workflows puts your agents in steps, in order, and 3 · Map connects them -- who main hands work to, and when; 4 · Live shows what a session is doing now, drawn on the map it really follows. Every session runs on a map (Auto, the default, until you pick one). The files live in ~/.halo/crew/.",
     steps: [
       ["Pick the tab", "1 · Agents, 2 · Workflows, 3 · Map or 4 · Live, first on each tab's bar (keys 1, 2, 3, 4; for this release C lands on the Map, L on Live, W on Workflows). Agents opens on Live while a session is open, else on the tab used last. Nothing else opens on its own."],
-      ["1 · Agents", "Your agents on the left (tagged new or not used yet), then the starters to copy; the form on the right. Write it for me fills the builder box below; Try it runs the agent on a throwaway copy of the repo and says what it used and cost."],
+      ["1 · Agents", "Your agents on the left (tagged new or not used yet), then the ones that ship with Halo to copy; the form on the right. Write it for me fills the builder box below; Try it runs the agent on a throwaway copy of the repo and says what it used and cost."],
       ["2 · Workflows", "A workflow is your agents in steps: each step's agents (side by side ones work at the same time), what it gets, what it hands on, when it runs, and Repeat until. The drawing beside the form follows the list. Try it runs it on a throwaway copy."],
       ["3 · Map", "main is always at the left. Drag an agent or a workflow from Agents and workflows onto a box: that box hands work to it, and the When card opens at the line. Drag a box's dot to another box for a chain. New sessions run on this makes it the map new sessions run on."],
       ["4 · Live", `The session you pick, drawn on the map it really follows: each box with its agents and their state, a workflow as its steps, every hand-off lighting its line and leaving a trace, work outside the lines dashed. Click a box: Pause, Stop or steer it there. The ${WORDS.feed} (its button on the bar) shows what the agents say and do, line by line.`],
@@ -82,7 +82,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Pick the default model", "Default model lists the catalog of the providers set up here, grouped by provider, with what each model is best at; search, pick one, Save (Enter saves too)."],
       ["Pick the permission mode", "Permissions: auto, acceptEdits, default or plan, each with what it allows; Save writes the mode every new session starts in."],
       ["Pick the theme", "Theme: one of ten palettes for halo in your terminal and for Studio, each swatch drawn in its own colours; Settings -> Themes has the modifiers and a preview."],
-      ["Pick the map", "Team: One model for everything, starter (the default) or a map, with its preview; Apply writes what the wizard's Map step writes."],
+      ["Pick the map", "Map: Auto (the default), a map of yours, or One model for everything, with its preview; Apply writes what the wizard's Map step writes."],
       ["Run the check", "Check: doctor, the model catalog and one hello call are ticked; the quick gym and the guided first run say what they cost first. Linux fixes is a step only when this box needs them."],
       ["Read the Summary", "One row per step with what it holds and a Change jump, the last check with Run the ticked checks, and the guided first run's card."],
     ],

@@ -531,6 +531,205 @@ def test_setup_marks_only_the_shipped_row_default(ctx: Ctx):
         ctx.check(f"exactly one active row, the shipped one, got {active}", active == [("auto", "starter")])
 
 
+# --- batch 4: "ships with Halo" in every list, refusal and help text ------------------------------------------------
+
+SHIPS = "ships with Halo"
+UI_SRC = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes"
+
+
+def _edit_out(kind: str, name: str, cwd) -> str:
+    """crew_cli_parts.edit on a shipped item, with Studio's opener stubbed (nothing is started)."""
+    import halo_harness.studio_edit_cli as E
+    from halo_harness import crew_cli_parts as P
+    saved = E.open_in_studio
+    E.open_in_studio = lambda *a, **kw: 0
+    try:
+        return _out(P.edit, kind, name, cwd)[1]
+    finally:
+        E.open_in_studio = saved
+
+
+@test
+def test_scope_words_is_the_one_function(ctx: Ctx):
+    from halo_harness.crew import store
+    ctx.check("starter reads 'ships with Halo', short 'shipped'",
+              store.scope_words("starter") == SHIPS and store.scope_words("starter", short=True) == "shipped")
+    ctx.check("every other scope unchanged", [store.scope_words(s) for s in ("yours", "project", "pack")]
+              == ["yours", "project", "pack"] and store.scope_words("yours", short=True) == "yours")
+    with CrewRig() as rig:
+        from halo_harness.crew import builder, tools_map
+        from halo_harness.crew.tools_show import studio_show
+        cx = {"cwd": rig.proj, "state_dir": None}
+        lists = studio_show({"what": "lists"}, cx)["text"]
+        ctx.check("studio_show lists: 'agent coder (ships with Halo): '", "agent coder (ships with Halo): " in lists
+                  and "(starter)" not in lists)
+        head = studio_show({"what": "map", "name": "ship-it"}, cx)["text"].splitlines()[0]
+        ctx.check(f"studio_show map ship-it: its head, got {head!r}", head == "MAP ship-it (ships with Halo):")
+        text = builder.context(rig.proj, None, {}, "", [])
+        ctx.check("the Builder's rows: '- coder (ships with Halo): ' and '- ship-it (ships with Halo)'",
+                  "- coder (ships with Halo): " in text and "- ship-it (ships with Halo)" in text and "(starter)" not in text)
+        _rc, out = _out(__import__("halo_harness.crew_cli_parts", fromlist=["show"]).show, "agent", "coder", rig.proj)
+        first = out.splitlines()[0]
+        ctx.check(f"halo agents show coder: '# <path> (ships with Halo)', got {first!r}",
+                  first.startswith("# ") and first.endswith(" (ships with Halo)"))
+        _body, first_rows = tools_map._view("ship-it", cx)
+        ctx.check(f"the copy row, got {[r['summary'] for r in first_rows]}",
+                  [r["summary"] for r in first_rows] == ["Copy the map ship-it (ships with Halo) as yours (the changes below go into your copy)"])
+
+
+@test
+def test_shipped_reads_ships_with_halo(ctx: Ctx):
+    with CrewRig():
+        from halo_harness.agents_cli import cmd_agents
+        from halo_harness.maps_cli import cmd_maps
+        from halo_harness.workflows_cli import cmd_workflows
+        for verb, fn, name in (("agents", cmd_agents, "coder"), ("workflows", cmd_workflows, "review"), ("maps", cmd_maps, "ship-it")):
+            _rc, out = _out(fn, ["list"])
+            row = [r.split() for r in out.splitlines() if r.strip().lstrip("*").split()[:1] == [name]]
+            ctx.check(f"halo {verb} list: {name}'s scope column reads shipped, and no 'starter' in the list, got {row}",
+                      len(row) == 1 and row[0][row[0].index(name) + 1] == "shipped" and "starter" not in out)
+
+
+@test
+def test_ships_with_halo_refusals_word_for_word(ctx: Ctx):
+    with CrewRig() as rig:
+        for kind, asked, own in (("agent", "coder", "coder"), ("map", "ship-it", "ship-it"), ("map", "starter", "auto")):
+            out = _edit_out(kind, asked, rig.proj)
+            want = f"{own} ships with Halo (read-only): halo {kind}s copy {own} makes yours (my-{own})"
+            ctx.check(f"edit {kind} {asked}: {want!r}, got {out!r}", want in out and "a starter" not in out)
+        rig.studio()
+        agent = {"format": "agent/1", "name": "coder", "does": "Writes code.", "model": "auto", "uses": ["read"], "careful": "own"}
+        st, r = rig.api("PUT", "crew/agent/coder", {"agent": agent})
+        ctx.check(f"PUT a shipped agent: 409, its words, got {st} {r.get('error')!r}",
+                  st == 409 and r.get("error") == "coder ships with Halo: Copy makes it yours")
+        wf = {"format": "workflow/1", "name": "review", "for": "x", "steps": [{"name": "a", "agents": ["coder"]}]}
+        st, r = rig.api("PUT", "crew/workflow/review", {"workflow": wf})
+        ctx.check(f"PUT a shipped workflow: 409, its words, got {st} {r.get('error')!r}",
+                  st == 409 and r.get("error") == "review ships with Halo: Copy makes it yours")
+        st, r = rig.api("DELETE", "crew/map/ship-it")
+        ctx.check(f"DELETE a shipped map: 409, its words, got {st} {r.get('error')!r}",
+                  st == 409 and r.get("error") == "ship-it is not one of your maps (one that ships with Halo or this project's stays)")
+        from halo_harness.crew import store
+        from halo_harness.crew.compile import compile_map
+        tail = "(yours, this project's or one that ships with Halo)"
+        ctx.check("no such map: its one problem line",
+                  compile_map("nosuch", cwd=rig.proj).problems == [f"no map named nosuch {tail}"])
+        store.write_text(rig.state / "crew" / "maps" / "ghosts.yaml", store.dump(
+            {"format": "map/1", "name": "ghosts", "main": {"agent": "nobody"}, "boxes": [{"id": "x", "agent": "ghost"}], "lines": []}))
+        probs = compile_map("ghosts", cwd=rig.proj).problems
+        ctx.check(f"a missing main agent and a missing box agent: the two lines, got {probs}",
+                  f"main: no agent named nobody {tail}" in probs and f"box x: no agent named ghost {tail}" in probs)
+        from halo_harness.crew import tools_flow
+        cx = {"cwd": rig.proj, "state_dir": None}
+        got = tools_flow.workflow_change({"name": "review"}, cx)["text"]
+        ctx.check(f"the Builder changing a shipped workflow, got {got!r}", got == "review: ships with Halo: workflow_copy it first")
+        from halo_harness.crew import builder
+        text = builder.context(rig.proj, None, {}, "", [])
+        ctx.check("the Builder's two headings",
+                  "AGENTS (yours, this project's, and the ones that ship with Halo, which you can copy):" in text
+                  and "WORKFLOWS (yours, this project's, and the ones that ship with Halo, which you can copy):" in text)
+        from halo_harness.crew import flow_door
+        last = flow_door.listing(rig.proj, state_dir=None)[-1]
+        ctx.check(f"/workflows' last line, got {last!r}", last == "halo workflows list shows every workflow file, the ones "
+                  "that ship with Halo too (Copy makes it yours); /workflows show <name>")
+    from halo_harness import agents_cli, maps_cli, workflows_cli
+    from halo_harness.agents_cli import cmd_agents
+    from halo_harness.maps_cli import cmd_maps
+    from halo_harness.workflows_cli import cmd_workflows
+
+    def flat(s: str) -> str:
+        return " ".join(s.split())
+
+    copy = "your own copy of one (one that ships with Halo, a pack's, the project's), to edit"
+    for verb, fn, mod in (("maps", cmd_maps, maps_cli), ("agents", cmd_agents, agents_cli), ("workflows", cmd_workflows, workflows_cli)):
+        _rc, out = _out(fn, ["--help"])
+        _rc, cp = _out(fn, ["copy", "--help"])
+        ctx.check(f"halo {verb} --help and copy --help: the copy words, no 'starter'",
+                  copy in flat(out) and "starter" not in out + cp and copy in flat(mod.__doc__))
+        ctx.check(f"halo {verb}'s module help: no 'starter'", "starter" not in mod.__doc__)
+    for fn, verb in ((cmd_agents, "agents"), (cmd_workflows, "workflows")):
+        _rc, new = _out(fn, ["new", "--help"])
+        ctx.check(f"halo {verb} new --from: its words", "copy this one (one that ships with Halo or another)" in flat(new))
+    ctx.check("halo maps list's help line", "every map: yours, this project's (a trusted folder), then the ones that ship "
+              "with Halo; the one in use marked" in flat(maps_cli.__doc__))
+    ctx.check("halo maps use's help line", "new sessions run on it (config `crew.map`); `--off` goes back to Auto (the default: "
+              "main picks who works on each task); `--none` is One model for everything (roles off, no map)" in flat(maps_cli.__doc__))
+    for mod in (agents_cli, workflows_cli):
+        ctx.check(f"{mod.__name__} list's help line",
+                  "yours, this project's (a trusted folder), then the ones that ship with Halo" in flat(mod.__doc__))
+    ctx.check("halo agents new's help line", "one of yours: a copy of one that ships with Halo or of another agent, else a blank one"
+              in flat(agents_cli.__doc__))
+    ctx.check("halo workflows new's help line", "one of yours: a copy of one that ships with Halo (code, plan, review, research, "
+              "media)" in flat(workflows_cli.__doc__))
+    from halo_harness.cli import GONE_VERBS
+    from halo_harness.cli_commands import BY_NAME
+    ctx.check(f"the blocks row, got {BY_NAME['blocks'].purpose!r}", BY_NAME["blocks"].purpose == "blocks are workflows now (halo workflows)")
+    ctx.check(f"the blocks hint, got {GONE_VERBS['blocks']!r}",
+              GONE_VERBS["blocks"] == "shipped workflows: halo workflows new <name> --from <a shipped one> (halo workflows list)")
+    from halo_harness import crew_cli_parts as P
+    from halo_harness.crew import store
+    saved = store.rows
+    store.rows = lambda *a, **kw: []
+    try:
+        _rc, out = _out(P.print_list, "agent", Path.cwd())
+    finally:
+        store.rows = saved
+    ctx.check(f"no agents at all: its line, got {out!r}", out.strip() == "no agents (the ones that ship with Halo are missing: check the install)")
+
+
+@test
+def test_init_summary_lineup_reads_auto(ctx: Ctx):
+    """RULINGS 7: `halo init`'s summary names the default by its one name; a map of his keeps its own."""
+    from halo_harness.init_wait import summary_lines
+
+    def lineup(team) -> str:
+        return [ln for ln in summary_lines({"team": team}) if ln.startswith("Lineup: ")][0]
+    for name in ("auto", "starter"):
+        got = lineup({"active": name, "source": "default"})
+        ctx.check(f"the default named {name}: 'Lineup: Auto (the default)', got {got!r}", got == "Lineup: Auto (the default)")
+    got = lineup({"active": "shop", "source": "config"})
+    ctx.check(f"a map of his keeps its name, got {got!r}", got == "Lineup: shop")
+    ctx.check("one model and not set stay", lineup({"active": "one-model"}) == "Lineup: one model for everything"
+              and lineup({}) == "Lineup: not set")
+
+
+@test
+def test_studio_lists_say_ships_with_halo(ctx: Ctx):
+    def flat(rel: str) -> str:
+        return " ".join((UI_SRC / rel).read_text(encoding="utf-8").split())
+
+    new = {
+        "crew/Crew.tsx": ["Your agents and this project's, then the ones that ship with Halo (Copy makes it yours).",
+                          "One that ships with Halo: a click copies it as yours (Save keeps it)."],
+        "crew/flows/Flows.tsx": ["Your workflows and this project's (on the map or not), then the ones that ship with Halo (Copy makes it yours).",
+                                 "One that ships with Halo: a click copies it as yours (Save keeps it)."],
+        "crew/List.tsx": ["None yet: + New agent, or copy one that ships with Halo below.", ">Ships with Halo · Copy makes it yours<"],
+        "crew/flows/FlowList.tsx": ["None yet: + New workflow, copy one that ships with Halo below, or describe one in the builder box.",
+                                    ">Ships with Halo · Copy makes it yours<"],
+        "crew/Form.tsx": ["Make one here, copy one that ships with Halo from the list, or describe it in the builder box below."],
+        "crew/flows/FlowForm.tsx": ["Make one here, copy one that ships with Halo from the list, or describe it in the builder box below.",
+                                    '<span className="cw-tag">ships with Halo</span>'],
+        "crew/flows/StepRow.tsx": ['" (ships with Halo)"'],
+        "crew/map/AddList.tsx": ['"this project\'s" : "ships with Halo"'],
+        "crew/map/MapBar.tsx": ['" (one that ships with Halo: your first change saves it as yours)"'],
+        "sectionHelp.ts": ["Every session runs on a map (Auto, the default, until you pick one).",
+                           "then the ones that ship with Halo to copy; the form on the right.",
+                           '"Map: Auto (the default), a map of yours, or One model for everything, with its preview; Apply writes '
+                           "what the wizard's Map step writes.\""],
+        "help-setup.ts": ['"Auto (the default): each task goes to agents main picks, each on a model picked for it. One model for '
+                          'everything: roles off, no map."'],
+    }
+    old = ["Starters to copy", "copy a starter", "then the starters to copy", "A starter's click", '<span className="cw-tag">starter</span>',
+           '" (starter)"', ': "starter"}', "(a starter:", "the starter map until", "starter (the default)"]
+    for rel, words in new.items():
+        text = flat(rel)
+        missing = [w for w in words if w not in text]
+        stale = [w for w in old if w in text]
+        ctx.check(f"{rel}: the new words, none of the old, missing {missing} stale {stale}", not missing and not stale)
+    ids = flat("crew/List.tsx") + flat("crew/flows/FlowList.tsx")
+    ctx.check("the test ids crew-starter and flow-starter stay (A19)", 'data-testid="crew-starter"' in ids and 'data-testid="flow-starter"' in ids)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -116,7 +116,7 @@ def test_the_step_tools_and_the_rules(ctx: Ctx):
         bad = tools.run("step_change", {"workflow": "loop", "index": 1, "fields": {"repeat": {"until": "x", "max": 40}}}, c)
         ctx.check(f"a repeat past 10 is refused in the reply, got {bad['text']!r}", not bad["rows"] and "max: 1-10" in bad["text"])
         st = tools.run("step_add", {"workflow": "review", "step": {"name": "x", "agents": ["tester"]}}, c)
-        ctx.check(f"a starter is copied first, got {st['text']!r}", not st["rows"] and "workflow_copy it first" in st["text"])
+        ctx.check(f"a starter is copied first, got {st['text']!r}", not st["rows"] and "ships with Halo: workflow_copy it first" in st["text"])
         _save(rig, "map", {"format": "map/1", "name": "everyday", "boxes": [{"id": "l", "workflow": "loop"}], "lines": [{"from": "main", "to": "l", "when": "always"}]})
         rm = tools.run("workflow_remove", {"name": "loop"}, c)
         ctx.check(f"a workflow on a map is not deleted, the reply says which, got {rm['text']!r}", not rm["rows"] and "everyday" in rm["text"])

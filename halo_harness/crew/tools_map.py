@@ -103,7 +103,7 @@ def _view(name: str, ctx, create: bool = False) -> "tuple[dict | None, list]":
             body = {"format": MAP, "name": name, "main": {"agent": "main"}, "boxes": [], "lines": []}
             return body, [row("create", _t(name), ROW_NEW_MAP.format(B=name), {"op": "create", "body": body})]
         body = store.clean(there)
-        first = [row("create", _t(name), f"Copy the {there['_scope']} map {name} as yours (the changes below go into your copy)",
+        first = [row("create", _t(name), f"Copy the map {name} ({store.scope_words(there['_scope'])}) as yours (the changes below go into your copy)",
                      {"op": "copy", "body": body})]
     for r in made:
         o = r["op"].get("op")

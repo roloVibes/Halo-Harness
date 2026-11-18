@@ -19,7 +19,7 @@ function Empty() {
     <div className="cw-empty" data-testid="flow-empty">
       <h2 className="cw-title">{n ? "Pick a workflow on the left" : "Make your first workflow"}</h2>
       <p className="cw-line">A workflow is your agents in steps, in order: each step's agents work at the same time and hand on to the next.
-        Make one here, copy a starter from the list, or describe it in the builder box below.</p>
+        Make one here, copy one that ships with Halo from the list, or describe it in the builder box below.</p>
       <div className="cw-row"><Button variant="primary" onClick={newFlow} data-testid="flow-empty-new">+ New workflow</Button></div>
     </div>
   );
@@ -36,7 +36,7 @@ function AddStep() {
       {[...mine, ...starters].map((a) => (
         <button key={`${a.scope}:${a.name}`} type="button" className="cw-item" onClick={() => addStep(a.name, a.does)} title={a.does}
                 data-testid="flow-pick-agent" data-name={a.name}>
-          <span className="cw-item-head"><b className="cw-item-name">{a.name}</b>{a.scope === "starter" && <span className="cw-tag">starter</span>}</span>
+          <span className="cw-item-head"><b className="cw-item-name">{a.name}</b>{a.scope === "starter" && <span className="cw-tag">ships with Halo</span>}</span>
           <span className="cw-item-does">{a.does}</span>
         </button>
       ))}

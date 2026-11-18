@@ -97,7 +97,7 @@ export function TopLine({ fresh = 0 }: { fresh?: number }) {
   const scope = useMap((s) => s.detail?.scope);
   const quiet = useContext(QuietCtx);
   const runs = ["L1", "L3"].includes(quiet.facts?.kind || ""); // a session runs on it or from it now: L1/L3 says so
-  const said = locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`;
+  const said = locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (one that ships with Halo: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`;
   const { box, twin, room } = useRoom(said);
   return (
     <div className="mp-topwrap" data-testid="map-topline">

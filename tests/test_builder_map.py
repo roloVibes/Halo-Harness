@@ -60,7 +60,7 @@ def test_one_preview_ghosts_apply_undo(ctx: Ctx):
         st, r = _ask(rig, "send anything touching auth to my-reviewer after the code workflow", "m1")
         rows = r.get("changes") or []
         ctx.check(f"200 and three lines: the copy, the box, the line, got {st} {[c['summary'] for c in rows]}",
-                  st == 200 and len(rows) == 3 and rows[0]["kind"] == "create" and "Copy the starter map ship-it" in rows[0]["summary"])
+                  st == 200 and len(rows) == 3 and rows[0]["kind"] == "create" and "Copy the map ship-it (ships with Halo) as yours" in rows[0]["summary"])
         ctx.check("the line line says its When in words", "code hands work to my-reviewer, when the task says auth" in rows[2]["summary"])
         ctx.check("every row draws as a ghost (the copy, the box, the line)",
                   rows[0]["ghost"]["op"] == "map_create" and rows[1]["ghost"]["op"] == "map_box_add" and
@@ -683,7 +683,7 @@ def test_copy_of_running_project_map_is_checked_like_map_use(ctx: Ctx):
         ctx.check(f"the box row (runner runs commands, main reads only) widens too, got {[(r['summary'], r['widen']) for r in box]}",
                   len(box) == 1 and box[0]["widen"] and not box[0]["ticked"])
         qs = pv["card"]["questions"]
-        ask = [q for q in qs if "Copy the project map proj-flow as yours" in q["question"]]
+        ask = [q for q in qs if "Copy the map proj-flow (project) as yours" in q["question"]]
         ctx.check(f"the copy is its own question, No first, got {[q['question'][:70] for q in qs]}",
                   len(ask) == 1 and ask[0]["options"][0]["label"] == session_tool.NO)
         session_tool.finish(pv, {q["question"]: session_tool.APPLY for q in qs if q["question"].startswith("Apply")}, s)

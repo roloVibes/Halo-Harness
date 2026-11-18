@@ -333,6 +333,24 @@ def test_switch_off_reads_auto(ctx: Ctx):
 
 
 @test
+def test_switch_off_a_map_not_in_use_says_so(ctx: Ctx):
+    """3.6.0.5 (RULINGS 7): off for a map that is NOT the one in use, while another of his is set, changes nothing and
+    says so -- never "New sessions run on no map", which would be false."""
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.crew import store
+        for name in ("shop", "review-flow"):
+            store.write_text(store.path_for("map", name, state_dir=rig.state), store.dump(
+                {"format": "map/1", "name": name, "main": {"agent": "main"}, "boxes": [{"id": "x", "agent": "coder"}], "lines": []}))
+        rig.api("POST", "crew/map/shop/use", {"on": True})
+        st, r = rig.api("POST", "crew/map/review-flow/use", {"on": False})
+        crew = json.loads((rig.state / "config.json").read_text(encoding="utf-8")).get("crew") or {}
+        ctx.check(f"review-flow off while shop is set: the line, crew.map still shop, got {st} {r.get('said')!r} {crew}",
+                  st == 200 and r.get("said") == "review-flow was not in use; new sessions still run on shop."
+                  and crew.get("map") == "shop" and r.get("in_use") == "shop")
+
+
+@test
 def test_use_receipt_says_when_the_start_mode_changes(ctx: Ctx):
     """3.6.0.1: the person's own doors ask nothing new, but their receipt says so when the switch changes the mode new
     sessions start in (a map of yours whose main of yours is `careful: own`: auto)."""

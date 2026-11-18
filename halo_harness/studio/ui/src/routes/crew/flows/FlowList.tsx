@@ -59,12 +59,12 @@ export function FlowList() {
       <div className="cw-group mono">Yours</div>
       <Ghosts />
       {mine.map((r) => <Item key={`${r.scope}:${r.name}`} r={r} on={isOn(r)} built={r.name === built} />)}
-      {loaded && !mine.length && <p className="cw-hint" data-testid="flow-none">None yet: + New workflow, copy a starter below, or describe one in the builder box.</p>}
+      {loaded && !mine.length && <p className="cw-hint" data-testid="flow-none">None yet: + New workflow, copy one that ships with Halo below, or describe one in the builder box.</p>}
       {mine.length > 0 && !mine.some((r) => r.maps.length) && (
         <p className="cw-hint" data-testid="flow-no-map">{`Nothing is on a map yet. ${TO_A_MAP}`}</p>
       )}
       {error && <p className="cw-hint" data-tone="bad">{error}</p>}
-      <div className="cw-group mono">Starters to copy</div>
+      <div className="cw-group mono">Ships with Halo · Copy makes it yours</div>
       {starters.map((r) => (
         <button key={r.name} type="button" className="cw-item" onClick={() => void copyFlowFrom(r.name, "starter")} title={`Copy ${r.name}: ${r.for}`}
                 data-testid="flow-starter" data-name={r.name}>

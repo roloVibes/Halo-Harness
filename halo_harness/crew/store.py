@@ -139,6 +139,14 @@ def default_name_refusal(name) -> str:
     return DEFAULT_NAME.format(name=name) if is_auto(name) else ""
 
 
+def scope_words(scope, short: bool = False) -> str:
+    """3.6.0.5 A20: the ONE place a scope turns into the words a person or the Builder's model reads: the scope value
+    `starter` reads "ships with Halo" (short, for a list's column: "shipped"); every other scope is unchanged."""
+    if scope == "starter":
+        return "shipped" if short else "ships with Halo"
+    return str(scope)
+
+
 def find(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> "Optional[tuple[Path, str]]":
     if kind == "map" and not scope and is_auto(name):  # A2/A4: the default reads only the shipped auto.yaml
         p = SHIPPED / "maps" / "auto.yaml"

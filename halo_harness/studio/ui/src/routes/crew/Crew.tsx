@@ -37,8 +37,8 @@ function urlAgent(): string {
 
 export const crewPanels: PanelSpec[] = [
   { id: "crew-list", testid: "crew-list-panel", title: "Your agents", role: "drawer", side: "left", startOpen: true, contentW: 360,
-    about: "Your agents and this project's, then the starters to copy.",
-    help: "Click an agent: its form opens.\n+ New agent starts an empty one.\nA starter's click copies it as yours (Save keeps it).\n`not used yet`: no workflow or map names it.",
+    about: "Your agents and this project's, then the ones that ship with Halo (Copy makes it yours).",
+    help: "Click an agent: its form opens.\n+ New agent starts an empty one.\nOne that ships with Halo: a click copies it as yours (Save keeps it).\n`not used yet`: no workflow or map names it.",
     face: "detail", glance: ListGlance, detail: CrewList },
   { id: "crew-form", testid: "crew-form-panel", title: "Agent", role: "main",
     about: "The agent open now: what it does, its model, what it may use, how careful, Try it, More, Save.",

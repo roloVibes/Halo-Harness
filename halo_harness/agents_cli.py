@@ -1,9 +1,9 @@
 """halo_harness.agents_cli -- `halo agents` (Halo 3.6.0.0 R5: the agents of ~/.halo/crew/agents; the bios before).
 
-    halo agents list                      yours, this project's (a trusted folder), then the starters to copy
+    halo agents list                      yours, this project's (a trusted folder), then the ones that ship with Halo
     halo agents show <name>               its file (agent/1), and the workflows and maps that use it
-    halo agents new <name> [--from <a>]   one of yours: a copy of a starter or another agent, else a blank one
-    halo agents copy <name> [--as <new>]  your own copy of one (a starter, a pack's, the project's), to edit
+    halo agents new <name> [--from <a>]   one of yours: a copy of one that ships with Halo or of another agent, else a blank one
+    halo agents copy <name> [--as <new>]  your own copy of one (one that ships with Halo, a pack's, the project's), to edit
     halo agents edit <name>               your $VISUAL / $EDITOR on your file; else Studio, Agents -> 1 · Agents, on it
     halo agents try <name> "<request>"    runs it on a throwaway copy of this repo; what it said, used and cost
 
@@ -29,8 +29,8 @@ def _parser() -> argparse.ArgumentParser:
     show.add_argument("name")
     new = sub.add_parser("new", help="an agent of yours")
     new.add_argument("name")
-    new.add_argument("--from", dest="start", default=None, metavar="AGENT", help="copy this one (a starter or another)")
-    cp = sub.add_parser("copy", help="your own copy of one (a starter, a pack's, the project's), to edit")
+    new.add_argument("--from", dest="start", default=None, metavar="AGENT", help="copy this one (one that ships with Halo or another)")
+    cp = sub.add_parser("copy", help="your own copy of one (one that ships with Halo, a pack's, the project's), to edit")
     cp.add_argument("name")
     cp.add_argument("--as", dest="as_name", default=None, metavar="NAME", help="the copy's name (default my-<name>)")
     edit = sub.add_parser("edit", help="open it in your editor, or in Studio")

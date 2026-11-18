@@ -1,11 +1,11 @@
 """halo_harness.workflows_cli -- `halo workflows` (Halo 3.6.0.0 R5: the workflows of ~/.halo/crew/workflows; the board
 of squares before).
 
-    halo workflows list                         yours, this project's (a trusted folder), then the starters to copy
+    halo workflows list                         yours, this project's (a trusted folder), then the ones that ship with Halo
     halo workflows show <name>                  its file (workflow/1) and the maps it is on
-    halo workflows new <name> [--from <start>]  one of yours: a copy of a starter (code, plan, review, research, media)
+    halo workflows new <name> [--from <start>]  one of yours: a copy of one that ships with Halo (code, plan, review, research, media)
                                                 or another workflow, else a blank one-step one
-    halo workflows copy <name> [--as <new>]     your own copy of one (a starter, a pack's, the project's), to edit
+    halo workflows copy <name> [--as <new>]     your own copy of one (one that ships with Halo, a pack's, the project's), to edit
     halo workflows edit <name>                  your $VISUAL / $EDITOR on your file; else Studio, Agents -> 2 · Workflows
     halo workflows try <name> "<request>"       runs it on a throwaway copy of this repo, step by step
     halo workflows run <name> "<request>"       runs it here, for real, on the step runner (each step's agents as
@@ -33,8 +33,8 @@ def _parser() -> argparse.ArgumentParser:
     show.add_argument("name")
     new = sub.add_parser("new", help="a workflow of yours")
     new.add_argument("name")
-    new.add_argument("--from", dest="start", default=None, metavar="WORKFLOW", help="copy this one (a starter or another)")
-    cp = sub.add_parser("copy", help="your own copy of one (a starter, a pack's, the project's), to edit")
+    new.add_argument("--from", dest="start", default=None, metavar="WORKFLOW", help="copy this one (one that ships with Halo or another)")
+    cp = sub.add_parser("copy", help="your own copy of one (one that ships with Halo, a pack's, the project's), to edit")
     cp.add_argument("name")
     cp.add_argument("--as", dest="as_name", default=None, metavar="NAME", help="the copy's name (default my-<name>)")
     edit = sub.add_parser("edit", help="open it in your editor, or in Studio")

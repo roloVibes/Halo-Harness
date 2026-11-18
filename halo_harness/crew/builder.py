@@ -98,7 +98,7 @@ def parse(text) -> dict:
 def _agents_text(cwd, state_dir) -> str:
     lines = []
     for r in store.rows("agent", cwd=cwd, state_dir=state_dir):
-        lines.append(f"- {r['name']} ({r['_scope']}): does: {str(r.get('does') or '')[:160]} | model {r.get('model')} | "
+        lines.append(f"- {r['name']} ({store.scope_words(r['_scope'])}): does: {str(r.get('does') or '')[:160]} | model {r.get('model')} | "
                      f"uses {', '.join(r.get('uses') or []) or 'nothing'} | careful {r.get('careful')}")
     return "\n".join(lines) or "(none yet)"
 
@@ -108,7 +108,7 @@ def _workflows_text(cwd, state_dir) -> str:
     lines = []
     for r in store.rows("workflow", cwd=cwd, state_dir=state_dir):
         steps = "; ".join(f"{i}. {step_line(s)}" for i, s in enumerate(r.get("steps") or [], 1) if isinstance(s, dict))
-        lines.append(f"- {r['name']} ({r['_scope']}): for: {str(r.get('for') or '')[:160]} | steps: {steps[:600] or 'none'}")
+        lines.append(f"- {r['name']} ({store.scope_words(r['_scope'])}): for: {str(r.get('for') or '')[:160]} | steps: {steps[:600] or 'none'}")
     return "\n".join(lines) or "(none yet)"
 
 
@@ -118,15 +118,15 @@ def _maps_text(cwd, state_dir) -> str:
     lines = []
     for r in store.rows("map", cwd=cwd, state_dir=state_dir):
         conn = "; ".join(f"{ln.get('from')} -> {ln.get('to')}" for ln in r.get("lines") or [] if isinstance(ln, dict))
-        lines.append(f"- {r['name']} ({r['_scope']}){' IN USE' if r['name'] == used else ''}: {len(r.get('boxes') or [])} boxes | "
+        lines.append(f"- {r['name']} ({store.scope_words(r['_scope'])}){' IN USE' if r['name'] == used else ''}: {len(r.get('boxes') or [])} boxes | "
                      f"lines: {conn[:400] or 'none'}")
     return "\n".join(lines) or "(none yet)"
 
 
 def context(cwd, state_dir, selection: dict, text: str, history: list) -> str:
     sel = selection or {}
-    parts = ["AGENTS (yours, this project's, and the starters you can copy):", _agents_text(cwd, state_dir),
-             "\nWORKFLOWS (yours, this project's, and the starters you can copy):", _workflows_text(cwd, state_dir),
+    parts = ["AGENTS (yours, this project's, and the ones that ship with Halo, which you can copy):", _agents_text(cwd, state_dir),
+             "\nWORKFLOWS (yours, this project's, and the ones that ship with Halo, which you can copy):", _workflows_text(cwd, state_dir),
              "\nMAPS (studio_show map gives one in full):", _maps_text(cwd, state_dir)]
     if sel.get("map"):  # 3.6.0.0 R3: the Map tab's open map
         parts.append(f"\nOPEN ON THE MAP TAB: {sel['map']}")

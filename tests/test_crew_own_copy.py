@@ -93,7 +93,7 @@ def test_the_three_clis_copy_and_edit_names_the_verb(ctx: Ctx):
             if P_open is not None:
                 E.open_in_studio = P_open
         ctx.check(f"edit on a starter names the copy verb, got {out!r}",
-                  "starter is a starter (read-only): halo maps copy starter makes yours (my-starter)" in out)
+                  "auto ships with Halo (read-only): halo maps copy auto makes yours (my-auto)" in out)
 
 
 @test

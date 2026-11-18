@@ -1,11 +1,11 @@
 """halo_harness.maps_cli -- `halo maps` (Halo 3.6.0.0 R3, docs/COMMANDS-agents.md "halo maps").
 
-    halo maps list            every map: yours, this project's (a trusted folder), the starters; the one in use marked
+    halo maps list            every map: yours, this project's (a trusted folder), then the ones that ship with Halo; the one in use marked
     halo maps show <name>     main, each box, each line with its When in words, what waits under "Not connected yet",
                               the cap, the problems (studio_show's own text)
-    halo maps use <name>      new sessions run on it (config `crew.map`); `--off` goes back to the default (the starter
-                              map drawn, no rules of its own); `--none` is One model for everything (roles off, no map)
-    halo maps copy <name> [--as <new>]  your own copy of one (a starter, a pack's, the project's), to edit
+    halo maps use <name>      new sessions run on it (config `crew.map`); `--off` goes back to Auto (the default: main
+                              picks who works on each task); `--none` is One model for everything (roles off, no map)
+    halo maps copy <name> [--as <new>]  your own copy of one (one that ships with Halo, a pack's, the project's), to edit
     halo maps edit <name>     your $VISUAL / $EDITOR on your map's file; else Studio, Agents -> 3 · Map, on it
 
 Editing a map is Studio's Map tab (`halo studio`, Agents -> 3 · Map) or its builder box; `--map <name>` runs one session
@@ -25,7 +25,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("list", help="every map, the one in use marked")
     show = sub.add_parser("show", help="one map in words")
     show.add_argument("name")
-    cp = sub.add_parser("copy", help="your own copy of one (a starter, a pack's, the project's), to edit")
+    cp = sub.add_parser("copy", help="your own copy of one (one that ships with Halo, a pack's, the project's), to edit")
     cp.add_argument("name")
     cp.add_argument("--as", dest="as_name", default=None, metavar="NAME", help="the copy's name (default my-<name>)")
     use = sub.add_parser("use", help="new sessions run on this map (config crew.map)")
@@ -60,7 +60,7 @@ def cmd_maps(argv) -> int:
             seen.add(key)
             mark = "*" if r["name"] == used and not auto else " "
             bad = f"  problem: {r['_problems'][0]}" if r["_problems"] else ""
-            print(f"{mark} {r['name']:<20} {r['_scope']:<8} {len(r.get('boxes') or [])} boxes, {len(r.get('lines') or [])} lines{bad}")
+            print(f"{mark} {r['name']:<20} {store.scope_words(r['_scope'], short=True):<8} {len(r.get('boxes') or [])} boxes, {len(r.get('lines') or [])} lines{bad}")
             gone = store.dangling_line(r, cwd=cwd) if r["_scope"] != "starter" and not r["_problems"] else ""
             if gone:  # 3.6.0.0 R5d: a copy of a pack's map outlives the pack
                 print(f"    {gone}")

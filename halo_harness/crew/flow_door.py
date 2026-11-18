@@ -79,9 +79,10 @@ def tail(cwd=None, state_dir=None) -> str:
 
 def listing(cwd=None, lineup=None, state_dir=None) -> list:
     """The Workflow tool's two lists, as lines: the crew workflows it runs by name, then the squares it enables."""
+    from halo_harness.crew import store
     out = [f"Workflows a session runs by name (the Workflow tool's list):"]
     got = rows(cwd, state_dir)
-    out += [f"  {r['name']}  ({r['_scope']})  {' '.join(str(r.get('for') or '').split())[:90]}" for r in got] or ["  none yet"]
+    out += [f"  {r['name']}  ({store.scope_words(r['_scope'])})  {' '.join(str(r.get('for') or '').split())[:90]}" for r in got] or ["  none yet"]
     try:
         from halo_harness.workflows.registry import active_lineup, enabled_squares
         squares = enabled_squares(lineup if lineup is not None else active_lineup(), cwd=cwd, state_dir=state_dir)
@@ -89,7 +90,7 @@ def listing(cwd=None, lineup=None, state_dir=None) -> list:
         squares = []
     out.append("Squares it enables (config workflows.enabled):")
     out += [f"  {wf.ref}" for wf in squares] or ["  none"]
-    out.append("halo workflows list shows every workflow file, the starters too (Copy makes yours); /workflows show <name>")
+    out.append("halo workflows list shows every workflow file, the ones that ship with Halo too (Copy makes it yours); /workflows show <name>")
     return out
 
 

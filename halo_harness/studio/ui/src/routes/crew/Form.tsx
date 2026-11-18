@@ -19,8 +19,8 @@ function Empty() {
   return (
     <div className="cw-empty" data-testid="crew-empty">
       <h2 className="cw-title">{n ? "Pick an agent on the left" : "Make your first agent"}</h2>
-      <p className="cw-line">An agent is a name, what it does, a model, what it may use and how careful it is. Make one here, copy a
-        starter from the list, or describe it in the builder box below.</p>
+      <p className="cw-line">An agent is a name, what it does, a model, what it may use and how careful it is. Make one here, copy one
+        that ships with Halo from the list, or describe it in the builder box below.</p>
       <div className="cw-row"><Button variant="primary" onClick={newAgent} data-testid="crew-empty-new">+ New agent</Button></div>
     </div>
   );

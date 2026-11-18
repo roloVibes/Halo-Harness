@@ -4,7 +4,7 @@
 
 - `map`          the map in use (or `name`): main, every box, every line with its When in words, what waits under
                  "Not connected yet", its cap, its problems;
-- `lists`        your agents and workflows (and the starters), one line each;
+- `lists`        your agents and workflows (and the ones that ship with Halo), one line each;
 - `connections`  where an agent or workflow (`name`) is used: the maps and the workflows that name it;
 - `run`          the last hand-offs sessions made on a map, from their records (each receipt names the line that
                  fired and why): "why did reviewer run?" reads here.
@@ -29,7 +29,7 @@ def _map_text(name: str, ctx) -> str:
     if store.is_auto(name) and raw.get("_scope") == "starter":  # 3.6.0.5 W: the shipped default is Auto
         head = f"MAP Auto (the default){' -- new sessions use it' if store.is_auto(used) else ''}:"
     else:
-        head = f"MAP {name} ({raw.get('_scope') or 'missing'}){' -- new sessions use it' if used == name else ''}:"
+        head = f"MAP {name} ({store.scope_words(raw.get('_scope') or 'missing')}){' -- new sessions use it' if used == name else ''}:"
     lines = [head,
              f"main: the agent {c.main.get('agent')} (model {c.main.get('model') or 'auto'}, careful {c.main.get('careful')})"]
     targets = set()
@@ -51,7 +51,7 @@ def _lists(ctx) -> str:
     for kind in ("agent", "workflow", "map"):
         for r in store.rows(kind, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir")):
             what = r.get("does") or r.get("for") or f"{len(r.get('boxes') or [])} boxes"
-            out.append(f"{kind} {r['name']} ({r['_scope']}): {str(what)[:120]}")
+            out.append(f"{kind} {r['name']} ({store.scope_words(r['_scope'])}): {str(what)[:120]}")
     return "\n".join(out) or "(nothing yet)"
 
 

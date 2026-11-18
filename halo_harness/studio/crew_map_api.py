@@ -239,9 +239,12 @@ def post_use(req):
     # (jf-mapuse: here and in a folder that is no trusted project -- crew.map is global)
     moved = starts_said(before, start_modes(req.cwd, req.state_dir))
     # 3.6.0.5 A21 (W18): off with none set is Auto; roles off (no map for new sessions) keeps the true words
+    after, src = in_use(None, req.cwd)
     said = (f"New sessions run on {name}; a running session keeps its own" if on
+            else f"{name} was not in use; new sessions still run on {after}"  # 3.6.0.5: off for a map not in use
+            if src == "config" and after != name
             else "New sessions run on Auto (the default); a running session keeps its own"
-            if in_use(None, req.cwd)[1] == "default" else "New sessions run on no map (as before maps)")
+            if src == "default" else "New sessions run on no map (as before maps)")
     return 200, {"undo_id": undo_id, "in_use": in_use(None, req.cwd)[0], "said": f"{said}{'; ' + moved if moved else ''}."}
 
 
@@ -249,7 +252,7 @@ def delete_map(req):
     name = req.params["name"]
     got = store.find("map", name, cwd=req.cwd, state_dir=req.state_dir, scope="yours")
     if got is None:
-        return 409, {"error": f"{name} is not one of your maps (a starter or this project's stays)"}
+        return 409, {"error": f"{name} is not one of your maps (one that ships with Halo or this project's stays)"}
     undo_id = changes.write_all({got[0]: None}, state_dir=req.state_dir)
     return 200, {"undo_id": undo_id}
 

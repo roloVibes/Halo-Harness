@@ -118,7 +118,7 @@ def _main(raw: dict, problems: list, cwd, state_dir, extra=None) -> dict:
     who = str(((raw.get("main") or {}) if isinstance(raw.get("main"), dict) else {}).get("agent") or "main")
     body = _load("agent", who, cwd, state_dir, extra)
     if body is None:
-        problems.append(f"main: no agent named {who} (yours, this project's or a starter)")
+        problems.append(f"main: no agent named {who} (yours, this project's or one that ships with Halo)")
         return {"agent": who}
     clean = store.clean(body)
     bad = PROBLEMS["agent"](clean, name=who)
@@ -150,7 +150,7 @@ def compile_raw(raw: dict, *, name: str = "", cwd=None, state_dir=None, extra=No
             kind = box["kind"]
             got = _load(kind, n, cwd, state_dir, extra)
             if got is None:
-                out.problems.append(f"box {bid}: no {kind} named {n} (yours, this project's or a starter)")
+                out.problems.append(f"box {bid}: no {kind} named {n} (yours, this project's or one that ships with Halo)")
                 continue
             clean = store.clean(got)
             bad = PROBLEMS[kind](clean, name=n)
@@ -189,7 +189,7 @@ def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
     name = store.resolve("map", name, cwd=cwd, state_dir=state_dir)[0]  # 3.6.0.0 R5c: a pack's map named bare
     got = store.find("map", name, cwd=cwd, state_dir=state_dir)
     if got is None:
-        return Compiled(name=name, problems=[f"no map named {name} (yours, this project's or a starter)"])
+        return Compiled(name=name, problems=[f"no map named {name} (yours, this project's or one that ships with Halo)"])
     path, scope = got
     raw = store.read(path) if scope != "pack" else store.clean(store.load("map", name, cwd=cwd, state_dir=state_dir) or {})
     if raw is None:

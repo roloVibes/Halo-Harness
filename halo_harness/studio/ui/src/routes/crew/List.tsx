@@ -56,10 +56,10 @@ export function CrewList() {
       <div className="cw-group mono">Yours</div>
       <Ghosts />
       {agents.map((r) => <Item key={`${r.scope}:${r.name}`} r={r} on={isOn(r)} />)}
-      {loaded && !agents.length && <p className="cw-hint" data-testid="crew-none">None yet: + New agent, or copy a starter below.</p>}
+      {loaded && !agents.length && <p className="cw-hint" data-testid="crew-none">None yet: + New agent, or copy one that ships with Halo below.</p>}
       {agents.some((r) => !r.used.length) && <p className="cw-hint">"not used yet": no workflow and no map names it.</p>}
       {error && <p className="cw-hint" data-tone="bad">{error}</p>}
-      <div className="cw-group mono">Starters to copy</div>
+      <div className="cw-group mono">Ships with Halo · Copy makes it yours</div>
       {starters.map((r) => (
         <button key={r.name} type="button" className="cw-item" onClick={() => void copyFrom(r.name, "starter")} title={`Copy ${r.name}: ${r.does}`}
                 data-testid="crew-starter" data-name={r.name}>

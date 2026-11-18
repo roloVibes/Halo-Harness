@@ -94,7 +94,7 @@ def put_workflow(req):
         return err
     found = store.find("workflow", name, cwd=req.cwd, state_dir=req.state_dir)
     if found and found[1] == "starter":
-        return 409, {"error": f"{name} is a starter: Copy makes it yours", "problems": []}
+        return 409, {"error": f"{name} ships with Halo: Copy makes it yours", "problems": []}
     project = bool(found and found[1] == "project")
     path = store.path_for("workflow", name, cwd=req.cwd, state_dir=req.state_dir, project=project)
     store.write_text(path, store.dump(raw))

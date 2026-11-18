@@ -1263,7 +1263,7 @@ def test_init_waits_for_done_then_starts_halo_here(ctx: Ctx):
               len(records) >= 3 and all(r and r.get("pid") == os.getpid() for r in records[:3]))
     ctx.check(f"the record goes once the wait ends, got {seen.get('after')}", seen.get("after") is None)
     ctx.check(f"the Summary's four lines, got {text!r}", "Provider: openrouter\n" in text and "Default model: or:mock/alpha\n" in text
-              and "Lineup: auto (default)\n" in text and "Last check: not run\n" in text)
+              and "Lineup: Auto (the default)\n" in text and "Last check: not run\n" in text)
     ctx.check(f"the starting line names the Studio it pairs with, got {text!r}",
               "Setup is done: halo starts here, paired with Studio at http://127.0.0.1:4567/" in one)
     ctx.check(f"halo launched once, in the directory init ran from, with the running Studio, its exit code returned, got "
@@ -1318,7 +1318,7 @@ def test_init_summary_reads_this_home_when_setup_state_does_not_answer(ctx: Ctx)
     finally:
         W.http_get, W.sleep, W.launch_halo, W.studio_info, W._local_state = saved
     ctx.check(f"the Summary is this home's state, got {rc} {said}", rc == 0 and "Provider: openrouter" in said
-              and "Default model: or:mock/alpha" in said and "Lineup: auto (default)" in said)
+              and "Default model: or:mock/alpha" in said and "Lineup: Auto (the default)" in said)
 
 
 @test

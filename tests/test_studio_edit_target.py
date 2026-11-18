@@ -212,7 +212,7 @@ def test_the_cli_verbs_open_studio_on_the_thing(ctx: Ctx):
                                           (maps_cli.cmd_maps, "maps", "starter", "edit=map:starter")):
                 rc, text = _out(mod, ["edit", name])
                 ctx.check(f"halo {verb} edit {name} on a starter (no editor): Studio on it, got {rc} {text!r}",
-                          rc == 0 and "a starter (read-only)" in text and want in text)
+                          rc == 0 and "ships with Halo (read-only)" in text and want in text)
         finally:
             for k, v in zip(("EDITOR", "VISUAL"), saved):
                 if v is not None:

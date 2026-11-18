@@ -115,7 +115,7 @@ def workflow_change(args: dict, ctx) -> dict:
     name = str(args.get("name") or "").strip()
     now = _mine(name, ctx)
     if now is None:
-        why = "a starter: workflow_copy it first" if _any(name, ctx) else "no workflow of yours by that name"
+        why = "ships with Halo: workflow_copy it first" if _any(name, ctx) else "no workflow of yours by that name"
         return {"text": f"{name}: {why}", "rows": []}
     rows = []
     for k, v in (args.get("fields") or {}).items():
@@ -152,7 +152,7 @@ def _target(args: dict, ctx):
     name = str(args.get("workflow") or args.get("name") or "").strip()
     now = _mine(name, ctx)
     if now is None and not any(r.get("target") == _t(name) for r in ctx.get("made") or []):
-        why = "a starter: workflow_copy it first" if _any(name, ctx) else "no workflow of yours by that name (workflow_make makes one)"
+        why = "ships with Halo: workflow_copy it first" if _any(name, ctx) else "no workflow of yours by that name (workflow_make makes one)"
         return name, None, f"{name}: {why}"
     return name, now or {"steps": []}, ""
 

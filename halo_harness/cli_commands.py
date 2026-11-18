@@ -98,7 +98,7 @@ COMMANDS = (
     _c("roles", "halo_harness.roles_cli:cmd_roles", AGENTS, "`roles point`: the write a steward or adviser line offers",
        kind="internal"),
     _c("teams", "", AGENTS, "lineups are gone (halo maps)", kind="retired"),
-    _c("blocks", "", AGENTS, "starters are workflows now (halo workflows)", kind="retired"),
+    _c("blocks", "", AGENTS, "blocks are workflows now (halo workflows)", kind="retired"),
     _c("workflow", "", AGENTS, "now halo workflows", kind="retired"),
     _c("design", "", SETUP, "Design is the design pack's", kind="retired"),
     _c("replay", "", RECORDS, "left Halo in 3.6.0.3 (halo session export)", kind="retired"),

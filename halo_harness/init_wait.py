@@ -172,7 +172,8 @@ def summary_lines(state: Optional[dict]) -> "list[str]":
     if active == "one-model":
         lineup = "one model for everything"
     elif active:
-        lineup = active + (" (default)" if team.get("source") == "default" else "")
+        from halo_harness.crew import store  # 3.6.0.5: the default's one name; a map of his keeps its own
+        lineup = "Auto (the default)" if store.is_auto(active) and team.get("source") == "default" else active
     else:
         lineup = "not set"
     return [f"Provider: {', '.join(named) if named else 'not set'}", f"Default model: {s.get('model') or 'not set'}",

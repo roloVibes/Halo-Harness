@@ -59,8 +59,8 @@ function FlowMain() {
 
 export const flowPanels: PanelSpec[] = [
   { id: "flow-list", testid: "flow-list-panel", title: "Your workflows", role: "drawer", side: "left", startOpen: true, contentW: 360,
-    about: "Your workflows and this project's (on the map or not), then the starters to copy.",
-    help: "Click a workflow: its form opens.\n+ New workflow starts an empty one.\nA starter's click copies it as yours (Save keeps it).",
+    about: "Your workflows and this project's (on the map or not), then the ones that ship with Halo (Copy makes it yours).",
+    help: "Click a workflow: its form opens.\n+ New workflow starts an empty one.\nOne that ships with Halo: a click copies it as yours (Save keeps it).",
     face: "detail", glance: ListGlance, detail: FlowList },
   { id: "flow-form", testid: "flow-form-panel", title: "Workflow", role: "main",
     about: "The workflow open now: what it is for, its steps in order, what it costs, Try it, Save; the steps drawn beside it.",
