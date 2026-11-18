@@ -39,11 +39,13 @@ the title keeps your own. Control characters are dropped. `tests/test_privacy_re
 that attacks it (case, separators, encodings, look-alikes, every kind of field). Not caught: a name split across two
 fields, and look-alike letters NFKC does not fold (Cyrillic, Greek).
 
-**A text cut short keeps one or two letters of a name (3.6.0.3).** Where Halo shortens a text and ends it with `...`
-(the report card and Record's page keep the first 200 characters of an agent's task), and the cut lands one or two letters into your account name or machine name, those letters
-stay; from three letters on they are masked. With the account `alexander`, `asked al...` stays as it is, while
-`asked ale...` becomes `asked <user>...`. The same holds for a machine named `gpu-box`: `on gp...` stays and
-`on gpu...` becomes `on <machine>...`.
+**A text cut short can keep part of a name.** Where Halo shortens a text and ends it with `...` (the report card and
+Record's page keep the first 200 characters of an agent's task), and the cut lands inside your account name or machine
+name, Halo looks only at the letters and digits right before the `...`: when there are three or more and your name
+starts with them, they are masked; otherwise they stay. With the account `alexander`, `asked al...` stays as it is,
+while `asked ale...` becomes `asked <user>...`. A name with a dash, dot or underscore is masked only while the cut is
+still in its first part: with a machine named `gpu-box`, `on gpu...` becomes `on <machine>...`, but `on gp...`,
+`on gpu-b...` and `on gpu-bo...` stay as they are.
 
 **Another account's home folder.** The redaction knows your own home folder and your own names, not those of the
 other accounts on the machine. What happens to a path such as `/home/someone/notes.txt`:
