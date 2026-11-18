@@ -259,6 +259,51 @@ def test_a_session_ending_while_it_looks_for_its_row_never_writes_it_back(ctx: C
             runtime._clock = real_clock
 
 
+@test
+def test_a_session_putting_its_row_back_never_holds_up_its_own_end(ctx: Ctx):
+    """3.6.0.4 S4-2: _keep_listed registered while it held runtime._lock; register waits for the list's file lock (up
+    to 30 s while another Halo holds it), so stop_one on another thread, which needs runtime._lock to take the
+    session out, waited behind it and the session's end with it. Here register is held on an event: stop_one must
+    return while it is held, and when the register then lands for the ended session, its row leaves again."""
+    import threading
+    from halo_harness.events import Event
+    from halo_harness.remote import registry, runtime
+    with SessionRig() as rig:
+        clock = [1000.0]
+        real_clock, real_register = runtime._clock, registry.register
+        runtime._clock = lambda: clock[0]
+        entered, release = threading.Event(), threading.Event()
+        try:
+            act = runtime.start_for_controller(_fake_controller(rig))
+            sid = act.session_id
+            registry.unregister(sid)
+
+            def held_register(entry):
+                entered.set()
+                release.wait(30.0)  # the file lock another Halo holds
+                real_register(entry)
+            registry.register = held_register
+            clock[0] += 5.0
+            pub = threading.Thread(target=act.handle.hub.publish, daemon=True,
+                                   args=(Event("status", {"session_id": sid, "permission_mode": act.mode}),))
+            pub.start()
+            ctx.check("the session went to put its row back", entered.wait(10.0))
+            stopper = threading.Thread(target=runtime.stop_one, args=(act,), daemon=True)
+            stopper.start()
+            stopper.join(5.0)
+            ctx.check("stop_one returned while the register was held", not stopper.is_alive())
+            ctx.check("the session ended", act not in runtime._actives)
+            release.set()
+            pub.join(10.0)
+            stopper.join(10.0)
+            ctx.check("the status event's thread finished", not pub.is_alive())
+            ctx.check("the ended session's row is not in the file", sid not in _rows())
+        finally:
+            release.set()
+            registry.register = real_register
+            runtime._clock = real_clock
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

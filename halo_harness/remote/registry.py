@@ -160,7 +160,7 @@ def _entry_alive(entry: dict, now: Optional[float] = None) -> bool:
         return False
     since = entry.get(UNREACHABLE)
     now = time.time() if now is None else now
-    if not isinstance(since, (int, float)) or isinstance(since, bool):
+    if not isinstance(since, (int, float)) or isinstance(since, bool) or since > now:  # S4-3: a clock set back
         entry[UNREACHABLE] = now
         return True
     return now - since < UNREACHABLE_PRUNE_S

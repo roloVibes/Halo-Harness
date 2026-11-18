@@ -122,11 +122,15 @@ def test_shutdown_answers_before_the_session_closes_its_socket(ctx: Ctx):
     socket closed) BEFORE its own answer was written, so a reply thread that ran late under load wrote into a
     closed socket and the caller read 'control socket closed' for a shutdown that worked. The order is injected:
     the reply's send waits up to 3 s for the session's end to begin (the real end closes the server, as the
-    headless session's quit does). Fixed, the end begins only after the answer went out, and still within 10 s."""
+    headless session's quit does). Fixed, the end begins only after the answer went out, and still within 10 s.
+    S4-1: a send held past SHUTDOWN_REPLY_BOUND_S (2 s) gives way to the end by design, so this test, whose injected
+    lateness is 3 s, raises the bound to 30 s for its own run: it proves the order, the bound has its own test."""
     from tests.helpers.remote_rig import Rig
     from halo_harness.remote import control_socket
     ending = threading.Event()
     real_send = control_socket._Conn.send
+    saved_bound = getattr(control_socket, "SHUTDOWN_REPLY_BOUND_S", None)
+    control_socket.SHUTDOWN_REPLY_BOUND_S = 30.0
 
     def late_send(self, obj):
         if isinstance(obj, dict) and isinstance(obj.get("result"), dict) and "shutdown" in obj["result"]:
@@ -150,6 +154,80 @@ def test_shutdown_answers_before_the_session_closes_its_socket(ctx: Ctx):
             ctx.check("its socket closed after the answer", closed)
     finally:
         control_socket._Conn.send = real_send
+        if saved_bound is not None:
+            control_socket.SHUTDOWN_REPLY_BOUND_S = saved_bound
+
+
+def _halo_threads(before: set) -> list:
+    return [t.name for t in threading.enumerate() if t not in before and t.is_alive() and t.name.startswith("halo-ctl")]
+
+
+@test
+def test_a_subscriber_that_stopped_reading_cannot_hold_off_shutdown(ctx: Ctx):
+    """3.6.0.4 S4-1: a caller that subscribed on a connection and stopped reading fills its socket's buffers; the
+    feed thread then waits in its send holding the connection's send lock, so the answer to `shutdown` on that
+    connection waits too. The end began only after the answer, so it never began. Fixed: it begins when the answer
+    is out OR after SHUTDOWN_REPLY_BOUND_S (2 s), whichever comes first; the timer is gone afterwards and so is every
+    connection thread. Small buffers on both ends make a few megabytes fill them; fewer than 256 frames are queued,
+    so the subscriber is never dropped (a drop would close the socket and hide the fault)."""
+    import json
+    import socket
+    from tests.helpers.remote_rig import Rig
+    from tests.helpers.session_rig import wait_for
+    from halo_harness import events
+    from halo_harness.remote import control_socket
+    before = set(threading.enumerate())
+    ending = threading.Event()
+    with Rig(sndbuf=2048) as rig:
+        server = rig.server
+        rig.controller.on_control_shutdown = lambda _t: (server.close(), ending.set())
+        c = rig.client()
+        c.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2048)
+        c.call("subscribe")  # ... and never reads again
+        conn = wait_for(lambda: next((x for x in server._conns if x._sub is not None), None), 10)
+        blob = "x" * 65536
+        for i in range(120):
+            rig.controller.events.put(events.Event("notification", {"text": blob, "level": "info", "i": i}))
+        stuck = wait_for(lambda: conn._send_lock.locked() and conn._sub is not None and conn._sub._q.qsize() >= 2, 20)
+        ctx.check("the feed waits in its send (the caller stopped reading) and was not dropped", stuck is True)
+        line = {"id": 7, "cmd": "shutdown", "by": "test", "via": "test", "reason": "the end"}
+        c.sock.sendall((json.dumps(line) + "\n").encode("utf-8"))
+        bound = getattr(control_socket, "SHUTDOWN_REPLY_BOUND_S", 2.0)
+        ctx.check(f"the session's end begins within the bound ({bound} s) plus 8 s", ending.wait(bound + 8.0))
+        ctx.check("its socket closed", server.closed.wait(10.0))
+    left = wait_for(lambda: not _halo_threads(before), 10)
+    ctx.check(f"no timer and no connection thread is left, got {_halo_threads(before)}", left is True)
+
+
+@test
+def test_a_caller_that_closed_still_ends_the_session_without_the_bound(ctx: Ctx):
+    """3.6.0.4 S4-1: a caller that sends `shutdown` and closes at once: the answer's send returns (written or
+    failed) and the end begins then, not from the bound's timer (the bound is raised to 60 s here to prove it)."""
+    import json
+    from tests.helpers.remote_rig import Rig
+    from tests.helpers.session_rig import wait_for
+    from halo_harness.remote import control_socket
+    before = set(threading.enumerate())
+    saved = getattr(control_socket, "SHUTDOWN_REPLY_BOUND_S", None)
+    control_socket.SHUTDOWN_REPLY_BOUND_S = 60.0
+    ending = threading.Event()
+    try:
+        with Rig() as rig:
+            server = rig.server
+            rig.controller.on_control_shutdown = lambda _t: (server.close(), ending.set())
+            c = rig.client()
+            c.call("ping")
+            line = {"id": 7, "cmd": "shutdown", "by": "test", "via": "test", "reason": "the end"}
+            c.sock.sendall((json.dumps(line) + "\n").encode("utf-8"))
+            c.close()
+            ctx.check("the session's end begins well inside the 60 s bound", ending.wait(10.0))
+        left = wait_for(lambda: not _halo_threads(before), 10)
+        ctx.check(f"no timer and no connection thread is left, got {_halo_threads(before)}", left is True)
+    finally:
+        if saved is None:
+            del control_socket.SHUTDOWN_REPLY_BOUND_S
+        else:
+            control_socket.SHUTDOWN_REPLY_BOUND_S = saved
 
 
 if __name__ == "__main__":

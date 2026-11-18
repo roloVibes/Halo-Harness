@@ -51,6 +51,7 @@ MAX_LINE = 1 << 20
 MAX_CONNS = 32
 MAX_PREAUTH = 16
 MAX_SUBSCRIBERS = 16
+SHUTDOWN_REPLY_BOUND_S = 2.0  # 3.6.0.4 S4-1: an ending command's end begins at most this long after it was handled
 _SURROGATES = re.compile("[\ud800-\udfff]")
 
 
@@ -150,6 +151,29 @@ class _Conn:
         except OSError:
             return False
 
+    def _answer_then(self, reply: dict, then) -> None:
+        """3.6.0.4 S4-1: a command that ends the session (`shutdown`, the terminal's `/exit`) begins that end once its
+        answer is out, or SHUTDOWN_REPLY_BOUND_S after it was handled, or when the send fails, whichever comes first:
+        a caller whose stalled subscription holds this connection's sends delays the answer, never the end. The timer
+        lives for this one command and is cancelled once the send returned; `then` runs once."""
+        once = threading.Lock()
+
+        def begin() -> None:
+            if once.acquire(blocking=False):
+                try:
+                    then()
+                except Exception:  # P8: an app already closing (RuntimeError) never prints over the terminal
+                    pass
+
+        timer = threading.Timer(SHUTDOWN_REPLY_BOUND_S, begin)
+        timer.name, timer.daemon = "halo-ctl-then", True
+        timer.start()
+        try:
+            self.send(reply)
+        finally:
+            timer.cancel()
+            begin()
+
     def force_close(self) -> None:
         self._dead.set()
         for fn in (lambda: self.sock.shutdown(socket.SHUT_RDWR), self.sock.close):
@@ -197,13 +221,12 @@ class _Conn:
                 except ValueError:
                     self.send({"id": None, "ok": False, "error": "invalid JSON"})
                     continue
-                self.send(handle_request(self.server.handle, req, self))
+                reply = handle_request(self.server.handle, req, self)
                 then, self.then = getattr(self, "then", None), None
                 if callable(then):  # 3.6.0.2 P11: `/exit` from Studio ends the terminal AFTER its answer went out
-                    try:
-                        then()
-                    except Exception:  # P8: an app already closing (RuntimeError) never prints over the terminal
-                        pass
+                    self._answer_then(reply, then)
+                else:
+                    self.send(reply)
         except OSError:
             pass
         finally:

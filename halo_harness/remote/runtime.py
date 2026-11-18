@@ -150,8 +150,9 @@ def _watch_status(act: Active, ev) -> None:
 def _keep_listed(act: Active) -> None:
     """3.6.0.4: a session whose row left sessions.json (an older Halo pruned it after one refused probe, or its probes
     failed for 30 s while the terminal was paused) puts the row back here, at a status event it publishes anyway: no
-    thread, no timer, at most one file read per LISTED_CHECK_S. Checked and written under `_lock`, so a session that
-    has ended (stop_one took it out of `_actives` first) never writes its row back."""
+    thread, no timer, at most one file read per LISTED_CHECK_S. S4-2: it registers OUTSIDE `_lock` (register can wait
+    up to LOCK_S for the file's lock, and stop_one needs `_lock` to end the session), checking `_actives` under it
+    before and after: a session that ended in between has the row it just wrote removed, so it never stays listed."""
     now = _clock()
     if now - act.listed_at < LISTED_CHECK_S:
         return
@@ -161,8 +162,13 @@ def _keep_listed(act: Active) -> None:
         if registry.listed(act.session_id):
             return
         with _lock:
-            if act in _actives:
-                registry.register(dict(act.entry))
+            if act not in _actives:
+                return
+        registry.register(dict(act.entry))
+        with _lock:
+            ended = act not in _actives
+        if ended:
+            registry.unregister(act.session_id)
     except Exception:
         log.debug("could not put the session's registry row back", exc_info=True)
 

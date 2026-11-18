@@ -279,6 +279,32 @@ def test_failing_for_30_s_prunes_and_every_reader_counts_from_the_first_failure(
 
 
 @test
+def test_a_mark_in_the_future_counts_as_set_now(ctx: Ctx):
+    """3.6.0.4 S4-3: the first failure's time is a wall-clock time kept in the row; when the clock is set back after
+    it was written, `now - unreachable_since` is negative and a refusing row stayed listed by the size of the step.
+    A mark in the future is rewritten to now (in the same locked write), so the 30 s count starts again from there."""
+    from halo_harness.remote import registry
+    with _Home():
+        lst = _Listener()
+        probe = _Probe(rest=False)
+        try:
+            row = _entry("stepped", lst.endpoint)
+            row[registry.UNREACHABLE] = 2000.0  # written before the clock was set back by 1000 s
+            registry.register(row)
+            got = [r["session_id"] for r in registry.list_live(now=1000.0)]
+            ctx.check(f"still listed at first, got {got}", got == ["stepped"])
+            ctx.check(f"the mark is now, got {_file_rows()['stepped'].get(registry.UNREACHABLE)}",
+                      _file_rows()["stepped"].get(registry.UNREACHABLE) == 1000.0)
+            ctx.check("29.9 s later: still listed",
+                      [r["session_id"] for r in registry.list_live(now=1029.9)] == ["stepped"])
+            ctx.check("31 s later: gone", registry.list_live(now=1031.0) == [])
+            ctx.check("and gone from the file", _file_rows() == {})
+        finally:
+            probe.close()
+            lst.close()
+
+
+@test
 def test_a_missing_socket_file_prunes_at_once(ctx: Ctx):
     from halo_harness.remote import registry
     with _Home():
