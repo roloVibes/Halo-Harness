@@ -113,7 +113,10 @@ def steer_main(c, rig, lv, sent: list) -> dict:
     out["steer_route"] = {"sid": d.get("sid"), "agent_id": (d.get("fields") or {}).get("agent_id"), "mode": (d.get("fields") or {}).get("mode"),
                           "status": d.get("status"), "delivered": (d.get("result") or {}).get("delivered")}
     out["steer_ack"] = c.wait("document.querySelector('.toasts')?.textContent.includes('Steered') && 'steered'", 15) or False
-    out["steer_cleared"] = c.js(f"{AREA}.value === ''")
+    try:  # the toast can be drawn a frame before the box is emptied: a slow Windows runner once read the box in between
+        out["steer_cleared"] = bool(c.wait(f"{AREA}.value === ''", 5))
+    except TimeoutError:
+        out["steer_cleared"] = False
     return out
 
 
