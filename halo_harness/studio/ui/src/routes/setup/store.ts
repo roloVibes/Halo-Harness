@@ -14,7 +14,9 @@ import type { PackSetup } from "./packSetup";
 export type ThemeRow = { name: string; palette: Record<string, string> };
 export type ModeRow = { id: string; label: string; note: string };
 /** 3.6.0.0 R5: a row of the Map step (the Team step's lineups before). */
-export type MapRow = { name: string; label: string; scope: string; description: string; boxes: number; lines: number; active: boolean; default: boolean };
+export type MapRow = { name: string; label: string; scope: string; description: string; boxes: number; lines: number; active: boolean; default: boolean;
+  /** 3.6.0.5 A5: his own old file named auto or starter: opened and copied, never applied */
+  old?: boolean };
 export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string; effort?: string;
   /** 3.3.15.0 R2: what it takes (halo_harness/model_takes.py). */
   takes?: string[] } & CardFields;

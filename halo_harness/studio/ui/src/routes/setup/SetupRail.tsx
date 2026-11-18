@@ -9,7 +9,7 @@
 // under the pack's name (one placed by `after` sits behind its core step, the pack's name on its button).
 import { useFirstRun } from "./door";
 import { blockOf, isPackStep } from "./packSetup";
-import { goto, mapWord, stateOf, stepsOf, titleOf, usePage, valueOf, type StepId } from "./pages";
+import { goto, mapWord, stateOf, stepsOf, themeWord, titleOf, usePage, valueOf, type StepId } from "./pages";
 import { providersSet, useSetup } from "./store";
 import { lastCheckWord } from "./checkStore";
 
@@ -42,7 +42,7 @@ function Strip() {
     ["model", "Default model", d.model || "not set"],
     ["lineup", "Map", mapWord(d)], // 3.6.0.0 R5: the map new sessions run on (the key stays: the strip's cells are read by it)
     ["permissions", "Permissions", d.permission_mode || "not set"],
-    ["theme", "Theme", d.theme || `${d.theme_default} (default)`],
+    ["theme", "Theme", themeWord(d)], // 3.6.0.5: the theme `auto` reads "Follow the system", never a bare "auto"
     ["check", "Last check", lastCheckWord(d.last_check)],
   ];
   return (

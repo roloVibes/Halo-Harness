@@ -14,6 +14,7 @@ import { createStore, useStore } from "../../lib/store";
 import { lastCheckWord } from "./checkStore";
 import { blockDone, blockOf, blockWord, isPackStep, placeSteps } from "./packSetup";
 import { providersSet, setup, type SetupData } from "./store";
+import { mapWord, themeWord } from "./words";
 
 export type CoreStep = "providers" | "local" | "model" | "permissions" | "theme" | "team" | "linux" | "check" | "summary";
 export type StepId = CoreStep | `pack:${string}`;
@@ -69,9 +70,7 @@ export function stepsOf(d: SetupData | null, page: StepId): StepId[] {
   return [...placed, "summary"];
 }
 
-export function mapWord(d: SetupData): string {
-  return d.team.active + (d.team.source === "default" ? " (default)" : "");
-}
+export { mapWord, themeWord } from "./words"; // 3.6.0.5: "Auto (the default)", "Follow the system" (pure, words.ts)
 
 /** Does step `s`'s block have what it needs. */
 export function isDone(d: SetupData | null, s: StepId): boolean {
@@ -130,7 +129,7 @@ export function valueOf(d: SetupData | null, s: StepId): string {
     case "permissions":
       return d.permission_mode || "not set";
     case "theme":
-      return d.theme || `${d.theme_default} (default)`;
+      return themeWord(d);
     case "team":
       return mapWord(d);
     case "linux":

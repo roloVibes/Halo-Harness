@@ -172,11 +172,16 @@ def model(c, url, ctx) -> dict:
 
 
 def team(c, url, ctx) -> dict:
-    """3.6.0.0 R5: the Team step is Map: the maps (the shipped starter and ship-it), the one in use, a pick, its preview,
-    Save writes crew.map to config.json and the strip follows."""
+    """3.6.0.0 R5: the Team step is Map: the maps (3.6.0.5 A8: Auto (the default) first, no scope chip, "in use";
+    "ship-it (ships with Halo)"; One model for everything last), the one in use, a pick, its preview, Save writes
+    crew.map to config.json and the strip follows."""
     goto(c, "team")
     row = "[data-testid=setup-map][data-name=ship-it]"
+    first = "[data-testid=setup-map]"
     out = {"maps": c.js(qa("[data-testid=setup-map]") + ".map((r) => r.dataset.name)"),
+           "first_name": c.js(_text(f"{first} .su-lineup-name")),
+           "first_chips": c.js(f"[...({q(first)}?.querySelectorAll('.og-chip') || [])].map((x) => x.textContent)"),
+           "labels": c.js(qa("[data-testid=setup-map] .su-lineup-name") + ".map((x) => x.textContent)"),
            "in_use": c.js(qa("[data-testid=setup-map][data-active]") + ".map((r) => r.dataset.name)"),
            "team_by": choose(c, row, f"{q(row + ' input')}.checked")}
     out["preview"] = c.wait(f"{_text('[data-testid=setup-team-preview]')}.includes('ship-it') && {_text('[data-testid=setup-team-preview]')}.split('\\n')[0]", 15)

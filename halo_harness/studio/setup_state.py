@@ -83,24 +83,41 @@ from halo_harness.crew.changes_map import ONE_MODEL  # noqa: E402  the Map step'
 
 
 def map_rows(cwd=None, state_dir=None) -> list:
-    """The Map step's rows (3.6.0.0 R5, the Team step before): One model for everything first, then every map, nearest
-    first (yours, this project's, the starters); `active` marks the one new sessions run on, `default` the starter
-    map while no `crew.map` is set."""
+    """The Map step's rows (3.6.0.0 R5, the Team step before; 3.6.0.5 A8, A13, W11): "Auto (the default)" first (the
+    shipped auto.yaml, its `about`), then his maps and a pack's, then this project's (the switcher's order), then the
+    other shipped maps "{name} (ships with Halo)", then One model for everything last. `active` marks the one new
+    sessions run on, `default` the shipped Auto while no `crew.map` is set. A5: his own old file named auto or starter
+    (scope yours or project) is a row of its own among his maps, "{name} · your copy from before", `old`, never active
+    or default (only the shipped row is the default)."""
     from halo_harness.crew import store
-    from halo_harness.crew.compile import DEFAULT_MAP, in_use
+    from halo_harness.crew.compile import in_use
+    from halo_harness.crew.map_facts import DEFAULT_WORDS
     used, source = in_use(None, cwd)
-    # 3.6.0.0 R5 fix (M6): "One model for everything" (roles off, no map), the choice the Team step had
-    rows, seen = [{"name": ONE_MODEL, "label": "One model for everything", "scope": "",
-                   "description": "No map: main does every job on your model and hands nothing off (roles off).",
-                   "boxes": 0, "lines": 0, "active": source == "none", "default": False}], set()
+    seen, auto, his, proj, shipped = set(), [], [], [], []
     for r in store.rows("map", cwd=cwd, state_dir=state_dir):
-        if r["name"] in seen:
+        name, scope = r["name"], r["_scope"]
+        is_auto = store.is_auto(name)
+        key = (name, scope == "starter") if is_auto else name
+        if key in seen:
             continue
-        seen.add(r["name"])
-        rows.append({"name": r["name"], "label": r["name"], "scope": r["_scope"], "description": str(r.get("about") or ""),
-                     "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or []), "active": r["name"] == used,
-                     "default": source == "default" and r["name"] == DEFAULT_MAP})
-    return rows
+        seen.add(key)
+        row = {"name": name, "label": name, "scope": scope, "description": str(r.get("about") or ""),
+               "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or []), "active": name == used, "default": False}
+        if is_auto and scope == "starter":
+            auto.append({**row, "label": DEFAULT_WORDS, "active": store.is_auto(used), "default": source == "default"})
+        elif is_auto:
+            his.append({**row, "label": f"{name} · your copy from before", "active": False, "old": True})
+        elif scope == "project":
+            proj.append(row)
+        elif scope == "starter":
+            shipped.append({**row, "label": f"{name} (ships with Halo)"})
+        else:
+            his.append(row)
+    # 3.6.0.0 R5 fix (M6): "One model for everything" (roles off, no map), the choice the Team step had; A8: last
+    one = {"name": ONE_MODEL, "label": "One model for everything", "scope": "",
+           "description": "No map: main does every job on your model and hands nothing off (roles off).",
+           "boxes": 0, "lines": 0, "active": source == "none", "default": False}
+    return auto + his + proj + shipped + [one]
 
 
 def team_block(cwd=None, state_dir=None) -> dict:

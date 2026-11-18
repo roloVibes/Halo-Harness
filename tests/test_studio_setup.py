@@ -76,7 +76,7 @@ def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
 @test
 def test_the_strip_says_what_is_set(ctx: Ctx):
     got = _got(ctx)
-    want = [["provider", "no provider set"], ["model", "not set"], ["lineup", "auto (default)"], ["permissions", "not set"],
+    want = [["provider", "no provider set"], ["model", "not set"], ["lineup", "Auto (the default)"], ["permissions", "not set"],
             ["theme", "instrument (default)"], ["check", "not run"]]  # 3.3.15.0 R4: claude-dark before
     ctx.check(f"provider, model, the map (3.6.0.0 R5: Auto until one is picked), permissions, theme, got {got.get('strip')}", got.get("strip") == want)
     ctx.check("the strip is there on ?mode=setup too", got.get("mode_first_strip") == want)
@@ -235,7 +235,13 @@ def test_default_model_save(ctx: Ctx):
 def test_the_map_step(ctx: Ctx):
     """3.6.0.0 R5: the Team step is Map (lineups are gone)."""
     got = _got(ctx)
-    ctx.check(f"the shipped maps, got {got.get('maps')}", "auto" in (got.get("maps") or []) and "ship-it" in (got.get("maps") or []))
+    maps = got.get("maps") or []
+    ctx.check(f"the shipped maps, Auto first, One model for everything last (3.6.0.5 A8), got {maps}",
+              maps[:1] == ["auto"] and "ship-it" in maps and maps[-1:] == ["one-model"])
+    ctx.check(f"the Auto row reads Auto (the default), the in use chip and no scope chip, got {got.get('first_name')!r} {got.get('first_chips')}",
+              got.get("first_name") == "Auto (the default)" and got.get("first_chips") == ["in use"])
+    ctx.check(f"ship-it (ships with Halo) listed, no label says starter, got {got.get('labels')}",
+              "ship-it (ships with Halo)" in (got.get("labels") or []) and not any("starter" in x for x in got.get("labels") or []))
     ctx.check(f"Auto is in use (every session runs on a map), got {got.get('in_use')}", got.get("in_use") == ["auto"])
     ctx.check(f"the preview of the pick, got {got.get('preview')!r}", "ship-it" in str(got.get("preview")))
     ctx.check(f"Save: crew.map in config.json, the strip follows, got {got.get('team_config')} {got.get('team_strip')!r}",

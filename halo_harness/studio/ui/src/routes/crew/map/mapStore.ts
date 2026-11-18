@@ -13,6 +13,7 @@ import { onTab } from "../builderStore";
 import type { LineWhen, MapDetail, MapFile, MapLine, MapRow } from "./mapTypes";
 import { nameOfTheDefault, openName } from "./truthWords";
 import { readOnly } from "./autoWords";
+import { mapUrl } from "./pickerRows";
 
 export type WhenAt = { from: string; to: string; fresh: boolean; before?: MapFile };
 export type MapState = {
@@ -24,6 +25,8 @@ export type MapState = {
   /** P7: new sessions start with NO map (roles off, crew.map unset) -- the API's `next_none`, the truth block's field */
   nextNone: boolean;
   name: string;
+  /** 3.6.0.5 A5: the scope the open map was opened by -- "" except while his own old file (auto/starter) is open */
+  scope: string;
   detail: MapDetail | null;
   /** his Lock (kept in this browser; toggleLock) */
   handLock: boolean;
@@ -42,7 +45,7 @@ const LOCK = "halo.studio.map-lock";
 export const LAST = "halo.studio.map-open";
 const read = (k: string) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
 
-export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, next: null, nextNone: false, name: "", detail: null, handLock: read(LOCK) === "1", locked: read(LOCK) === "1", open: {}, hover: "",
+export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, next: null, nextNone: false, name: "", scope: "", detail: null, handLock: read(LOCK) === "1", locked: read(LOCK) === "1", open: {}, hover: "",
   pick: "", when: null, receipt: null, error: "", made: [] });
 export const useMap = <T,>(pick: (s: MapState) => T): T => useStore(maps, pick);
 export const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
@@ -72,17 +75,19 @@ export function firstName(): string {
 }
 
 export { openName, readOnly }; // 3.6.0.5: the name a map is opened under (truthWords.ts), a read-only map (autoWords.ts)
+export { mapUrl, pickerValue } from "./pickerRows"; // 3.6.0.5 A5: a map's address and switcher value by its scope
 
 let opening = 0; // the latest openMap: an earlier one answered late (the tab's own first open) never undoes his pick
 
-export async function openMap(asked: string): Promise<void> {
+/** Open a map; A5: `scope` opens his own old file named auto or starter by its scope (never remembered as LAST). */
+export async function openMap(asked: string, scope = ""): Promise<void> {
   if (!asked) return;
-  const name = openName(asked);
-  writeLocal(LAST, name); // 3.6.0.0 R5: first, so the tab's own first load (firstName) opens this one too (an edit door)
+  const name = openName(asked, scope);
+  if (!scope) writeLocal(LAST, name); // 3.6.0.0 R5: first, so the tab's own first load (firstName) opens this one too (an edit door)
   const mine = ++opening;
   try {
-    const detail = await api.get<MapDetail>(`crew/map/${name}`);
-    if (mine === opening) maps.update((s) => ({ name, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {},
+    const detail = await api.get<MapDetail>(mapUrl(name, scope));
+    if (mine === opening) maps.update((s) => ({ name, scope, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {},
                                                  locked: s.handLock || readOnly(name, detail.scope) }));
   } catch (e) {
     if (mine === opening) maps.update(() => ({ error: msg(e) }));
@@ -90,10 +95,12 @@ export async function openMap(asked: string): Promise<void> {
 }
 
 /** 3.6.0.2 R33: the open map changed by a session's build -- its detail re-read in place, keeping the pick, the When
- *  card, the open boxes and the receipt (a real change of map is openMap's, which resets them). */
+ *  card, the open boxes and the receipt (a real change of map is openMap's, which resets them). A5: by the scope it
+ *  was opened with, so a re-read never puts Auto's detail in place of his old file's. */
 export async function rereadDetail(name: string): Promise<void> {
   try {
-    const detail = await api.get<MapDetail>(`crew/map/${name}`);
+    const s = maps.get();
+    const detail = await api.get<MapDetail>(mapUrl(name, s.name === name ? s.scope : ""));
     if (maps.get().name === name) maps.update(() => ({ detail }));
   } catch (e) {
     maps.update(() => ({ error: msg(e) }));
@@ -123,7 +130,7 @@ export async function undoLast(): Promise<void> {
   try {
     await api.post("builder/undo", { undo_id: r.undo });
     maps.update(() => ({ receipt: null }));
-    await Promise.all([openMap(maps.get().name), loadMaps()]);
+    await Promise.all([openMap(maps.get().name, maps.get().scope), loadMaps()]);
   } catch (e) {
     maps.update(() => ({ error: msg(e) }));
   }
@@ -186,7 +193,7 @@ export async function newMap(name: string): Promise<boolean> {
   }
   try {
     const r = await api.put<MapDetail & { undo_id: string }>(`crew/map/${n}`, { map: { name: n, boxes: [], lines: [], main: { agent: "main" } } });
-    maps.update((s) => ({ name: n, detail: r, receipt: { line: `Made the map ${n}: main only so far.`, undo: r.undo_id }, open: {},
+    maps.update((s) => ({ name: n, scope: "", detail: r, receipt: { line: `Made the map ${n}: main only so far.`, undo: r.undo_id }, open: {},
                           locked: s.handLock || readOnly(n, r.scope) }));
     writeLocal(LAST, n);
     await loadMaps();
@@ -210,6 +217,6 @@ export const dismissError = () => maps.update(() => ({ error: "" }));
 
 onTab("map", {
   selection: () => ({ map: maps.get().name }),
-  after: async () => { await Promise.all([openMap(maps.get().name), loadMaps(), loadCrew(), loadFlows()]); },
+  after: async () => { await Promise.all([openMap(maps.get().name, maps.get().scope), loadMaps(), loadCrew(), loadFlows()]); },
   show: async () => undefined,
 });

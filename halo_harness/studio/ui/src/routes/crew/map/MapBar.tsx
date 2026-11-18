@@ -14,7 +14,8 @@ import { QuietCtx, useQuiet } from "./mapQuiet";
 import { NoticeRow } from "./NoticeRow";
 import { NEXT_NONE, newSessionsRunOn, nextMap, nextName, onMap, switchLabel } from "./truth";
 import { isAuto } from "./truthWords";
-import { pickerRows } from "./pickerRows";
+import { oldWords, pickerRows, pickerValue, usesSlot } from "./pickerRows";
+import { copyName, copyOld } from "./oldCopy";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
 
@@ -30,8 +31,11 @@ function Switch({ on, label, onFlip, testid, title }: { on: boolean; label: stri
 function Picker() {
   const rows = useMap((s) => s.rows);
   const name = useMap((s) => s.name);
+  const scope = useMap((s) => s.scope);
   const next = useMap((s) => s.next);
   const on = useQuiet().on;
+  // A5: a value `{scope}:{name}` is his old file, opened by its scope (map names hold no colon)
+  const open = (v: string) => { const [sc, n] = v.includes(":") ? v.split(":", 2) : ["", v]; void openMap(n, sc); };
   const [making, setMaking] = useState(false);
   const [draft, setDraft] = useState("");
   useEffect(() => (setDrafting(making), () => setDrafting(false)), [making]); // the Map's only unsaved edit (R33)
@@ -48,8 +52,8 @@ function Picker() {
   return (
     <label className="mp-picker">
       <span className="cw-line">Map</span>
-      <select className="input" value={name} data-testid="map-switcher" aria-label="Which map"
-              onChange={(e) => (e.target.value === "+" ? (setDraft(""), setMaking(true)) : void openMap(e.target.value))}>
+      <select className="input" value={pickerValue(name, scope)} data-testid="map-switcher" aria-label="Which map"
+              onChange={(e) => (e.target.value === "+" ? (setDraft(""), setMaking(true)) : open(e.target.value))}>
         {pickerRows(rows, on, next).map((r, i) => <option key={`${i}:${r.value}`} value={r.value}>{r.text}</option>)}
         <option value="+">+ New map</option>
       </select>
@@ -125,8 +129,11 @@ export function MapBar() {
   const nextNone = useMap((s) => s.nextNone);
   const scope = useMap((s) => s.detail?.scope || "");
   const isNext = onMap(nextMap(next), name, scope); // 3.6.0.5: Auto by any of its names; his old starter file never
-  const auto = isAuto(name, scope); // 3.6.0.5 A11: Auto has no plan to edit -- no switch, no Lock (its room kept,
-  // hidden until a map that is not Auto is open: nothing is drawn that then goes away)
+  const slot = usesSlot(name, scope, next, nextNone);
+  // 3.6.0.5 A11: Auto has no plan to edit -- no switch, no Lock (its room kept, hidden until a map that is not Auto is
+  // open: nothing is drawn that then goes away); A5: his old file neither (it is read-only, only copied)
+  const noLock = slot === "old" || isAuto(name, scope);
+  const names = useMap((s) => s.rows).map((r) => r.name);
   const problems = useMap((s) => s.detail?.problems) || NONE;
   const receipt = useMap((s) => s.receipt);
   const error = useMap((s) => s.error);
@@ -144,18 +151,21 @@ export function MapBar() {
         {/* P8 repair: the slot has the bar's free room to itself (the spacer gives it up), so its words wrap whole in
             the bar's row and the open map landing moves nothing on the bar (it moved 16 px when they took three lines) */}
         {/* 3.6.0.5 A11 (moved.md Q3): on Auto no switch -- none set: the sentence; new sessions get no map: NEXT_NONE
-            alone; a map of his set: nothing */}
+            alone; a map of his set: nothing. A5: his old file -- its words and [Copy as my-map], nothing else
+            (pickerRows.ts usesSlot decides, one pure place) */}
         <span className="mp-uses-slot">{!listed || !name ? null
-          : auto ? (nextNone ? <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>
-            : !next ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span> : null)
-          : !next && !nextNone && isNext ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
-          : <><Switch on={!nextNone && isNext} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextNone || !isNext)}
+          : slot === "old" ? <><span className="cw-line" data-testid="map-old-words">{oldWords(name)}</span>{" "}
+              <Button size="sm" data-testid="map-old-copy" onClick={() => void copyOld(name, scope)}>Copy as {copyName(names)}</Button></>
+          : slot === "none" ? <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>
+          : slot === "default" ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
+          : slot === "switch" ? <><Switch on={!nextNone && isNext} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextNone || !isNext)}
                     title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />
-            {nextNone && isNext && <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>}</>}</span>
+            {nextNone && isNext && <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>}</>
+          : null}</span>
         <span className="spacer" />
         <Button size="sm" onClick={() => (openGoalHere(), openMapDrawer("goal"))} data-testid="map-run-goal"
                 title="Run a goal: several agents, one goal, one set of files -- the goal form opens in the drawer">Run a goal</Button>
-        {auto || !name ? <span className="mp-lock-room" aria-hidden="true"><Switch on={false} label="Lock" testid="map-lock-room" onFlip={() => undefined} title="" /></span>
+        {noLock || !name ? <span className="mp-lock-room" aria-hidden="true"><Switch on={false} label="Lock" testid="map-lock-room" onFlip={() => undefined} title="" /></span>
           : <Switch on={locked} label="Lock" testid="map-lock" onFlip={toggleLock} title="Locked: nothing on the map can be dragged or changed" />}
       </div>
       {!!problems.length && (

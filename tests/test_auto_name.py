@@ -425,6 +425,112 @@ def test_status_row_map_agents_on_auto_only(ctx: Ctx):
         ctx.check(f"Auto with no runtime: no key, never raises, got {sorted(row)}", row and "map_agents" not in row)
 
 
+# --- batch 3: Setup's Map step (A8, W10, W11, A13), his old file listed by its scope (A5) ---------------------------
+
+W11 = "Main picks who works on each task; each one's model is picked for its task, and the reason is shown."
+
+
+class _Trusted:
+    """The rig's project folder trusted for the test's length (crew/store.py folders asks project_gate.trusted)."""
+
+    def __enter__(self):
+        from halo_harness import project_gate
+        self.real, project_gate.trusted = project_gate.trusted, (lambda cwd=None: True)
+        return self
+
+    def __exit__(self, *exc) -> bool:
+        from halo_harness import project_gate
+        project_gate.trusted = self.real
+        return False
+
+
+def _proj_map(rig, name: str) -> None:
+    from halo_harness.crew import store
+    store.write_text(rig.proj / ".halo" / "crew" / "maps" / f"{name}.yaml", store.dump(
+        {"format": "map/1", "name": name, "main": {"agent": "main"}, "boxes": [{"id": "p", "agent": "coder"}], "lines": []}))
+
+
+@test
+def test_setup_and_switcher_rows_auto_first_one_model_last(ctx: Ctx):
+    """A8, W11, A13: Setup's Map step lists Auto (the default) first, his maps, this project's, the shipped ones
+    "(ships with Halo)", One model for everything last; no label holds starter."""
+    with CrewRig() as rig, _Trusted():
+        from halo_harness.studio.setup_state import map_rows
+        _his_map(rig, "shop")
+        _proj_map(rig, "proj")
+        rows = map_rows(rig.proj, rig.state)
+        names = [r["name"] for r in rows]
+        ctx.check(f"order: auto, shop, proj, ..., ship-it, one-model last, got {names}",
+                  names[:3] == ["auto", "shop", "proj"] and "ship-it" in names[3:-1] and names[-1] == "one-model")
+        a = rows[0]
+        ctx.check(f"the Auto row, got {a}", a.get("label") == "Auto (the default)" and a.get("scope") == "starter"
+                  and a.get("description") == W11 and a.get("default") is True and a.get("active") is True)
+        by = {r["name"]: r for r in rows}
+        ctx.check(f"shop and proj by name, got {by.get('shop', {}).get('label')} {by.get('proj', {}).get('label')}",
+                  by.get("shop", {}).get("label") == "shop" and by.get("proj", {}).get("label") == "proj")
+        ctx.check(f"ship-it (ships with Halo), got {by.get('ship-it', {}).get('label')}",
+                  by.get("ship-it", {}).get("label") == "ship-it (ships with Halo)")
+        ctx.check(f"One model for everything, last, got {rows[-1].get('label')}", rows[-1].get("label") == "One model for everything")
+        ctx.check("no label holds starter", not any("starter" in str(r.get("label")).lower() for r in rows))
+
+
+@test
+def test_his_starter_file_listed_by_scope_never_run(ctx: Ctx):
+    """A5: his own old starter.yaml / auto.yaml is listed among his maps as "{name} · your copy from before" (Setup) and
+    beside the shipped Auto (GET crew/maps), never in use; it opens by its scope; no session runs it; the copy holds his
+    boxes and lines, and his file is byte for byte unchanged."""
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.crew import compile as C
+        from halo_harness.studio.setup_state import map_rows
+        his = _his_map(rig, "starter", "x")
+        _his_map(rig, "auto", "y")
+        before = his.read_bytes()
+        st, r = rig.api("GET", "crew/maps")
+        rows = {(x["name"], x["scope"]): x["in_use"] for x in r.get("maps") or []}
+        ctx.check(f"GET crew/maps: the shipped auto (in use) and his starter and auto (never), got {rows}",
+                  rows.get(("auto", "starter")) is True and rows.get(("starter", "yours")) is False
+                  and rows.get(("auto", "yours")) is False)
+        srows = map_rows(rig.proj, rig.state)
+        old = [x for x in srows if x.get("old")]
+        ctx.check(f"Setup: his two old rows, labelled, never active or default, got {old}",
+                  sorted(x["label"] for x in old) == ["auto · your copy from before", "starter · your copy from before"]
+                  and all(x["active"] is False and x["default"] is False and x["scope"] == "yours" for x in old))
+        ctx.check(f"Setup: the shipped Auto row first, the old rows among his maps (before One model), got {[x['name'] for x in srows]}",
+                  srows[0]["name"] == "auto" and srows[0].get("scope") == "starter" and not srows[0].get("old")
+                  and srows[1].get("old") and srows[2].get("old") and srows[-1]["name"] == "one-model")
+        st, m = rig.api("GET", "crew/map/starter?scope=yours")
+        ctx.check(f"GET crew/map/starter?scope=yours is his file (box x), got {st} {(m.get('map') or {}).get('boxes')}",
+                  st == 200 and [b.get("id") for b in (m.get("map") or {}).get("boxes") or []] == ["x"])
+        for flag in (None, "starter"):
+            c = C.for_session(flag, cwd=rig.proj)[0]
+            ctx.check(f"a session with {flag!r} runs the shipped seven, got {c and c.path}",
+                      c is not None and Path(c.path).as_posix().endswith("templates/crew/maps/auto.yaml")
+                      and sorted(c.agent_targets()) == sorted(SEVEN))
+        # the client's copy path (oldCopy.ts copyOld): GET ?scope=yours, then PUT crew/map/my-map with the map renamed
+        st, put = rig.api("PUT", "crew/map/my-map", {"map": {**(m.get("map") or {}), "name": "my-map"}})
+        from halo_harness.crew import store
+        mine = store.read(rig.state / "crew" / "maps" / "my-map.yaml") or {}
+        ctx.check(f"the copy my-map holds his boxes and lines, got {st} {mine.get('boxes')} {mine.get('lines')}",
+                  st == 200 and mine.get("boxes") == (m.get("map") or {}).get("boxes")
+                  and mine.get("lines") == (m.get("map") or {}).get("lines") and mine.get("name") == "my-map")
+        ctx.check("his starter.yaml is byte for byte unchanged", his.read_bytes() == before)
+
+
+@test
+def test_setup_marks_only_the_shipped_row_default(ctx: Ctx):
+    """The checker of batch 1, ruled into batch 3 entry 2: with his auto.yaml written and no map set, Setup's state
+    marks exactly one row default (and active), the shipped one."""
+    with CrewRig() as rig:
+        from halo_harness.studio.setup_state import map_rows
+        _his_map(rig, "auto")
+        rows = map_rows(rig.proj, rig.state)
+        default = [(r["name"], r["scope"]) for r in rows if r.get("default")]
+        active = [(r["name"], r["scope"]) for r in rows if r.get("active")]
+        ctx.check(f"exactly one default row, the shipped one, got {default}", default == [("auto", "starter")])
+        ctx.check(f"exactly one active row, the shipped one, got {active}", active == [("auto", "starter")])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

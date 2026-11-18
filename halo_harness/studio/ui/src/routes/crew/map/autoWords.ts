@@ -2,7 +2,7 @@
 // alone and one line (AutoPlan.tsx). Its {names} are the API's `hand_to` (GET crew/map/auto: the agents a NEW session on
 // Auto gets now, the seven that ship with Halo first). Pure: node runs it (tests/test_auto_name_ui.py).
 import type { QuietOn } from "./quietOf";
-import { isAuto } from "./truthWords";
+import { isAuto, isOldDefault } from "./truthWords";
 
 const SHOWN = 12; // M1 names twelve, then "and {n} more"
 
@@ -19,5 +19,6 @@ export const NOTHING_ON_AUTO = "Nothing runs on Auto right now.";
 /** A14: the session M1's [Watch it in Live] picks: the first of `on` (openOn's list, newest first) on Auto; "" for none. */
 export const autoWatch = (on: QuietOn[]): string => on.find((s) => isAuto(s.a))?.sid || "";
 
-/** A11: a map nothing on the Map tab may change (mapStore's `locked` = his Lock or this): Auto. */
-export const readOnly = (name: string, scope = ""): boolean => isAuto(name, scope);
+/** A11: a map nothing on the Map tab may change (mapStore's `locked` = his Lock or this): Auto; A5: his own old file
+ *  named auto or starter (it is only copied, never edited). */
+export const readOnly = (name: string, scope = ""): boolean => isAuto(name, scope) || isOldDefault(name, scope);

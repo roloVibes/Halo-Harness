@@ -96,9 +96,10 @@ out.mine = [W.onMap('starter', 'starter', 'yours'), W.onMap(T.nextMap(null), 'st
 out.auto = [W.onMap('starter', 'auto', 'starter'), W.onMap(T.nextMap(null), 'auto', 'starter')];""",
                S=MAPDIR / "truthWords.ts", W=MAPDIR / "truthWords.ts", T=MAPDIR / "truth.ts")
     store_src = (MAPDIR / "mapStore.ts").read_text(encoding="utf-8")
+    # batch 3 (A5): openMap takes the scope of his old file; only a map opened with no scope is remembered
     ctx.check("mapStore.ts exports openName and openMap opens and remembers what it gives",
-              "export { openName, readOnly }" in store_src and "const name = openName(asked);" in store_src
-              and "writeLocal(LAST, name);" in store_src)
+              "export { openName, readOnly" in store_src and "const name = openName(asked, scope);" in store_src
+              and "if (!scope) writeLocal(LAST, name);" in store_src)
     ctx.check(f"openName, got {out.get('open')}", out.get("open") == ["auto", "auto", "starter", "shop"])
     ctx.check(f"his old starter file open: a session on starter is not on it (no L1), new sessions not (no L2), got {out.get('mine')}",
               out.get("mine") == [False, False])
@@ -191,6 +192,77 @@ out.c = P.pickerRows(rows, [], 'shop');""", P=MAPDIR / "pickerRows.ts")
     ctx.check("no text holds starter or · in use", "starter" not in texts and "· in use" not in texts)
     src = (MAPDIR / "MapBar.tsx").read_text(encoding="utf-8")
     ctx.check("MapBar's Picker draws pickerRows", "pickerRows(rows, on, next)" in src and '" (starter)"' not in src)
+
+
+SETUP = SRC / "setup"
+
+
+@test
+def test_setup_strip_words(ctx: Ctx):
+    """A8 / W14 and the decisions' theme should: the strip's map cell and Setup's glance say "Auto (the default)"; the
+    theme cell says "Follow the system" for the theme `auto`, never a bare "auto"."""
+    out = node("""out.m = [S.mapWord({ team: { active: 'auto', source: 'default' } }), S.mapWord({ team: { active: 'shop', source: 'config' } }),
+  S.mapWord({ team: { active: 'starter', source: 'default' } })];
+out.t = [S.themeWord({ theme: 'auto' }), S.themeWord({ theme: 'paper' }), S.themeWord({ theme: '', theme_default: 'instrument' })];""",
+               S=SETUP / "words.ts")
+    ctx.check(f"mapWord, got {out.get('m')}", out.get("m") == ["Auto (the default)", "shop", "Auto (the default)"])
+    ctx.check(f"themeWord, got {out.get('t')}", out.get("t") == ["Follow the system", "paper", "instrument (default)"])
+    rail = (SETUP / "SetupRail.tsx").read_text(encoding="utf-8")
+    pages = (SETUP / "pages.ts").read_text(encoding="utf-8")
+    team = (SETUP / "Team.tsx").read_text(encoding="utf-8")
+    ctx.check("the strip's theme cell is themeWord(d), its map cell mapWord(d); pages.ts re-exports both from words.ts",
+              '["theme", "Theme", themeWord(d)]' in rail and '["lineup", "Map", mapWord(d)]' in rail
+              and 'export { mapWord, themeWord } from "./words";' in pages)
+    w10 = ("Auto (the default): main picks who works on each task, and a model for each one. A map of yours: main hands "
+           "work along its lines. One model for everything: every job on your model, with no map.")
+    ctx.check("Setup's lead is W10 word for word; the glance is mapWord's; no \" (default)\" span, no raw scope chip",
+              w10 in " ".join(team.split()) and "mapWord(" in team and '<span className="muted"> (default)</span>' not in team
+              and "{r.scope}</span>" not in team and "starter (the default)" not in team)
+    ctx.check("the Auto row has no Edit on the Map; its preview head reads Auto (the default)",
+              "PREVIEW · {head}" in team and "!isAuto(shown) &&" in team)
+
+
+@test
+def test_his_starter_copy_has_no_use_control(ctx: Ctx):
+    """A5: his own old file named starter (scope yours) is a picker row of its own, "starter · your copy from before",
+    opened and copied by its scope; read-only, no switch, no sentence that a session runs on it; the copy is my-map
+    (my-map-2, my-map-3 when taken)."""
+    rows = ("[{ name: 'auto', scope: 'starter' }, { name: 'shop', scope: 'yours' }, { name: 'starter', scope: 'yours' },"
+            " { name: 'ship-it', scope: 'starter' }]")
+    out = node(f"""out.rows = P.pickerRows({rows}, [], null);
+out.ro = [A.readOnly('starter', 'yours'), A.readOnly('auto', 'starter'), A.readOnly('shop', 'yours')];
+out.slot = [P.usesSlot('starter', 'yours', null, false), P.usesSlot('auto', 'starter', null, false), P.usesSlot('auto', 'starter', 'shop', false),
+  P.usesSlot('auto', 'starter', null, true), P.usesSlot('shop', 'yours', null, false)];
+out.copy = [P.copyName([]), P.copyName(['my-map']), P.copyName(['my-map', 'my-map-2'])];
+out.url = [P.mapUrl('starter', 'yours'), P.mapUrl('auto')];
+out.val = [P.pickerValue('starter', 'yours'), P.pickerValue('auto', '')];
+out.q = Q.quietOf('starter', {{}}, [{ON % ('s1', 'fix-login', 'starter')}], null, 'yours').facts;""",
+               P=MAPDIR / "pickerRows.ts", A=MAPDIR / "autoWords.ts", Q=MAPDIR / "quietOf.ts")
+    ctx.check(f"pickerRows: his old file is its own row among his, got {out.get('rows')}", out.get("rows") == [
+        {"value": "auto", "text": "Auto (the default)"}, {"value": "shop", "text": "shop"},
+        {"value": "yours:starter", "text": "starter · your copy from before"}, {"value": "ship-it", "text": "ship-it (ships with Halo)"}])
+    ctx.check(f"readOnly: his old file and Auto, not shop, got {out.get('ro')}", out.get("ro") == [True, True, False])
+    ctx.check(f"usesSlot, got {out.get('slot')}", out.get("slot") == ["old", "default", "", "none", "switch"])
+    ctx.check(f"copyName, got {out.get('copy')}", out.get("copy") == ["my-map", "my-map-2", "my-map-3"])
+    ctx.check(f"mapUrl, got {out.get('url')}", out.get("url") == ["crew/map/starter?scope=yours", "crew/map/auto"])
+    ctx.check(f"pickerValue, got {out.get('val')}", out.get("val") == ["yours:starter", "auto"])
+    ctx.check(f"quietOf on his old file with a session on starter: no L1, no L2, got {out.get('q')}",
+              (out.get("q") or {}).get("kind") not in ("L1", "L2"))
+    store = (MAPDIR / "mapStore.ts").read_text(encoding="utf-8")
+    copy = (MAPDIR / "oldCopy.ts").read_text(encoding="utf-8") if (MAPDIR / "oldCopy.ts").is_file() else ""
+    bar = (MAPDIR / "MapBar.tsx").read_text(encoding="utf-8")
+    team = (SETUP / "Team.tsx").read_text(encoding="utf-8")
+    ctx.check("mapStore opens and re-reads by scope (mapUrl), remembers only a map opened with no scope",
+              "api.get<MapDetail>(mapUrl(name, scope))" in store and "if (!scope) writeLocal(LAST, name);" in store
+              and "mapUrl(name, s.name === name ? s.scope : \"\")" in store and "export { mapUrl, pickerValue" in store)
+    ctx.check("oldCopy.ts: copyOld reads his file by its scope, PUTs the copy under copyName, opens it on the Map",
+              "export async function copyOld(name: string, scope: string): Promise<boolean>" in copy
+              and "mapUrl(name, scope)" in copy and "copyName(" in copy and 'goSection("agents", "map")' in copy)
+    ctx.check("MapBar: the switcher's value is pickerValue, the slot is usesSlot, the old file's words and Copy button",
+              "value={pickerValue(name, scope)}" in bar and "usesSlot(" in bar and 'data-testid="map-old-words"' in bar
+              and 'data-testid="map-old-copy"' in bar)
+    ctx.check("Setup's old row: no radio, the name opens it on the Map by scope, Copy as {copyName}",
+              'data-testid="setup-map-old"' in team and 'data-testid="map-old-copy"' in team and "openMap(r.name, r.scope)" in team)
 
 
 if __name__ == "__main__":
