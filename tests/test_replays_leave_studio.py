@@ -112,6 +112,8 @@ def test_an_old_replay_link_leaves_the_address(ctx: Ctx):
     store = _code(_read("agents/store.ts"))
     ctx.check("agents/store.ts drops replay= and its at= with history.replaceState",
               'delete("replay")' in store and 'delete("at")' in store and "history.replaceState(" in store)
+    ctx.check("and the address names the tab it opened (view=map), so a reload opens the Map, not 4 · Live",
+              'set("view", "map")' in store)
     ctx.check("and says nothing about it (no toast, no note)", "toast(" not in store)
 
 

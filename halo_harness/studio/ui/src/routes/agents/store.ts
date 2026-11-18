@@ -31,13 +31,15 @@ const first = urlDoor();
 dropOldLink();
 
 /** 3.6.0.3 B (Z7): an old link of a past session's playback (`&replay=<id>`, with the `&at=` it came with) has picked
- *  3 · Map (urlDoor); its words leave the address, the way settings/door.ts drops its own, and nothing is said. */
+ *  3 · Map (urlDoor); its words leave the address, the way settings/door.ts drops its own, and nothing is said. The
+ *  address then names the tab it opened (view=map, not the old link's view=live), so a reload opens the Map again. */
 function dropOldLink(): void {
   try {
     const q = new URLSearchParams(location.search);
     if (q.get("mode") !== "agents" || !q.has("replay")) return;
     q.delete("replay");
     q.delete("at");
+    q.set("view", "map");
     const rest = q.toString();
     history.replaceState(history.state, "", location.pathname + (rest ? `?${rest}` : "") + location.hash);
   } catch {

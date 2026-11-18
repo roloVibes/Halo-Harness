@@ -5,7 +5,9 @@ Grep of the decided text, case-insensitive:
 
 over the files of SCOPE, minus SKIP. SKIP is data: (a glob of the file, a regex of the line, the reason), one line per
 thing that keeps its word for a reason of its own (a browser API, a CSS keyword, a wire key, a pinned test id, another
-sense of the word). A skip that matches nothing fails the test, so the list cannot rot.
+sense of the word). A skip excuses only the span its regex matches: that span is cut out of the line and the rest is
+looked at again, so a word beside a kept one (`data-testid="history-report-replay" title="Replay ..."`) is still seen.
+A skip that excuses nothing fails the test, so the list cannot rot.
 
 Z4 batch 4 (this file's first scope) is Studio's UI source, halo_harness/studio/ui/src (.ts, .tsx, .css; the built
 bundle is not in it). Z4 batches 5 and 6 widen SCOPE to halo_harness/ (Python, templates with both glossaries and the
@@ -36,7 +38,7 @@ UI = "halo_harness/studio/ui/src/"
 SKIP = [
     (UI + "lib/agentsDoor.ts", r'q\.get\("replay"\)\) return \{ view: "map"',
      "Z7: an old replay link (`&replay=<id>`) picks 3 · Map; the one line that reads it"),
-    (UI + "routes/agents/store.ts", r'replay',
+    (UI + "routes/agents/store.ts", r'q\.(has|delete)\("replay"\)|`&replay=<id>`',
      "Z7: where the door is read, the old link's `replay=` (and its `at=`) leaves the address, nothing said"),
     (UI + "**", r"\bhistory\.(replaceState|state)\b",
      "the browser's History API (history.replaceState drops a door's words from the address), not Halo's History"),
@@ -58,7 +60,7 @@ SKIP = [
      "the builder's conversation so far, sent with each ask (`builder/ask`'s `history` key)"),
     (UI + "routes/orchestra/types.ts", r"history: LaneStep\[\]",
      "a lane's history, a wire key of a goal run's lane (each state it went through)"),
-    (UI + "routes/crew/run/RunInspector.tsx", r"lane\?\.history",
+    (UI + "routes/crew/run/RunInspector.tsx", r"lane\??\.history",
      "a lane's history, a wire key of a goal run's lane"),
     (UI + "routes/fleet/pstore.ts", r"One lane's history",
      "a lane's history: each state from the moment it began"),
@@ -89,12 +91,16 @@ def _files():
                 yield p.relative_to(REPO).as_posix(), p
 
 
-def _skip(rel: str, line: str) -> int:
-    """The index of the skip line that covers this line, or -1."""
+def _left(rel: str, line: str, used: "set[int] | None" = None) -> str:
+    """The line with the span of every skip of this file cut out (a skip that cut a word is marked used)."""
     for i, (glob, rx, _why) in enumerate(SKIP):
-        if fnmatch.fnmatch(rel, glob) and re.search(rx, line):
-            return i
-    return -1
+        if not fnmatch.fnmatch(rel, glob):
+            continue
+        cut = re.sub(rx, " ", line)
+        if used is not None and len(WORDS.findall(cut)) < len(WORDS.findall(line)):
+            used.add(i)
+        line = cut
+    return line
 
 
 def scan() -> "tuple[list[str], set[int]]":
@@ -102,13 +108,8 @@ def scan() -> "tuple[list[str], set[int]]":
     used: set[int] = set()
     for rel, p in _files():
         for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-            if not WORDS.search(line):
-                continue
-            i = _skip(rel, line)
-            if i < 0:
+            if WORDS.search(line) and WORDS.search(_left(rel, line, used)):
                 hits.append(f"{rel}:{n}: {line.strip()[:160]}")
-            else:
-                used.add(i)
     return hits, used
 
 
@@ -119,6 +120,25 @@ def test_the_word_test_sees_what_it_must(ctx: Ctx):
         ctx.check(f"the pattern sees {said!r}", WORDS.search(said) is not None)
     for other in ("historyStore", "AgentHistory", "clipboard", "comparer", "eclipse"):
         ctx.check(f"the pattern does not see {other!r}", WORDS.search(other) is None)
+
+
+@test
+def test_a_skip_excuses_only_its_own_words(ctx: Ctx):
+    # (a file, a line a skip of that file touches, whether a word must still be seen)
+    for rel, line, seen in (
+        (UI + "routes/crew/run/RunReport.tsx", '<Button data-testid="history-report-replay" title="Replay it">', True),
+        (UI + "routes/crew/run/RunReport.tsx", '<Button data-testid="history-report-x" title="Replay">', True),
+        (UI + "routes/fleet/AgentHistory.tsx", 'data-testid="fleet-history-replay">replay</button>', True),
+        (UI + "routes/agents/store.ts", 'toast("this replay is gone"); q.delete("replay");', True),
+        (UI + "routes/fleet/AgentHistory.tsx", 'title="History" onClick={() => api("live/history")}', True),
+        (UI + "routes/crew/run/RunReport.tsx", '<Button data-testid="history-report-export">', False),
+        (UI + "routes/fleet/AgentHistory.tsx", 'data-testid="fleet-history-export">export</button>', False),
+        (UI + "routes/agents/store.ts", '    q.delete("replay");', False),
+        (UI + "lib/agentsDoor.ts", '  if (word === "agents" && q.get("replay")) return { view: "map", word };', False),
+    ):
+        got = WORDS.search(_left(rel, line)) is not None
+        ctx.check(f"{rel.rsplit('/', 1)[-1]}: {line.strip()!r} is {'a hit' if seen else 'kept'}, got {'a hit' if got else 'kept'}",
+                  got == seen)
 
 
 @test

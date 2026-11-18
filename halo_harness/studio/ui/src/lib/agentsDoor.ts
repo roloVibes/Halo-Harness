@@ -32,7 +32,7 @@ export function urlDoor(search?: string): { view: AgentsView | ""; word: string 
   if (!q) return { view: "", word: "" };
   const word = q.get("mode") || "";
   const view = q.get("view") || "";
-  if (word === "agents" && q.get("replay")) return { view: "map", word }; // Z7: an old replay link opens the Map as it is now
+  if (word === "agents" && q.get("replay")) return { view: "map", word }; // Z7: an old link of a past session opens the Map as it is now
   if (word === "agents") return { view: isView(view) ? view : OLD_VIEWS[view] || "", word };
   return { view: AGENTS_DOORS[word] || "", word: AGENTS_DOORS[word] ? word : "" };
 }

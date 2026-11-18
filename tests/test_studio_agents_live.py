@@ -82,6 +82,8 @@ def test_old_live_door_and_l_key_open_live(ctx: Ctx):
     search = str(d.get("old_replay_search") or "")
     ctx.check(f"its replay= and at= left the address, the rest kept, got {search!r}",
               "mode=agents" in search and "replay=" not in search and "&at=" not in search and "?at=" not in search)
+    ctx.check(f"and the address names the Map (view=map, not the old view=live), so a reload opens the Map, got {search!r}",
+              "view=map" in search and "view=live" not in search)
     ctx.check(f"and nothing was said about it, got {d.get('old_replay_said')!r}", d.get("old_replay_said") == ["", ""])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
