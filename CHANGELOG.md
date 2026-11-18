@@ -314,6 +314,9 @@ more alike. The limits that remain are at the end of this section.
   that does not reach the page. What was built is saved and listed all the same.
 - **On Windows (and wherever the font runs wider) the sentence over Session's drawing can take one more line when the
   map new sessions use is switched**, which moves the controls under it once, also while the pointer is on the drawer.
+- **`halo replay open` and `halo replay clip` do not work, and have not since 3.6.0.0.** `open` shows Studio on Agents
+  -> 3 · Map without the replay; `clip` gives up after 40 seconds and writes no file. Found while this release was
+  checked; the fix is in the next release.
 - **History is still on Agents -> 3 · Map.** It leaves the Agents tab in the next release.
 - **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
   which removes it and says so; Windows has no reaper. Its `docker run` client ends with Halo at once. Any `halo`
