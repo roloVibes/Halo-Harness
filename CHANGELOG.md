@@ -21,22 +21,23 @@ changed in how a session runs. The limits that remain are at the end of this sec
   machine, or a terminal paused with Ctrl+Z or a debugger while Studio read its list) took the session off the list
   every Halo reads. Session and Agents' Live drawing lost it, the Prompt panel showed it ended and its box went
   read-only, and `halo remote sessions` stopped showing it, while the terminal went on working. Only `/clear` brought
-  it back. Now a refused connect keeps the session listed and only notes when connects began to fail; one answered
-  connect clears that. It leaves the list only when its process has ended, its socket file is gone, or it has not
-  answered for 30 seconds in a row. `halo ps` and `halo doctor` count such a session the same way.
+  it back. Now a refused connect keeps the session listed and only notes when connects began to fail; one connect that
+  gets through clears that. It leaves the list only when its process has ended, its socket file is gone, or connects
+  to it have failed for 30 seconds in a row. `halo ps` and `halo doctor` count such a session the same way.
 - **A session whose row was removed puts it back.** If a session left the list anyway (paused long enough, or removed
-  by an older Halo), it writes its row back at a status event soon after (it looks at most once a second), without
-  `/clear`. Status events come at the start and end of every turn and on a mode change. A session that has ended never
-  writes its row back.
-- **A session refused connects once about ten were waiting.** Its control socket now holds a much longer queue (129
-  waiting connects on Linux, where it held 9), so a burst of reads while the session is slow to accept waits instead
-  of failing.
+  by an older Halo), it writes its row back at its next status event, without `/clear` (it looks at most once a
+  second, so an event within a second of its last look is passed over). Status events come at the start and end of
+  every turn, on a mode or model change, and when a background result arrives. A session that has ended never writes
+  its row back.
+- **A session refused connects once a few were waiting (9 on Linux).** Its control socket now holds a much longer
+  queue (129 waiting connects on Linux), so a burst of reads while the session is slow to accept waits instead of
+  failing.
 - **Stopping a session with no terminal could say it failed.** When Studio's Stop or another caller sent `shutdown`,
   the session could close its socket before its answer was written, and on a loaded machine the caller read "control
   socket closed" for a stop that had worked. The session now begins to end once its answer has gone out, or two
-  seconds after the command when the answer cannot be written (a caller that has stopped reading); only then can the
-  caller still read "control socket closed". It ends within the same time as before, and still ends if the caller has
-  gone.
+  seconds after the command when the answer is not out by then (a caller that has stopped reading, or a machine so
+  loaded that the answer waits that long); only then can the caller still read "control socket closed". It still ends
+  if the caller has gone. The terminal's `/exit` sent from Studio gets the same two-second bound.
 - **The terminal app logged "worker git-branch raised" as it closed.** A background worker whose call into the app was
   cancelled because the app was closing was logged as an error, and could show a red notice. Such a call now ends the
   worker quietly, for every worker, but only while the app is closing. The same errors while the app runs, and any
@@ -68,11 +69,11 @@ changed in how a session runs. The limits that remain are at the end of this sec
   session running 3.6.0.4 puts its row back at its next status event; a session running an older Halo does not.
 - **Where it was checked.** On Linux, real separate processes were run on 3.6.0.3 and on this release: a session with
   no terminal, a second process reading the list each second, and a third filling the session's queue of connects
-  while it was paused. On 3.6.0.3 a session paused for about nine seconds left the list and never came back, not even
-  after its next turn. On this release a session paused for 45 seconds stayed listed; with its queue filled it stayed
-  listed for 30 seconds, then left, and came back at its next turn. A session that ended or was killed left at the
-  next read on both. Nothing was run on macOS; a real Ctrl+Z in a terminal and a really loaded machine were not run;
-  the lost answer to a shutdown did not show on either version on a quiet machine.
+  while it was paused. On 3.6.0.3 a paused session left the list about nine seconds into its pause and never came
+  back, not even after its next turn. On this release a session paused for 45 seconds stayed listed; with its queue
+  filled it stayed listed for 30 seconds, then left, and came back at its next turn. A session that ended or was
+  killed left at the next read on both. Nothing was run on macOS or Windows; a real Ctrl+Z in a terminal and a really
+  loaded machine were not run; the lost answer to a shutdown did not show on either version on a quiet machine.
 - **Session's Live drawing can still stop under its last whole row and leave empty room below it** when its boxes are
   tall, as they are mid-run. This release does not change it.
 
