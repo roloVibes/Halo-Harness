@@ -352,7 +352,7 @@ def _private_home(where=None):
                 os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
-def _task_fits(got: str, want: str, user: str, machine: str) -> bool:
+def _task_fits(got: str, want: str, user: str, machine: str, home_firsts: str = "") -> bool:
     """The task as the built record may hold it. It is `want`, or an excerpt of it ending in "..." (200 characters of
     the model's words: where the cut lands depends on how long the scratch home's path is, so every landing place must
     be judged, not only the ones this machine's temp folder happens to give). A cut INSIDE a name follows the
@@ -368,13 +368,17 @@ def _task_fits(got: str, want: str, user: str, machine: str) -> bool:
         return True
     if cut.endswith(("<user>", "<machine>")) and want.startswith(cut.rsplit(" ", 1)[0] + " "):  # masked mid-name
         return True
+    for i, ch in enumerate(want):  # a cut inside a raw home path: ONE character stays as it is (the path rule needs
+        if ch == "~" and any(cut == want[:i] + h for h in home_firsts + "."):  # two); a longer cut path reads "."
+            return True
     for mark, name in (("<user>", user), ("<machine>", machine)):
         at = want.find(mark)
         if at < 0 or not cut.startswith(want[:at]):
             continue
-        kept = cut[len(want[:at]):]  # what stands where the mark would: letters of the name left as they are
-        first = len(name) if not any(c in name for c in "-._") else min(name.index(c) for c in "-._" if c in name)
-        if kept and name.startswith(kept) and (len(kept) <= 2 or len(kept) > first):
+        kept = cut[len(want[:at]):]  # what stands where the mark would: the part of the name left as it is
+        tail = re.search(r"[^\W_]*$", kept).group(0)  # the letters and digits right before the "..."
+        # the product masks a tail of three or more that the name starts with, and the whole name; all else stays
+        if kept and name.startswith(kept) and len(kept) < len(name) and not (len(tail) >= 3 and name.startswith(tail)):
             return True
     return False
 
@@ -391,14 +395,23 @@ def test_the_task_check_accepts_exactly_the_documented_cuts(ctx: Ctx):
     bad = [head + "zed...", head + "zedtes...", head + "zedtester...", head + "<user>" + mid + "box...",
            head + "<user>" + mid + "boxname7...", head + "x...", want[:20],
            "read " + "/".join(("C:", "Users", "zedtester", "Documents", "plan.md")) + "..."]  # joined: no literal home path
+    first, second = want.index("~"), want.index("~", want.index("~") + 1)
+    ok += [want[:first] + "C...", want[:second] + "/...",  # one character of a raw home path: the path rule needs two
+           want[:first] + "....", want[:second] + "...."]  # a path cut further in reads "." before the "..."
+    bad += [want[:first] + "C:...", want[:second] + "/h...", want[:first] + "D..."]
     for s in ok:
-        ctx.check(f"accepted: {s[-28:]!r}", _task_fits(s, want, "zedtester", "boxname7"))
+        ctx.check(f"accepted: {s[-28:]!r}", _task_fits(s, want, "zedtester", "boxname7", "C/"))
     for s in bad:
-        ctx.check(f"refused: {s[-28:]!r}", not _task_fits(s, want, "zedtester", "boxname7"))
+        ctx.check(f"refused: {s[-28:]!r}", not _task_fits(s, want, "zedtester", "boxname7", "C/"))
     w2 = "ran on <machine>"  # a name with a dash: masked only while the cut is still in its first part
     for s, fits in (("ran on g...", True), ("ran on gp...", True), ("ran on gpu...", False), ("ran on <machine>...", True),
-                    ("ran on gpu-b...", True), ("ran on gpu-bo...", True), ("ran on gpu-box", False)):
+                    ("ran on gpu-...", True), ("ran on gpu-b...", True), ("ran on gpu-bo...", True),
+                    ("ran on gpu-box...", False), ("ran on gpu-box", False)):  # the WHOLE name is never left
         ctx.check(f"a dashed name, {s!r}: {fits}", _task_fits(s, w2, "zedtester", "gpu-box") is fits)
+    for name, s, fits in (("gpu_box", "ran on gpu_box...", False), ("gpu_box", "ran on gpu_b...", True),
+                          ("box-boxer", "ran on box-box...", False), ("box-boxer", "ran on box-bo...", True),
+                          ("box-boxer", "ran on box-boxer...", False)):  # three letters after a dash are masked too
+        ctx.check(f"the name {name!r}, {s!r}: {fits}", _task_fits(s, w2, "zedtester", name) is fits)
 
 
 def _private(ctx: Ctx, where=None, label: str = "") -> None:
@@ -426,7 +439,7 @@ def _private(ctx: Ctx, where=None, label: str = "") -> None:
         # the task is an excerpt (200 characters of the model's words, live/history.py): how much of `want` it holds
         # depends on how long the scratch home's path was; it is `want` or a cut of it ending in "..."
         ctx.check(f"{label}the task (the model's words) reads project-relative, ~ and no names, got {got!r}",
-                  _task_fits(got, want, USER, MACHINE))
+                  _task_fits(got, want, USER, MACHINE, WIN_HOME[0] + NIX_HOME[0]))
         ctx.check("the includes line says the limit",
                   any("relative to the project" in x and "where you typed it" in x for x in p["includes"]))
 
