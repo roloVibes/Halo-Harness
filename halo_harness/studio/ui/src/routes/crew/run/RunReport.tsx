@@ -1,11 +1,13 @@
-// A finished goal run's report, as a page of History (3.4.0.0 D "the runs fold"; Runs' Report panel before): how it
+// A finished goal run's report (3.4.0.0 D "the runs fold"; Runs' Report panel before; 3.6.0.3 B: its own page of the
+// Map's drawer, ReportPage.tsx, and still drawn inline by History's page until History is cut): how it
 // ended and why, the goal, the facts (branch, sha, tests, cost, time, models), the plan and its lanes (what each owned,
 // how it ended, how often the gate sent it back, its model and cost), the gate (DONE WHEN, the test and its tail), the
 // merge (the order, what merged, the conflicts), the outcome checks, a workflow run's artifacts; a dry run shows the
 // lead's jobs. Copy puts the text `halo orchestra report` prints on the clipboard; Replay draws it on Live as it ended;
 // Run it again opens the goal panel with this goal filled in. 3.4.1.0 R3: ONE page per goal run -- the run report card
 // (live/ReportCard.tsx: the story, where the time and the money went, what failed, what waited on you, which model did
-// what, the files) is this page's first block; its figures replace the cost / time / models lines the facts had.
+// what, the files) is this page's first block; its figures replace the cost / time / models lines the facts had. Back
+// is the caller's (`onBack`, its words in `backTitle`); so is what follows a replay that started (`onReplayed`).
 import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import { toast } from "../../../lib/store";
@@ -14,7 +16,6 @@ import { ArtifactsTab } from "../../orchestra/Artifacts";
 import { CHECK_LABEL, cost, reportText, sha, short } from "../../orchestra/format";
 import type { Check, RunPayload } from "../../orchestra/types";
 import { openLiveReplay } from "../live/replay";
-import { closeReport, toggleHistory } from "../live/historyStore";
 import { openGoal } from "./door";
 import { ReportCard } from "../live/ReportCard";
 
@@ -72,7 +73,7 @@ function Lanes({ data }: { data: RunPayload }) {
   );
 }
 
-export function RunReport({ data }: { data: RunPayload }) {
+export function RunReport({ data, onBack, backTitle, onReplayed }: { data: RunPayload; onBack: () => void; backTitle: string; onReplayed?: () => void }) {
   const r = data.report;
   const run = data.run.run_id;
   const judged = (r?.checks || []).filter((c) => c.ok !== null);
@@ -80,13 +81,13 @@ export function RunReport({ data }: { data: RunPayload }) {
   return (
     <div className="rr" data-testid="history-report" data-run={run} data-state={data.run.state}>
       <div className="rr-head" data-density="bar">
-        <Button size="sm" variant="ghost" onClick={closeReport} data-testid="history-report-back" title="Back to History's list">Back</Button>
+        <Button size="sm" variant="ghost" onClick={onBack} data-testid="history-report-back" title={backTitle}>Back</Button>
         <StateBadge state={data.run.state} />
         {r && <span className="mono">{judged.filter((c) => c.ok).length}/{judged.length} checks</span>}
         <span className="spacer" />
         {r && <Button size="sm" variant="ghost" onClick={() => copy(reportText(r))} data-testid="history-report-copy" title="The report as halo orchestra report prints it">Copy</Button>}
         <Button size="sm" variant="ghost" data-testid="history-report-replay" title="Replay it as it ended, under the map (Back to now returns)"
-                onClick={() => void openLiveReplay("run", run, data.goal.what).then((ok) => ok && toggleHistory(false))}>Replay</Button>
+                onClick={() => void openLiveReplay("run", run, data.goal.what).then((ok) => ok && onReplayed?.())}>Replay</Button>
         <Button size="sm" onClick={again} data-testid="history-report-again" title="The goal panel with this goal filled in: nothing runs until you press Run">Run it again</Button>
       </div>
       <h3 className="rr-goal">{data.goal.what}</h3>

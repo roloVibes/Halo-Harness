@@ -1,6 +1,6 @@
 // 3 · Map's right drawer (3.6.0.2 R57 with R42): the Feed went to 4 · Live, and the pages it carried for the Map stay
-// here -- Run a goal's form (`goal`, crew/run/GoalDrawer.tsx), a goal run's pages (`run:<id>`, crew/run/RunInspector.tsx)
-// and History's whole list (`history`: sessions, goal runs, saved replay files, two ticked -> Compare; live/History.tsx).
+// here -- Run a goal's form (`goal`, crew/run/GoalDrawer.tsx), a goal run's pages (`run:<id>`, crew/run/RunInspector.tsx),
+// a finished goal run's report (`report:<id>`, crew/run/ReportPage.tsx; 3.6.0.3 B) and History's whole list (`history`: sessions, goal runs, saved replay files, two ticked -> Compare; live/History.tsx).
 // Opened by Run a goal, History's "Goal runs, files, Compare", a goal run's door, or its own button in the view bar (on
 // History). A replay opened from the Map's History lists its rows on History's page, up to the scrubber (P4 batch 12:
 // FeedParts.tsx ReplayRows, brought back from the Map's old feed drawer). A page's own close (its ×, Esc) closes the drawer with it: the drawer never stays open on nothing.
@@ -10,6 +10,7 @@ import { HistoryDrawer } from "../live/History";
 import { history, toggleHistory, useHistory } from "../live/historyStore";
 import { GoalDrawer } from "../run/GoalDrawer";
 import { useGoal } from "../run/goalStore";
+import { ReportPage } from "../run/ReportPage";
 import { RunInspector } from "../run/RunInspector";
 import { MAP_DRAWER, MAP_SECTION, mapPageTitle, useMapPage } from "./feedOpen";
 import { ReplayRows } from "./FeedParts";
@@ -39,7 +40,8 @@ export function MapDrawer() {
   return (
     <div className="mpf" data-testid="map-drawer" data-page={page}>
       {page === "history" && L.mode === "replay" && <div className="mpf-replay" data-testid="map-drawer-replay"><ReplayRows L={L} ids={null} /></div>}
-      <div className="mpf-page">{page === "goal" ? <GoalDrawer /> : page === "history" ? <HistoryDrawer /> : <RunInspector kind="run" id={page.slice(4)} />}</div>
+      <div className="mpf-page">{page === "goal" ? <GoalDrawer /> : page === "history" ? <HistoryDrawer />
+        : page.startsWith("report:") ? <ReportPage id={page.slice(7)} /> : <RunInspector kind="run" id={page.slice(4)} />}</div>
     </div>
   );
 }

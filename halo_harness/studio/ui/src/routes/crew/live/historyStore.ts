@@ -16,7 +16,7 @@ import type { RunPayload, RunRow } from "../../orchestra/types";
 import type { HistoryRun } from "../models/types";
 import { harnessNow, LIVE_STATES } from "./now";
 import type { HistoryKind } from "./replay";
-import { closeGoal } from "../run/goalStore";
+import { closeGoal, goal } from "../run/goalStore";
 import { clearCompare, loadCompare } from "./compareStore";
 
 export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string; models?: string[]; inside?: number };
@@ -33,6 +33,16 @@ export const toggleHistory = (on?: boolean) => {
   if (open) closeGoal(); // one drawer at a time (the goal panel, 3.4.0.0 D)
   if (open) void loadHistory();
 };
+
+// One drawer at a time: the goal form opening (each open counts up its `seed`) closes History. History's side follows the
+// goal form (3.6.0.3 B): the goal form, which stays when History is cut, never imports History.
+let goalSeed = goal.get().seed;
+goal.subscribe(() => {
+  const g = goal.get();
+  if (g.seed === goalSeed) return;
+  goalSeed = g.seed;
+  if (g.open && history.get().open) history.update(() => ({ open: false, page: null, report: null, reportError: "" }));
+});
 
 const num = (v: unknown): number | null => (typeof v === "number" && isFinite(v) ? v : null);
 

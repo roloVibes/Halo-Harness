@@ -17,7 +17,7 @@ export function GoalSays({ form, lead }: { form: RunForm; lead: string }) {
       <dd data-testid="run-goal-does">
         The lead ({leadOn}) splits the goal into up to {plural(n, "lane")}; each lane's worker edits the units it claims in
         its own worktree; the lanes merge one at a time and the gate {test} and checks DONE WHEN, sending a part back up
-        to {plural(form.return_cap, "time")}. {form.review ? "It stops after the split: the plan waits for you (the Map's line says a goal run is going; Open, then Review the plan) before anything is claimed." : "The Map's line says it is going (Open: its pages in the drawer); its report lands in History."}
+        to {plural(form.return_cap, "time")}. {form.review ? "It stops after the split: the plan waits for you (the Map's line says a goal run is going; Open, then Review the plan) before anything is claimed." : "The Map's line says it is going (Open: its pages in the drawer); once it ends, its report is a page of its own there (Open its report)."}
       </dd>
       <dt>WHAT IT MAY COST</dt>
       <dd data-testid="run-goal-cost">

@@ -18,14 +18,20 @@ export function openFeed(filter: string): void {
   patchPanel(LIVE_SECTION, FEED_PANEL, { collapsed: false }, false); // kept until Live lays out (lib/workspace/kept.ts)
 }
 
-/** The Map drawer's page: `goal` (Run a goal's form), `history` (History's whole list) or `run:<id>` (a goal run's pages). */
+/** The Map drawer's page: `goal` (Run a goal's form), `history` (History's whole list), `run:<id>` (a goal run's pages)
+ *  or `report:<id>` (a finished goal run's report, 3.6.0.3 B). */
 const mapDrawer = createStore<{ page: string }>({ page: "history" });
 export const useMapPage = (): string => useStore(mapDrawer, (s) => s.page);
 export const mapPage = (): string => mapDrawer.get().page;
-/** Its title: the words already on the button that opens the page. */
-export const mapPageTitle = (page: string): string => (page === "goal" ? "Run a goal" : "History");
+/** Its title (drawerTitle.ts). */
+export { mapPageTitle } from "./drawerTitle";
 
 export function openMapDrawer(page: string): void {
   mapDrawer.update(() => ({ page }));
   patchPanel(MAP_SECTION, MAP_DRAWER, { collapsed: false }, false); // kept until the Map lays out
+}
+
+/** The Map's drawer closed (a page's own way out: the report's Back when no page sent him there). */
+export function closeMapDrawer(): void {
+  patchPanel(MAP_SECTION, MAP_DRAWER, { collapsed: true }, false);
 }

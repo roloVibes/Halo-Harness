@@ -11,8 +11,8 @@
 import { useEffect } from "react";
 import { Button } from "../../../lib/ui";
 import { cost, short } from "../../orchestra/format";
-import { history, loadHistory, openCard, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "./historyStore";
-import { CardPage } from "./ReportCard";
+import { closeReport, history, loadHistory, openCard, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "./historyStore";
+import { ReportCard } from "./ReportCard";
 import { tickKey, tickedRefs, toggleTick, useCompare } from "./compareStore";
 import { ComparePage } from "./Compare";
 import { RunReport } from "../run/RunReport";
@@ -139,7 +139,8 @@ export function HistoryDrawer() {
       </div>
       {page ? (
         <div className="lh-rows lh-page" data-testid="history-page" data-kind={page.kind} data-id={page.id}>
-          {page.kind === "compare" ? <ComparePage /> : page.kind === "card" ? <CardPage refId={page.id} what={page.what || ""} /> : report ? <RunReport data={report} /> : reportError ? <p className="field-error" data-testid="history-report-error">Run {page.id}: {reportError}</p>
+          {page.kind === "compare" ? <ComparePage /> : page.kind === "card" ? <CardPage refId={page.id} what={page.what || ""} />
+            : report ? <RunReport data={report} onBack={closeReport} backTitle="Back to History's list" onReplayed={() => toggleHistory(false)} /> : reportError ? <p className="field-error" data-testid="history-report-error">Run {page.id}: {reportError}</p>
             : <div className="mono muted lh-note">reading run {page.id}...</div>}
         </div>
       ) : (
@@ -154,6 +155,25 @@ export function HistoryDrawer() {
       )}
       {replay && <div className="mono muted lh-note">Showing a replay: Back to now on the banner returns to what runs.</div>}
     </aside>
+  );
+}
+
+/** History's page for a session's or a saved file's card: Back, Replay, then the card (3.6.0.3 B: moved here from
+ *  ReportCard.tsx, which stays when History is cut; it leaves with History). */
+function CardPage({ refId, what }: { refId: string; what: string }) {
+  const [kind, id] = [refId.split(":")[0], refId.slice(refId.indexOf(":") + 1)];
+  const replay = () => (kind === "file" ? openFileReplay(id) : openLiveReplay("session", id, what)).then((ok) => ok && toggleHistory(false));
+  return (
+    <div className="rr" data-testid="history-card" data-ref={refId}>
+      <div className="rr-head" data-density="bar">
+        <Button size="sm" variant="ghost" onClick={closeReport} data-testid="report-card-back" title="Back to History's list">Back</Button>
+        <b className="lh-title">Report card</b>
+        <span className="rr-goal-inline" title={what}>{short(what, 90)}</span>
+        <span className="spacer" />
+        <Button size="sm" variant="ghost" onClick={() => void replay()} data-testid="report-card-replay" title="Replay it as it ended (Back to now returns)">Replay</Button>
+      </div>
+      <ReportCard refId={refId} />
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 """tests.helpers.studio_ui_plan -- a goal run on Agents -> 3 · Map (3.6.0.0 R5; Live before), checks of tests/test_studio_ui.py (Halo 3.0.9.0 round R2's
 plan canvas; 3.4.0.0 D "the runs fold": Runs' console went, a goal run is a job on Live and its report a page of
-History), kept here so that file stays small. One headless Chrome run (`python -m tests.helpers.studio_plan`,
+History; 3.6.0.3 B: its report is its own page of the Map's drawer, History's row still opens it), kept here so that file stays small. One headless Chrome run (`python -m tests.helpers.studio_plan`,
 tests/helpers/studio_plan.py) over a Studio on a temp git repo with the R2 fakes (no model call); the runner caches it,
 so the tests read one run."""
 from __future__ import annotations
@@ -50,13 +50,27 @@ def register(test, json_of, chrome) -> None:
         ctx.check("Undo clears it", got.get("undo_clears") == "clear")
 
     @test
-    def test_a_goal_run_on_the_map_and_its_report_is_in_history(ctx: Ctx):
+    def test_a_goal_run_on_the_map_offers_its_own_report_page_when_it_ends(ctx: Ctx):
         """3.6.0.0 R5: Approve and run closes the plan; the run's pages (the Map's drawer) offer Stop the run while it
         runs; released, it finishes and leaves the Map's line; History's row says how it ended and opens its report
-        (eight checks, five lanes) with Replay. (The lanes as boxes under a lead went with Live.)"""
+        (eight checks, five lanes) with Replay. (The lanes as boxes under a lead went with Live.) 3.6.0.3 B (L-B2): it
+        ends with its page open: the page stays, its actions row holds still and offers "Open its report" where Stop
+        was, no word names History; the press opens `report:<id>` ("Goal run"), whose Back returns to the run's page."""
         got = run(ctx)
         ctx.check(f"approved: the plan closed, its pages say it runs, got {got.get('plan_closed')} / {got.get('running')}",
                   got.get("running") == "running" and got.get("plan_closed") == "closed")
+        page = str(got.get("run_page") or "")
+        rid = page[4:] if page.startswith("run:") else ""
+        ctx.check(f"it ended with its page open: the page stays, 'Open its report' first in the row, got {page!r} -> "
+                  f"{got.get('ended_page')!r} / {got.get('ended_offer')!r} / first {got.get('ended_first')!r}",
+                  bool(rid) and got.get("ended_page") == page and got.get("ended_offer") == "Open its report" and got.get("ended_first") is True)
+        ctx.check(f"the actions row holds still, got {got.get('acts_live')} -> {got.get('acts_ended')}",
+                  got.get("acts_live") is not None and got.get("acts_live") == got.get("acts_ended"))
+        ctx.check(f"no word of the ended page names History, got {str(got.get('ended_words'))[:300]!r}",
+                  "history" not in str(got.get("ended_words")).lower())
+        ctx.check(f"his press opens report:<id>, 'Goal run', got {got.get('opened')}",
+                  got.get("opened") == {"page": f"report:{rid}", "run": rid, "title": "Goal run"})
+        ctx.check(f"the report's Back returns to the run's page, got {got.get('back_to')!r}", bool(rid) and got.get("back_to") == page)
         ctx.check(f"finished, it left the Map's line; History's row and its report, got {got.get('left_live')} / {got.get('history_row')!r} / {got.get('report')}",
                   got.get("left_live") == "gone" and "finished" in str(got.get("history_row")) and got.get("report") == {"checks": 8, "lanes": 5, "replay": True}
                   and (got.get("first_report") or {}).get("status") == "finished")

@@ -14,6 +14,7 @@ import type { Lane, RunPayload } from "../../orchestra/types";
 import { useFleet } from "../../fleet/store";
 import { runSession, WatchInSession } from "../../session/Watch";
 import { clearPick, pickLive, setInspectorPage, useInspectorPage } from "../live/scope";
+import { openRunReport } from "./door";
 import { ownsOf } from "./Owns";
 import { reviewPlan } from "./planPanel";
 import { ClaimsPage, DiffPage, LogPage, PAGES, PlanPage, TestPage, type RunPage } from "./RunPages";
@@ -28,6 +29,12 @@ function Stop({ run }: { run: string }) {
       <Button size="sm" variant="ghost" onClick={() => setAsk(false)} data-testid="run-stop-no">Keep it running</Button>
     </span>
   );
+}
+
+/** 3.6.0.3 B (L-B2): a run that ended while its page is open keeps the page; this offers its report (his press), in
+ *  Stop's place so nothing on the page moves; the report's Back returns to this run's page. */
+function OpenReport({ run }: { run: string }) {
+  return <Button size="sm" onClick={() => openRunReport(run, `run:${run}`)} data-testid="run-open-report" title="Its report: how it ended, the checks, the lanes, the gate">Open its report</Button>;
 }
 
 /** The lane's worker as a live agent of this harness (its holder's session), for Steer; '' when it has none yet. */
@@ -74,7 +81,7 @@ export function RunInspector({ kind, id }: { kind: "run" | "lane"; id: string })
   const lane = (data?.run.run_id === run && data.lanes.find((l) => l.lane === n)) || null;
   const workerKey = useWorkerKey(lane);
   const watch = useFleet((s) => (data?.live ? runSession(s, data.run.run_id, [data.run.lead_holder || "", ...data.lanes.map((l) => l.holder)]) : ""));
-  if (!data || data.run.run_id !== run) return <p className="muted" data-testid="run-gone">Run {run} is not going any more: its report is in History.</p>;
+  if (!data || data.run.run_id !== run) return <p className="muted" data-testid="run-gone">Run {run} is not going any more. <OpenReport run={run} /></p>;
   if (kind === "lane" && !lane) return <p className="muted" data-testid="run-gone">Lane {n} of run {run} is not in the run any more.</p>;
   if (page && PAGES.some(([p]) => p === page)) return <Page page={page as RunPage} data={data} lane={lane} />;
   const g = data.goal;
@@ -95,7 +102,7 @@ export function RunInspector({ kind, id }: { kind: "run" | "lane"; id: string })
       <Facts rows={rows} />
       {!!lane?.opt_ins?.length && <p className="mono muted" data-testid="lane-optins">{lane.opt_ins.join(" · ")}</p>}
       <div className="rn-acts" data-density="bar">
-        {data.live && <Stop run={run} />}
+        {data.live ? <Stop run={run} /> : <OpenReport run={run} />}
         {data.run.state === "planned" && <Button size="sm" variant="primary" onClick={reviewPlan} data-testid="run-review">Review the plan</Button>}
         {workerKey && <Button size="sm" variant="ghost" onClick={() => pickLive("agent", workerKey)} data-testid="run-steer" title="Its worker in this inspector: Steer, Pause, Stop, Take over">Steer its worker</Button>}
         {watch && <WatchInSession session={watch} testid="orchestra-watch-session" />}

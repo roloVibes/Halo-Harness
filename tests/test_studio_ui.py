@@ -1,6 +1,6 @@
 """tests.test_studio_ui -- Studio in a real browser (headless Chrome; skipped without one).
 The shell at / by its data-testid counts (3.6.0.0 R5: the old Orchestra and Roles doors land on Agents -> 3 · Map); a
-goal run's report as a page of History and a planned run on the Map (tools/capture_orchestra.py). Registered here:
+goal run's report as its own page of the Map's drawer and a planned run on the Map (tools/capture_orchestra.py). Registered here:
 3.0.9.0 R2 the plan canvas (studio_ui_plan.py; 3.6.0.0 R5: reached from the Map's line) and the tab order (3.1.6.0 R6:
 tests/helpers/studio_ui_order.py reads the tab strip in order). 3.6.0.0 R5: Roles' canvas (studio_ui_roles.py), Live
 (studio_ui_live.py) and Cast's panel clicks (studio_clarity.py) went with those views.
@@ -74,17 +74,20 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
 
 
 @test
-def test_a_finished_run_is_a_report_page_in_history_in_headless_chrome(ctx: Ctx):
+def test_a_finished_runs_door_opens_its_own_report_page_in_headless_chrome(ctx: Ctx):
     """3.4.0.0 D "the runs fold": over a seeded finished run (the R2 fixture: five lanes, one judged conflict, eight
-    checks) its door `?mode=agents&run=<id>` opens History on the run's report -- every check, every lane, Replay and
-    Run it again -- and nothing finished is on the Map's line; a run waiting for its plan is the Map's line "A goal run
-    is going", the plan panel NOT open (nothing opens by itself); the old Orchestra door is the Map (3.6.0.0 R5)."""
+    checks) its door `?mode=agents&run=<id>` opens the run's report -- every check, every lane, Replay and Run it again
+    -- and nothing finished is on the Map's line; a run waiting for its plan is the Map's line "A goal run is going", the
+    plan panel NOT open (nothing opens by itself); the old Orchestra door is the Map (3.6.0.0 R5). 3.6.0.3 B: the report
+    is its own drawer page `report:<id>`, titled "Goal run", History's list not open."""
     if not _chrome():
         raise SkipTest("no Chrome found (the run smoke needs headless Chrome)")
     r, info = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    ctx.check(f"History open on the run's report, got {info}", info.get("history-report") == 1 and info.get("history-page") == 1
-              and info.get("report-check") == 8 and info.get("report-lane") == 5)
+    ctx.check(f"the run's report on its own page, got {info}", info.get("history-report") == 1 and info.get("history-page") == 0
+              and info.get("live-history-drawer") == 0 and info.get("report-check") == 8 and info.get("report-lane") == 5)
+    ctx.check(f"the drawer's page is report:<id>, titled 'Goal run', got {info.get('drawer_page')!r} / {info.get('drawer_title')!r}",
+              str(info.get("drawer_page")).startswith("report:") and info.get("drawer_title") == "Goal run")
     ctx.check(f"Replay and Run it again on it, got {info}", info.get("history-report-replay") == 1 and info.get("history-report-again") == 1)
     ctx.check(f"nothing finished on the Map's line, no console, got {info}", info.get("map-lit-run") == 0
               and info.get("orchestra-root") == 0 and info.get("start-view") == 0 and info.get("section-tab") == 6)

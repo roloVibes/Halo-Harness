@@ -2,8 +2,8 @@
 R6b; 3.4.0.0 D "the runs fold": Runs' console, its Start view and its plan canvas pictures went with that view).
 
 * the seeded finished run (the R2 fixture: basket.py, five lanes, one judged conflict, the report; lane 2 takes lane
-  1's summary) in a temp git repo, opened by its door `?mode=agents&run=<id>`: its report as a page of History
-  (docs/media/studio-run-report.png);
+  1's summary) in a temp git repo, opened by its door `?mode=agents&run=<id>`: its report, its own page of the Map's
+  drawer (3.6.0.3 B; docs/media/studio-run-report.png);
 * a review run waiting for its plan (tests/helpers/studio_plan_rig.py): Agents -> 3 · Map says a goal run is going
   (Open), nothing else open (docs/media/studio-run-live.png; 3.6.0.0 R5: Live went);
 * with --dom each page is dumped and its data-testid values counted, plus the old Roles door (`roles`: the Map).
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -37,6 +38,13 @@ def rel_test() -> str:
 
 def counts(dom: str) -> dict:
     return {k: dom.count(f'data-testid="{k}"') for k in IDS}
+
+
+def drawer(dom: str) -> dict:
+    """The Map drawer's page and title (3.6.0.3 B: a finished run's door opens `report:<id>`, "Goal run")."""
+    page = re.search(r'data-testid="map-drawer" data-page="([^"]*)"', dom)
+    title = re.search(r'data-testid="map-drawer-panel".*?data-testid="panel-title"[^>]*>([^<]*)<', dom, re.S)
+    return {"drawer_page": page.group(1) if page else None, "drawer_title": title.group(1) if title else None}
 
 
 def shoot(chrome, url: str, target: Path) -> int:
@@ -79,7 +87,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
                 print("no Chrome found")
                 return 2
             a, b, c = (r.stdout for r in got)
-            print(json.dumps({**counts(a), "roles": counts(b), "old_door": counts(c), "plan": planned(None, chrome)}))
+            print(json.dumps({**counts(a), **drawer(a), "roles": counts(b), "old_door": counts(c), "plan": planned(None, chrome)}))
             return 0
         png = Path(out).resolve()
         ok = shoot(chrome, report, png.with_name("studio-run-report.png")) == 0

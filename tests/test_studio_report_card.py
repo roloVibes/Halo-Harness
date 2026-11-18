@@ -6,7 +6,9 @@
 2. every History row but a mission's has a Report door; a session's card shows the story, every section, the files,
    what the record cannot show, Copy; a goal run's Report is its report page with the card as its FIRST block, its
    doors kept;
-3. Session's bar says the session's permission mode as one word, its meaning on hover, and follows a change.
+3. Session's bar says the session's permission mode as one word, its meaning on hover, and follows a change;
+4. (3.6.0.3 B) a finished goal run's report is its own drawer page `report:<id>`, "Goal run", from `&run=<id>` and the
+   palette; History's row still opens it on History's page while History is there (2.).
 Run: python -m tests.test_studio_report_card
 """
 from __future__ import annotations
@@ -45,6 +47,31 @@ def test_a_rows_report_door_and_a_goal_runs_one_page(ctx: Ctx):
               got.get("run_first") == "report-card" and str(got.get("run_ref")).startswith("run:"))
     ctx.check(f"the run's story and its doors kept: {got.get('run_story')}", got.get("run_kept") is True
               and str((got.get("run_story") or [""])[-1]).endswith("The run ended: finished"))
+
+
+@test
+def test_a_finished_goal_runs_report_is_its_own_page_from_its_doors(ctx: Ctx):
+    """3.6.0.3 B batch 1: `&run=<id>` and the palette's "Goal run <id>" open the drawer page `report:<id>`, titled
+    "Goal run", History's list not open; the report the same as before (the card first, its doors kept); Back with no run
+    page behind it closes the drawer; the view bar's drawer button has one rect on the report, goal and history pages."""
+    got = _got(ctx)
+    ctx.check(f"the step ran whole: {got.get('failed')}", not got.get("failed"))
+    run = str(got.get("run_ref") or "").split(":", 1)[-1]
+    for door in ("url", "palette"):
+        d = got.get(door) or {}
+        ctx.check(f"{door}: the drawer page is report:<id>, got {d.get('page')!r}", bool(run) and d.get("page") == f"report:{run}")
+        ctx.check(f"{door}: the drawer's title is 'Goal run', got {d.get('title')!r}", d.get("title") == "Goal run")
+        ctx.check(f"{door}: History's list is not open, got {d.get('history_open')!r}", d.get("history_open") is False)
+        ctx.check(f"{door}: the card first, the doors kept, got {d.get('first')!r} {d.get('kept')!r}",
+                  d.get("first") == "report-card" and d.get("kept") is True)
+        ctx.check(f"{door}: Back names no History, got {d.get('back_title')!r}", "history" not in str(d.get("back_title")).lower())
+    ctx.check(f"the palette's line reads 'Goal run <id>', got {got.get('palette_first')!r}", got.get("palette_first") == f"Goal run {run}")
+    ctx.check(f"Back with no run page behind it closes the drawer, got {got.get('back_shut')!r}", got.get("back_shut") == "shut")
+    goal, hist = got.get("goal") or {}, got.get("history") or {}
+    ctx.check(f"the other pages keep their titles, got {goal.get('title')!r} / {hist.get('title')!r}",
+              goal.get("title") == "Run a goal" and hist.get("title") == "History")
+    rects = [(got.get("url") or {}).get("rect"), (got.get("palette") or {}).get("rect"), goal.get("rect"), hist.get("rect")]
+    ctx.check(f"the view bar's drawer button holds still on every drawer page, got {rects}", rects[0] is not None and all(r == rects[0] for r in rects))
 
 
 @test

@@ -63,6 +63,51 @@ def doors(c, sid: str, run: str) -> dict:
     return out
 
 
+DRAWER = f"{Q}('[data-testid=\"map-drawer\"]')"
+REPORT = f"{Q}('[data-testid=\"history-report\"]')"
+TITLE = f"{Q}('[data-testid=\"map-drawer-panel\"] [data-testid=\"panel-title\"]')?.textContent"
+SHUT = (f"!{Q}('[data-testid=\"map-drawer-panel\"]') && !{DRAWER}"  # a closed drawer is not drawn; its view bar button stays
+        f" && !!{Q}('[data-testid=\"viewbar-btn\"][data-panel=\"map-drawer\"]')")
+RECT = ("(() => { const r = document.querySelector('[data-testid=\"viewbar-btn\"][data-panel=\"map-drawer\"]')?.getBoundingClientRect();"
+        " return r ? [r.x, r.y, r.width, r.height] : null; })()")
+
+
+def _on_report(c, run: str) -> dict:
+    """The drawer on the run's own report page: what it shows."""
+    c.wait(f"{DRAWER}?.dataset.page === 'report:{run}' && {REPORT}?.dataset.run === '{run}' && {CARD}?.dataset.state === 'ready'", 30)
+    return {"page": c.js(f"{DRAWER}.dataset.page"), "title": c.js(TITLE), "rect": c.js(RECT),
+            "history_open": c.js(f"!!{Q}('[data-testid=\"live-history-drawer\"]') || !!{Q}('[data-testid=\"history-page\"]')"),
+            "back_title": c.js(f"{Q}('[data-testid=\"history-report-back\"]').title"),
+            "kept": c.js(f"['history-report-back', 'history-report-replay', 'history-report-again', 'history-report-lanes']"
+                         f".every((t) => !!{Q}(`[data-testid=\"${{t}}\"]`))"),
+            "first": c.js(f"""(() => {{ const blocks = [...{REPORT}.querySelectorAll('[data-testid="report-card"], [data-testid^="history-report-"].rr-block')];
+              return blocks.length ? blocks[0].dataset.testid : ''; }})()""")}
+
+
+def run_page(c, page, run: str) -> dict:
+    """3.6.0.3 B batch 1: a finished goal run's report is its own drawer page `report:<id>`, "Goal run", from its doors
+    (`&run=<id>`, the palette's "Goal run <id>"); Back (no run page sent him) closes the drawer; the view bar's drawer
+    button keeps one rect on every drawer page (report, goal, history)."""
+    open_page(c, page, f"mode=agents&run={run}")
+    out = {"url": _on_report(c, run)}
+    c.click_on(f"{Q}('[data-testid=\"history-report-back\"]')")
+    out["back_shut"] = c.wait(f"{SHUT} && 'shut'", 15)
+    c.click_on(f"{Q}('.palette-btn')")
+    c.wait("document.activeElement?.classList.contains('palette-input')", 10)
+    c.type_text(f"Goal run {run}")
+    rows = "[...document.querySelectorAll('[data-testid=palette] .palette-item')]"
+    out["palette_first"] = c.wait(f"{rows}[0]?.querySelector('.palette-label')?.textContent", 15)
+    c.key("Enter")
+    out["palette"] = _on_report(c, run)
+    c.click_on(f"{Q}('[data-testid=\"map-run-goal\"]')")
+    c.wait(f"{DRAWER}?.dataset.page === 'goal' && !!{Q}('[data-testid=\"run-goal-drawer\"]')", 15)
+    out["goal"] = {"title": c.js(TITLE), "rect": c.js(RECT)}
+    history(c)
+    c.wait(f"{DRAWER}?.dataset.page === 'history'", 15)
+    out["history"] = {"title": c.js(TITLE), "rect": c.js(RECT)}
+    return out
+
+
 class _Session:
     """A real Controller behind its control socket, registered in `home`'s sessions in `mode` (no model call)."""
 
@@ -155,7 +200,7 @@ class ReportCardDriver(Driver):
             return base.replace("/#t=", f"/?{query}&tour=off&level=mid#t=")
         try:
             open_page(c, page, "mode=agents&view=map")  # 3.6.0.0 R5: Live's ended-session row went; History is the Map's
-            yield ((doors, (c, SID, RUN)), (mode, (c, page)))
+            yield ((doors, (c, SID, RUN)), (run_page, (c, page, RUN)), (mode, (c, page)))
         finally:
             srv.shutdown()
             srv.server_close()

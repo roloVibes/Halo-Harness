@@ -6,9 +6,9 @@
 // The rows are plain data (`CmpRow`): the run report card shows the same cells for one run.
 import { api, ApiError } from "../../../lib/api";
 import { createStore, useStore } from "../../../lib/store";
+import type { Cell } from "./cardData";
 import type { HistoryRow } from "./historyStore";
 
-export type Cell = { value: unknown; text: string; unknown?: boolean };
 export type CmpRow = { key: string; label: string; a: Cell; b: Cell; better: "a" | "b" | "same" | null; word: string };
 export type Seg = { t0: number; t1: number; phase: string };
 export type CmpLane = { agent_id: string; name: string; role: string; model: string; block: string; state: string; from: number; to: number; segs: Seg[] };

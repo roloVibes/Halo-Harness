@@ -114,13 +114,37 @@ def overlap_problem(c, out: dict) -> None:
     out["undo_clears"] = c.wait(f"{N.format('plan-problem')} === 0 && !{TID.format('plan-approve')}.disabled && 'clear'", 15)
 
 
+RUN_ACTS = ("(() => { const r = document.querySelector('[data-testid=\"run-inspector\"] .rn-acts')?.getBoundingClientRect();"
+            " return r ? [r.x, r.y, r.width, r.height] : null; })()")
+
+
+def ended_with_page_open(c, out: dict, page: str, acts: str) -> None:
+    """3.6.0.3 B (L-B2): the run ends while its page is open: the page stays, its actions row holds still and offers
+    "Open its report" where Stop was, no word names History; his press opens `report:<id>` ("Goal run"), whose Back
+    returns to the run's page."""
+    opener = TID.format("run-open-report")
+    out["ended_offer"] = c.wait(f"!!{opener} && !{TID.format('run-stop')} && {opener}.textContent", 60)
+    out["ended_page"], out["acts_ended"] = c.js(page), c.js(acts)
+    out["ended_first"] = c.js(f"{opener}.parentElement.firstElementChild === {opener}")
+    out["ended_words"] = c.js(f"{TID.format('map-drawer')}.textContent")
+    click(c, opener)
+    report = TID.format("history-report")
+    out["opened"] = c.wait(f"{report}?.dataset.state === 'finished' && {{page: {page}, run: {report}.dataset.run, title: document.querySelector("
+                           "'[data-testid=\"map-drawer-panel\"] [data-testid=\"panel-title\"]')?.textContent}", 20)
+    click(c, TID.format("history-report-back"))
+    out["back_to"] = c.wait(f"!!{TID.format('run-inspector')} && {page}", 15)
+
+
 def approve_runs(c, rig, out: dict) -> None:
     click(c, TID.format("plan-approve"))
     out["plan_closed"] = c.wait(f"{N.format('orchestra-plan')} === 0 && 'closed'", 15)
     out["running"] = c.wait(f"!!{TID.format('map-lit-run')} && !!{TID.format('run-stop')} && 'running'", 20)
     out["stop_offered"] = True
+    page, acts = "document.querySelector('[data-testid=\"map-drawer\"]')?.dataset.page", RUN_ACTS
+    out["run_page"], out["acts_live"] = c.js(page), c.js(acts)
     rig.hold.set()
     try:
+        ended_with_page_open(c, out, page, acts)
         out["left_live"] = c.wait(f"{N.format('map-lit-run')} === 0 && 'gone'", 60)
         click(c, TID.format("map-history-all"))
         row = "document.querySelector('[data-testid=\"live-history-row\"][data-kind=\"run\"]')"

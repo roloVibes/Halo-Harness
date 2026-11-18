@@ -4,13 +4,11 @@
 // asked what, what each handed back), where the time went (by phase, by block), where the money went (by model, by
 // block), what failed and what happened next, what waited on you and for how long, which model did what, the files it
 // wrote, and what this record cannot show (said in words, never a blank). Copy puts the same card's Markdown (`halo
-// report`) on the clipboard. A session's or a file's card is a page of History (CardPage: its row's Report door, Live's
-// row for the session that ended); a goal run's is the FIRST block of its report page (run/RunReport.tsx).
+// report`) on the clipboard. A session's or a file's card is a page of History (History.tsx CardPage: its row's Report
+// door); a goal run's is the FIRST block of its report page (run/RunReport.tsx).
 import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import { short } from "../../orchestra/format";
-import { closeReport, toggleHistory } from "./historyStore";
-import { openFileReplay, openLiveReplay } from "./replay";
 import { bare, copyMarkdown, pct, secs, usd, useCard, type Card } from "./cardData";
 
 const FIGURES: [string, string][] = [["ended", "How it ended"], ["wall", "Wall time"], ["cost", "Cost"], ["tokens", "Tokens"], ["models", "Models used"],
@@ -155,24 +153,6 @@ export function ReportCard({ refId }: { refId: string }) {
           </Part>
         </>
       )}
-    </div>
-  );
-}
-
-/** History's page for a session's or a saved file's card: Back, Replay, then the card. */
-export function CardPage({ refId, what }: { refId: string; what: string }) {
-  const [kind, id] = [refId.split(":")[0], refId.slice(refId.indexOf(":") + 1)];
-  const replay = () => (kind === "file" ? openFileReplay(id) : openLiveReplay("session", id, what)).then((ok) => ok && toggleHistory(false));
-  return (
-    <div className="rr" data-testid="history-card" data-ref={refId}>
-      <div className="rr-head" data-density="bar">
-        <Button size="sm" variant="ghost" onClick={closeReport} data-testid="report-card-back" title="Back to History's list">Back</Button>
-        <b className="lh-title">Report card</b>
-        <span className="rr-goal-inline" title={what}>{short(what, 90)}</span>
-        <span className="spacer" />
-        <Button size="sm" variant="ghost" onClick={() => void replay()} data-testid="report-card-replay" title="Replay it as it ended (Back to now returns)">Replay</Button>
-      </div>
-      <ReportCard refId={refId} />
     </div>
   );
 }
