@@ -296,6 +296,38 @@ def test_a_missing_socket_file_prunes_at_once(ctx: Ctx):
             probe.close()
 
 
+@test
+def test_halo_ps_and_doctor_count_a_live_session(ctx: Ctx):
+    """3.6.0.4 S1 repair: `halo ps` (ps_cli._sessions) and `halo doctor` (doctor_check._live_count) call
+    registry._entry_alive with a row only; when it gained a clock argument both raised inside their `except Exception`
+    and showed no session. They see a live row, decide a refused one as list_live does, and write nothing."""
+    from halo_harness import ps_cli
+    from halo_harness.remote import doctor_check, registry
+    with _Home():
+        lst = _Listener()
+        real_alive = registry.pid_alive
+        registry.pid_alive = lambda pid: pid in (424243, 424244)  # two other live processes
+        try:
+            registry.register(_entry("live", lst.endpoint, pid=424243))
+            home = registry.registry_path().parent.parent  # the state folder halo ps reads run/sessions.json from
+            got = [r["pid"] for r in ps_cli._sessions(home)]
+            ctx.check(f"halo ps lists the live session, got {got}", got == [424243])
+            ctx.check(f"doctor counts it, got {doctor_check._live_count()}", doctor_check._live_count() == 1)
+            refused = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            refused.bind(("127.0.0.1", 0))
+            port = refused.getsockname()[1]
+            refused.close()  # nothing listens there: every connect is refused
+            registry.register(_entry("quiet", f"tcp:127.0.0.1:{port}", pid=424244))
+            before = registry.registry_path().read_text("utf-8")
+            got = sorted(r["pid"] for r in ps_cli._sessions(home))
+            ctx.check(f"a refused, unmarked row is 'not answering now', as list_live says, got {got}",
+                      got == [424243, 424244] and doctor_check._live_count() == 2)
+            ctx.check("neither writes the file", registry.registry_path().read_text("utf-8") == before)
+        finally:
+            registry.pid_alive = real_alive
+            lst.close()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

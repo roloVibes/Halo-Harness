@@ -143,11 +143,12 @@ def _socket_file_gone(endpoint: str) -> bool:
     return endpoint.startswith("unix:") and bool(endpoint[5:]) and not os.path.lexists(endpoint[5:])
 
 
-def _entry_alive(entry: dict, now: float) -> bool:
+def _entry_alive(entry: dict, now: Optional[float] = None) -> bool:
     """3.6.0.4: a refused connect means "not answering now", never "dead" (one refused probe while the session's
     accept queue was full pruned its row for good: Studio lost a running terminal session). A row leaves only when its
     pid is not running, its socket file is gone, or its probes have failed for UNREACHABLE_PRUNE_S without one success;
-    the first failure's time rides in the row (UNREACHABLE) so every process reading the file counts from it."""
+    the first failure's time rides in the row (UNREACHABLE) so every process reading the file counts from it. `halo
+    ps` and `halo doctor` call it with a row only (`now` = time.time) and never write the row back."""
     pid = entry.get("pid")
     if isinstance(pid, int) and not pid_alive(pid):
         return False
@@ -158,6 +159,7 @@ def _entry_alive(entry: dict, now: float) -> bool:
     if _socket_file_gone(endpoint):
         return False
     since = entry.get(UNREACHABLE)
+    now = time.time() if now is None else now
     if not isinstance(since, (int, float)) or isinstance(since, bool):
         entry[UNREACHABLE] = now
         return True

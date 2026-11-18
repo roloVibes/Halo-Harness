@@ -228,6 +228,37 @@ def test_a_session_puts_its_missing_row_back_and_an_ended_one_never_does(ctx: Ct
                 del runtime._clock
 
 
+@test
+def test_a_session_ending_while_it_looks_for_its_row_never_writes_it_back(ctx: Ctx):
+    """3.6.0.4 S3 repair: the race _keep_listed guards. The session ends (stop_one) after its read found the row
+    missing and before it registers: the check under `_lock` that it is still in `_actives` stops the write."""
+    from halo_harness.events import Event
+    from halo_harness.remote import registry, runtime
+    with SessionRig() as rig:
+        clock = [1000.0]
+        real_clock, real_listed = runtime._clock, registry.listed
+        runtime._clock = lambda: clock[0]
+        try:
+            act = runtime.start_for_controller(_fake_controller(rig))
+            sid = act.session_id
+            registry.unregister(sid)
+            seen = []
+
+            def listed_then_ended(session_id):
+                seen.append(session_id)
+                runtime.stop_one(act)  # the terminal closes right here
+                return False
+            registry.listed = listed_then_ended
+            clock[0] += 5.0
+            act.handle.hub.publish(Event("status", {"session_id": sid, "permission_mode": act.mode}))
+            ctx.check(f"the session looked for its row, got {seen}", seen == [sid])
+            ctx.check("it ended in between", act not in runtime._actives)
+            ctx.check("and its row was never written back", sid not in _rows())
+        finally:
+            registry.listed = real_listed
+            runtime._clock = real_clock
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
