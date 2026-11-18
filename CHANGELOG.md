@@ -8,6 +8,163 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.3] - unreleased
+
+Replays and History leave Halo. Both things called a replay are gone, in Studio and in the terminal: the playback of a
+past session or goal run on the Map, and `halo replay`'s re-run of a turn on another model. History leaves Agents ->
+3 · Map with them. What you keep: the session export (one Markdown file of a session, from three places), a goal
+run's report on a page of its own, `halo report`, Record and `halo bugreport`; your old saved files stay where they
+are. Nothing else changed in how a session runs. The limits that remain are at the end of this section.
+
+### Removed
+
+- **Replays, both of them.** The playback of 3.4.1.0 (a past session or goal run played on the Map with a scrubber)
+  and `halo replay <session> --model` (one turn sent again to another model, with the difference shown). With them
+  went `.halo-replay` files, Studio's Save, **Export a clip** and **Compare** (two runs side by side), every
+  `halo replay` verb (`list`, `save`, `open`, `clip`, `compare`), `halo audit privacy --replays`, and `halo report`
+  of a saved file.
+- **`halo replay` says one line and stops.** With or without words after it, it prints this on stderr and exits 2; it
+  never becomes a prompt and writes no session log: "halo replay (playing a session back, re-running a turn on another
+  model) left Halo in 3.6.0.3. To keep a session as a file: halo session export <id>". `halo audit privacy --replays`
+  says the same line, and so does `halo report` given a `file:` ref, a name ending in `.halo-replay`, any existing
+  file, or an id found only among the old saved files. `halo replay` is no longer in `halo --help` or in the
+  completions; `report` stays.
+- **History left Agents -> 3 · Map**: the strip under the map ("Replay it on the map", "Report card", "Back to now"),
+  the drawer's History page with its lists and ticks, **Open a file**, a past session's report card in Studio, and
+  "Replay the last session" on the top line. The Map's drawer button reads **Run a goal** (it read History).
+- **No Replay door is left in Studio**: not on Session's Agent panel, not on a LAST SESSIONS row, not in the palette
+  ("Agents: replay this session on the Map"), not on a goal run's report page.
+- **Two things have nothing in their place.** Compare: the nearest thing is two `halo report` cards side by side.
+  The re-run of a turn on another model: comparing models is still on the list, as its own piece of work.
+- **The word "replay" left the glossary** (`halo explain replay` finds nothing), and the docs page docs/REPLAY.md
+  and its picture docs/media/studio-map-replay.png are gone. Its rules of the redaction, with their documented
+  limit, are in docs/PRIVACY.md ("One redaction for everything that leaves"); its report card is in
+  docs/COMMANDS-sessions.md, under `halo report`.
+
+### Changed, and you may notice
+
+- **The session export is the way to keep a session.** It is one Markdown file you read without Halo: every prompt,
+  every reply and every tool call, keys masked, your home read as `~`. Its three doors give the same bytes:
+  - Studio: Session -> Feed -> **Export** (hover: "Save this session export as one Markdown file:
+    halo-trace-<id>-<date>.md");
+  - in the terminal's session, `/export` (with no name it writes beside the session's log, in
+    `~/.halo/sessions/<project-slug>/`);
+  - `halo session export <id>`.
+  The file's name stays `halo-trace-<id>-<yyyy-mm-dd-hhmm>.md` and its first line is unchanged. Its header no longer
+  says "· lineup: not recorded" (an old log's recorded lineup still shows).
+- **Each row of LAST SESSIONS ON THIS HARNESS** (Session's Agent panel with no agent picked, the last 8 sessions)
+  offers **export** where it offered replay: it saves that session's export, the same file as the Export button, and
+  a toast says what was saved or why not. Each row keeps **record**.
+- **The words say "session export".** `halo --help` reads "the session export: a session as one Markdown file" for
+  `halo session` and "the raw session log, JSON lines, for a script" for `halo export`; `halo export --help` adds that
+  keys are masked only with `--sanitize`. A failed download in Studio says "The session export did not download: ...".
+  A headless `/export` says "A single -p turn has no session to export here." and names `halo session export <id>`.
+- **A finished goal run's report is its own page in the Map's drawer, titled Goal run.** Every way to it lands there:
+  the run's `&run=<id>` link, Attention's `o` on a run, the palette's "Goal run <id>" line (now in the Agents group)
+  and a dry run. A running goal run's page has the same title. When the run ends while its page is open, the page stays
+  and offers **Open its report** where **Stop the run** was; a run gone from Studio reads "Run <id> is not going any
+  more." with the same button. The report page has **Back**, **Copy** and **Run it again**; Back returns to the run's
+  page when **Open its report** sent you, and otherwise closes the drawer.
+- **The report card on that page shows every step**, and says "from the record · no model call"; the old "...and N
+  more steps (Replay shows every one)" is gone. `halo report` keeps ten steps and ends "...and N more steps."
+  (`--json`: `story` and `story_more`), as before. `halo report` takes a session id first, then a goal run id; its
+  head always says it was rendered from the session's (or the goal run's) own record.
+- **Agents -> 3 · Map draws the plan and what runs now, never the past.** There is no "Replaying ... Back to now"
+  line, no replay rows, no replay colours and no dashed "removed since" boxes; "{n} new, not connected yet" and the
+  plan start at the row's left edge. The Map's drawer holds Run a goal's form, a goal run's page while it runs and its
+  report when it ends. Opening the drawer with **Run a goal** (or the palette's Show panel line) opens the form; a
+  drawer already open when the page loads shows "Run a goal: several agents, one goal, one set of files." with a **Run
+  a goal** button. Agents -> 4 · Live is still the live drawing.
+- **An old replay link** (`?mode=agents&replay=<id>`, with any `at=` or `view=`) opens Agents -> 3 · Map as it is
+  now; `replay=` and `at=` leave the address, which names the Map, so a reload opens the Map again.
+- **`halo doctor` names your old files and leaves them.** While `<state>/replays/` exists it shows one line, for
+  example "[WARN] Halo no longer opens replays; 3 saved files are in ~/.halo/replays/ (clips counted) -> fix: delete
+  the folder when you like". Nothing is moved or deleted; with no folder there is no row.
+- **Record stays**, and its hover reads "this session as one HTML page you can open anywhere" (on the button, on a
+  LAST SESSIONS row's **record** link and on the palette's "Agents: record <name>"). Its page, its Play and its scrub
+  bar are as before.
+- **Other words.** A failed agent's Dismiss reads "Seen: <name> failed; this hides it here". Agents' help item
+  "History and goal runs" is now "Goal runs, and keeping a session". The goal form's sentences say the report becomes a
+  page of its own in the drawer. `/studio orchestra`, the first-run pack's Run a goal step and Session's help name no
+  History. When no Chrome is found: "this needs Chrome and none was found: install Chrome or set HALO_CHROME".
+- **docs/PRIVACY.md says two more facts about the redaction**: a text cut short keeps one or two letters of your
+  account or machine name (from three letters on they are masked), and what each thing that leaves does with a path in
+  another account's home.
+
+### Fixed
+
+- **Record's page could carry a key.** Record now passes the session through the session export's redaction before it
+  writes: key-shaped tokens are masked, a path inside the project is relative, any other path under your home reads
+  `~/...`, and your user and machine names are taken out. The project's folder name stays, as before. If the redaction
+  fails, no page is written and Studio's toast says so: "the redactor could not clean this session; nothing was
+  written".
+- **In the Map's drawer the Run a goal form's buttons covered its last field.** At 1280 x 800 the model picker sat 4
+  px above Run, partly under the button row's fade. The fields now scroll in a box of their own, and Run, Dry run and
+  Clear the form sit in a row under it: no field slides under the buttons, and Run is still in view without scrolling.
+  A pack workflow's form in the same drawer has the same box and row.
+- **The Run a goal form cut a label** ("SHARED FILES (COMMA ...") at 1280 x 800 and narrower. A label too long for its
+  box now wraps to a second line.
+- **A failed Record showed a Python error name** ("ValueError: ..."). The toast now says only the sentence above.
+- **A dry run's report did not show**: the form closed and nothing opened. A dry run now opens its Goal run page.
+- **Studio's goal-run sentences sent you to History** for a run's report, and the Map's drawer button read History
+  over the goal form. Both now name the Goal run page and Run a goal.
+
+### Known limits
+
+- **Every Known limit of 3.6.0.2 still holds**, except the two this release ends: "A saved replay file does not play
+  in Studio" (replays are gone) and "History is still on Agents -> 3 · Map" (it has left). Two of them said "the next
+  release": switching a running session to another map, and renaming "starter" to Auto with agents drawn in named
+  groups. Neither is in this release; both come in a later one. The limits there about Studio's Export a clip form
+  leave with it. Two limits of the redaction still hold for the session export, the report card and Record's page: an
+  account named by a common word (docs/PRIVACY.md), and an excerpt cut one or two letters into your account or machine
+  name keeps those letters before its `...`.
+- **Compare and the re-run of a turn on another model have nothing in their place.** Comparing models is still on the
+  list.
+- **The rows' export link covers the sessions that list shows, the last 8.** Export an older one from the terminal:
+  `halo session export <id>`.
+- **`halo export --sanitize` and Record's page do not mask another account's home path** (a path under some other
+  user's home on this machine): the export as before, Record like it. The session export takes that account's name
+  out, but writes the path as `~/...`, which reads like your own home.
+- **Each tool result in the session export is cut at 40 lines**, then "... (N more lines)", as before.
+- **A `.halo-replay` file made by 3.4.1.0 to 3.6.0.2 no longer opens anywhere**: Studio, `halo report` and every
+  `halo replay` verb are gone or refuse it. The file stays on disk until you delete it.
+- **The Map drawer's head can cut its own title** at 1280 x 800 ("RUN A ..."; 3.6.0.2 cut "HIST..." the same way), and
+  at 1024 px wide and under the view bar's title overlaps the tab names and the drawer heads are cut. A text should
+  never be cut: this is on the list for the next release.
+- **Where it was checked.** The exports, `halo report`, Record's masking, the retired command and the doctor's line
+  were run for real on Linux only. No automated check presses a LAST SESSIONS row's export link; its route and its
+  saving are each tested.
+
+### For people who build Halo
+
+- **Three things that stay left modules named after replays**, with no change of behaviour: the redaction's paths
+  and names are `halo_harness/privacy_scrub.py` (was `live/replay_private.py`); the report card's data is
+  `halo_harness/live/card_data.py`, beside `live/card_run.py`, `live/card_facts.py` and `live/card_timeline.py` (were
+  `live/replay_run.py`, `live/replay_facts.py`, `live/timeline.py`); finding Chrome is `halo_harness/browser_find.py`
+  (realcheck's `--browser` and the suite's Chrome driver use it).
+- **Deleted**: `halo_harness/replay.py`, `replay_cli.py`, `replay_verbs.py`, `studio/replays_api.py`, and
+  `live/replay_clip.py`, `clip_pipe.py`, `clip_chrome.py`, `replay_guard.py`, `replay_file.py`, `replay_cut.py`,
+  `compare.py`, `compare_text.py`; in Studio's source `History.tsx`, `Compare.tsx`, `ReplaySave.tsx`, `Scrubber.tsx`,
+  `historyStore.ts`, `compareStore.ts` and `replay.ts`.
+- **Routes.** The report card is `GET live/report?ref=session:<id>` (or `run:<id>`) in `studio/live_report_api.py`:
+  422 without a ref, 404 when it names nothing, 404 with the retired line for an old saved file. `replays/*` and
+  `live/replay` answer 404. No pack or extension API ever exposed replays.
+- **The retired verb's shape**: one row in `cli_commands.py`, `_c("replay", "", RECORDS, "left Halo in 3.6.0.3 (halo
+  session export)", kind="retired")`, and one line, `cli_commands.REPLAY_LEFT`; `cli.py` prints it to stderr and
+  returns 2 before anything else reads the words. `audit_cli.py` (`--replays`), `report_card.OldFile` (`halo report`)
+  and `live/report` say the same line.
+- **`tests/test_removed_replays.py` keeps them gone.** It greps Studio's UI source, every string constant of Halo's
+  Python (by an ast scan; docstrings and comments left out), README.md, docs/ and both glossaries for `replay`,
+  `scrubber`, `halo-replay`, `History`, `Compare`, `Back to now`, `What happened` and `clip`. Each skip excuses only
+  the words its regex matches, and a skip that excuses nothing fails. It also checks the one line and exit 2, that
+  `replay` is in neither help nor completions, the 404 routes, that the old modules are gone and nothing names them,
+  and that the doctor names the old folder and never deletes it.
+- **New and changed tests**: `test_privacy_scrub` (was `test_replay_private`), `test_card_data`,
+  `test_browser_find`, `test_goal_run_report_page`, `test_history_leaves_the_map`, `test_replays_leave_studio`,
+  `test_live_recording_redaction`. The tests of the old playback, its clips and Compare are deleted.
+- **Two browser checks are steadier.** The long-title pick test holds both headers' words equal in any font, and the
+  run-parts driver waits on its facts in order and names the one it stopped at.
+
 ## [3.6.0.2] - 2026-11-17
 
 "Session map": what a session really does is drawn on the map it really follows, and what main builds for you in a
