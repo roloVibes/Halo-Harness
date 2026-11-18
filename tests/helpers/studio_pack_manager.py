@@ -232,7 +232,13 @@ def picker(c, url, ctx) -> dict:
     w(c, f"!!{PICK}", 20)
     out = {"pick_options": c.js(f"[...{PICK}.options].map((o) => o.value)"),
            "pick_label": c.js(_text("[data-testid=orchestra-workflow-picker] label")),
-           "pick_under_goal": c.js(f"!!{q('[data-testid=orchestra-goal-form] ~ [data-testid=orchestra-workflow-picker]')}")}
+           # 3.6.0.3: the picker is the LAST thing in the goal form's own scrolling box of fields (it was the form's
+           # next sibling): still under every field, and above the row of Run, Dry run and Clear the form
+           "pick_under_goal": c.js("(() => { const f = document.querySelector('[data-testid=orchestra-goal-form] .og-fields'),"
+                                   " p = document.querySelector('[data-testid=orchestra-workflow-picker]');"
+                                   " if (!f || !p || !f.contains(p)) return false;"
+                                   " let top = p; while (top.parentElement !== f) top = top.parentElement;"
+                                   " return top === f.lastElementChild; })()")}
     c.js(f"(() => {{ const s = {PICK}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; "
          f"set.call(s, 'doc-review/review'); s.dispatchEvent(new Event('change', {{bubbles: true}})); return 1; }})()")
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 15)

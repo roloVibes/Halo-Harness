@@ -48,7 +48,8 @@ still in its first part: with a machine named `gpu-box`, `on gpu...` becomes `on
 `on gpu-b...` and `on gpu-bo...` stay as they are.
 
 **Another account's home folder.** The redaction knows your own home folder and your own names, not those of the
-other accounts on the machine. What happens to a path such as `/home/someone/notes.txt`:
+other accounts on the machine. What happens to a path in another account's home folder (say the file `notes.txt` in
+the home of an account named `sam`):
 - the session export (Session -> Feed -> **Export**, `/export`, `halo session export`) takes the account name out and
   writes `~/notes.txt`, which reads like a path in your own home;
 - `halo export --sanitize` and Record's page leave the path as it is, the account name included.

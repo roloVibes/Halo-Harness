@@ -124,7 +124,8 @@ def test_run_a_workflow_fills_the_orchestra_form(ctx: Ctx):
 
 @test
 def test_orchestras_start_view_picks_a_packs_workflow(ctx: Ctx):
-    """3.2.1.0 R2: the picker under the goal form; a pick is the same form Run <workflow> fills."""
+    """3.2.1.0 R2: the picker under the goal form; a pick is the same form Run <workflow> fills. 3.6.0.3: "under" is the
+    last place in the form's own box of fields (above the row of Run, Dry run and Clear the form), no longer a sibling."""
     got = _got(ctx)
     ctx.check(f"under the goal form, the running pack's workflow, got {got.get('pick_options')} {got.get('pick_under_goal')}",
               got.get("pick_under_goal") is True and got.get("pick_options") == ["", "doc-review/review"])
