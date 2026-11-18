@@ -316,9 +316,9 @@ more alike. The limits that remain are at the end of this section.
   map new sessions use is switched**, which moves the controls under it once, also while the pointer is on the drawer.
 - **A saved replay file does not play in Studio, and has not since 3.6.0.0.** `halo replay open` still checks the file
   and keeps it, but Studio lands on Agents -> 3 · Map without it, and the file's row in History shows a scrubber over
-  a drawing that does not change. `halo replay clip` (and Studio's Export a clip, which films the same way) gives up
-  after 40 seconds and writes no file. A session of this machine still replays on the Map from History. Found while
-  this release was checked; the fix is in the next release.
+  a drawing that does not change. `halo replay clip` gives up after 40 seconds and writes no file; Studio's Export a
+  clip, which films the same way, writes no file either. A session of this machine still replays on the Map from
+  History. Found while this release was checked; the fix is in the next release.
 - **History is still on Agents -> 3 · Map.** It leaves the Agents tab in the next release.
 - **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
   which removes it and says so; Windows has no reaper. Its `docker run` client ends with Halo at once. Any `halo`
