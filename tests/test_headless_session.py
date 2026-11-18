@@ -116,6 +116,42 @@ def test_quit_through_the_handle_ends_it(ctx: Ctx):
         ctx.check("shutdown sets the same end", done.is_set())
 
 
+@test
+def test_shutdown_answers_before_the_session_closes_its_socket(ctx: Ctx):
+    """3.6.0.4 S3-1: `shutdown` started the session's end (control_shutdown -> its thread -> the end hook -> the
+    socket closed) BEFORE its own answer was written, so a reply thread that ran late under load wrote into a
+    closed socket and the caller read 'control socket closed' for a shutdown that worked. The order is injected:
+    the reply's send waits up to 3 s for the session's end to begin (the real end closes the server, as the
+    headless session's quit does). Fixed, the end begins only after the answer went out, and still within 10 s."""
+    from tests.helpers.remote_rig import Rig
+    from halo_harness.remote import control_socket
+    ending = threading.Event()
+    real_send = control_socket._Conn.send
+
+    def late_send(self, obj):
+        if isinstance(obj, dict) and isinstance(obj.get("result"), dict) and "shutdown" in obj["result"]:
+            ending.wait(3.0)
+        return real_send(self, obj)
+
+    control_socket._Conn.send = late_send
+    try:
+        with Rig() as rig:
+            server = rig.server
+            rig.controller.on_control_shutdown = lambda _t: (server.close(), ending.set())
+            c = rig.client()
+            c.call("subscribe")
+            try:
+                s = c.call("shutdown", by="test", via="test", reason="the end")
+            except ConnectionError as e:
+                s = {"error": f"{type(e).__name__}: {e}"}
+            ctx.check(f"the caller reads the answer, got {s!r}", s.get("ok") is True and s["result"] == {"shutdown": True})
+            ctx.check("the session's end still begins, within 10 s", ending.wait(10.0))
+            closed = server.closed.wait(10.0)
+            ctx.check("its socket closed after the answer", closed)
+    finally:
+        control_socket._Conn.send = real_send
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

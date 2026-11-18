@@ -8,6 +8,8 @@ import { sections } from "../routes";
 import { packGroups } from "../routes/packs/registry";
 import { packs } from "../routes/packs/store";
 import { settings } from "../routes/settings/store";
+import { fleet } from "../routes/fleet/store";
+import { agentLines } from "../routes/fleet/commands";
 
 // 3.1.6.0 R6: the section groups in the registry's order (before, Roles, Design and Team sorted above Go to);
 // 3.2.0.0 R3: the packs' groups after the sections'
@@ -18,6 +20,8 @@ export function Palette() {
   const section = useStore(studio, (s) => s.section);
   // 3.3.16.0 R3: the Settings catalog arrives after the palette opened the first time: its rows join then
   const catalog = useStore(settings, (s) => s.rows.length);
+  // 3.6.0.4 S3-3: likewise an agent the session list gains while it is open (Ctrl+K at once on a slow first read)
+  const agents = useStore(fleet, agentLines);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -33,7 +37,7 @@ export function Palette() {
     if (q.trim()) scored.sort((a, b) => b.s - a.s);
     else scored.sort((a, b) => order.indexOf(a.c.group) - order.indexOf(b.c.group));
     return scored.map((x) => x.c);
-  }, [open, q, section, catalog]);
+  }, [open, q, section, catalog, agents]);
 
   useEffect(() => {
     if (open) {

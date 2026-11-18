@@ -155,6 +155,119 @@ def test_z7_role_picker_shows_the_refusal_and_stays_open(ctx: Ctx):
     asyncio.run(body())
 
 
+class _Raised(__import__("logging").Handler):
+    """Every 'worker ... raised' line the guard logs on the `bridge` logger."""
+
+    def __init__(self):
+        super().__init__(level=0)
+        self.lines, self.kinds = [], []
+
+    def emit(self, record):
+        if "raised" in record.getMessage():
+            self.lines.append(record.getMessage())
+            self.kinds.append(record.exc_info[0].__name__ if record.exc_info else "")
+
+
+def _listen():
+    import logging
+    h = _Raised()
+    logging.getLogger("bridge").addHandler(h)
+    return h, lambda: logging.getLogger("bridge").removeHandler(h)
+
+
+@test
+def test_s3_a_workers_call_into_a_closing_app_ends_it_quietly(ctx: Ctx):
+    """3.6.0.4 S3-2: as the terminal app closed, its git-branch worker's call into the app (call_from_thread) was
+    cancelled and the guard logged 'worker git-branch raised ... CancelledError'. The order is injected: the worker
+    is held until the app runs, its call into the app is left pending (the status bar's setter waits), and the app
+    exits under it, so the call's future is cancelled. The guard ends the worker quietly; the worker thread ends."""
+    import threading
+    held, release, threads = threading.Event(), threading.Event(), []
+
+    def branch():
+        threads.append(threading.current_thread())
+        held.set()
+        release.wait(30)
+        return "main"
+
+    posted = threading.Event()
+
+    async def pending_setter(*_a):
+        posted.set()
+        await asyncio.Event().wait()  # never set: the app exits while this call into it is pending
+
+    log, stop = _listen()
+    try:
+        async def body():
+            _fake, app = _app()
+            app._git_branch = branch
+            async with app.run_test(size=(100, 30)) as pilot:
+                for _ in range(300):
+                    if held.is_set():
+                        break
+                    await pilot.pause(0.05)
+                ctx.check("the git-branch worker reached its git call", held.is_set())
+                app.status_bar.set_cwd_branch = pending_setter
+                release.set()
+                for _ in range(300):
+                    if posted.is_set():
+                        break
+                    await pilot.pause(0.05)
+                ctx.check("the worker's call into the app is pending", posted.is_set())
+                app.exit()
+        asyncio.run(body())
+        for t in threads:
+            t.join(10)
+        ctx.check("every git-branch worker thread ended", bool(threads) and not any(t.is_alive() for t in threads))
+        ctx.check(f"nothing logged as a worker that raised, got {log.lines} {log.kinds}", log.lines == [])
+    finally:
+        release.set()
+        stop()
+
+
+@test
+def test_s3_the_guard_logs_every_other_raise_as_today(ctx: Ctx):
+    """3.6.0.4 S3-2: only a call into a CLOSING app (a cancelled call_from_thread, or Textual's 'App is not running'
+    / 'Event loop is closed') ends a worker quietly. The same error while the app runs, and any other error while it
+    closes, is logged and reported exactly as before."""
+    import concurrent.futures
+    from types import SimpleNamespace
+    from halo_harness.tui.worker_guard import guard
+
+    def stub(closing):
+        notes = []
+        app = SimpleNamespace(_exit=closing, _closing=False, _closed=False, _loop=None if closing else object(),
+                              notes=notes, notify=None)
+        app.call_from_thread = lambda _fn, text, **_kw: notes.append(text)
+        return app
+
+    def raises(exc):
+        def work():
+            raise exc
+        return work
+
+    cases = [
+        ("cancelled while closing", True, concurrent.futures.CancelledError(), False),
+        ("not running while closing", True, RuntimeError("App is not running"), False),
+        ("loop closed while closing", True, RuntimeError("Event loop is closed"), False),
+        ("cancelled while running", False, concurrent.futures.CancelledError(), True),
+        ("not running while running", False, RuntimeError("App is not running"), True),
+        ("another RuntimeError while closing", True, RuntimeError("boom"), True),
+        ("a ValueError while closing", True, ValueError("bad"), True),
+    ]
+    log, stop = _listen()
+    try:
+        for name, closing, exc, logged in cases:
+            log.lines.clear()
+            app = stub(closing)
+            out = guard(app, raises(exc), "w")()
+            got = (log.lines == ["worker w raised"], len(app.notes) == 1)
+            ctx.check(f"{name}: logged and reported {logged}, got {got} {app.notes}",
+                      out is None and got == (logged, logged))
+    finally:
+        stop()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

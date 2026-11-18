@@ -196,7 +196,7 @@ def run_cmd(handle, req: dict, conn) -> Any:
         return {"subscribed": False}
     if cmd in AGENT_CMDS:
         from halo_harness.remote import agent_control
-        return agent_control.run(handle, req)
+        return agent_control.run(handle, req, conn)
     raise HandleError(f"unknown cmd {cmd!r} (expected one of {', '.join(CMDS)})")
 
 

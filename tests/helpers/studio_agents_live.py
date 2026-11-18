@@ -199,7 +199,7 @@ class AgentsLiveDriver(Driver):
         from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers import studio_agents_live_draw as D
         from tests.helpers.studio_map_live import MAP
-        from tests.helpers.studio_live_feed import feed_step
+        from tests.helpers.studio_live_feed import feed_step, late_agent_step
         from tests.helpers.studio_map_quiet import STEPS as QUIET
         with StudioSessionRig() as rig:
             from halo_harness.crew import store
@@ -212,7 +212,7 @@ class AgentsLiveDriver(Driver):
             try:
                 yield ((doors, (c, rig, lv)), (opens, (c, rig, lv, rows)), (boots, (c, rig, lv, rows)), (never_flips, (c, rig, lv, rows)),
                        (D.follows, (c, rig, lv, rows)), (D.holds, (c, rig, lv, rows)), (D.t9, (c, rig, lv, rows)), (feed_step, (c, rig, lv, rows)),
-                       *((step, (c, rig, lv, rows)) for step in QUIET))
+                       *((step, (c, rig, lv, rows)) for step in QUIET), (late_agent_step, (c, rig, lv, rows)))
             finally:
                 lv.close()
 

@@ -203,6 +203,17 @@ def test_live_has_the_feed_map_does_not(ctx: Ctx):
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 
+@test
+def test_palette_lists_an_agent_that_arrives_while_it_is_open(ctx: Ctx):
+    """3.6.0.4 S3-3: the palette's lines were computed when it opened and on each key only; an agent that joined the
+    session list after the last key never showed (the Windows runners' 30 s wait for 'Agents: follow agent ...')."""
+    d = _got(ctx)
+    ctx.check(f"typed before the agent is listed: no line yet, got {d.get('late_before')!r}", d.get("late_before") is False)
+    ctx.check(f"the agent's line joins the open palette when the list is read again, got {d.get('late_after')!r}",
+              d.get("late_after") is True and d.get("late_open") is True)
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
 def _q(d: dict, step: str) -> dict:
     return {k.split(".", 1)[1]: v for k, v in d.items() if k.startswith(step + ".")}
 

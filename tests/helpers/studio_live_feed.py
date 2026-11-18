@@ -176,3 +176,41 @@ def away_door(c, rig) -> list:
             return c.js(f"[{VIEW}, {LIVE}?.dataset.sid, {truth}?.dataset.state, {FD}?.dataset.filter ?? null]")
     finally:
         live_api.view_for = orig
+
+
+def late_agent_step(c, rig, lv, rows) -> dict:
+    """3.6.0.4 S3-3: the palette is opened and typed into BEFORE another machine's agent is in the session list; the
+    list is read again while the palette stays open (the order a slow first read gave the Windows runners, injected
+    here): the agent's line joins the open palette, as it would for a person who pressed Ctrl+K at once."""
+    from halo_harness.studio import live_api
+    from tests.helpers.studio_agents_live_draw import AWAY
+    far = {**AWAY, "sessions": [{**AWAY["sessions"][0], "busy": True,
+                                 "agents": [{"agent_id": "main", "name": "dawn-runner", "state": "running"}]}]}
+    label = ("[...document.querySelectorAll('[data-testid=palette] .palette-item .palette-label')]"
+             ".some((x) => x.textContent === 'Agents: follow agent dawn-runner')")
+    orig = live_api.view_for
+
+    def view_for(server, state_dir):
+        v = orig(server, state_dir)
+        return {**v, "harnesses": list(v.get("harnesses") or []) + [far]}
+    c.go("about:blank")
+    c.wait("location.href === 'about:blank'", 10)
+    c.go(rig.url("agents", "&view=map"))
+    c.wait(f"{VIEW} === 'map'", 40)
+    c.click_on("document.querySelector('[data-testid=palette-btn], .palette-btn')")
+    c.wait("document.activeElement?.classList.contains('palette-input')", 10)
+    c.type_text("Agents: follow agent dawn-runner")
+    out = {"late_before": c.js(label)}
+    live_api.view_for = view_for
+    try:
+        c.js("document.dispatchEvent(new Event('visibilitychange')); 1")  # the session list is read again now
+        try:
+            out["late_after"] = c.wait(label, 30)
+        except TimeoutError:
+            out["late_after"] = c.js("[...document.querySelectorAll('[data-testid=palette] .palette-item .palette-label')]"
+                                     ".map((x) => x.textContent).slice(0, 6)")
+        out["late_open"] = c.js("!!document.querySelector('[data-testid=palette]')")
+        c.key("Escape")
+    finally:
+        live_api.view_for = orig
+    return out

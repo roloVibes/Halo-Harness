@@ -10,11 +10,27 @@ worker that does not choose for itself through `guard`, so `/doctor`,
 
 from __future__ import annotations
 
+import concurrent.futures
 import inspect
 import logging
 from typing import Callable
 
 _LOG = logging.getLogger("bridge")
+# What Textual's `call_from_thread` raises when the app is gone under it (3.6.0.4 S3-2).
+_GONE = ("App is not running", "Event loop is closed")
+
+
+def _closing(app) -> bool:
+    """Textual's own marks of an app on its way out: `exit()` was called, it is closing or closed, or its loop is gone."""
+    return bool(getattr(app, "_exit", False) or getattr(app, "_closing", False) or getattr(app, "_closed", False)
+                or getattr(app, "_loop", True) is None)
+
+
+def call_into_closing_app(app, exc: BaseException) -> bool:
+    """3.6.0.4 S3-2: a worker's call into an app that is closing (its call_from_thread cancelled, or the app or its
+    loop already gone) is the end of the worker, not an error. The same error while the app runs is one."""
+    gone = isinstance(exc, concurrent.futures.CancelledError) or (isinstance(exc, RuntimeError) and str(exc) in _GONE)
+    return gone and _closing(app)
 
 
 def guard(app, work: Callable, label: str) -> Callable:
@@ -26,6 +42,8 @@ def guard(app, work: Callable, label: str) -> Callable:
         try:
             return work()
         except Exception as exc:  # noqa: BLE001 -- the whole point
+            if call_into_closing_app(app, exc):
+                return None
             _LOG.exception("worker %s raised", label or "(unnamed)")
             report(app, label, exc)
             return None

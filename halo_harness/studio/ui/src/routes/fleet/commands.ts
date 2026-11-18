@@ -5,13 +5,18 @@ import { goSection } from "../../lib/store";
 import { openLocalHost } from "../agents/fleetDoor";
 import { setAttention, toggleAttention } from "../agents/attention";
 import { askStop, everySession, openAgentPanel, select, toggleFollow, togglePause } from "./actions";
-import { allAgents, fleet, findAgent, isLive, sessionTitle } from "./store";
+import { allAgents, fleet, findAgent, isLive, sessionTitle, type FleetState } from "./store";
 import { askHandoff, record } from "./extras";
 import { panels } from "./pstore";
 import { focusSteer } from "./Steer";
 import { openWorkerRun } from "../crew/run/door";
 
 export type FleetCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
+
+const liveRefs = (s: FleetState) => allAgents(s).filter((x) => isLive(x.a)).slice(0, 24);
+const followLabel = (r: ReturnType<typeof liveRefs>[number]) => `Agents: follow agent ${r.a.name || r.a.agent_id}`;
+/** 3.6.0.4 S3-3: the live agents' lines as one string, the palette's dependency: an agent listed while it is open joins it. */
+export const agentLines = (s: FleetState): string => liveRefs(s).map(followLabel).join("|");
 
 export function fleetCommands(): FleetCommand[] {
   const s = fleet.get();
@@ -38,11 +43,11 @@ export function fleetCommands(): FleetCommand[] {
     );
     if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Agents: open this session's run", hint: "its pages in the Map's drawer; when it has ended, its report there (Goal run)", run: () => openWorkerRun(String(sel.s.cwd || "")) });
   }
-  for (const r of allAgents(s).filter((x) => isLive(x.a)).slice(0, 24))
+  for (const r of liveRefs(s))
     out.push({
       id: "fleet-agent-" + r.key,
       group: g,
-      label: `Agents: follow agent ${r.a.name || r.a.agent_id}`,
+      label: followLabel(r),
       hint: `${r.a.state} · ${r.h.name || ""} · ${sessionTitle(r.s)}`,
       run: () => (select(r.key), openAgentPanel(r.key)),
     });

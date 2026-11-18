@@ -189,16 +189,22 @@ def cmd_pause(handle, tree, req: dict, on: bool) -> dict:
     return {"paused": aid or "session"}
 
 
-def cmd_shutdown(handle, tree, req: dict) -> dict:
+def cmd_shutdown(handle, tree, req: dict, conn=None) -> dict:
+    """3.6.0.4 S3-1: the session's end (which closes this socket) begins once this answer went out (`conn.then`,
+    control_socket), so a caller never reads 'control socket closed' for a shutdown that worked."""
     via = _caller(req)
     reason = " ".join(_str(req, "reason").split())[:300] or "no reason given"
     tree.controls.begin_shutdown(reason, via)
     _record(handle, tree, tree.root_id, "shutdown", via, reason=reason)
-    handle.control_shutdown(f"shut down from {via}: {reason}")
+    end = lambda: handle.control_shutdown(f"shut down from {via}: {reason}")  # noqa: E731
+    if conn is not None:
+        conn.then = end
+    else:
+        end()
     return {"shutdown": True}
 
 
-def run(handle, req: dict) -> dict:
+def run(handle, req: dict, conn=None) -> dict:
     cmd = req.get("cmd")
     tree = _tree(handle)
     if cmd == "agents":
@@ -213,7 +219,7 @@ def run(handle, req: dict) -> dict:
     if cmd in ("pause", "resume"):
         return cmd_pause(handle, tree, req, cmd == "pause")
     if cmd == "shutdown":
-        return cmd_shutdown(handle, tree, req)
+        return cmd_shutdown(handle, tree, req, conn)
     if cmd == "agent_follow":
         aid = _resolve(handle, tree, req)
         on = req.get("on", True) is not False
