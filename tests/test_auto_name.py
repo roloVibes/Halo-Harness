@@ -1021,6 +1021,31 @@ def test_start_words_say_auto_never_starter(ctx: Ctx):
               LINEUP in raw.decode("utf-8") and b"starter" not in raw.lower())
 
 
+@test
+def test_the_map_switch_is_quoted_by_its_new_name(ctx: Ctx):
+    """b/batch06 entry 4 (the coordinator's ruling): no file under docs/, README.md or halo_harness/ (but the two
+    changelogs and the built studio/static/dist) quotes the Map switch by its old name, and the `crew.map` row's help
+    says what unset means on Auto's terms."""
+    from halo_harness.settings_catalog_rows_a import ROWS
+    root = Path(__file__).resolve().parent.parent
+    old = "My sessions use " + "this"
+    files = [*(root / "docs").rglob("*.md"), root / "README.md", *(root / "halo_harness").rglob("*")]
+    skip = ("halo_harness/data/changelog.md", "halo_harness/studio/static/dist/", "halo_harness/studio/ui/node_modules/")
+    left = []
+    for p in files:
+        rel = p.relative_to(root).as_posix()
+        if not p.is_file() or p.suffix not in (".md", ".py", ".ts", ".tsx", ".css", ".json", ".yaml", ".txt", ".html") \
+                or rel.startswith(skip) or "__pycache__" in rel:
+            continue
+        if old in p.read_text(encoding="utf-8", errors="replace"):
+            left.append(rel)
+    ctx.check(f"no file quotes the switch's old name, got {left}", left == [])
+    row = next((r for r in ROWS if r.key == "crew.map"), None)
+    ctx.check(f"the crew.map row's help, word for word, got {getattr(row, 'help', None)!r}",
+              row is not None and row.help == "The map new sessions run on (Agents -> 3 · Map, New sessions run on this); "
+                                              "unset, new sessions run on Auto (the default).")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -14,6 +14,9 @@
 // - P4 batch 13 (runParts.tsx, as Session's drawer): the tool clock, the talk pulse, "+{n} under it" to the Feed, J / K;
 //   the box waited on outlined and the wait link at the left of the tools row, on its reserved row (runWait.tsx WaitRow;
 //   P8: its words whole, never cut).
+// - 3.6.0.5 B26 B27 (Auto only, the row says map_plain): a slot under the scroll box, its line reserved from the first draw,
+//   names a working group wholly below the view and brings its head into view; a group card's Open in Agents -> Live
+//   (litStore.ts focus) puts that group's head at the top with its border pulsing 2 s. On a map of his: as before.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
@@ -21,7 +24,9 @@ import { useHold } from "../crew/map/hold";
 import { BOX_W, LABEL_H, LABEL_W, layout } from "../crew/map/layout";
 import { estimateDown, type PlacedDown, type RoutedDown } from "../crew/map/layoutDown";
 import { useLit } from "../crew/map/LitMini";
-import { setFeedFor, type LitSession } from "../crew/map/litStore";
+import { setFeedFor, takeFocus, useLitStore, type LitSession } from "../crew/map/litStore";
+import { groupId } from "../crew/map/litView";
+import { belowGroup } from "../crew/map/groupWords";
 import { whenWords } from "../crew/map/mapTypes";
 import { RunLine } from "../crew/map/RunLine";
 import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
@@ -33,7 +38,7 @@ import { DownBox } from "../session/DownBox";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
 import { useRunWait, WaitRow } from "../crew/map/runWait";
-import { firstSeen, keepSeen } from "../session/downFit";
+import { belowCount, firstSeen, keepSeen, workingBelow } from "../session/downFit";
 import { LiveHead } from "./LiveHead";
 
 const NAV_ID = "agents-live";
@@ -63,7 +68,8 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     return { boxes: g.boxes.map((b) => ({ ...b, w: BOX_W, rank: b.col, row: 0 })), lines: g.lines.map((l) => ({ ...l, entry: 0 })), w: g.w, h: g.h };
   }, [v, heights]);
   // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
-  const g = useHeld<G>(held, map, fresh, fresh.boxes.every((b) => heights[b.id] != null));
+  const ready = fresh.boxes.every((b) => heights[b.id] != null);
+  const g = useHeld<G>(held, map, fresh, ready);
   useEffect(() => setCard(null), [s.sid, map]);
 
   const [k, setK] = useState(1);
@@ -87,6 +93,34 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     const seen = firstSeen(old.boxes, k, el.scrollTop), t = seen && keepSeen(g.boxes, k, seen); // as Session's drawer (downFit.ts)
     if (t != null && Math.abs(t - el.scrollTop) > 0.5) el.scrollTop = t;
   }, [g]); // eslint-disable-line react-hooks/exhaustive-deps
+  const focus = useLitStore((x) => x.focus);
+  useLayoutEffect(() => { // B27, after the two above so its scroll wins: the group asked for, its head at the top, pulsing 2 s
+    const el = scroll.current, box = focus && focus.sid === s.sid ? g.boxes.find((b) => b.id === groupId(focus.n)) : undefined;
+    if (!el || !box || !shown || (g === fresh && !ready)) return; // taken once its box is placed and measured, on screen
+    takeFocus(s.sid);
+    el.scrollTop = box.y * k;
+    const l = box.x * k, r = (box.x + box.w) * k;
+    if (l < el.scrollLeft) el.scrollLeft = l;
+    else if (r > el.scrollLeft + el.clientWidth) el.scrollLeft = Math.min(l, r - el.clientWidth);
+    const node = world.current?.querySelector<HTMLElement>(`[data-box="${CSS.escape(box.id)}"]`);
+    if (node) {
+      const end = (e: AnimationEvent) => {
+        if (e.target !== node || e.animationName !== "mp-group-pulse") return;
+        node.removeAttribute("data-pulse");
+        node.removeEventListener("animationend", end);
+      };
+      node.addEventListener("animationend", end);
+      node.setAttribute("data-pulse", "");
+    }
+    setCard(null);
+  }, [focus, s.sid, g, shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [at, setAt] = useState({ top: 0, h: 0 }); // B26: where the view stands (Auto only)
+  useLayoutEffect(() => {
+    const el = scroll.current;
+    if (s.auto && el) setAt((o) => (o.top === el.scrollTop && o.h === el.clientHeight ? o : { top: el.scrollTop, h: el.clientHeight }));
+  });
+  const wb = s.auto && L.groups && at.h ? workingBelow(g.boxes, L.groups, k, at.top, at.h) : null;
+  const wbName = wb ? L.groups?.find((x) => x.n === wb.group?.n)?.name || "" : "";
   useMeasure(world, heights, setHeights, true); // R10 (runFrame.ts): never while the view is hidden
   useAskedBox("live", s.sid, L, world, setCard); // an ask's door: the asking agent's box selected, its card open
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
@@ -108,7 +142,8 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
         {!drawn && (gone ? <p className="cw-line" data-testid="live-removed">{removedAt(gone)}</p>
           : !(got && "unreadable" in got) && <p className="cw-line" data-testid="live-reading">{readingMap(map)}</p>)}
         {drawn && (
-          <div className="mp-scroll rc-scroll" ref={scroll} tabIndex={0} data-pan="1" title={NAV_HELP} aria-label="The session's map" data-testid="live-scroll">
+          <div className="mp-scroll rc-scroll" ref={scroll} tabIndex={0} data-pan="1" title={NAV_HELP} aria-label="The session's map" data-testid="live-scroll"
+               onScroll={s.auto ? (e) => setAt({ top: e.currentTarget.scrollTop, h: e.currentTarget.clientHeight }) : undefined}>
             <div className="mp-world-size" style={{ width: g.w * k, height: g.h * k }}>
               <div className="mp-world" ref={world} data-testid="live-world" data-map={map} data-zoom={k.toFixed(3)}
                    style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
@@ -126,7 +161,12 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
             </div>
           </div>
         )}
-        {card && <StepIn t={card} map={map} close={closeCard} onLive={closeCard} />}
+        {s.auto && <div className="ag-live-below" data-testid="live-below">
+          {wb && <button type="button" className="mp-link" data-testid="live-more-below" data-group={wb.group?.n}
+                         onClick={() => { if (scroll.current) scroll.current.scrollTop = wb.y * k; }}>
+            {belowGroup(wbName, belowCount(g.boxes, k, at.top, at.h) - 1)}</button>}
+        </div>}
+        {card && <StepIn t={card} map={map} sid={s.sid} close={closeCard} onLive={closeCard} />}
       </div>
       </RunCtx.Provider>
     </>

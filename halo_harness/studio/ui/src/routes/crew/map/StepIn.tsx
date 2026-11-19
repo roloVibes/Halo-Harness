@@ -15,6 +15,7 @@ import { askStop, togglePause } from "../../fleet/actions";
 import { Steer } from "../../fleet/Steer";
 import { findAgent, isLive, useFleet } from "../../fleet/store";
 import { STATE_WORDS } from "./LitBits";
+import { focusGroup } from "./litStore";
 import { openMap, setHover } from "./mapStore";
 import { stateOf, type OvRow } from "./overlay";
 import type { Target, Who } from "./stepInTarget";
@@ -51,7 +52,8 @@ function WhoRow({ w, chosen, choose }: { w: Who; chosen: boolean; choose: () => 
   );
 }
 
-export function StepIn({ t, map, close, onLive }: { t: Target; map: string; close: () => void; onLive: () => void }) {
+/** `sid`: the session drawn (3.6.0.5 B27: a group card's Open in Agents -> Live stores its group for that session first). */
+export function StepIn({ t, map, sid, close, onLive }: { t: Target; map: string; sid: string; close: () => void; onLive: () => void }) {
   const [pick, setPick] = useState(t.who[0]?.key || "");
   useEffect(() => setPick(t.who[0]?.key || ""), [t]);
   useEffect(() => {
@@ -63,6 +65,10 @@ export function StepIn({ t, map, close, onLive }: { t: Target; map: string; clos
   }, [close]);
   const steerLive = useFleet((s) => { const r = pick ? findAgent(s, pick) : null; return !!r && isLive(r.a); });
   const live = openInAgents();
+  const toLive = () => {
+    if (t.id.startsWith("group:")) focusGroup(sid, Number(t.id.slice("group:".length)));
+    onLive();
+  };
   return (
     <div className="mp-step-in" data-testid="map-step-in" role="dialog" aria-label={t.title} data-target={t.id}>
       <div className="mp-step-in-head">
@@ -80,7 +86,7 @@ export function StepIn({ t, map, close, onLive }: { t: Target; map: string; clos
       )}
       <div className="mp-step-in-foot">
         {t.sender && <button type="button" className="mp-link" data-testid="map-step-in-map" onClick={() => openMapOn(map, t.sender)}>{openMapAt(t.sender)}</button>}
-        <button type="button" className="mp-link" data-testid="map-step-in-live" onClick={onLive}>{live.label}</button>
+        <button type="button" className="mp-link" data-testid="map-step-in-live" onClick={toLive}>{live.label}</button>
       </div>
     </div>
   );

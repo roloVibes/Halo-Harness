@@ -29,6 +29,7 @@ import { useLit } from "../crew/map/LitMini";
 import { RunLine } from "../crew/map/RunLine";
 import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
+import { belowGroup } from "../crew/map/groupWords";
 import { StepIn } from "../crew/map/StepIn";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
@@ -37,7 +38,7 @@ import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { moreBelow, openInAgents, readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
 import { BuiltBar } from "./BuiltBar";
-import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight } from "./downFit";
+import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight, workingBelow } from "./downFit";
 import { DownBox } from "./DownBox";
 import { openInLive } from "./store";
 import { TruthBlock } from "./TruthBlock";
@@ -139,6 +140,9 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     const t = scroll.current ? nextTop(rows, k, scroll.current.scrollTop) : null;
     if (t != null) go(t);
   };
+  // B26 on Auto: a working group wholly out of sight is named, and the press puts its head at the top
+  const wb = L.groups ? workingBelow(g.boxes, L.groups, k, top, H) : null;
+  const wbName = wb ? L.groups?.find((x) => x.n === wb.group?.n)?.name || "" : "";
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
   const wait = useRunWait(s.sid, L.unlit ? null : ov, L.now || 0, on);
@@ -174,9 +178,10 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
         </div>}
         </div>
       </div>
-      {card && <StepIn t={card} map={shown} close={closeCard} onLive={() => openInLive(s.sid)} />}
-      <div className="mp-down-below" data-testid="session-map-below">
-        <div className="mp-down-more">{n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" onClick={down}>{moreBelow(n)}</button>}</div>
+      {card && <StepIn t={card} map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} />}
+      <div className="mp-down-below" data-testid="session-map-below" data-auto={s.auto ? "" : undefined}>
+        <div className="mp-down-more">{n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
+          onClick={wb ? () => go(wb.y * k) : down}>{wb ? belowGroup(wbName, n - 1) : moreBelow(n)}</button>}</div>
         <WaitRow world={world} />
       </div>
       </RunCtx.Provider>

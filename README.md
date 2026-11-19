@@ -67,7 +67,7 @@ the session export.
 
 ## Shape
 
-<a href="docs/media/studio-map.png"><img alt="Studio's Agents section on 3 · Map: main and the agents it hands work to, each line labelled with its when, the map picker with My sessions use this, Run a goal and the builder box under the map" src="docs/media/studio-map.png" width="100%"></a>
+<a href="docs/media/studio-map.png"><img alt="Studio's Agents section on 3 · Map: main and the agents it hands work to, each line labelled with its when, the map picker with New sessions run on this, Run a goal and the builder box under the map" src="docs/media/studio-map.png" width="100%"></a>
 
 Your map connects agents and workflows (steps of agents) that main hands work to, each line labelled
 with its `when` (a need such as a PDF, words the task says, or always first). Add a box from the list beside the map;

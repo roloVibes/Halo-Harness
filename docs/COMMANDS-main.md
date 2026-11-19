@@ -188,7 +188,7 @@ runs on; use `--map` (below) or `halo maps use <name>`
 What (3.6.0.0 R3): run THIS session on a map (`halo maps list` names them; [CREW-sessions.md](CREW-sessions.md)):
 main's model, instructions, tools and careful mode come from the map's main, the Agent tool spawns exactly the
 agents main has a line to, the Workflow tool runs exactly its workflows, and the runtime follows the map's chains.
-Over config's `crew.map` (Studio's **My sessions use this**, `halo maps use <name>`) for this one run, never
+Over config's `crew.map` (Studio's **New sessions run on this**, `halo maps use <name>`) for this one run, never
 persisted. A map with a problem prints its problem lines on stderr and the session runs as with no map; a map in use
 replaces the lineup for that session (`--team` is not read beside it).
 ```sh

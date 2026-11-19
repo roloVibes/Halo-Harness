@@ -32,7 +32,7 @@ MODS = {
     "og": "routes/crew/map/overlayGroups.ts", "ov": "routes/crew/map/overlay.ts", "lit": "routes/crew/map/litView.ts",
     "view": "routes/crew/map/view.ts", "ld": "routes/crew/map/layoutDown.ts", "lay": "routes/crew/map/layout.ts",
     "gw": "routes/crew/map/groupWords.ts", "hops": "routes/crew/map/overlayHops.ts", "sit": "routes/crew/map/stepInTarget.ts",
-    "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts",
+    "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -593,6 +593,82 @@ def test_no_fetch_or_timer_in_group_files(ctx: Ctx):
         if hits:
             bad[f] = hits
     ctx.check(f"no fetch(, setInterval(, setTimeout(, api( in the group files, got {bad}", not bad)
+
+
+# ---------------------------------------------------------------------------------------------- 5. (batch 6) the slot, the doors
+
+def _box(n: int, y: float, members: list) -> dict:
+    return {"id": f"group:{n}", "x": 12, "y": y, "w": 384, "h": 150, "rank": 1, "row": n,
+            "group": {"n": n, "key": f"task:t{n}", "colour": (n - 1) % 4 + 1, "members": members}}
+
+
+@test
+def test_slot_names_the_working_group(ctx: Ctx):
+    """B26: the slot names the working group wholly below the visible part (the lowest n); its words, letter for letter."""
+    boxes = [{"id": "main", "x": 12, "y": 12, "w": 384, "h": 80, "rank": 0, "row": 0},
+             _box(1, 100, ["a"]), _box(2, 300, ["b"]), _box(3, 500, ["c"]), _box(4, 700, ["d"])]
+    calm = [_grp(1, [_m("a")], "one"), _grp(2, [_m("b", "done")], "two"), _grp(3, [_m("c", "waiting"), _m("c2")], "three"),
+            _grp(4, [_m("d")], "four")]
+    two = [_grp(1, [_m("a")], "one"), _grp(2, [_m("b")], "two"), _grp(3, [_m("c", "done")], "three"), _grp(4, [_m("d", "done")], "four")]
+    none = [_grp(n, [_m(x, "done")], x) for n, x in ((1, "a"), (2, "b"), (3, "c"), (4, "d"))]
+    js = """const w = (gs, k, top, h, bx = D.boxes) => M.df.workingBelow(bx, gs, k, top, h)?.id ?? null;
+console.log(JSON.stringify({
+  lowest: w(D.calm, 1, 0, 290), two: w(D.two, 1, 0, 290), above: w(D.two, 1, 400, 290), none: w(D.none, 1, 0, 290),
+  zoom: w(D.calm, 2, 0, 900), edge: w(D.calm, 1, 10, 290), his: w(D.calm, 1, 0, 290, D.boxes.map(({group, ...b}) => b)),
+  words: [M.gw.belowGroup("fix the login bug", 0), M.gw.belowGroup("fix the login bug", 2)]}));"""
+    got = _run(["df", "gw"], js, {"boxes": boxes, "calm": calm, "two": two, "none": none})
+    ctx.check(f"group 3 (its member working, group 2's done) is named, not group 4, got {got.get('lowest')}", got.get("lowest") == "group:3")
+    ctx.check(f"the lowest n with a working member wins, got {got.get('two')}", got.get("two") == "group:2")
+    ctx.check(f"a working group in view or above is not below, got {got.get('above')}", got.get("above") is None)
+    ctx.check(f"nothing working below: null, got {got.get('none')}", got.get("none") is None)
+    ctx.check(f"the zoom counts: at 200 % group 3 starts at 1000 >= 900, got {got.get('zoom')}", got.get("zoom") == "group:3")
+    ctx.check(f"a box whose top is at the view's foot (300 >= 10 + 290) is below, got {got.get('edge')}", got.get("edge") == "group:3")
+    ctx.check(f"boxes with no group (a map of his): null, got {got.get('his')}", got.get("his") is None)
+    ctx.check(f"the two section-3 forms letter for letter, got {got.get('words')}",
+              got.get("words") == ["↓ fix the login bug · working", "↓ fix the login bug · working and 2 more below"])
+
+
+@test
+def test_focus_is_stored_and_taken_once(ctx: Ctx):
+    """B27: a group card's Open in Agents -> Live stores {sid, n}; the drawing of that session takes it once."""
+    js = """const before = m.lit.get().focus;
+m.focusGroup("s1", 3);
+const stored = m.lit.get().focus;
+const other = m.takeFocus("s2"), kept = m.lit.get().focus;
+const once = m.takeFocus("s1"), twice = m.takeFocus("s1");
+console.log(JSON.stringify({before, stored, other, kept, once, twice, after: m.lit.get().focus}));"""
+    got = _stubbed("routes/crew/map/litStore.ts", js)
+    ctx.check(f"no focus at first, got {got.get('before')!r}", got.get("before") is None)
+    ctx.check(f"focusGroup stores {{sid, n}}, got {got.get('stored')}", got.get("stored") == {"sid": "s1", "n": 3})
+    ctx.check(f"another session takes nothing and leaves it, got {got.get('other')!r} {got.get('kept')}",
+              got.get("other") is None and got.get("kept") == {"sid": "s1", "n": 3})
+    ctx.check(f"its session takes n once, then null, and the store is cleared, got {got.get('once')} {got.get('twice')} {got.get('after')}",
+              got.get("once") == 3 and got.get("twice") is None and got.get("after") is None)
+    src = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
+    ctx.check("StepIn: a group card's Open in Agents -> Live stores the group before the drawing's door",
+              "focusGroup(" in src and src.index("focusGroup(") < src.index("onLive()"))
+
+
+@test
+def test_ask_door_lands_on_the_group_on_auto(ctx: Ctx):
+    """M6-M8, the owner's point 24: on Auto an ask's Open lands on the asker's group (no box of the PlainMap is drawn)."""
+    rows = [MAIN, kid("k1", 1, step="1", task="a", key="task:a", n=1), kid("k2", 2, step="2", task="b", key="task:b", n=2),
+            kid("k3", 3, parent="k2", step="3", key="task:b", n=2)]
+    js = """const ov = M.ov.overlay({boxes: [], lines: []}, D.rows, [], %s, {plain: true});
+const gs = M.og.autoGroups(D.rows, ov.blocks);
+const p = (aid, g) => M.sit.placeOf(aid, ov, D.rec, g);
+console.log(JSON.stringify({k2: p("k2", gs), k3: p("k3", gs), main: p("main", gs), stranger: p("zz", gs),
+  bare: [p("k2"), p("k3"), p("main"), p("zz")]}));""" % (T0 + 60)
+    got = _run(["ov", "og", "sit"], js, {"rows": rows, "rec": _rec(rows)})
+    ctx.check(f"a member of group 2 lands on its group, got {got.get('k2')}", got.get("k2") == {"box": "group:2", "member": "k2"})
+    ctx.check(f"a child of a child lands on its parent's group, got {got.get('k3')}", got.get("k3") == {"box": "group:2", "member": "k3"})
+    ctx.check(f"main lands on main, got {got.get('main')}", got.get("main") == {"box": "main"})
+    ctx.check(f"an agent in no group: null (the door's own path), got {got.get('stranger')!r}", got.get("stranger") is None)
+    ctx.check(f"without groups placeOf answers as before (main's kids on main), got {got.get('bare')}",
+              got.get("bare") == [{"box": "main"}, {"box": "main"}, {"box": "main"}, None])
+    src = (SRC / "routes/crew/map/askBox.ts").read_text(encoding="utf-8")
+    ctx.check("askBox: the door passes the drawing's groups and a group's box opens the member's card",
+              "L.groups" in src and 'kind: "member"' in src)
 
 
 if __name__ == "__main__":

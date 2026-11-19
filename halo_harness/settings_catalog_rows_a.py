@@ -14,7 +14,7 @@ _EFFORTS = ("low", "medium", "high", "xhigh", "max")
 ROWS = [
     Row("model", "general", "Default model", "model", None, (), "The model a new session starts on; unset, the built-in default applies.", "next session"),
     Row("team", "general", "Active lineup (not read)", "string", None, (), "Not read since 3.6.0.0: lineups are gone; the map a session runs on is crew.map (halo maps use <name>).", "next session"),
-    Row("crew.map", "general", "Map sessions run on", "string", None, (), "The map new sessions run on (Agents -> 3 · Map, My sessions use this); unset, sessions run on their lineup as before.", "next session"),  # 3.6.0.0 R3
+    Row("crew.map", "general", "Map sessions run on", "string", None, (), "The map new sessions run on (Agents -> 3 · Map, New sessions run on this); unset, new sessions run on Auto (the default).", "next session"),  # 3.6.0.0 R3
     Row("permission_mode", "general", "Permission mode", "enum", None, _MODES, "The permission mode new sessions start in; auto allows everything except your own deny and ask rules.", "next session"),
     Row("effort", "general", "Effort", "enum", None, _EFFORTS, "The reasoning effort a session starts with when no flag and no last-used effort says otherwise.", "next session"),
     Row("model_memory", "general", "Model memory", "enum", "cwd", ("cwd", "global"), "Whether the last-used model and effort are remembered per folder (cwd) or once for every folder (global).", "next session"),

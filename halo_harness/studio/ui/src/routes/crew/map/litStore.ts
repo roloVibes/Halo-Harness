@@ -27,9 +27,11 @@ export type LitSession = { sid: string; title: string; map: string | null; start
    *  and its groups; a row naming a map of his, or no map at all, keeps its drawing; B30: `map_agents`, the agents it had at its start (main's hover G5) */
   auto?: boolean; map_agents?: string[] };
 type State = { events: Record<string, OvEvent[]>; totals: Record<string, Totals>; cards: Record<string, { id: string; changes: Change[] }>;
-  pick: string; feed: string; feedFor: string };
+  pick: string; feed: string; feedFor: string;
+  /** 3.6.0.5 B27: the group a card's [Open in Agents -> Live] asked for, taken once by that session's drawing */
+  focus: { sid: string; n: number } | null };
 
-export const lit = createStore<State>({ events: {}, totals: {}, cards: {}, pick: "", feed: "", feedFor: "" });
+export const lit = createStore<State>({ events: {}, totals: {}, cards: {}, pick: "", feed: "", feedFor: "", focus: null });
 export const useLitStore = <T,>(f: (s: State) => T): T => useStore(lit, f);
 const LIVE = ["queued", "running", "waiting", "paused"];
 
@@ -171,3 +173,12 @@ export function useRunning(): LitSession[] {
 export const pickSession = (sid: string) => lit.update(() => ({ pick: sid }));
 /** The drawer's filter: a box id, or "" for everyone. */
 export const setFeedFor = (box: string) => lit.update(() => ({ feedFor: box }));
+/** B27: store the group a card's Open in Agents -> Live names; Agents -> Live brings it to the top. */
+export const focusGroup = (sid: string, n: number) => lit.update(() => ({ focus: { sid, n } }));
+/** B27: the group stored for session `sid` (cleared once taken), else null. */
+export function takeFocus(sid: string): number | null {
+  const f = lit.get().focus;
+  if (!f || f.sid !== sid) return null;
+  lit.update(() => ({ focus: null }));
+  return f.n;
+}

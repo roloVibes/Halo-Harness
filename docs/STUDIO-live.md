@@ -14,6 +14,7 @@ goal run going is a line with Open. The Map never draws the past: a finished goa
 (Goal run), and a finished session is exported (the session export: Session's LAST SESSIONS rows, `halo session export
 <id>`). Session's own Map is the same lit map, smaller.
 `?mode=agents&view=live` lands on 4 · Live (3.6.0.2), the session's run drawn on its map.
+On Auto (the default) the drawing shows each piece of work main hands out as one named, coloured group ([STUDIO-groups.md](STUDIO-groups.md)).
 
 ## The glance
 

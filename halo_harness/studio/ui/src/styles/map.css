@@ -132,3 +132,7 @@
 .mp-group[data-colour="4"] { --g: var(--group-4); }
 .mp-group[data-done] { background: color-mix(in srgb, var(--g) 5%, transparent); }
 .mp-group[data-selected], .mp-group:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+/* 3.6.0.5 B27: the group a card's Open in Agents -> Live brought to the top: its border pulses for 2 s in its own colour
+   (LiveDraw.tsx removes data-pulse on this animation's end; no timer) */
+.mp-group[data-pulse] { animation: mp-group-pulse 2s ease-in-out 1; }
+@keyframes mp-group-pulse { 0%, 50%, 100% { box-shadow: 0 0 0 0 transparent; } 25%, 75% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--g) 55%, transparent); } }

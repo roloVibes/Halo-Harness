@@ -10,6 +10,10 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
 4. Five groups: colour five is colour one; the names differ.
 5. Hover a member: G4 ("Why this model: ..."); its card the same line; a group's card a row per live member with Pause and
    Stop; main's hover on Auto: G5 from the row's map_agents.
+6. (batch 6) The slot names a working group out of sight ("↓ {name} · working ...") in Session and in Agents -> Live, holds
+   still, and its press brings the head into view; on his map Agents -> Live has no slot. A group card's [Open in Agents
+   -> Live] puts the head at the top within 1 s with its border pulsing 2 s. An ask's Open lands on the asker's group
+   (tests/helpers/studio_auto_groups_doors.py).
 Run: python -m tests.test_studio_auto_groups
 """
 from __future__ import annotations
@@ -135,6 +139,64 @@ def test_hover_and_click_say_why_this_model(ctx: Ctx):
               grp.get("title") == "compare" and grp.get("rows") == [["h1", True, True], ["h2", True, True]] and grp.get("sel"))
     ctx.check(f"main's hover on Auto: G5 from the row's map_agents, got {d.get('g5')}",
               d.get("g5") == ["main · glm-5", "Can hand work to: coder, reviewer, writer"])
+
+
+@test
+def test_new_group_below_the_fold_is_named_in_the_slot(ctx: Ctx):
+    d = _ran(ctx, "slot")
+    before, after = d.get("before") or {}, d.get("after") or {}
+    name = "part 5 of the basket work"
+    ctx.check(f"Session: the slot names the fifth group, got {after.get('text')!r}",
+              str(after.get("text") or "").startswith(f"↓ {name} · working")
+              and after.get("text") in (f"↓ {name} · working", *(f"↓ {name} · working and {n} more below" for n in range(1, 5))))
+    ctx.check(f"the slot's rect is the same before and after the words change, got {before.get('rect')} -> {after.get('rect')}",
+              bool(before.get("rect")) and before.get("rect") == after.get("rect"))
+    press = d.get("press") or {}
+    ctx.check(f"its press puts the fifth group's head at the scroll box's top (1 px), got {press}", abs(press.get("d", 99)) <= 1)
+    live, empty = d.get("live") or {}, d.get("live_empty") or {}
+    ctx.check(f"Agents -> Live: the same words in its slot, got {live.get('text')!r}", str(live.get("text") or "").startswith(f"↓ {name} · working"))
+    ctx.check(f"Agents -> Live: the slot and the scroll box hold still when the words go, got {live} -> {empty}",
+              bool(live.get("rect")) and live.get("rect") == empty.get("rect") and live.get("scroll") == empty.get("scroll"))
+    ctx.check(f"its press brings the head into view, got {d.get('live_press')}", (d.get("live_press") or {}).get("inside") is True)
+    his = d.get("his") or {}
+    ctx.check(f"on his map Agents -> Live has no slot, got {his}", his.get("slot") is False and "live-below" not in (his.get("frame") or []))
+
+
+@test
+def test_group_card_open_puts_its_head_at_the_top_within_1s(ctx: Ctx):
+    d = _ran(ctx, "focus")
+    for where in ("session", "live"):
+        w = d.get(where) or {}
+        top, on, off = w.get("top"), w.get("on"), w.get("off")
+        ctx.check(f"from {where}: the head at the top within 1 s of the press, got {w}", top is not None and top <= 1000)
+        ctx.check(f"from {where}: data-pulse within 1 s, gone 2 s later (+-0.5 s), got {w}",
+                  on is not None and on <= 1000 and off is not None and 1500 <= off - on <= 2500)
+    ctx.check(f"Agents -> Live shows it (from Session and staying there), got {d.get('session_view')} {d.get('live_view')}",
+              d.get("session_view") == "live" and d.get("live_view") == "live")
+    ctx.check(f"the card closed, got {d.get('card')}", d.get("card") is False)
+
+
+_DOORS: dict = {}
+
+
+@test
+def test_ask_from_a_group_member_opens_on_its_group(ctx: Ctx):
+    from tests.helpers.chrome_driver import driver_env, find_chrome
+    if not find_chrome():
+        raise SkipTest("no Chrome found (the drawings need headless Chrome)")
+    if not _DOORS:
+        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_auto_groups_doors"], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=300, env=driver_env(REPO), cwd=str(REPO))
+        try:
+            _DOORS.update(json.loads(r.stdout.strip().splitlines()[-1]))
+        except (ValueError, IndexError):
+            _DOORS.update(failed=r.stderr[-600:])
+    if _DOORS.get("skip"):
+        raise SkipTest(_DOORS["skip"])
+    for k in ("ask_live", "ask_session"):
+        got = _DOORS.get(k)
+        ctx.check(f"{k}: group 2 selected, the reviewer's member card open with the ask's choices, got {got!r} {_DOORS.get('failed')!r}",
+                  isinstance(got, list) and got[0] == "member:r3v1e2w0" and got[1] == "reviewer" and got[2] > 0)
 
 
 if __name__ == "__main__":

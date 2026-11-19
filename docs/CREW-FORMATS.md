@@ -117,7 +117,7 @@ the file check names ("the lines make a circle (plan -> ship -> review -> plan)"
 
 A line from main is a hand-off main may make; a line from a box is a chain the runtime follows when that box finishes
 ([CREW-sessions.md](CREW-sessions.md#chains)). A box nothing hands work to waits under "Not connected yet". Config
-`crew.map: <name>` (Studio's **My sessions use this**, `halo maps use <name>`) is the map new sessions run on;
+`crew.map: <name>` (Studio's **New sessions run on this**, `halo maps use <name>`) is the map new sessions run on;
 `halo --map <name>` runs one session on another. 3.6.0.0 R3: an agent's `needs` may also name `tools` (Auto picks a
 model that states tool calls).
 

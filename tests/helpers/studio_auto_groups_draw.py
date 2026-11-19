@@ -13,6 +13,10 @@ No model is called.
     five    five groups: group 5's colour is group 1's; the five names differ
     hover   hover a member: G4; a click: the card with the same "Why this model:" line; a click on a group's name: a row
             per live member with Pause and Stop; hover main: G5 from the row's map_agents
+    slot    (batch 6, B26) a fifth group starts working wholly below the view: the slot names it in Session and in Agents
+            -> Live, holds still, its press brings the head into view; his map hops: Agents -> Live has no slot
+    focus   (batch 6, B27) group 4's card [Open in Agents -> Live] from Session and from Agents -> Live: its head at the
+            top within 1 s, its border pulsing 2 s (timed in the page)
 
     python -m tests.helpers.studio_auto_groups_draw [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -179,6 +183,105 @@ def hover(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"hover": out}
 
 
+NAMES = [f"part {i} of the basket work" for i in range(1, 6)]
+MORE = f"{M}?.querySelector('[data-testid=map-more-below]')"
+SLOT = f"{M}?.querySelector('[data-testid=session-map-below]')"
+LSLOT = f"document.querySelector('{P} [data-testid=live-below]')"
+LMORE = f"document.querySelector('{P} [data-testid=live-more-below]')"
+LGROUP = f"(n) => document.querySelector(`{P} [data-testid=live-group][data-group=\"${{n}}\"]`)"
+# where group n's head stands against its scroll box's top (0 = at the top), and whether it lies inside the visible part
+AT = """((g, s) => { if (!g || !s) return null; const a = g.getBoundingClientRect(), b = s.getBoundingClientRect();
+  return {d: a.top - b.top - s.clientTop, inside: a.top >= b.top - 1 && a.top < b.top + s.clientHeight}; })"""
+
+
+def _five(fifth: str) -> list:
+    """Five groups of three coders; the first four done, the fifth `fifth`."""
+    return [member(f"s{i}{j}", "coder", f"step {j} of part {i}", NAMES[i - 1], i, state="done" if i < 5 else fifth, model="glm-5")
+            for i in range(1, 6) for j in range(1, 4)]
+
+
+def slot(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """B26: a fifth group starts working wholly below the view: the slot names it (Session, then Agents -> Live), holds
+    still, and its press brings the head into view; on a map of his Agents -> Live has no slot."""
+    out: dict = {}
+    main = _main(rows, a)
+    _open(c, rig, rows, a, b, "auto", True, [main, *_five("done")])
+    c.wait(f"!!({GROUP})(5)", 20)
+    time.sleep(1.0)
+    read = (f"({{rect: ({RECT})({SLOT}), text: {MORE}?.textContent || '', button: ({RECT})({MORE}), "
+            f"cols: getComputedStyle({SLOT}).gridTemplateColumns}})")
+    out["before"] = c.js(read)
+    _set(rows, a, [main, *_five("running")])
+    c.wait(f"({MORE})?.textContent.startsWith('↓ {NAMES[4]} · working')", 20)
+    time.sleep(0.5)
+    out["after"] = c.js(read)
+    c.click_on(MORE)
+    scroll = f"{M}.querySelector('.mp-mini-scroll')"
+    try:
+        out["press"] = c.wait(f"(() => {{ const r = ({AT})(({GROUP})(5), {scroll}); return r && Math.abs(r.d) <= 1 && r; }})()", 5)
+    except TimeoutError:
+        out["press"] = c.js(f"({AT})(({GROUP})(5), {scroll})")
+    c.click_on("document.querySelector('[data-testid=session-lit-open]')")
+    c.wait(f"{LW}?.dataset.map === 'auto' && {LW}.querySelectorAll('[data-testid=live-group]').length === 5", 30)
+    c.wait(f"({LMORE})?.textContent.startsWith('↓ {NAMES[4]} · working')", 20)
+    lread = f"({{rect: ({RECT})({LSLOT}), scroll: ({RECT})(document.querySelector('{P} [data-testid=live-scroll]')), text: {LMORE}?.textContent || ''}})"
+    out["live"] = c.js(lread)
+    _set(rows, a, [main, *_five("done")])
+    c.wait(f"!{LMORE}", 20)
+    out["live_empty"] = c.js(lread)
+    _set(rows, a, [main, *_five("running")])
+    c.wait(f"!!{LMORE}", 20)
+    c.click_on(LMORE)
+    lscroll = f"document.querySelector('{P} [data-testid=live-scroll]')"
+    try:
+        out["live_press"] = c.wait(f"(() => {{ const r = ({AT})(({LGROUP})(5), {lscroll}); return r && r.inside && r; }})()", 5)
+    except TimeoutError:
+        out["live_press"] = c.js(f"({AT})(({LGROUP})(5), {lscroll})")
+    _open(c, rig, rows, a, b, "hops", False, [main])  # his map: Agents -> Live as before, no slot
+    c.click_on("document.querySelector('[data-testid=session-lit-open]')")
+    c.wait(f"{LW}?.dataset.map === 'hops'", 30)
+    time.sleep(0.5)
+    out["his"] = c.js(f"({{slot: !!{LSLOT}, frame: [...document.querySelector('{P} [data-testid=live-frame]').children].map((e) => e.dataset.testid || e.className)}})")
+    return {"slot": out}
+
+
+# B27: from the press, in the page: when group n's head first stands at its scroll box's top, when data-pulse came, when it left
+WATCH = """((n) => { const w = window.__focus = {t0: performance.now(), top: null, on: null, off: null};
+  const tick = () => { const s = document.querySelector('[data-part=live] [data-testid=live-scroll]');
+    const g = s && s.querySelector(`[data-testid=live-group][data-group="${n}"]`), t = performance.now() - w.t0;
+    if (g && s.offsetParent) { const d = g.getBoundingClientRect().top - s.getBoundingClientRect().top - s.clientTop;
+      if (w.top == null && Math.abs(d) <= 1) w.top = t;
+      if (g.hasAttribute('data-pulse')) { if (w.on == null) w.on = t; } else if (w.on != null && w.off == null) w.off = t; }
+    if (w.off == null && t < 8000) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick); return 1; })"""
+VIEW = "document.querySelector('[data-testid=agents]')?.dataset.view"
+
+
+def focus(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """B27: group 4's card [Open in Agents -> Live], from Session and from Agents -> Live itself."""
+    out: dict = {}
+    main = _main(rows, a)
+    _open(c, rig, rows, a, b, "auto", True, [main, *_five("running")])
+    c.wait(f"!!({GROUP})(5)", 20)
+    time.sleep(1.0)
+    c.click_on(f"({GROUP})(4).querySelector('[data-testid=map-group-name]')")
+    c.wait("document.querySelector('[data-testid=map-step-in]')?.dataset.target === 'group:4'", 10)
+    c.js(f"{WATCH}(4)")
+    c.click_on("document.querySelector('[data-testid=map-step-in-live]')")
+    out["session"] = c.wait("window.__focus.off != null && window.__focus", 12)
+    out["session_view"] = c.js(VIEW)
+    c.js("document.querySelector('[data-part=live] [data-testid=live-scroll]').scrollTop = 0; 1")
+    time.sleep(0.5)
+    c.click_on(f"({LGROUP})(4).querySelector('[data-testid=map-group-name]')")
+    c.wait(f"document.querySelector('{P} [data-testid=map-step-in]')?.dataset.target === 'group:4'", 10)
+    c.js(f"{WATCH}(4)")
+    c.click_on(f"document.querySelector('{P} [data-testid=map-step-in-live]')")
+    out["live"] = c.wait("window.__focus.off != null && window.__focus", 12)
+    out["live_view"] = c.js(VIEW)
+    out["card"] = c.js(f"!!document.querySelector('{P} [data-testid=map-step-in]')")
+    return {"focus": out}
+
+
 class AutoGroupsDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -192,7 +295,7 @@ class AutoGroupsDriver(MapDownDriver):
             rows = Rows(rig)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (scene, lines, grow, five, hover) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (scene, lines, grow, five, hover, slot, focus) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

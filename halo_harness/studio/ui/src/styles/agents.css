@@ -21,6 +21,8 @@
 .ag-run-tools > .mp-wait-row { flex: 1 1 0; }
 .ag-run-tools > .cz-zoom { margin-left: auto; }
 .ag-run .mp-scroll { flex: 1 1 0; min-height: 0; }
+/* 3.6.0.5 B26: on Auto only, the slot under the scroll box, its one line reserved from the first draw (LiveDraw.tsx) */
+.ag-live-below { flex: none; height: 32px; display: flex; align-items: center; min-width: 0; font-size: 12.5px; }
 .ag-run .mp-label { cursor: pointer; }
 .ag-note {
   display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 2px 4px 2px 10px; font-size: 12px;

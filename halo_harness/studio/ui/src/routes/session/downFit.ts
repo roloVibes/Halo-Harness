@@ -3,7 +3,10 @@
 //   so no box is ever cut by its bottom edge; a box that does not fit waits wholly below it.
 // - `belowCount`: the boxes wholly below the scroll box ("↓ {n} more below"); `nextTop`: one row down (the slot's press).
 // - `firstSeen` / `keepSeen`: after a hand scroll, the first box he sees keeps its place when the drawing changes.
-// No React, no DOM: node runs it (tests/test_studio_session_map_down.py).
+// - `workingBelow` (3.6.0.5 B26): on Auto, the working group out of sight that the slot names.
+// No React, no DOM: node runs it (tests/test_studio_session_map_down.py, tests/test_map_groups.py).
+import type { PlacedDown } from "../crew/map/layoutDown";
+import type { AutoGroup } from "../crew/map/overlayGroups";
 
 export const PAD = 12; // the drawing's top and bottom pad (layoutDown's), and what is kept under the last whole row
 
@@ -36,6 +39,14 @@ export function viewHeight(rows: RowBand[], k: number, top: number, room: number
 /** How many boxes lie wholly below a scroll box `h` px tall scrolled to `top`. */
 export function belowCount(boxes: Placed[], k: number, top: number, h: number): number {
   return boxes.filter((b) => b.y * k >= top + h - 0.5).length;
+}
+
+/** 3.6.0.5 B26 on Auto: the group box wholly below the view whose group (the AutoGroup of its `group.n`: the member
+ *  states are the groups', never the box's) has a member working; the lowest n; null when none. */
+export function workingBelow(boxes: PlacedDown[], groups: AutoGroup[], k: number, top: number, viewH: number): PlacedDown | null {
+  const working = new Set(groups.filter((g) => g.members.some((m) => m.state === "working")).map((g) => g.n));
+  const below = boxes.filter((b) => b.group && working.has(b.group.n) && b.y * k >= top + viewH - 0.5);
+  return below.sort((p, q) => p.group!.n - q.group!.n)[0] || null;
 }
 
 /** The scrollTop that brings the next row's top to the scroll box's top (one row down), or null at the last row. */

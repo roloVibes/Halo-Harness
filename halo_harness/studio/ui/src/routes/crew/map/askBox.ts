@@ -25,12 +25,20 @@ export function askBox(where: AskWhere, sid: string, aid: string, then: AskThen 
 }
 
 /** The card a click on `el` opens, with the asking agent's row first (it may not be live by the rows' reading). */
-export function askTarget(el: HTMLElement, aid: string, L: Pick<Lit, "agents" | "ov">): Target {
+export function askTarget(el: HTMLElement, aid: string, L: Pick<Lit, "agents" | "ov" | "groups">): Target {
+  if (el.dataset.group) { // 3.6.0.5 on Auto: the asker is a member of this group: its member's card (why this model)
+    const text = el.querySelector<HTMLElement>(`[data-member="${CSS.escape(aid)}"]`)?.textContent || "";
+    return first(stepIn({ kind: "member", aid, text }, L.agents, L.ov, L.groups), aid, L);
+  }
   const face = el.querySelector<HTMLElement>(el.dataset.workflow ? "[data-testid=session-map-block-head]" : ".mp-lit-row");
   const text = face?.textContent || "";
   const h: Hit = el.dataset.workflow ? { kind: "head", workflow: el.dataset.workflow, text }
     : { kind: "box", box: el.dataset.box || "", name: el.querySelector(".mp-name")?.textContent || el.dataset.box || "", text };
-  const t = stepIn(h, L.agents, L.ov);
+  return first(stepIn(h, L.agents, L.ov), aid, L);
+}
+
+/** The asking agent's row first (it may not be live by the rows' reading). */
+function first(t: Target, aid: string, L: Pick<Lit, "agents">): Target {
   const me = L.agents.find((a) => a.id === aid);
   return me ? { ...t, title: who(me).name, who: [who(me), ...t.who.filter((w) => w.aid !== aid)] } : t;
 }
@@ -41,7 +49,7 @@ export function useAskedBox(where: AskWhere, sid: string, L: Lit, world: RefObje
   const w = useStore(want, (s) => s);
   useEffect(() => {
     if (!w.n || w.where !== where || w.sid !== sid) return;
-    const at = placeOf(w.aid, L.ov, L.agents);
+    const at = placeOf(w.aid, L.ov, L.agents, L.groups); // on Auto (L.groups): main or the asker's group
     const off = at ? null : L.ov?.strangers.find((x) => x.aid === w.aid);
     if (off) { // on no box: nothing to select; the Feed carries its ask
       want.update(() => NONE);

@@ -10,6 +10,7 @@
 import type { OvRow, Overlay } from "./overlay";
 import { runningStep } from "./overlayBlocks";
 import type { AutoGroup } from "./overlayGroups";
+import { groupId } from "./litView";
 import { whyThisModel } from "./truthBits";
 
 export type Hit =
@@ -78,9 +79,14 @@ export function stepIn(h: Hit, rows: RecRow[], ov: Overlay | null, groups?: Auto
   return { ...base, title: a ? who(a).name : `${h.from} -> ${h.to}`, who: a ? [who(a)] : [], sender: h.off ? h.from : "" };
 }
 
-/** Where agent `aid` is drawn: the box its row belongs to, else its workflow's block. Pure (tests/test_studio_door_kept.py; askBox.ts uses it). */
-export function placeOf(aid: string, ov: Overlay | null, rows: RecRow[]): { box?: string; workflow?: string } | null {
+/** Where agent `aid` is drawn: the box its row belongs to, else its workflow's block. Pure (tests/test_studio_door_kept.py; askBox.ts uses it).
+ *  3.6.0.5 `groups` (a drawing on Auto): main, else the group it is a member of (`member`: its id), else null. */
+export function placeOf(aid: string, ov: Overlay | null, rows: RecRow[], groups?: AutoGroup[]): { box?: string; workflow?: string; member?: string } | null {
   if (aid === "main") return { box: "main" };
+  if (groups) {
+    const g = groups.find((x) => x.members.some((m) => m.aid === aid));
+    return g ? { box: groupId(g.n), member: aid } : null;
+  }
   if (!ov) return null;
   for (const [id, b] of Object.entries(ov.boxes)) if (b.agents.includes(aid)) return { box: id };
   for (const [id, ks] of Object.entries(ov.kids)) if (ks.some((k) => k.aid === aid)) return { box: id };

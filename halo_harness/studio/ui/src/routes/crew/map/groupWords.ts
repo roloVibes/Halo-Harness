@@ -59,6 +59,8 @@ export const memberState = (m: Member): string => (m.model ? `${m.model} · ${ST
 /** B2 a child of a child's third line: its parent member's who and description. */
 export const startedBy = (who: string, task: string): string => `started by ${who}: ${task}`;
 export const moreMembers = (n: number): string => `+${n} more`;
+/** B26 the slot at the drawing's foot: a working group wholly out of sight, and how many other boxes wait below. */
+export const belowGroup = (name: string, more: number): string => `↓ ${name} · working${more > 0 ? ` and ${more} more below` : ""}`;
 /** The third line of member `m` of group `g` ("" for a child of main). */
 export function thirdLine(g: AutoGroup, m: Member): string {
   if (!m.by) return "";
