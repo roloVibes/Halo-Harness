@@ -372,7 +372,7 @@ jobs:
       matrix:
         os: [linux, macos, windows]
         install: [checkout, installed]
-    timeout-minutes: 50  # 3.6.0.2 P8: the realcheck step below has 45
+    timeout-minutes: 56  # 3.6.0.2 P8: the realcheck step below has 51
     env:
       PYTHONUTF8: "1"
     defaults:
@@ -431,7 +431,7 @@ jobs:
           halo --version
 
       - name: realcheck
-        timeout-minutes: 45  # 3.6.0.2 P8: the steps' own budgets add up to about 2,480 s on Windows
+        timeout-minutes: 51  # 3.6.0.2 P8: the steps' own budgets add up to about 2,810 s on Windows (3.6.0.5: auto-groups, auto-ready-lines)
         run: set -o pipefail; python scripts/realcheck.py ${{ matrix.install == 'installed' && '--installed' || '' }} --json "$RUNNER_TEMP/realcheck.json" --summary "$GITHUB_STEP_SUMMARY" 2>&1 | tee "$RUNNER_TEMP/realcheck.log"
 
       - name: The closing tests with the venv's python (Windows, installed leg)

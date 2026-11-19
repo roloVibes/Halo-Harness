@@ -41,6 +41,7 @@ from realcheck.report import FAIL, PASS, SKIP, Result, markdown, run_info, to_js
 def _steps() -> list:
     """(name, budget seconds, what it checks, the function)."""
     from realcheck import steps_a as A, steps_b as B, steps_c as C, steps_close as Z, steps_map as M, steps_prompt as P
+    from realcheck import steps_auto as S
     return [
         ("starts", 20, "`halo --version` and `--help` answer in 2 s; --help names every command", A.starts),
         ("first-run", 120, "`halo init` in a fresh home: address, page, Setup's read, no beep, instrument", A.first_run),
@@ -52,6 +53,12 @@ def _steps() -> list:
          "answered in Studio, no user or host name, follows after /clear", P.prompt),
         ("session-map", 180 if sys.platform == "win32" else 120, "the owner's sentence: a workflow built in a terminal "
          "session shows at once in Studio's Live drawer, down, marked; Agents opens on Live", M.session_map),
+        ("auto-groups", 150 if sys.platform == "win32" else 90, "Auto's own groups: five replies of a real session "
+         "drawn as four named, coloured groups in Session and in Agents -> Live; /status says Auto; nothing left",
+         S.auto_groups),
+        ("auto-ready-lines", 180 if sys.platform == "win32" else 120, "a build on Auto says what is ready: the card "
+         "makes no map, the folded card and Studio's head say ready now and saved for the next session, crew.map "
+         "unchanged; 'use it now' draws the workflow as a group", S.auto_ready_lines),
         ("packs", 120, "the shipped doc-review pack installs, is listed, and its agent takes work by name", C.packs),
         ("local", 120, "`halo local ps|warm|unload` on another machine's Ollama; one load per one-shot", C.local),
         ("update", 90, "`halo update --check` online and offline, in plain words", C.update),

@@ -53,12 +53,16 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         rc = m.main(["--list"])
     lines = out.getvalue().splitlines()
     names = [line.split()[0] for line in lines]
-    ctx.check(f"the fourteen steps in order, got {names}", rc == 0 and names == [
-        "starts", "first-run", "theme", "question", "turn", "studio", "prompt", "session-map", "packs", "local", "update",
-        "closing", "no-reuse", "idle-cpu"])  # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`
-    budget = next((line.split()[1] for line in lines if line.split()[0] == "session-map"), "")
-    want = "180s" if sys.platform == "win32" else "120s"
-    ctx.check(f"session-map's budget is {want} here (180 s on Windows, 120 s elsewhere), got {budget!r}", budget == want)
+    ctx.check(f"the sixteen steps in order, got {names}", rc == 0 and names == [
+        "starts", "first-run", "theme", "question", "turn", "studio", "prompt", "session-map", "auto-groups",
+        "auto-ready-lines", "packs", "local", "update", "closing", "no-reuse", "idle-cpu"])
+    # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`; 3.6.0.5: the two Auto steps after `session-map`
+    win = sys.platform == "win32"
+    for step, want, words in (("session-map", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
+                              ("auto-groups", "150s" if win else "90s", "150 s on Windows, 90 s elsewhere"),
+                              ("auto-ready-lines", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere")):
+        budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
+        ctx.check(f"{step}'s budget is {want} here ({words}), got {budget!r}", budget == want)
     ctx.check("an unknown step: exit 2", m.main(["--only", "no-such-step"]) == 2)
 
 
@@ -327,6 +331,94 @@ def _map_build_and_ask(ctx: Ctx) -> None:
                   not calls and said.strip() == BUILD_DONE)
         ctx.check("the step and this test read the same words", [getattr(fakes, n, None) for n in (
             "BUILD_PROMPT", "ASK_PROMPT", "MAPBUILD_DONE", "MAPASK_DONE")] == [BUILD, ASK, BUILD_DONE, ASK_DONE])
+    finally:
+        p.stop()
+
+
+@test
+def test_the_fake_provider_plays_auto_groups_build_and_use(ctx: Ctx):
+    """3.6.0.5 section 6: RC-AUTOGROUPS is scene 2's five replies (three researchers with the task "compare the three
+    reports" in ONE message, then coder, reviewer, an Agent and a Task with no task), each sub-agent answering after
+    SUBWAIT_S; RC-AUTOBUILD is ONE Builder call (the agent checker, the workflow review: no map); RC-AUTOUSE is ONE
+    Workflow call to review whose step children are held at the gate. Each reads the current turn only."""
+    from tests.helpers.mock_openai import SCENARIOS
+    before = {k: SCENARIOS.get(k) for k in ("model", "realcheck")}
+    try:
+        _auto_groups_build_and_use(ctx)
+    finally:
+        ctx.check("stopped, the table holds what it held before",
+                  all(SCENARIOS.get(k) is v for k, v in before.items()))
+
+
+AUTOGROUPS, AUTOGROUPS_DONE = "RC-AUTOGROUPS: five replies", "RC-AUTOGROUPS-DONE"
+AUTOBUILD, AUTOBUILD_DONE = "RC-AUTOBUILD: build me a review workflow: a coder then a checker", "RC-AUTOBUILD-DONE"
+AUTOUSE, AUTOUSE_DONE = "RC-AUTOUSE: use it now", "RC-AUTOUSE-DONE"
+
+
+def _ask(p, msgs: list) -> "tuple[str, list]":
+    return _stream(_post(p.base_url, {"model": "any/thing", "stream": True, "messages": msgs}))
+
+
+def _called(msgs: list, calls: list, results: int) -> list:
+    """`msgs` with one assistant message calling `calls` and `results` tool results after it."""
+    tcs = [{"id": f"c{i}", "type": "function", "function": {"name": n, "arguments": json.dumps(a)}}
+           for i, (n, a) in enumerate(calls)]
+    return msgs + [{"role": "assistant", "content": None, "tool_calls": tcs}] + [
+        {"role": "tool", "tool_call_id": f"c{i}", "content": "done"} for i in range(results)]
+
+
+def _auto_groups_build_and_use(ctx: Ctx) -> None:
+    p = fakes.Provider().start()
+    try:
+        replies = getattr(fakes, "AUTOGROUPS_REPLIES", None) or []
+        want = [[(n, a) for n, a, _cid in r] for r in replies]
+        msgs = [{"role": "user", "content": AUTOGROUPS}]
+        said, calls = _ask(p, msgs)
+        ctx.check(f"(a) RC-AUTOGROUPS: one message with the three Agent calls of reply 1, got {said!r} {calls}",
+                  len(want) == 5 and len(calls) == 3 and calls == want[0] and all(n == "Agent" for n, _a in calls)
+                  and all(a.get("task") == "compare the three reports" for _n, a in calls))
+        done = 3
+        convo = _called(msgs, calls, 3)
+        for k in range(1, 5):
+            said, calls = _ask(p, convo)
+            ctx.check(f"(a) after {done} results: reply {k + 1}, got {said!r} {calls}",
+                      len(want) == 5 and calls == want[k])
+            done += 1
+            convo = _called(convo, calls, 1) if calls else convo  # this turn's results now number `done`
+        if len(want) == 5:
+            ctx.check("(a) replies 4 and 5 hold no task key; reply 5 is a Task call",
+                      "task" not in want[3][0][1] and "task" not in want[4][0][1] and want[4][0][0] == "Task"
+                      and want[3][0][0] == "Agent")
+        said, calls = _ask(p, convo)
+        ctx.check(f"(a) after 7 results: no call, the text AUTOGROUPS_DONE, got {said!r} {calls}",
+                  not calls and said == AUTOGROUPS_DONE)
+        t0 = time.monotonic()
+        said, calls = _ask(p, [{"role": "user", "content": "RC-SUBWAIT: read report A"}])
+        took = time.monotonic() - t0
+        ctx.check(f"(b) a RC-SUBWAIT sub-agent answers SUB_DONE no sooner than 2.5 s, got {said!r} after {took:.2f} s",
+                  not calls and said == fakes.SUB_DONE and took >= 2.5)
+        msgs = [{"role": "user", "content": AUTOBUILD}]
+        said, calls = _ask(p, msgs)
+        build = getattr(fakes, "AUTO_BUILD_CHANGES", None)
+        ctx.check(f"(c) RC-AUTOBUILD: one Builder call with AUTO_BUILD_CHANGES, got {said!r} {calls}",
+                  build is not None and calls == [("Builder", {"changes": build})]
+                  and [c["tool"] for c in build] == ["agent_make", "workflow_make"])
+        said, calls = _ask(p, _called(msgs, calls, 1))
+        ctx.check(f"(c) after its result: AUTOBUILD_DONE, got {said!r} {calls}", not calls and said == AUTOBUILD_DONE)
+        msgs = [{"role": "user", "content": AUTOUSE}]
+        said, calls = _ask(p, msgs)
+        ctx.check(f"(d) RC-AUTOUSE: one Workflow call to review held at the gate, got {said!r} {calls}",
+                  calls == [("Workflow", {"name": "review", "task": "RC-SUBHANG: fix the login bug"})])
+        said, calls = _ask(p, _called(msgs, calls, 1))
+        ctx.check(f"(d) after its result: AUTOUSE_DONE, got {said!r} {calls}", not calls and said == AUTOUSE_DONE)
+        later = [{"role": "user", "content": AUTOGROUPS}, {"role": "assistant", "content": AUTOGROUPS_DONE},
+                 {"role": "user", "content": "RC-ASK"}]
+        said, calls = _ask(p, later)
+        ctx.check(f"(e) a later turn RC-ASK after an RC-AUTOGROUPS turn: ANSWER, got {said!r} {calls}",
+                  not calls and said == fakes.ANSWER)
+        ctx.check("(f) the step and this test read the same words", [getattr(fakes, n, None) for n in (
+            "AUTOGROUPS_PROMPT", "AUTOGROUPS_DONE", "AUTOBUILD_PROMPT", "AUTOBUILD_DONE", "AUTOUSE_PROMPT",
+            "AUTOUSE_DONE")] == [AUTOGROUPS, AUTOGROUPS_DONE, AUTOBUILD, AUTOBUILD_DONE, AUTOUSE, AUTOUSE_DONE])
     finally:
         p.stop()
 
@@ -951,6 +1043,192 @@ def test_session_map_step_is_a_skip_with_browser_none_before_any_halo(ctx: Ctx):
     ctx.check(f"one SKIP naming the switch, got {got}",
               got == [("session-map", "SKIP", "no browser may be used here (--browser none)")])
     ctx.check(f"no halo and no Chrome was started or looked for, got {calls}", calls == [])
+
+
+@test
+def test_auto_steps_are_skips_with_browser_none_before_any_halo(ctx: Ctx):
+    """3.6.0.5 section 6: the steps auto-groups and auto-ready-lines open a browser, so --browser none makes each a
+    counted SKIP naming the switch, and no `halo` (not even the `halo workflows copy` of auto-ready-lines) and no Chrome
+    is started or looked for first."""
+    from unittest import mock
+    from tests.helpers import chrome_driver
+    m = _main_module()
+    chosen = [s for s in m._steps() if s[0] in ("auto-groups", "auto-ready-lines")]
+    ctx.check(f"realcheck has the two Auto steps, got {[s[0] for s in m._steps()]}", len(chosen) == 2)
+    if len(chosen) != 2:
+        return
+    calls: list = []
+
+    def no_halo(self, *a, **k):
+        calls.append("halo")
+        raise RuntimeError("a halo was started")
+    with mock.patch.object(core.Ctx, "terminal", no_halo), mock.patch.object(core.Ctx, "run", no_halo), \
+            mock.patch.object(chrome_driver, "find_chrome", lambda *a, **k: calls.append("find") or "chrome"), \
+            mock.patch.object(chrome_driver, "open_chrome", lambda *a, **k: calls.append("open")), \
+            mock.patch.dict(os.environ, {"REALCHECK_BROWSER": ""}):
+        results, _v = m.run(chosen, root=tempfile.mkdtemp(prefix="rc-test-"), probe_version=False,
+                            say=lambda s: None, browser="none")
+    got = [(r.name, r.status, r.detail) for r in results]
+    ctx.check(f"two SKIPs naming the switch, got {got}",
+              got == [(n, "SKIP", "no browser may be used here (--browser none)")
+                      for n in ("auto-groups", "auto-ready-lines")])
+    ctx.check(f"no halo and no Chrome was started or looked for, got {calls}", calls == [])
+
+
+def _steps_auto():
+    from realcheck import steps_auto
+    return steps_auto
+
+
+def _scene2_read() -> "tuple[dict, dict, list, dict]":
+    """(the groups' read, group 1's first record, the line records, the lines at the end) as scene 2 draws them."""
+    s = _steps_auto()
+    cols = {"1": "rgb(1, 1, 1)", "2": "rgb(2, 2, 2)", "3": "rgb(3, 3, 3)", "4": "rgb(4, 4, 4)"}
+    lines = {1: ["researcher: read report A", "researcher: read report B", "researcher: read report C"],
+             2: ["coder: fix the login bug", "reviewer: review the fix"], 3: ["general-purpose: summarize the notes"],
+             4: ["general-purpose: list the open bugs"]}
+    groups = [{"n": str(n), "colour": str(n), "top": 10 + 100 * (n - 1), "bottom": 90 + 100 * (n - 1), "name": name,
+               "border": cols[str(n)], "own": cols[str(n)], "members": lines[n]} for n, name, _a in s.GROUPS]
+    read = {"groups": groups, "probes": {"--accent": "rgb(9, 9, 9)", "--warn": "rgb(8, 8, 8)", "--ok": "rgb(7, 7, 7)",
+                                         "--bad": "rgb(6, 6, 6)"}}
+    records = [{"to": f"group:{n}", "lit": "live", "hops": 0} for n in (1, 2, 3, 4)] + [
+        {"to": f"group:{n}", "lit": "trace", "hops": 1} for n in (1, 2, 3, 4)]
+    last = {f"group:{n}": {"lit": "trace", "hops": 1} for n in (1, 2, 3, 4)}
+    return read, {"top": 10, "members": 3, "name": "compare the three reports"}, records, last
+
+
+@test
+def test_auto_groups_judges_what_the_page_drew(ctx: Ctx):
+    """3.6.0.5 section 6: each judge of auto-groups is a pure function of what the page drew: a read as scene 2 draws
+    it gives no failure, and each fault gives exactly its own named failure (no browser here)."""
+    import copy
+    s = _steps_auto()
+    w15 = ("This session runs on Auto (the default), as it started at 10:24. Main picks who works on each task; each "
+           "task shows as a named, coloured group.")
+    pages = [{"page": n, "drawn": True, "starter": []} for n, _q, _i in s.PAGES]
+    pages[0]["live"] = {"map": "auto", "groups": 0}
+    before = {"map": "auto", "boxes": ["main"], "groups": 0, "truth": w15, "pages": pages}
+    read, first, records, last = _scene2_read()
+    rec = {"spawn": 1000.0, "full": 1000.0 + 1000 * (s.GROUP_FIRST_S - 1), "first": {"1": first}, "lines": 8}
+    live = {"map": "auto", "main": 300.0, "groups": [{"n": str(n), "name": name, "left": 320.0} for n, name, _a in s.GROUPS]}
+    why = {f"m{i}": "researcher · glm-5 · working\nWhy this model: code work" for i in range(7)}
+    cut = {"small": [], "cut": []}
+
+    def lines_all(recs, lst):
+        return [x for n in (1, 2, 3, 4) for x in s.judge_lines(recs, lst, n)]
+    ok = (s.judge_before(before) + s.judge_record(rec) + s.judge_groups(read, first) + lines_all(records, last)
+          + s.judge_why(why) + s.judge_cut(cut) + s.judge_live(live))
+    ctx.check(f"scene 2 as drawn: no failure, got {ok}", ok == [])
+
+    def one(name: str, got: list, word: str) -> None:
+        ctx.check(f"{name}: exactly one failure naming {word!r}, got {got}", len(got) == 1 and word in got[0])
+
+    b = copy.deepcopy(before)
+    b["map"] = "starter"
+    one("a drawer with data-map starter", s.judge_before(b), "'starter', not auto")
+    b = copy.deepcopy(before)
+    b["boxes"] = ["main", "planner"]
+    one("a second box beside main", s.judge_before(b), "not main alone")
+    b = copy.deepcopy(before)
+    b["pages"][1]["starter"] = ["Pick a map: starter (the default)"]
+    one("a page text with starter (the default)", s.judge_before(b), "Agents: Map says starter")
+    b = copy.deepcopy(before)
+    b["pages"][-1]["starter"] = ["Running: starter (the default)"]
+    one("the Session page's text with starter (the default)", s.judge_before(b), "Session says starter")
+    g = copy.deepcopy(read)
+    g["groups"][1]["top"] = g["groups"][0]["bottom"] - 1
+    one("group 2's top 1 px above group 1's bottom", s.judge_groups(g, first), "above group 1's bottom")
+    one("group 1's top 1 px off its first top", s.judge_groups(read, dict(first, top=11)), "group 1 moved")
+    g = copy.deepcopy(read)
+    g["groups"][0]["members"] = g["groups"][0]["members"][:2]
+    one("a group with 2 members where 3 are due", s.judge_groups(g, first), "group 1 holds")
+    g = copy.deepcopy(read)
+    g["groups"][0]["border"] = g["groups"][0]["own"] = read["probes"]["--accent"]
+    one("a border equal to the --accent probe", s.judge_groups(g, first), "--accent")
+    g = copy.deepcopy(read)
+    g["groups"][1]["members"].reverse()
+    one("reviewer before coder in group 2", s.judge_groups(g, first), "group 2 holds ['reviewer', 'coder']")
+    r = [x for x in records if not (x["to"] == "group:2" and x["lit"] == "live")]
+    one("a line never live", lines_all(r, last), "group 2 was never drawn live")
+    lst = dict(last, **{"group:3": {"lit": "trace", "hops": 0}})
+    one("a line with hops 0 at the end", lines_all(records, lst), "0 hand-off(s)")
+    w = dict(why, m3="coder · glm-5 · working")
+    one("a member's hover without WHY", s.judge_why(w), "m3")
+    one("a text of 11.5 px", s.judge_cut({"small": [["mp-member-line", 11.5]], "cut": []}), "11.5 px")
+    one("a member with scrollHeight 40 over clientHeight 38",
+        s.judge_cut({"small": [], "cut": [["mp-member", 40, 38, 100, 100]]}), "is cut")
+    lv = copy.deepcopy(live)
+    lv["groups"][2]["left"] = 299.0
+    one("a Live group 1 px left of main's right", s.judge_live(lv), "group 3's left")
+    got = s.judge_record({"spawn": 0, "full": 2000.0, "first": {"1": first}, "lines": 8})
+    one("a recorder that saw no spawn frame", got, "nothing of the first spawn frame")
+    got = s.judge_record({"spawn": 0, "full": 0, "first": {}, "lines": 0})
+    ctx.check(f"a recorder that saw nothing: one failure per thing it missed, got {got}",
+              len(got) == 4 and all("recorder saw nothing" in x for x in got))
+    ctx.check("no recorder at all is a failure", len(s.judge_record(None)) == 1)
+    late = dict(rec, full=rec["spawn"] + 1000 * (s.GROUP_FIRST_S + 0.1))
+    one("group 1 full GROUP_FIRST_S + 0.1 s after the spawn frame", s.judge_record(late), "after the first spawn frame")
+
+
+def _boxed(text: str, width: int = 80) -> str:
+    """`text` wrapped at `width` columns inside box-drawing characters, as a terminal card draws it."""
+    import textwrap
+    return "\n".join("│ " + line.ljust(width - 4) + " │" for line in textwrap.wrap(text, width - 4))
+
+
+@test
+def test_auto_ready_lines_reads_the_card_and_the_lines_in_any_wrap(ctx: Ctx):
+    """3.6.0.5 section 6: auto-ready-lines reads A15 and the lines through a wrap and box-drawing characters; P1 and P2
+    count only in the Builder card's header (between its '⏺' and its '✓' status row); a map row or a use row, A15 with
+    another agent, a third line or a pair each give their named failure (no browser here)."""
+    s = _steps_auto()
+    card = "⏺ Builder: apply these 2 changes?\n" + _boxed(s.A15) + "\n" + _boxed("Make the agent checker") + "\n"
+    ctx.check(f"the card wrapped at 80 columns: no failure, got {s.judge_card(card)}", s.judge_card(card) == [])
+    got = s.judge_card(card + _boxed("Make a new map review-flow"))
+    ctx.check(f"a map row: its failure, got {got}", len(got) == 1 and "Make a new map" in got[0])
+    got = s.judge_card(card + _boxed("New sessions run on review-flow."))
+    ctx.check(f"a use row: its failure, got {got}", len(got) == 1 and "New sessions run on" in got[0])
+    got = s.judge_card(card.replace("checker)", "reviewer)"))
+    ctx.check(f"A15 with reviewer for checker: its failure, got {got}", len(got) == 1 and "does not say" in got[0])
+    head = "⏺ Builder(2 changes)\n"
+    body = _boxed("Written: the agent checker, the workflow review. Undo: u1.") + "\n"
+    folded = head + _boxed(s.P1) + "\n" + _boxed(s.P2) + "\n  ✓ done · 0.4 s\n" + body
+    ctx.check(f"P1 then P2 in the header, wrapped: no failure, got {s.judge_ready_lines(folded)}",
+              s.judge_ready_lines(folded) == [])
+    short = s.P2.replace("; as a step of the workflow review it can run now", "")
+    got = s.judge_ready_lines(head + _boxed(s.P1) + "\n" + _boxed(short) + "\n  ✓ done\n")
+    ctx.check(f"P2 without its step clause: its failure, got {got}", len(got) == 1 and "does not say" in got[0])
+    got = s.judge_ready_lines(head + _boxed(s.P2) + "\n" + _boxed(s.P1) + "\n  ✓ done\n")
+    ctx.check(f"P2 before P1: its failure, got {got}", len(got) == 1 and "after P1" in got[0])
+    got = s.judge_ready_lines(head + "  ✓ done · 0.4 s\n" + body + _boxed(s.P1) + "\n" + _boxed(s.P2) + "\n")
+    ctx.check(f"P1 and P2 only in the body, below the status row: its failure, got {got}",
+              len(got) == 1 and "body, not its header" in got[0])
+    good = {"head": s.H1, "buttons": [s.OPEN_WF], "lines": [s.P1, s.P2], "pair": False, "map": "auto"}
+    ctx.check(f"the head as t draws it: no failure, got {s.judge_head(good)}", s.judge_head(good) == [])
+    for name, bad, word in (("a head read with starter for the map", dict(good, map="starter"), "'starter'"),
+                            ("a third ready line", dict(good, lines=[s.P1, s.P2, s.P2]), "not P1 then P2"),
+                            ("a pair", dict(good, pair=True), "pair")):
+        got = s.judge_head(bad)
+        ctx.check(f"{name}: its failure, got {got}", len(got) == 1 and word in got[0])
+    use = {"found": True, "map": "auto", "rect": [10, 100, 400, 180], "visible": [0, 60, 1280, 800]}
+    ctx.check(f"the workflow's group in view: no failure, got {s.judge_use(use)}", s.judge_use(use) == [])
+    got = s.judge_use(dict(use, rect=[10, 700, 400, 820]))
+    ctx.check(f"a group below the drawing's fold: its failure, got {got}", len(got) == 1 and "visible box" in got[0])
+
+
+@test
+def test_auto_steps_read_the_words_that_ship(ctx: Ctx):
+    """3.6.0.5 section 6: one place for the words: the step's A15 is the product's FIRST_WORKFLOW_AUTO for this card,
+    and its P1 and P2 are what ready_now.p_lines gives for this card's answer (ready review; later the agent checker,
+    AG1, a step of review). If they differ, the step's words are wrong, never the product's."""
+    from halo_harness.crew import map_facts, ready_now
+    s = _steps_auto()
+    a15 = map_facts.FIRST_WORKFLOW_AUTO.format(words="review", W="review", steps="coder, then checker")
+    ctx.check(f"A15 is the product's, got {s.A15!r} vs {a15!r}", s.A15 == a15)
+    answer = {"ready": ["review"], "later": [{"kind": "agent", "name": "checker", "why": "AG1", "step": "review"}],
+              "p3": []}
+    lines = ready_now.p_lines(answer)
+    ctx.check(f"P1 and P2 are the product's, got {[s.P1, s.P2]} vs {lines}", [s.P1, s.P2] == lines)
 
 
 @test

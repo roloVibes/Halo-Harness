@@ -15,9 +15,15 @@ never by model name, so a sub-agent or a workflow step on another model is answe
                          then MAPBUILD_DONE + the sentence the result says to repeat
   RC-MAPASK              MAPASK_DONE
   RC-PERM                a Bash call `PERM_CMD` (a write: the default mode asks permission first), then ANSWER
+  RC-AUTOGROUPS          scene 2's five replies (`AUTOGROUPS_REPLIES`: three researchers in one message, coder, reviewer,
+                         an Agent and a Task with no task), each child RC-SUBWAIT, then AUTOGROUPS_DONE
+  RC-AUTOBUILD           one Builder call `AUTO_BUILD_CHANGES` (the agent checker, the workflow review: no map), then
+                         AUTOBUILD_DONE
+  RC-AUTOUSE             one Workflow call to review whose step children carry RC-SUBHANG, then AUTOUSE_DONE
+  RC-SUBWAIT             SUB_DONE after SUBWAIT_S seconds (a fresh wait: `release()` never shortens it)
   RC-SUB / anything else  SUB_DONE / ANSWER
 
-RC-MAPBUILD and RC-MAPASK are read from the current turn's own user nodes only (`_this_turn`): a note Halo puts at a
+RC-MAPBUILD, RC-MAPASK and the three RC-AUTO markers are read from the current turn's own user nodes only (`_this_turn`): a note Halo puts at a
 turn's start, before or after the typed line, and an earlier turn's Builder result never change what they answer.
 
 Every request is kept (`requests`, with its size in bytes). `Ollama` is tests/helpers/mock_ollama_loads.
@@ -48,6 +54,39 @@ BUILD_CHANGES = [
     {"tool": "map_box_add", "args": {"map": "review-flow", "kind": "workflow", "ref": "review"}},
     {"tool": "map_line_add", "args": {"map": "review-flow", "from": "main", "to": "review", "when": "always"}},
 ]
+# 3.6.0.5 section 6: scene 2 (auto-groups), scene 4's build on Auto and its "use it now" (auto-ready-lines)
+AUTOGROUPS_PROMPT, AUTOGROUPS_DONE = "RC-AUTOGROUPS: five replies", "RC-AUTOGROUPS-DONE"
+AUTOBUILD_PROMPT = "RC-AUTOBUILD: build me a review workflow: a coder then a checker"
+AUTOBUILD_DONE = "RC-AUTOBUILD-DONE"
+AUTOUSE_PROMPT, AUTOUSE_DONE = "RC-AUTOUSE: use it now", "RC-AUTOUSE-DONE"
+SUBWAIT_S = 3.0  # each RC-SUBWAIT child answers after this long
+
+
+def _agent(desc: str, agent: str, task: "str | None" = None) -> dict:
+    args = {"description": desc, "prompt": "RC-SUBWAIT: " + desc, "subagent_type": agent}
+    if task is not None:
+        args["task"] = task
+    return args
+
+
+# the five replies, each a list of (tool name, arguments, call id) as `tool_step` takes them; replies 4 and 5 carry no
+# task (a call without it still runs, b/batch01 entry 1)
+AUTOGROUPS_REPLIES = [
+    [("Agent", _agent(f"read report {x}", "researcher", "compare the three reports"), f"call_rc_g1{x.lower()}")
+     for x in "ABC"],
+    [("Agent", _agent("fix the login bug", "coder", "fix the login bug"), "call_rc_g2")],
+    [("Agent", _agent("review the fix", "reviewer", "Fix the login bug."), "call_rc_g3")],
+    [("Agent", _agent("summarize the notes", "general-purpose"), "call_rc_g4")],
+    [("Task", _agent("list the open bugs", "general-purpose"), "call_rc_g5")],
+]
+# the one card RC-AUTOBUILD asks for: on Auto the card makes no map and no use row (a/batch05 entry 1)
+AUTO_BUILD_CHANGES = [
+    {"tool": "agent_make", "args": {"name": "checker", "does": "checks the code against the request"}},
+    {"tool": "workflow_make", "args": {"name": "review", "for": "review", "steps": [
+        {"name": "code", "agents": ["coder"]}, {"name": "check", "agents": ["checker"]}]}},
+]
+# RC-AUTOGROUPS: which reply answers how many of this turn's tool results (any other count: the end, never a hang)
+_AUTOGROUPS_AT = {0: 0, 3: 1, 4: 2, 5: 3, 6: 4}
 
 
 def _text(content) -> str:
@@ -176,6 +215,22 @@ class Provider:
             if done_here == 0:
                 return _finish(h, tool_step(("Bash", {"command": PERM_CMD, "description": "rc perm"}, "call_rc_perm")))
             return _finish(h, text_step(ANSWER))
+        if "RC-AUTOGROUPS" in turn:
+            if done_here in _AUTOGROUPS_AT:
+                return _finish(h, tool_step(*AUTOGROUPS_REPLIES[_AUTOGROUPS_AT[done_here]]))
+            return _finish(h, text_step(AUTOGROUPS_DONE))
+        if "RC-AUTOBUILD" in turn:
+            if done_here == 0:
+                return _finish(h, tool_step(("Builder", {"changes": AUTO_BUILD_CHANGES}, "call_rc_autobuild")))
+            return _finish(h, text_step(AUTOBUILD_DONE))
+        if "RC-AUTOUSE" in turn:
+            if done_here == 0:
+                return _finish(h, tool_step(("Workflow", {"name": "review", "task": "RC-SUBHANG: fix the login bug"},
+                                             "call_rc_autouse")))
+            return _finish(h, text_step(AUTOUSE_DONE))
+        if "RC-SUBWAIT" in last:
+            threading.Event().wait(SUBWAIT_S)  # a fresh event: the shared gate's release never shortens it
+            return _finish(h, text_step(SUB_DONE))
         if "RC-SUBHANG" in last:
             self._hold("RC-SUBHANG")
             return _finish(h, text_step(SUB_DONE))
