@@ -43,7 +43,7 @@ function OldRow({ r, names }: { r: MapRow; names: string[] }) {
   return (
     <div className="su-lineup" data-testid="setup-map" data-name={r.name} data-old="1">
       <button type="button" className="su-lineup-name mp-link" data-testid="setup-map-old" title="Open it on the Map (read-only)"
-              onClick={() => (goSection("agents", "map"), void openMap(r.name, r.scope))}>{r.label}</button>
+              onClick={() => (void openMap(r.name, r.scope), goSection("agents", "map"))}>{r.label}</button>
       <Button size="sm" data-testid="map-old-copy" onClick={() => void copyOld(r.name, r.scope)}>Copy as {copyName(names)}</Button>
     </div>
   );

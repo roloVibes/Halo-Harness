@@ -6,7 +6,8 @@
 import { whyOf } from "../live/groups";
 import type { BoxState } from "./overlay";
 import type { AutoGroup, Member } from "./overlayGroups";
-import { whyThisModel } from "./truthBits";
+import { waitWhat } from "./truth";
+import { waitClock, whyThisModel } from "./truthBits";
 import { clock } from "./truthWords";
 
 export const STATE_WORDS: Record<BoxState, string> = { working: "working", waiting: "waiting on you", done: "done", failed: "failed", idle: "not used yet" };
@@ -63,6 +64,9 @@ export const moreMembers = (n: number): string => `+${n} more`;
 export const belowGroup = (name: string, more: number): string => `↓ ${name} · working${more > 0 ? ` and ${more} more below` : ""}`;
 /** b/batch08: the name Session's slot on Auto keeps room for (its hidden twin): a long name of ordinary letters, 60 characters. */
 export const BELOW_SAMPLE = "compare the three reports and write the summary for the team";
+/** k/batch02 entry 1: main's box on Auto holds the room of its fullest state from the first draw -- a hidden twin of its
+ *  row while it works on a usual tool, and of the clock while it waits for a model reply (LitMini.tsx LitFace). */
+export const MAIN_HOLD = { row: `main · ${STATE_WORDS.working} · Agent read the report`, clock: waitClock(waitWhat("model"), ""), secs: "59 s" };
 /** The third line of member `m` of group `g` ("" for a child of main). */
 export function thirdLine(g: AutoGroup, m: Member): string {
   if (!m.by) return "";

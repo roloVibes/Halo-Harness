@@ -43,10 +43,20 @@ export function useMeasure(world: RefObject<HTMLElement | null>, heights: Record
                            setHeights: Dispatch<SetStateAction<Record<string, number>>>, shownOnly = false): void {
   useLayoutEffect(() => {
     if (shownOnly && !world.current?.offsetParent) return;
-    const got: Record<string, number> = {};
+    const got: Record<string, number> = {}, held: string[] = [];
     world.current?.querySelectorAll<HTMLElement>("[data-box]").forEach((el) => {
       got[el.dataset.box!] = (el.querySelector<HTMLElement>(".mp-inner")?.offsetHeight || 0) + (Number(el.dataset.pad) || 20); // its words, padding and border (a group's: data-pad)
+      if (el.dataset.hold != null) held.push(el.dataset.box!);
     });
-    if (Object.entries(got).some(([id, h]) => Math.abs((heights[id] || 0) - h) > 1)) setHeights((x) => ({ ...x, ...got }));
+    const next = nextHeights(heights, got, held);
+    if (next) setHeights((x) => ({ ...x, ...next }));
   });
+}
+
+/** The heights after a measure, or null when none changed by more than 1 px; k/batch02 entry 1: a box in `held` (main on
+ *  Auto, `data-hold`) never measures shorter than it was -- when its words need more room it grows and holds that. */
+export function nextHeights(heights: Record<string, number>, got: Record<string, number>, held: string[]): Record<string, number> | null {
+  const next: Record<string, number> = {};
+  for (const [id, h] of Object.entries(got)) next[id] = held.includes(id) ? Math.max(h, heights[id] || 0) : h;
+  return Object.entries(next).some(([id, h]) => Math.abs((heights[id] || 0) - h) > 1) ? next : null;
 }

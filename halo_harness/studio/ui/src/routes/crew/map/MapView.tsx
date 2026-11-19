@@ -21,7 +21,7 @@ import { AddList } from "./AddList";
 import { AutoPlan } from "./AutoPlan";
 import { MapBar } from "./MapBar";
 import { MapCanvas } from "./MapCanvas";
-import { firstName, loadMaps, openMap, useMap } from "./mapStore";
+import { loadMaps, mapTabGone, openFirst, useMap } from "./mapStore";
 import { Strip } from "./Strip";
 import { PickList, WhenCard } from "./WhenCard";
 import { MAP_DRAWER, MAP_SECTION, mapPage, mapPageTitle, useMapPage } from "./feedOpen";
@@ -143,9 +143,10 @@ export function MapView() {
   useGoalOnOpen(); // 3.6.0.3 B: his opening of the drawer on Run a goal's page opens the form (MapDrawer.tsx)
   useEffect(() => {
     markMapDrawn(); // 3.6.0.2 R33: a map built from now on waits for him (mapSwitch.ts)
-    void loadMaps().then(() => openMap(firstName()));
+    void loadMaps().then(openFirst); // k/batch02 entry 2: a map asked by scope from another section, else firstName()
     if (!crewLoaded) void loadCrew();
     if (!flowsLoaded) void loadFlows();
+    return mapTabGone;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const lead = (
     <span className="cw-lead">

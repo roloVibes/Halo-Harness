@@ -1238,10 +1238,56 @@ def test_auto_ready_lines_reads_the_card_and_the_lines_in_any_wrap(ctx: Ctx):
                             ("a pair", dict(good, pair=True), "pair")):
         got = s.judge_head(bad)
         ctx.check(f"{name}: its failure, got {got}", len(got) == 1 and word in got[0])
-    use = {"found": True, "map": "auto", "rect": [10, 100, 400, 180], "visible": [0, 60, 1280, 800]}
+    # k/batch02 entry 3 rewrote this half to the truth: a group below the fold is a failure only when the slot does not
+    # name it or its press does not bring it up (test_auto_ready_lines_use_it_now_in_view_or_named_and_brought_up)
+    use = _use_read(s)
     ctx.check(f"the workflow's group in view: no failure, got {s.judge_use(use)}", s.judge_use(use) == [])
     got = s.judge_use(dict(use, rect=[10, 700, 400, 820]))
-    ctx.check(f"a group below the drawing's fold: its failure, got {got}", len(got) == 1 and "visible box" in got[0])
+    ctx.check(f"a group below the drawing's fold the slot does not name: its failure, got {got}",
+              len(got) == 1 and "slot does not name it" in got[0])
+
+
+_STILL = {"head": [0, 40, 1280, 96], "main": [190, 140, 374, 247], "draw": [100, 12, 184, 107]}
+
+
+def _use_read(s, **kw) -> dict:
+    """What "use it now" reads (steps_auto.USE_READ and STILL_READ): the workflow's group in view, nothing moved."""
+    return {"found": True, "map": "auto", "name": s.USE_HEAD, "group": "2", "rect": [10, 100, 400, 180],
+            "visible": [0, 60, 1280, 800], "slot": None, "before": dict(_STILL), "after": dict(_STILL), **kw}
+
+
+@test
+def test_auto_ready_lines_use_it_now_in_view_or_named_and_brought_up(ctx: Ctx):
+    """k/batch02 entry 3: after "use it now" the workflow's group is in the drawing with its name and step line word for
+    word, and EITHER wholly inside the visible box OR named by the slot with ONE press putting its head at the top within
+    1 s; the head and main's box did not move (nor main in the drawing with the press); the room is put on record (the
+    visible box's height, the group's height) and a failure says it."""
+    s = _steps_auto()
+    view = _use_read(s)
+    ctx.check(f"in view: no failure, got {s.judge_use(view)}", s.judge_use(view) == [])
+    below = dict(view, rect=[10, 700, 400, 820], visible=[0, 640, 1280, 780])
+    slot = {"text": "↓ workflow review · working and 1 more below", "group": "2"}
+    pressed = dict(below, slot=slot, press={"top": 340.5, "d": 0.2}, pressed=dict(_STILL))
+    ctx.check(f"below the fold, named by the slot, up in 340 ms, nothing moved: no failure, got {s.judge_use(pressed)}",
+              s.judge_use(pressed) == [])
+    ctx.check(f"the room on record, got {s.use_room(pressed)}", s.use_room(pressed) == {"visible_h": 140, "group_h": 120})
+    for name, read, word in (
+            ("below the fold, no slot", below, "slot does not name it"),
+            ("the slot names another group", dict(pressed, slot=dict(slot, group="1")), "slot does not name it"),
+            ("the slot names another name", dict(pressed, slot=dict(slot, text="↓ part 2 · working")), "slot does not name it"),
+            ("the press took 1.5 s", dict(pressed, press={"top": 1500.0, "d": 0.0}), "within 1 s"),
+            ("the press never brought it up", dict(pressed, press={"top": None, "d": 212.0}), "within 1 s"),
+            ("the press moved main in the drawing", dict(pressed, pressed=dict(_STILL, draw=[100, 12, 184, 56])), "in the drawing"),
+            ("the head moved with use it now", dict(view, after=dict(_STILL, head=[0, 40, 1280, 120])), "the head"),
+            ("main's box moved with use it now", dict(view, after=dict(_STILL, main=[190, 140, 374, 196])), "main's box"),
+            ("the step line is not step 1 of 2", dict(view, name="workflow review · step 2 of 2"), "named"),
+            ("the drawer is not on auto", dict(view, map="my-map"), "not auto")):
+        got = s.judge_use(read)
+        ctx.check(f"{name}: one failure saying {word!r}, got {got}", len(got) == 1 and word in got[0])
+    got = s.judge_use(dict(pressed, slot=None))
+    ctx.check(f"a failure out of sight puts the room on record, got {got}", got and "140 px" in got[0] and "120 px" in got[0])
+    ctx.check(f"no group at all: its failure, got {s.judge_use({'found': False, 'names': []})}",
+              len(s.judge_use({"found": False, "names": []})) == 1)
 
 
 @test

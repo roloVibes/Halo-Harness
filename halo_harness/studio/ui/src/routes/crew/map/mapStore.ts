@@ -78,15 +78,34 @@ export { openName, readOnly }; // 3.6.0.5: the name a map is opened under (truth
 export { mapUrl, pickerValue } from "./pickerRows"; // 3.6.0.5 A5: a map's address and switcher value by its scope
 
 let opening = 0; // the latest openMap: an earlier one answered late (the tab's own first open) never undoes his pick
+// k/batch02 entry 2: an open that names a map AND a scope (Setup's old row) is recorded at once, so the Map tab's own
+// first load opens it instead of LAST; it is cleared once open with no first load to come, or when the first load takes it
+let byScope: { asked: string; scope: string } | null = null;
+let firstDue = true; // the Map tab is not drawn, or its first load has not run yet
+
+/** The Map tab's own first load (MapView, after loadMaps): the map asked by scope, else firstName(). */
+export function openFirst(): Promise<void> {
+  const a = byScope;
+  firstDue = false;
+  byScope = null;
+  return a ? openMap(a.asked, a.scope) : openMap(firstName());
+}
+
+/** The Map tab is no longer drawn: its next drawing has a first load of its own. */
+export function mapTabGone(): void {
+  firstDue = true;
+}
 
 /** Open a map; A5: `scope` opens his own old file named auto or starter by its scope (never remembered as LAST). */
 export async function openMap(asked: string, scope = ""): Promise<void> {
   if (!asked) return;
   const name = openName(asked, scope);
   if (!scope) writeLocal(LAST, name); // 3.6.0.0 R5: first, so the tab's own first load (firstName) opens this one too (an edit door)
+  byScope = scope ? { asked, scope } : null; // k/batch02 entry 2: before the caller changes the section
   const mine = ++opening;
   try {
     const detail = await api.get<MapDetail>(mapUrl(name, scope));
+    if (mine === opening && !firstDue && byScope?.asked === asked && byScope.scope === scope) byScope = null; // open, none to come
     if (mine === opening) maps.update((s) => ({ name, scope, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {},
                                                  locked: s.handLock || readOnly(name, detail.scope) }));
   } catch (e) {

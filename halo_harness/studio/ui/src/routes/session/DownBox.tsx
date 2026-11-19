@@ -72,7 +72,7 @@ function OneBox({ b, L, sid, lines: all, built = null, pick, live, sel }: Props)
   return (
     <div className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit={L.unlit ? undefined : "live"} data-state={st} data-helper={helper} data-kind={b.kind}
          data-new={b.isNew || built ? "" : undefined} data-workflow={b.block?.workflow} data-selected={sel ? "" : undefined}
-         data-waited={waited ? "" : undefined}
+         data-waited={waited ? "" : undefined} data-hold={b.main && L.groups ? "" : undefined}
          data-testid={live ? (loose ? "live-block" : "live-box") : loose ? "session-map-block" : "session-lit-box"} data-box={b.id} data-map-box={live ? b.id : undefined} title={!b.block && hv.titles ? `${b.name}: ${STATE_WORDS[st]}` : undefined}
          style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}
          tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), e.currentTarget.click()); }}>

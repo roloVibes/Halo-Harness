@@ -778,6 +778,36 @@ console.log(JSON.stringify({k2: p("k2", gs), k3: p("k3", gs), main: p("main", gs
               "L.groups" in src and 'kind: "member"' in src)
 
 
+# ---------------------------------------------------------------------------------------------- 6. (k/batch02) main holds still
+@test
+def test_mains_box_holds_its_fullest_height_on_auto(ctx: Ctx):
+    """k/batch02 entry 1: on Auto main's box has the height of its fullest state from the first draw -- a hidden twin of
+    the row "main · working · {what it does}" and of the clock's "waiting for a model reply · {s}" holds their room when
+    they are empty (groupWords.ts MAIN_HOLD) -- and a box marked `data-hold` never measures shorter than it was
+    (runFrame.ts nextHeights: a longer text grows it once and it holds). On a map of his: no twin, no hold (as 3.6.0.4)."""
+    js = """console.log(JSON.stringify({hold: M.gw.MAIN_HOLD || null, clock: M.tb.waitClock("a model reply", ""),
+  work: M.gw.STATE_WORDS.working}));"""
+    got = _run(["gw", "tb"], js, None)
+    hold = got.get("hold") or {}
+    ctx.check(f"MAIN_HOLD: the fullest row and the model wait's clock in the shipped words, got {hold}",
+              hold.get("row") == f"main · {got.get('work')} · Agent read the report" and hold.get("clock") == got.get("clock")
+              and hold.get("secs") == "59 s")
+    js = """const n = m.nextHeights;
+console.log(JSON.stringify([n({main: 107, g: 80}, {main: 56, g: 60}, ["main"]), n({main: 107}, {main: 107.5}, ["main"]),
+  n({main: 107}, {main: 124}, ["main"]), n({main: 107}, {main: 56}, []), n({}, {main: 56}, ["main"]), n({g: 60}, {g: 60}, [])]));"""
+    got = _stubbed("routes/crew/map/runFrame.ts", js)
+    ctx.check(f"a held box never shrinks, grows when its words need it and holds; an unheld box follows its words, got {got}",
+              got == [{"main": 107, "g": 60}, None, {"main": 124}, {"main": 56}, {"main": 56}, None])
+    face = (SRC / "routes/crew/map/LitMini.tsx").read_text(encoding="utf-8")
+    box = (SRC / "routes/session/DownBox.tsx").read_text(encoding="utf-8")
+    frame = (SRC / "routes/crew/map/runFrame.ts").read_text(encoding="utf-8")
+    ctx.check("LitFace draws the twin only for main on Auto (bare && b.main); DownBox marks only main on Auto data-hold",
+              "const held = bare && b.main;" in face and "MAIN_HOLD" in face
+              and 'data-hold={b.main && L.groups ? "" : undefined}' in box)
+    ctx.check("useMeasure passes the held boxes to nextHeights (no timer, no observer added)",
+              "nextHeights(heights, got, held)" in frame and "Observer" not in frame and "setTimeout(" not in frame)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

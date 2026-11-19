@@ -20,7 +20,8 @@ auto-ready-lines (a home holding one workflow of his, tidy, so the session has t
   (2) the folded terminal card says P1 then P2 in its header (above its status row)
   (3) Studio's head is H1 with [Open in Workflows] and the two lines under it; no pair; the drawer still Auto
   (4) `halo config get crew.map` is what it was before the build
-  (5) "use it now" draws the workflow as the group "workflow review · step 1 of 2" inside the drawer's visible box
+  (5) "use it now" draws the workflow as the group "workflow review · step 1 of 2": wholly inside the drawer's visible
+      box, or named by the slot and one press puts its head at the top within 1 s; the head and main hold still
   (6) nothing left running after quit
 
 The selectors read here are this check's contract with the packages a, b and t: see briefs v3605 k/moved.md. SKIP when
@@ -665,23 +666,46 @@ def _same_map(ctx, h, before: str, ev: dict, bad: list) -> None:
         bad.append(f"(4) crew.map was {before!r} before the build and is {now!r} after")
 
 
-USE_READ = f"""(() => {{ const D = {M}, box = {SCROLL_BOX};
-  const g = [...(D ? D.querySelectorAll('[data-testid=session-map-group]') : [])].find((e) =>
-    (e.querySelector('[data-testid=map-group-name]')?.textContent || '').replace(/\\s+/g, ' ').trim() === {USE_HEAD!r});
-  if (!g) return {{found: false, map: D ? D.dataset.map || '' : null,
-    names: [...(D ? D.querySelectorAll('[data-testid=map-group-name]') : [])].map((e) => e.textContent)}};
-  const r = g.getBoundingClientRect(), b = box(g), s = b ? b.getBoundingClientRect() : {{left: 0, top: 0, right: 1280, bottom: 800}};
-  const v = [Math.max(0, s.left), Math.max(0, s.top), Math.min(innerWidth, s.right), Math.min(innerHeight, s.bottom)];
-  return {{found: true, map: D.dataset.map || '', rect: [r.left, r.top, r.right, r.bottom], visible: v,
-    slot: document.querySelector('[data-testid=map-more-below]')?.textContent || ''}}; }})()"""
+# k/batch02 entry 3: "use it now" asserts what the judged design rules when the group does not fit under the head (B26
+# the slot names it, B27 one press lands with its head at the top) and puts the room on record.
+USE_NAME = "workflow review"  # B5: a workflow's group is named "workflow {W}"; the slot names it by that name
+RECT_OF = "(e) => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }"
+MORE = f"{M}?.querySelector('[data-testid=map-more-below]')"
+# what must not move: the head over the drawing and main's box in the page, and main in the drawing's own coordinates
+STILL_READ = f"""(() => {{ const D = {M}, m = D && D.querySelector('[data-box=main]'), rect = {RECT_OF};
+  return {{head: rect(document.querySelector('[data-testid=session-built-head]')), main: rect(m),
+    draw: m ? [m.style.left, m.style.top, m.style.width, m.style.height].map(parseFloat) : null}}; }})()"""
+USE_READ = f"""(() => {{ const D = {M}, box = {SCROLL_BOX}, rect = {RECT_OF};
+  const name = (e) => (e.querySelector('[data-testid=map-group-name]')?.textContent || '').replace(/\\s+/g, ' ').trim();
+  const gs = [...(D ? D.querySelectorAll('[data-testid=session-map-group]') : [])];
+  const g = gs.find((e) => e.dataset.workflow === 'review') || gs.find((e) => name(e) === {USE_HEAD!r});
+  if (!g) return {{found: false, map: D ? D.dataset.map || '' : null, names: gs.map(name)}};
+  const b = box(g), s = b ? b.getBoundingClientRect() : {{left: 0, top: 0, right: innerWidth, bottom: innerHeight}};
+  const more = {MORE};
+  return {{found: true, map: D.dataset.map || '', name: name(g), group: g.dataset.group || '', rect: rect(g),
+    visible: [Math.max(0, s.left), Math.max(0, s.top), Math.min(innerWidth, s.right), Math.min(innerHeight, s.bottom)],
+    slot: more ? {{text: more.textContent || '', group: more.dataset.group || ''}} : null}}; }})()"""
+USE_SHOWN = f"(() => {{ const u = {USE_READ}; return !!u.found && u.name === {USE_HEAD!r}; }})()"
+# from just before the press, in the page: when group n's top first stands at its scroll box's top (B27, as Session's
+# slot press lands it), and how far from it it was last
+PRESS = f"""((n) => {{ const w = window.__rcpress = {{t0: performance.now(), top: null, d: null}};
+  const tick = () => {{ const D = {M}, g = D && D.querySelector(`[data-testid=session-map-group][data-group="${{n}}"]`);
+    const s = g && ({SCROLL_BOX})(g), t = performance.now() - w.t0;
+    if (g && s) {{ w.d = g.getBoundingClientRect().top - s.getBoundingClientRect().top - s.clientTop; if (w.top == null && Math.abs(w.d) <= 1) w.top = t; }}
+    if (w.top == null && t < 3000) requestAnimationFrame(tick); }};
+  requestAnimationFrame(tick); return 1; }})"""
+PRESS_DONE = "(() => { const w = window.__rcpress; return !!w && (w.top != null || performance.now() - w.t0 > 3000) && w; })()"
 
 
 def _use(ctx, t, c, ev: dict, bad: list) -> None:
-    """(5) "use it now": the workflow's run is a group in view while its first step is held; then the turn ends."""
+    """(5) "use it now": the workflow's run is a group, in view or named by the slot and brought up by one press, while
+    its first step is held; nothing else moved; then the turn ends."""
     ctx.provider.rearm()
+    before = c.js(STILL_READ) or {}
     mark = _say(t, fakes.AUTOUSE_PROMPT)
-    _wait(c, f"({USE_READ}).found", 10)
-    read = c.js(USE_READ) or {}
+    _wait(c, USE_SHOWN, 10)
+    time.sleep(0.5)  # the slot's answer follows the draw within a frame
+    read = use_now(c, before)
     ev["use"] = read
     bad.extend(judge_use(read))
     ctx.provider.release()  # the first step's child was held at the gate so "step 1 of 2" stood for the read
@@ -689,14 +713,74 @@ def _use(ctx, t, c, ev: dict, bad: list) -> None:
         bad.append("(5) the turn never ended in 30 s: " + excerpt(t.plain()[mark:], 160))
 
 
+def use_now(c, before: dict) -> dict:
+    """What "use it now" drew (USE_READ), what stood still (`before`, after), and when the group is out of sight and the
+    slot names it, ONE press on the slot (its landing timed in the page) and what stood still then; the room on record.
+    Shared with the Linux VM's browser test (tests/helpers/studio_auto.py)."""
+    read = c.js(USE_READ) or {}
+    read["before"], read["after"] = before, c.js(STILL_READ) or {}
+    if read.get("found") and not use_inside(read) and _names_it(read):
+        c.js(f"{PRESS}({read.get('group')!r})")
+        c.click_on(MORE)
+        read["press"] = _wait(c, PRESS_DONE, 6) or c.js("window.__rcpress || null")
+        time.sleep(0.3)
+        read["pressed"] = c.js(STILL_READ) or {}
+    if read.get("found"):
+        read["room"] = use_room(read)
+    return read
+
+
+def use_room(read: dict) -> dict:
+    """The room on record: the drawing's visible box's height and the group's height, in px."""
+    v, r = read.get("visible") or [0, 0, 0, 0], read.get("rect") or [0, 0, 0, 0]
+    return {"visible_h": round(v[3] - v[1]), "group_h": round(r[3] - r[1])}
+
+
+def use_inside(read: dict) -> bool:
+    (lf, tp, rt, bt), (vl, vt, vr, vb) = read.get("rect") or [0, 0, 0, 0], read.get("visible") or [0, 0, 0, 0]
+    return not (lf < vl - 0.5 or tp < vt - 0.5 or rt > vr + 0.5 or bt > vb + 0.5)
+
+
+def _names_it(read: dict) -> bool:
+    slot = read.get("slot") or {}
+    return (str(slot.get("group") or "") == str(read.get("group") or "-")
+            and " ".join(str(slot.get("text") or "").split()).startswith(f"↓ {USE_NAME} · "))
+
+
+def _same(a, b) -> bool:
+    if a is None or b is None:
+        return a is None and b is None
+    return len(a) == len(b) and all(abs(float(x) - float(y)) <= 0.5 for x, y in zip(a, b))
+
+
 def judge_use(read: dict) -> list:
+    """(5) (a) the group with its name and step line word for word; (b) wholly inside the visible box, OR named by the
+    slot and ONE press puts its head at the top within 1 s; (c) the head and main's box did not move (nor main in the
+    drawing with the press). A failure out of sight says the room."""
     if not read.get("found"):
         return [f"(5) no group {USE_HEAD!r} in the drawer in 10 s (groups: {read.get('names')})"]
-    out = []
-    (l, tp, r, b), (vl, vt, vr, vb) = read["rect"], read["visible"]
-    if l < vl - 0.5 or tp < vt - 0.5 or r > vr + 0.5 or b > vb + 0.5:
-        out.append(f"(5) the group {USE_HEAD!r} is not wholly in the drawer's visible box "
-                   f"({[round(x) for x in read['rect']]} outside {[round(x) for x in read['visible']]})")
+    out, room = [], use_room(read)
+    if " ".join(str(read.get("name") or "").split()) != USE_HEAD:
+        out.append(f"(5) the workflow's group is named {read.get('name')!r}, not {USE_HEAD!r}")
     if read.get("map") != "auto":
         out.append(f"(5) the drawer draws the map {read.get('map')!r}, not auto")
+    if not use_inside(read):
+        where = (f"the drawing's visible box {room['visible_h']} px tall, the group {room['group_h']} px "
+                 f"({[round(x) for x in read.get('rect') or []]} outside {[round(x) for x in read.get('visible') or []]})")
+        press = read.get("press") or {}
+        if not _names_it(read):
+            out.append(f"(5) the group is out of sight and the slot does not name it ({where}; slot: {read.get('slot')})")
+        elif press.get("top") is None or float(press["top"]) > 1000:
+            out.append(f"(5) one press on the slot did not put the group's head at the top of the visible box within 1 s "
+                       f"({where}; at the top after {press.get('top')} ms, {press.get('d')} px from it last)")
+    before, after = read.get("before") or {}, read.get("after") or {}
+    for key, what in (("head", "the head over the drawing"), ("main", "main's box")):
+        if not _same(before.get(key), after.get(key)):
+            out.append(f"(5) {what} moved with 'use it now': {before.get(key)} -> {after.get(key)}")
+    if read.get("press") is not None:
+        pressed = read.get("pressed") or {}
+        if not _same(before.get("draw"), pressed.get("draw")):
+            out.append(f"(5) main moved in the drawing with the press: {before.get('draw')} -> {pressed.get('draw')}")
+        if not _same(before.get("head"), pressed.get("head")):
+            out.append(f"(5) the head over the drawing moved with the press: {before.get('head')} -> {pressed.get('head')}")
     return out

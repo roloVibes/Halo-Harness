@@ -5,7 +5,8 @@ the Linux VM only; browser modules never run on the PC.
 Scene 4: over this harness's real session on Auto, after a build that wrote the agent checker and the workflow review
 (no map), Studio's head over Session's Live drawing says "Just built: the workflow review. Ready in this session now,
 by name." with [Open in Workflows] and the two true lines under it, nothing moves and no pair appears; the run of that
-workflow shows as the group "workflow review · step 1 of 2" in view. In a home with no workflow (its own driver
+workflow shows as the group "workflow review · step 1 of 2": in view, or (when it does not fit under the head) named by
+the slot and brought up by one press; the head and main hold still; the room is on record. In a home with no workflow (its own driver
 process) the head says it waits for the next session, with two "Saved for your next session" lines.
 
 Scene 5: the map picker (Agents -> 3 · Map) and Setup's Map step list Auto (the default) first, his maps (his old file
@@ -77,6 +78,12 @@ def test_scene4_true_lines_then_use_it_runs_as_a_group(ctx: Ctx):
         ctx.check(f"what a person sees: {says} -- {json.dumps(got)[:1200]}", says == [])
     seconds = sum(float(got.get("seconds") or 0) for _r, got in runs)
     ctx.check(f"the two runs took under 90 s together, got {seconds:.1f} s", 0 < seconds < 90)
+    # k/batch02 entry 3: the room on record (a known limit at 1280 x 800: the drawing's visible box under the head)
+    use = runs[0][1].get("use") or {}
+    room, way = use.get("room") or {}, "pressed up from the slot" if use.get("press") is not None else "in view"
+    print(f"  use it now: the drawing's visible box {room.get('visible_h')} px, the workflow's group {room.get('group_h')} px, {way}")
+    ctx.check(f"the room is on record: the visible box {room.get('visible_h')} px, the group {room.get('group_h')} px ({way})",
+              isinstance(room.get("visible_h"), int) and isinstance(room.get("group_h"), int))
 
 
 @test

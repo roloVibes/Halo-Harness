@@ -9,7 +9,9 @@ pointer moved out first, Studio's page is read:
     ready    Session's Live drawer: the head H1 with [Open in Workflows], P1 then P2 under it, no pair, still Auto, the
              same boxes, no control of the view bar moved
     use      the rows and the two `map_step` frames a run of the crew workflow review gives: the group
-             "workflow review · step 1 of 2" wholly inside the drawer's visible box, still Auto
+             "workflow review · step 1 of 2", wholly inside the drawer's visible box or named by the slot with one
+             press bringing its head to the top within 1 s; the head and main hold still; the room on record; still
+             Auto (scripts/realcheck/steps_auto.py use_now, judge_use: one read and one judge, k/batch02 entry 3)
     waits    (its own process: `python -m tests.helpers.studio_auto waits`) a home with no workflow of his: H2 with
              [Open in Workflows], P2 for the agent then P2 for the workflow, no P1, no pair
 
@@ -31,7 +33,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from realcheck.steps_auto import H1, OPEN_WF, P1, P2, SCROLL_BOX, USE_HEAD  # noqa: E402
+from realcheck.steps_auto import H1, OPEN_WF, P1, P2, STILL_READ, USE_SHOWN, judge_use, use_now  # noqa: E402
 
 H2 = ("Just built: the workflow review. It waits for your next session: this session started with no workflow, so it "
       "has no Workflow tool.")
@@ -52,14 +54,6 @@ HEAD = f"""(() => {{ const hd = document.querySelector('[data-testid=session-bui
     buttons: hd ? [...hd.querySelectorAll('button')].map((b) => b.textContent.trim()) : [],
     lines: [...document.querySelectorAll('[data-testid=session-ready-line] [data-testid=session-ready-text]')].map((e) => e.textContent),
     pair: !!document.querySelector('[data-testid=session-map-pair]'), map: D ? D.dataset.map || '' : null}}; }})()"""
-# the workflow's group: the one of the workflow review (the rig's own helpers are groups too on Auto)
-USE = f"""(() => {{ const D = {M}, box = {SCROLL_BOX};
-  const g = D && (D.querySelector('[data-testid=session-map-group][data-workflow=review]') || D.querySelector('[data-testid=session-map-group]'));
-  if (!g) return {{found: false, map: D ? D.dataset.map || '' : null}};
-  const r = g.getBoundingClientRect(), b = box(g), s = b ? b.getBoundingClientRect() : {{left: 0, top: 0, right: 1280, bottom: 800}};
-  return {{found: true, map: D.dataset.map || '', name: g.querySelector('[data-testid=map-group-name]')?.textContent || '',
-    rect: [r.left, r.top, r.right, r.bottom],
-    visible: [Math.max(0, s.left), Math.max(0, s.top), Math.min(innerWidth, s.right), Math.min(innerHeight, s.bottom)]}}; }})()"""
 
 
 def _fold(text) -> str:
@@ -103,9 +97,16 @@ def ready(c, rig, lv, st) -> dict:
 
 
 def use(c, rig, lv, st) -> dict:
-    now = time.time()
     # main's child as the rig's own helpers are (they are group 1 on Auto: this run is the session's next group)
     parent = rig.agent("Implement").get("parent") or "main"
+    # k/batch02 entry 3: the rig's own helpers finish first, so the workflow's run is the one working group, as in the
+    # realcheck's scene (the slot names the first working group out of sight: B26)
+    rig.release("a")
+    rig.release("b")
+    _wait(c, f"!!{M} && !{M}.querySelector('[data-testid=session-map-group][data-state=working]')", 30)
+    time.sleep(0.5)
+    now = time.time()
+    before = c.js(STILL_READ) or {}  # the head and main before "use it now"
     lv.rows["c0d3r0a1"] = {"agent_id": "c0d3r0a1", "parent": parent, "name": "coder", "role": "coder", "bio": "coder",
                            "model": "or:mock/glm-5-coder", "kind": "subagent", "task": "fix the login bug", "since": now,
                            "state": "running", "turns": 1, "cost_usd": 0.0, "current": "thinking", "last_text": "",
@@ -118,9 +119,9 @@ def use(c, rig, lv, st) -> dict:
     lv.frame("main", "map_step", {"map": "auto", "box": "workflow:review", "workflow": "review", "kind": "step", "n": 1,
                                   "name": "code", "state": "running", "t": time.time()})
     lv.refresh()
-    _wait(c, f"(({USE}).name || '').replace(/\\s+/g, ' ').trim() === {USE_HEAD!r}", 10)
-    time.sleep(0.3)
-    got = c.js(USE) or {}
+    _wait(c, USE_SHOWN, 10)
+    time.sleep(0.5)  # the slot's answer follows the draw within a frame
+    got = use_now(c, before)
     got["groups"] = c.js(f"""[...({M}?.querySelectorAll('[data-testid=session-map-group]') || [])].map((g) =>
       [g.dataset.group, g.dataset.workflow || '', g.querySelector('[data-testid=map-group-name]')?.textContent || ''])""")
     return {"use": got}
@@ -158,18 +159,9 @@ def _ready_says(r: dict) -> list:
 
 
 def _use_says(u: dict) -> list:
-    if not u or not u.get("found"):
-        return ["no group of the workflow review in the drawer in 10 s"]
-    says = []
-    if _fold(u.get("name")) != USE_HEAD:
-        says.append(f"the workflow's group is named {_fold(u.get('name'))!r}, not {USE_HEAD!r}")
-    (lf, tp, rt, bt), (vl, vt, vr, vb) = u["rect"], u["visible"]
-    if lf < vl - 0.5 or tp < vt - 0.5 or rt > vr + 0.5 or bt > vb + 0.5:
-        says.append(f"the group is not wholly in the drawer's visible box ({[round(x) for x in u['rect']]} outside "
-                    f"{[round(x) for x in u['visible']]})")
-    if u.get("map") != "auto":
-        says.append(f"the drawer draws {u.get('map')!r}, not auto")
-    return says
+    if not u:
+        return ["not run"]
+    return [x.removeprefix("(5) ") for x in judge_use(u)]  # the realcheck step's judge, one place (k/batch02 entry 3)
 
 
 def _waits_says(w: dict) -> list:

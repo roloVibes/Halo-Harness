@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../../../lib/store";
 import { useSessionRecord, type RecordAgent } from "../../../lib/work/record";
 import { useNow } from "../../fleet/store";
+import { MAIN_HOLD } from "./groupWords";
 import { STATE_WORDS } from "./LitBits";
 import { lit, ownsMap, startLit, type LitSession } from "./litStore";
 import { autoView, withRun } from "./litView";
@@ -87,12 +88,25 @@ export function LitFace({ b, ov, sid, tag, bare }: { b: DrawBox; ov: Overlay | n
   if (b.block) return <BlockFace block={b.block} ov={ov} tag={tag} />;
   const { st } = litState(b, ov);
   const doing = st === "working" ? ov?.boxes[b.id]?.doing : "";
+  const rows = (<>
+    <span className="mp-lit-row mono" data-state={st}>{b.main ? "main" : b.kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
+    <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={(st === "working" || st === "waiting") && !b.helper} />
+  </>);
+  // k/batch02 entry 1: on Auto main's rows that come and go with its state keep their room (a hidden twin of the fullest)
+  const held = bare && b.main;
   return (
     <span className="mp-inner">
       <b className="mp-name">{b.name}</b>
       {tag && <NewTag text={tag} />}
-      <span className="mp-lit-row mono" data-state={st}>{b.main ? "main" : b.kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
-      <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={(st === "working" || st === "waiting") && !b.helper} />
+      {held ? (
+        <span className="mp-hold">
+          <span className="mp-hold-now">{rows}</span>
+          <span className="mp-hold-twin mono" aria-hidden="true">
+            <span className="mp-hold-row" data-text={MAIN_HOLD.row} />
+            <span className="mp-hold-row" data-text={MAIN_HOLD.clock} data-secs={MAIN_HOLD.secs} />
+          </span>
+        </span>
+      ) : rows}
       <KidRows kids={bare ? [] : ov?.kids[b.id] || []} sid={sid} sender={b.id} />
     </span>
   );

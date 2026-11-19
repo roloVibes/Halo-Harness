@@ -18,6 +18,7 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
    when the slot's words change, drops a focus its first full draw does not place, and restarts the pulse on a second press.
 8. (batch 8) Session's slot is sized for a long name of ordinary letters (under 70 px at the default width); Agents ->
    Live's slot follows the window's height with no scroll.
+9. (k/batch02) On Auto main's box keeps one height whatever main does, so group 1 under it stands still.
 Run: python -m tests.test_studio_auto_groups
 """
 from __future__ import annotations
@@ -84,6 +85,25 @@ def test_auto_draws_main_alone_then_named_coloured_groups(ctx: Ctx):
               lv.get("map") == "auto" and len(lv.get("groups") or []) == 3
               and all((r or [0])[0] >= main[0] + main[2] for _, r in lv.get("groups") or []))
     ctx.check(f"no label on a line into a group, got {lv.get('labels')}", not any(str(t).startswith("group:") for t in lv.get("labels") or []))
+
+
+@test
+def test_mains_box_keeps_its_height_on_auto(ctx: Ctx):
+    """k/batch02 entry 1: on Auto main's box has the height of its fullest state from the first draw, so group 1 under it
+    stands still whatever main does (done, a tool, the Agent tool, thinking with the model wait's clock, waiting on you,
+    done again); no word of main's rows is cut."""
+    d = _ran(ctx, "mainstill")
+    st = d.get("states") or []
+    ctx.check(f"six states read, got {[s.get('state') for s in st]}", len(st) == 6)
+    says = {s.get("state"): (s.get("row"), s.get("clock")) for s in st}
+    ctx.check(f"the states were drawn as driven (the fullest: thinking with 'waiting for a model reply'), got {says}",
+              (says.get("thinking") or ("", ""))[0] == "main · working · thinking"
+              and (says.get("thinking") or ("", ""))[1].startswith("waiting for a model reply")
+              and (says.get("agent") or ("", ""))[0] == "main · working · Agent read report C")
+    first = st[0] if st else {}
+    moved = [(s.get("state"), s.get("main"), s.get("one")) for s in st if s.get("main") != first.get("main") or s.get("one") != first.get("one")]
+    ctx.check(f"main's rect and group 1's rect have the same four numbers in every state (first {first.get('main')} "
+              f"{first.get('one')}), moved: {moved}", bool(first.get("main")) and bool(first.get("one")) and not moved)
 
 
 @test

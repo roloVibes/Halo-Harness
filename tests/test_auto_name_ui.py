@@ -265,6 +265,73 @@ out.q = Q.quietOf('starter', {{}}, [{ON % ('s1', 'fix-login', 'starter')}], null
               'data-testid="setup-map-old"' in team and 'data-testid="map-old-copy"' in team and "openMap(r.name, r.scope)" in team)
 
 
+# k/batch02 entry 2: mapStore.ts run in node with its neighbours stood in for (the API answers from the page's maps; one
+# stand-in serves lib/store.ts and crew/store.ts, whose transpiled names are alike)
+_STORE_STUB = ("export function createStore(s) { return { get: () => s, set: (n) => { s = n; }, update: (f) => { s = { ...s, ...f(s) }; } }; }\n"
+               "export const useStore = () => undefined, writeLocal = (k, v) => localStorage.setItem(k, v), loadCrew = async () => {};")
+_API_STUB = "export class ApiError extends Error {}\nexport const api = { get: (u) => globalThis.__get(u) };"
+_NOOP_STUB = "export const onFilesChanged = () => () => {}, loadFlows = async () => {}, onTab = () => {};"
+_STORE_HOOK = r"""const S = %s, A = %s, N = %s;
+export async function resolve(spec, ctx, next) {
+  const r = await next(spec, ctx);
+  if (/[\/-]store\.(ts|mjs)$/.test(r.url)) return { url: S, shortCircuit: true };
+  if (/[\/-]api\.(ts|mjs)$/.test(r.url)) return { url: A, shortCircuit: true };
+  if (/[\/-](filesLive|flowStore|builderStore)\.(ts|mjs)$/.test(r.url)) return { url: N, shortCircuit: true };
+  return r; }"""
+
+
+@test
+def test_an_open_by_scope_from_another_section_wins_over_the_first_load(ctx: Ctx):
+    """k/batch02 entry 2: with LAST = my-map, Setup's press on his old file (openMap('starter', 'yours')) followed by the
+    Map tab's own first load ends with HIS file open by its scope, whichever answers first; LAST stays my-map. With the
+    tab already drawn (no first load to come) the record is cleared once open, so the tab's next first load opens LAST
+    as on 3.6.0.4."""
+    import urllib.parse
+    from tests.helpers import node_ts
+    url = lambda src: json.dumps("data:text/javascript," + urllib.parse.quote(src))  # noqa: E731
+    hook = _STORE_HOOK % (url(_STORE_STUB), url(_API_STUB), url(_NOOP_STUB))
+    js = f"""import {{ register }} from 'node:module';
+register('data:text/javascript,' + encodeURIComponent({json.dumps(hook)}));
+const mem = {{ 'halo.studio.map-open': 'my-map' }}, wrote = [];
+globalThis.localStorage = {{ getItem: (k) => mem[k] ?? null, setItem: (k, v) => {{ mem[k] = v; wrote.push(v); }}, removeItem: (k) => {{ delete mem[k]; }} }};
+globalThis.location = {{ search: '' }};
+let held = null;
+const ROWS = [{{ name: 'auto', scope: 'starter' }}, {{ name: 'my-map', scope: 'yours' }}, {{ name: 'starter', scope: 'yours' }}];
+globalThis.__get = async (u) => {{
+  if (u === 'crew/maps') return {{ maps: ROWS, in_use: null }};
+  if (held && u.includes('scope=')) await held.p;
+  return {{ map: {{ name: u }}, scope: u.includes('scope=yours') ? 'yours' : 'other', url: u }};
+}};
+const S = await import({_u(MAPDIR / "mapStore.ts")});
+const first = S.openFirst || (() => S.openMap(S.firstName())); // 3.6.0.4's MapView: openMap(firstName())
+const gone = S.mapTabGone || (() => {{}});
+const open = () => [S.maps.get().name, S.maps.get().scope, S.maps.get().detail?.url || ''];
+const out = {{}};
+// A: the press answers before the tab's first load
+await S.openMap('starter', 'yours'); await S.loadMaps(); await first(); out.a = open();
+// B: the tab is drawn (its first load ran): a press by scope opens his file; once it is open the record is gone
+await S.openMap('starter', 'yours'); out.b = open(); gone(); await first(); out.b2 = open();
+// C: the tab drawn anew; the press's answer comes after the first load asked
+gone(); let release; held = {{ p: new Promise((r) => (release = r)) }};
+const p = S.openMap('starter', 'yours'); await S.loadMaps(); const f = first(); release(); await Promise.all([f, p]); out.c = open();
+out.last = mem['halo.studio.map-open']; out.wrote = wrote;
+console.log(JSON.stringify(out));"""
+    got = node_ts.run(js)
+    his = ["starter", "yours", "crew/map/starter?scope=yours"]
+    ctx.check(f"A: the press then the tab's first load: his file by its scope, got {got.get('a')}", got.get("a") == his)
+    ctx.check(f"B: the tab drawn: the press opens his file, got {got.get('b')}", got.get("b") == his)
+    ctx.check(f"B: the record is cleared once open: the tab's next first load opens LAST (my-map), got {got.get('b2')}",
+              (got.get("b2") or [""])[0] == "my-map")
+    ctx.check(f"C: the press answered after the first load asked: his file, got {got.get('c')}", got.get("c") == his)
+    ctx.check(f"LAST still my-map, his old file never written there, got {got.get('last')} {got.get('wrote')}",
+              got.get("last") == "my-map" and "starter" not in (got.get("wrote") or []))
+    team = (SETUP / "Team.tsx").read_text(encoding="utf-8")
+    view = (MAPDIR / "MapView.tsx").read_text(encoding="utf-8")
+    ctx.check("Setup's old row records the open before the section changes; the Map tab's first load is openFirst, "
+              "its unmount mapTabGone; no delay", "(void openMap(r.name, r.scope), goSection(\"agents\", \"map\"))" in team
+              and "loadMaps().then(openFirst)" in view and "mapTabGone" in view and "setTimeout(" not in team)
+
+
 # A19 (decisions' last part, J2 M3): the four exceptions, and only these. Media keeps ComfyUI's word ("Keeps the word").
 MEDIA_KEEPS = ("media/MediaPanels.tsx", "media/commands.ts", "media/store.ts")
 HELP_KEEPS = ("help.ts", "Halo's starters and your saved ones")

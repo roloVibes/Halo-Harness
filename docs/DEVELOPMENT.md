@@ -211,7 +211,7 @@ python scripts/realcheck.py                  # every step; exit 0 only when none
 python scripts/realcheck.py --list           # the steps and their budgets
 python scripts/realcheck.py --only closing no-reuse --json out.json
 python scripts/realcheck.py --real-local ol:qwen3:1.7b@http://<host>:11434   # step 8 on a real Ollama too
-python scripts/realcheck.py --browser none   # on your own machine: the three browser steps SKIP, by name
+python scripts/realcheck.py --browser none   # on your own machine: the five browser steps SKIP, by name
 python scripts/realcheck.py --browser chromium   # or a path: a separate browser for the Studio steps
 ```
 
@@ -236,7 +236,7 @@ no user or host name in the session's log or on the screen, and after `/clear` t
 id; each of its five asserts is reported alone), `session-map` (the owner's sentence, 3.6.0.2: a workflow asked for in a terminal session
 gives one Builder card that says what it builds, Studio's Live button shows `new` within 5 s without opening
 anything, the drawer draws the new map down and marked, Agents opens on Live, the next question's request carries
-the facts note, two more turns leave the drawer as it was; each of its six asserts is reported alone), `auto-groups` (3.6.0.5, Auto's own groups: a session on Auto in a terminal, five replies of the fake model, drawn as four named, coloured groups in Session's Live drawer and in Agents -> Live; before any call no page says starter; `/status` says Auto; each of its eight asserts is reported alone), `auto-ready-lines` (3.6.0.5, the true lines: in a home with one workflow of its own, a build on Auto asked for in a terminal session gives one card with no map, the folded card and Studio's head say the workflow is ready now and the agent is saved for the next session, `crew.map` is unchanged, and "use it now" draws the workflow as a group in the drawer; each of its six asserts is reported alone), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a
+the facts note, two more turns leave the drawer as it was; each of its six asserts is reported alone), `auto-groups` (3.6.0.5, Auto's own groups: a session on Auto in a terminal, five replies of the fake model, drawn as four named, coloured groups in Session's Live drawer and in Agents -> Live; before any call no page uses the default's old name; `/status` says Auto; each of its eight asserts is reported alone), `auto-ready-lines` (3.6.0.5, the true lines: in a home with one workflow of its own, a build on Auto asked for in a terminal session gives one card with no map, the folded card and Studio's head say the workflow is ready now and the agent is saved for the next session, `crew.map` is unchanged, and "use it now" draws the workflow as a group in the drawer; each of its six asserts is reported alone), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a
 fake Ollama named as another machine; one load for a one-shot, none for the next), `update` (`halo update --check`
 online, offline and on the stable channel, in plain words), `closing` (seven launches -- a session, `halo init`,
 `halo studio`, a one-shot mid-turn, a sub-agent mid-run, a session with an MCP server, a managed local model server

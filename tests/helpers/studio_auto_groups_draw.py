@@ -20,6 +20,8 @@ No model is called.
     scrolls (batch 7) Agents -> Live: React's commits while scrolling inside one group's span; a stored focus whose group
             is not placed is dropped; two presses of Open within the pulse
     heights (batch 8) Agents -> Live's slot at 1280x800, at 1280x1400 and back, with no scroll
+    mainstill (k/batch02) main through done, a tool, the Agent tool, thinking, waiting on you, done: main's rect and
+            group 1's rect in each state
     longest (batch 7-8, last: it narrows the drawer) Session's slot with the 60-character sample of ordinary letters,
             then a 25-character name, each with a two-digit count, at the default drawer width and at its narrowest
 
@@ -478,6 +480,43 @@ def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"longest": out}
 
 
+# k/batch02 entry 1: main's states on Auto, each with what its box's rows then say (the fullest: a two-line row and the
+# model wait's clock)
+MAIN_STATES = [("done", {"state": "done", "current": ""}), ("tool", {"state": "running", "current": "Bash: pytest -q"}),
+               ("agent", {"state": "running", "current": "Agent: read report C"}), ("thinking", {"state": "running", "current": "thinking"}),
+               ("waiting", {"state": "waiting", "current": ""}), ("done again", {"state": "done", "current": ""})]
+MAIN_SAYS = {"done": "main · done", "tool": "main · working · Bash pytest -q", "agent": "main · working · Agent read report C",
+             "thinking": "main · working · thinking", "waiting": "main · waiting on you", "done again": "main · done"}
+MAIN_BOX = f"{M}?.querySelector('[data-box=main]')"
+
+
+def mainstill(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """k/batch02 entry 1 (Auto): main's box driven through done, a tool, the Agent tool, thinking (waiting for a model
+    reply), waiting on you and done: main's rect and group 1's rect, and what main's rows say, in every state."""
+    from tests.helpers.studio_run_parts import settled
+    out: dict = {"states": []}
+    since = time.time() - 2
+    main = _main(rows, a, since=since, started=since, **MAIN_STATES[0][1])
+    _open(c, rig, rows, a, b, "auto", True, [main, *scene2()])
+    c.wait(f"({GROUP})(1)?.querySelectorAll('[data-member]').length === 3", 20)
+    read = (f"({{main: ({RECT})({MAIN_BOX}), one: ({RECT})(({GROUP})(1)), "
+            f"row: {MAIN_BOX}?.querySelector('.mp-lit-row[data-state]')?.textContent || '', "
+            f"clock: ({MAIN_BOX}?.querySelector('[data-testid=run-clock]')?.textContent || '').trim()}})")
+    for name, over in MAIN_STATES:
+        _set(rows, a, [_main(rows, a, since=since, started=since, **over), *scene2()])
+        try:
+            c.wait(f"({MAIN_BOX}?.querySelector('.mp-lit-row[data-state]')?.textContent || '') === {json.dumps(MAIN_SAYS[name])}", 15)
+        except TimeoutError:
+            pass  # the reading says what it showed
+        if name == "thinking":
+            try:
+                c.wait(f"({MAIN_BOX}?.querySelector('[data-testid=run-clock]')?.textContent || '').startsWith('waiting for a model reply')", 10)
+            except TimeoutError:
+                pass
+        out["states"].append({"state": name, **settled(c, read)})
+    return {"mainstill": out}
+
+
 class AutoGroupsDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -491,7 +530,8 @@ class AutoGroupsDriver(MapDownDriver):
             rows = Rows(rig)
             collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, heights, longest) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, heights, mainstill, longest)
+                     if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

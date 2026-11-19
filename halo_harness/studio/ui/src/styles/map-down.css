@@ -146,6 +146,14 @@
  * agents of two boxes talking pulse the line between them (none when motion is reduced: the line is marked, nothing runs) */
 :is(.mp-down, .ag-run) .mp-clock { color: var(--muted); }
 :is(.mp-down, .ag-run) .mp-clock-secs { display: inline-block; min-width: 10ch; }
+/* k/batch02 entry 1 (LitMini.tsx LitFace): on Auto main's rows and a hidden twin of its fullest state share one cell, so
+ * the box keeps that height whatever main does; the twin's words are generated (no text to read, nothing to point at) */
+.mp-hold { display: grid; }
+.mp-hold > * { grid-area: 1 / 1; display: block; min-width: 0; }
+.mp-hold-twin { visibility: hidden; pointer-events: none; }
+.mp-hold-row { display: block; font-size: 12px; line-height: 17px; white-space: normal; overflow-wrap: anywhere; }
+.mp-hold-row::before { content: attr(data-text); }
+.mp-hold-row[data-secs]::after { content: attr(data-secs); display: inline-block; min-width: 10ch; }
 :is(.mp-down, .ag-run) .mp-line[data-talk] { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 6; animation: mp-talk-run 1.2s linear infinite; }
 @media (prefers-reduced-motion: reduce) { :is(.mp-down, .ag-run) .mp-line[data-talk] { animation: none; stroke-dasharray: none; } }
 /* 3.6.0.5 B9-B11: a group's head and members wrap and grow; nothing is cut, nothing under 12 px; a member's 3 px left edge
