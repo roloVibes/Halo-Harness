@@ -122,3 +122,13 @@
 .mp-auto { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
 .mp-auto-main { align-self: flex-start; }
 .mp-lock-room { display: contents; visibility: hidden; pointer-events: none; } /* no box of its own: the Lock's room is the Lock's own size */
+/* 3.6.0.5 B7 B9 B10: one of Auto's groups (routes/crew/map/GroupBlock.tsx): its own colour, never a state's; 2 px border,
+ * 10 px padding (its `data-pad`: 24), radius 8, fill 10 % (5 % once every member is done). */
+.mp-group { box-sizing: border-box; display: flex; flex-direction: column; border: 2px solid var(--g); padding: 10px; border-radius: 8px;
+  background: color-mix(in srgb, var(--g) 10%, transparent); color: var(--text); cursor: default; }
+.mp-group[data-colour="1"] { --g: var(--group-1); }
+.mp-group[data-colour="2"] { --g: var(--group-2); }
+.mp-group[data-colour="3"] { --g: var(--group-3); }
+.mp-group[data-colour="4"] { --g: var(--group-4); }
+.mp-group[data-done] { background: color-mix(in srgb, var(--g) 5%, transparent); }
+.mp-group[data-selected], .mp-group:focus-visible { box-shadow: 0 0 0 2px var(--accent); }

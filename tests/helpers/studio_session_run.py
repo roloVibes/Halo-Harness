@@ -3,13 +3,14 @@ headless Chrome at 1280 x 800 over tests/helpers/studio_session_rig.py (this har
 through GET live, tests/helpers/studio_session_map_down.py `Rows`) and the map frames the runtime sends (`map_hop`,
 `map_step`, published on Studio's own bridge as crew/map_events.py publishes them). No model is called.
 
-    block   A on starter: main runs the workflow W (on no box) whose steps 1-4 are tagged rows, plus one general-purpose
-            child of main: the block on a full-width row, its head, its six step rows; main's made-up row and its Save
+    block   A on the scratch map of seven boxes (a map of his, scratch_seven.NAME; 3.6.0.5: the default is drawn as groups):
+            main runs the workflow W (on no box) whose steps 1-4 are tagged rows, plus one general-purpose child of main:
+            the block on a full-width row, its head, its six step rows; main's made-up row and its Save
     hops    A on `hops` (main -> code, code -> review, main -> docs): a hand-off lights its line (8 s, no end, a live row
             carries it), its end leaves a trace, three hand-offs weigh more, the newest marked, its hover; a line no hop
             took stays calm; a workflow's steps light in order
     off     A on `offmap` (a map of his) with a made-up child of main no line brought: the row dashed in --off-map, its
-            hover, the status line's count; the same on starter: plain dashed, not counted
+            hover, the status line's count; the same on Auto: the one member of one group, nothing off the map, not counted
     sender  A on `offmap`: coder (on its line) starts a reviewer no line brought: the row is in code's box, its hover
             names code, review stays calm
 
@@ -28,6 +29,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
+from tests.helpers.scratch_seven import NAME as SEVEN, write_seven  # noqa: E402
 from tests.helpers.studio_session_map_down import MapDownDriver, Rows  # noqa: E402
 
 M = "document.querySelector('[data-testid=\"session-lit-map\"]')"
@@ -54,6 +56,7 @@ def _seed(rig) -> None:
     from halo_harness.crew import store
     for m in (HOPS, OFFMAP):
         store.write_text(store.path_for("map", m["name"], state_dir=rig.state), json.dumps(m))
+    write_seven(rig.state)
 
 
 def _main(rows: Rows, sid: str, **over) -> dict:
@@ -90,16 +93,19 @@ def _open(c, rig, rows: Rows, a: str, b: str, mp: str, plain: bool, agents: list
 
 
 def case2(c, rig, rows: Rows, a: str, b: str) -> str:
-    """The case-2 rig: A on starter running the workflow W (on no box; steps 1-4 tagged rows w1-w4, tester w3 running
-    step 3) and main's made-up child g1. Returns the block's selector once its six rows are drawn."""
-    flow = lambda i: {"map": "starter", "workflow": "W", "step": i, "agent": AGENTS[i - 1], "saved": True}  # noqa: E731
+    """The case-2 rig: A on the scratch map of seven boxes (a map of his) running the workflow W (on no box; steps 1-4
+    tagged rows w1-w4, tester w3 running step 3) and main's made-up child g1. Returns the block's selector once its six
+    rows are drawn. It writes that map itself, so every rig that calls it (studio_session_step_in, studio_controls_steps)
+    has it."""
+    write_seven(rig.state)
+    flow = lambda i: {"map": SEVEN, "workflow": "W", "step": i, "agent": AGENTS[i - 1], "saved": True}  # noqa: E731
     kids = [_kid(f"w{i}", AGENTS[i - 1], st, crew=flow(i), model=f"or:v/{AGENTS[i - 1]}")
             for i, st in enumerate(("done", "done", "running", "queued"), start=1)]
-    gp = _kid("g1", "general-purpose", "running", crew={"map": "starter", "box": "main", "made_up": True, "agent": "general-purpose"},
+    gp = _kid("g1", "general-purpose", "running", crew={"map": SEVEN, "box": "main", "made_up": True, "agent": "general-purpose"},
               task="list the repo")
-    _open(c, rig, rows, a, b, "starter", True, [_main(rows, a, current="Workflow: W"), *kids, gp])
+    _open(c, rig, rows, a, b, SEVEN, False, [_main(rows, a, current="Workflow: W"), *kids, gp])
     _hop(rig, a, "main", "workflow:W", "start", workflow="W", off=False, why="named by main")
-    _frame(rig, a, "map_step", {"map": "starter", "box": "workflow:W", "workflow": "W", "kind": "start", "steps": SIX})
+    _frame(rig, a, "map_step", {"map": SEVEN, "box": "workflow:W", "workflow": "W", "kind": "start", "steps": SIX})
     blk = f"{M}.querySelector('[data-testid=session-map-block][data-workflow=W]')"
     c.wait(f"!!{blk} && {blk}.querySelectorAll('[data-testid=session-map-step]').length === 6", 20)
     time.sleep(0.8)
@@ -162,21 +168,27 @@ OFF_READ = f"""(() => {{ const m = {M}; if (!m) return null;
                      text: r.querySelector('[data-testid=session-map-row-text]')?.textContent || ''}} : null,
     offs: m.querySelectorAll('[data-off="1"]').length, offMap: probe('--off-map'), warn: probe('--warn'), accent: probe('--accent'),
     status: document.querySelector('[data-testid=session-status]')?.textContent || '' }}; }})()"""
+# 3.6.0.5 on Auto: the made-up child is the one member of one group (B11), nothing off the map (R17 on Auto)
+AUTO_READ = f"""(() => {{ const m = {M}; if (!m) return null; const k = m.querySelector('[data-member=a1]');
+  return {{ groups: m.querySelectorAll('[data-group]').length, member: k ? [k.querySelector('[data-testid=map-member-line]')?.textContent || '',
+             k.querySelector('[data-testid=map-member-state]')?.textContent || ''] : null,
+    offs: m.querySelectorAll('[data-off]').length, status: document.querySelector('[data-testid=session-status]')?.textContent || '' }}; }})()"""
 
 
 def off(c, rig, rows: Rows, a: str, b: str) -> dict:
     out: dict = {}
-    for name, plain in (("offmap", False), ("starter", True)):
+    for name, plain in (("offmap", False), ("auto", True)):
         gp = _kid("a1", "general-purpose", "running", crew={"map": name, "box": "main", "made_up": True, "agent": "general-purpose"},
                   task="list the repo")
         _open(c, rig, rows, a, b, name, plain, [_main(rows, a, current="Agent: general-purpose"), gp])
         _hop(rig, a, "main", "made-up:a1", "start", off=not plain, aid="a1")
+        sel = "[data-member=a1]" if plain else "[data-row=a1]"
         try:
-            c.wait(f"!!{M}.querySelector('[data-row=a1]') && !!document.querySelector('[data-testid=session-status]')?.textContent", 20)
+            c.wait(f"!!{M}.querySelector('{sel}') && !!document.querySelector('[data-testid=session-status]')?.textContent", 20)
             time.sleep(0.8)
         except TimeoutError:
             pass
-        out[name] = c.js(OFF_READ)
+        out[name] = c.js(AUTO_READ if plain else OFF_READ)
     return {"off": out}
 
 

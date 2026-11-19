@@ -8,6 +8,8 @@
 // path, whatever it waits for (runWait.tsx; batch 13's repair).
 import { useContext, type MouseEvent } from "react";
 import { useHover } from "../../lib/hover/useHover";
+import { GroupBlock } from "../crew/map/GroupBlock";
+import { g5Lines } from "../crew/map/groupWords";
 import { STATE_WORDS } from "../crew/map/LitBits";
 import { LitFace, litState, type Lit } from "../crew/map/LitMini";
 import type { PlacedDown, RoutedDown } from "../crew/map/layoutDown";
@@ -23,10 +25,12 @@ const BLOCK_ST: Record<string, BoxState> = { running: "working", done: "done", f
 /** `built`: when a build in this session wrote this box (R29: tagged "new {t}", `data-new`); a drawing `L.unlit` (Just
  *  built, R30) has no `data-lit`. `live`: the box of Agents -> Live's drawing (R34: the same face; its own test ids,
  *  `live-box` / `live-block`, and `data-map-box` as the Map's boxes carry it). */
-type Props = { b: PlacedDown; L: Lit; sid: string; lines: RoutedDown[]; built?: number | null; pick: (h: Hit) => void; live?: boolean; sel?: boolean };
+type Props = { b: PlacedDown; L: Lit; sid: string; lines: RoutedDown[]; built?: number | null; pick: (h: Hit) => void; live?: boolean; sel?: boolean;
+  /** 3.6.0.5: the id of the card open now (a group marks the member it is on) */ card?: string };
 
-/** R43's lines for box `b`. */
+/** R43's lines for box `b`; 3.6.0.5 B30: main on Auto (the drawing has groups) says G5, the agents the session started with. */
 function lines(b: PlacedDown, L: Lit, feeding: RoutedDown[], built: number | null): string[] {
+  if (b.main && L.groups) return g5Lines(L.agents.find((a) => a.id === "main")?.model || "", L.mapAgents || []);
   const blk = b.block ? L.ov?.blocks[b.block.workflow] : undefined;
   const st = blk ? BLOCK_ST[blk.state] || "idle" : litState(b, L.ov).st; // a block: the workflow's own state
   const ob = L.ov?.boxes[b.id];
@@ -39,7 +43,12 @@ function lines(b: PlacedDown, L: Lit, feeding: RoutedDown[], built: number | nul
     source: first?.from || "", more: more.map((l) => [whenWords(l.when), l.from]), children, built });
 }
 
-export function DownBox({ b, L, sid, lines: all, built = null, pick, live, sel }: Props) {
+/** 3.6.0.5 B9 B10: one of Auto's groups is drawn by GroupBlock (main and a map of his keep this box's face). */
+export function DownBox(p: Props) {
+  return p.b.group ? <GroupBlock b={p.b} L={p.L} sid={p.sid} pick={p.pick} live={p.live} sel={p.sel} card={p.card} /> : <OneBox {...p} />;
+}
+
+function OneBox({ b, L, sid, lines: all, built = null, pick, live, sel }: Props) {
   const { st, helper } = litState(b, L.ov);
   const w = useContext(RunCtx)?.wait;
   const waited = !L.unlit && (st === "waiting" || (!!w?.leaf && (w.box ? w.box === b.id : helper === w.leaf)));
@@ -67,7 +76,7 @@ export function DownBox({ b, L, sid, lines: all, built = null, pick, live, sel }
          data-testid={live ? (loose ? "live-block" : "live-box") : loose ? "session-map-block" : "session-lit-box"} data-box={b.id} data-map-box={live ? b.id : undefined} title={!b.block && hv.titles ? `${b.name}: ${STATE_WORDS[st]}` : undefined}
          style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}
          tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), e.currentTarget.click()); }}>
-      <LitFace b={b} ov={L.ov} sid={sid} tag={built ? newTag(built) : undefined} />
+      <LitFace b={b} ov={L.ov} sid={sid} tag={built ? newTag(built) : undefined} bare={!!L.groups} />
     </div>
   );
 }

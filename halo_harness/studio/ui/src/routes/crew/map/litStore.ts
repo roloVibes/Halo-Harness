@@ -16,12 +16,16 @@ import type { OvEvent } from "./overlay";
 import { takeBuilt } from "./built";
 import { batcher } from "./frameBatch";
 import { foldHop, NO_TOTALS, type Totals } from "./overlayHops";
+import { isAuto, onMap } from "./truthWords";
 
 export const MAX_EVENTS = 600; // the window of recent frames; the trace's totals (overlayHops.ts) are kept apart, exact (R49)
 /** `plain`: the session runs on the default map (R17); `busy`: its row says a turn runs (R16: no hand-off live once not). */
 export type LitSession = { sid: string; title: string; map: string | null; started: number; live: number; plain?: boolean; busy?: boolean;
   /** 3.6.0.2 R50: the file the session follows (its row's `map_scope`, `map_path`), for the drawing's one soft read */
-  scope?: string | null; path?: string | null };
+  scope?: string | null; path?: string | null;
+  /** 3.6.0.5 B1: the row says the session runs on the PlainMap (`map_plain`) AND names the default (isAuto): drawn as main
+   *  and its groups; a row naming a map of his, or no map at all, keeps its drawing; B30: `map_agents`, the agents it had at its start (main's hover G5) */
+  auto?: boolean; map_agents?: string[] };
 type State = { events: Record<string, OvEvent[]>; totals: Record<string, Totals>; cards: Record<string, { id: string; changes: Change[] }>;
   pick: string; feed: string; feedFor: string };
 
@@ -79,7 +83,8 @@ export function toLit(s: SessionRow): LitSession {
   const live = (s.agents || []).filter((a) => LIVE.includes(String(a.state || ""))).length + (s.busy ? 1 : 0);
   const map = typeof s.map === "string" && s.map ? s.map : null;
   return { sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), map, started: Number(s.started) || 0, live,
-           plain: !map || !!s.map_plain, busy: !!s.busy, scope: s.map_scope ?? null, path: s.map_path ?? null };
+           plain: !map || !!s.map_plain, busy: !!s.busy, scope: s.map_scope ?? null, path: s.map_path ?? null,
+           auto: !!s.map_plain && isAuto(map), map_agents: Array.isArray(s.map_agents) ? s.map_agents.map(String) : [] };
 }
 
 const here_ = (st: Pick<FleetState, "harnesses">, here: string): SessionRow[] =>
@@ -108,8 +113,12 @@ export function openList(st: Pick<FleetState, "harnesses">, here: string): LitSe
 
 /** The session lit for the map `shown`: the picked one while it runs, else on `shown`, else on any map. */
 export function chosen(all: LitSession[], pick: string, shown: string): LitSession | null {
-  return all.find((s) => s.sid === pick) || all.find((s) => s.map && s.map === shown) || all.find((s) => !!s.map) || null;
+  return all.find((s) => s.sid === pick) || all.find((s) => !!s.map && onMap(s.map, shown)) || all.find((s) => !!s.map) || null;
 }
+
+/** Does a session whose row names `rowMap` draw the map `show` names as its own (3.6.0.5: the default's names are one map,
+ *  through onMap / isAuto); no `show`: its own map. */
+export const ownsMap = (rowMap: string | null, show?: { map: string }): boolean => !show || onMap(rowMap, show.map);
 
 /** R4b (R4's gap 4): another machine's sessions with an agent at work, from the rows Studio already has. Their map
  *  frames do not reach this page (they ride that machine's feed), so the picker lists them, "open it on that machine". */

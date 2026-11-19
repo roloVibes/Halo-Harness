@@ -70,6 +70,7 @@ export function StepIn({ t, map, close, onLive }: { t: Target; map: string; clos
         <button type="button" className="mp-step-in-x" data-testid="map-step-in-close" aria-label="Close" onClick={close}>×</button>
       </div>
       <p className="mp-step-in-state mono" data-testid="map-step-in-state">{t.text}</p>
+      {t.why && <p className="mp-step-in-state mono" data-testid="map-step-in-why">{t.why}</p>}
       <StepInAsks who={t.who} />
       {t.who.map((w) => <WhoRow key={w.key} w={w} chosen={w.key === pick} choose={() => setPick(w.key)} />)}
       {pick && (

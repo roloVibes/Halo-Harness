@@ -44,6 +44,8 @@ export const offHover = (sender: string): string => `Not on the map: ${sender} s
 export const endedAt = (t: number): string => `ended at ${clock(t)}`;
 export const openMapAt = (sender: string): string => `Open the map at ${sender}`;
 export const openInAgents = (): Line => ({ text: "", act: "open-agents-live", label: `Open in Agents -> ${WORDS.live}` });
+/** 3.6.0.5 B13 (R18 R43 on Auto): why a helper got its model, on its hover and its card. */
+export const whyThisModel = (reason: string): string => reason ? `Why this model: ${reason}` : "Why this model: named by main or by your settings";
 
 /** R24 Agents -> Map's picker: the sessions running a map (F2), the map new sessions use (F4); the switch. */
 export function pickerSuffix(running: string[], next = false): string {

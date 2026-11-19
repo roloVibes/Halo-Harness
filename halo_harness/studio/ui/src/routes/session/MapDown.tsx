@@ -168,7 +168,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
               <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
                 {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} talk={talks.get(`${l.from}>${l.to}`)} />)}
               </svg>
-              {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} built={tagOf({ tags, flows }, s.sid, shown, b)} sel={selected(card, b.id, b.block?.workflow)} />)}
+              {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} built={tagOf({ tags, flows }, s.sid, shown, b)} sel={selected(card, b.id, b.block?.workflow, b.group?.members)} card={card?.id} />)}
             </div>
           </div>
         </div>}

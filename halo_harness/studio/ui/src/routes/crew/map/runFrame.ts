@@ -15,7 +15,7 @@ export function useStepCard(L: Lit) {
   const rowsNow = useRef(L);
   rowsNow.current = L;
   const pick = useCallback((h: Hit) => setCard((c) => { // from the rows at the click
-    const t = stepIn(h, rowsNow.current.agents, rowsNow.current.ov);
+    const t = stepIn(h, rowsNow.current.agents, rowsNow.current.ov, rowsNow.current.groups);
     return c && c.id === t.id ? null : t;
   }), []);
   const pickLine: LinePick = useCallback((l, text) => pick({ kind: "line", from: l.from, to: l.to, text, off: !!l.off }), [pick]);
@@ -23,9 +23,11 @@ export function useStepCard(L: Lit) {
   return { card, setCard, pick, pickLine, closeCard };
 }
 
-/** The box a card is open on carries the selected mark (`data-selected`): its own card, or a block's head or step's. */
-export const selected = (card: Target | null, id: string, workflow?: string): boolean =>
-  !!card && (card.id === `box:${id}` || (!!workflow && (card.id === `head:${workflow}` || card.id.startsWith(`step:${workflow}:`))));
+/** The box a card is open on carries the selected mark (`data-selected`): its own card, or a block's head or step's;
+ *  3.6.0.5 B13: a group's box (`members` given) for its own card (`group:{n}`, its id) and for a card on one of its members. */
+export const selected = (card: Target | null, id: string, workflow?: string, members?: string[]): boolean =>
+  !!card && (card.id === `box:${id}` || (!!workflow && (card.id === `head:${workflow}` || card.id.startsWith(`step:${workflow}:`)))
+    || (!!members && (card.id === id || (card.id.startsWith("member:") && members.includes(card.id.slice(7))))));
 
 /** The geometry to draw: `fresh` unless held, measured, and still the same drawing (`key`: the map, and the width laid out). */
 export function useHeld<G>(held: boolean, key: string, fresh: G, ready: boolean): G {
@@ -43,7 +45,7 @@ export function useMeasure(world: RefObject<HTMLElement | null>, heights: Record
     if (shownOnly && !world.current?.offsetParent) return;
     const got: Record<string, number> = {};
     world.current?.querySelectorAll<HTMLElement>("[data-box]").forEach((el) => {
-      got[el.dataset.box!] = (el.querySelector<HTMLElement>(".mp-inner")?.offsetHeight || 0) + 20; // its words, padding and border
+      got[el.dataset.box!] = (el.querySelector<HTMLElement>(".mp-inner")?.offsetHeight || 0) + (Number(el.dataset.pad) || 20); // its words, padding and border (a group's: data-pad)
     });
     if (Object.entries(got).some(([id, h]) => Math.abs((heights[id] || 0) - h) > 1)) setHeights((x) => ({ ...x, ...got }));
   });

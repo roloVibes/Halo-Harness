@@ -867,10 +867,10 @@ def test_workflow_block_names_steps_agents_models(ctx: Ctx):
     ctx.check(f"R15: no 'helper', no 'made up for this task' in the drawer, got {re.findall(r'(?i)helper|made up for this task', text)}",
               not re.search(r"(?i)helper|made up for this task", text))
     calm = {b[0]: (b[5], b[6]) for b in boxes if b[0] in ("planner", "coder", "reviewer")}
-    ctx.check(f"R14: starter's planner, coder, reviewer stay calm (not used yet), got {calm}",
+    ctx.check(f"R14: on his map seven-boxes the planner, coder, reviewer stay calm (not used yet), got {calm}",
               len(calm) == 3 and all(st == "idle" and "not used yet" in tx for st, tx in calm.values()))
     ln = d.get("line") or {}
-    ctx.check(f"R16 R17: main -> W is a dashed line, lit, plain on starter (not off the map), got {ln}",
+    ctx.check(f"R16 R17: main -> W is a dashed line, lit, plain on his map seven-boxes (not off the map), got {ln}",
               ln.get("lit") == "live" and ln.get("dash") not in ("", "none") and "off-map" not in str(ln))
 
 
@@ -901,7 +901,7 @@ def test_hops_light_their_line_and_leave_a_trace(ctx: Ctx):
 @test
 def test_off_map_hand_off_stands_out(ctx: Ctx):
     d = _ranrun(ctx, "off")
-    his, st = d.get("offmap") or {}, d.get("starter") or {}
+    his, st = d.get("offmap") or {}, d.get("auto") or {}
     r = his.get("row") or {}
     ctx.check(f"R17: on a map of his the child no line brought is marked off the map, got {r}", r.get("off") == "1" and his.get("offs") == 1)
     ctx.check(f"R17: dashed in --off-map, not amber, not the accent, got {r.get('color')} {r.get('style')} off-map {his.get('offMap')} "
@@ -909,10 +909,9 @@ def test_off_map_hand_off_stands_out(ctx: Ctx):
               and his.get("offMap") not in (his.get("warn"), his.get("accent")))
     ctx.check(f"R17: its hover, got {r.get('title')!r}", r.get("title") == "Not on the map: main started this itself")
     ctx.check(f"R17: the status line counts it, got {his.get('status')!r}", (his.get("status") or "").endswith("· 1 hand-off outside the map"))
-    s = st.get("row") or {}
-    ctx.check(f"R17: on starter it is main's pick: plain dashed, not --off-map, got {s} off-map {st.get('offMap')}",
-              s.get("unlined") == "1" and not s.get("off") and s.get("style") == "dashed" and s.get("color") != st.get("offMap")
-              and st.get("offs") == 0)
+    ctx.check(f"3.6.0.5 B11: on Auto it is main's pick, the one member of one group, got {st}",
+              st.get("groups") == 1 and st.get("member") == ["agent: list the repo", "working"])
+    ctx.check(f"R17 on Auto: nothing in the drawer is off the map, got {st.get('offs')}", st.get("offs") == 0)
     ctx.check(f"R17: and not counted, got {st.get('status')!r}", "outside the map" not in (st.get("status") or "x outside the map"))
 
 

@@ -475,12 +475,23 @@ ROOM = f"""(() => {{ const room = {Q}('.mp-down-room')?.getBoundingClientRect(),
            boxes: {BOXES}.length, below, text: more?.textContent || '' }}; }})()"""
 
 
+def _room_rows(rows: Rows, a: str) -> list:
+    """Main and one DONE helper of main in the group "check the room" (on Auto main alone is one box: the wait wants two)."""
+    base = next((r for r in rows.orig() if r.get("session_id") == a), {})
+    main = next((x for x in base.get("agents") or [] if x.get("agent_id") == "main"), {"agent_id": "main", "name": "main", "kind": "main"})
+    r1 = {"agent_id": "r1", "name": "coder", "role": "coder", "parent": "main", "kind": "member", "state": "done", "cost_usd": 0.0,
+          "crew": None, "square": None, "task": "check the room", "model": "", "since": time.time(),
+          "spawn": {"step": "1", "description": "check the room", "task": "check the room",
+                    "group": {"key": "task:check the room", "n": 1, "by": "task"}}}
+    return [{**main, "parent": None}, r1]
+
+
 def room(c, rig, rows: Rows, a: str, b: str) -> dict:
     out: dict = {}
     for w, h in ((1280, 800), (1440, 900), (1920, 1080)):
         rows.reset()
         rows.idle(b)
-        rows.idle(a, map="auto", map_plain=True)
+        rows.idle(a, map="auto", map_plain=True, agents=_room_rows(rows, a))  # 3.6.0.5: main and one group (Auto draws groups)
         _open(c, rig, f"mode=session&session={a}&open=session-map", w, h)
         c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
         time.sleep(1.0)  # past the drawing's settle (200 ms) and its measured boxes

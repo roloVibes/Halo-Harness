@@ -9,12 +9,13 @@ import { useStore } from "../../../lib/store";
 import { useSessionRecord, type RecordAgent } from "../../../lib/work/record";
 import { useNow } from "../../fleet/store";
 import { STATE_WORDS } from "./LitBits";
-import { lit, startLit, type LitSession } from "./litStore";
-import { withRun } from "./litView";
+import { lit, ownsMap, startLit, type LitSession } from "./litStore";
+import { autoView, withRun } from "./litView";
+import { autoGroups, type AutoGroup, type GRow } from "./overlayGroups";
 import { useMapFile, type Got } from "./mapFiles";
 import type { DrawBox, MapDetail } from "./mapTypes";
-import { overlay, type BoxState, type Overlay, type OvRow } from "./overlay";
-import { inFlight, NO_TOTALS, type Totals } from "./overlayHops";
+import { overlay, type BoxState, type Overlay } from "./overlay";
+import { groupLive, groupTotals, inFlight, NO_TOTALS, type Totals } from "./overlayHops";
 import { BlockFace, KidRows, NewTag } from "./RunRows";
 import { ToolClock } from "./runParts";
 import { view, type MapView } from "./view";
@@ -26,13 +27,16 @@ const NO_MAP = { map: { format: "map/1", name: "", boxes: [], lines: [] }, scope
 /** `totals`: the session's hand-offs counted (R49); `live`: the lines with a hand-off in flight now (R16). */
 export type Lit = { detail: MapDetail | null; ov: Overlay | null; v: MapView; totals: Totals; live: Set<string>; agents: RecordAgent[];
   /** 3.6.0.2 R28: the read (removed / unreadable), and `unlit`: a map drawn calm (Just built, R30) */
-  got?: Got | null; unlit?: boolean; /** the drawing's clock, seconds (P4 batch 13) */ now?: number };
+  got?: Got | null; unlit?: boolean; /** the drawing's clock, seconds (P4 batch 13) */ now?: number;
+  /** 3.6.0.5 B1: on Auto (the row says `map_plain`) the groups drawn, else undefined; B30 the row's `map_agents` */
+  groups?: AutoGroup[]; mapAgents?: string[] };
 
 /** R49: what the drawing's layout depends on -- the blocks (workflow, caller, step count) and which box holds which
  *  rows -- never a frame's state or time, so the layout is computed again only when that changes. */
-const shapeOf = (ov: Overlay | null): string => !ov ? "" : JSON.stringify([
+const shapeOf = (ov: Overlay | null, groups?: AutoGroup[]): string => !ov ? "" : JSON.stringify([
   Object.entries(ov.blocks).map(([w, b]) => [w, b.box, b.caller, b.steps.length, b.off]),
   Object.entries(ov.kids).map(([box, ks]) => [box, ks.map((k) => k.aid)]),
+  (groups || []).map((g) => [g.n, g.members.map((m) => m.aid)]), // 3.6.0.5: a member joining re-lays out once (R12 holds it)
 ]);
 
 /** The session's map (null while it is read, or gone: `got` says which), its overlay and the lit view (boxes, strip,
@@ -41,7 +45,7 @@ const shapeOf = (ov: Overlay | null): string => !ov ? "" : JSON.stringify([
 export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }, shown = true): Lit {
   useEffect(() => startLit(), []);
   const name = show ? show.map : s.map || "";
-  const own = !show || show.map === s.map;
+  const own = ownsMap(s.map, show);
   const got = useMapFile(name, own ? { scope: s.scope, path: s.path } : {}, !!name);
   const detail = !name ? NO_MAP : got && "detail" in got ? got.detail : null;
   const unlit = !!show?.unlit;
@@ -51,16 +55,23 @@ export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }, s
   const now = useNow(shown, 1000) / 1000; // P4 batch 13: the drawing's one clock, stopped while it is not on screen
   const tot = useStore(lit, (x) => x.totals[s.sid]) || NO_TOTALS;
   const totals = unlit ? NO_TOTALS : tot;
-  const rows = useMemo(() => (unlit ? [] : (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id }) as OvRow)), [rec, unlit]);
+  const rows = useMemo(() => (unlit ? [] : (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id, ended: a.ended }) as GRow)), [rec, unlit]);
+  const auto = !!s.auto && !show; // 3.6.0.5 B1: groups only on a row that says map_plain, never on another map shown
   const plain = s.plain !== false;
   // R30: Just built is drawn calm: no overlay (main reads idle, not "working", on a map the session does not run on)
   const ov = useMemo(() => (detail && !unlit ? overlay(detail.map, rows, events || [], now, { plain }) : null), [detail, rows, events, now, plain, unlit]);
-  const shape = shapeOf(ov);
-  const ovNow = useRef(ov);
+  const groups = useMemo(() => (auto && ov ? autoGroups(rows, ov.blocks) : undefined), [auto, rows, ov]);
+  const shape = shapeOf(ov, groups);
+  const ovNow = useRef(ov), groupsNow = useRef(groups);
   ovNow.current = ov;
-  const v = useMemo(() => withRun(view(detail?.map || null, [], []), ovNow.current, detail, plain), [detail, shape, plain]); // eslint-disable-line react-hooks/exhaustive-deps
-  const live = useMemo(() => inFlight(totals, rows, !unlit && !!s.busy), [totals, rows, s.busy, unlit]);
-  return { detail, ov, v, totals, live, agents: unlit ? NO_AGENTS : rec?.agents || NO_AGENTS, got, unlit, now };
+  groupsNow.current = groups;
+  const v = useMemo(() => (groupsNow.current ? autoView(view(detail?.map || null, [], []), groupsNow.current)
+    : withRun(view(detail?.map || null, [], []), ovNow.current, detail, plain)), [detail, shape, plain]); // eslint-disable-line react-hooks/exhaustive-deps
+  // B12a: on Auto main's line into a group is counted and lit from the group's rows, never from a map_hop frame
+  const shownTotals = useMemo(() => (groups ? groupTotals(groups) : totals), [groups, totals]);
+  const live = useMemo(() => (groups ? groupLive(groups) : inFlight(totals, rows, !unlit && !!s.busy)), [groups, totals, rows, s.busy, unlit]);
+  return { detail, ov, v, totals: shownTotals, live, agents: unlit ? NO_AGENTS : rec?.agents || NO_AGENTS, got, unlit, now, groups,
+           mapAgents: s.map_agents || [] };
 }
 
 /** A box's state and, for a made-up helper, its agent id. */
@@ -71,7 +82,8 @@ export function litState(b: DrawBox, ov: Overlay | null): { st: BoxState; helper
 
 /** A box's face: the name (13.5 px), then "kind · state" (12 px) and, while it works, what it does now -- every word; then
  *  its children as rows (R15). A workflow's box is its block (R14). */
-export function LitFace({ b, ov, sid, tag }: { b: DrawBox; ov: Overlay | null; sid: string; tag?: string }) {
+export function LitFace({ b, ov, sid, tag, bare }: { b: DrawBox; ov: Overlay | null; sid: string; tag?: string;
+  /** 3.6.0.5 B1: on Auto main's children are its groups' members, never rows in main's box */ bare?: boolean }) {
   if (b.block) return <BlockFace block={b.block} ov={ov} tag={tag} />;
   const { st } = litState(b, ov);
   const doing = st === "working" ? ov?.boxes[b.id]?.doing : "";
@@ -81,7 +93,7 @@ export function LitFace({ b, ov, sid, tag }: { b: DrawBox; ov: Overlay | null; s
       {tag && <NewTag text={tag} />}
       <span className="mp-lit-row mono" data-state={st}>{b.main ? "main" : b.kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
       <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={(st === "working" || st === "waiting") && !b.helper} />
-      <KidRows kids={ov?.kids[b.id] || []} sid={sid} sender={b.id} />
+      <KidRows kids={bare ? [] : ov?.kids[b.id] || []} sid={sid} sender={b.id} />
     </span>
   );
 }

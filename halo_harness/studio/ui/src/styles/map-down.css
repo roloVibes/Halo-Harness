@@ -139,3 +139,27 @@
 :is(.mp-down, .ag-run) .mp-clock-secs { display: inline-block; min-width: 10ch; }
 :is(.mp-down, .ag-run) .mp-line[data-talk] { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 6; animation: mp-talk-run 1.2s linear infinite; }
 @media (prefers-reduced-motion: reduce) { :is(.mp-down, .ag-run) .mp-line[data-talk] { animation: none; stroke-dasharray: none; } }
+/* 3.6.0.5 B9-B11: a group's head and members wrap and grow; nothing is cut, nothing under 12 px; a member's 3 px left edge
+ * is its state's colour */
+.mp-group .mp-inner { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mp-group-head { display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.mp-group-name { font-size: 13.5px; font-weight: 600; line-height: 19px; overflow-wrap: anywhere; }
+.mp-group-counts, .mp-group-why { font-size: 12px; line-height: 17px; overflow-wrap: anywhere; color: var(--muted); }
+.mp-group-counts .mp-bad { color: var(--bad); }
+.mp-group-members { display: flex; flex-wrap: wrap; gap: 8px; }
+.mp-group-steps .mp-step { display: block; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; color: var(--muted); cursor: pointer; }
+.mp-group-steps .mp-step[data-state=working] { color: var(--accent); }
+.mp-group-steps .mp-step[data-state=done] { color: var(--text); }
+.mp-group-steps .mp-step[data-state=failed] { color: var(--bad); }
+.mp-member { box-sizing: border-box; display: flex; flex-direction: column; min-height: 48px; padding: 6px 8px; border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong); border-radius: 6px; background: var(--surface); cursor: pointer; min-width: 0; }
+.mp-member[hidden] { display: none; }
+.mp-member[data-state=working] { border-left-color: var(--accent); }
+.mp-member[data-state=waiting] { border-left-color: var(--warn); }
+.mp-member[data-state=done] { border-left-color: var(--ok); }
+.mp-member[data-state=failed] { border-left-color: var(--bad); }
+.mp-member[data-selected] { box-shadow: 0 0 0 2px var(--accent); }
+.mp-member-line, .mp-member-state, .mp-member-by { display: block; font-size: 12px; line-height: 17px; overflow-wrap: anywhere; }
+.mp-member-line { font-size: 13px; line-height: 18px; }
+.mp-member-state, .mp-member-by { color: var(--muted); }
+.mp-group-more { font-size: 12px; line-height: 18px; color: var(--muted); align-self: center; }

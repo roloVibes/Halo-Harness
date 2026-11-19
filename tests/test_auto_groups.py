@@ -656,6 +656,45 @@ def test_agent_copy_refusal_says_ships_with_halo(ctx: Ctx):
               and "starter" not in got.get("text", "") and got.get("rows") == [])
 
 
+@test
+def test_g5_lists_the_start_agents_m1_lists_the_new_ones(ctx: Ctx):
+    """Round 3 J1 M3 (b/batch05 entry 4): main's hover on Auto (G5) lists the agents this session had at its START (the
+    status row's `map_agents`); the Map tab's line (M1, `hand_to` of GET crew/map/auto) lists the agents a NEW session on
+    Auto gets now. One sentence each, one test: an agent saved mid-session is in M1, never in G5."""
+    from types import SimpleNamespace
+    from tests.helpers import node_ts
+    from tests.helpers.crew_rig import CrewRig
+    ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map"
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.config.agents_md import discover_agents
+        from halo_harness.crew import map_facts, store
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.crew.map_session import agents, prepare
+        c = prepare(None, rig.proj)[0]
+        session = SimpleNamespace(team_control=control_for(c, cwd=rig.proj) if c is not None else None,
+                                  agent_runtime=SimpleNamespace(agents=agents(discover_agents(rig.proj), c)[0]))
+        store.write_text(store.path_for("agent", "checker", state_dir=rig.state), store.dump(
+            {"format": "agent/1", "name": "checker", "does": "Checks.", "model": "auto", "uses": ["read"], "careful": "ask-changes"}))
+        st, m = rig.api("GET", "crew/map/auto")
+        hand_to = m.get("hand_to") or []
+        start = map_facts.row(session).get("map_agents") or []
+    ctx.check(f"M1's hand_to holds checker (a new session gets it), got {st} {hand_to}", st == 200 and "checker" in hand_to)
+    ctx.check(f"the row's map_agents is the session's start, without checker, got {start}", start and "checker" not in start)
+    js = """const g = await import(%s), a = await import(%s);
+console.log(JSON.stringify({g5: g.g5Lines("m", %s), m1: a.m1Head(%s)}));""" % (
+        json.dumps((ui / "groupWords.ts").resolve().as_uri()), json.dumps((ui / "autoWords.ts").resolve().as_uri()),
+        json.dumps(start), json.dumps(hand_to))
+    got = node_ts.run(js)
+    g5 = got.get("g5") or []
+    ctx.check(f"G5 lists the start agents, never checker, got {g5}",
+              g5[:1] == ["main · m"] and len(g5) == 2 and g5[1].startswith("Can hand work to: ") and "checker" not in g5[1])
+    m1, at = str(got.get("m1")), hand_to.index("checker") if "checker" in hand_to else -1
+    # M1 names twelve, then "and {n} more" (autoWords.ts SHOWN): checker is named, or counted in that tail
+    ctx.check(f"M1 holds checker (named, or counted in its 'and {{n}} more'), got {m1!r}",
+              at >= 0 and ("checker" in m1 if at < 12 else m1.endswith(f" and {len(hand_to) - 12} more.")))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

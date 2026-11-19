@@ -9,17 +9,22 @@
 // drawer and Agents' Live view: no Session import.
 import type { OvRow, Overlay } from "./overlay";
 import { runningStep } from "./overlayBlocks";
+import type { AutoGroup } from "./overlayGroups";
+import { whyThisModel } from "./truthBits";
 
 export type Hit =
   | { kind: "box"; box: string; name: string; text: string }
   | { kind: "step"; workflow: string; n: number; text: string }
   | { kind: "head"; workflow: string; text: string }
-  | { kind: "line"; from: string; to: string; text: string; off: boolean };
+  | { kind: "line"; from: string; to: string; text: string; off: boolean }
+  /** 3.6.0.5 B13 on Auto: a group's member (its card says why it got its model) and a group's head (a row per live member) */
+  | { kind: "member"; aid: string; text: string }
+  | { kind: "group"; n: number; text: string };
 /** One agent row of the session (lib/work/record.ts RecordAgent's fields this needs). */
 export type RecRow = { id: string; key: string; name: string; state: string; row: OvRow };
 /** One agent the card speaks to: its fleet key `hid|sid|aid`, its agent id, its words. */
 export type Who = { key: string; aid: string; name: string };
-export type Target = { id: string; title: string; text: string; who: Who[]; sender: string };
+export type Target = { id: string; title: string; text: string; who: Who[]; sender: string; /** B13: "Why this model: ..." */ why?: string };
 
 const LIVE = ["queued", "running", "waiting", "paused"];
 const isLive = (a: RecRow) => LIVE.includes(String(a.state || ""));
@@ -34,10 +39,24 @@ function stepChild(w: string, n: number | undefined, rows: RecRow[]): RecRow | u
 
 /** The id a click is known by (a second click on the same thing closes the card). */
 export const hitId = (h: Hit): string =>
-  h.kind === "box" ? `box:${h.box}` : h.kind === "step" ? `step:${h.workflow}:${h.n}` : h.kind === "head" ? `head:${h.workflow}` : `line:${h.from}>${h.to}`;
+  h.kind === "box" ? `box:${h.box}` : h.kind === "step" ? `step:${h.workflow}:${h.n}` : h.kind === "head" ? `head:${h.workflow}`
+    : h.kind === "member" ? `member:${h.aid}` : h.kind === "group" ? `group:${h.n}` : `line:${h.from}>${h.to}`;
 
-export function stepIn(h: Hit, rows: RecRow[], ov: Overlay | null): Target {
+/** `groups`: the drawing's groups on Auto (LitMini.tsx useLit), for a member's or a group's card. */
+export function stepIn(h: Hit, rows: RecRow[], ov: Overlay | null, groups?: AutoGroup[]): Target {
+  if (h.kind === "line" && h.to.startsWith("group:") && groups) // main's line into a group: that group's card
+    return { ...stepIn({ kind: "group", n: Number(h.to.slice(6)), text: h.text }, rows, ov, groups), id: hitId(h) };
   const base = { id: hitId(h), text: h.text, sender: "" };
+  if (h.kind === "member") {
+    const m = groups?.flatMap((g) => g.members).find((x) => x.aid === h.aid), a = rows.find((r) => r.id === h.aid);
+    const live = a && isLive(a) ? [who(a)] : [];
+    return { ...base, title: m?.who || (a ? who(a).name : h.aid), who: live, why: whyThisModel(m?.reason || String((a?.row as { model_reason?: string | null } | undefined)?.model_reason || "")) };
+  }
+  if (h.kind === "group") {
+    const g = groups?.find((x) => x.n === h.n), ids = (g?.members || []).map((m) => m.aid);
+    const live = ids.map((id) => rows.find((r) => r.id === id)).filter((a): a is RecRow => !!a && isLive(a));
+    return { ...base, title: g?.name || `Task ${h.n}`, who: live.map(who) };
+  }
   if (h.kind === "box") {
     const ids = new Set([...(ov?.kids[h.box] || []).map((k) => k.aid), ...(ov?.boxes[h.box]?.agents || [])]);
     const live = rows.filter((a) => ids.has(a.id) && isLive(a));

@@ -10,6 +10,9 @@ tests/helpers/node_ts.py (no browser, no model; runs anywhere).
    group, rows from before grouped by the reply that started them, a workflow run's steps from ITS OWN rows.
 3. The view on Auto (routes/crew/map/litView.ts `autoView`, `groupBox`, B8 B9 B10 B12): main and one block per group in
    n order, placed by layoutDown.ts and layout.ts unedited; a map of his draws exactly as before (guard).
+4. (batch 5) A group's words (groupWords.ts, section 3 (b), B11 B13 B30), its colour, main's line into it lit from its
+   rows (overlayHops.ts groupTotals / groupLive, B12a), the cards on a member and a group (stepInTarget.ts, runFrame.ts
+   selected), the default's names one map in litStore.ts (chosen, ownsMap), no fetch or timer in the group files (B25).
 Run: python -m tests.test_map_groups
 """
 from __future__ import annotations
@@ -28,6 +31,8 @@ MODS = {
     "groups": "routes/crew/live/groups.ts", "lane": "routes/crew/live/laneGroups.ts", "record": "lib/work/record.ts",
     "og": "routes/crew/map/overlayGroups.ts", "ov": "routes/crew/map/overlay.ts", "lit": "routes/crew/map/litView.ts",
     "view": "routes/crew/map/view.ts", "ld": "routes/crew/map/layoutDown.ts", "lay": "routes/crew/map/layout.ts",
+    "gw": "routes/crew/map/groupWords.ts", "hops": "routes/crew/map/overlayHops.ts", "sit": "routes/crew/map/stepInTarget.ts",
+    "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -349,6 +354,245 @@ console.log(JSON.stringify({a: run(D.rows), b: run(D.bare)}));""" % (T0 + 60)
     ctx.check("his map: the overlay too", a.get("ov") == b.get("ov"))
     ctx.check(f"his map: no box is a group, got {[x.get('id') for x in (a.get('drawn') or {}).get('boxes') or [] if x.get('group')]}",
               not any(x.get("group") for x in (a.get("drawn") or {}).get("boxes") or []))
+
+
+# ---------------------------------------------------------------------------------------------- 4. words, lines, cards
+
+def _m(aid: str, state: str = "working", *, who: str = "researcher", desc: str = "", model: str = "kimi-k3", cost: float = 0.0,
+       reason: str = "", made: bool = False, t: float = 0.0, ended: float = 0.0, by: str = "") -> dict:
+    m = {"aid": aid, "parent": by or "main", "who": who, "description": desc, "model": model, "state": state, "cost": cost,
+         "reason": reason, "made": made, "started": T0 + t if t else 0, "ended": T0 + ended if ended else 0}
+    if by:
+        m["by"] = by
+    return m
+
+
+def _grp(n: int, members: list, name: str = "compare the three reports") -> dict:
+    return {"n": n, "key": f"task:{name}", "by": "task", "name": name, "members": members, "first": T0 + 1}
+
+
+def _rec(rows: list) -> list:
+    return [{"id": r["agent_id"], "key": f"h|S|{r['agent_id']}", "name": r["name"], "state": r["state"], "row": r} for r in rows]
+
+
+@test
+def test_group_words(ctx: Ctx):
+    three = _grp(1, [_m("a", desc="read report A", cost=0.01, t=1), _m("b", desc="read report B", cost=0.01, t=2),
+                     _m("c", desc="read report C", cost=0.02, t=3)])
+    each = _grp(2, [_m("a", "working"), _m("b", "waiting"), _m("c", "done"), _m("d", "failed", cost=0.5)], name="x")
+    one = _grp(3, [_m("a", "working")], name="fix the login bug")
+    done = _grp(4, [_m("a", "done", cost=0.03, t=1, ended=60), _m("b", "done", cost=0.03, t=5, ended=100),
+                    _m("c", "done", cost=0.03, t=10, ended=126)], name="d")
+    js = """const g = M.gw, out = {};
+for (const [k, x] of Object.entries(D.groups)) out[k] = {line: g.countsLine(x), parts: g.countParts(x)};
+out.member = [g.memberLine(D.m1), g.memberState(D.m1)];
+out.bare = [g.memberLine(D.m2), g.memberState(D.m2)];
+out.third = g.startedBy("researcher", "read report A");
+out.more = g.moreMembers(2);
+out.span = [g.span(59), g.span(60), g.span(125), g.money(0.1)];
+console.log(JSON.stringify(out));"""
+    got = _run(["gw"], js, {"groups": {"three": three, "each": each, "one": one, "done": done},
+                            "m1": _m("a", desc="read report A"), "m2": _m("b", "done", who="agent", model="")})
+    ctx.check(f"3 working at $0.04, got {got['three']['line']!r}", got["three"]["line"] == "3 agents · 3 working · $0.04")
+    ctx.check(f"every part in order, failed its own (--bad) part, got {got['each']}",
+              got["each"]["line"] == "4 agents · 1 working · 1 waiting · 1 done · 1 failed · $0.50"
+              and [p.get("bad", False) for p in got["each"]["parts"]] == [False, False, False, False, True, False])
+    ctx.check(f"one member: '1 agent', zero parts and a zero cost left out, got {got['one']['line']!r}",
+              got["one"]["line"] == "1 agent · 1 working")
+    ctx.check(f"all done over 125 s: the done form, got {got['done']['line']!r}", got["done"]["line"] == "3 agents · all done · $0.09 · 2 min")
+    ctx.check(f"a member's two lines, got {got['member']}", got["member"] == ["researcher: read report A", "kimi-k3 · working"])
+    ctx.check(f"no description: who alone; no model: the state alone, got {got['bare']}", got["bare"] == ["agent", "done"])
+    ctx.check(f"the third line, got {got['third']!r}", got["third"] == "started by researcher: read report A")
+    ctx.check(f"+2 more, got {got['more']!r}", got["more"] == "+2 more")
+    ctx.check(f"span and money, got {got['span']}", got["span"] == ["59 s", "1 min", "2 min", "$0.10"])
+
+
+@test
+def test_workflow_block_takes_a_group_colour(ctx: Ctx):
+    rows = [MAIN, kid("w1", 1, step="1", key="workflow:review#tu1", n=3, by="workflow", name="coder",
+                      crew={"workflow": "review", "step": 1, "agent": "coder"})]
+    ev = [{"event": "map_step", "data": {"map": "auto", "box": "workflow:review", "workflow": "review", "kind": "start",
+                                         "steps": ["code", "review"], "t": T0}},
+          {"event": "map_step", "data": {"map": "auto", "box": "workflow:review", "workflow": "review", "kind": "step", "n": 1,
+                                         "name": "code", "state": "running", "t": T0}}]
+    js = """const ov = M.ov.overlay({boxes: [], lines: []}, D.rows, D.ev, %s, {plain: true});
+const gs = M.og.autoGroups(D.rows, ov.blocks), v = M.lit.autoView(M.view.view(D.auto, [], []), gs);
+console.log(JSON.stringify({box: v.boxes.find((b) => b.group), steps: gs[0].steps, head: M.tb.blockHead("review", 1, gs[0].steps.length)}));""" % (T0 + 30)
+    got = _run(["ov", "og", "view", "lit", "tb"], js, {"rows": rows, "ev": ev, "auto": AUTO})
+    box = got.get("box") or {}
+    ctx.check(f"a workflow run of n 3 takes colour 3, got {box.get('group')}", (box.get("group") or {}).get("colour") == 3)
+    ctx.check(f"its steps as R14's rows, step 1 working, got {got.get('steps')}",
+              [s.get("state") for s in got.get("steps") or []] == ["working", "next"])
+    ctx.check(f"its head while it runs, got {got.get('head')!r}", got.get("head") == "workflow review · step 1 of 2")
+
+
+@test
+def test_five_groups_colour_five_is_colour_one(ctx: Ctx):
+    rows = [MAIN] + [kid(f"k{i}", i, step=str(i), task=f"task {i}", key=f"task:task {i}", n=i) for i in range(1, 6)]
+    js = """const gs = M.og.autoGroups(D.rows, {}), v = M.lit.autoView(M.view.view(D.auto, [], []), gs);
+console.log(JSON.stringify(v.boxes.filter((b) => b.group).map((b) => [b.group.colour, b.name])));"""
+    got = _run(["og", "view", "lit"], js, {"rows": rows, "auto": AUTO})
+    ctx.check(f"colours 1, 2, 3, 4, 1, got {got}", [c for c, _ in got] == [1, 2, 3, 4, 1])
+    ctx.check(f"the five names differ, got {[n for _, n in got]}", len({n for _, n in got}) == 5)
+
+
+@test
+def test_grandchild_has_three_lines(ctx: Ctx):
+    rows = [MAIN, kid("c1", 1, step="1", task="look", key="task:look", n=1, desc="read report A", name="researcher"),
+            kid("c2", 3, parent="c1", step="1", task="look", key="task:look", n=1, desc="check a figure", name="reviewer")]
+    js = """const gs = M.og.autoGroups(D.rows, {}), g = gs[0];
+console.log(JSON.stringify(g.members.map((m) => [M.gw.memberLine(m), M.gw.memberState(m), M.gw.thirdLine(g, m)])));"""
+    got = _run(["og", "gw"], js, {"rows": rows})
+    ctx.check(f"main's child two lines, its child three, got {got}",
+              got == [["researcher: read report A", "working", ""], ["reviewer: check a figure", "working", "started by researcher: read report A"]])
+
+
+@test
+def test_line_live_from_rows_then_trace(ctx: Ctx):
+    g1 = _grp(1, [_m("a", "working", t=1), _m("b", "done", t=4)], name="one")
+    g2 = _grp(2, [_m("c", "done", t=9), _m("d", "done", t=10), _m("e", "done", t=11)], name="two")
+    hop = {"event": "map_hop", "data": {"from": "main", "to": "group:1", "state": "start", "t": T0 + 99, "task": "x"}}
+    js = """const t = M.hops.groupTotals(D.gs), l = [...M.hops.groupLive(D.gs)];
+M.hops.foldHop(t, D.hop);
+console.log(JSON.stringify({t, l, again: M.hops.groupTotals(D.gs), live2: [...M.hops.groupLive(D.gs)]}));"""
+    got = _run(["hops"], js, {"gs": [g1, g2], "hop": hop})
+    t = got.get("t") or {}
+    ctx.check(f"main>group:n counted from its members, the newest group's key last, got {t}",
+              t.get("lines") == {"main>group:1": {"n": 2, "last": T0 + 4, "task": "one", "off": False},
+                                 "main>group:2": {"n": 3, "last": T0 + 11, "task": "two", "off": False}}
+              and t.get("last") == "main>group:2" and t.get("flight") == {})
+    ctx.check(f"live: only a group with a working member, got {got.get('l')}", got.get("l") == ["main>group:1"])
+    ctx.check("a map_hop frame changes neither (they read rows, not frames)", got.get("again") == t and got.get("live2") == ["main>group:1"])
+
+
+@test
+def test_every_member_says_why_this_model(ctx: Ctx):
+    mem = _m("k1", desc="read report A", cost=0.01, reason="code work; tools; mid budget", t=10)
+    bare = _m("k2", "done", who="coder", desc="fix it", model="", t=10, ended=15)
+    rows = [MAIN, kid("k1", 10, step="1", task="look", key="task:look", n=1, desc="read report A", name="researcher",
+                      model="kimi-k3", model_reason="code work; tools; mid budget"),
+            kid("k3", 12, step="1", task="look", key="task:look", n=1, desc="read report C", name="researcher", state="done")]
+    js = """const gs = M.og.autoGroups(D.rows, {});
+const t = M.sit.stepIn({kind: "member", aid: "k1", text: "x"}, D.rec, null, gs);
+const e = M.sit.stepIn({kind: "member", aid: "k3", text: "x"}, D.rec, null, gs);
+console.log(JSON.stringify({g4: M.gw.g4Lines(D.mem, %s), bare: M.gw.g4Lines(D.bare, %s), t, e}));""" % (T0 + 50, T0 + 99)
+    got = _run(["og", "gw", "sit"], js, {"rows": rows, "rec": _rec(rows), "mem": mem, "bare": bare})
+    ctx.check(f"G4 with a reason, got {got.get('g4')}",
+              got.get("g4") == ["read report A", "researcher on kimi-k3", "Why this model: code work; tools; mid budget", "working · $0.01 · 40 s"])
+    ctx.check(f"G4 without one (and no model; an ended member's own time), got {got.get('bare')}",
+              got.get("bare") == ["fix it", "coder", "Why this model: named by main or by your settings", "done · $0.00 · 5 s"])
+    t, e = got.get("t") or {}, got.get("e") or {}
+    ctx.check(f"the member's card: the same why line, its who, the member live, got {t}",
+              t.get("id") == "member:k1" and t.get("title") == "researcher" and t.get("why") == "Why this model: code work; tools; mid budget"
+              and [w.get("aid") for w in t.get("who") or []] == ["k1"])
+    ctx.check(f"an ended member: no row to press, got {e}", e.get("who") == [] and str(e.get("why")).startswith("Why this model: "))
+
+
+@test
+def test_group_head_hover_and_card(ctx: Ctx):
+    rows = [MAIN, kid("k1", 1, step="1", task="compare", key="task:compare", n=2, desc="read A", name="researcher", model="kimi-k3", cost_usd=0.04),
+            kid("k2", 2, step="1", task="compare", key="task:compare", n=2, desc="read B", name="researcher", model="kimi-k3", state="done",
+                cost_usd=0.05),
+            kid("k3", 3, step="1", task="compare", key="task:compare", n=2, desc="read C", name="coder", state="waiting")]
+    js = """const gs = M.og.autoGroups(D.rows, {});
+const c = M.sit.stepIn({kind: "group", n: 2, text: "3 agents"}, D.rec, null, gs);
+const l = M.sit.stepIn({kind: "line", from: "main", to: "group:2", text: "x", off: false}, D.rec, null, gs);
+console.log(JSON.stringify({g3: M.gw.g3Lines(gs[0]), at: M.tw.clock(gs[0].first), c, l}));"""
+    got = _run(["og", "gw", "sit", "tw"], js, {"rows": rows, "rec": _rec(rows)})
+    ctx.check(f"G3, got {got.get('g3')}", got.get("g3") == ["compare", f"Started by main at {got.get('at')}", "researcher · kimi-k3 · working",
+                                                            "researcher · kimi-k3 · done", "coder · waiting on you", "$0.09"])
+    c = got.get("c") or {}
+    ctx.check(f"the group's card: its name, a row per LIVE member in start order, got {c}",
+              c.get("id") == "group:2" and c.get("title") == "compare" and [w.get("aid") for w in c.get("who") or []] == ["k1", "k3"])
+    ln = got.get("l") or {}
+    ctx.check(f"main's line into the group opens the same card (no inner id read), got {ln}",
+              ln.get("title") == "compare" and [w.get("aid") for w in ln.get("who") or []] == ["k1", "k3"])
+
+
+@test
+def test_g5_lists_the_start_agents(ctx: Ctx):
+    names = [f"a{i}" for i in range(1, 15)]
+    js = "console.log(JSON.stringify({a: M.gw.g5Lines('glm-5', D), b: M.gw.g5Lines('glm-5', []), c: M.gw.g5Lines('glm-5', D.slice(0, 2))}));"
+    got = _run(["gw"], js, names)
+    ctx.check(f"14 names: twelve, then ' and 2 more' (no comma before and), got {got.get('a')}",
+              got.get("a") == ["main · glm-5", "Can hand work to: " + ", ".join(names[:12]) + " and 2 more"])
+    ctx.check(f"none: the first line only, got {got.get('b')}", got.get("b") == ["main · glm-5"])
+    ctx.check(f"two, got {got.get('c')}", got.get("c") == ["main · glm-5", "Can hand work to: a1, a2"])
+
+
+# React, the feed, the stores, the pick and built.ts stood in for (as tests/test_map_overlay.py LIT_HOOK does)
+_REACT = ("export const useCallback = (f) => f, useLayoutEffect = () => {}, useRef = (v) => ({current: v}), "
+          "useState = (v) => [v, () => {}], useMemo = (f) => f();")
+_HOOK = r"""const STUB = %s, LIT = %s;
+export async function resolve(spec, ctx, next) {
+  if (spec === 'react') return { url: STUB, shortCircuit: true };
+  const r = await next(spec, ctx);
+  if (/[\/-](events|store|pick|built)\.(ts|mjs)$/.test(r.url)) return { url: LIT, shortCircuit: true };
+  return r; }"""
+
+
+def _stubbed(module: str, body: str) -> dict:
+    """`body` runs with `m` = the module, its neighbours stood in for."""
+    import urllib.parse
+    from tests.helpers import node_ts
+    from tests.test_map_overlay import LIT_STUB
+    url = lambda src: json.dumps("data:text/javascript," + urllib.parse.quote(src))  # noqa: E731
+    hook = _HOOK % (url(_REACT), url(LIT_STUB))
+    return node_ts.run(f"""import {{ register }} from 'node:module';
+register('data:text/javascript,' + encodeURIComponent({json.dumps(hook)}));
+globalThis.__on = {{}}; globalThis.__ups = 0;
+const m = await import({json.dumps((SRC / module).resolve().as_uri())});
+{body}""")
+
+
+@test
+def test_old_rows_on_starter_are_auto(ctx: Ctx):
+    import re
+    js = """const row = {sid: "S", title: "S", map: "starter", started: 1, live: 1};
+const shop = {sid: "T", title: "T", map: "shop", started: 2, live: 1};
+console.log(JSON.stringify({chosen: m.chosen([shop, row], "", "auto")?.sid || null, his: m.chosen([row, shop], "", "shop")?.sid || null,
+  owns: [m.ownsMap("starter", {map: "auto"}), m.ownsMap("auto", {map: "auto"}), m.ownsMap("shop", {map: "auto"}), m.ownsMap("shop")],
+  lit: m.toLit({session_id: "S", map: "auto", map_plain: true, map_agents: ["coder", 3]}),
+  none: m.toLit({session_id: "N", map: null, map_plain: true}), hisRow: m.toLit({session_id: "H", map: "shop", map_plain: true})}));"""
+    got = _stubbed("routes/crew/map/litStore.ts", js)
+    ctx.check(f"a row on 'starter' is the session lit for Auto, got {got.get('chosen')}", got.get("chosen") == "S")
+    ctx.check(f"his map shop still finds its own row, got {got.get('his')}", got.get("his") == "T")
+    ctx.check(f"ownsMap: starter and auto own Auto, shop does not, no show owns, got {got.get('owns')}",
+              got.get("owns") == [True, True, False, True])
+    lit, none = got.get("lit") or {}, got.get("none") or {}
+    ctx.check(f"toLit: auto from map_plain, map_agents kept as strings, got {lit}", lit.get("auto") is True and lit.get("map_agents") == ["coder", "3"])
+    ctx.check(f"a session with no map: not auto (its drawing as today), got {none}", none.get("auto") is False and none.get("plain") is True)
+    ctx.check(f"a row naming his map shop is never drawn as groups, even when it says map_plain, got {got.get('hisRow')}",
+              (got.get("hisRow") or {}).get("auto") is False)
+    src = (SRC / "routes/crew/map/litStore.ts").read_text(encoding="utf-8") + (SRC / "routes/crew/map/LitMini.tsx").read_text(encoding="utf-8")
+    ctx.check("no === between map names left in litStore.ts and LitMini.tsx",
+              not re.search(r"(?<!typeof )\b\w+\.map\s*===|===\s*\w+\.map\b|===\s*shown\b", src))  # `typeof s.map ===` is no compare
+
+
+@test
+def test_member_and_group_cards_mark_their_box(ctx: Ctx):
+    js = """const c = (id) => ({id, title: "", text: "", who: [], sender: ""});
+console.log(JSON.stringify([
+  m.selected(c("group:2"), "group:2", undefined, ["k1"]), m.selected(c("member:k1"), "group:2", undefined, ["k1"]),
+  m.selected(c("member:k9"), "group:2", undefined, ["k1"]), m.selected(c("group:2"), "group:3", undefined, ["k5"]),
+  m.selected(c("group:2"), "group:2"), m.selected(c("box:code"), "code"), m.selected(c("head:W"), "workflow:W", "W"),
+  m.selected(c("member:k1"), "code"), m.selected(null, "group:2", undefined, ["k1"])]));"""
+    got = _stubbed("routes/crew/map/runFrame.ts", js)
+    ctx.check(f"a group card and a member's card mark the group's box; every call without members as today, got {got}",
+              got == [True, True, False, False, False, True, True, False, False])
+
+
+@test
+def test_no_fetch_or_timer_in_group_files(ctx: Ctx):
+    """B25: nothing in (b) adds a fetch, a timer or a network call (green before and after: a guard)."""
+    import re
+    bad = {}
+    for f in ("GroupBlock.tsx", "GroupMember.tsx", "groupWords.ts", "overlayGroups.ts", "litView.ts"):
+        p = SRC / "routes/crew/map" / f
+        hits = re.findall(r"\b(?:fetch|setInterval|setTimeout|api)\(|\bapi\.", p.read_text(encoding="utf-8")) if p.is_file() else []
+        if hits:
+            bad[f] = hits
+    ctx.check(f"no fetch(, setInterval(, setTimeout(, api( in the group files, got {bad}", not bad)
 
 
 if __name__ == "__main__":

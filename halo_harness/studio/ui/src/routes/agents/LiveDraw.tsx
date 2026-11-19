@@ -115,13 +115,13 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
                 <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
                   {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} talk={talks.get(`${l.from}>${l.to}`)} />)}
                 </svg>
-                {g.lines.filter((l) => !l.helper).map((l) => { const p = pulse(l.from, l.to); return (
+                {g.lines.filter((l) => !l.helper && !l.to.startsWith("group:")).map((l) => { const p = pulse(l.from, l.to); return ( // 3.6.0.5: no label into a group (its head names it)
                   <span key={`l${l.key}`} className="mp-label mono" data-testid="live-label" data-from={l.from} data-to={l.to}
                         data-pulse={p ? "1" : undefined} style={{ left: l.lx, top: l.ly, width: LABEL_W, height: LABEL_H }}
                         onClick={(e) => (e.stopPropagation(), pickLine(l, e.currentTarget.textContent || ""))}>
                     {p ? p.task || whenWords(l.when) : whenWords(l.when)}
                   </span>); })}
-                {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pickIn(b.id, !!b.block?.under)} live sel={selected(card, b.id, b.block?.workflow)} />)}
+                {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pickIn(b.id, !!b.block?.under)} live sel={selected(card, b.id, b.block?.workflow, b.group?.members)} card={card?.id} />)}
               </div>
             </div>
           </div>

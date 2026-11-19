@@ -13,10 +13,11 @@ import { cost as money } from "../../orchestra/format";
 import { setAgentsView } from "../../agents/store";
 import { fillFromLive } from "../store";
 import type { Agent } from "../types";
-import { under, type BoxState, type Helper, type OvBox, type Steps } from "./overlay";
+import { STATE_WORDS } from "./groupWords";
+import { under, type Helper, type OvBox, type Steps } from "./overlay";
 import { openFeed } from "./feedOpen";
 
-export const STATE_WORDS: Record<BoxState, string> = { working: "working", waiting: "waiting on you", done: "done", failed: "failed", idle: "not used yet" };
+export { STATE_WORDS } from "./groupWords"; // written once there (3.6.0.5: the groups' words read it in node)
 
 /** R4b (R4's gap 6): how long the box's agent has been at what it does now ("12 s"), from the waits Live's nodes use
  *  (agents/live/waits.ts, computed for the top line's sentence): its tool's start, its ask's, its last line's. */

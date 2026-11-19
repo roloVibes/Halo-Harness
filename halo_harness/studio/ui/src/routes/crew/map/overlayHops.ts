@@ -5,6 +5,7 @@
 // live row carries it, and never once the session is not busy. Pure: `import type` only (tests/test_map_overlay.py runs
 // it in node).
 import type { OvEvent, OvRow } from "./overlay";
+import type { AutoGroup } from "./overlayGroups";
 
 /** One line's count: hand-offs started on it, the last one's time and few words; `off` = the last one was off the map. */
 export type HopCount = { n: number; last: number; task: string; off: boolean };
@@ -56,3 +57,21 @@ export function inFlight(t: Totals, rows: OvRow[], busy: boolean): Set<string> {
   if (!busy) return new Set();
   return new Set(Object.keys(t.flight).filter((k) => carried(k, rows)));
 }
+
+/** 3.6.0.5 B12a: on Auto the drawings read no `map_hop` frame: main's line into group n ("main>group:{n}") is counted from
+ *  the group's member rows (n = members started, `last` = the newest member's start, `task` = the group's name) ... */
+export function groupTotals(groups: AutoGroup[]): Totals {
+  const lines: Record<string, HopCount> = {};
+  let last = "", newest = -Infinity;
+  for (const g of groups) {
+    if (!g.members.length) continue;
+    const k = `main>group:${g.n}`, t = Math.max(...g.members.map((m) => m.started || 0));
+    lines[k] = { n: g.members.length, last: t, task: g.name, off: false };
+    if (t >= newest) (newest = t), (last = k);
+  }
+  return { lines, flight: {}, last };
+}
+
+/** ... and it is live while any member of n is working. */
+export const groupLive = (groups: AutoGroup[]): Set<string> =>
+  new Set(groups.filter((g) => g.members.some((m) => m.state === "working")).map((g) => `main>group:${g.n}`));
