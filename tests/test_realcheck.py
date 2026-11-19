@@ -1080,6 +1080,34 @@ def _steps_auto():
     return steps_auto
 
 
+@test
+def test_auto_groups_waits_end_when_the_drawer_and_main_are_drawn(ctx: Ctx):
+    """3.6.0.5 k repair: a wait of the step ends only on a true value that comes back through returnByValue (an element
+    comes back as {}, which Python reads as false, so the wait ran its whole 30 s twice). Each wait expression of the
+    before-any-call half is evaluated by node against a page stand-in where everything is drawn: it must give true,
+    and false where nothing is drawn."""
+    import shutil
+    from tests.helpers.runner import SkipTest
+    node = shutil.which("node")
+    if not node:
+        raise SkipTest("no node on this box")
+    s = _steps_auto()
+    exprs = {"main drawn": s.MAIN_DRAWN, "a page drawn": s._drawn_expr("live-world|map-bar")}
+    js = ("const el = {dataset: {}, querySelector: () => el};"
+          "const page = (drawn) => ({querySelector: () => drawn ? el : null});"
+          f"const exprs = {json.dumps(exprs)}; const out = {{}};"
+          "for (const [k, e] of Object.entries(exprs)) for (const drawn of [true, false]) {"
+          "  const v = new Function('document', 'return (' + e + ');')(page(drawn));"
+          "  out[k + (drawn ? ' / drawn' : ' / not drawn')] = JSON.parse(JSON.stringify(v === undefined ? null : v)); }"
+          "process.stdout.write(JSON.stringify(out));")
+    r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=60)
+    ctx.check(f"node ran the expressions, got {r.returncode}: {r.stderr[-300:]}", r.returncode == 0)
+    got = json.loads(r.stdout or "{}")
+    for k in exprs:
+        ctx.check(f"{k}: true when drawn, got {got.get(k + ' / drawn')!r}", got.get(k + " / drawn") is True)
+        ctx.check(f"{k}: false when not drawn, got {got.get(k + ' / not drawn')!r}", got.get(k + " / not drawn") is False)
+
+
 def _scene2_read() -> "tuple[dict, dict, list, dict]":
     """(the groups' read, group 1's first record, the line records, the lines at the end) as scene 2 draws them."""
     s = _steps_auto()

@@ -70,6 +70,9 @@ USE_HEAD = "workflow review · step 1 of 2"
 HEADER, STATUS_OK = "⏺", "✓"  # a tool card's header glyph (tui/dispatch.py) and its status row's (tui/widgets/cards.py)
 
 M = "document.querySelector('[data-testid=session-lit-map]')"
+# A wait's expression must give a true value back through returnByValue: an element comes back as {}, which never ends
+# the wait. So `!!` covers the whole && chain.
+MAIN_DRAWN = f"!!({M} && {M}.querySelector('[data-box=main]'))"
 SCROLL_BOX = """(e) => { for (let p = e.parentElement; p; p = p.parentElement) { const o = getComputedStyle(p).overflowY;
     if (o === 'auto' || o === 'scroll') return p; } return null; }"""
 TOP_OF = f"""(e) => {{ const b = ({SCROLL_BOX})(e), r = e.getBoundingClientRect();
@@ -230,7 +233,7 @@ def _drawn_expr(ids: str) -> str:
 
 def _before(c, base: str, token: str, sid: str, ev: dict, bad: list) -> None:
     """(1) before any call: the drawer, then each page by its URL, the drawer page last (Session's own text)."""
-    _wait(c, f"!!{M} && {M}.querySelector('[data-box=main]')", 30)
+    _wait(c, MAIN_DRAWN, 30)
     _wait(c, "!!document.querySelector('[data-testid=session-truth]')", 10)
     read = c.js(BEFORE) or {}
     pages = []
@@ -242,7 +245,7 @@ def _before(c, base: str, token: str, sid: str, ev: dict, bad: list) -> None:
             got["live"] = c.js(LIVE_BEFORE)
         if name == "Session":
             _followed(c, {}, [], sid)
-            _wait(c, f"!!{M} && {M}.querySelector('[data-box=main]')", 30)
+            _wait(c, MAIN_DRAWN, 30)
         got["starter"] = c.js(STARTER) or []
         pages.append(got)
     read["pages"] = pages
