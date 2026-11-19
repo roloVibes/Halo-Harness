@@ -24,6 +24,9 @@ _SEVERITY = {"error": "error", "warning": "warning"}
 # since a shell command's own target file(s) are not knowable up front.
 _SHADOW_TOOLS = frozenset({"Write", "Edit", "NotebookEdit"})
 _SHADOW_PATH_FIELD = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
+# 3.6.0.5 C15: the first words of the lines crew/ready_now.py writes at the end of the Builder's result on Auto (what is
+# ready in this session now, what waits); the Builder's card shows them under its header, so they show while folded
+READY_FIRST_WORDS = ("Ready in this session now:", "Saved for your next session:", "Not run under its name:")
 
 
 def _phase_word_for(state: "str | None", kind: "str | None") -> "str | None":
@@ -63,6 +66,7 @@ async def _mount_tool_card(app, data: dict) -> None:
     name = data.get("name") or "?"
     input_data = data.get("input") or {}
     card = ToolCard(tool_use_id=tool_id, header=_tool_header(app, name, input_data))
+    card.tool_name = name  # 3.6.0.5 C15 (never `card.name`: Textual's Widget owns it)
     card.set_verbose(app.verbose)
     await app.transcript.mount_tool_card(card)
     # U5 scope B: stashed so the eventual `tool_result` (this event only
@@ -541,6 +545,10 @@ async def _apply_event_inner(app, event) -> None:
             # before.
             if (data.get("policy") or {}).get("line"):  # 3.3.10.0 R2: `policy: deny -- fence: outside the project`
                 card.header = f"{card.header}  {data['policy']['line']}"
+            if agent_id is None and getattr(card, "tool_name", "") == "Builder":  # 3.6.0.5 C15: ready now / waits
+                ready = [ln.strip() for ln in str(data.get("content") or data.get("summary") or "").split("\n")
+                         if ln.lstrip().startswith(READY_FIRST_WORDS)]
+                card.header = card.header + "".join("\n  " + ln for ln in ready)
             card.set_result(ok=bool(data.get("ok")), summary=data.get("summary", ""), content=data.get("content"),
                              images=data.get("images"))
         if agent_id is None:

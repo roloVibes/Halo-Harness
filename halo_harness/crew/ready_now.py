@@ -1,0 +1,130 @@
+"""halo_harness.crew.ready_now -- after a Builder card is applied in a session on Auto, what it saved is ready in this
+session now and what waits for the next session (Halo 3.6.0.5, the true lines: C18 to C22).
+
+`ready_and_later(session, wrote)` reads three things and nothing else: the session's tool registry, the agents the
+session started with and the crew store. It keeps nothing on the session and starts nothing (no watcher, no timer, no
+thread, no network call). Only a session on Auto -- its own control, or its top session's, is the plain map
+(crew/map_control.py `PlainMap`) -- gets an answer; any other session gets None, and so do a fault and a raise.
+
+- A workflow W the card wrote is READY when the session holds the Workflow tool and crew/flow_door.py `named(W, cwd)`
+  (the very call the Workflow tool makes) finds the file the card wrote. With no Workflow tool it waits (WF). When
+  `named(W)` finds another file (the project's own W runs first) it gets P3. When it finds nothing: no line at all
+  rather than a line that may be false.
+- An agent x the card wrote always waits for the next session: AG2 when the session started with an agent named x,
+  else AG1. When x is a step of a ready workflow and the step runner's own lookup (`store.load("agent", x, cwd=cwd)`,
+  crew/runner_session.py) reads the card's file, the step clause is added.
+
+`p_lines(answer)` writes the lines a person and main read (P1, P2, P3), in that order. The words are the constants
+below; the terminal (tui/dispatch.py READY_FIRST_WORDS) and Studio pin their copies to them.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional
+
+FIRST_WORDS = ("Ready in this session now:", "Saved for your next session:", "Not run under its name:")
+P1 = FIRST_WORDS[0] + " {items}."
+P1_ITEM = "the workflow {W}"
+P2 = FIRST_WORDS[1] + " the {kind} {name} ({why}{step})."
+P3 = FIRST_WORDS[2] + " the workflow {W} (this project has its own workflow {W}, which runs first)."
+WHY = {"WF": "this session started with no workflow, so it has no Workflow tool",
+       "AG1": "this session's list of agents was fixed when it started",
+       "AG2": "this session keeps the {name} it started with"}
+STEP = "; as a step of the workflow {W} it can run now"
+
+
+def _owner(session):
+    """The session on Auto whose registry and agents count: `session` itself, else its top session. The top is asked
+    only when the session is already in an agent tree (a session with none is its own top), so nothing is made."""
+    from halo_harness.crew.map_control import PlainMap
+    if session is None:
+        return None
+    if isinstance(getattr(session, "team_control", None), PlainMap):
+        return session
+    if getattr(session, "_agent_tree", None) is None:
+        return None
+    from halo_harness.crew.map_events import _top
+    top = _top(session)
+    if top is not None and isinstance(getattr(top, "team_control", None), PlainMap):
+        return top
+    return None
+
+
+def _steps_hold(body: dict, name: str) -> bool:
+    for step in (body or {}).get("steps") or []:
+        if isinstance(step, dict) and name in (step.get("agents") or []):
+            return True
+    return False
+
+
+def ready_and_later(session, wrote) -> Optional[dict]:
+    """`{ready: [W], later: [{kind, name, why, step?}], p3: [W]}` for the agents and workflows in `wrote` (paths), each
+    list in written order; None off Auto or on any fault (a fault never stops a card)."""
+    try:
+        owner = _owner(session)
+        if owner is None:
+            return None
+        from halo_harness.crew import store
+        from halo_harness.crew.flow_door import named
+        from halo_harness.crew.session_tool import _same_path
+        cwd = getattr(owner, "cwd", None)
+        seen: set = set()
+        flows: list = []
+        agents: list = []
+        for p in wrote or []:
+            p = Path(p)
+            key = _same_path(p)
+            if key in seen:
+                continue
+            seen.add(key)
+            if p.parent.name == store.KINDS["workflow"]:
+                flows.append((p.stem, key))
+            elif p.parent.name == store.KINDS["agent"]:
+                agents.append((p.stem, key))
+        reg = getattr(owner, "tool_registry", None)
+        has_tool = reg is not None and reg.get("Workflow") is not None
+        ready: list = []
+        bodies: dict = {}
+        later: list = []
+        p3: list = []
+        for w, key in flows:
+            if not has_tool:
+                later.append({"kind": "workflow", "name": w, "why": "WF"})
+                continue
+            got = named(w, cwd)
+            if got is None:
+                continue
+            if got.get("_path") and _same_path(got["_path"]) == key:
+                ready.append(w)
+                bodies[w] = got
+            else:
+                p3.append(w)
+        start = getattr(getattr(owner, "agent_runtime", None), "agents", None) or {}
+        for x, key in agents:
+            item = {"kind": "agent", "name": x, "why": "AG2" if x in start else "AG1"}
+            step = next((w for w in ready if _steps_hold(bodies[w], x)), None)
+            if step is not None:
+                spec = store.load("agent", x, cwd=cwd)
+                if isinstance(spec, dict) and spec.get("_path") and _same_path(spec["_path"]) == key:
+                    item["step"] = step
+            later.append(item)
+        return {"ready": ready, "later": later, "p3": p3}
+    except Exception:
+        return None
+
+
+def p_lines(answer) -> list:
+    """The lines for one answer: P1 once (the ready workflows), one P2 per item that waits, one P3 per workflow the
+    project's own file of that name runs before; [] for None."""
+    if not answer:
+        return []
+    out = []
+    if answer.get("ready"):
+        out.append(P1.format(items=", ".join(P1_ITEM.format(W=w) for w in answer["ready"])))
+    for it in answer.get("later") or []:
+        why = WHY[it["why"]].format(name=it["name"])
+        step = STEP.format(W=it["step"]) if it.get("step") else ""
+        out.append(P2.format(kind=it["kind"], name=it["name"], why=why, step=step))
+    for w in answer.get("p3") or []:
+        out.append(P3.format(W=w))
+    return out

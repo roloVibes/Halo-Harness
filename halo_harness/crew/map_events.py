@@ -14,7 +14,8 @@ record keeps the very same events:
     map_card   a Builder card main parked for the person: {id, changes} (crew/changes.py `public` rows: the ghosts the
                Map draws); {id, done: true} once it is answered or dismissed
     builder_done  3.6.0.2 R25: every Builder card, AFTER its files are written (or not): {id, outcome, wrote, undo,
-               next, this_session, maps, t} (`builder_done`); its receipt in the log is the same without `maps`
+               next, this_session, maps, t} (`builder_done`); its receipt in the log is the same without `maps`;
+               ready, later and p3 on Auto (crew/ready_now.py)
 
 A spawned agent's row carries `crew: {map, box, line?, agent, saved, workflow?, step?, made_up?}` (agent/
 agent_registry.py FIELDS; 3.6.0.2 R13): the box it runs for (a workflow's step: its caller's box, the workflow and the
@@ -268,7 +269,8 @@ def builder_done(session, request_id: str, outcome) -> dict:
         wrote = [dict(w) for w in got.get("wrote") or []]
         receipt = {"id": request_id, "outcome": got.get("outcome") or "left", "wrote": wrote,
                    "undo": got.get("undo") or None, "next": _next_map(), "next_none": _next_none(), "this_session": _this_map(session),
-                   "t": round(time.time(), 3)}
+                   "t": round(time.time(), 3),
+                   **{k: [dict(x) if isinstance(x, dict) else x for x in got[k]] for k in ("ready", "later", "p3") if k in got}}
         try:
             session._builder_built = receipt
         except Exception:

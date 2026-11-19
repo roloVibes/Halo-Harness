@@ -209,9 +209,23 @@ def finish(pv: dict, answer, session) -> str:
         tail = map_facts.result_tail(session, pv["outcome"]["wrote"], got["undo_id"], used)
     except Exception:
         tail = ""
+    answer = None  # 3.6.0.5 C18: on Auto, what the card wrote is ready now or waits (crew/ready_now.py); applied only
+    if pv["outcome"]["outcome"] == "applied":
+        from halo_harness.crew import ready_now
+        try:
+            gone = set(got["removed"])
+            answer = ready_now.ready_and_later(session, [p for p in got["wrote"] if p not in gone])
+        except Exception:
+            answer = None
+        if answer is not None:
+            pv["outcome"]["ready"] = answer["ready"]
+            pv["outcome"]["later"] = answer["later"]
+            if answer["p3"]:
+                pv["outcome"]["p3"] = answer["p3"]
     return (pv["text"] + f"\nApplied {len(ids)} line(s){f', left {left}' if left else ''}: wrote "
             f"{', '.join(got['wrote'] + got['removed']) or 'nothing'}. Undo id {got['undo_id']} (Builder {{\"undo\": \"{got['undo_id']}\"}}, "
-            f"or Undo in Studio). {tail}" + left_out + ("".join(f"\nskipped: {s}" for s in got["skipped"])))
+            f"or Undo in Studio). {tail}" + left_out + ("".join(f"\nskipped: {s}" for s in got["skipped"]))
+            + ("".join("\n" + ln for ln in ready_now.p_lines(answer)) if answer is not None else ""))
 
 
 def no_one_to_ask(pv: dict) -> str:
