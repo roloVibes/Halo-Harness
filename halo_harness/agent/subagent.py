@@ -404,7 +404,7 @@ def _child_credential_message(ref) -> str:
 def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,
                           model_override: Optional[str], parent_tool_use_id: str, background: bool = False,
                           role_override: Optional[str] = None, effort_override: Optional[str] = None,
-                          task_text: str = ""):
+                          task_text: str = "", group_task: str = ""):
     """vibes/review.md finding 64: an `isolation: worktree` agent's tree is
     created first thing in the real builder, BEFORE the model resolves --
     so an unresolvable model (or an unconfigured provider) raised out with
@@ -416,7 +416,7 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         return _build_child_session_inner(
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override,
             parent_tool_use_id=parent_tool_use_id, background=background, role_override=role_override,
-            effort_override=effort_override, _created_worktrees=created, task_text=task_text,
+            effort_override=effort_override, _created_worktrees=created, task_text=task_text, group_task=group_task,
         )
     except BaseException:
         for wt_path in created:
@@ -431,7 +431,8 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
 def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,
                                 model_override: Optional[str], parent_tool_use_id: str, background: bool = False,
                                 role_override: Optional[str] = None, effort_override: Optional[str] = None,
-                                _created_worktrees: Optional[list] = None, task_text: str = ""):
+                                _created_worktrees: Optional[list] = None, task_text: str = "",
+                                group_task: str = ""):
     """A real `agent.loop.Session` for `spec`: its OWN fresh (or resumed)
     log, a tool subset frozen from the PARENT's own catalog (never grows
     it -- brief B), its `body` as the full system prompt (CLAUDE.md/memory
@@ -928,7 +929,8 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     # Halo 3.0.5.0 (Fleet): the child joins the session's live agent tree.
     _agent_tree.register_child(parent, child, agent_id=agent_id, spec=spec, model=model_ref.raw,
                                role=_effective_role_name, background=background, team_control=team_control,
-                               model_reason=_model_reason, task_text=task_text)
+                               model_reason=_model_reason, task_text=task_text, group_task=group_task,
+                               group_workflow=getattr(runtime, "group_workflow", None))  # 3.6.0.5 B6, B28
     _write_meta(meta_path, {
         "agent_id": agent_id, "type": spec.name, "description": spec.description,
         "model": model_ref.raw, "parent_tool_use_id": parent_tool_use_id,
@@ -1564,6 +1566,7 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
     jobs, error = _prepare_fanout_jobs(spec, tool_input, runtime)
     if error is not None:
         return [], ToolResult(error, is_error=True)
+    group_task = str(tool_input.get("task") or "")  # 3.6.0.5 B3: count and batch children share the call's one task
     n = len(jobs)
     if n > 1:
         for i, job in enumerate(jobs):
@@ -1604,7 +1607,8 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
         queued_ev.agent_id = agent_id
         _emit(queued_ev)
         _agent_tree.register_queued(parent, agent_id, name=spec.name, task=job["prompt"],
-                                    role=job["role"] or spec.role, description=job["description"])
+                                    role=job["role"] or spec.role, description=job["description"],
+                                    group_task=group_task, group_workflow=getattr(runtime, "group_workflow", None))
         prepared.append((agent_id, new_task_id, job))
 
     results: list = [None] * n
@@ -1614,7 +1618,7 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
         try:
             results[index] = _run_one_fanout_child(
                 runtime=runtime, spec=spec, agent_id=agent_id, new_task_id=new_task_id, job=job,
-                tool_id=tool_id, on_event=_emit, live_asks_ok=live_asks_ok,
+                tool_id=tool_id, on_event=_emit, live_asks_ok=live_asks_ok, group_task=group_task,
             )
         except Exception as e:  # this module's own contract: never raise out of a spawn path
             log.exception("fan-out child dispatch failed for task_id=%r", new_task_id)
@@ -1648,7 +1652,8 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
 
 
 def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str, new_task_id: str,
-                           job: dict, tool_id: str, on_event, live_asks_ok: bool) -> "tuple[str, bool]":
+                           job: dict, tool_id: str, on_event, live_asks_ok: bool,
+                           group_task: str = "") -> "tuple[str, bool]":
     """One `count`/`batch` job's own full build-run-finalize sequence --
     the same steps `run_agent_call`'s single-spawn foreground path runs,
     parameterized by a PRE-MINTED `agent_id`/`task_id` (minted by `_run_
@@ -1682,6 +1687,7 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=job["model"],
             parent_tool_use_id=tool_id, background=False, role_override=job["role"],
             effort_override=job["effort"], task_text=f"{job.get('description') or ''}\n{job.get('prompt') or ''}",
+            group_task=group_task,
         )
         if not live_asks_ok:
             child._subagent_live_asks = False
@@ -1900,7 +1906,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         child, meta_path = _build_child_session(
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override, parent_tool_use_id=tool_id,
             background=background, role_override=role_override, effort_override=effort_override,
-            task_text=f"{description}\n{prompt}",
+            task_text=f"{description}\n{prompt}", group_task=str(tool_input.get("task") or ""),
         )
     except Exception as e:
         # 2.0.2 review finding 4 (major): this module's own docstring says

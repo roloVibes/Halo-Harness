@@ -102,7 +102,7 @@ def agent_change(args: dict, ctx) -> dict:
     now = _mine(name, ctx)
     if now is None:
         there = _any(name, ctx)
-        why = "a starter: agent_copy it first, then change the copy" if there else "no agent of yours by that name"
+        why = "ships with Halo: agent_copy it first, then change the copy" if there else "no agent of yours by that name"
         return {"text": f"{name}: {why}", "rows": []}
     fields = args.get("fields") if isinstance(args.get("fields"), dict) else {}
     bad = _problems_text({**{k: now.get(k) for k in FIELDS if now.get(k) is not None}, **fields}, name)

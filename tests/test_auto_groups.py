@@ -8,6 +8,12 @@ through a local model's repair round (`_attempt_tool_repair_once`). The recorded
 recorded once more for `task`, and `test_r38_fixture_differs_only_by_task` proves that is the only difference from
 3.6.0.4's (kept as tests/fixtures/map_facts_plain_requests_3604.json, never edited).
 
+Batch 2 (B2, B3, B6, B28, B29): every helper's row says its piece of work (`spawn.task`) and its group
+(`spawn.group {key, n, by}`, crew/groups.py), in every session: the same task words join one group across replies, a
+call without `task` is keyed by its reply, a helper started by a helper is in its parent's group, each run of a saved
+workflow is its own group from its first step, numbers 1, 2, 3 in start order never change and group frames leave in
+the order of their numbers. The Builder's refusal to change a shipped agent says "ships with Halo".
+
 Mock upstreams (OpenRouter-shaped and Ollama-shaped, loopback), a scratch home, no real model.
 Run: python -m tests.test_auto_groups
 """
@@ -125,6 +131,9 @@ def _check_the_turn(ctx: Ctx, label: str, session, events: list, resolved: list,
     rows = _children(session)
     ctx.check(f"{label}: the child ran and its row ends done, got {[(r.get('agent_id'), r.get('state')) for r in rows]}",
               len(rows) == 1 and rows[0].get("state") == "done")
+    group = ((rows[0].get("spawn") if rows else None) or {}).get("group") or {}
+    ctx.check(f"{label}: a call without task runs and is keyed by its reply (B23), got {group!r}",
+              group.get("by") == "reply" and str(group.get("key") or "").startswith("reply:"))
     follow = seen.get("followup") or []
     ctx.check(f"{label}: main's next request carries the child's text as the call's tool result, got {follow!r}"[:600],
               len(follow) == 1 and CHILD_SAID in json.dumps(follow[0].get("content")))
@@ -334,6 +343,298 @@ def test_r38_fixture_differs_only_by_task(ctx: Ctx):
         ctx.check(f"request {i}: the Agent tool asks for task",
                   any((t.get("function") or {}).get("name") == "Agent"
                       and "task" in t["function"]["parameters"].get("required", []) for t in json.loads(n)["tools"]))
+
+
+# ---- batch 2: every helper's row says its piece of work and its group (B2, B3, B6, B28, B29) ----------------------------
+
+def _tree():
+    """A real AgentTree under a fake main session (no agent_id: main) and a recorder of its agent_state frames."""
+    from types import SimpleNamespace
+    from halo_harness.agent.agent_registry import tree_for
+    main = SimpleNamespace(log=None, opt_ins=None)
+    tree = tree_for(main)
+    frames: list = []
+    tree.add_listener(lambda kind, aid, data: frames.append((kind, aid, data)) if kind == "agent_state" else None)
+    return main, tree, frames
+
+
+def _kid(main, aid: str, *, task: str = "", workflow=None, reply: int = 0, parent=None):
+    """`register_child` as agent/subagent.py calls it, on reply `reply` of main; returns the child's fake session."""
+    from types import SimpleNamespace
+    from halo_harness.agent import agent_hooks
+    from halo_harness.agent.agent_registry import tree_for
+    tree = tree_for(main)
+    with tree.lock:
+        tree.rows["main"]["turns"] = reply
+    child = SimpleNamespace(agent_id=aid, log=None, opt_ins=None)
+    agent_hooks.register_child(parent or main, child, agent_id=aid, spec=SimpleNamespace(name="general-purpose"),
+                               model=None, role=None, task_text=f"{aid}\ndo it", group_task=task,
+                               group_workflow=workflow)
+    return child
+
+
+def _group(tree, aid: str) -> dict:
+    return ((tree.row(aid) or {}).get("spawn") or {}).get("group") or {}
+
+
+@test
+def test_one_reply_is_one_group(ctx: Ctx):
+    main, tree, _f = _tree()
+    for aid in ("a1", "a2", "a3"):
+        _kid(main, aid, reply=2)
+    got = [_group(tree, a) for a in ("a1", "a2", "a3")]
+    ctx.check(f"three children of one reply, no task: one group keyed by the reply, n 1, got {got}",
+              all(g == {"key": "reply:main#2", "n": 1, "by": "reply"} for g in got))
+
+
+@test
+def test_same_task_words_join_across_replies(ctx: Ctx):
+    main, tree, _f = _tree()
+    _kid(main, "a1", task="fix the login bug", reply=1)
+    _kid(main, "b1", reply=2)
+    _kid(main, "a2", task="fix the login bug", reply=3)
+    ga, gb, ga2 = _group(tree, "a1"), _group(tree, "b1"), _group(tree, "a2")
+    ctx.check(f"the same words in reply 1 and reply 3 are one group, n kept, got {ga} {ga2}",
+              ga == ga2 == {"key": "task:fix the login bug", "n": 1, "by": "task"})
+    ctx.check(f"the reply between is a group of its own, got {gb}", gb.get("n") == 2 and gb.get("by") == "reply")
+
+
+@test
+def test_task_words_meet_case_blind_spaces_end_punct(ctx: Ctx):
+    from halo_harness.crew import groups
+    main, tree, _f = _tree()
+    _kid(main, "a1", task="Fix the  login bug.", reply=1)
+    _kid(main, "a2", task=" fix the login bug", reply=2)
+    ctx.check(f"both meet on the key task:fix the login bug, got {_group(tree, 'a1')} {_group(tree, 'a2')}",
+              _group(tree, "a1") == _group(tree, "a2") and _group(tree, "a1").get("key") == "task:fix the login bug")
+    ctx.check("norm: lower case, runs of whitespace one space, spaces and . , ; : ! ? dropped at both ends",
+              groups.norm("  Fix\tthe \n login BUG!?.;, ") == "fix the login bug" and groups.norm(" .,;:!? ") == "")
+    ctx.check("a key longer than 120 characters is cut to 120",
+              len(groups.key_of("main#1", "w " * 100)[0]) == 120)
+
+
+@test
+def test_fanout_children_share_one_group(ctx: Ctx):
+    from tests.helpers.mock_openai import SCENARIOS, MockUpstream, ScriptedTurns
+    scn = "auto-groups-fan-child"
+    SCENARIOS[scn] = ScriptedTurns([_text("fan child done")])
+    mock = MockUpstream().start()
+    try:
+        with _Env() as e:
+            session = _session(e, model="or:mock/auto-groups-fan-parent", base_url=mock.base_url)
+            tu = {"type": "tool_use", "id": "call_fan", "name": "Agent",
+                  "input": {"description": "fan", "prompt": "go", "subagent_type": "general-purpose", "count": 3,
+                            "task": "Check the docs", "model": f"or:mock/{scn}"}}
+            list(session._dispatch_tools(1, [tu]))
+            rows = _children(session)
+            spawns = [r.get("spawn") or {} for r in rows]
+            ctx.check(f"three rows, got {len(rows)}", len(rows) == 3)
+            ctx.check(f"one key for the three: task:check the docs, got {[s.get('group') for s in spawns]}",
+                      len({json.dumps(s.get("group"), sort_keys=True) for s in spawns}) == 1
+                      and spawns[0].get("group", {}).get("key") == "task:check the docs")
+            ctx.check(f"spawn.task on each, got {[s.get('task') for s in spawns]}",
+                      all(s.get("task") == "Check the docs" for s in spawns))
+    finally:
+        mock.stop()
+        SCENARIOS.pop(scn, None)
+
+
+@test
+def test_child_of_child_joins_its_parents_group(ctx: Ctx):
+    main, tree, _f = _tree()
+    _kid(main, "x0", reply=1)
+    parent = _kid(main, "p1", task="fix the login bug", reply=1)
+    _kid(main, "g1", task="something else entirely", parent=parent)
+    ctx.check(f"the grandchild's group is its parent's (key, n and by), got {_group(tree, 'g1')}",
+              _group(tree, "g1") == _group(tree, "p1") == {"key": "task:fix the login bug", "n": 2, "by": "task"})
+    ctx.check("its own task words are still its spawn.task",
+              (tree.row("g1") or {}).get("spawn", {}).get("task") == "something else entirely")
+
+
+@test
+def test_workflow_step_started_by_a_helper_stays_in_the_helpers_group(ctx: Ctx):
+    main, tree, _f = _tree()
+    parent = _kid(main, "p1", task="fix the login bug", reply=1)
+    _kid(main, "s1", task="a step", workflow=("review", "tu9"), parent=parent)
+    ctx.check(f"a workflow step started by a helper is in the helper's group, got {_group(tree, 's1')}",
+              _group(tree, "s1") == _group(tree, "p1") and _group(tree, "s1").get("by") == "task")
+    ctx.check("no workflow group was numbered for it", "workflow:review#tu9" not in getattr(tree, "group_n", {}))
+
+
+@test
+def test_queued_child_keeps_its_group(ctx: Ctx):
+    from halo_harness.agent import agent_hooks
+    main, tree, _f = _tree()
+    agent_hooks.register_queued(main, "q1", name="general-purpose", task="go", description="fan", group_task="alpha")
+    queued = _group(tree, "q1")
+    _kid(main, "b1", task="beta", reply=1)
+    _kid(main, "q1", task="gamma", reply=4)
+    ctx.check(f"queued: task:alpha n 1, got {queued}", queued == {"key": "task:alpha", "n": 1, "by": "task"})
+    ctx.check(f"built later, the queued group stands, n unchanged, got {_group(tree, 'q1')}", _group(tree, "q1") == queued)
+    ctx.check("the queued row's own task field is still its first line",
+              (tree.row("q1") or {}).get("task") == "go")
+
+
+@test
+def test_n_in_start_order_never_changes(ctx: Ctx):
+    main, tree, _f = _tree()
+    for aid, task in (("k1", "A"), ("k2", "B"), ("k3", "A"), ("k4", "C")):
+        _kid(main, aid, task=task, reply=1)
+    ns = [_group(tree, a).get("n") for a in ("k1", "k2", "k3", "k4")]
+    ctx.check(f"keys A, B, A, C: n 1, 2, 1, 3, got {ns}", ns == [1, 2, 1, 3])
+    before = _group(tree, "k2")
+    tree.update("k2", state="running", current="Read x")
+    tree.update("k2", state="done", turns=3)
+    ctx.check(f"later updates never change a row's group, got {_group(tree, 'k2')}", _group(tree, "k2") == before)
+
+
+@test
+def test_parallel_first_members_share_one_n(ctx: Ctx):
+    import threading
+    main, tree, _f = _tree()
+    gate = threading.Barrier(8)
+
+    def go(i: int) -> None:
+        from types import SimpleNamespace
+        from halo_harness.agent import agent_hooks
+        gate.wait(10)
+        agent_hooks.register_child(main, SimpleNamespace(agent_id=f"t{i}", log=None, opt_ins=None), agent_id=f"t{i}",
+                                   spec=SimpleNamespace(name="general-purpose"), model=None, role=None,
+                                   group_task="one piece of work")
+
+    threads = [threading.Thread(target=go, args=(i,), daemon=True) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    got = {json.dumps(_group(tree, f"t{i}"), sort_keys=True) for i in range(8)}
+    ctx.check(f"8 first members at once: one group, n 1, got {got}",
+              got == {json.dumps({"by": "task", "key": "task:one piece of work", "n": 1}, sort_keys=True)})
+    ctx.check(f"the table holds one key, got {getattr(tree, 'group_n', None)}", getattr(tree, "group_n", {}) == {"task:one piece of work": 1})
+
+
+@test
+def test_group_frames_leave_in_n_order(ctx: Ctx):
+    import threading
+    from types import SimpleNamespace
+    from halo_harness.agent import agent_hooks
+    bad, stuck = [], []
+    for rnd in range(200):
+        main, tree, frames = _tree()
+        gate = threading.Barrier(2)
+
+        def go(key: str) -> None:
+            gate.wait(10)
+            agent_hooks.register_child(main, SimpleNamespace(agent_id=key, log=None, opt_ins=None), agent_id=key,
+                                       spec=SimpleNamespace(name="general-purpose"), model=None, role=None,
+                                       group_task=key)
+
+        threads = [threading.Thread(target=go, args=(k,), daemon=True) for k in ("key A", "key B")]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(10)
+        if any(t.is_alive() for t in threads):
+            stuck.append(rnd)
+            break
+        ns = [((d.get("spawn") or {}).get("group") or {}).get("n") for _k, _a, d in frames]
+        ns = [n for n in ns if n is not None]
+        if not (1 in ns and 2 in ns and ns.index(1) < ns.index(2)):
+            bad.append((rnd, ns))
+    ctx.check(f"all threads joined within 10 s in every round (no deadlock), stuck in rounds {stuck}", not stuck)
+    ctx.check(f"in every round of 200 the first frame with n=1 left before the first with n=2, bad {bad[:5]}", not bad)
+
+
+@test
+def test_engine_writes_group_without_a_name(ctx: Ctx):
+    from halo_harness.crew import groups
+    main, tree, _f = _tree()
+    long = "update the parser so that every nested block keeps its own indent level oks"
+    _kid(main, "a1", task=long, reply=1)
+    spawn = (tree.row("a1") or {}).get("spawn") or {}
+    ctx.check(f"spawn.group has exactly key, n, by, got {sorted(spawn.get('group') or {})}",
+              sorted(spawn.get("group") or {}) == ["by", "key", "n"])
+    kept = spawn.get("task") or ""
+    ctx.check(f"a {len(long)}-character task is kept to its first 60 characters cut at a word, got {kept!r}",
+              len(long) == 75 and 0 < len(kept) <= 60 and long.startswith(kept) and long[len(kept)] == " ")
+    ctx.check("spawn.step, description and lead are still there", {"step", "description", "lead"} <= set(spawn))
+    ctx.check("cut: as is when it fits; a hard cut at 60 with no space",
+              groups.cut("short words") == "short words" and groups.cut("x" * 70) == "x" * 60)
+
+
+@test
+def test_two_runs_of_one_workflow_are_two_groups(ctx: Ctx):
+    from types import SimpleNamespace
+    from halo_harness.crew import flow_door, groups
+    from halo_harness.tools.workflow import WorkflowTool
+    seen: list = []
+    orig = flow_door.run
+    flow_door.run = lambda runtime, name, task, **kw: (seen.append(runtime), ("ran", False))[1]
+    try:
+        rt = SimpleNamespace(parent=SimpleNamespace(), team_control=None)
+        for tid in ("tu1", "tu2", "", ""):
+            WorkflowTool().run({"task": "t", "name": "review"}, SimpleNamespace(
+                agent_runtime=rt, tool_use_id=tid, cwd=Path("."), model_ref=None, permission_engine=None))
+    finally:
+        flow_door.run = orig
+    got = [getattr(r, "group_workflow", None) for r in seen]
+    ctx.check(f"the runtimes carry (review, tu1), (review, tu2), (review, run-1), (review, run-2), got {got}",
+              got == [("review", "tu1"), ("review", "tu2"), ("review", "run-1"), ("review", "run-2")])
+    ctx.check("two runs, two keys", groups.key_of("s", "", got[0])[0] == "workflow:review#tu1"
+              and groups.key_of("s", "", got[1])[0] == "workflow:review#tu2")
+    ctx.check("the original runtime carries no group_workflow and every handed one is a copy",
+              not hasattr(rt, "group_workflow") and all(r is not rt for r in seen))
+
+
+@test
+def test_workflow_step_child_first_row_already_in_its_run_group(ctx: Ctx):
+    main, tree, frames = _tree()
+    _kid(main, "w1", task="read the step", workflow=("review", "tu1"), reply=1)
+    first = next((d for _k, aid, d in frames if aid == "w1"), {})
+    ctx.check(f"the step child's FIRST agent_state frame is already in the run's group, got {first.get('spawn')}",
+              (first.get("spawn") or {}).get("group") == {"key": "workflow:review#tu1", "n": 1, "by": "workflow"})
+
+
+@test
+def test_square_session_run_gets_the_run_group(ctx: Ctx):
+    from types import SimpleNamespace
+    from halo_harness.tools.workflow import WorkflowTool
+    from halo_harness.workflows import receipts, registry, router, square_run
+    seen: list = []
+    wf = SimpleNamespace(ref="sq-review", contract=SimpleNamespace(run_engine=lambda: "session", does="x"))
+    fake = {(router, "route"): lambda *a, **k: SimpleNamespace(refused=False, role=None, square=wf, gaps=[], cap_usd=None,
+                                                             hops=None),
+            (registry, "enabled_squares"): lambda *a, **k: [],
+            (square_run, "lead_model"): lambda *a, **k: ("m", None),
+            (square_run, "run_session"): lambda wf, task, files, runtime=None, **k: (
+                seen.append(runtime), SimpleNamespace(status="done", text="ok", cost_usd=0.0))[1],
+            (receipts, "make"): lambda *a, **k: {}, (receipts, "write"): lambda *a, **k: None,
+            (receipts, "line"): lambda rec: "line"}
+    saved = {k: getattr(*k) for k in fake}
+    for (mod, name), fn in fake.items():
+        setattr(mod, name, fn)
+    try:
+        rt = SimpleNamespace(parent=SimpleNamespace(), team_control=None)
+        for tid in ("tu7", ""):
+            WorkflowTool().run({"task": "t"}, SimpleNamespace(agent_runtime=rt, tool_use_id=tid, cwd=Path("."),
+                                                              model_ref="m", permission_engine=None))
+    finally:
+        for (mod, name), fn in saved.items():
+            setattr(mod, name, fn)
+    got = [getattr(r, "group_workflow", None) for r in seen]
+    ctx.check(f"the square session engine's runtime carries (wf.ref, run id), got {got}",
+              got == [("sq-review", "tu7"), ("sq-review", "run-1")])
+    ctx.check("the original runtime is unchanged", not hasattr(rt, "group_workflow"))
+
+
+@test
+def test_agent_copy_refusal_says_ships_with_halo(ctx: Ctx):
+    from halo_harness.crew.tools import agent_change
+    with _Env() as e:
+        got = agent_change({"name": "coder", "fields": {"does": "x"}}, {"cwd": e.cwd, "state_dir": e.state_dir})
+    ctx.check(f"the refusal reads word for word, got {got.get('text')!r}",
+              got.get("text") == "coder: ships with Halo: agent_copy it first, then change the copy"
+              and "starter" not in got.get("text", "") and got.get("rows") == [])
 
 
 if __name__ == "__main__":

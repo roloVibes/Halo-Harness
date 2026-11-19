@@ -125,7 +125,11 @@ def test_the_child_runs_on_the_parents_runtime_with_no_mode_of_its_own(ctx: Ctx)
 
         rt = FakeRuntime(h.repo)
         result = run_tool(rt, {"task": "summarize report.pdf", "files": ["report.pdf"]}, spawn=spawn, takes=["text"])
-        ctx.check("the parent's own runtime (its permission engine, its rules)", seen.get("runtime") is rt)
+        got = seen.get("runtime")  # 3.6.0.5 B28: a shallow copy that adds only the run's group (`group_workflow`)
+        ctx.check("the parent's own runtime (its permission engine, its rules): the same objects, plus the run's group",
+                  got is not None and set(vars(got)) - set(vars(rt)) == {"group_workflow"}
+                  and all(getattr(got, k) is v for k, v in vars(rt).items())
+                  and isinstance(got.group_workflow, tuple) and len(got.group_workflow) == 2)
         ctx.check(f"no permission field of its own, got {sorted(seen.get('input') or {})}",
                   set(seen.get("input") or {}) <= {"description", "prompt", "subagent_type", "model"}
                   and seen["input"]["subagent_type"] == "general-purpose" and seen["name"] == "Agent")

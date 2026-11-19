@@ -21,6 +21,7 @@ on the step runner (crew/runner.py); its receipt line says so.
 
 from __future__ import annotations
 
+import copy
 from typing import Callable, Optional
 
 from halo_harness.tools.base import Tool, ToolContext, ToolResult
@@ -78,6 +79,22 @@ def _mode(ctx, session) -> str:
     return str(getattr(engine, "mode", "") or "")
 
 
+def _for_run(runtime, w: str, ctx, run_ids: dict):
+    """3.6.0.5 B28: a shallow copy of the runtime for one run of workflow `w`, carrying `group_workflow` = (w, run id),
+    so every step helper's first row is in that run's group (crew/groups.py). The run id is the call's tool use id, else
+    `run-{k}`, k counting the session's runs that had none. The original runtime is never changed."""
+    if "id" not in run_ids:
+        rid = ctx.tool_use_id or ""
+        if not rid:
+            session = runtime.parent
+            session._workflow_runs = int(getattr(session, "_workflow_runs", 0) or 0) + 1
+            rid = f"run-{session._workflow_runs}"
+        run_ids["id"] = rid
+    run = copy.copy(runtime)
+    run.group_workflow = (w, run_ids["id"])
+    return run
+
+
 def session_band(runtime) -> str:
     tc = getattr(runtime, "team_control", None)
     band = (getattr(tc, "budget", None) or {}).get("band") if tc is not None else None
@@ -130,10 +147,12 @@ class WorkflowTool(Tool):
         on_map = workflow_call(runtime, input, ctx)
         if on_map is not None:
             return on_map
+        run_ids: dict = {}  # 3.6.0.5 B28: this call's one run id, whichever engine runs it
         if str(input.get("name") or "").strip():  # 3.6.0.0 R2: a crew workflow's name wins; it runs on the step runner
             from halo_harness.crew import flow_door
-            got = flow_door.run(runtime, str(input["name"]).strip(), task, cwd=ctx.cwd, tool_id=ctx.tool_use_id or "",
-                                files=files, spawn=SPAWN)
+            name = str(input["name"]).strip()
+            got = flow_door.run(_for_run(runtime, name, ctx, run_ids), name, task, cwd=ctx.cwd,
+                                tool_id=ctx.tool_use_id or "", files=files, spawn=SPAWN)
             if got is not None:
                 return ToolResult(got[0], is_error=got[1])
         session = runtime.parent
@@ -163,7 +182,8 @@ class WorkflowTool(Tool):
         engine = wf.contract.run_engine()
         if engine == "session":
             model, _pick = square_run.lead_model(wf, task, files, r.gaps, main_ref=model_ref, state_dir=getattr(session, "state_dir", None))
-            out = square_run.run_session(wf, task, files, runtime=runtime, tool_id=ctx.tool_use_id or "", model=model,
+            out = square_run.run_session(wf, task, files, runtime=_for_run(runtime, wf.ref, ctx, run_ids),
+                                         tool_id=ctx.tool_use_id or "", model=model,
                                          cap=r.cap_usd, hops=r.hops, spawn=SPAWN,
                                          on_child=lambda child: receipts.mark_child(session, child, wf.ref, engine, does=wf.contract.does))
         elif _mode(ctx, session) == "plan":  # 3.6.0.0 R16: an orchestra square writes a run, worktrees, lanes, a test

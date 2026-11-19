@@ -83,8 +83,9 @@ def spawn_of(tree, parent_aid: str, text: str) -> dict:
 
 def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], role: Optional[str],
                    background: bool = False, team_control=None, model_reason: Optional[str] = None,
-                   task_text: str = "") -> None:
+                   task_text: str = "", group_task: str = "", group_workflow=None) -> None:
     try:
+        from halo_harness.crew import groups  # 3.6.0.5 B6: spawn.task and spawn.group, under one tree.lock
         tree = tree_for(parent)
         child._agent_tree = tree
         tree.controls.clear(agent_id)
@@ -93,20 +94,24 @@ def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], 
         # 3.1.9.0 R2: under the default lineup only a child on one of its cards is a member
         member = team_control is not None and (entry is not None or not getattr(team_control, "default", False))
         spawn = (tree.row(agent_id) or {}).get("spawn") or spawn_of(tree, agent_key(parent), task_text)  # a queued job keeps its step
-        tree.add(agent_id, session=child, parent=agent_key(parent), name=spec.name,
-                 role=role, bio=bio, lineup=getattr(team_control, "name", None), model=model, state="queued",
-                 kind="background" if background else ("member" if member else "subagent"), transcript=_log_path(child),
-                 model_reason=model_reason, opt_ins=getattr(child, "opt_ins", None), spawn=spawn)
+        groups.add_in_group(tree, agent_id, agent_key(parent), spawn, task=group_task, workflow=group_workflow,
+                            session=child, parent=agent_key(parent), name=spec.name,
+                            role=role, bio=bio, lineup=getattr(team_control, "name", None), model=model, state="queued",
+                            kind="background" if background else ("member" if member else "subagent"),
+                            transcript=_log_path(child), model_reason=model_reason,
+                            opt_ins=getattr(child, "opt_ins", None))
     except Exception:
         pass
 
 
 def register_queued(parent, agent_id: str, *, name: str, task: str, role: Optional[str] = None,
-                    description: str = "") -> None:
+                    description: str = "", group_task: str = "", group_workflow=None) -> None:
     try:
+        from halo_harness.crew import groups
         tree = tree_for(parent)
-        tree.add(agent_id, parent=agent_key(parent), name=name, kind="subagent", task=first_line(task),
-                 role=role, state="queued", spawn=spawn_of(tree, agent_key(parent), f"{description}\n{task}"))
+        groups.add_in_group(tree, agent_id, agent_key(parent), spawn_of(tree, agent_key(parent), f"{description}\n{task}"),
+                            task=group_task, workflow=group_workflow, parent=agent_key(parent), name=name,
+                            kind="subagent", row_task=first_line(task), role=role, state="queued")
     except Exception:
         pass
 
