@@ -106,6 +106,8 @@ export type Nav = {
   background?: string;
   /** The canvas's own name for the visit's memory of its zoom. */
   id?: string;
+  /** Told by the fit's own observer whenever the scroller's box changes size, its height alone included. */
+  resized?: () => void;
 };
 
 const TYPING = "input, textarea, select, [contenteditable]";
@@ -154,6 +156,7 @@ function attach(el: HTMLElement, cur: { current: Nav }): () => void {
     cur.current.fit();
   };
   const ro = new ResizeObserver(() => {
+    cur.current.resized?.(); // what the canvas reads off the box's size (b/batch08: Agents -> Live's slot on Auto)
     const now = el.clientWidth;
     const first = !width;
     if (now === width || now < 2) return;

@@ -67,6 +67,22 @@ def boot_go(c, u: str) -> None:
 # the page's errors, for the message of a page that did not boot
 ERRS_JS = ("window.__errs = []; addEventListener('error', (e) => window.__errs.push(String(e.message || e.error)));"
            " addEventListener('unhandledrejection', (e) => window.__errs.push('rejected: ' + String(e.reason)));")
+
+
+def collect_page_errors(c) -> None:
+    """b/batch08: the ONE way a driver collects its pages' errors. A script added for new documents runs only once the
+    Page domain is on (measured on the Linux VM: seven drivers added ERRS_JS without it and it never ran); the domain
+    stays on for the whole run."""
+    c.call("Page.enable")
+    c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
+
+
+def page_errors(c) -> list:
+    """The errors the page's collector holds; raises when the collector is missing on this page (never reads nothing)."""
+    got = c.js("Array.isArray(window.__errs) ? window.__errs.map(String) : null")
+    if not isinstance(got, list):
+        raise RuntimeError("the page-error collector is missing on this page (collect_page_errors(c) before the page loads)")
+    return got
 # 3.1.5.0 R3: Agent starts as a strip; the selected agent is the map's selected node (its key and state)
 # 3.6.0.0 R5: the selected agent is the Agent panel's (the old tree's selected node went with the tree)
 AGENT = "document.querySelector('[data-section=\"session\"] [data-testid=\"fleet-agent-detail\"]')"
@@ -136,7 +152,7 @@ def dash(c, rig) -> dict:
     from tests.helpers.studio_session_map_down import Rows
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id
-    c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)  # a blank page says why
+    collect_page_errors(c)  # a blank page says why
     rows = Rows(rig)
     rows.idle(sid)
     boot_go(c, url(rig, "mode=session"))
@@ -147,8 +163,8 @@ def dash(c, rig) -> dict:
         c.wait(" && ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length === 1" for p in panels), 30)
     except TimeoutError:  # say WHICH panel count was wrong (0: not mounted, 2: mounted twice)
         got = dict(zip(panels, c.js(counts) or []))
-        page = c.js("[(window.__errs || []).slice(0, 3), document.getElementById('root')?.childElementCount, "
-                    "'ownerSalt' in document.documentElement.dataset ? 'the shell never ran' : 'the shell ran']")
+        page = [page_errors(c)[:3], *c.js("[document.getElementById('root')?.childElementCount, "
+                                          "'ownerSalt' in document.documentElement.dataset ? 'the shell never ran' : 'the shell ran']")]
         bad = ", ".join(f"{p}={n}" for p, n in got.items() if n != 1)
         raise TimeoutError(f"Session panels not one each: {bad}; tab {c.js(TAB)!r}; errors, #root children, boot: {page!r}")
     out["panels"] = c.js(counts)

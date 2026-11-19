@@ -506,15 +506,14 @@ class JustBuiltDriver(MapDownDriver):
     @contextmanager
     def session(self, c):
         from halo_harness.crew import store
-        from tests.helpers.studio_session import ERRS_JS, FAKE_SID, second_session
+        from tests.helpers.studio_session import FAKE_SID, collect_page_errors, second_session
         from tests.helpers.studio_session_rig import StudioSessionRig
         with StudioSessionRig() as rig:
             _seed_shop(rig)
             store.write_text(store.path_for("workflow", "review", state_dir=rig.state), store.dump(FLOW_REVIEW))
             second_session(rig)
             rows = Rows(rig)
-            c.call("Page.enable")  # the hooks run before any page script
-            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
+            collect_page_errors(c)  # with the Page domain on: the hooks run before any page script
             c.call("Page.addScriptToEvaluateOnNewDocument", source=HOOKS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
             steps = [s for s in (word, same, once, heads, fetch, room) if not self.argv or s.__name__ in self.argv]

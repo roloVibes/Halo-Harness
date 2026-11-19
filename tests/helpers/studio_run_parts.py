@@ -96,15 +96,13 @@ PAGE = """(() => { const f = document.querySelector('$ROOT'), w = f && f.querySe
   return { visibility: document.visibilityState, focus: document.hasFocus(), size: [innerWidth, innerHeight],
     section: document.querySelector('[data-testid=section-tab][aria-selected=true]')?.textContent || null, frame: r(f), world: r(w),
     boxes: w ? [...w.querySelectorAll(':scope > [data-box]')].map((b) => b.dataset.box) : null,
-    main_rows: w ? w.querySelectorAll('[data-box=main] [data-row]').length : null, errors: (window.__errs || []).slice(-3) }; })()"""
-ERRS = ("window.__errs = []; addEventListener('error', (e) => window.__errs.push(String(e.message || e.error)));"
-        " addEventListener('unhandledrejection', (e) => window.__errs.push('rejected: ' + String(e.reason)));")
+    main_rows: w ? w.querySelectorAll('[data-box=main] [data-row]').length : null }; })()"""
 
 
 def open_where(c, rig, lv, where: str) -> None:
     """The drawing opened, waited for on its facts in order within one 40 s budget, each named in its timeout: the
     server lists the session's agents, the page shows the drawing's frame, the drawing draws its boxes."""
-    from tests.helpers.studio_session import boot_go, url
+    from tests.helpers.studio_session import boot_go, page_errors, url
     lv.refresh(map="shop", map_next="shop", busy=True)
     end = time.monotonic() + 40
     got = served(rig, lv.sid)
@@ -122,7 +120,7 @@ def open_where(c, rig, lv, where: str) -> None:
         try:
             c.wait(expr, max(1.0, end - time.monotonic()))
         except TimeoutError:
-            raise TimeoutError(f"waited 40s for {what}: the page {c.js(page)}; the server {served(rig, lv.sid)}; "
+            raise TimeoutError(f"waited 40s for {what}: the page {c.js(page)}, its errors {page_errors(c)[-3:]}; the server {served(rig, lv.sid)}; "
                                f"the registry {registry_facts(lv.sid)}") from None
     c.mouse("mouseMoved", 2, 890)  # the pointer off the drawing (R12 holds it still under the pointer)
 
@@ -456,6 +454,7 @@ class RunPartsDriver(Driver):
     @contextmanager
     def session(self, c):
         from tests.helpers.studio_live_rig import Live
+        from tests.helpers.studio_session import collect_page_errors
         from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_map_live import MAP
         with StudioSessionRig() as rig:
@@ -465,9 +464,8 @@ class RunPartsDriver(Driver):
             for aid, name, task in HELPERS:
                 lv.spawn(aid, name, "general-purpose", "or:mock/glm-5-coder", task)
                 lv.rows[aid]["crew"] = {"map": "shop", "box": "main", "made_up": True}
-            c.call("Page.enable")
+            collect_page_errors(c)  # the page's errors, for open_where's message (the Page domain on)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=IV)
-            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS)  # the page's errors, for open_where's message
             try:
                 yield tuple((drawing, (c, rig, lv, w)) for w in ("session", "live") if not self.argv or w in self.argv)
             finally:

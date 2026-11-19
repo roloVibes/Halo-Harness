@@ -61,6 +61,8 @@ export const startedBy = (who: string, task: string): string => `started by ${wh
 export const moreMembers = (n: number): string => `+${n} more`;
 /** B26 the slot at the drawing's foot: a working group wholly out of sight, and how many other boxes wait below. */
 export const belowGroup = (name: string, more: number): string => `↓ ${name} · working${more > 0 ? ` and ${more} more below` : ""}`;
+/** b/batch08: the name Session's slot on Auto keeps room for (its hidden twin): a long name of ordinary letters, 60 characters. */
+export const BELOW_SAMPLE = "compare the three reports and write the summary for the team";
 /** The third line of member `m` of group `g` ("" for a child of main). */
 export function thirdLine(g: AutoGroup, m: Member): string {
   if (!m.by) return "";

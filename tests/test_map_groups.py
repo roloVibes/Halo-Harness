@@ -724,6 +724,39 @@ console.log(JSON.stringify({inside: walk(300), across: walk(400), first: ans(300
 
 
 @test
+def test_slot_twin_holds_a_long_name_of_ordinary_letters(ctx: Ctx):
+    """b/batch08 entry 1: Session's slot on Auto is sized by a hidden twin whose text is the slot's own words function
+    (groupWords.ts belowGroup) called with one exported 60-character sample of ordinary letters and a two-digit count."""
+    sample = "compare the three reports and write the summary for the team"
+    js = """console.log(JSON.stringify({sample: M.gw.BELOW_SAMPLE ?? null, room: M.gw.belowGroup(M.gw.BELOW_SAMPLE ?? "", 99)}));"""
+    got = _run(["gw"], js, {})
+    ctx.check(f"groupWords exports BELOW_SAMPLE, the 60-character sample, got {got.get('sample')!r}",
+              got.get("sample") == sample and len(sample) == 60)
+    ctx.check(f"the twin's words: the slot's words with the sample and 99, got {got.get('room')!r}",
+              got.get("room") == f"↓ {sample} · working and 99 more below")
+    src = (SRC / "routes/session/MapDown.tsx").read_text(encoding="utf-8")
+    ctx.check("MapDown: the twin's text is belowGroup(BELOW_SAMPLE, 99), no row of capital W's",
+              "belowGroup(BELOW_SAMPLE, 99)" in src and '"W".repeat(' not in src)
+
+
+@test
+def test_live_slot_hears_the_fits_observer(ctx: Ctx):
+    """b/batch08 entry 2: Agents -> Live's slot answer is also worked out when the view's size changes, told by the ONE
+    ResizeObserver the fit already has (lib/canvasNav.ts), through the same once-a-frame path as a scroll; no second
+    observer and no timer in LiveDraw.tsx (the browser half: tests.test_studio_auto_groups)."""
+    nav = (SRC / "lib/canvasNav.ts").read_text(encoding="utf-8")
+    live = (SRC / "routes/agents/LiveDraw.tsx").read_text(encoding="utf-8")
+    ro = nav[nav.index("new ResizeObserver("):]
+    ctx.check("canvasNav: its observer tells the canvas's `resized` on every size change, before the width-only fit check",
+              "resized?: () => void" in nav and ro.index("resized?.()") < ro.index("if (now === width"))
+    ctx.check("LiveDraw: `resized` on Auto while shown goes through onScroll (one frame, set only when the answer differs)",
+              "resized: s.auto && shown ? () => onScroll() : undefined" in live)
+    ctx.check("LiveDraw: no observer and no timer of its own",
+              "ResizeObserver" not in live and "setTimeout(" not in live and "setInterval(" not in live)
+    ctx.check(f"LiveDraw.tsx stays under 250 lines, got {live.count(chr(10))}", live.count("\n") < 250)
+
+
+@test
 def test_ask_door_lands_on_the_group_on_auto(ctx: Ctx):
     """M6-M8, the owner's point 24: on Auto an ask's Open lands on the asker's group (no box of the PlainMap is drawn)."""
     rows = [MAIN, kid("k1", 1, step="1", task="a", key="task:a", n=1), kid("k2", 2, step="2", task="b", key="task:b", n=2),

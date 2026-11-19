@@ -82,7 +82,8 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     el.scrollLeft = 0;
     el.scrollTop = 0;
   };
-  const nav = useCanvasNav(scroll, { zoom: k, zoomAt: zoomPt, fit, id: NAV_ID, min: MIN, max: MAX, background: ".mp-world, .mp-world-size, .mp-lines" });
+  const nav = useCanvasNav(scroll, { zoom: k, zoomAt: zoomPt, fit, id: NAV_ID, min: MIN, max: MAX, background: ".mp-world, .mp-world-size, .mp-lines",
+    resized: s.auto && shown ? () => onScroll() : undefined }); // b/batch08: the slot's answer follows the view's height (the fit's observer)
   useLayoutEffect(() => { // R12: fitted on the first draw and on a different map, never on a box arriving
     if (drawn) nav.fit();
   }, [drawn, map]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,7 +125,8 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     }
     setCard(null);
   }, [focus, s.sid, g, shown]); // eslint-disable-line react-hooks/exhaustive-deps
-  // B26 (Auto only): the slot's answer, set only when it changes, at most once per animation frame of a scroll burst
+  // B26 (Auto only): the slot's answer, set only when it changes, at most once per animation frame of a scroll burst or a
+  // change of the view's size
   const [ans, setAns] = useState<SlotAnswer>(null);
   const told = useRef<SlotAnswer>(null), raf = useRef(0);
   const answer = () => {

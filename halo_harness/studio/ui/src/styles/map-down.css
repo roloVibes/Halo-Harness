@@ -26,8 +26,8 @@
 .mp-down-below > .mp-wait-row { align-self: center; }
 .mp-down-more > [data-testid=map-more-below] { flex: 0 0 auto; white-space: nowrap; }
 /* 3.6.0.5 B26 on Auto (the row says so from the first draw): the slot's two columns are halves, so the words "↓ {name} ·
-   working ..." never widen theirs nor narrow the wait link's. b/batch07: their room is a hidden twin of the longest words
-   (MapDown.tsx BELOW_ROOM) in the same cell, so the slot's height changes only with the drawer's width, never cut */
+   working ..." never widen theirs nor narrow the wait link's. b/batch07-08: their room is a hidden twin of the words for a
+   long name of ordinary letters (MapDown.tsx BELOW_ROOM) in the same cell: the height changes with the drawer's width */
 .mp-down-below[data-auto] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .mp-down-below[data-auto] > .mp-down-more { display: grid; height: auto; min-height: 32px; min-width: 0; }
 .mp-down-below[data-auto] > .mp-down-more > * { grid-area: 1 / 1; align-self: end; justify-self: start; max-width: 100%;

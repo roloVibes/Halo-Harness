@@ -176,7 +176,7 @@ class ControlsDriver(Driver):
     @contextmanager
     def session(self, c):
         from tests.helpers.studio_live_rig import Live
-        from tests.helpers.studio_session import ERRS_JS
+        from tests.helpers.studio_session import collect_page_errors
         from tests.helpers.studio_session_map_down import Rows
         from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_map_live import EXTRA, seed
@@ -190,7 +190,7 @@ class ControlsDriver(Driver):
             lv.refresh(map="shop", map_next="shop")
             rows = Rows(rig)
             stand_in(rig, rows)
-            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
+            collect_page_errors(c)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=FETCH_JS)
             groups = (S.session, S.map_view, V.live, V.agents, V.workflows)
             names = {"session": S.session, "map": S.map_view, "live": V.live, "agents": V.agents, "workflows": V.workflows}

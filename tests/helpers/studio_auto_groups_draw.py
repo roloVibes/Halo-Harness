@@ -19,14 +19,16 @@ No model is called.
             top within 1 s, its border pulsing 2 s (timed in the page)
     scrolls (batch 7) Agents -> Live: React's commits while scrolling inside one group's span; a stored focus whose group
             is not placed is dropped; two presses of Open within the pulse
-    longest (batch 7, last: it narrows the drawer) Session's slot with a 60-character name and a two-digit count, at the
-            default drawer width and at its narrowest
+    heights (batch 8) Agents -> Live's slot at 1280x800, at 1280x1400 and back, with no scroll
+    longest (batch 7-8, last: it narrows the drawer) Session's slot with the 60-character sample of ordinary letters,
+            then a 25-character name, each with a two-digit count, at the default drawer width and at its narrowest
 
     python -m tests.helpers.studio_auto_groups_draw [step ...]
 The last stdout line is a JSON object of what it saw.
 """
 from __future__ import annotations
 
+import json
 import sys
 import time
 from contextlib import contextmanager
@@ -331,7 +333,7 @@ def scrolls(c, rig, rows: Rows, a: str, b: str) -> dict:
     whose group is not placed at the drawing's first full draw is dropped (nothing jumps when it comes later); two presses
     of a group card's Open within the pulse leave one pulse, ending 2 s after the last press."""
     out: dict = {}
-    c.call("Page.enable")  # scripts added for new documents run only with the Page domain on
+    # the Page domain is on for the whole run (collect_page_errors), so this script runs on the pages loaded below
     ident = (c.call("Page.addScriptToEvaluateOnNewDocument", source=HOOK) or {}).get("identifier")
     try:
         main = _main(rows, a)
@@ -365,40 +367,102 @@ def scrolls(c, rig, rows: Rows, a: str, b: str) -> dict:
     finally:
         if ident:
             c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=ident)
-        c.call("Page.disable")
     return {"scrolls": out}
 
 
-LONGEST = "the parser keeps each nested block at its own indent, always"  # 60 characters (crew/groups.py TASK_MAX)
+def _twelfth(state: str) -> list:
+    """Twelve groups, the twelfth `state`, the others done."""
+    return [member(f"h{i}{j}", "coder", f"step {j} of job {i}", f"job number {i}", i, state=state if i == 12 else "done", model="glm-5")
+            for i in range(1, 13) for j in range(1, 4)]
+
+
+# b/batch08 entry 2: the page's interval timers (the drawing's one-second clock among them) skip their calls while
+# window.__frozen is set, so nothing but the view's own size can give the slot a new answer -- only for the step that
+# measures it (added before the page loads, removed after)
+FREEZE = """(() => { const si = window.setInterval; window.__frozen = false;
+  window.setInterval = (fn, ms, ...a) => si((...b) => { if (!window.__frozen && typeof fn === 'function') fn(...b); }, ms, ...a); })();"""
+
+
+def heights(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """b/batch08 entry 2 (B26, Auto): Agents -> Live's slot says what is out of sight right after the window's height
+    changes, with no scroll and the page's clock held: 1280x800, then 1280x1400, then back."""
+    out: dict = {}
+    ident = (c.call("Page.addScriptToEvaluateOnNewDocument", source=FREEZE) or {}).get("identifier")
+    try:
+        main = _main(rows, a)
+        _open(c, rig, rows, a, b, "auto", True, [main, *_twelfth("running")])
+        c.wait(f"!!({GROUP})(12)", 20)
+        c.click_on("document.querySelector('[data-testid=session-lit-open]')")
+        c.mouse("mouseMoved", 2, 400)  # the pointer off the frame (R12)
+        c.wait(f"{LW}?.dataset.map === 'auto' && {LW}.querySelectorAll('[data-testid=live-group]').length === 12", 30)
+        c.wait(f"({LMORE})?.textContent.startsWith('↓ job number 12 · working')", 20)
+        time.sleep(0.5)
+        read = (f"({{text: {LMORE}?.textContent || '', top: {LSCROLL}.scrollTop, h: {LSCROLL}.clientHeight, "
+                f"vw: [innerWidth, innerHeight], hooked: String(window.setInterval).includes('__frozen')}})")
+        vw = c.js("[innerWidth, innerHeight]")
+        c.js("window.__frozen = true; 1")
+        out["first"] = first = c.js(read)
+        differs = f"(({LMORE})?.textContent || '') !== {json.dumps(first.get('text') or '')}"
+        c.call("Emulation.setDeviceMetricsOverride", width=vw[0], height=1400, deviceScaleFactor=1, mobile=False)
+        try:
+            c.wait(differs, 5)
+        except TimeoutError:
+            pass  # the reading below says what stayed
+        out["tall"] = c.js(read)
+        c.call("Emulation.setDeviceMetricsOverride", width=vw[0], height=vw[1], deviceScaleFactor=1, mobile=False)
+        try:
+            c.wait(f"!({differs})", 5)
+        except TimeoutError:
+            pass
+        out["back"] = c.js(read)
+    finally:
+        c.js("window.__frozen = false; 1")
+        if ident:
+            c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=ident)
+    return {"heights": out}
+
+
+SAMPLE = "compare the three reports and write the summary for the team"  # 60 characters: groupWords.ts BELOW_SAMPLE
+SHORT = "compare the three reports"  # 25 characters
 SCROLLBOX = f"{M}?.querySelector('.mp-mini-scroll')"
+TWIN = f"{SLOT}?.querySelector('.mp-below-twin')"
 
 
-def _sixteen(fifth: str) -> list:
-    """Sixteen groups of three coders; the fifth named LONGEST and `fifth`, the others done."""
-    return [member(f"x{i}{j}", "coder", f"step {j} of part {i}", LONGEST if i == 5 else f"part {i} of the long run", i,
+def _sixteen(fifth: str, name: str = SAMPLE) -> list:
+    """Sixteen groups of three coders; the fifth named `name` and `fifth`, the others done."""
+    return [member(f"x{i}{j}", "coder", f"step {j} of part {i}", name if i == 5 else f"part {i} of the long run", i,
                    state=fifth if i == 5 else "done", model="glm-5") for i in range(1, 17) for j in range(1, 4)]
 
 
 def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
-    """b/batch07 entry 1 (B26): the slot's rect and the scroll box's rect are the same at the first draw and once the slot
-    names a 60-character group with a two-digit count, at the default drawer width and at its narrowest."""
+    """b/batch08 entry 1 (B26): the slot's rect and the scroll box's rect are the same at the first draw and once the slot
+    names the fifth of sixteen groups with a two-digit count -- the 60-character sample, then a 25-character name -- at
+    the default drawer width and at its narrowest; the twin's rect is read beside them."""
     from tests.helpers.studio_run_parts import settled
-    out: dict = {"len": len(LONGEST)}
+    out: dict = {"len": len(SAMPLE), "short": len(SHORT)}
     main = _main(rows, a)
-    read = f"({{slot: ({RECT})({SLOT}), scroll: ({RECT})({SCROLLBOX}), text: {MORE}?.textContent || ''}})"
-    named = f"({MORE})?.textContent.startsWith('↓ {LONGEST} · working')"
+    read = (f"({{slot: ({RECT})({SLOT}), scroll: ({RECT})({SCROLLBOX}), twin: ({RECT})({TWIN}), "
+            f"wait: ({RECT})({SLOT}?.querySelector(':scope > .mp-wait-row')), text: {MORE}?.textContent || ''}})")
+    named = lambda name: f"({MORE})?.textContent.startsWith('↓ {name} · working')"  # noqa: E731
+
+    def pair(tag: str, name: str) -> None:
+        _set(rows, a, [main, *_sixteen("done", name)])
+        c.wait(f"!({named(name)}) && !!({GROUP})(16)", 20)
+        out[f"{tag}first"] = settled(c, read)
+        _set(rows, a, [main, *_sixteen("running", name)])
+        c.wait(named(name), 20)
+        time.sleep(0.5)
+        out[f"{tag}named"] = c.js(read)
+
     _open(c, rig, rows, a, b, "auto", True, [main, *_sixteen("done")])
     c.wait(f"!!({GROUP})(16)", 20)
     time.sleep(1.0)
-    out["first"] = c.js(read)
-    _set(rows, a, [main, *_sixteen("running")])
-    c.wait(named, 20)
-    time.sleep(0.5)
-    out["named"] = c.js(read)
+    pair("", SAMPLE)
+    pair("short_", SHORT)
     # the drawer at its least width (as tests/helpers/studio_run_parts.py drags it)
     drawer = f"{SLOT}?.closest('[data-testid=stage-drawer]')"
     _set(rows, a, [main, *_sixteen("done")])
-    c.wait(f"!({named})", 20)
+    c.wait(f"!({named(SAMPLE)}) && !({named(SHORT)})", 20)
     for _ in range(3):
         sp = c.js(f"""(() => {{ const d = {drawer};
           const s = d?.querySelector(':scope > [data-testid=stage-splitter]'); if (!s) return null; const r = s.getBoundingClientRect();
@@ -409,11 +473,8 @@ def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
         c.mouse("mouseMoved", 1279, 799)
         settled(c, f"Math.round({drawer}?.getBoundingClientRect().width || 0)")
     out["drawer"] = c.js(f"[Math.round({drawer}?.getBoundingClientRect().width || 0), +({drawer}?.querySelector(':scope > [data-testid=stage-splitter]')?.getAttribute('aria-valuemin') || 0)]")
-    out["narrow_first"] = settled(c, read)
-    _set(rows, a, [main, *_sixteen("running")])
-    c.wait(named, 20)
-    time.sleep(0.5)
-    out["narrow_named"] = c.js(read)
+    pair("narrow_", SAMPLE)
+    pair("narrow_short_", SHORT)
     return {"longest": out}
 
 
@@ -422,15 +483,15 @@ class AutoGroupsDriver(MapDownDriver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_session import ERRS_JS, FAKE_SID, second_session
+        from tests.helpers.studio_session import FAKE_SID, collect_page_errors, second_session
         from tests.helpers.studio_session_rig import StudioSessionRig
         with StudioSessionRig() as rig:
             _seed(rig)
             second_session(rig)
             rows = Rows(rig)
-            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
+            collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, longest) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, heights, longest) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

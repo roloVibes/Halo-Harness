@@ -39,7 +39,7 @@ box had. A line into a box carries no label: the box's head names it.
 
 When a helper starts working in a box that is wholly below what you see, the slot at the drawing's foot names it:
 "↓ {name} · working", or "↓ {name} · working and {n} more below" when other boxes wait below too. Press it and that box's
-head comes to the top (in Agents -> 4 · Live, into view). The slot keeps its place; nothing above it moves.
+head comes to the top (in Agents -> 4 · Live, into view). The slot's room is there from the first draw, sized for a long name of ordinary letters, so nothing above it moves when a name appears; a name of unusually wide letters can make it one line taller.
 
 ## The doors
 

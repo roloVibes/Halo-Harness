@@ -96,6 +96,8 @@ SKIP = [
      "the CSS keyword text-overflow: clip (package A's file)"),
     (UI + "routes/crew/live/ReportCard.tsx", r"WHAT FAILED AND WHAT HAPPENED NEXT",
      "the report card's own heading, the same as `halo report` prints (## What failed and what happened next)"),
+    (UI + "routes/crew/map/groupWords.ts", r'"compare the three reports and write the summary for the team"',
+     "compare in its plain sense: BELOW_SAMPLE, the task name whose words size the hidden twin of Session's slot on Auto (b/batch08)"),
 ]
 
 
@@ -395,6 +397,7 @@ PROBES = [
     ((UI + "styles/model-select.css", "/* clip-path for the scrubber */"),),
     ((UI + "styles/map-down.css", "/* text-overflow: clip; the clip export */"),),
     ((UI + "routes/crew/live/ReportCard.tsx", "<h3>WHAT HAPPENED</h3>"),),
+    ((UI + "routes/crew/map/groupWords.ts", 'export const COMPARE = "Compare two runs side by side";'),),
     ((PY + "cli_commands.py", "halo replay plays a session back on the map"),),
     ((PY + "cli_commands.py", "replay a past session"),),
     ((PY + "cli.py", "replay <file>"),),

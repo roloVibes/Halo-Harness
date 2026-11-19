@@ -240,12 +240,12 @@ class DrawDriver(MapDownDriver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_session import ERRS_JS
+        from tests.helpers.studio_session import collect_page_errors
         from tests.helpers.studio_session_rig import StudioSessionRig
         with StudioSessionRig() as rig:
             _seed(rig)
             rows = Rows(rig)
-            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
+            collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id)
             steps = [s for s in (pair, long, cut, hold, still, gone) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)

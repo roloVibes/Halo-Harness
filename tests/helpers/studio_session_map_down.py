@@ -264,14 +264,14 @@ class MapDownDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_session import ERRS_JS, second_session
+        from tests.helpers.studio_session import collect_page_errors, second_session
         from tests.helpers.studio_session_rig import StudioSessionRig
         with StudioSessionRig() as rig:
             _seed_shop(rig)
             second_session(rig)
             rows = Rows(rig)
             from tests.helpers.studio_session import FAKE_SID
-            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
+            collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
             yield tuple((fn, args) for fn in (follows, kept, turns, noturn, studio, default, stale))
 

@@ -16,6 +16,8 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
    (tests/helpers/studio_auto_groups_doors.py).
 7. (batch 7) Session's slot holds still for the longest name at any drawer width; Agents -> Live renders on a scroll only
    when the slot's words change, drops a focus its first full draw does not place, and restarts the pulse on a second press.
+8. (batch 8) Session's slot is sized for a long name of ordinary letters (under 70 px at the default width); Agents ->
+   Live's slot follows the window's height with no scroll.
 Run: python -m tests.test_studio_auto_groups
 """
 from __future__ import annotations
@@ -201,20 +203,51 @@ def test_live_scroll_renders_only_when_the_slot_changes(ctx: Ctx):
 
 @test
 def test_the_slot_holds_still_for_the_longest_group_name(ctx: Ctx):
-    """b/batch07 entry 1: on Auto Session's slot reserves, from the first draw, the room of the longest words it can show
-    (a 60-character name and a two-digit count): the slot and the scroll box do not move when they appear, at the default
-    drawer width and at its narrowest."""
+    """b/batch07 entry 1, b/batch08 entry 1: on Auto Session's slot reserves, from the first draw, the room of its words
+    for a long name of ordinary letters (the 60-character sample) with a two-digit count: the slot and the scroll box do
+    not move when the sample's words or a 25-character name's appear, at the default drawer width and at its narrowest;
+    at the default width the slot is no taller than its twin needs, and that is under 70 px."""
     import re
     d = _ran(ctx, "longest")
-    ctx.check(f"the name is 60 characters (the engine's cut), got {d.get('len')}", d.get("len") == 60)
-    for a, b in (("first", "named"), ("narrow_first", "narrow_named")):
+    sample, short = "compare the three reports and write the summary for the team", "compare the three reports"
+    ctx.check(f"the names are 60 and 25 characters, got {d.get('len')} {d.get('short')}", d.get("len") == 60 and d.get("short") == 25)
+    for a, b, name in (("first", "named", sample), ("short_first", "short_named", short),
+                       ("narrow_first", "narrow_named", sample), ("narrow_short_first", "narrow_short_named", short)):
         x, y = d.get(a) or {}, d.get(b) or {}
         ctx.check(f"{b}: the slot names the group with a two-digit count, got {y.get('text')!r}",
-                  re.fullmatch(r"↓ .{60} · working and \d\d more below", str(y.get("text") or "")) is not None)
+                  re.fullmatch(rf"↓ {re.escape(name)} · working and \d\d more below", str(y.get("text") or "")) is not None)
         ctx.check(f"{a} -> {b}: the slot's rect and the scroll box's rect are equal, got {x} -> {y}",
                   bool(x.get("slot")) and x.get("slot") == y.get("slot") and x.get("scroll") == y.get("scroll"))
     dr = d.get("drawer") or [0, 1]
     ctx.check(f"the drawer was dragged to its narrowest, got {dr}", dr[0] <= dr[1] + 1)
+    first = d.get("first") or {}
+    slot_h, twin_h = (first.get("slot") or [0, 0, 0, 999])[3], (first.get("twin") or [0, 0, 0, 999])[3]
+    wait_h = (first.get("wait") or [0, 0, 0, 0])[3]  # the wait link's own reserved lines (batch 6: 56 px), beside it
+    need = max(32, twin_h, wait_h)
+    ctx.check(f"at the default width the slot ({slot_h} px) is no taller than its twin ({twin_h} px) or the wait link's "
+              f"room ({wait_h} px) needs, and under 70 px", slot_h <= need + 0.5 and twin_h < 70 and slot_h < 70)
+
+
+@test
+def test_live_slot_follows_the_view_height(ctx: Ctx):
+    """b/batch08 entry 2: on Auto Agents -> Live's slot names what is out of sight right after the window's height
+    changes, with no scroll: twelve groups at 1280x800, at 1280x1400 (fewer more below, or nothing), then back. The page's
+    interval timers are held by the rig meanwhile (its one-second clock re-renders the drawing, which hid the fault for up
+    to a second), so only the view's size can give the slot a new answer."""
+    import re
+    d = _ran(ctx, "heights")
+    first, tall, back = d.get("first") or {}, d.get("tall") or {}, d.get("back") or {}
+    more = lambda t: int(m.group(1)) if (m := re.search(r"and (\d+) more below", t or "")) else 0  # noqa: E731
+    ctx.check(f"the page's clock is held by the rig (only the view's size can change the slot), got {first.get('hooked')}",
+              first.get("hooked") is True)
+    ctx.check(f"at 800 the slot names group 12, got {first}", str(first.get("text") or "").startswith("↓ job number 12 · working"))
+    ctx.check(f"no scroll at any height, got {first.get('top')} {tall.get('top')} {back.get('top')}",
+              first.get("top") == 0 and tall.get("top") == 0 and back.get("top") == 0)
+    ctx.check(f"at 1400 the view is taller and the slot says so (fewer more below, or nothing), got {first} -> {tall}",
+              (tall.get("h") or 0) > (first.get("h") or 0) and tall.get("text") != first.get("text")
+              and (not tall.get("text") or more(tall.get("text")) < more(first.get("text"))))
+    ctx.check(f"back at 800: the first reading again, got {back}",
+              back.get("text") == first.get("text") and back.get("h") == first.get("h") and back.get("vw") == first.get("vw"))
 
 
 _DOORS: dict = {}

@@ -210,13 +210,13 @@ class RunDriver(MapDownDriver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_session import ERRS_JS, FAKE_SID, second_session
+        from tests.helpers.studio_session import FAKE_SID, collect_page_errors, second_session
         from tests.helpers.studio_session_rig import StudioSessionRig
         with StudioSessionRig() as rig:
             _seed(rig)
             second_session(rig)
             rows = Rows(rig)
-            c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
+            collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
             steps = [s for s in (block, hops, off, sender) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)

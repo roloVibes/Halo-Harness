@@ -29,7 +29,7 @@ import { useLit } from "../crew/map/LitMini";
 import { RunLine } from "../crew/map/RunLine";
 import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
-import { belowGroup } from "../crew/map/groupWords";
+import { BELOW_SAMPLE, belowGroup } from "../crew/map/groupWords";
 import { StepIn } from "../crew/map/StepIn";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
@@ -46,9 +46,9 @@ import { TruthBlock } from "./TruthBlock";
 const NAV_ID = "session-lit-map";
 const READ_PX = 12; // R9: the rows' size on screen at 100 %: fitted with it the floor is 1.0, so it always opens at 100 %
 const MIN = 0.75, MAX = 2; // a zoom by hand: down to 75 %, never on opening
-// b/batch07: on Auto the slot's room is, from the first draw, that of the longest words it can show (a hidden twin): a name
-// at the engine's cut (crew/groups.py TASK_MAX, 60 characters of the widest letter) with a two-digit count
-const BELOW_ROOM = belowGroup("W".repeat(60), 99);
+// b/batch07, b/batch08: on Auto the slot's room is, from the first draw, a hidden twin of its words for a long name of
+// ordinary letters (BELOW_SAMPLE, 60 characters) with a two-digit count; a name of wider letters may add a line, never cut
+const BELOW_ROOM = belowGroup(BELOW_SAMPLE, 99);
 
 /** An element's clientWidth / clientHeight, read before the first paint and again on every resize. */
 function useSize(ref: RefObject<HTMLElement | null>, on: boolean): { w: number; h: number } {
