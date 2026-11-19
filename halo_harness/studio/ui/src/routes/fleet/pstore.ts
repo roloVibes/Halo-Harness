@@ -124,9 +124,3 @@ export function age(ts: number, now = Date.now()): string {
   if (s < 86400) return `${Math.round(s / 3600)}h`;
   return `${Math.round(s / 86400)}d`;
 }
-
-/** The attention count: the watcher's (live from its `live` frame), else what the tree shows. */
-export function useAttnCount(fallback: number): number {
-  const n = usePanels((s) => s.attnCount);
-  return n ?? fallback;
-}

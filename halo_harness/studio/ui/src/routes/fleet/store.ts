@@ -171,12 +171,6 @@ export function counts(s: Pick<FleetState, "harnesses">): Counts {
   return { harnesses: s.harnesses.length, sessions, agents, live, attention };
 }
 
-/** The counts, recomputed only when the tree changes (a selector must return a stable value). */
-export function useCounts(): Counts {
-  const harnesses = useFleet((s) => s.harnesses);
-  return useMemo(() => counts({ harnesses }), [harnesses]);
-}
-
 /** The selected agent's row (null when none), stable between renders. */
 export function useSelected(): AgentRef | null {
   const key = useFleet((s) => s.selected);

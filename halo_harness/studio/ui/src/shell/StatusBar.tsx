@@ -6,7 +6,7 @@
 // and its layout, and the keys. 3.1.6.0 R6: the section keys' hint reads the registry's first and last key.
 // 3.3.16.0 R1: the TEAM cell went with Team's board; in Agents the layout and the status line are the view's own
 // workspace's (Cast's Roles, Runs' Orchestra). 3.3.16.0 R2 "the Fleet fold": the FLEET cell went with the section --
-// the decisions waiting are Agents' Attention chip, the agents at work the count on Agents' rail icon, the missions
+// the decisions waiting are counted on Session's Attention button, the agents at work the count on Agents' rail icon, the missions
 // running Runs' list. 3.4.1.2 (SERVERS-4): VIEW ONLY on a page Studio served without the owner salt (a tab a page or a
 // script opened, a browser that sends no Fetch Metadata), with how to open Studio so it can change things.
 import { HudCell, HudStrip, Kbd } from "../lib/ui";

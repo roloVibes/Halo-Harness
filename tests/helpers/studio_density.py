@@ -14,8 +14,7 @@ Studio -- and measured with getBoundingClientRect where the primitives mark them
 and, per section, the panels open on load (one main thing per view, 3.6.0.0 R0a: the stage) and the gaps between the
 open panels (>= 12 px); then each closed panel opened from the view bar in turn (3.6.0.0 R0a: the strips went).
 Agents is opened on Cast and Live (3.4.0.0 D: Runs went); Cast once more with `?edit=lineup:halo-dev-cycle`
-(the inspector's summary, then one block's page). 3.3.16.0 R2: Setup -> Machines, and Live on the fleet once more with
-the Attention queue open (the chip) and the inspector's glance.
+(the inspector's summary, then one block's page). 3.3.16.0 R2: Setup -> Machines and the inspector's glance.
 
     python -m tests.helpers.studio_density        the JSON of what it saw on the last stdout line (exit 2: no Chrome)
     python -m tests.helpers.studio_density DIR    the same, and a capture of each section into DIR
@@ -141,18 +140,6 @@ def section(c, url: str, name: str) -> dict:
     return {name: got}
 
 
-def attention(c, url: str) -> dict:
-    """3.3.16.0 R2: the Map (3.6.0.0 R5: Live went) with the Attention queue open (the chip)."""
-    c.go("about:blank")
-    c.go(url)
-    c.wait("!!document.querySelector('[data-part=map]:not([hidden]) [data-testid=agents-attention]') && !!document.querySelector('[data-testid=map-canvas]')", 40)
-    c.js("document.querySelector('[data-part=map]:not([hidden]) [data-testid=agents-attention]').click(); 1")
-    c.wait("!!document.querySelector('[data-panel=fleet-attention] .panel-body')", 10)
-    got = settled(c)
-    shot(c, "agents-attention")
-    return {"agents-attention": got}
-
-
 def living(c, url: str) -> dict:
     """3.3.18.0 "The living canvas"; 3.6.0.0 R5: the strip under the Map over the seeded home (its rows targets; 3.6.0.3 B:
     History, drawn there before, left Studio)."""
@@ -192,8 +179,7 @@ class DensityDriver(Driver):
             with PromptRig() as rig:  # Session and Live on the fleet over a live session (the Prompt rig); the rest over the seeded home
                 live = (("session", rig.url(f"&session={rig.sid}")), ("agents-busy", page_url(rig.server, "agents", "&view=map")))
                 seeded = tuple((n, page_url(srv, m, x)) for n, m, x in SECTIONS if n not in ("session", "agents-busy"))
-                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((attention, (c, page_url(rig.server, "agents", "&view=map"))),
-                    (living, (c, page_url(srv, "agents", f"&view=map&map={SEVEN}"))))
+                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((living, (c, page_url(srv, "agents", f"&view=map&map={SEVEN}"))),)
         finally:
             srv.shutdown()
             srv.server_close()

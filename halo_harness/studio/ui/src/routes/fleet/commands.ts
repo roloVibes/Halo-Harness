@@ -1,11 +1,12 @@
-// The palette's Agents lines for this machine's sessions: Agents: Attention (A), follow / steer /
-// pause / stop the selected agent, follow any live agent by name, pause all, resume all, answer next (the Attention
-// panel on the oldest row), record, take over, hand to, open a goal-run worker's run, Local: the Ollama steward.
-import { goSection } from "../../lib/store";
+// The palette's Agents lines for this machine's sessions: follow / steer / pause / stop the selected agent, follow any
+// live agent by name, pause all, resume all, record, take over, hand to, open a goal-run worker's run, Local: the Ollama
+// steward; and Session's two Attention lines, Session: Attention and Session: answer next (Session's Attention drawer,
+// glance/openAsk.ts showAttention).
 import { openLocalHost } from "../agents/fleetDoor";
-import { setAttention, toggleAttention } from "../agents/attention";
+import { showAttention } from "../glance/openAsk";
+import { rowIn } from "./attnScope";
 import { askStop, everySession, openAgentPanel, select, toggleFollow, togglePause } from "./actions";
-import { allAgents, fleet, findAgent, isLive, sessionTitle, type FleetState } from "./store";
+import { allAgents, fleet, findAgent, isLive, localId, sessionTitle, type FleetState } from "./store";
 import { askHandoff, record } from "./extras";
 import { panels } from "./pstore";
 import { focusSteer } from "./Steer";
@@ -21,13 +22,15 @@ export const agentLines = (s: FleetState): string => liveRefs(s).map(followLabel
 export function fleetCommands(): FleetCommand[] {
   const s = fleet.get();
   const g = "Agents";
-  const waiting = panels.get().attention.length;
+  // 3.6.0.5 r: the rows Session's Attention lists (this harness's, and a row of no harness), so the palette, the drawer and its button agree
+  const mine = (): ReturnType<typeof panels.get>["attention"] => panels.get().attention.filter(rowIn({ harness: localId(s) }));
+  const waiting = mine().length;
   const out: FleetCommand[] = [
-    { id: "fleet-attention", group: g, label: "Agents: Attention", hint: `${waiting} waiting · every decision, one key each`, kbd: "A", run: () => (goSection("agents"), toggleAttention()) },
+    { id: "fleet-attention", group: "Session", label: "Session: Attention", hint: `${waiting} waiting · every decision, one key each`, run: showAttention },
     { id: "fleet-follow", group: g, label: s.follow ? "Agents: stop following the agent" : "Agents: follow the agent", hint: "the stream scrolls with it", kbd: "F", run: toggleFollow },
     { id: "fleet-pause-all", group: g, label: "Agents: pause all", hint: "every session holds at its next tool or model call", run: () => void everySession("pause") },
     { id: "fleet-resume-all", group: g, label: "Agents: resume all", hint: "every paused session carries on", run: () => void everySession("resume") },
-    { id: "fleet-answer-next", group: g, label: "Agents: answer next", hint: `${waiting} waiting · Attention, the oldest row`, run: () => (panels.update((p) => ({ attnSel: p.attention[0]?.id || "" })), goSection("agents"), setAttention(true)) },
+    { id: "fleet-answer-next", group: "Session", label: "Session: answer next", hint: `${waiting} waiting · Attention, the oldest row`, run: () => (panels.update(() => ({ attnSel: mine()[0]?.id || "" })), showAttention()) },
     { id: "fleet-ollama", group: g, label: "Local: the Ollama steward", hint: "each host's card, models, findings and fit plan", run: () => openLocalHost() },
   ];
   const sel = s.selected ? findAgent(s, s.selected) : null;

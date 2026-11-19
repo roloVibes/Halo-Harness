@@ -3,16 +3,19 @@ uses it, over tests/helpers/studio_session_rig.py (this harness's real session) 
 (the session runs on the map `shop`; the reviewer is the workflow review's step, drawn in the box `check`). No model.
 
     ask_map      a COLD page loaded straight onto Agents -> 3 · Map (no other section shown in its life); the reviewer
-                 waits on him (its row `waiting`, its ask in the Feed); Attention -> the row's O, pressed ONCE: within 5 s Agents -> 4 · Live shows
+                 waits on him (its row `waiting`, its ask in the Feed); its alert's click, ONCE (3.6.0.5 r: the door
+                 that stays in Agents; the Attention chip left): within 5 s Agents -> 4 · Live shows
                  the session with the box `check` selected (`data-selected`) and waiting (`data-state=waiting`), its card
                  open with the ask's choices; "Open changed nothing" when the section, the view, the drawer and the
                  selection are all as they were
     ask_session  Session, its Attention drawer: the same row's O lands on Session's Live drawer, `check` selected and
                  waiting, the card with the ask's choices
-    ask_stranger an agent the drawing puts on no box asks: O from Agents and from Session opens the Feed on it with the
-                 ask's choices and the line "{agent} is not on the map: its question is in the Feed." (P4 batch 12)
-    ask_held     the same with the ask's frame held back until after the press (P9 batch 2): the row and its choices are
-                 in the Feed when the line shows, timed in the page from the press; the late frame draws no second row
+    ask_stranger an agent the drawing puts on no box asks: the alert's click from Agents -> 3 · Map and the row's O from
+                 Session's Attention open the Feed on it with the ask's choices and the line "{agent} is not on the
+                 map: its question is in the Feed." (P4 batch 12)
+    ask_held     the same with the ask's frame held back until after the alert's click from Agents -> 3 · Map (P9
+                 batch 2): the row and its choices are in the Feed when the line shows, timed in the page from the
+                 click; the late frame draws no second row
     run_open     a live goal run, the run's file read held by the browser (never answered): the Map's top line's Open is
                  the same DOM node before and after the Map settled (one parent whatever the line says), and one press
                  opens the Map's drawer on the run at once
@@ -47,6 +50,29 @@ def vis(sel: str) -> str:
     return f"({SHOWN})({json.dumps(sel)})"
 
 
+def alerts_on(c) -> None:
+    """3.6.0.5 r: the alert, the door that stays in Agents: `studio.alerts` = browser in the rig's scratch home and the
+    stub Notification of tests/helpers/studio_attention_open.py on every new document."""
+    from halo_harness.theme import set_config_value
+    from tests.helpers.studio_attention_open import STUB
+    set_config_value("studio.alerts", "browser")
+    c.call("Page.enable")
+    c.call("Page.addScriptToEvaluateOnNewDocument", source=STUB)
+
+
+def alert_ready(c) -> int:
+    """The page's first read of the queue is stored (what waits on load is not news); the notes this page already holds."""
+    c.wait("window.__reads.length >= 1", 30)
+    time.sleep(1.0)
+    return int(c.js("window.__notes.length") or 0)
+
+
+def alert_click(c, seen: int) -> str:
+    """Wait for a notification past the `seen` this page held, click the newest; its tag."""
+    c.wait(f"window.__notes.length > {int(seen)}", 30)
+    return c.js("(() => { const n = window.__notes[window.__notes.length - 1]; n.onclick(); return n.tag; })()")
+
+
 def asked(lv) -> None:
     lv.state("reviewer", state="waiting")
     lv.ask("reviewer", "permission_request", {"id": "perm-door", "name": "Bash", "input": {"command": "git push origin feature/basket"}})
@@ -62,22 +88,18 @@ def ask_map(c, rig, lv) -> dict:
     out: dict = {}
     c.go(rig.url("agents", "&view=map"))
     c.wait(f"{VIEW} === 'map'", 40)
+    n0 = alert_ready(c)
     asked(lv)
-    chip = vis("[data-testid=agents-attention]")
-    c.wait(f"Number({chip}?.dataset.count) > 0", 30)
-    c.click_on(chip)
-    row = "document.querySelector('[data-testid=fleet-attention] [data-testid=fleet-attn-row][data-kind=waiting]')"
-    out["ask_map_keys"] = c.wait(f"{row} && [...{row}.querySelectorAll('[data-testid=fleet-attn-key]')].map((k) => k.dataset.key)", 30)
     before = f"[{SECTION}, {VIEW}, !!document.querySelector('[data-part=live] .stage-drawer'), !!document.querySelector('[data-selected]')]"
+    c.wait(f"window.__notes.length > {n0}", 30)
     was = c.js(before)
-    c.click_on(f"{row}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
+    out["ask_map_alert"] = alert_click(c, n0)
     try:
         out["ask_map"] = c.wait(f"{VIEW} === 'live' && {landed(BOX_LIVE, CARD_LIVE)}", 5)
         out["ask_map_state"] = c.wait(f"{BOX_LIVE}?.dataset.state === 'waiting' && 'waiting'", 20)  # the waiting mark (P3)
     except TimeoutError:
         now = c.js(before)
         out["ask_map"] = "Open changed nothing" if now == was else f"landed elsewhere: {now} (was {was})"
-    out["ask_map_attention_closed"] = c.js("!document.querySelector('[data-testid=fleet-attention]')")
     return out
 
 
@@ -110,8 +132,8 @@ def ask_session(c, rig, lv) -> dict:
 
 def ask_stranger(c, rig, lv) -> dict:
     """P4 batch 12 (the owner's point 24): an ask from an agent the drawing puts on NO box (its row names the box `gone`, not
-    on shop): O from Agents and from Session opens the Feed on that agent with the ask's choices in view and one line
-    saying so; nothing else closes (Session's Attention drawer stays)."""
+    on shop): the alert's click from Agents (3.6.0.5 r) and the row's O from Session open the Feed on that agent with the
+    ask's choices in view and one line saying so; nothing else closes (Session's Attention drawer stays)."""
     out: dict = {}
     line = "scout is not on the map: its question is in the Feed."
     toast = "[...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | ')"
@@ -121,15 +143,13 @@ def ask_stranger(c, rig, lv) -> dict:
         if where == "agents":
             c.go(rig.url("agents", "&view=map"))
             c.wait(f"{VIEW} === 'map'", 40)
+            n0 = alert_ready(c)
             # it asks while the page is open (its words reach the Feed as they are said)
             lv.spawn("s0c0u7t0", "scout", "scout", "or:mock/qwen3-coder", "Scout: look around the basket code")
             lv.rows["s0c0u7t0"]["crew"] = {"box": "gone"}
             lv.state("scout", state="waiting")
             lv.ask("scout", "permission_request", {"id": "perm-off", "name": "Bash", "input": {"command": "ls"}})
-            chip = vis("[data-testid=agents-attention]")
-            c.wait(f"Number({chip}?.dataset.count) > 0", 30)
-            c.click_on(chip)
-            r = f"({row})('[data-testid=fleet-attention] [data-testid=fleet-attn-row]')"
+            alert_click(c, n0)  # 3.6.0.5 r: the alert's click, the door that stays in Agents
         else:
             c.go(rig.url("session"))
             c.wait(f"!!{SESSION} && !{SESSION}.hidden", 40)
@@ -138,8 +158,8 @@ def ask_stranger(c, rig, lv) -> dict:
             c.wait(f"!!{btn}", 30)
             c.click_on(btn)
             r = f"({row})('[data-panel=session-attention] [data-testid=fleet-attn-row]')"
-        c.wait(f"!!{r}", 30)
-        c.click_on(f"{r}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
+            c.wait(f"!!{r}", 30)
+            c.click_on(f"{r}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
         try:  # the line, while it is shown (a toast lasts 8 s); then the row it names (waited for, never slept on)
             seen = c.wait(f"({toast}).includes({json.dumps(line)}) && ({toast})", 8)
         except TimeoutError:
@@ -178,22 +198,22 @@ HELD_WATCH = """(() => { const w = window.__held = { t0: null, row: null, line: 
 def ask_held(c, rig, lv) -> dict:
     """P9 batch 2 (CI on the candidate: the line said the question is in the Feed while the Feed held no row): an agent the
     drawing puts on no box waits on him and NO frame of its ask has reached the page (held back until after the press).
-    O from Agents: the Feed on that agent shows the ask's row with its choices -- at the moment the line says so, timed in
-    the page from the press -- and the frame that brings the ask later fills that row (no second row)."""
+    The alert's click from Agents -> 3 · Map (3.6.0.5 r): the Feed on that agent shows the ask's row with its choices -- at
+    the moment the line says so, timed in the page from the click -- and the frame that brings the ask later fills that
+    row (no second row)."""
     out: dict = {}
     line = "lookout is not on the map: its question is in the Feed."
+    c.go("about:blank")  # a new document: run_open loaded the same URL, and the same URL again keeps the old page's notes
     c.go(rig.url("agents", "&view=map"))
     c.wait(f"{VIEW} === 'map'", 40)
+    n0 = alert_ready(c)
     lv.spawn("l0o0k0u7", "lookout", "lookout", "or:mock/qwen3-coder", "Lookout: watch the basket code")
     lv.rows["l0o0k0u7"]["crew"] = {"box": "gone"}
     lv.state("lookout", state="waiting")  # it waits on him; its ask's frame is held back
-    chip = vis("[data-testid=agents-attention]")
-    c.wait(f"Number({chip}?.dataset.count) > 0", 30)
-    c.click_on(chip)
-    r = "[...document.querySelectorAll('[data-testid=fleet-attention] [data-testid=fleet-attn-row]')].find((e) => e.textContent.includes('lookout'))"
-    c.wait(f"!!{r}", 30)
     c.js(HELD_WATCH.replace("LINE", json.dumps(line)))
-    c.click_on(f"{r}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
+    c.wait(f"window.__notes.length > {n0}", 30)
+    c.js("window.__held.t0 = performance.now(); 1")  # timed from the alert's click (no DOM click sets it)
+    alert_click(c, n0)
     try:
         c.wait("window.__held.row !== null && window.__held.line !== null", 15)
     except TimeoutError:
@@ -287,6 +307,7 @@ class DoorsDriver(Driver):
             lv = Live(rig)
             lv.rows["r3v1e2w0"]["square"] = {"name": "review", "engine": "steps"}  # the workflow review's step: box check
             lv.refresh(map="shop", map_next="shop")
+            alerts_on(c)  # 3.6.0.5 r: the alert's click is the door from Agents
             try:
                 yield tuple((fn, (c, rig, lv)) for fn in (ask_map, ask_session, ask_stranger, run_open, ask_held, builder_left))
             finally:

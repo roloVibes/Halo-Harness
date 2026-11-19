@@ -95,7 +95,7 @@ def test_no_clock_interval_outlives_the_drawing(ctx: Ctx):
         x = _of(d, w, "timers")
         ctx.check(f"{w}: showing the drawing started its clock, got {x.get('shown')} ({x.get('error')})", 1000 in (x.get("shown") or []))
         # the clock ticks once a second: a one-second interval started while it was shown and left once it is hidden is the
-        # clock's (other parts of the page started while it was shown, e.g. the Attention chip's 5 s, are not the drawing's)
+        # clock's (other parts of the page started while it was shown are not the drawing's)
         ctx.check(f"{w}: hidden, no one-second interval it started is left, got {x.get('left')}", 1000 not in (x.get("left") or []))
 
 

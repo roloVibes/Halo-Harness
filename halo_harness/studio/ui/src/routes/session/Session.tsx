@@ -23,7 +23,7 @@ import type { PanelSpec } from "../../lib/workspace/types";
 import { HELP } from "../help";
 import { ActivityDetail, ActivityGlance, useActivityMotion } from "../fleet/Activity";
 import { AgentDetail, AgentGlance, AgentSettings, useAgentMotion } from "../fleet/Agent";
-import { AttentionDetail, AttentionGlance, useAttentionMotion } from "../fleet/Attention";
+import { AttentionDetail, AttentionGlance, useAttentionMotion, useAttentionWord } from "../fleet/Attention";
 import { MapDetail, MapGlance, useBuiltWord, useMapMotion } from "./SessionMap";
 import { CostDetail, CostGlance, useCostMotion } from "./Cost";
 import { ConversationsDetail, ConversationsGlance, useConversationsMotion } from "./Conversations";
@@ -65,7 +65,7 @@ export const sessionPanels: PanelSpec[] = [
   panel("session-cost", { title: "Cost", contentW: 360, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
   panel("session-agent", { title: "Agent", contentW: 400, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
   panel("session-activity", { title: "Activity", role: "tab", face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
-  panel("session-attention", { title: "Attention", contentW: 360, face: "detail", collapsed: true, glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
+  panel("session-attention", { title: "Attention", contentW: 360, face: "detail", collapsed: true, glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion), useCount: useAttentionWord, countTone: "warn" }),
   panel("session-prompt", { title: "Prompt", contentW: 420, face: "detail", collapsed: true, glance: PromptGlance, detail: PromptDetail, useMotion: started(usePromptMotion) }),
   // 3.3.16.2: agents talking, one thread per pair (Conversations.tsx); optional: the "+" menu adds it
   panel("session-conversations", { title: "Conversations", contentW: 440, face: "detail", optional: true, glance: ConversationsGlance, detail: ConversationsDetail, useMotion: started(useConversationsMotion) }),

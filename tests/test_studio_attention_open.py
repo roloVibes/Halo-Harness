@@ -80,6 +80,23 @@ def test_the_alert_click_lands_on_the_ask_from_anywhere(ctx: Ctx):
 
 
 @test
+def test_sessions_attention_button_counts_what_waits_and_holds_still(ctx: Ctx):
+    """3.6.0.5 r (R3): Session's Attention button shows how many decisions wait ("Attention 1"), in the amber the Agents
+    chip had, and nothing after the name while none waits; its slot is drawn from the first paint, so no button of
+    Session's view bar moves when the number comes."""
+    got = _got(ctx)
+    b, a = got.get("count_before") or {}, got.get("count_after") or {}
+    ctx.check(f"before: the slot is there, empty, with no tone, room for two digits, got {b}",
+              b.get("slot") is True and b.get("text") == "" and b.get("tone") is None
+              and (b.get("w") or 0) >= (b.get("two") or 99) - 0.5)
+    ctx.check(f"after: the slot reads 1 in the amber, got {a.get('text')!r} {a.get('tone')!r} {a.get('color')!r} (warn {a.get('warn')!r})",
+              a.get("text") == "1" and a.get("tone") == "warn" and bool(a.get("warn")) and a.get("color") == a.get("warn"))
+    xb, xa = b.get("xs") or [], a.get("xs") or []
+    same = len(xb) == len(xa) > 0 and all(p[0] == q[0] and abs(p[1] - q[1]) <= 0.5 and abs(p[2] - q[2]) <= 0.5 for p, q in zip(xb, xa))
+    ctx.check(f"every button of Session's view bar holds still, before {xb} after {xa}", same)
+
+
+@test
 def test_a_rows_o_lands_on_the_ask_from_session(ctx: Ctx):
     got = _got(ctx)
     _landed(ctx, got, "row_a", "O from Session on the other session, Attention and Agent open")
@@ -87,12 +104,13 @@ def test_a_rows_o_lands_on_the_ask_from_session(ctx: Ctx):
 
 
 @test
-def test_a_rows_o_lands_on_the_ask_from_the_map(ctx: Ctx):
+def test_the_alert_lands_on_the_ask_from_the_map(ctx: Ctx):
+    """3.6.0.5 r: Agents has no Attention queue now; the door that stays there is the alert's click."""
     got = _got(ctx)
-    ctx.check(f"(c) the session's map, (d) another: {got.get('row_c_map')!r} {got.get('row_d_map')!r}",
-              got.get("row_c_map") == "auto" and got.get("row_d_map") == "ship-it")
-    _landed(ctx, got, "row_c", "O from Agents -> Map on the session's map", "agents")
-    _landed(ctx, got, "row_d", "O from Agents -> Map on another map", "agents")
+    ctx.check(f"(c) the session's map, (d) another: {got.get('map_c_map')!r} {got.get('map_d_map')!r}",
+              got.get("map_c_map") == "auto" and got.get("map_d_map") == "ship-it")
+    _landed(ctx, got, "map_c", "the alert from Agents -> Map on the session's map", "agents")
+    _landed(ctx, got, "map_d", "the alert from Agents -> Map on another map", "agents")
 
 
 @test
@@ -101,7 +119,7 @@ def test_other_rows_keep_their_homes_and_a_gone_session_is_said(ctx: Ctx):
     ctx.check(f"the steward's note still opens Local: {got.get('home_steward')}", (got.get("home_steward") or {}).get("section") == "local")
     ended = got.get("home_ended") or {}
     ctx.check(f"a row whose session ended: one toast line says so, nothing moves: {ended}",
-              any("ended" in t for t in ended.get("toasts") or []) and ended.get("section") == "agents")
+              any("ended" in t for t in ended.get("toasts") or []) and ended.get("section") == "session")
 
 
 if __name__ == "__main__":

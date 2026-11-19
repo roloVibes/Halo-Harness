@@ -3,7 +3,7 @@ headless Chrome over the rig of tests/helpers/studio_doors.py (this harness's re
 agents), the session's row refreshed to Auto (`map: auto`, `map_plain: true`): the tester's row in a first group (n 1),
 the reviewer's (the one that asks) in group 2. No model is called.
 
-    ask_live     Agents -> 3 · Map, Attention -> the reviewer's row's O: Agents -> 4 · Live shows group 2 selected
+    ask_live     Agents -> 3 · Map, the alert's click on the reviewer's ask: Agents -> 4 · Live shows group 2 selected
                  (`data-selected`) with the card open, its title the asker's who and the ask's choices
     ask_session  Session, its Attention drawer: the same row's O lands on Session's Live drawer, group 2 selected, the card
                  the same
@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_doors import SESSION, VIEW, asked, vis  # noqa: E402
+from tests.helpers.studio_doors import SESSION, VIEW, alert_click, alert_ready, alerts_on, asked  # noqa: E402
 
 LIVE_GROUP = "document.querySelector('[data-part=live] [data-testid=live-group][data-group=\"2\"]')"
 LIVE_CARD = "document.querySelector('[data-part=live] [data-testid=map-step-in]')"
@@ -38,13 +38,9 @@ def seen(group: str, card: str) -> str:
 def ask_live(c, rig, lv) -> dict:
     c.go(rig.url("agents", "&view=map"))
     c.wait(f"{VIEW} === 'map'", 40)
+    n0 = alert_ready(c)
     asked(lv)
-    chip = vis("[data-testid=agents-attention]")
-    c.wait(f"Number({chip}?.dataset.count) > 0", 30)
-    c.click_on(chip)
-    row = "document.querySelector('[data-testid=fleet-attention] [data-testid=fleet-attn-row][data-kind=waiting]')"
-    c.wait(f"!!{row}", 30)
-    c.click_on(f"{row}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
+    alert_click(c, n0)  # 3.6.0.5 r: the alert's click, the door that stays in Agents
     try:
         return {"ask_live": c.wait(f"{VIEW} === 'live' && {seen(LIVE_GROUP, LIVE_CARD)}", 8)}
     except TimeoutError:
@@ -85,6 +81,7 @@ class AutoDoorsDriver(Driver):
             _group(lv, "t7e5s1t0", 1, "run the basket suite")
             _group(lv, "r3v1e2w0", 2, "review the basket diff")
             lv.refresh(map="auto", map_plain=True)
+            alerts_on(c)
             try:
                 yield tuple((fn, (c, rig, lv)) for fn in (ask_live, ask_session))
             finally:

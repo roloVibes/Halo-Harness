@@ -40,9 +40,8 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["4 · Live", `The session you pick, drawn on the map it really follows: each box with its agents and their state, a workflow as its steps, every hand-off lighting its line and leaving a trace, work outside the lines dashed. Click a box: Pause, Stop or steer it there. The ${WORDS.feed} (its button on the bar) shows what the agents say and do, line by line.`],
       ["Goal runs, and keeping a session", `Run a goal on the Map's bar opens the goal form in the drawer; a running goal's pages open there too, and when it ends its report is a page of its own there (Goal run), its report card first. To keep a session as a file: Session -> ${WORDS.feed} -> Export (one Markdown file: every prompt, reply and tool call, keys masked).`],
       ["Hover, then click", "Rest the pointer on a box or Tab to it: a card says what it is after a moment. A click opens everything in the drawer. Settings -> Studio turns the cards off."],
-      ["Attention", "The chip at the right of each tab's bar counts every decision that waits on you, amber while any does; it (or A) opens the queue: A accepts, R denies or redoes with your text, S stops, O opens where it belongs."],
     ],
-    keys: [["1 / 2 / 3 / 4", `Agents, Workflows, ${WORDS.map}, ${WORDS.live} (outside a text field)`], STEP_KEYS, ["A", "the Attention queue"], ...PANEL_KEYS],
+    keys: [["1 / 2 / 3 / 4", `Agents, Workflows, ${WORDS.map}, ${WORDS.live} (outside a text field)`], STEP_KEYS, ...PANEL_KEYS],
   },
   session: {
     terms: ["harness", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance

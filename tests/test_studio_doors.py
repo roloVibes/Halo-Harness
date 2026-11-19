@@ -4,9 +4,9 @@ CI only). The pure half (the kept ask, where the asking agent is drawn, the requ
 tests/test_studio_door_kept.py and tests/test_api_limit.py, run in node everywhere.
 
 1. the owner's own case (2026-11-17, "attention open in map doesn't do anything"): a COLD page on Agents -> 3 · Map, the
-   helper agent asks; the Attention row's O pressed ONCE lands within 5 s on Agents -> 4 · Live for that session, the
-   asking agent's box selected and waiting, its card open with the ask's choices (the queue's panel closed: the card
-   carries the ask); from Session's Attention drawer the same O lands on Session's Live drawer the same way;
+   helper agent asks; its alert's click, ONCE (3.6.0.5 r: the door that stays in Agents now the Attention chip left),
+   lands within 5 s on Agents -> 4 · Live for that session, the asking agent's box selected and waiting, its card open
+   with the ask's choices; from Session's Attention drawer the row's O lands on Session's Live drawer the same way;
 2. a goal run's Open on the Map's top line is one DOM node before and after the Map settles, and opens the Map's drawer
    on the run at once while the run's file read never answers (Studio's requests have a time limit: lib/apiLimit.ts);
 3. the builder box shows what Apply LEFT OUT, each line in the server's words, under its result.
@@ -33,14 +33,13 @@ def _got(ctx: Ctx) -> dict:
 
 
 @test
-def test_attention_open_on_the_map_lands_on_the_asking_box(ctx: Ctx):
+def test_the_alert_on_the_map_lands_on_the_asking_box(ctx: Ctx):
     d = _got(ctx)
-    ctx.check(f"the row offers O, got {d.get('ask_map_keys')}", "o" in (d.get("ask_map_keys") or []))
+    ctx.check(f"the ask made one notification, got {d.get('ask_map_alert')!r}", str(d.get("ask_map_alert") or "").startswith("halo-ask-"))
     got = d.get("ask_map")
-    ctx.check(f"from a cold 3 · Map, one O: 4 · Live, the box selected and waiting, its card open with the ask's choices, got {got!r}",
+    ctx.check(f"from a cold 3 · Map, one click: 4 · Live, the box selected and waiting, its card open with the ask's choices, got {got!r}",
               isinstance(got, list) and got[1] >= 1 and got[2] == "reviewer")
     ctx.check(f"the box carries the waiting mark, got {d.get('ask_map_state')!r}", d.get("ask_map_state") == "waiting")
-    ctx.check(f"the queue's panel closed over the card, got {d.get('ask_map_attention_closed')!r}", d.get("ask_map_attention_closed") is True)
 
 
 @test
@@ -56,7 +55,8 @@ def test_attention_open_in_session_lands_on_the_live_drawer(ctx: Ctx):
 @test
 def test_an_ask_from_an_agent_on_no_box_opens_the_feed_and_says_so(ctx: Ctx):
     """P4 batch 12 (the owner's point 24, the coordinator's ruling): a door never leads nowhere -- an agent the drawing puts
-    on no box asks; its O opens the Feed on that agent with the ask's choices in view, and one line says so."""
+    on no box asks; its door (the alert's click from Agents, the row's O from Session's Attention) opens the Feed on that
+    agent with the ask's choices in view, and one line says so."""
     d = _got(ctx)
     line = d.get("stranger_line") or ""
     for where in ("agents", "session"):
@@ -72,8 +72,9 @@ def test_an_ask_from_an_agent_on_no_box_opens_the_feed_and_says_so(ctx: Ctx):
 def test_an_ask_held_back_is_in_the_feed_when_the_door_says_so(ctx: Ctx):
     """P9 batch 2 (CI on the candidate, run 44186047995: the line said "its question is in the Feed" while the Feed on that
     agent held no row; the coordinator's ruling): the door hands the ask itself to the Feed, so with the ask's frame held
-    back until after the press, the row and its choices are on screen when the line shows, within 1 s of the press (timed
-    in the page; BUILDER-RULES 7 gives the slower Windows and macOS runners 5 s), and the frame that brings the same ask
+    back until after the press (3.6.0.5 r: the alert's click from Agents -> 3 · Map), the row and its choices are on screen
+    when the line shows, within 1 s of the press (timed in the page; BUILDER-RULES 7 gives the slower Windows and macOS
+    runners 5 s), and the frame that brings the same ask
     later fills that row: one row, never two."""
     d = _got(ctx)
     row, said, at_line = (list(d.get("held") or []) + [None] * 3)[:3]

@@ -9,7 +9,7 @@
     map       Agents -> 3 · Map at 1500 x 900: [Watch it in Live] (L1: the session on auto), the picker, + New map, its
               Make with a name it refuses, the error's Dismiss, the switch New sessions run on this, Undo, Run a goal,
               Lock (on, off), "n new, not connected yet" (a box added from the list to the strip) and Undo, [Open it]
-              (L4: a build of review-flow), the zoom row, the four tabs, the Attention chip and its x (3.6.0.3 B: History's
+              (L4: a build of review-flow), the zoom row, the four tabs (3.6.0.3 B: History's
               Replay and both Back to now left Studio); `gone`: the run overlay's old controls (R55) are not on the page
 """
 from __future__ import annotations
@@ -201,7 +201,6 @@ def map_view(c, rig, lv, rows) -> dict:
             ("Fit", t("canvas-fit")),
             ("the tab 1 · Agents", tab("map", "crew")), ("the tab 2 · Workflows", tab("crew", "workflows")),
             ("the tab 4 · Live", tab("workflows", "live")), ("the tab 3 · Map", tab("live", "map")),
-            ("Attention", t("agents-attention")), ("Attention's x", vis("[data-testid=agents-attention-close]")),
         ])
         out["gone"] = c.js("document.querySelectorAll('[data-testid=map-lit-pick], [data-testid=map-show-running], [data-testid=map-lit-show-nomap]').length")
         # P4 batch 12: no map set, on the default map: no switch (it could change nothing), the plain sentence instead

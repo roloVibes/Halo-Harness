@@ -26,8 +26,11 @@
 .viewbar-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .viewbar-btn[data-added="no"] { border-style: dashed; color: var(--muted); }
 .viewbar-btn .icon { width: 12px; height: 12px; }
-.viewbar-count { font: 12px/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--muted); }
+.viewbar-count { display: inline-block; min-width: 2ch; text-align: left; font: 12px/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--muted); }
 .viewbar-btn[aria-pressed="true"] .viewbar-count { color: inherit; }
+/* 3.6.0.5 r: the count of what waits (Session's Attention) in the amber the Agents chip had; open (pressed), the button keeps the pressed look and the number stays amber */
+.viewbar-btn:has(> .viewbar-count[data-tone="warn"]):not([aria-pressed="true"]) { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 60%, transparent); background: var(--soft-warn); }
+.viewbar-btn .viewbar-count[data-tone="warn"] { color: var(--warn); }
 /* 3.6.0.2 R29: the word slot ("new") is always there, three digits wide, so the word coming or going moves nothing */
 .viewbar-word { display: inline-block; min-width: 3ch; font: 12px/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--accent); text-align: left; }
 

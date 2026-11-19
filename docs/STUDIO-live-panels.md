@@ -8,14 +8,16 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 One queue holds every decision a human has to make on this machine's sessions: permission, question, plan and approval
 cards, an agent that waits or is paused, an Orchestra gate, a spend cap reached, two agents on one file, the Ollama
-steward's finding. The **Attention** chip in Agents' bar shows the count (amber, and it blinks once when a new row
-arrives); a click or `A` opens the queue over the page, `A` or Esc closes it. Each row answers with one key, through the
-route that already handles that kind (`GET /api/live/attention`, `POST /api/live/attention/answer`): **A** accepts,
-allows or resumes, **R** denies, redoes or answers with the text you type (a deny reason is optional), **S** stops the
-agent, **O** opens where the row belongs (the agent on the Map, the run in the Map's drawer or its report, Local on that host) and
-sends nothing. Click a row (or move with `J` / `K` or the arrows), then press the key; every decision is journaled with
-who made it. The count is live on the Agents icon in the rail in every section (a `live` frame with action `attention`
-each time it changes).
+steward's finding. It is Session's **Attention** drawer: its button in Session's view bar shows how many wait
+(**Attention 2**, amber while any waits, the name alone while none does) and a click opens the queue beside the Feed
+(with no live session here Session shows its Start view; **Open anyway** shows the bar). Each row answers with one key,
+through the route that already handles that kind (`GET /api/live/attention`, `POST /api/live/attention/answer`): **A**
+accepts, allows or resumes, **R** denies, redoes or answers with the text you type (a deny reason is optional), **S**
+stops the agent, **O** opens where the row belongs (an agent's ask: its box on the run's drawing in Session's Live
+drawer with its card on the ask, or on Agents -> 4 · Live when it is opened from Agents; the run in the Map's drawer or
+its report, Local on that host) and sends nothing. Click a row (or move with `J` / `K` or the arrows), then press the
+key; every decision is journaled with who made it. The count on Session's button follows the queue live (a `live` frame
+with action `attention` each time it changes).
 
 ### How this works: Costs and caps
 
@@ -55,24 +57,23 @@ dialog's **Download** fetches it with Studio's token and saves it (`POST
 | Key | Where | What |
 |---|---|---|
 | `Alt+2` | everywhere | Agents (then `3` for the Map; `L` lands there too) |
-| `A` | Agents | open or close the Attention queue |
 | `J` / `K` | Session's Live column, the Session map, the Map | the next / previous live agent |
 | `f` | an agent watched on Agents; Session | follow: the stream scrolls with the agent |
 | `Space` | an agent watched on Agents; Session | pin the stream: a **mini stream** floats over whatever you look at, in every section |
 | `Esc` | everywhere | unpin the mini stream (once the palette, a menu or the inspector is closed) |
 | `P` | an agent watched on Agents; Session | pause or resume the agent |
 | `K` | inside Session's Agent strip | stop the agent (asks first; on the canvases `K` is previous) |
-| `A` / `R` / `S` / `O` | inside the Attention queue; an ask card in Session's Live column | answer the selected row (or that card): accept, deny or redo (with a text), stop, open |
+| `A` / `R` / `S` / `O` | inside Session's Attention; an ask card in Session's Live column | answer the selected row (or that card): accept, deny or redo (with a text), stop, open |
 | click a tag / `Esc` | Session's Live column | show only that agent's lines, with the Steer box for it / everyone again |
-| `J` / `K`, arrows | inside the Attention queue | the next / previous row |
+| `J` / `K`, arrows | inside Session's Attention | the next / previous row |
 
 **The mini stream** (picture in picture) shows the pinned agent's state, cost, what it does now and the newest lines of
 its stream; drag it by its bar, its arrow opens the agent on the Map, `x` or `Esc` unpins. It hides while the inspector
 already shows that agent.
 
-**The palette's Agents group**: Attention, answer next, Activity, follow / steer / pause / stop the picked agent, take
-it over, hand it to..., record it, follow any live agent by name, pause all, resume all, open the
-session's run; **Local: the Ollama steward**.
+**The palette's Session group**: Session: Attention, and Session: answer next (the queue on its oldest row). **The
+palette's Agents group**: Activity, follow / steer / pause / stop the picked agent, take it over, hand it to..., record
+it, follow any live agent by name, pause all, resume all, open the session's run; **Local: the Ollama steward**.
 
 ### Live Roles: the lineup lights up
 

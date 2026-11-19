@@ -143,7 +143,7 @@ the report card and the live drawing's pieces `live/`, the model list `models/`)
 tests: `tests/test_studio_crew.py`, `tests/test_studio_flows.py` and `tests/test_studio_map.py`. The live pieces (3.0.5.0) are
 `ui/src/routes/fleet/` (the folder keeps its name: the store and the feed, `store.ts`, `sync.ts`, `streams.ts`;
 `Agent.tsx` + `StreamViews.tsx` + `Steer.tsx`; `Pip.tsx`, `hop.ts`, `frames.ts`, `commands.ts`, `Dialogs.tsx`),
-`styles/fleet.css` and `fleet-agent.css`, the help `routes/help-live.ts`;
+`styles/fleet.css` and `fleet-agent.css`;
 Live Roles is `frames.ts` (the live rows into the Roles store) and `hop.ts`; the routes `live_api.py` and `live_agents_api.py`
 (`get_history`), R4's `live_panels_api.py`, `live_handoff_api.py` and `live_recording_api.py`
 over the watcher `live_watch.py` (what it reads: `live_watch_sources.py`; its feed tap:

@@ -22,10 +22,11 @@ card and the queue empties, so the next ask is news to the next page).
 `alerts`: a new ask's alert; its click from Session showing only the Feed of the OTHER session (b), from Local (e) and
 from Agents -> Map showing a map the session does not run on (d).
 `row_a`: Session on the other session, the Agent drawer opened and then Attention (one drawer per side at this width:
-Attention is the one open); the row's O. `row_c` / `row_d`: Agents -> Map on the session's map / another map, Agents'
-Attention open; the row's O.
-`home_steward`: a steward's row still opens Local; `home_ended`: a row whose session ended (the stub rewrites the
-queue's row to name an ended session) says so in one toast line and stays put.
+Attention is the one open); the row's O. `map_c` / `map_d`: Agents -> Map on the session's map / another map, a fresh
+page; the waiting ask hidden from the page's first read becomes news on the next: its alert's click.
+`home_steward`: a steward's row, the row's O from Session's Attention, still opens Local; `home_ended`: a row whose
+session ended (the stub rewrites the queue's row to name an ended session), the row's O from Session's Attention, says so
+in one toast line and stays put.
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called.
 """
 from __future__ import annotations
@@ -61,9 +62,11 @@ STUB = """(() => {
     const p = f(u, init);
     if (!s.includes("/api/live/attention") || s.includes("answer")) return p;
     p.then(() => reads.push(Date.now()), () => undefined);
-    if (!window.__endRow) return p;
-    // the ended case: the queue's row of `__endRow` names a session that has ended (`__endSid`)
-    return p.then((r) => r.clone().json().then((j) => { (j.rows || []).forEach((x) => { if (x.id === window.__endRow) x.session_id = window.__endSid; });
+    if (!window.__endRow && !window.__hideRow) return p;
+    // the ended case: the queue's row of `__endRow` names a session that has ended (`__endSid`); while `__hideRow` is set,
+    // the answer leaves that row out (3.6.0.5 r: a fresh page's first read, so the next read makes the waiting ask news)
+    return p.then((r) => r.clone().json().then((j) => { if (window.__hideRow) { j.rows = (j.rows || []).filter((x) => x.id !== window.__hideRow); j.count = j.rows.length; }
+      (j.rows || []).forEach((x) => { if (window.__endRow && x.id === window.__endRow) x.session_id = window.__endSid; });
       return new Response(JSON.stringify(j), { status: r.status, headers: { "Content-Type": "application/json" } }); })); };
   window.__notes = notes; window.__reads = reads;
 })()"""
@@ -83,6 +86,22 @@ PROBE = f"""(() => {{
            row: row ? row.dataset.id : '', keys: row ? [...row.querySelectorAll('[data-testid=fleet-attn-key]')].map((k) => k.dataset.key) : [],
            truth: {Q}('[data-part=live] [data-testid=live-truth]')?.dataset.state || '',
            toasts: [...document.querySelectorAll('.toast:not([data-leaving]) .toast-text')].map((t) => t.textContent) }};
+}})()"""
+# 3.6.0.5 r (R3): Session's Attention button and its count: the slot (null when absent), its text, tone, width and colour;
+# `warn` the colour of var(--warn) on that button, `two` the width of a two-digit count; `xs` every button of the bar
+COUNT = f"""(() => {{
+  const btn = {Q}("{SV} [data-testid=viewbar-btn][data-panel=session-attention]");
+  const bar = btn?.closest('[data-testid=viewbar]');
+  if (!btn) return null;
+  const r1 = (v) => Math.round(v * 10) / 10;
+  const slot = btn.querySelector('[data-testid=viewbar-count]');
+  const probe = (cls, color, text) => {{ const s = document.createElement('span'); if (cls) s.className = cls; if (color) s.style.color = color; // CSSOM: the page's CSP refuses a style attribute
+    s.textContent = text; btn.appendChild(s); const got = {{ color: getComputedStyle(s).color, w: s.getBoundingClientRect().width }}; s.remove(); return got; }};
+  const xs = [...(bar ? bar.querySelectorAll('[data-testid=viewbar-btn]') : [])].map((b) => [b, b.getBoundingClientRect()])
+    .filter(([, r]) => r.width > 0).map(([b, r]) => [b.dataset.panel, r1(r.left), r1(r.width)]);
+  return {{ slot: !!slot, text: slot ? slot.textContent : null, tone: slot ? slot.getAttribute('data-tone') : null,
+           w: slot ? r1(slot.getBoundingClientRect().width) : null, color: slot ? getComputedStyle(slot).color : null,
+           warn: probe('', 'var(--warn)', 'x').color, two: r1(probe('viewbar-count mono', '', '88').w), xs }};
 }})()"""
 
 
@@ -210,8 +229,14 @@ def alerts(c, x: Ctx) -> dict:
     _boot(c, rig, f"mode=session&session={SID2}", f"{_shows(SID2)} && window.__reads.length >= 1")
     out: dict = {"alert_b_before": c.js(PROBE)}
     time.sleep(1.0)  # the page's first read of the queue is stored: what waited on load is not news, the ask below is
+    out["count_before"] = c.js(COUNT)  # 3.6.0.5 r (R3): nothing waits, the slot is there and empty
     rig.ask("ask")
     c.wait("window.__notes.length >= 1", 40)
+    try:
+        c.wait(f"({COUNT})?.text === '1'", 20)
+    except Exception:  # noqa: BLE001 -- recorded as it is; the test says what it saw
+        pass
+    out["count_after"] = c.js(COUNT)
     x.row = c.js("window.__notes[0].tag").replace("halo-ask-", "", 1)
     out["row"], out["key"] = x.row, x.key
     c.js("window.__notes[0].onclick(); 1")
@@ -246,30 +271,41 @@ def row_a(c, x: Ctx) -> dict:
     return out
 
 
-def _row_on_map(c, x: Ctx, case: str, name: str) -> dict:
-    """(c) / (d): Agents -> Map on `name`, Agents' Attention open; the row's O."""
-    _boot(c, x.rig, f"mode=agents&view=map&map={name}", f"!!{Q}('[data-testid=\"map-switcher\"]') && !!{Q}('[data-testid=\"agents-attention\"]')")
-    out = {f"row_{case}_map": _pick_map(c, name)}
-    c.click_on(f"{Q}('[data-testid=\"agents-attention\"]')")
-    _click_o(c, "[data-testid=\"fleet-attention\"]", x.row)
-    out[f"row_{case}"] = _settle(c, _landed(x.key, "agents"))
-    return out
+def _alert_on_map(c, x: Ctx, case: str, name: str) -> dict:
+    """(c) / (d): Agents -> Map on `name`, a fresh page (3.6.0.5 r: the alert's click is the door that stays in Agents):
+    the waiting ask is hidden from the page's first read, so the next read (every 6 s) makes it news and one alert comes."""
+    mark = c.call("Page.addScriptToEvaluateOnNewDocument", source=f"window.__hideRow = {json.dumps(x.row)};")
+    try:
+        _boot(c, x.rig, f"mode=agents&view=map&map={name}", f"!!{Q}('[data-testid=\"map-switcher\"]') && window.__reads.length >= 1")
+        out = {f"map_{case}_map": _pick_map(c, name)}
+        time.sleep(1.0)  # the page's first read of the queue (without the row) is stored
+        c.js("window.__hideRow = null; 1")
+        c.wait("window.__notes.length >= 1", 40)
+        c.js("window.__notes[window.__notes.length - 1].onclick(); 1")
+        out[f"map_{case}"] = _settle(c, _landed(x.key, "agents"))
+        return out
+    finally:
+        try:
+            c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=(mark or {}).get("identifier", ""))
+        except Exception:  # noqa: BLE001 -- the next case boots a page of its own
+            pass
 
 
-def row_c(c, x: Ctx) -> dict:
-    return _row_on_map(c, x, "c", "auto")
+def map_c(c, x: Ctx) -> dict:
+    return _alert_on_map(c, x, "c", "auto")
 
 
-def row_d(c, x: Ctx) -> dict:
-    return _row_on_map(c, x, "d", "ship-it")
+def map_d(c, x: Ctx) -> dict:
+    return _alert_on_map(c, x, "d", "ship-it")
 
 
 def _home(c, x: Ctx, target: dict, cond: str) -> dict:
-    """Studio's answer to the next `o` names `target`; the row's O from Agents' Attention."""
-    _boot(c, x.rig, "mode=agents&view=map", f"!!{Q}('[data-testid=\"agents-attention\"]')")
-    c.click_on(f"{Q}('[data-testid=\"agents-attention\"]')")
+    """Studio's answer to the next `o` names `target`; the row's O from Session's Attention."""
+    from tests.helpers.studio_session import open_strip
+    _boot(c, x.rig, f"mode=session&session={SID2}", _shows(SID2))
+    open_strip(c, "session-attention")
     c.js(f"window.__openAs = {json.dumps(target)}; 1")
-    _click_o(c, "[data-testid=\"fleet-attention\"]", x.row)
+    _click_o(c, f"{SV.replace(chr(92), '')} .ws-cell[data-panel=\"session-attention\"]", x.row)
     return _settle(c, cond)
 
 
@@ -356,7 +392,7 @@ class AttentionOpenDriver(Driver):
             set_config_value("studio.alerts", "browser")
             _second_session(rig)
             x = Ctx(rig)
-            yield tuple((fn, (c, x)) for fn in (row_b, alerts, row_a, row_c, row_d, home_steward, home_ended))
+            yield tuple((fn, (c, x)) for fn in (row_b, alerts, row_a, map_c, map_d, home_steward, home_ended))
         finally:
             rig.close()
 

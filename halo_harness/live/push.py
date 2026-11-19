@@ -54,7 +54,7 @@ def card(row: dict, ask: Optional[dict] = None) -> str:
     elif data and kind == "approval":
         text = cards.approval_card(data)
     if not text:
-        text = "\n".join(x for x in (row.get("what"), row.get("detail")) if x) + "\n(answer it in Studio: Agents, Attention)"
+        text = "\n".join(x for x in (row.get("what"), row.get("detail")) if x) + "\n(answer it in Studio: Session, Attention)"
     return f"[{who}] {text}"
 
 

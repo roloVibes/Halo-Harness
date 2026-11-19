@@ -89,21 +89,26 @@ def agents_live(c) -> None:
     c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'map'", 10)
 
 
-def fleet_queue(c) -> None:
-    """Agents' Attention queue open (the chip; closed on load)."""
-    if not c.js(f"{CUR}.startsWith('Agents')"):
-        agents_live(c)
-    if not c.js(f"!!{q('[data-panel=fleet-attention]')}"):
-        c.click_on(q("[data-testid=agents-attention]"))
-    c.wait(f"!!{q('[data-panel=fleet-attention]')}", 10)
+def session_queue(c) -> None:
+    """Session's Attention drawer open (closed on load; its button in Session's view bar)."""
+    if not c.js(f"{CUR}.startsWith('Session')"):
+        alt(c, 1)
+        c.wait(f"{CUR}.startsWith('Session')", 10)
+    btn = q(".section-view:not([hidden]) [data-testid=viewbar-btn][data-panel=session-attention]")
+    start = q(".section-view:not([hidden]) [data-testid=session-open-workspace]")
+    c.wait(f"!!{btn} || !!{start}", 30)  # the Start view or the bar, once Session read the sessions
+    if c.js(f"!!{start}"):  # no live session here: Session's Start view, Open anyway
+        c.click_on(start)
+    c.wait(f"!!{btn}", 15)
+    if c.js(f"{btn}.getAttribute('aria-pressed') !== 'true'"):
+        c.click_on(btn)
+    c.wait(f"!!{q('.ws-cell[data-panel=session-attention] .panel-body')}", 10)
 
 
 def events(c, url, ctx) -> dict:
     from tests.helpers.studio_header_menus import plus
     out: dict = {}
     agents_live(c)
-    if c.js(f"!!{q('[data-testid=agents-attention-close]')}"):  # the queue from the step before covers the page
-        c.click_on(q("[data-testid=agents-attention-close]"))
     alt(c, 1)  # 3.6.0.0 R5: Activity (the merged live log) is Session's tab (Agents -> Live went)
     if not c.js(f"!!{q('.section-view:not([hidden]) [data-testid=fleet-log]')}"):
         plus(c, "session-activity")
@@ -176,8 +181,8 @@ def _row(ctx, rid: str) -> Path:
 def attention(c, url, ctx) -> dict:
     out: dict = {}
     first = _row(ctx, "readme")
-    fleet_queue(c)  # 3.3.16.0 R2: Agents' Attention chip
-    row = q('[data-panel="fleet-attention"] [data-testid=fleet-attn-row][data-kind="pack:doc-review:review.ask"]')
+    session_queue(c)  # 3.6.0.5 r: Session's Attention drawer
+    row = q('.ws-cell[data-panel=session-attention] [data-testid=fleet-attn-row][data-kind="pack:doc-review:review.ask"]')
     c.wait(f"!!{row}", 25)
     out["attn_chip"] = c.js(f"{row}.querySelector('.fat-kind').textContent")
     out["attn_what"] = c.js(f"{row}.querySelector('.fat-what').textContent")
@@ -193,13 +198,15 @@ def attention(c, url, ctx) -> dict:
 def disabled(c, url, ctx) -> dict:
     out: dict = {}
     _row(ctx, "later")
-    row = q('[data-panel="fleet-attention"] [data-testid=fleet-attn-row][data-kind="pack:doc-review:review.ask"]')
+    row = q('.ws-cell[data-panel=session-attention] [data-testid=fleet-attn-row][data-kind="pack:doc-review:review.ask"]')
+    session_queue(c)  # the room rule may have closed the drawer since the step before
     c.wait(f"!!{row}", 25)
     from halo_harness.packs.grants import disable
     disable("doc-review")
     c.wait(f"!{TABS}.some((t) => t.textContent.startsWith('Docs review'))", 15)
     out["tabs_after"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
-    out["attn_after"] = bool(c.wait(f"!{row}", 25))
+    session_queue(c)  # the drawer open again: the row is absent WHILE it is open, so only the row's going passes
+    out["attn_after"] = bool(c.wait(f"!{row} && !!{q('.ws-cell[data-panel=session-attention] .panel-body')}", 25))
     alt(c, 1)
     c.wait(f"{CUR}.startsWith('Session')", 10)
     out["session_panel_after"] = c.js(f"!!{panel('doc-review--reviews')} || !!{bar_btn('doc-review--reviews')}")

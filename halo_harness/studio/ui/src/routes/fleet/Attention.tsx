@@ -1,5 +1,5 @@
-// fleet-attention: ONE queue of every decision that waits on you, across
-// the fleet (permission, question, plan and approval cards, fleet asks,
+// Session's Attention (session-attention, session/Session.tsx): ONE queue of every decision that waits on you on this machine
+// (permission, question, plan and approval cards, fleet asks,
 // waiting and paused agents, Orchestra gates, commands a member's
 // owner has to allow, spend caps, file conflicts), oldest first. Each row:
 // who (harness, session, agent), what, how long it has waited, and its
@@ -88,7 +88,7 @@ function useAttentionKeys(): void {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      if (!t?.closest?.('[data-panel="fleet-attention"], [data-panel="session-attention"]') || t.closest("input, textarea, select")) return;
+      if (!t?.closest?.('[data-panel="session-attention"]') || t.closest("input, textarea, select")) return;
       const s = { ...panels.get(), attention: panels.get().attention.filter(rowIn(fleet.get().scope)) };
       const i = s.attention.findIndex((r) => r.id === s.attnSel);
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -141,6 +141,12 @@ export function AttentionGlance() {
       <div className="glance-hint">{first ? `${first.harness_name}: ${short(first.what, 60)}` : "Nothing waits on you."}</div>
     </div>
   );
+}
+
+/** 3.6.0.5 r (R3): the number Session's Attention button shows (the rows its drawer lists); "" while none waits. */
+export function useAttentionWord(): string {
+  const { count } = useScopedAttention();
+  return count > 0 ? String(count) : "";
 }
 
 export function useAttentionMotion(): MotionState {

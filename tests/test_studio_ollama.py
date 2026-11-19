@@ -5,7 +5,7 @@ one), over a scratch home with tests/helpers/ollama_panel_seed.py's fixture (a l
 fixtures, a steward note, review mode); no provider request, no model call:
 
 1. Local -> Hosts opens with nothing over it, one host's traffic and fit under the cards (no Fleet panel);
-2. the steward's attention row (Agents' Attention chip, O) opens Local -> Hosts on its host;
+2. the steward's attention row (Session's Attention, O) opens Local -> Hosts on its host;
 3. the host picker: pc, sagan and the local server; each model row's numbers are the fixture's hour; the eye on
    the vision model, the VRAM share of the loaded one, the card line;
 4. the timeline draws a bucket a minute with the hour's calls, the trim and the cut marked;

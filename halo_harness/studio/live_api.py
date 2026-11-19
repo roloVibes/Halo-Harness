@@ -1,5 +1,5 @@
-"""halo_harness.studio.live_api -- Studio's `live/*` routes: this machine's sessions as Session, Agents -> Live, the
-attention chip read them (Halo 3.0.5.0 R2; 3.5.0.0: named `live/`, this machine only).
+"""halo_harness.studio.live_api -- Studio's `live/*` routes: this machine's sessions as Session and Agents -> Live
+read them (Halo 3.0.5.0 R2; 3.5.0.0: named `live/`, this machine only).
 
     GET  live                                       this harness and its live sessions (peers/local_view.py's snapshot)
     POST live/<harness>/<sid>/command               a command to one of this harness's sessions (`local` or its id)

@@ -168,7 +168,9 @@ def test_live_names_only_the_run(ctx: Ctx):
     # 1. (P4 batch 12, rewritten to the truth: the coordinator's ruling) Setup -> Machines' five lines had no reader and a
     #    help entry was read by no panel (fleet-activity): both are gone, so no unread line can say Live
     check("MACHINES_WHAT is gone (no page read it)", "MACHINES_WHAT" not in _read("shared/StartBits.tsx"))
-    check("no help entry for fleet-activity (no panel has that id)", '"fleet-activity"' not in _read("help-live.ts"))
+    check("help-live.ts is gone (its one entry was the Agents panel's)", not (ROUTES / "help-live.ts").exists())
+    check("no help entry for fleet-activity (no panel has that id)",
+          not any('"fleet-activity"' in p.read_text(encoding="utf-8") for p in ROUTES.glob("help*.ts")))
 
     # 2. a button's words name where its click lands
     #    3.6.0.3 B (Z9, rewritten to the truth): the panel's Replay left; a LAST SESSIONS row's "export" saves that
@@ -186,11 +188,11 @@ def test_live_names_only_the_run(ctx: Ctx):
               all(any(k in w for w in pip_words) for k in want))
     off = [w for w in pip_words if ("Map" if to_live else "Live") in w]
     check(f"no Open title names the other view, got {off}", not off)
-    # Attention's O opens many places (a goal run's Map drawer, Workflows, Agents' Attention, an agent's Live):
-    # the ruled words name the sections only, never one view of them
-    o_help = next((ln for ln in _read("help-live.ts").splitlines() if "O opens where it belongs" in ln), "")
-    check(f"Attention's O help reads the ruled '(Agents, Local)', got {o_help.strip()[:120]!r}",
-          "O opens where it belongs (Agents, Local)." in o_help)
+    # Attention's O opens many places (a goal run's Map drawer, Workflows, Local, the asking agent's box): Session's
+    # Attention help names none of them
+    o_help = next((ln for ln in _read("help-session.ts").splitlines() if "O opens" in ln), "")
+    check(f"Session's Attention help line, its words unchanged, got {o_help.strip()[:160]!r}",
+          o_help.strip() == '"A accepts or allows, R denies or redoes with your text, S stops, O opens the panel it belongs to.",')
 
     # 3. the scan: no other visible string says Live
     hits: list[str] = []

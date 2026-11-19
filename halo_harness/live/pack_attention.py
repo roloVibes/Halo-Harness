@@ -107,4 +107,4 @@ def answer(req, row: dict, key: str, text: str):
 
 def open_target(row: dict) -> dict:
     t = row.get("target") or {}
-    return {"section": t.get("section") or "live", "panel": "" if t.get("section") else "fleet-attention"}
+    return {"section": t.get("section") or "live", "panel": "" if t.get("section") else "session-attention"}

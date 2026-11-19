@@ -31,7 +31,6 @@ import "./styles/session-think.css";
 import "./styles/prompt.css"; // 3.3.11.0 R1: Session's Prompt panel
 import "./styles/roles-live.css"; // 3.3.11.0 R2: New session, the no-terminal line (Roles Live went, 3.6.0.0 R5)
 import "./styles/agents.css"; // Agents: the tab switch and its note, the owns line, a lane's claims
-import "./styles/agents-live.css"; // 3.3.16.0 R2: Live's inspector, the Attention chip
 import "./styles/crew.css"; // 3.6.0.0 R1: Agents -> 1 · Agents (routes/crew/): the form, Try it, the builder box
 import "./styles/flows.css"; // 3.6.0.0 R2: Agents -> 2 · Workflows (routes/crew/flows/): the steps, the drawing, Try it
 import "./styles/map.css"; // 3.6.0.0 R3: Agents -> 3 · Map (routes/crew/map/): boxes, lines, When, the strip, the list

@@ -8,8 +8,8 @@ tests/helpers/studio_density.py (skipped without one); no provider request, no m
    rail's item are `"row"`; a panel's body is `"body"`; the sizes are tokens (--ctl-h 36, --row-h 40) and no section
    sheet sets a panel body's padding to 0 (the 12 px is the primitive's, never exempted);
 2. Chrome, every core section on load (Session, Agents on Cast / Live and on the fleet, Packs, Setup and its
-   Machines page, Settings, Local), the inspector's summary and one page, and (3.3.16.0 R2) Live on the fleet with the
-   Attention queue open and the glance: every bar >= 36 px, every row >= 40 px, every body inset >= 12 px, each
+   Machines page, Settings, Local), the inspector's summary and one page, and (3.3.16.0 R2) the glance (3.6.0.5 r: the
+   Attention queue is Session's drawer, measured with Session's panels): every bar >= 36 px, every row >= 40 px, every body inset >= 12 px, each
    workspace panel opened in turn (its bar and its body the same), 12 px between the panels, one panel open on load;
    the first offender fails with its section, its testid and its height.
 Run: python -m tests.test_studio_density
@@ -50,7 +50,7 @@ DOCKS = ("map-builder", "crew-builder", "flow-builder")  # 3.6.0.0 R5: the build
 def offenders(got: dict) -> list:
     """Every 'section: testid NN px (rule)' in the order the sections were opened."""
     out = []
-    for name in (*SECTIONS, "agents-attention", "agents-map-strip"):
+    for name in (*SECTIONS, "agents-map-strip"):
         m = got.get(name) or {}
         out += [f"{name}: bar {t} {h} px (< {BAR})" for t, h in m.get("bars") or [] if h < BAR]
         out += [f"{name}: row {t} {h} px (< {ROW})" for t, h in m.get("rows") or [] if h < ROW]
@@ -132,16 +132,6 @@ def test_one_thing_per_section_on_load(ctx: Ctx):
     for name in SECTIONS:
         opened = [o for o in (got.get(name) or {}).get("open") or [] if o not in DOCKS]
         ctx.check(f"{name}: at most one panel open on load, got {opened}", len(opened) <= 1)
-
-
-@test
-def test_the_fleet_fold_pieces_pass_the_rules(ctx: Ctx):
-    """3.3.16.0 R2: the Attention chip sits in Agents' bar, its queue's head is a bar and its body an inset; the glance's
-    rows are targets; Setup -> Machines is a page of the rail."""
-    got = _got(ctx)
-    att = got.get("agents-attention") or {}
-    ctx.check(f"the queue's head is a bar >= 36 px, got {att.get('bars')}", any(t in ("agents-attention-close", "fleet-attention") or "ag-attn" in str(t) for t, _ in att.get("bars") or []))
-    ctx.check(f"the queue's body is measured, got {att.get('bodies')}", any("ag-attn" in str(t) or t == "fleet-attention" for t, _ in att.get("bodies") or []))
 
 
 @test

@@ -1,5 +1,5 @@
 // Agents -> 4 · Live (3.6.0.2 R52 R3 R34: "what a session is doing now, drawn on the map it really follows"): the view bar
-// (the four-tab switch, then Attention, as every tab), a workspace `agents-live` with one main panel titled WORDS.live.
+// (the four-tab switch, as every tab), a workspace `agents-live` with one main panel titled WORDS.live.
 // In it, in this order: the picker "Which session" (only with two or more open sessions: this machine's, then other
 // machines'; livePick.ts; its row's room is reserved from the first draw, so a second session opening moves nothing,
 // R12), the session's T-state line and its status line (LiveHead.tsx, from its row at once), then the frame: for a local open session, its drawing (LiveDraw.tsx; one with no map, T4, is main's box alone under its T4 line, as
@@ -15,7 +15,6 @@ import { FEED_PANEL, LIVE_SECTION } from "../crew/map/feedOpen";
 import { startLit } from "../crew/map/litStore";
 import { truthLines, truthState, WORDS } from "../crew/map/truth";
 import { useLitNow } from "../crew/map/useLit";
-import { AttentionChip } from "./AttentionChip";
 import { LiveRun } from "./LiveDraw";
 import { LiveHead } from "./LiveHead";
 import { LiveLit, liveRun } from "./liveLit";
@@ -79,7 +78,6 @@ export function LiveView() {
   const lead = (
     <span className="cw-lead">
       <ViewSwitch view="live" />
-      <AttentionChip />
     </span>
   );
   return (

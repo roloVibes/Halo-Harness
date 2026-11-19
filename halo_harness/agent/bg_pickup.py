@@ -8,8 +8,8 @@ the TUI, Studio's session without a terminal):
 
 1. At once, with no model call: a `turn_marker` of state `background` (the TUI draws it as a transcript line and
    on the status bar; Studio's Session feed shows it), a fresh `status` frame, and `session._bg_done`, which the
-   control socket's `status` carries (remote/base.py) and Attention lists as a `background_done` row: Agents ->
-   Live's attention chip, the glance and the browser alert (`studio.alerts`) see it.
+   control socket's `status` carries (remote/base.py) and Attention lists as a `background_done` row: Session's
+   Attention, the glance and the browser alert (`studio.alerts`) see it.
 2. With `background.when_done: continue` (the default) the main agent then takes a turn BY ITSELF: completions
    that land within WINDOW_S are one turn; never while the TUI's input holds text (`set_typing`) or an ask is
    open (it waits until the text is sent or cleared); the turn carries no message of the person's, only the

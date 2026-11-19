@@ -5,9 +5,11 @@
 // timeline lanes), Attention and the cost figures read through these
 // selectors, so each stays one component: the map draws the harness in scope
 // (every session on it), the log, the lanes and the Cost panel the chosen
-// session (else every session of that harness), Attention that harness's rows.
+// session (else every session of that harness), Attention that harness's rows
+// (and a row of no harness: attnScope.ts).
 // The rail's Fleet tree and Live Roles never read it: they show everything.
 import { useMemo } from "react";
+import { scopedRows } from "./attnScope";
 import { usePanels, type AttnRow, type LogLine } from "./pstore";
 import { allAgents, counts, fleet, useFleet, type Counts, type FleetState, type Scope } from "./store";
 import type { AgentRef, Harness } from "./types";
@@ -37,8 +39,8 @@ export function scopedAgents(s: FleetState, withSession = false): AgentRef[] {
 export const lineIn = (scope: Scope) => (l: Pick<LogLine, "harness" | "session_id">): boolean =>
   (!scope.harness || l.harness === scope.harness) && (!scope.session || l.session_id === scope.session);
 
-/** An attention row of the harness in scope. */
-export const rowIn = (scope: Scope) => (r: AttnRow): boolean => !scope.harness || r.harness === scope.harness;
+/** An attention row of the harness in scope, or of no harness (3.6.0.5 r: attnScope.ts). */
+export { rowIn } from "./attnScope";
 
 export function useScopedHarnesses(withSession = false): Harness[] {
   const harnesses = useFleet((s) => s.harnesses);
@@ -57,8 +59,5 @@ export function useScopedAttention(): { rows: AttnRow[]; count: number } {
   const rows = usePanels((s) => s.attention);
   const live = usePanels((s) => s.attnCount);
   const scope = useScope();
-  return useMemo(() => {
-    const mine = scope.harness ? rows.filter(rowIn(scope)) : rows;
-    return { rows: mine, count: scope.harness ? mine.length : live ?? rows.length };
-  }, [rows, live, scope]);
+  return useMemo(() => scopedRows(rows, live, scope), [rows, live, scope]);
 }

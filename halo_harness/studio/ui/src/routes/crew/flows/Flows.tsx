@@ -1,13 +1,12 @@
 // Agents -> 2 · Workflows (3.6.0.0 R2, the v3 design's second tab; docs/STUDIO-workflows.md): make a workflow -- your
 // agents in steps, in order -- try it, save it; or describe it to the builder docked below. The room rules (R0a): the
 // form (with the steps drawn beside it) is the main thing, the list a left drawer that opens with the tab, the builder a
-// bar docked at the form's foot. The view bar carries Agents' switch and the Attention chip. Nothing opens by itself.
+// bar docked at the form's foot. The view bar carries Agents' switch. Nothing opens by itself.
 // 3.6.0.2 R47: the main panel's head says what a workflow is and where maps are (its "Map" opens 3 · Map); a workflow
 // main just built opens on the tab's next showing (flowBuilt.ts).
 import { useEffect } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";
-import { AttentionChip } from "../../agents/AttentionChip";
 import { setAgentsView } from "../../agents/store";
 import { ViewSwitch } from "../../agents/ViewSwitch";
 import { FlowsBuilder } from "../Builder";
@@ -87,7 +86,6 @@ export function FlowsView() {
   const lead = (
     <span className="cw-lead">
       <ViewSwitch view="workflows" />
-      <AttentionChip />
     </span>
   );
   return (

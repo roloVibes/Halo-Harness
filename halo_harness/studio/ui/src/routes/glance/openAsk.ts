@@ -1,10 +1,10 @@
 // The one door of an ask (3.4.1.0 R4; 3.6.0.1, the owner's report from live use of 3.6.0.0: "when I get an attention
 // alert and chose 'open' nothing happens"; 3.6.0.2 P4 batch 9, the owner's point 20): a click on an alert's notification
-// in the shell (lib/alerts.ts) and O on an ask's row (Attention in Session or over Agents, the Feed: fleet/extras.ts
+// in the shell (lib/alerts.ts) and O on an ask's row (Session's Attention, the Feed: fleet/extras.ts
 // answerRow and openTarget) land on the RUN'S DRAWING with the asking agent's box selected and its card open -- the
 // ask's choices, Pause, Stop, Steer (crew/map/askBox.ts): Agents -> 4 · Live when he is in Agents, else Session with
 // that session chosen, the Live column's agent pick on the asking agent, its Live drawer open and Attention open on the
-// row (an optional panel not in the saved view is added). The queue's panel in Agents closes only as the card opens. An
+// row (an optional panel not in the saved view is added). An
 // agent the drawing puts on no box (P4 batch 12): the Feed opens on that agent with its ask (handed to the Feed by the
 // door itself, so it is there when the line says so, even before its frame came: P9 batch 2), one line says so
 // (askOffMap), nothing else closes (in Session the Attention drawer the Live drawer took the place of comes back). A
@@ -16,7 +16,6 @@
 import { goSection, studio, toast } from "../../lib/store";
 import { keepAsk } from "../../lib/workspace/kept";
 import { focusPanel, layoutStore, NOT_HERE, patchPanel, showPanel, specsFor } from "../../lib/workspace/persist";
-import { setAttention } from "../agents/attention";
 import { askBox } from "../crew/map/askBox";
 import { openFeed } from "../crew/map/feedOpen";
 import { setFeedFor } from "../crew/map/litStore";
@@ -48,6 +47,13 @@ function openAttention(): void {
   else toast(NOT_HERE, "info");
 }
 
+/** Session's Attention drawer from a door that names no row (the palette's two lines; a pack's row with no section of its own, lib/agentsDoor.ts panelDoor "attention"): Session shown, past its Start view, the drawer open with the focus. */
+export function showAttention(): void {
+  goSection("session");
+  if (showsSessionStart(fleet.get(), sess.get().view)) setSessionView("workspace");
+  openAttention();
+}
+
 /** The door's line "its question is in the Feed" is true when it is said (P9 batch 2): the ask itself, the attention row
  *  the door was opened with (read at the press), is handed to the Feed first (shared/liveFeed.ts handAsk). */
 function offMap(row: AskRef, sid: string, aid: string): (name: string) => void {
@@ -67,10 +73,7 @@ function land(row: AskRef): void {
   if (sid && local && studio.get().section === "agents") {
     setFeedFor(`agent:${aid}`);
     const said = offMap(row, sid, aid);
-    askBox("live", sid, aid, {
-      found: () => setAttention(false), // the card carries the ask: the queue's panel would lie over it
-      stranger: (name) => (openFeed(`agent:${aid}`), said(name)),
-    });
+    askBox("live", sid, aid, { stranger: (name) => (openFeed(`agent:${aid}`), said(name)) });
     return openInLive(sid);
   }
   if (sid && local) {

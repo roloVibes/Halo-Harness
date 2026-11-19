@@ -1,5 +1,6 @@
 // The view bar (3.6.0.0 R0a, rule R3: no row of strips): one 44 px row over the stage with a named button for every
-// drawer and tab of the view, its live word beside the name ("Cost $0.42", "Attention 1"), pressed while it is open.
+// drawer and tab of the view, its live word beside the name ("Cost $0.42", "Attention 1") in a slot drawn from the first
+// paint, pressed while it is open.
 // A press opens it (a drawer by the stage's rules: R1 / R9 close what must close) or closes it; an optional panel not
 // in the view yet is added. The main thing has a button only when the view has tabs (it is the first tab then).
 // Left drawers' buttons sit at the bar's start, then the tabs; right drawers' at its end.
@@ -16,7 +17,7 @@ import type { Layout, PanelSpec } from "./types";
 
 function Count({ spec }: { spec: PanelSpec }) {
   const word = spec.useCount!();
-  return word ? <span className="viewbar-count mono" data-testid="viewbar-count">{word}</span> : null;
+  return <span className="viewbar-count mono" data-testid="viewbar-count" data-tone={word && spec.countTone ? spec.countTone : undefined}>{word}</span>;
 }
 
 /** 3.6.0.2 R29: the slot of a panel that declares `word`, always there (min-width 3ch), empty or not. */

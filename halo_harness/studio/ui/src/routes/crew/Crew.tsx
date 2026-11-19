@@ -2,11 +2,10 @@
 // it does, its model, what it may use, how careful -- try it, save it; or describe it to the builder docked below.
 // The room rules (R0a): the form is the main thing, the list a left drawer that opens with the tab (its own default),
 // the builder a bar docked at the form's foot. The view bar carries Agents' switch (this tab first, then the views
-// R4 retires: Cast, Live, Workflows) and the Attention chip. Nothing opens by itself: no dialog, no conversation.
+// R4 retires: Cast, Live, Workflows). Nothing opens by itself: no dialog, no conversation.
 import { useEffect } from "react";
 import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
-import { AttentionChip } from "../agents/AttentionChip";
 import { ViewSwitch } from "../agents/ViewSwitch";
 import { AgentsBuilder } from "./Builder";
 import { CrewForm } from "./Form";
@@ -61,7 +60,6 @@ export function CrewView() {
   const lead = (
     <span className="cw-lead">
       <ViewSwitch view="crew" />
-      <AttentionChip />
     </span>
   );
   return (

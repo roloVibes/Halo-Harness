@@ -6,8 +6,7 @@ Chrome; browser-driven: the Linux VM and CI only).
 
 Groups: `session` (Session's Live drawer: the zoom row and Fit, the pair, [New session], "↓ n more below", [Open in
 Agents -> Live], a box / step row / line click, each button of the step-in card), `map` (3 · Map: the picker, + New map,
-the switch, Run a goal, Lock, Undo, Dismiss, `map-fresh`, [Open it], [Watch it in Live], the tabs,
-Attention), `live` (4 · Live: the picker, a box and its card, the Feed and its controls), `agents` and `workflows`
+the switch, Run a goal, Lock, Undo, Dismiss, `map-fresh`, [Open it], [Watch it in Live], the tabs), `live` (4 · Live: the picker, a box and its card, the Feed and its controls), `agents` and `workflows`
 (every visible control of 1 · Agents and 2 · Workflows at rest, enumerated). A failure lists `name: not found` or
 `name: nothing changed`.
 Run: python -m tests.test_studio_controls_change_something
@@ -36,7 +35,7 @@ SESSION = ["the pair: Running", "the pair: Just built", "Zoom out", "the zoom (1
 MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", f"New sessions run on this ({SEVEN}, his map shop)",
        "Undo (the switch)", "Run a goal", "Lock", "Lock (off again)", "n new, not connected yet", "Undo (the box)", "[Open it]",
        "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "the tab 1 · Agents",
-       "the tab 2 · Workflows", "the tab 4 · Live", "the tab 3 · Map", "Attention", "Attention's x"]
+       "the tab 2 · Workflows", "the tab 4 · Live", "the tab 3 · Map"]
 LIVE = ["Which session", "a box", "the card: Pause", "the card: x", "Feed", "the Feed's filter", "the Feed's Steer", "the Feed's Stop",
         "Stop's No", "the box head's Pause"]
 # what 1 · Agents and 2 · Workflows may leave unpressed, and why (anything else not pressed is a failure)

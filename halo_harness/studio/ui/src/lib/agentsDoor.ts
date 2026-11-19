@@ -53,10 +53,10 @@ export function viewOf(word: string): AgentsView | "" {
   return isView(word) ? word : OLD_VIEWS[word] || "";
 }
 
-/** Where a live panel's old door (routes/agents/fleetDoor.ts showFleetPanel) lands: the Attention panel, an agent's rows,
+/** Where a live panel's old door (routes/agents/fleetDoor.ts showFleetPanel) lands: Session's Attention drawer (fleet-attention, the old id, keeps answering), an agent's rows,
  *  Local -> Hosts, or Agents -> Live, where a run is watched (R52: fleet-activity, fleet-costs and the rest). */
 export function panelDoor(id: string): "attention" | "agent" | "local" | "live" {
-  if (id === "fleet-attention") return "attention";
+  if (id === "fleet-attention" || id === "session-attention") return "attention";
   if (id === "fleet-agent") return "agent";
   return id === "fleet-ollama" || id === "ollama" ? "local" : "live";
 }

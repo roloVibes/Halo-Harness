@@ -2,7 +2,7 @@
 // main at the left, a box per agent or workflow, one kind of line ("hands work to") with its When in words. The room
 // rules (R0a): the map is the main thing (the bar, the drawing, the strip under it); "Agents and workflows" is a left
 // drawer that pushes the map (closed until you open it from the view bar); the builder is docked at the foot. The view
-// bar carries Agents' switch and the Attention chip. Nothing opens by itself. 3.6.0.2 R57: the Feed is 4 · Live's; the
+// bar carries Agents' switch. Nothing opens by itself. 3.6.0.2 R57: the Feed is 4 · Live's; the
 // Map's right drawer keeps Run a goal and a goal run's pages (MapDrawer.tsx), titled by the page it shows. 3.6.0.3 B:
 // the Map draws the plan and what runs now, never the past. 3.6.0.5 A11: Auto has no plan to edit -- its tab draws
 // AutoPlan.tsx (main alone and M1) in place of the drawing, the strip and the cards.
@@ -12,7 +12,6 @@ import type { PanelSpec } from "../../../lib/workspace/types";
 import { planPanel } from "../run/planPanel";
 import { packPanels } from "../../packs/registry";
 import { usePacks } from "../../packs/store";
-import { AttentionChip } from "../../agents/AttentionChip";
 import { ViewSwitch } from "../../agents/ViewSwitch";
 import { MapBuilder } from "../Builder";
 import { loadCrew, useCrew } from "../store";
@@ -151,7 +150,6 @@ export function MapView() {
   const lead = (
     <span className="cw-lead">
       <ViewSwitch view="map" />
-      <AttentionChip />
     </span>
   );
   const lit = useLit(); // R55, 3.6.0.3 B Z8: always off (the Map is the plan); its running sessions for the quiet line

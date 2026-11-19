@@ -102,7 +102,7 @@ def _enum_tab(c, rig, view: str) -> dict:
     def load(need: str = ""):
         """The tab at rest as a first-time user sees it: what an earlier press saved (a drawer opened, a panel alone) is
         forgotten first, then the page is loaded again. `need`: the control about to be pressed, listed at rest; the page
-        counts as back at rest only once it is listed again (a chip that mounts late, such as Attention, is waited for)."""
+        counts as back at rest only once it is listed again (a control that mounts late is waited for)."""
         for clear in (True, False):
             c.go("about:blank")
             c.wait("location.href === 'about:blank'", 10)

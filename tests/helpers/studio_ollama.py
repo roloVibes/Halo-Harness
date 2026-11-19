@@ -79,9 +79,16 @@ def quiet_plus(c, url, ctx) -> dict:
 
 
 def attention(c, url, ctx) -> dict:
-    load(c, ctx, "mode=agents&view=live", "!!document.querySelector('[data-testid=agents-attention]')")
-    c.click_on(q("[data-testid=agents-attention]"))  # the fleet's queue (closed on load)
-    row = q("[data-testid=fleet-attn-row][data-kind=ollama_steward]")
+    # 3.6.0.5 r: Session's Attention drawer, from Session's view bar (closed on load), as a person opens it
+    load(c, ctx, "mode=session", "!!document.querySelector('.section-view[data-section=session]:not([hidden])')")
+    btn = q(".section-view[data-section=session] [data-testid=viewbar-btn][data-panel=session-attention]")
+    start = q(".section-view[data-section=session] [data-testid=session-open-workspace]")
+    c.wait(f"!!{btn} || !!{start}", 30)  # the Start view or the bar, once Session read the sessions
+    if c.js(f"!!{start}"):  # this rig has no live session: Session's Start view, Open anyway
+        c.click_on(start)
+    c.wait(f"!!{btn}", 15)
+    c.click_on(btn)
+    row = q(".ws-cell[data-panel=session-attention] [data-testid=fleet-attn-row][data-kind=ollama_steward]")
     out = {"attn_row": c.wait(f"!!{row} && {row}.querySelector('.fat-what').textContent", 40),
            "attn_before": c.js(f"!!{DETAIL}")}
     c.js(f"{row}.scrollIntoView({{block: 'center'}}); 1")

@@ -216,7 +216,7 @@ agent makes, exactly as before; `by` is a label naming who sent it.
 A background sub-agent (`run_in_background`) or Bash job that finishes while no turn runs no longer waits for your next
 message to be noticed (`halo_harness/agent/bg_pickup.py`). At once, with no model call: one line in the transcript
 (`◼ background work finished: job build the docs -- exit 0 -- Halo picks it up in a few seconds, no message needed`),
-the same on the status bar, and on Studio a `background_done` row in Attention (Agents -> Map's chip, the glance, the
+the same on the status bar, and on Studio a `background_done` row in Attention (Session's Attention, the glance, the
 browser alert: [STUDIO-live.md](STUDIO-live.md#the-alert)). Then the main agent takes a turn **by itself**
 (`↻ Halo picks up the finished background work (no message from you)`): it reads the results under the status-notice
 frame, which tells the model the block is not from you, and reports them or carries on. That turn has no message of

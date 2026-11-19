@@ -45,8 +45,10 @@ export type PanelSpec = {
   /** 3.6.0.0 R4b: a drawer that holds a drawing (Session's Map): its inner edge drags past 560 px, until the main thing
    *  is MAIN_MIN wide, so the drawing can be the bigger of the two. */
   drawing?: boolean;
-  /** A short live word for the view bar's button ("$0.42", "1"): a hook, called while the bar draws. */
+  /** A short live word for the view bar's button ("$0.42", "1"): a hook, called while the bar draws; its slot (2ch) is drawn from the first paint, empty or not. */
   useCount?: () => string;
+  /** 3.6.0.5 r (R3): the tone of the count while it is not empty: "warn" is the amber the Agents chip had. */
+  countTone?: "warn";
   /** 3.6.0.2 R29: a word the button shows for a moment ("new"): a hook like useCount, but its slot (`mono`, 3ch) is
    *  drawn from the first paint whether it is empty or not, so a word coming or going moves no button. */
   word?: () => string;

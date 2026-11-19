@@ -70,12 +70,12 @@ out.bare = D.urlDoor('?mode=agents&replay=elsewhere-1');
 @test
 def test_the_live_panels_old_doors_land_on_live(ctx: Ctx):
     got = door("""
-out.doors = Object.fromEntries(['fleet-activity', 'fleet-costs', 'fleet-map', 'fleet-runs', 'fleet-attention', 'fleet-agent',
+out.doors = Object.fromEntries(['fleet-activity', 'fleet-costs', 'fleet-map', 'fleet-runs', 'fleet-attention', 'session-attention', 'fleet-agent',
   'fleet-ollama', 'ollama'].map((p) => [p, D.panelDoor(p)]));
 """)
     ctx.check(f"each live panel's door, got {got.get('doors')}", got.get("doors") == {
         "fleet-activity": "live", "fleet-costs": "live", "fleet-map": "live", "fleet-runs": "live",
-        "fleet-attention": "attention", "fleet-agent": "agent", "fleet-ollama": "local", "ollama": "local"})
+        "fleet-attention": "attention", "session-attention": "attention", "fleet-agent": "agent", "fleet-ollama": "local", "ollama": "local"})
 
 
 @test
