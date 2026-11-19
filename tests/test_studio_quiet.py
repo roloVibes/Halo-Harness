@@ -12,7 +12,10 @@ fresh one; no provider request, no model call:
    lit, no printed shortcut; no tab strip in the header; R2: the section rows and the chevron only, in both
    widths (no panel row, no layout block, no Fleet tree, no runs); Alt+4 and a click still switch;
 4. the inspector closed on load; a Roles card click selects in Roles' own Inspector panel and leaves the column
-   closed; a panel's Settings opens it (344 px since 3.3.15.0, the stage gives the width), it is remembered across a reload,
+   closed (3.6.0.5: on the scratch map of seven boxes, tests/helpers/scratch_seven: Auto's own Map tab draws main
+   alone and has no box to click; that tab gets its own check: the old Roles door on the default map lands on
+   Agents -> 3 · Map, main is drawn, and no section help, dialog, Start here, inspector column or drawer opens by
+   itself); a panel's Settings opens it (344 px since 3.3.15.0, the stage gives the width), it is remembered across a reload,
    its close button gives the width back and a reload keeps it closed;
 5. Focus: F hides the rail, the inspector and the status bar (`0 1fr 0`, the status row 0), remembered across
    a reload; F again brings back the rail and the inspector as they were; the header button; Shift+F in
@@ -98,6 +101,15 @@ def test_the_icon_rail(ctx: Ctx):
     ctx.check(f"remembered across a reload both ways, got {got.get('rail_after_reload')} / {got.get('rail_back')}",
               got.get("rail_after_reload") == ["open", 176] and got.get("rail_back") == ["icons", 52, "icons"])
     ctx.check(f"Alt+4 and a click still switch, got {got.get('alt4')} {got.get('click_team')}", got.get("alt4") == "local" and got.get("click_team") == "agents")
+
+
+@test
+def test_auto_s_own_map_tab_opens_nothing(ctx: Ctx):
+    got = _got(ctx, "seeded")
+    ctx.check(f"3.6.0.5: the old Roles door on the default map lands on Agents -> 3 · Map with Auto open and main drawn, got {got.get('auto_where')} {got.get('auto_main')}",
+              got.get("auto_where") == ["true", "auto"] and got.get("auto_main") is True)
+    ctx.check(f"nothing opened by itself after 2 s: no section help, dialog or Start here, got {got.get('auto_open')}", got.get("auto_open") == NOTHING)
+    ctx.check(f"no inspector column and no drawer, got {got.get('auto_quiet')}", got.get("auto_quiet") == ["closed", False, 0])
 
 
 @test

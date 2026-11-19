@@ -9,7 +9,8 @@ seeded: each of the nine core sections loaded on its own (`?mode=<id>`, no
 `tour=off`) and reached by Alt+1..9, with no section help, no dialog and no
 Start here after 2 s; the rail's widths (icons <= 64 px, expanded <= 200 px since 3.3.2.0 R2)
 through its chevron, remembered across a reload; rows without a printed key and
-no tab strip in the header; the inspector closed on load, opened by a panel's
+no tab strip in the header; Auto's own Map tab (the default) with main drawn and nothing
+open; the inspector (on the scratch map of seven boxes) closed on load, opened by a panel's
 Settings, given back to the stage by its close button, remembered; Focus by F,
 Shift+F (where F follows) and the header button, restoring the rail and the
 inspector, remembered across a reload.
@@ -32,6 +33,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, alt, mod_key, q, qa  # noqa: E402
+from tests.helpers.scratch_seven import NAME as SEVEN, write_seven  # noqa: E402
 
 CORE = [("session", "Session"), ("agents", "Agents"), ("local", "Local"), ("packs", "Packs"), ("setup", "Setup"),
         ("settings", "Settings")]  # 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet
@@ -44,6 +46,7 @@ ATTRS = f"[{APP}.dataset.rail, {APP}.dataset.inspector, {APP}.dataset.focus]"
 # 3.3.2.0 R2: the rail holds the section rows and its chevron, nothing else: no panel row, no layout block, no tree
 RAIL_EXTRA = (f"[{qa('.rail > *')}.map((e) => e.dataset.testid).join(','), {qa('.rail .rail-item:not(.rail-section)')}.length, "
               f"{qa('.rail nav, .rail [data-testid^=layout-], .rail [data-testid^=fleet-], .rail [data-testid^=orchestra-]')}.length]")
+SEVEN_DOOR = f"&tour=off&map={SEVEN}"  # 3.6.0.5: the inspector step's map, one of his kind with boxes to click
 
 
 def _url(ctx, query: str) -> str:
@@ -124,9 +127,25 @@ def _settings(c, panel: str) -> None:
     c.click_on(q("[data-testid=panel-menu] [data-item=settings]"))
 
 
-def inspector(c, url, ctx) -> dict:
-    """3.6.0.0 R5: on Agents -> 3 · Map (the old Roles door lands there; Cast's canvas went)."""
+def auto_tab(c, url, ctx) -> dict:
+    """3.6.0.5: the old Roles door on the DEFAULT map (Auto) lands on Agents -> 3 · Map, main is drawn (main alone, no
+    box), and after 2 s nothing has opened by itself: no section help, dialog or Start here, no inspector column, no drawer."""
     load(c, ctx, "roles", "Agents", "&tour=off")
+    out = {"auto_main": c.wait(f"!!{q('[data-part=map] [data-testid=map-auto-main]')}", 30)}
+    time.sleep(2.0)
+    out["auto_where"] = c.js(f"[{q('[data-testid=agents-view-map]')}?.getAttribute('aria-pressed') || '', "
+                             f"{q('[data-part=map] [data-testid=map-switcher]')}?.value || '']")
+    out["auto_open"] = c.js(OPEN)
+    out["auto_quiet"] = c.js(f"[{APP}.dataset.inspector, !!{q('[data-testid=inspector]')}, "
+                             f"{qa('.section-view:not([hidden]) [data-testid=stage-drawer]')}.length]")
+    return out
+
+
+def inspector(c, url, ctx) -> dict:
+    """3.6.0.0 R5: on Agents -> 3 · Map (the old Roles door lands there; Cast's canvas went). 3.6.0.5: on the scratch map
+    of seven boxes (tests/helpers/scratch_seven, a map of his kind, opened by the link's `map=` part), because the
+    default is Auto, whose Map tab draws main alone: it has no boxes to click (auto_tab covers that tab)."""
+    load(c, ctx, "roles", "Agents", SEVEN_DOOR)
     c.wait(f"{qa('[data-testid=map-box]')}.length >= 2", 30)
     out = {"insp_load": c.js(f"{APP}.dataset.inspector"), "insp_aside": c.js(f"!!{q('[data-testid=inspector]')}"), "stage_w": c.js(STAGE_W)}
     c.click_on(qa("[data-testid=map-box]") + "[1]")  # a click on a box: the map's own business, never the column
@@ -140,13 +159,13 @@ def inspector(c, url, ctx) -> dict:
     out["insp_w"] = c.js(f"Math.round({q('.inspector')}.getBoundingClientRect().width)")
     out["stage_w_open"] = c.js(STAGE_W)
     out["insp_saved"] = c.js("localStorage.getItem('halo.studio.inspector')")
-    load(c, ctx, "roles", "Agents", "&tour=off")
+    load(c, ctx, "roles", "Agents", SEVEN_DOOR)
     out["insp_reload_open"] = c.wait(f"{APP}.dataset.inspector === 'open' && {q('.inspector-title')}?.textContent", 20)
     c.click_on(q("[data-testid=inspector-close]"))
     out["insp_closed"] = c.wait(f"{APP}.dataset.inspector === 'closed' && !{q('[data-testid=inspector]')} && 'closed'", 10)
     time.sleep(0.4)
     out["stage_w_closed"] = c.js(STAGE_W)
-    load(c, ctx, "roles", "Agents", "&tour=off")
+    load(c, ctx, "roles", "Agents", SEVEN_DOOR)
     time.sleep(1.0)
     out["insp_reload_closed"] = [c.js(f"{APP}.dataset.inspector"), c.js("localStorage.getItem('halo.studio.inspector')")]
     _settings(c, "map-add")
@@ -209,10 +228,11 @@ class QuietDriver(Driver):
             state = fresh_home()
         else:
             state = seeded_home()
+            write_seven(state)  # 3.6.0.5: the inspector step's map (Auto's own tab draws main alone: no box to click)
         srv, url = serve(state, True)
         base, frag = url.split("?", 1)[0], url.split("#", 1)[1]
         ctx = {"state": state, "srv": srv, "base": base, "frag": frag}
-        steps = (fresh,) if which == "fresh" else (sections, rail, inspector, focus)
+        steps = (fresh,) if which == "fresh" else (sections, rail, auto_tab, inspector, focus)
         try:
             yield tuple((fn, (c, url, ctx)) for fn in steps)
         finally:
