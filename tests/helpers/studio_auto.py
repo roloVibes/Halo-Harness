@@ -33,7 +33,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from realcheck.steps_auto import H1, OPEN_WF, P1, P2, STILL_READ, USE_SHOWN, judge_use, use_now  # noqa: E402
+from realcheck.steps_auto import H1, OPEN_WF, P1, P2, USE_SHOWN, USE_WAIT_S, judge_use, still_now, use_now  # noqa: E402
 
 H2 = ("Just built: the workflow review. It waits for your next session: this session started with no workflow, so it "
       "has no Workflow tool.")
@@ -104,9 +104,8 @@ def use(c, rig, lv, st) -> dict:
     rig.release("a")
     rig.release("b")
     _wait(c, f"!!{M} && !{M}.querySelector('[data-testid=session-map-group][data-state=working]')", 30)
-    time.sleep(0.5)
+    before = still_now(c)  # the head and main before "use it now", once they read the same over two frames
     now = time.time()
-    before = c.js(STILL_READ) or {}  # the head and main before "use it now"
     lv.rows["c0d3r0a1"] = {"agent_id": "c0d3r0a1", "parent": parent, "name": "coder", "role": "coder", "bio": "coder",
                            "model": "or:mock/glm-5-coder", "kind": "subagent", "task": "fix the login bug", "since": now,
                            "state": "running", "turns": 1, "cost_usd": 0.0, "current": "thinking", "last_text": "",
@@ -119,9 +118,8 @@ def use(c, rig, lv, st) -> dict:
     lv.frame("main", "map_step", {"map": "auto", "box": "workflow:review", "workflow": "review", "kind": "step", "n": 1,
                                   "name": "code", "state": "running", "t": time.time()})
     lv.refresh()
-    _wait(c, USE_SHOWN, 10)
-    time.sleep(0.5)  # the slot's answer follows the draw within a frame
-    got = use_now(c, before)
+    _wait(c, USE_SHOWN, USE_WAIT_S)
+    got = use_now(c, before)  # polls until the group is in view or the slot names it (r/batch02 entry 1)
     got["groups"] = c.js(f"""[...({M}?.querySelectorAll('[data-testid=session-map-group]') || [])].map((g) =>
       [g.dataset.group, g.dataset.workflow || '', g.querySelector('[data-testid=map-group-name]')?.textContent || ''])""")
     return {"use": got}

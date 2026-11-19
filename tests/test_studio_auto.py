@@ -69,6 +69,10 @@ def _map_driver() -> "tuple[subprocess.CompletedProcess, dict]":
 
 @test
 def test_scene4_true_lines_then_use_it_runs_as_a_group(ctx: Ctx):
+    """Scene 4: the true lines, then "use it now" runs as a group. Its fixture lets the rig's own two helpers end first,
+    so the workflow's run is the only working group; the case of TWO working groups out of sight (the slot names the
+    first and counts the rest) is covered by tests.test_studio_auto_groups'
+    `test_new_group_below_the_fold_is_named_in_the_slot` (r/batch02 entry 1)."""
     from tests.helpers.studio_auto import verdicts
     runs = _driver()
     for r, got in runs:

@@ -1290,6 +1290,89 @@ def test_auto_ready_lines_use_it_now_in_view_or_named_and_brought_up(ctx: Ctx):
               len(s.judge_use({"found": False, "names": []})) == 1)
 
 
+class _UsePage:
+    """The page of "use it now" stood in for: USE_READ answers from `reads` one read at a time (the last one stays),
+    STILL_READ answers `still`; the press lands at once; every call is logged."""
+
+    def __init__(self, s, reads: list, still) -> None:
+        self.s, self.reads, self.still, self.calls, self.clicks = s, list(reads), still, [], 0
+
+    def js(self, expr: str):
+        self.calls.append(expr)
+        if expr == self.s.USE_READ:
+            return dict(self.reads.pop(0) if len(self.reads) > 1 else self.reads[0])
+        if expr == self.s.STILL_READ:
+            return dict(self.still) if self.still is not None else {}
+        if expr == self.s.NEXT_FRAME:
+            return 1
+        return None
+
+    def click_on(self, expr: str, *a) -> None:
+        self.clicks += 1
+
+    def wait(self, expr: str, timeout: float = 20):
+        return {"top": 33.0, "d": 0.0} if expr == self.s.PRESS_DONE else True
+
+
+@test
+def test_use_it_now_polls_until_the_slot_names_the_group(ctx: Ctx):
+    """r/batch02 entry 1: "use it now" waits by polling ONE of two facts (the group wholly inside the drawing's visible
+    box, or the slot naming it), not by a fixed half-second sleep and one read: a slot that names the group only at its
+    THIRD read is still judged named, pressed and landed; when neither fact arrives in the bound the failure names both
+    and what the slot read last; no fixed sleep is left in the two checks (steps_auto `_use` / `use_now`, the VM
+    driver's `use`)."""
+    import ast
+    s = _steps_auto()
+    below = dict(_use_read(s), rect=[10, 700, 400, 820], visible=[0, 640, 1280, 780])
+    del below["before"], below["after"]
+    named = dict(below, slot={"text": "↓ workflow review · working", "group": "2"})
+    page = _UsePage(s, [below, below, named], _STILL)
+    got = s.use_now(page, dict(_STILL), wait_s=5)
+    reads = page.calls.count(s.USE_READ)
+    ctx.check(f"it read the page three times, a frame between reads, got {reads} reads, "
+              f"{page.calls.count(s.NEXT_FRAME)} frames", reads == 3 and page.calls.count(s.NEXT_FRAME) >= 2)
+    ctx.check(f"the slot named it at the third read: ONE press, got {page.clicks}", page.clicks == 1)
+    ctx.check(f"named, pressed, landed: no failure, got {s.judge_use(got)}", s.judge_use(got) == [])
+    never = _UsePage(s, [dict(below, slot={"text": "↓ part 2 · working", "group": "1"})], _STILL)
+    got = s.use_now(never, dict(_STILL), wait_s=0.3)
+    says = s.judge_use(got)
+    ctx.check(f"neither fact in the bound: one failure naming both facts and the slot's last words, got {says}",
+              len(says) == 1 and "wholly inside the drawing's visible box" in says[0] and "the slot naming it" in says[0]
+              and "↓ part 2 · working" in says[0] and never.clicks == 0)
+    inside = _UsePage(s, [_use_read(s)], _STILL)
+    got = s.use_now(inside, dict(_STILL), wait_s=5)
+    ctx.check(f"in view at the first read: one read, no press, no failure, got {inside.calls.count(s.USE_READ)} reads, "
+              f"{s.judge_use(got)}", inside.calls.count(s.USE_READ) == 1 and inside.clicks == 0 and s.judge_use(got) == [])
+    for path, names in ((REPO / "scripts" / "realcheck" / "steps_auto.py", ("_use", "use_now", "still_now")),
+                        (REPO / "tests" / "helpers" / "studio_auto.py", ("use",))):
+        text = path.read_text(encoding="utf-8")
+        for node in ast.parse(text).body:
+            if isinstance(node, ast.FunctionDef) and node.name in names:
+                src = ast.get_source_segment(text, node) or ""
+                ctx.check(f"{path.name} {node.name}: no fixed sleep", "time.sleep(" not in src)
+
+
+@test
+def test_use_it_now_a_missing_head_is_never_standing_still(ctx: Ctx):
+    """r/batch02 entry 1: a rect that is missing is never "the same": when the head over the drawing is found neither
+    before nor after "use it now" (or only on one side), judge_use FAILS and says the head was not found."""
+    s = _steps_auto()
+    view = _use_read(s)
+    no_head = dict(_STILL, head=None)
+    for name, read in (("before and after", dict(view, before=dict(no_head), after=dict(no_head))),
+                       ("before", dict(view, before=dict(no_head))),
+                       ("after", dict(view, after=dict(no_head)))):
+        got = s.judge_use(read)
+        ctx.check(f"the head missing {name}: one failure saying the head was not found, got {got}",
+                  len(got) == 1 and "the head was not found" in got[0])
+    pressed = dict(view, rect=[10, 700, 400, 820], visible=[0, 640, 1280, 780],
+                   slot={"text": "↓ workflow review · working", "group": "2"}, press={"top": 30.0, "d": 0.0},
+                   pressed=dict(_STILL, draw=None))
+    got = s.judge_use(pressed)
+    ctx.check(f"main missing from the drawing after the press: its failure, got {got}",
+              len(got) == 1 and "not found" in got[0])
+
+
 @test
 def test_auto_steps_read_the_words_that_ship(ctx: Ctx):
     """3.6.0.5 section 6: one place for the words: the step's A15 is the product's FIRST_WORKFLOW_AUTO for this card,

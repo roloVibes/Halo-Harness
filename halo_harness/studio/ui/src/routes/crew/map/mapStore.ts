@@ -79,16 +79,19 @@ export { mapUrl, pickerValue } from "./pickerRows"; // 3.6.0.5 A5: a map's addre
 
 let opening = 0; // the latest openMap: an earlier one answered late (the tab's own first open) never undoes his pick
 // k/batch02 entry 2: an open that names a map AND a scope (Setup's old row) is recorded at once, so the Map tab's own
-// first load opens it instead of LAST; it is cleared once open with no first load to come, or when the first load takes it
-let byScope: { asked: string; scope: string } | null = null;
+// first load opens it instead of LAST. r/batch02 entry 2: it lives for ONE first load or one settled open (set in
+// openMap only, cleared by forget only): taken by a first load, open with no first load to come, or its open failed
+type Asked = { asked: string; scope: string };
+let byScope: Asked | null = null;
 let firstDue = true; // the Map tab is not drawn, or its first load has not run yet
+const forget = (rec: Asked | null) => { if (rec && byScope === rec) byScope = null; };
 
-/** The Map tab's own first load (MapView, after loadMaps): the map asked by scope, else firstName(). */
+/** The Map tab's own first load (MapView, after loadMaps): the map asked by scope (taken, not recorded again), else firstName(). */
 export function openFirst(): Promise<void> {
   const a = byScope;
   firstDue = false;
-  byScope = null;
-  return a ? openMap(a.asked, a.scope) : openMap(firstName());
+  forget(a);
+  return a ? show(openName(a.asked, a.scope), a.scope, null) : openMap(firstName());
 }
 
 /** The Map tab is no longer drawn: its next drawing has a first load of its own. */
@@ -101,14 +104,19 @@ export async function openMap(asked: string, scope = ""): Promise<void> {
   if (!asked) return;
   const name = openName(asked, scope);
   if (!scope) writeLocal(LAST, name); // 3.6.0.0 R5: first, so the tab's own first load (firstName) opens this one too (an edit door)
-  byScope = scope ? { asked, scope } : null; // k/batch02 entry 2: before the caller changes the section
+  if (!scope) forget(byScope);
+  return show(name, scope, scope ? (byScope = { asked, scope }) : null); // k/batch02 entry 2: before the caller changes the section
+}
+
+async function show(name: string, scope: string, rec: Asked | null): Promise<void> {
   const mine = ++opening;
   try {
     const detail = await api.get<MapDetail>(mapUrl(name, scope));
-    if (mine === opening && !firstDue && byScope?.asked === asked && byScope.scope === scope) byScope = null; // open, none to come
+    if (!firstDue) forget(rec); // open, no first load to come
     if (mine === opening) maps.update((s) => ({ name, scope, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {},
                                                  locked: s.handLock || readOnly(name, detail.scope) }));
   } catch (e) {
+    forget(rec); // r/batch02 entry 2: a failed open is not remembered for the next first load
     if (mine === opening) maps.update(() => ({ error: msg(e) }));
   }
 }

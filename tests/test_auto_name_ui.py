@@ -332,6 +332,68 @@ console.log(JSON.stringify(out));"""
               and "loadMaps().then(openFirst)" in view and "mapTabGone" in view and "setTimeout(" not in team)
 
 
+@test
+def test_an_open_by_scope_is_remembered_for_one_load_or_one_settled_open(ctx: Ctx):
+    """r/batch02 entry 2: the record of an open by scope lives for exactly ONE first load or one settled open: a scoped
+    open whose answer FAILS is forgotten (the failure shows as any failed open), so the Map tab's next first load opens
+    LAST, drawn or not when it failed; a scoped re-open made while the tab is gone is taken by ONE first load, and a
+    second first load (the tab drawn again before the first answered) opens LAST. One place sets the record, one
+    function clears it; LAST is never written by a scoped open."""
+    import re
+    import urllib.parse
+    from tests.helpers import node_ts
+    url = lambda src: json.dumps("data:text/javascript," + urllib.parse.quote(src))  # noqa: E731
+    hook = _STORE_HOOK % (url(_STORE_STUB), url(_API_STUB), url(_NOOP_STUB))
+    js = f"""import {{ register }} from 'node:module';
+register('data:text/javascript,' + encodeURIComponent({json.dumps(hook)}));
+const mem = {{ 'halo.studio.map-open': 'my-map' }}, wrote = [], asked = [];
+globalThis.localStorage = {{ getItem: (k) => mem[k] ?? null, setItem: (k, v) => {{ mem[k] = v; wrote.push(v); }}, removeItem: (k) => {{ delete mem[k]; }} }};
+globalThis.location = {{ search: '' }};
+let fail = false;
+const ROWS = [{{ name: 'auto', scope: 'starter' }}, {{ name: 'my-map', scope: 'yours' }}, {{ name: 'starter', scope: 'yours' }}];
+globalThis.__get = async (u) => {{
+  if (u === 'crew/maps') return {{ maps: ROWS, in_use: null }};
+  asked.push(u);
+  if (fail && u.includes('scope=')) throw new Error('no such map');
+  return {{ map: {{ name: u }}, scope: u.includes('scope=yours') ? 'yours' : 'other', url: u }};
+}};
+const S = await import({_u(MAPDIR / "mapStore.ts")});
+const open = () => [S.maps.get().name, S.maps.get().scope, S.maps.get().detail?.url || ''];
+const out = {{}};
+await S.loadMaps();
+// D: the tab drawn (its first load ran); a press by scope whose answer fails; the tab drawn anew
+await S.openFirst(); fail = true; await S.openMap('starter', 'yours'); out.d_err = S.maps.get().error || '';
+fail = false; S.mapTabGone(); await S.openFirst(); out.d = open();
+// D2: the tab gone when the press by scope fails; then its first load
+S.mapTabGone(); fail = true; await S.openMap('starter', 'yours'); fail = false; await S.openFirst(); out.d2 = open();
+// E: a re-open by scope while the tab is gone, then two first loads one after the other
+S.mapTabGone(); await S.openMap('starter', 'yours'); asked.length = 0;
+await S.openFirst(); out.e1 = open(); S.mapTabGone(); await S.openFirst(); out.e2 = open(); out.e_asked = [...asked];
+// F: the same, the second first load made before the first one's answer came (the tab drawn again at once)
+S.mapTabGone(); await S.openMap('starter', 'yours'); asked.length = 0;
+const f1 = S.openFirst(); S.mapTabGone(); const f2 = S.openFirst(); await Promise.all([f1, f2]); out.f = open(); out.f_asked = [...asked];
+out.last = mem['halo.studio.map-open']; out.wrote = wrote;
+console.log(JSON.stringify(out));"""
+    got = node_ts.run(js)
+    his, last, his_url = ["starter", "yours", "crew/map/starter?scope=yours"], "my-map", "crew/map/starter?scope=yours"
+    ctx.check(f"D: the failed open shows its failure, got {got.get('d_err')!r}", "no such map" in str(got.get("d_err")))
+    ctx.check(f"D: after a failed open by scope (tab drawn) the next first load opens LAST, got {got.get('d')}",
+              (got.get("d") or [""])[0] == last)
+    ctx.check(f"D2: after a failed open by scope (tab gone) the first load opens LAST, got {got.get('d2')}",
+              (got.get("d2") or [""])[0] == last)
+    ctx.check(f"E: the first load takes the re-open: his file, got {got.get('e1')}", got.get("e1") == his)
+    ctx.check(f"E: the second first load opens LAST, his file asked once, got {got.get('e2')} {got.get('e_asked')}",
+              (got.get("e2") or [""])[0] == last and (got.get("e_asked") or []).count(his_url) == 1)
+    ctx.check(f"F: two first loads before an answer: his file asked once, LAST open last, got {got.get('f')} "
+              f"{got.get('f_asked')}", (got.get("f") or [""])[0] == last and (got.get("f_asked") or []).count(his_url) == 1)
+    ctx.check(f"LAST still my-map, never written by a scoped open, got {got.get('last')} {got.get('wrote')}",
+              got.get("last") == last and "starter" not in (got.get("wrote") or []))
+    src = (MAPDIR / "mapStore.ts").read_text(encoding="utf-8")
+    sets, clears = re.findall(r"\bbyScope\s*=(?!=)", src), re.findall(r"\bbyScope\s*=\s*null\b", src)
+    ctx.check(f"one place sets the record and one function clears it, got {len(sets)} assignments, {len(clears)} clears",
+              len(sets) == 2 and len(clears) == 1)
+
+
 # A19 (decisions' last part, J2 M3): the four exceptions, and only these. Media keeps ComfyUI's word ("Keeps the word").
 MEDIA_KEEPS = ("media/MediaPanels.tsx", "media/commands.ts", "media/store.ts")
 HELP_KEEPS = ("help.ts", "Halo's starters and your saved ones")

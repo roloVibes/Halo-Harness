@@ -695,6 +695,10 @@ PRESS = f"""((n) => {{ const w = window.__rcpress = {{t0: performance.now(), top
     if (w.top == null && t < 3000) requestAnimationFrame(tick); }};
   requestAnimationFrame(tick); return 1; }})"""
 PRESS_DONE = "(() => { const w = window.__rcpress; return !!w && (w.top != null || performance.now() - w.t0 > 3000) && w; })()"
+# r/batch02 entry 1: the checks of "use it now" poll a fact, never sleep: between two reads the page draws its next frame
+# (or 100 ms pass, if no frame comes); the bound is the step's other waits' bound
+USE_WAIT_S = 10
+NEXT_FRAME = "new Promise((r) => { requestAnimationFrame(() => r(1)); setTimeout(() => r(1), 100); })"
 
 
 def _use(ctx, t, c, ev: dict, bad: list) -> None:
@@ -703,8 +707,7 @@ def _use(ctx, t, c, ev: dict, bad: list) -> None:
     ctx.provider.rearm()
     before = c.js(STILL_READ) or {}
     mark = _say(t, fakes.AUTOUSE_PROMPT)
-    _wait(c, USE_SHOWN, 10)
-    time.sleep(0.5)  # the slot's answer follows the draw within a frame
+    _wait(c, USE_SHOWN, USE_WAIT_S)
     read = use_now(c, before)
     ev["use"] = read
     bad.extend(judge_use(read))
@@ -713,17 +716,28 @@ def _use(ctx, t, c, ev: dict, bad: list) -> None:
         bad.append("(5) the turn never ended in 30 s: " + excerpt(t.plain()[mark:], 160))
 
 
-def use_now(c, before: dict) -> dict:
-    """What "use it now" drew (USE_READ), what stood still (`before`, after), and when the group is out of sight and the
-    slot names it, ONE press on the slot (its landing timed in the page) and what stood still then; the room on record.
+def _settled(read: dict) -> bool:
+    return bool(read.get("found")) and (use_inside(read) or _names_it(read))
+
+
+def use_now(c, before: dict, wait_s: float = USE_WAIT_S) -> dict:
+    """What "use it now" drew (USE_READ), polled frame by frame for up to `wait_s` until ONE of two facts holds: the group
+    is wholly inside the drawing's visible box, or the slot names it (the last read either way: the judge says which
+    fact never came); what stood still (`before`, after); when the group is out of sight and the slot names it, ONE
+    press on the slot (its landing timed in the page) and what stood still a frame after it landed; the room on record.
     Shared with the Linux VM's browser test (tests/helpers/studio_auto.py)."""
+    deadline = time.monotonic() + wait_s
     read = c.js(USE_READ) or {}
+    while not _settled(read) and time.monotonic() < deadline:
+        c.js(NEXT_FRAME)
+        read = c.js(USE_READ) or {}
+    read["waited_s"] = wait_s
     read["before"], read["after"] = before, c.js(STILL_READ) or {}
     if read.get("found") and not use_inside(read) and _names_it(read):
         c.js(f"{PRESS}({read.get('group')!r})")
         c.click_on(MORE)
         read["press"] = _wait(c, PRESS_DONE, 6) or c.js("window.__rcpress || null")
-        time.sleep(0.3)
+        c.js(NEXT_FRAME)
         read["pressed"] = c.js(STILL_READ) or {}
     if read.get("found"):
         read["room"] = use_room(read)
@@ -747,10 +761,28 @@ def _names_it(read: dict) -> bool:
             and " ".join(str(slot.get("text") or "").split()).startswith(f"↓ {USE_NAME} · "))
 
 
+def still_now(c, wait_s: float = USE_WAIT_S) -> dict:
+    """STILL_READ once the head and main read the same over two frames in a row (or `wait_s` passed): what stood before
+    "use it now", read when the drawing has settled, not after a fixed sleep (r/batch02 entry 1)."""
+    def eq(x, y) -> bool:  # settling only: a part missing in every read stands as still as one that is there
+        return (x is None and y is None) or _same(x, y)
+    deadline, reads = time.monotonic() + wait_s, [c.js(STILL_READ) or {}]
+    while time.monotonic() < deadline and not (len(reads) >= 3 and all(
+            eq(reads[-1].get(k), r.get(k)) for r in reads[-3:-1] for k in ("head", "main", "draw"))):
+        c.js(NEXT_FRAME)
+        reads.append(c.js(STILL_READ) or {})
+    return reads[-1]
+
+
 def _same(a, b) -> bool:
+    """A rect that is missing is never the same as anything, another missing one included (r/batch02 entry 1)."""
     if a is None or b is None:
-        return a is None and b is None
+        return False
     return len(a) == len(b) and all(abs(float(x) - float(y)) <= 0.5 for x, y in zip(a, b))
+
+
+def _when_gone(b, a) -> str:
+    return "before and after" if b is None and a is None else ("before" if b is None else "after")
 
 
 def judge_use(read: dict) -> list:
@@ -769,18 +801,29 @@ def judge_use(read: dict) -> list:
                  f"({[round(x) for x in read.get('rect') or []]} outside {[round(x) for x in read.get('visible') or []]})")
         press = read.get("press") or {}
         if not _names_it(read):
-            out.append(f"(5) the group is out of sight and the slot does not name it ({where}; slot: {read.get('slot')})")
+            slot = read.get("slot")
+            last = (f"{' '.join(str(slot.get('text') or '').split())!r} for group {slot.get('group')!r}" if slot
+                    else "no slot")
+            waited = f"in {read['waited_s']:g} s " if read.get("waited_s") is not None else ""
+            out.append(f"(5) {waited}neither the group wholly inside the drawing's visible box nor the slot naming it: the "
+                       f"group is out of sight and the slot does not name it ({where}; the slot read last: {last})")
         elif press.get("top") is None or float(press["top"]) > 1000:
             out.append(f"(5) one press on the slot did not put the group's head at the top of the visible box within 1 s "
                        f"({where}; at the top after {press.get('top')} ms, {press.get('d')} px from it last)")
     before, after = read.get("before") or {}, read.get("after") or {}
-    for key, what in (("head", "the head over the drawing"), ("main", "main's box")):
-        if not _same(before.get(key), after.get(key)):
-            out.append(f"(5) {what} moved with 'use it now': {before.get(key)} -> {after.get(key)}")
+    for key, what, gone in (("head", "the head over the drawing", "the head"), ("main", "main's box", "main's box")):
+        b, a = before.get(key), after.get(key)
+        if b is None or a is None:
+            out.append(f"(5) {gone} was not found {_when_gone(b, a)} 'use it now', so it cannot be shown to stand still")
+        elif not _same(b, a):
+            out.append(f"(5) {what} moved with 'use it now': {b} -> {a}")
     if read.get("press") is not None:
         pressed = read.get("pressed") or {}
-        if not _same(before.get("draw"), pressed.get("draw")):
-            out.append(f"(5) main moved in the drawing with the press: {before.get('draw')} -> {pressed.get('draw')}")
-        if not _same(before.get("head"), pressed.get("head")):
-            out.append(f"(5) the head over the drawing moved with the press: {before.get('head')} -> {pressed.get('head')}")
+        for key, moved, gone in (("draw", "main moved in the drawing with the press", "main in the drawing"),
+                                 ("head", "the head over the drawing moved with the press", "the head")):
+            b, a = before.get(key), pressed.get(key)
+            if b is None or a is None:
+                out.append(f"(5) {gone} was not found {_when_gone(b, a)} the press, so it cannot be shown to stand still")
+            elif not _same(b, a):
+                out.append(f"(5) {moved}: {b} -> {a}")
     return out
