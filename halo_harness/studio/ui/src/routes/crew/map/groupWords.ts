@@ -16,10 +16,13 @@ export const SHOWN_MEMBERS = 8; // B11: up to 8 members shown, then "+{n} more"
 const NAMES_SHOWN = 12; // G5: twelve names, then "and {n} more"
 
 export const money = (x: number): string => `$${(Number(x) || 0).toFixed(2)}`;
-/** "{m} min" from 60 s (whole minutes, rounded down), else "{s} s". */
+/** r/batch04 entry 3: a number and its unit are held by a no-break space, so a narrow box never tears "0" from "s". */
+const NB = " ";
+/** "{m} min" from 60 s (whole minutes, rounded down), else "{s} s". Every group line, member line and hover takes its
+ *  spans from here. */
 export const span = (s: number): string => {
   const t = Math.max(0, Math.floor(Number(s) || 0));
-  return t >= 60 ? `${Math.floor(t / 60)} min` : `${t} s`;
+  return t >= 60 ? `${Math.floor(t / 60)}${NB}min` : `${t}${NB}s`;
 };
 const agents = (k: number): string => `${k} ${k === 1 ? "agent" : "agents"}`;
 const cost = (g: AutoGroup): number => g.members.reduce((s, m) => s + (Number(m.cost) || 0), 0);

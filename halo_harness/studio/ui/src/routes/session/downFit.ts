@@ -4,6 +4,8 @@
 // - `belowCount`: the boxes wholly below the scroll box ("↓ {n} more below"); `nextTop`: one row down (the slot's press).
 // - `firstSeen` / `keepSeen`: after a hand scroll, the first box he sees keeps its place when the drawing changes.
 // - `workingBelow` (3.6.0.5 B26): on Auto, the working group out of sight that the slot names.
+// - r/batch04: on Auto the scroll box is the whole room (`drawingHeight`) and the slot names a working group not wholly in
+//   view below (`slotOf`); a map of his keeps `viewHeight` and its slot as before.
 // No React, no DOM: node runs it (tests/test_studio_session_map_down.py, tests/test_map_groups.py).
 import type { PlacedDown } from "../crew/map/layoutDown";
 import type { AutoGroup } from "../crew/map/overlayGroups";
@@ -41,12 +43,36 @@ export function belowCount(boxes: Placed[], k: number, top: number, h: number): 
   return boxes.filter((b) => b.y * k >= top + h - 0.5).length;
 }
 
+/** r/batch04 entry 1: the scroll box's height. On Auto (`auto`: the session's row says so) the WHOLE room from the first
+ *  draw, whatever fits whole (a group is far taller than a box; what does not fit is reached by the drawing's own
+ *  scroll); on a map of his the released rule, `viewHeight`. */
+export const drawingHeight = (auto: boolean, rows: RowBand[], k: number, top: number, room: number): number =>
+  auto ? Math.max(0, room) : viewHeight(rows, k, top, room);
+
+/** r/batch04 entry 1: the drawing's scrolled size (screen px). On Auto the box no longer shrinks under a press, so the
+ *  scroll reaches far enough for any group's head to stand at the box's top (the slot's press, B26 B27); else the
+ *  drawing's own height. */
+export function scrollSize(auto: boolean, boxes: Placed[], k: number, h: number, viewH: number): number {
+  const heads = auto ? boxes.filter((b) => b.id.startsWith("group:")).map((b) => b.y * k + viewH) : [];
+  return Math.max(h * k, ...heads);
+}
+
 /** 3.6.0.5 B26 on Auto: the group box wholly below the view whose group (the AutoGroup of its `group.n`: the member
- *  states are the groups', never the box's) has a member working; the lowest n; null when none. */
-export function workingBelow(boxes: PlacedDown[], groups: AutoGroup[], k: number, top: number, viewH: number): PlacedDown | null {
+ *  states are the groups', never the box's) has a member working; the lowest n; null when none. `cut` (Session on Auto,
+ *  whose view is the whole room, r/batch04 entry 1): a group not WHOLLY in view below it counts too -- its head in or
+ *  below the view and its foot past the view's foot. */
+export function workingBelow(boxes: PlacedDown[], groups: AutoGroup[], k: number, top: number, viewH: number, cut = false): PlacedDown | null {
   const working = new Set(groups.filter((g) => g.members.some((m) => m.state === "working")).map((g) => g.n));
-  const below = boxes.filter((b) => b.group && working.has(b.group.n) && b.y * k >= top + viewH - 0.5);
+  const out = (b: PlacedDown) => (cut ? b.y * k >= top - 0.5 && (b.y + b.h) * k > top + viewH + 0.5 : b.y * k >= top + viewH - 0.5);
+  const below = boxes.filter((b) => b.group && working.has(b.group.n) && out(b));
   return below.sort((p, q) => p.group!.n - q.group!.n)[0] || null;
+}
+
+/** r/batch04 entry 1, Session's slot on Auto: the working group not wholly in view below (workingBelow with `cut`) and how
+ *  many other boxes lie wholly below the view ("and {more} more below"); null when none. */
+export function slotOf(boxes: PlacedDown[], groups: AutoGroup[], k: number, top: number, viewH: number): { box: PlacedDown; more: number } | null {
+  const box = workingBelow(boxes, groups, k, top, viewH, true);
+  return box ? { box, more: belowCount(boxes.filter((b) => b !== box), k, top, viewH) } : null;
 }
 
 /** The scrollTop that brings the next row's top to the scroll box's top (one row down), or null at the last row. */

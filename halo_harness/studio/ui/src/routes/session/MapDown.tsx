@@ -6,7 +6,8 @@
 // - R9: it opens at 100 % (fitted with 12 px text the floor is 1.0); a hand zoom goes from 75 % to 200 %.
 // - R10: no cap, no ellipsis: a box is estimated (estimateDown), then measured once drawn and it grows to hold its words.
 // - R11: at rest no box is cut: the scroll box ends under the last whole row (downFit.ts); a slot at a fixed bottom says how
-//   many boxes wait below and scrolls one row a press.
+//   many boxes wait below and scrolls one row a press. r/batch04: on Auto the scroll box is the whole room from the first
+//   draw (a group cut at its foot is reached by the scroll; the slot names a working one).
 // - R12: while the pointer is on it or a card is open the drawing keeps its geometry (hold.ts) and text changes in place;
 //   after a hand scroll the first box he sees keeps its place; Fit (100 %, top) only on the first draw and on a different map.
 // - R18: a click on a box, a step row or a line opens the step-in card (crew/map/StepIn.tsx) in the drawer's fixed corner,
@@ -38,7 +39,7 @@ import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { moreBelow, openInAgents, readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
 import { BuiltBar } from "./BuiltBar";
-import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight, workingBelow } from "./downFit";
+import { belowCount, drawingHeight, firstSeen, keepSeen, nextTop, rowsOf, scrollSize, slotOf } from "./downFit";
 import { DownBox } from "./DownBox";
 import { openInLive } from "./store";
 import { TruthBlock } from "./TruthBlock";
@@ -99,7 +100,9 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const settle = useRef(0);
   useEffect(() => () => window.clearTimeout(settle.current), []); // the hand scroll's settle never fires once it is gone
   const rows = useMemo(() => rowsOf(g.boxes), [g]);
-  const H = viewHeight(rows, k, restTop, room);
+  // r/batch04: on Auto (the groups' own test, LitMini.tsx: the row says so and its own map is shown) the whole room; else R11
+  const onAuto = !!s.auto && shown === own;
+  const H = drawingHeight(onAuto, rows, k, restTop, room);
   const go = (t: number) => ((pending.current = { t, tries: 0 }), setRestTop(t));
   const zoomPt = useZoomPoint(scroll, k, setK);
   const fit = () => { // R9 R12: 100 % and the top; past the room it scrolls down (R11), never smaller
@@ -143,8 +146,8 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     const t = scroll.current ? nextTop(rows, k, scroll.current.scrollTop) : null;
     if (t != null) go(t);
   };
-  // B26 on Auto: a working group wholly out of sight is named, and the press puts its head at the top
-  const wb = L.groups ? workingBelow(g.boxes, L.groups, k, top, H) : null;
+  // B26 on Auto: a working group not wholly in view below is named (r/batch04), and the press puts its head at the top
+  const sl = L.groups ? slotOf(g.boxes, L.groups, k, top, H) : null, wb = sl?.box;
   const wbName = wb ? L.groups?.find((x) => x.n === wb.group?.n)?.name || "" : "";
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
@@ -170,7 +173,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
           : !(got && "unreadable" in got) && <p className="cw-line" data-testid="session-lit-map-reading">{readingMap(shown)}</p>)}
         {drawn && <div className="mp-mini-scroll rc-scroll" ref={scroll} style={{ height: H }} onScroll={onScroll} tabIndex={0} data-pan="1"
              title={NAV_HELP} aria-label="The session's map">
-          <div className="mp-mini-size" style={{ width: g.w * k, height: g.h * k }}>
+          <div className="mp-mini-size" style={{ width: g.w * k, height: scrollSize(onAuto, g.boxes, k, g.h, H) }}>
             <div className="mp-mini-world" ref={world} data-zoom={k.toFixed(3)} style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
               <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
                 {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} talk={talks.get(`${l.from}>${l.to}`)} />)}
@@ -183,8 +186,8 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       </div>
       {card && <StepIn t={card} map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below" data-auto={s.auto ? "" : undefined}>
-        <div className="mp-down-more">{n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
-          onClick={wb ? () => go(wb.y * k) : down}>{wb ? belowGroup(wbName, n - 1) : moreBelow(n)}</button>}
+        <div className="mp-down-more">{(n > 0 || !!sl) && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
+          onClick={wb ? () => go(wb.y * k) : down}>{sl ? belowGroup(wbName, sl.more) : moreBelow(n)}</button>}
           {s.auto && <button type="button" className="mp-link mp-below-twin" tabIndex={-1} aria-hidden="true">{BELOW_ROOM}</button>}</div>
         <WaitRow world={world} />
       </div>

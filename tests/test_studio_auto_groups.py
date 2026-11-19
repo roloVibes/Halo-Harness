@@ -19,6 +19,9 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
 8. (batch 8) Session's slot is sized for a long name of ordinary letters (under 70 px at the default width); Agents ->
    Live's slot follows the window's height with no scroll.
 9. (k/batch02) On Auto main's box keeps one height whatever main does, so group 1 under it stands still.
+10. (r/batch04, tests/helpers/studio_auto_room.py) On Auto Session's drawing takes the whole room of its drawer from the
+   first draw at 1280 x 800 and 1440 x 900, group 1's head in view; on a map of his the released height. A helper's card
+   lies inside the drawer and its Send is in view or brought into view by the card's own scroll.
 Run: python -m tests.test_studio_auto_groups
 """
 from __future__ import annotations
@@ -291,6 +294,105 @@ def test_ask_from_a_group_member_opens_on_its_group(ctx: Ctx):
         got = _DOORS.get(k)
         ctx.check(f"{k}: group 2 selected, the reviewer's member card open with the ask's choices, got {got!r} {_DOORS.get('failed')!r}",
                   isinstance(got, list) and got[0] == "member:r3v1e2w0" and got[1] == "reviewer" and got[2] > 0)
+
+
+_ROOM: dict = {}
+SIZES = ("1280x800", "1440x900")
+
+
+def _room(ctx: Ctx, key: str) -> dict:
+    from tests.helpers.chrome_driver import driver_env, find_chrome
+    if not find_chrome():
+        raise SkipTest("no Chrome found (the drawings need headless Chrome)")
+    if not _ROOM:
+        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_auto_room"], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=400, env=driver_env(REPO), cwd=str(REPO))
+        try:
+            _ROOM.update(json.loads(r.stdout.strip().splitlines()[-1]))
+        except (ValueError, IndexError):
+            _ROOM.update(failed=r.stderr[-600:])
+    if _ROOM.get("skip"):
+        raise SkipTest(_ROOM["skip"])
+    ctx.check(f"the room driver reached {key}, got {_ROOM.get('failed')!r}", _ROOM.get(key) is not None)
+    return _ROOM.get(key) or {}
+
+
+def _inside(a, b, slack: float = 1.0) -> bool:
+    """Rect `a` ([left, top, width, height]) lies within rect `b`."""
+    if not a or not b:
+        return False
+    return (a[0] >= b[0] - slack and a[1] >= b[1] - slack and a[0] + a[2] <= b[0] + b[2] + slack
+            and a[1] + a[3] <= b[1] + b[3] + slack)
+
+
+def _released(his: dict) -> float:
+    """The released rule (3.6.0.2 R11, downFit.viewHeight): the bottom of the last whole row plus the 12 px pad, counted
+    from the scroll's top, at most the room; the whole room when not even one row fits."""
+    k, room, top, rows = his.get("k") or 1, his.get("room") or 0, his.get("top") or 0, []
+    for _, y, h in sorted(his.get("boxes") or [], key=lambda b: b[1]):
+        r = next((x for x in rows if abs(x[0] - y) < 0.5), None)
+        if r:
+            r[1] = max(r[1], y + h)
+        else:
+            rows.append([y, y + h])
+    best = 0.0
+    for _, bottom in rows:
+        if bottom * k <= top + 0.5:
+            continue
+        end = (bottom + 12) * k - top
+        if end <= room + 0.5:
+            best = max(best, end)
+    return max(0.0, min(room, best or room))
+
+
+@test
+def test_the_auto_drawing_uses_the_whole_room(ctx: Ctx):
+    """r/batch04 entry 1: on Auto, at 1280 x 800 and at 1440 x 900, Session's drawing takes the whole room of its drawer from
+    the first draw (main alone, then group 1, then four groups: its rect never moves) and group 1's head is in view; on a
+    map of his the scroll box's height is the released rule's."""
+    got = _room(ctx, "room")
+    for size in SIZES:
+        at = got.get(size) or {}
+        first = (at.get("alone") or {}).get("box")
+        for k in ("alone", "one", "four"):
+            r = at.get(k) or {}
+            box, fill, slot = r.get("box") or [0, 0, 0, 0], r.get("fill") or [0, 0, 0, 0], r.get("slot") or [0, 0, 0, 0]
+            ctx.check(f"{size} {k}: the drawing's box is the whole room (top and bottom on the room's), got box {box} room {fill}",
+                      fill[3] > 100 and abs(box[1] - fill[1]) <= 2 and abs(box[1] + box[3] - fill[1] - fill[3]) <= 2)
+            ctx.check(f"{size} {k}: the slot stands right under it (the drawer's own gap only), got box {box} slot {slot}",
+                      0 <= slot[1] - (box[1] + box[3]) <= 12)
+            ctx.check(f"{size} {k}: the box's rect is the one of the first draw, got {box} vs {first}",
+                      first is not None and all(abs(p - q) <= 0.5 for p, q in zip(box, first)))
+        for k in ("one", "four"):
+            r = at.get(k) or {}
+            head = r.get("head") or [None, None]
+            ctx.check(f"{size} {k}: group 1's name and counts line are inside the visible box, got {head} in {r.get('vis')}",
+                      all(_inside(h, r.get("vis")) for h in head))
+        ctx.check(f"{size}: four groups drawn, got {(at.get('four') or {}).get('groups')}", (at.get("four") or {}).get("groups") == 4)
+    his = got.get("his") or {}
+    rule = _released(his)
+    ctx.check(f"his map: the scroll box is {his.get('offset')} px, the released rule gives {rule} (room {his.get('room')}, "
+              f"boxes {his.get('boxes')})", his.get("boxes") and abs((his.get("offset") or 0) - rule) <= 1)
+    ctx.check(f"his map: the released rule stops above the room's foot here (so the rule is what is measured), got {rule} < {his.get('room')}",
+              0 < rule < (his.get("room") or 0) - 1)
+
+
+@test
+def test_a_helpers_card_stays_inside_the_drawer(ctx: Ctx):
+    """r/batch04 entry 2: at 1280 x 800 and 1440 x 900, on Auto, a click on a helper of group 1 opens its card inside the
+    drawer's content box; its Send button is in view, or a scroll INSIDE the card brings it into view."""
+    got = _room(ctx, "card")
+    for size in SIZES:
+        at = got.get(size) or {}
+        o, s = at.get("open") or {}, at.get("scrolled") or {}
+        ctx.check(f"{size}: the helper's card opened, got {o.get('title')!r}", o.get("title") == "researcher")
+        ctx.check(f"{size}: the card lies inside the drawing's content box and the drawer, got {o.get('card')} in {o.get('down')} / {o.get('drawer')}",
+                  _inside(o.get("card"), o.get("down")) and _inside(o.get("card"), o.get("drawer")))
+        shown = _inside(o.get("send"), o.get("vis")) and _inside(o.get("send"), o.get("down"))
+        after = _inside(s.get("send"), s.get("vis")) and _inside(s.get("send"), s.get("down"))
+        ctx.check(f"{size}: Send in view ({shown}) or brought into view by the card's own scroll ({after}), got send "
+                  f"{o.get('send')} / {s.get('send')} in {o.get('vis')}, scroll {o.get('scroll')} -> {s.get('scroll')}",
+                  shown or (after and (s.get("scroll") or [0])[0] > 0))
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ HOPS = {"format": "map/1", "name": "hops", "main": {"agent": "main"},
         "boxes": [{"id": "code", "agent": "coder"}, {"id": "review", "agent": "reviewer"}, {"id": "docs", "agent": "writer"}],
         "lines": [{"from": "main", "to": "code", "when": "always"}, {"from": "code", "to": "review", "when": "always"},
                   {"from": "main", "to": "docs", "when": "main-decides"}]}
+NB = "\u00a0"  # r/batch04 entry 3: a number and its unit are held by a no-break space
 MAIN = {"agent_id": "main", "parent": None, "name": "main", "state": "running", "kind": "main", "since": T0}
 
 
@@ -444,12 +445,12 @@ console.log(JSON.stringify(out));"""
               and [p.get("bad", False) for p in got["each"]["parts"]] == [False, False, False, False, True, False])
     ctx.check(f"one member: '1 agent', zero parts and a zero cost left out, got {got['one']['line']!r}",
               got["one"]["line"] == "1 agent · 1 working")
-    ctx.check(f"all done over 125 s: the done form, got {got['done']['line']!r}", got["done"]["line"] == "3 agents · all done · $0.09 · 2 min")
+    ctx.check(f"all done over 125 s: the done form, got {got['done']['line']!r}", got["done"]["line"] == f"3 agents · all done · $0.09 · 2{NB}min")
     ctx.check(f"a member's two lines, got {got['member']}", got["member"] == ["researcher: read report A", "kimi-k3 · working"])
     ctx.check(f"no description: who alone; no model: the state alone, got {got['bare']}", got["bare"] == ["agent", "done"])
     ctx.check(f"the third line, got {got['third']!r}", got["third"] == "started by researcher: read report A")
     ctx.check(f"+2 more, got {got['more']!r}", got["more"] == "+2 more")
-    ctx.check(f"span and money, got {got['span']}", got["span"] == ["59 s", "1 min", "2 min", "$0.10"])
+    ctx.check(f"span and money, got {got['span']}", got["span"] == [f"59{NB}s", f"1{NB}min", f"2{NB}min", "$0.10"])
 
 
 @test
@@ -523,9 +524,9 @@ const e = M.sit.stepIn({kind: "member", aid: "k3", text: "x"}, D.rec, null, gs);
 console.log(JSON.stringify({g4: M.gw.g4Lines(D.mem, %s), bare: M.gw.g4Lines(D.bare, %s), t, e}));""" % (T0 + 50, T0 + 99)
     got = _run(["og", "gw", "sit"], js, {"rows": rows, "rec": _rec(rows), "mem": mem, "bare": bare})
     ctx.check(f"G4 with a reason, got {got.get('g4')}",
-              got.get("g4") == ["read report A", "researcher on kimi-k3", "Why this model: code work; tools; mid budget", "working · $0.01 · 40 s"])
+              got.get("g4") == ["read report A", "researcher on kimi-k3", "Why this model: code work; tools; mid budget", f"working · $0.01 · 40{NB}s"])
     ctx.check(f"G4 without one (and no model; an ended member's own time), got {got.get('bare')}",
-              got.get("bare") == ["fix it", "coder", "Why this model: named by main or by your settings", "done · $0.00 · 5 s"])
+              got.get("bare") == ["fix it", "coder", "Why this model: named by main or by your settings", f"done · $0.00 · 5{NB}s"])
     t, e = got.get("t") or {}, got.get("e") or {}
     ctx.check(f"the member's card: the same why line, its who, the member live, got {t}",
               t.get("id") == "member:k1" and t.get("title") == "researcher" and t.get("why") == "Why this model: code work; tools; mid budget"
@@ -806,6 +807,104 @@ console.log(JSON.stringify([n({main: 107, g: 80}, {main: 56, g: 60}, ["main"]), 
               and 'data-hold={b.main && L.groups ? "" : undefined}' in box)
     ctx.check("useMeasure passes the held boxes to nextHeights (no timer, no observer added)",
               "nextHeights(heights, got, held)" in frame and "Observer" not in frame and "setTimeout(" not in frame)
+
+
+# ---------------------------------------------------------------------------------------------- 7. (r/batch04) room, units, numbers
+
+def _placed(i: str, y: float, h: float, n: int = 0) -> dict:
+    b = {"id": i, "x": 12, "y": y, "w": 384, "h": h, "rank": 1 if n else 0, "row": n}
+    if n:
+        b["group"] = {"n": n, "key": f"task:t{n}", "colour": (n - 1) % 4 + 1, "members": [f"a{n}"]}
+    return b
+
+
+@test
+def test_the_auto_drawing_uses_the_whole_room(ctx: Ctx):
+    """r/batch04 entry 1, the pure rule: on Auto the drawing's visible box is the whole room, whatever fits whole and at
+    any scroll; on a map of his it is the released rule (the bottom of the last whole row plus the pad). On Auto the slot
+    names the working group not wholly in view below it (cut at the foot, or wholly below; never one whose head is above
+    the view), with the count of the other boxes wholly below."""
+    boxes = [_placed("main", 12, 107), _placed("group:1", 147, 231, 1), _placed("group:2", 394, 137, 2),
+             _placed("group:3", 547, 173, 3), _placed("group:4", 736, 137, 4)]
+    gs = [_grp(1, [_m("a1")], "one"), _grp(2, [_m("a2", "done")], "two"), _grp(3, [_m("a3", "waiting")], "three"),
+          _grp(4, [_m("a4")], "four")]
+    js = """const rows = M.df.rowsOf(D.boxes), h = (auto, n, top, room) => M.df.drawingHeight(auto, rows.slice(0, n), 1, top, room);
+const s = (top, viewH, bx = D.boxes) => { const x = M.df.slotOf(bx, D.gs, 1, top, viewH); return x && [x.box.id, x.more]; };
+console.log(JSON.stringify({
+  auto: [h(true, 1, 0, 354), h(true, 2, 0, 354), h(true, 5, 0, 354), h(true, 5, 300, 354), h(true, 5, 0, 499)],
+  his: [h(false, 1, 0, 354), h(false, 5, 0, 354), h(false, 5, 0, 499), M.df.viewHeight(rows, 1, 0, 499)],
+  cut: s(0, 354), below: s(0, 131), inview: s(0, 390), foot: s(140, 600), head_above: s(200, 354),
+  his_slot: s(0, 354, D.boxes.map(({group, ...b}) => b)),
+  size: [M.df.scrollSize(true, D.boxes, 1, 885, 354), M.df.scrollSize(false, D.boxes, 1, 885, 354),
+         M.df.scrollSize(true, D.boxes.slice(0, 1), 1, 131, 354), M.df.scrollSize(true, D.boxes, 2, 885, 354)]}));"""
+    got = _run(["df"], js, {"boxes": boxes, "gs": gs})
+    ctx.check(f"Auto: the whole room (354, 499) before any group, with one, with four, scrolled, got {got.get('auto')}",
+              got.get("auto") == [354, 354, 354, 354, 499])
+    ctx.check(f"his map: the released rule (main alone 131; group 1 whole at 499: 390), got {got.get('his')}",
+              got.get("his") == [131, 131, 390, 390])
+    ctx.check(f"group 1 working, cut at the foot: named, with the 3 boxes wholly below, got {got.get('cut')}",
+              got.get("cut") == ["group:1", 3])
+    ctx.check(f"group 1 wholly below: named as before (3 more), got {got.get('below')}", got.get("below") == ["group:1", 3])
+    ctx.check(f"group 1 wholly in view: the next working group below is named, got {got.get('inview')}",
+              got.get("inview") == ["group:4", 2])
+    ctx.check(f"group 4 cut at the foot of a scrolled view: named, nothing more below, got {got.get('foot')}",
+              got.get("foot") == ["group:4", 0])
+    ctx.check(f"a working group whose head is above the view is not named, got {got.get('head_above')}",
+              got.get("head_above") == ["group:4", 0])
+    ctx.check(f"boxes with no group (a map of his): no group named, got {got.get('his_slot')}", got.get("his_slot") is None)
+    ctx.check(f"Auto's scroll reaches the last group's head at the box's top (736 + 354; at 200 %: 1472 + 354); his map and "
+              f"main alone: the drawing's own height, got {got.get('size')}", got.get("size") == [1090, 885, 131, 1826])
+
+
+@test
+def test_a_number_keeps_its_unit(ctx: Ctx):
+    """r/batch04 entry 3: every span ("{n} s", "{n} min") and cost the group words return holds no ordinary space between
+    the number and its unit (a no-break space, U+00A0; the cost has none); " · " between two facts stays a break point."""
+    import re
+    done = _grp(2, [_m("k1", "done", who="coder", desc="fix the login form", cost=0.02, t=10, ended=10)], "fix the login bug")
+    slow = _grp(3, [_m("k2", "done", t=10, ended=200), _m("k3", "done", t=20, ended=4000)], "x")
+    js = """const g = M.gw;
+console.log(JSON.stringify({spans: [0, 1, 59, 60, 125, 3599, 7200].map((s) => g.span(s)), money: [g.money(0), g.money(0.02), g.money(12.5)],
+  lines: [g.doneLine(D.done), g.countsLine(D.done), g.countsLine(D.slow), ...g.g4Lines(D.m, %s), ...g.g3Lines(D.done)]}));""" % (T0 + 50)
+    got = _run(["gw"], js, {"done": done, "slow": slow, "m": _m("k4", cost=0.01, t=10)})
+    spans, money, lines = got.get("spans") or [], got.get("money") or [], got.get("lines") or []
+    ctx.check(f"every span is the number, a no-break space and its unit, got {spans!r}",
+              len(spans) == 7 and all(re.fullmatch(r"\d+ (s|min|h)", x) for x in spans))
+    ctx.check(f"the cost has no inner space, got {money!r}", money == ["$0.00", "$0.02", "$12.50"])
+    torn = [x for x in lines if re.search(r"\d (s|min|h)\b", x)]
+    ctx.check(f"no line holds an ordinary space between a number and its unit, got {torn!r} of {lines!r}", lines and not torn)
+    ctx.check(f"the done group's line, the facts still joined by ' · ', got {lines[:1]!r}",
+              lines[:1] == [f"1 agent · all done · $0.02 · 0{NB}s"])
+    ctx.check(f"a slow group's time in minutes, got {lines[2:3]!r}", lines[2:3] == [f"2 agents · all done · $0.00 · 66{NB}min"])
+
+
+@test
+def test_no_room_is_left_for_a_group_that_is_not_drawn(ctx: Ctx):
+    """r/batch04 entry 4: rows where two groups carry the same engine number (the live rig of the attention tests wrote
+    its own task with n 1 while the real session's first group is n 1): each KEY is one group; the later-started of two
+    colliding numbers takes, in start order, the numbers after the largest (as a group with none does), so every block the
+    view places is drawn once and the drawing equals the one of rows numbered without a collision: no hole, no overlap."""
+    def rows(tester_n: int) -> list:
+        return [MAIN, kid("i1", 1, step="1", task="apply the discount", key="task:apply the discount", n=1, desc="Implement"),
+                kid("r1", 2, step="1", task="apply the discount", key="task:apply the discount", n=1, desc="Research"),
+                kid("t1", 3, step="2", task="run the basket suite", key="task:run the basket suite", n=tester_n, desc="Test"),
+                kid("d1", 4),  # the rig's docs row: no group (a row from before groups)
+                kid("v1", 5, step="4", task="review the basket diff", key="task:review the basket diff", n=2, desc="Review")]
+    js = """const place = (rows) => { const gs = M.og.autoGroups(rows, {}), v = M.lit.autoView(M.view.view(D.auto, [], []), gs);
+  const d = M.ld.layoutDown(v, () => 90, 432);
+  return {ns: gs.map((g) => [g.key, g.n]), ids: v.boxes.map((b) => b.id), placed: d.boxes.map((b) => [b.id, b.y, b.h]), h: d.h}; };
+console.log(JSON.stringify({clash: place(D.clash), clean: place(D.clean)}));"""
+    got = _run(["og", "view", "lit", "ld"], js, {"auto": AUTO, "clash": rows(1), "clean": rows(3)})
+    clash, clean = got.get("clash") or {}, got.get("clean") or {}
+    ids = clash.get("ids") or []
+    ctx.check(f"each key is one group, each with its own number, in start order after the largest, got {clash.get('ns')}",
+              clash.get("ns") == [["task:apply the discount", 1], ["task:review the basket diff", 2],
+                                  ["task:run the basket suite", 3], ["agent:d1", 4]])
+    ctx.check(f"main and four blocks, no id twice, got {ids}", len(ids) == 5 and len(set(ids)) == 5)
+    ctx.check(f"every block the view places is drawn (one placed box per id), got {clash.get('placed')}",
+              sorted(p[0] for p in clash.get("placed") or []) == sorted(ids))
+    ctx.check(f"the drawing equals the one without a collision (the first group right under main, no hole), got "
+              f"{clash.get('placed')} vs {clean.get('placed')}", clash.get("placed") == clean.get("placed") and clash.get("h") == clean.get("h"))
 
 
 if __name__ == "__main__":

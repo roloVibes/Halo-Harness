@@ -84,8 +84,9 @@ def test_every_driver_adds_and_reads_through_the_one_pair(ctx: Ctx):
     users = sorted(p.name for p in HELPERS.glob("*.py") if "collect_page_errors(c)" in p.read_text(encoding="utf-8"))
     want = sorted(["studio_session.py", "studio_controls.py", "studio_session_just_built.py", "studio_session_map_down.py",
                    "studio_session_map_down_draw.py", "studio_auto_groups_draw.py", "studio_session_run.py",
-                   "studio_session_step_in.py", "studio_session_truth.py", "studio_run_parts.py"])
-    ctx.check(f"the ten drivers that collected page errors call collect_page_errors(c), got {users}", users == want)
+                   "studio_session_step_in.py", "studio_session_truth.py", "studio_run_parts.py",
+                   "studio_auto_room.py"])  # r/batch04: Session's room on Auto and a helper's card
+    ctx.check(f"the eleven drivers that collect page errors call collect_page_errors(c), got {users}", users == want)
 
 
 if __name__ == "__main__":

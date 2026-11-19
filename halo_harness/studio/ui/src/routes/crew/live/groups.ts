@@ -143,7 +143,11 @@ export function placeGroups<R extends PlaceRow>(rows: R[]): Placed<R>[] {
     g.rows.push(r);
     found.set(p.key, g);
   }
-  let next = Math.max(0, ...[...found.values()].map((g) => g.n));
+  // r/batch04 entry 4: each key is one group; two keys arriving with one engine n (rows a real engine never writes) keep
+  // it for the first started, and the later one is numbered with the groups that carry none, so no two blocks share an id
+  const taken = new Set<number>();
+  for (const g of found.values()) if (g.n && taken.has(g.n)) g.n = 0; else if (g.n) taken.add(g.n);
+  let next = Math.max(0, ...taken);
   for (const g of found.values()) if (!g.n) g.n = ++next; // in order of first start: `order` is
   return [...found.values()];
 }
@@ -193,7 +197,8 @@ export function withGroups(nodes: LiveNode[], rec: WorkRecord, tiers: Tier[] = [
       if (d > 2) continue; // deeper than one level of nesting: a tree inside the outer box
       const spawns = members.map((m) => row.get(m.id)?.row.spawn);
       const first = [...members].sort((p, q) => since(row.get(p.id)?.row || {}) - since(row.get(q.id)?.row || {}))[0];
-      const gn = Number(spawns.find((s) => s?.group?.n)?.group?.n) || nOf?.get(first.id) || 0; // else the drawing's number
+      // main's groups: the drawing's number (placeGroups: the engine's, unless two keys arrived with one); else the engine's
+      const gn = (isMain && nOf?.get(first.id)) || Number(spawns.find((s) => s?.group?.n)?.group?.n) || 0;
       const g: GroupTag = { id: `t:${rec.id}|${st}`, kind: "task", parent: n.id, outer: outer?.id,
         title: isMain ? groupName(members.map((m) => row.get(m.id)?.row || {}), gn)
           : titleOf(spawns.map((s) => String(s?.description || "")), String(spawns[0]?.lead || "")),
