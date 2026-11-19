@@ -28,7 +28,10 @@ export type DrawBox = { id: string; kind: "agent" | "workflow"; name: string; na
   /** 3.6.0.0 R4: a helper the running session made up (dashed, beside the box that started it), its agent id */
   helper?: string;
   /** 3.6.0.2 R14: a saved workflow drawn as itself, every step a row; `under` = the box that called it when it is on no box */
-  block?: Block };
+  block?: Block;
+  /** 3.6.0.5 B8-B10: one of Auto's groups (litView.ts autoView), drawn in `--group-{colour}`; every drawing reads it before
+   *  `block` (whose `under` only places it as a full row under main) */
+  group?: { n: number; key: string; colour: 1 | 2 | 3 | 4; members: string[] } };
 /** 3.6.0.2 R17: `off` = a hand-off outside the map's lines */
 export type DrawLine = MapLine & { ghost?: boolean; helper?: boolean; off?: boolean };
 

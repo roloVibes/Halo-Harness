@@ -7,6 +7,7 @@ import type { Change } from "../types";
 import { firstLevel, type Overlay } from "./overlay";
 import type { DrawBox, DrawLine, MapDetail, MapFile, StepRow } from "./mapTypes";
 import type { MapView } from "./view";
+import type { AutoGroup } from "./overlayGroups";
 
 /** The file the lit map draws: the map itself, or (`bare`) main alone. */
 export function litFile(file: MapFile | null, bare: boolean): MapFile | null {
@@ -62,4 +63,30 @@ export function withLit(v: MapView, ov: Overlay | null): MapView {
     lines.push({ from: h.box, to: id, helper: true });
   }
   return { ...v, boxes, lines };
+}
+
+/** 3.6.0.5 B8-B10: the drawing of a session on Auto -- main, then one block per group in n order (a new one after the
+ *  last), each reached by one solid line from main; no strip. A group is placed by the existing layouts unedited: its
+ *  `block.under` makes it layoutDown's full row under main (Session), and in layout.ts it is a box of column 1 (Agents ->
+ *  Live); every drawing reads `group` before `block`. A map of his never comes here (withRun, as before). */
+export const groupId = (n: number) => `group:${n}`;
+export function autoView(v: MapView, groups: AutoGroup[]): MapView {
+  const main = v.boxes.filter((b) => b.main);
+  const from = main[0]?.id || "main";
+  const boxes: DrawBox[] = [...main];
+  const lines: DrawLine[] = [];
+  for (const g of [...groups].sort((a, b) => a.n - b.n)) {
+    const id = groupId(g.n), colour = ((((g.n - 1) % 4) + 4) % 4 + 1) as 1 | 2 | 3 | 4;
+    boxes.push({ id, kind: "agent", name: g.name, names: [g.name], block: { workflow: "", steps: [], under: from },
+                 group: { n: g.n, key: g.key, colour, members: g.members.map((m) => m.aid) } });
+    lines.push({ from, to: id });
+  }
+  return { boxes, strip: [], lines };
+}
+
+/** B9 B10: a group's inside at a block `width` (border-box: a 2 px border and 10 px padding each side): members two a row
+ *  when (inner - 8) / 2 is at least 160, else one a row at the inner width. */
+export function groupBox(width: number): { inner: number; per: 1 | 2; member: number } {
+  const inner = width - 24, half = (inner - 8) / 2;
+  return half >= 160 ? { inner, per: 2, member: half } : { inner, per: 1, member: inner };
 }

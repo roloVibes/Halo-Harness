@@ -5,7 +5,10 @@
 //   square  a square's agent (its row's `square`) and every agent under it: titled by the square's name, its DOES line
 //           under it, in the engine's lane colour
 //   task    the children of one parent started by one step of it (one reply's Agent calls: `spawn.step`), MIN_TASK or
-//           more: titled by the task (titleOf below); a square's agent among them is its own group inside this one
+//           more: titled by the task (titleOf below); a square's agent among them is its own group inside this one.
+//           3.6.0.5 B5: main's children whose rows carry `spawn.group` are grouped by its key instead (crew/groups.py),
+//           and every group of main's children is named by groupName, the one name Session, Live, the Timeline and
+//           Glance give it
 //   tier    an agent of an explicit lineup tier in no box above: the tier's faint group, titled by its purpose (else its
 //           name) -- today's faint lineup-card group, which stays for a lineup with no tiers
 //   alone   a single agent started alone is not boxed
@@ -17,6 +20,7 @@ import type { WorkRecord } from "../../../lib/work/record";
 import { shortModel } from "../../../lib/modelName";
 import type { LiveNode } from "./liveModel";
 import type { Tier } from "../models/types";
+import type { AgentRow } from "../../fleet/types";
 
 export const MIN_TASK = 2;
 export type GroupKind = "task" | "square" | "tier" | "run"; // 3.4.0.0 D: a goal run's lanes under its lead (runLanes.tsx)
@@ -65,6 +69,35 @@ export function whyOf(members: { role: string; name: string; model: string; reas
 }
 
 type Row = WorkRecord["agents"][number];
+/** What groupName reads of a member's registry row. */
+export type NameRow = { agent_id?: string; since?: number | null; spawn?: AgentRow["spawn"]; crew?: { workflow?: string } | null };
+
+const since = (r: NameRow): number => (typeof r.since === "number" && isFinite(r.since) ? r.since : Infinity);
+
+/** 3.6.0.5 B5: a group's one name. "workflow {W}" (its key `workflow:{W}#{run}`, the LAST "#" splits; rows with no group:
+ *  the first-registered member's `crew.workflow`); else the task main gave the member registered first (smallest
+ *  `since`, ties in input order), as written -- a later member's own words never name it; else titleOf over the
+ *  members' descriptions and the first one's lead (when one is given and titleOf finds words); else "Task {n}". */
+export function groupName(rows: NameRow[], n: number): string {
+  const order = rows.map((r, i) => ({ r, i })).sort((p, q) => since(p.r) - since(q.r) || p.i - q.i).map((p) => p.r);
+  const first = order[0];
+  const keys = rows.map((r) => String(r.spawn?.group?.key || "")).filter(Boolean);
+  const key = keys.find((k) => k.startsWith("workflow:"));
+  if (key) {
+    const cut = key.lastIndexOf("#");
+    return `workflow ${key.slice("workflow:".length, cut >= "workflow:".length ? cut : key.length)}`;
+  }
+  if (!keys.length && first?.crew?.workflow) return `workflow ${first.crew.workflow}`;
+  const task = String(first?.spawn?.task || "");
+  if (task.trim()) return task;
+  const descs = order.map((r) => String(r.spawn?.description || ""));
+  const lead = String(first?.spawn?.lead || "");
+  if (descs.some((d) => d.trim()) || lead.trim()) {
+    const t = titleOf(descs, lead);
+    if (t !== `${descs.length} agents`) return t;
+  }
+  return `Task ${n}`;
+}
 
 /** The nodes of one session's record, each with the box it is drawn in (`group`); `tiers`: the open lineup's. */
 export function withGroups(nodes: LiveNode[], rec: WorkRecord, tiers: Tier[] = []): LiveNode[] {
@@ -95,17 +128,24 @@ export function withGroups(nodes: LiveNode[], rec: WorkRecord, tiers: Tier[] = [
     }
     const list = (kids.get(n.id) || []).filter((k) => !k.virtual);
     const steps = new Map<string, LiveNode[]>();
+    const isMain = !n.parent; // B5: main's children group by their `spawn.group` key when their rows carry one
     for (const k of list) {
-      const st = row.get(k.id)?.row.spawn?.step;
+      const spawn = row.get(k.id)?.row.spawn;
+      const st = (isMain && spawn?.group?.key) || spawn?.step;
       if (st) steps.set(st, [...(steps.get(st) || []), k]);
     }
+    const rank = [...steps.keys()]; // a group with no engine n: its rank in start order
+    const startOf = (ms: LiveNode[]) => Math.min(...ms.map((m) => since(row.get(m.id)?.row || {})));
+    rank.sort((a, b) => startOf(steps.get(a)!) - startOf(steps.get(b)!));
     for (const [st, members] of steps) {
       if (members.length < MIN_TASK) continue;
       const outer = tag.get(n.id), d = (depth.get(n.id) || 0) + 1;
       if (d > 2) continue; // deeper than one level of nesting: a tree inside the outer box
       const spawns = members.map((m) => row.get(m.id)?.row.spawn);
+      const gn = Number(spawns.find((s) => s?.group?.n)?.group?.n) || rank.indexOf(st) + 1;
       const g: GroupTag = { id: `t:${rec.id}|${st}`, kind: "task", parent: n.id, outer: outer?.id,
-        title: titleOf(spawns.map((s) => String(s?.description || "")), String(spawns[0]?.lead || "")),
+        title: isMain ? groupName(members.map((m) => row.get(m.id)?.row || {}), gn)
+          : titleOf(spawns.map((s) => String(s?.description || "")), String(spawns[0]?.lead || "")),
         why: whyOf(members.map((m) => ({ role: m.role, name: m.name, model: m.model, reason: row.get(m.id)?.reason || "" }))) };
       for (const m of members) put(m.id, g, d);
     }

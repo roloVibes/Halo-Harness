@@ -4,7 +4,8 @@
                   enabled, no problem), packs in run order, palettes in manifest order
     json_rows()   the same for `GET settings/themes`: each with `pack`, `pack_name`, its tokens, its -daltonized
                   tokens and the CSS variables Studio draws it (and its -daltonized variant) in; its group colours
-                  are the default palette's four, plain and daltonized (3.6.0.5 F11)
+                  are the four of the shipped palette of its own kind, plain and daltonized (3.6.0.5 F11 refined:
+                  studio_css.group_palette, a light one the light palette's, a dark one the default's)
 
 A palette is `{id: "<pack-id>/<id>", local_id, pack, pack_name, label, posture, tokens}`. No watcher and no import-time
 read: the answer is cached on the packs registry's own snapshot, which is cached on what it depends on (each pack.yaml,
@@ -62,6 +63,6 @@ def json_rows() -> "list[dict]":
         dal = registry.daltonize(p["tokens"], p["posture"])
         out.append({"id": name, "label": p["label"], "posture": p["posture"], "tokens": dict(p["tokens"]),
                     "daltonized": dal, "pack": p["pack"], "pack_name": p.get("pack_name") or p["pack"],
-                    "local_id": p["local_id"], "vars": dict(studio_vars(p["tokens"], p["posture"])),
-                    "daltonized_vars": dict(studio_vars(dal, p["posture"], daltonized=True))})
+                    "local_id": p["local_id"], "vars": dict(studio_vars(p["tokens"], p["posture"], palette=name)),
+                    "daltonized_vars": dict(studio_vars(dal, p["posture"], palette=name, daltonized=True))})
     return out

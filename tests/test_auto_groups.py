@@ -518,10 +518,27 @@ def test_group_frames_leave_in_n_order(ctx: Ctx):
     import threading
     from types import SimpleNamespace
     from halo_harness.agent import agent_hooks
-    bad, stuck = [], []
+    bad, stuck, unlocked = [], [], []
     for rnd in range(200):
         main, tree, frames = _tree()
         gate = threading.Barrier(2)
+        # the rule this pins (decisions round 3, J2 M5): `tree.add` stays inside groups.py's `with tree.lock:`, so a
+        # group's first frame leaves while the publishing thread holds the tree's lock (an RLock: `_is_owned`)
+        owned = getattr(tree.lock, "_is_owned", None)
+        if owned is None:
+            ctx.check(f"the tree's lock can say who holds it (an RLock), got {type(tree.lock)!r}", False)
+            return
+        seen: set = set()
+
+        def held(kind, aid, data, rnd=rnd, seen=seen, owned=owned) -> None:
+            key = ((data or {}).get("spawn") or {}).get("group", {}) if kind == "agent_state" else None
+            key = (key or {}).get("key") if isinstance(key, dict) else None
+            if key and key not in seen:
+                seen.add(key)
+                if not owned():
+                    unlocked.append((rnd, aid))
+
+        tree.add_listener(held)
 
         def go(key: str) -> None:
             gate.wait(10)
@@ -543,6 +560,8 @@ def test_group_frames_leave_in_n_order(ctx: Ctx):
             bad.append((rnd, ns))
     ctx.check(f"all threads joined within 10 s in every round (no deadlock), stuck in rounds {stuck}", not stuck)
     ctx.check(f"in every round of 200 the first frame with n=1 left before the first with n=2, bad {bad[:5]}", not bad)
+    ctx.check(f"every group's first frame left while its thread held the tree's lock, not so in {unlocked[:5]}",
+              not unlocked)
 
 
 @test

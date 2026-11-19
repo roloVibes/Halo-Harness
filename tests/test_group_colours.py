@@ -241,11 +241,16 @@ def test_studio_vars_end_with_the_palettes_four(ctx: Ctx):
 
 
 @test
-def test_pack_palette_takes_default_group_colours(ctx: Ctx):
+def test_pack_palette_takes_its_kinds_group_colours(ctx: Ctx):
+    """3.6.0.5 F11 refined (rewritten to the truth from test_pack_palette_takes_default_group_colours): a pack's palette
+    takes the four of the shipped palette of its own kind -- the dark nightshade DEFAULT's, the light linen the light
+    palette's (FOLLOW_LIGHT, the light `auto` rule's) -- through ONE rule (studio_css.group_palette), and each of its eight
+    reads at least BORDER to 1 on its own surface."""
     from halo_harness.packs import manifest_themes as MT
     from halo_harness.packs.discover import read_pack
     from halo_harness.themes import packs, registry
-    from halo_harness.themes.palettes import DEFAULT
+    from halo_harness.themes.palettes import DEFAULT, FOLLOW_LIGHT
+    from halo_harness.themes.studio_css import as_dict, group_palette
     from tests.helpers.packs_home import fixture
     table = __import__("halo_harness.themes.palettes", fromlist=["x"]).__dict__.get("GROUP_COLOURS")
     ctx.check("GROUP_COLOURS exists", isinstance(table, dict))
@@ -260,11 +265,32 @@ def test_pack_palette_takes_default_group_colours(ctx: Ctx):
         registry.packs = saved
     ctx.check(f"two pack rows, a dark and a light one, got {[(r['id'], r['posture']) for r in rows]}",
               [r["posture"] for r in rows] == ["dark", "light"])
+    kind = {"dark": DEFAULT, "light": FOLLOW_LIGHT}
     for r in rows:
-        ctx.check(f"{r['id']}: vars hold the default palette's plain four",
-                  [r["vars"].get(g) for g in GROUPS] == list(table[DEFAULT]["plain"]))
-        ctx.check(f"{r['id']}: daltonized_vars hold the default palette's daltonized four",
-                  [r["daltonized_vars"].get(g) for g in GROUPS] == list(table[DEFAULT]["daltonized"]))
+        want = kind[r["posture"]]
+        ctx.check(f"{r['id']} ({r['posture']}): vars hold {want}'s plain four",
+                  [r["vars"].get(g) for g in GROUPS] == list(table[want]["plain"]))
+        ctx.check(f"{r['id']} ({r['posture']}): daltonized_vars hold {want}'s daltonized four",
+                  [r["daltonized_vars"].get(g) for g in GROUPS] == list(table[want]["daltonized"]))
+        for which in ("vars", "daltonized_vars"):
+            low = [(g, r[which].get(g), round(contrast(r[which].get(g, "#000000"), r["tokens"]["surface"]), 2))
+                   for g in GROUPS if contrast(r[which].get(g, "#000000"), r["tokens"]["surface"]) < BORDER]
+            ctx.check(f"{r['id']}: every {which} group colour reads at least {BORDER}:1 on its surface "
+                      f"{r['tokens']['surface']}, low {low}", not low)
+    # the first paint (theme_boot.pack_rule -> as_dict) takes the same four, by the same one rule
+    try:
+        registry.packs = lambda: {p["id"]: {**p, "pack_name": "Pack themes"} for p in pals}
+        for p in pals:
+            want = kind[p["posture"]]
+            got = as_dict(p["id"])
+            ctx.check(f"{p['id']}: the first paint's four are {want}'s plain four",
+                      [got.get(g) for g in GROUPS] == list(table[want]["plain"]))
+    finally:
+        registry.packs = saved
+    ctx.check("one rule: a shipped id keeps its own row; an unknown one goes by posture, else by its surface",
+              group_palette(FOLLOW_LIGHT, "dark") == FOLLOW_LIGHT and group_palette("x/y", "light") == FOLLOW_LIGHT
+              and group_palette("x/y", "dark") == DEFAULT and group_palette("x/y", "", "#fffdf9") == FOLLOW_LIGHT
+              and group_palette("x/y", "", "#171325") == DEFAULT and group_palette("x/y") == DEFAULT)
 
 
 if __name__ == "__main__":

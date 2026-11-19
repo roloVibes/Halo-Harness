@@ -3,7 +3,8 @@ here in R2 so the server can run it; 3.3.15.0 L1: the Instrument look's rule).
 
     studio_vars(tokens, posture, palette=DEFAULT, daltonized=False)  [(variable, value)] -- every colour variable of
                                   styles/tokens.css, in one order, the palette's four group colours last
-    group_vars(palette, daltonized)  `--group-1..4` (3.6.0.5 B21; a pack's palette takes the default palette's four)
+    group_vars(palette, daltonized, posture, surface)  `--group-1..4` (3.6.0.5 B21; a pack's palette: group_palette)
+    group_palette(palette, posture, surface)  the GROUP_COLOURS row a palette takes (a pack's: the shipped one of its kind)
     accent_vars(tokens, posture)  the ones that follow the accent and status pair (a -daltonized rule restates these)
     as_dict(name)                 {variable: value} for a theme name of the registry (its modifier applied), {} if unknown
 
@@ -22,7 +23,7 @@ soft fills are 6-8 % on a dark page. `--user` and `--tool` (YOU and TOOL in Live
 
 from __future__ import annotations
 
-from halo_harness.themes.palettes import DEFAULT, GROUP_COLOURS
+from halo_harness.themes.palettes import DEFAULT, FOLLOW_LIGHT, GROUP_COLOURS
 
 # The posture's rule for every variable Studio derives: the alpha of each soft fill, the scrim (the ring, the shadow and
 # the lines are inline below, as the glows were before).
@@ -55,16 +56,29 @@ def accent_vars(t: dict, posture: str) -> list:
             ("--user", t["user"]), ("--tool", t["tool"])]
 
 
-def group_vars(palette: str = DEFAULT, daltonized: bool = False) -> list:
-    """3.6.0.5 B21: `--group-1..4` of a palette (plain or daltonized) from palettes.GROUP_COLOURS; a palette id it does
-    not hold (a pack's) takes the default palette's four."""
-    row = GROUP_COLOURS.get(palette) or GROUP_COLOURS[DEFAULT]
+def group_palette(palette: str, posture: str = "", surface: str = "") -> str:
+    """3.6.0.5 F11 refined: the row of GROUP_COLOURS a palette draws its four group colours from, the ONE rule. A shipped
+    palette: its own. A palette the table does not hold (a pack's) takes the shipped palette of its own kind: a light one
+    the light palette the light `auto` rule uses (FOLLOW_LIGHT), a dark one DEFAULT's. Light or dark is its posture; one
+    that declares none is light when its surface's relative luminance is over 0.5."""
+    if palette in GROUP_COLOURS:
+        return palette
+    if posture not in ("dark", "light"):
+        from halo_harness.themes.registry import luminance
+        posture = "light" if surface and luminance(surface) > 0.5 else "dark"
+    return FOLLOW_LIGHT if posture == "light" else DEFAULT
+
+
+def group_vars(palette: str = DEFAULT, daltonized: bool = False, posture: str = "", surface: str = "") -> list:
+    """3.6.0.5 B21: `--group-1..4` of a palette (plain or daltonized) from palettes.GROUP_COLOURS, the row
+    `group_palette` picks (a pack's palette: the shipped palette of its own kind)."""
+    row = GROUP_COLOURS[group_palette(palette, posture, surface)]
     return [(f"--group-{i}", c) for i, c in enumerate(row["daltonized" if daltonized else "plain"], 1)]
 
 
 def studio_vars(t: dict, posture: str, palette: str = DEFAULT, daltonized: bool = False) -> list:
     """Every colour variable of styles/tokens.css for a palette's tokens, in one order (the group four last: `palette`
-    names the row of GROUP_COLOURS, the default palette's when unknown)."""
+    names the row of GROUP_COLOURS; an id it does not hold takes the one `group_palette` picks by posture)."""
     dark = posture == "dark"
     out = [("color-scheme", posture), ("--bg", t["bg"]), ("--bg-2", t["bg2"]), ("--surface", t["surface"]),
            ("--surface-2", t["surface2"]), ("--surface-glass", t["surface"]), ("--border", t["border"]),
@@ -75,7 +89,7 @@ def studio_vars(t: dict, posture: str, palette: str = DEFAULT, daltonized: bool 
     out += [("--text", t["text"]), ("--muted", t["muted"]), ("--faint", t["faint"]),
             ("--shadow-1", "0 16px 40px rgba(0, 0, 0, 0.7)" if dark else f"0 16px 40px {rgba(t['text'], '0.18')}"),
             ("--scrim", SCRIM_DARK if dark else rgba(t["text"], "0.30")), ("--bracket-alpha", "1")]
-    return out + group_vars(palette, daltonized)
+    return out + group_vars(palette, daltonized, posture, t.get("surface", ""))
 
 
 def as_dict(name) -> dict:

@@ -23,6 +23,12 @@ WORD = re.compile(r"\bLive\b")
 OWN = {"routes/agents/LiveView.tsx", "routes/crew/map/truth.ts", "routes/crew/map/truthWords.ts"}
 # (ii) a link to the view
 LINKS = ("Agents -> Live", "Agents Live", "4 · Live")
+# (iv) 3.6.0.5 b (the coordinator's ruling): two ruled phrases of M1 that ARE the Live view. Each phrase is allowed, not
+#      its file: a string that still says Live once the phrase is taken out is a hit.
+PHRASES = (
+    "Live draws each task as a named group",  # says what the Live view (Agents -> 4 · Live) draws on Auto
+    "Watch it in Live",  # the button that lands on Agents -> 4 · Live
+)
 # (iii) files of another package left to the coordinator, with the reason (expected empty)
 OTHERS: dict[str, str] = {}
 STOP = set("<>{}();=")
@@ -128,7 +134,14 @@ def _visible_live(rel: str, text: str) -> list[str]:
     strings, code = _segments(text)
     found = [(ln, s) for ln, s in strings if WORD.search(s) and not s.lstrip().startswith(("./", "../"))]
     found += _jsx_text_hits(code)
-    return [f"{rel}:{ln}: {s[:140]}" for ln, s in found if not any(k in s for k in LINKS)]
+    return [f"{rel}:{ln}: {s[:140]}" for ln, s in found
+            if not any(k in s for k in LINKS) and WORD.search(_unphrased(s))]
+
+
+def _unphrased(s: str) -> str:
+    for k in PHRASES:
+        s = s.replace(k, "")
+    return s
 
 
 def _between(text: str, start: str, end: str) -> str:
@@ -236,6 +249,16 @@ def test_the_scanner_sees_what_a_person_reads(ctx: Ctx):
     lines = sorted(int(h.split(":")[1]) for h in got)
     ctx.check(f"a title, a template, two JSX texts found; comments, names and the link not, got {got}",
               lines == [3, 4, 6, 10])
+    # the two ruled phrases are allowed as phrases, never as a file: another Live beside them is still found
+    words = "\n".join([
+        'export const WATCH = "Watch it in Live";',
+        "const m = `Main picks, and Live draws each task as a named group. Main can hand work to: ${l}.`;",
+        'const n = "Watch it in Live, or open Live";',
+        'const o = "Live draws each task";',
+    ])
+    got = _visible_live("routes/crew/map/autoWords.ts", words)
+    lines = sorted(int(h.split(":")[1]) for h in got)
+    ctx.check(f"the two ruled phrases pass, a made-up Live beside or apart from them is found, got {got}", lines == [3, 4])
 
 
 if __name__ == "__main__":

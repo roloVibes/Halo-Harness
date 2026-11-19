@@ -30,8 +30,10 @@ export type AgentRow = {
   tokens_out?: number | null;
   /** 3.3.16.0 R3: a square's agent or node (workflows/receipts.py): its name and engine. */
   square?: { name: string; engine: string; does?: string } | null;
-  /** 3.3.16.3: the parent's step that started it (agent_hooks.spawn_of): Live boxes the agents of one step. */
-  spawn?: { step: string; description?: string; lead?: string } | null;
+  /** 3.3.16.3: the parent's step that started it (agent_hooks.spawn_of): Live boxes the agents of one step. 3.6.0.5 B3 B6:
+   *  `task` the words main gave it ("" when none), `group` the group it is in (crew/groups.py; no name: groupName). */
+  spawn?: { step: string; description?: string; lead?: string; task?: string;
+            group?: { key: string; n: number; by: "workflow" | "task" | "reply" } | null } | null;
   /** 3.6.0.0 R4: the map box it runs for (crew/map_events.py tag); `made_up`: a helper main made up, under `box`.
    *  3.6.0.2 R13: the agent it runs, `saved` (a saved agent), a workflow step's `workflow` and `step` (under its caller's box). */
   crew?: { map?: string; box?: string; line?: string; agent?: string; saved?: boolean; workflow?: string; step?: number; made_up?: boolean } | null;
