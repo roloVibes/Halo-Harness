@@ -6,7 +6,8 @@
    and every request body main sent is byte-equal to tests/fixtures/map_facts_plain_requests.json once the volatile
    parts are normalised (the scratch home and folder, today's date, the OS line). The map's frames, row tags, hops and
    the facts note never reach what a plain session sends: if a later change makes this red, the change is wrong. The
-   fixture is never edited (as tests/test_crew_compile.py's RECORDED_* are never edited).
+   fixture was re-recorded once in 3.6.0.5, for the Agent and Task tools' `task`, and
+   tests/test_auto_groups.py::test_r38_fixture_differs_only_by_task proves that is the only difference.
 
 The tools are `default_tools(platform="linux")` so the one fixture holds on Windows, macOS and Linux (PowerShell is
 win32-only). Mock upstream, a fake spawn for the steps' agents; no real model. Record (only on the base):

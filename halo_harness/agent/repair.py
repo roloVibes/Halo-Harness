@@ -312,6 +312,16 @@ class RepairOutcome:
     error_kind: Optional[str] = None
 
 
+def check_schema(name: str, schema: Optional[dict]) -> Optional[dict]:
+    """3.6.0.5 B23: the schema a call is CHECKED against. The Agent and Task tools ask main for `task` (it is in their
+    `required` as main sees it), but a call that leaves it out still runs as on 3.6.0.4: for those two names only, a
+    shallow copy whose `required` lacks "task"; every other name (or a schema without it) comes back unchanged. The ONE
+    place that drops `task`: `repair_tool_use_block` and the loop's local repair round both call it."""
+    if name in ("Agent", "Task") and isinstance(schema, dict) and "task" in (schema.get("required") or []):
+        return {**schema, "required": [r for r in schema["required"] if r != "task"]}
+    return schema
+
+
 def repair_tool_use_block(block: dict, registry, known_names: Optional[list] = None, *, catalog=None) -> RepairOutcome:
     """Resolve `block["name"]` against the registry and validate/coerce its
     `input` against that tool's schema. `known_names` lets a caller pass a
@@ -339,7 +349,7 @@ def repair_tool_use_block(block: dict, registry, known_names: Optional[list] = N
 
     repaired_name = resolved != name
     tool = registry.get(resolved)
-    schema = tool.input_schema if tool is not None else None
+    schema = check_schema(resolved, tool.input_schema) if tool is not None else None
     coerced, errors = validate_and_coerce(block.get("input") or {}, schema or {})
     original_name = name if repaired_name else None
     if errors:

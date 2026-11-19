@@ -856,7 +856,7 @@ def test_starter_absent_from_docs_and_shipped_comments(ctx: Ctx):
 # --- batch 6 entry 2 (A9, A10, A16): the scans that keep "starter" away from him -------------------------------------
 
 LINEUP = "The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose yourself."
-PLAIN_FIXTURE_SHA = "289547bec4e6b518aec8c25b8bf21d0e8ad82ad4fcb27ea99588c9971d854d2c"  # map_facts_plain_requests.json at 3.6.0.4
+PLAIN_FIXTURE_SHA = "289547bec4e6b518aec8c25b8bf21d0e8ad82ad4fcb27ea99588c9971d854d2c"  # map_facts_plain_requests_3604.json
 
 
 def _said(fn, *a) -> str:
@@ -1002,8 +1002,10 @@ def test_starter_absent_from_api_answers(ctx: Ctx):
 @test
 def test_start_words_say_auto_never_starter(ctx: Ctx):
     """A16, A10: what main is told at the start of a session on Auto (system text, tool descriptions, messages) holds
-    the Agent tool's "The lineup is auto: ..." letter for letter and no "starter"; the recorded plain-session requests
-    are byte for byte those of 3.6.0.4."""
+    the Agent tool's "The lineup is auto: ..." letter for letter and no "starter"; 3.6.0.4's recorded plain-session
+    requests are kept byte for byte (map_facts_plain_requests_3604.json: the main fixture was re-recorded once in
+    3.6.0.5 for `task`, and tests/test_auto_groups.py::test_r38_fixture_differs_only_by_task proves that is the only
+    difference)."""
     import hashlib
     from tests import test_map_facts as MF
     got, facts = MF.plain_requests()
@@ -1011,8 +1013,10 @@ def test_start_words_say_auto_never_starter(ctx: Ctx):
     ctx.check("the first request holds the lineup sentence letter for letter", LINEUP in got[0])
     bad = [i for i, b in enumerate(got) if "starter" in b.lower()]
     ctx.check(f"no request main sent says starter, got requests {bad}", not bad)
+    kept = MF.FIXTURE.with_name("map_facts_plain_requests_3604.json").read_bytes()
+    ctx.check("3.6.0.4's plain-request recording is kept byte for byte",
+              hashlib.sha256(kept).hexdigest() == PLAIN_FIXTURE_SHA)
     raw = MF.FIXTURE.read_bytes()
-    ctx.check("the plain-request fixture is byte for byte unchanged", hashlib.sha256(raw).hexdigest() == PLAIN_FIXTURE_SHA)
     ctx.check("the fixture holds the lineup sentence and no starter",
               LINEUP in raw.decode("utf-8") and b"starter" not in raw.lower())
 

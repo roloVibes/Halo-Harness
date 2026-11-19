@@ -61,12 +61,19 @@ _BASE_SCHEMA_PROPERTIES = {
                    "prompt": {"type": "string"}, "role": {"type": "string"}, "model": {"type": "string"},
                    "effort": {"type": "string"}, "description": {"type": "string"},
                }, "required": ["prompt"]}},
+    # 3.6.0.5 B23: the piece of work this agent is part of; Studio draws each one as a named group on Auto. Required
+    # as main sees it; agent/repair.py check_schema drops it for the check, so a call without it still runs.
+    "task": {"type": "string", "description": "Required: the piece of work this agent is part of, in 2 to 6 words, "
+                                              "at most 60 characters (\"fix the login bug\"). Agents that work on the "
+                                              "same piece of work get the same words, also in later replies; a new "
+                                              "piece of work gets new words. Studio draws each piece of work as one "
+                                              "named group."},
 }
 # `prompt` is required for a single spawn or `count`, but NOT for `batch`
 # (each item supplies its own) -- enforced in `run()` below instead of
 # here, so a strict provider's own schema validation never rejects a
 # valid batch call for lacking a top-level prompt.
-INPUT_SCHEMA = {"type": "object", "properties": dict(_BASE_SCHEMA_PROPERTIES), "required": ["description"]}
+INPUT_SCHEMA = {"type": "object", "properties": dict(_BASE_SCHEMA_PROPERTIES), "required": ["description", "task"]}
 
 
 class AgentTool(Tool):

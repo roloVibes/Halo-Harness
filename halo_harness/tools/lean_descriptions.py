@@ -20,7 +20,8 @@ _AGENT_PARAMS = {"description": "3-5 words", "prompt": "the whole task", "subage
                  "model": "model ref to run it on", "role": "a lineup role whose model it runs on",
                  "effort": "reasoning effort", "run_in_background": "do not wait for it",
                  "task_id": "resume this earlier sub-agent", "count": "run N copies of prompt",
-                 "batch": "one agent per item"}
+                 "batch": "one agent per item",
+                 "task": "2-6 words naming the piece of work; the same words join one group"}
 _SHELL_TAIL = "Timeout 120000 ms by default, `timeout` up to 600000."
 
 LEAN = {

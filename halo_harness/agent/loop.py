@@ -6333,8 +6333,8 @@ class Session:
         if not isinstance(parsed, dict):
             self._repair_error = "the reply was JSON but not an object"
             return None
-        from halo_harness.agent.repair import validate_and_coerce
-        coerced, errors = validate_and_coerce(parsed, schema)
+        from halo_harness.agent.repair import check_schema, validate_and_coerce
+        coerced, errors = validate_and_coerce(parsed, check_schema(tool_name, schema))
         if errors:
             self._repair_error = "; ".join(str(x) for x in errors)[:300]
         return None if errors else coerced
