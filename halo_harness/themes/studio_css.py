@@ -1,7 +1,9 @@
 """halo_harness.themes.studio_css -- the CSS variables Studio draws a palette in (Halo 3.3.12.0; R1's rule, moved
 here in R2 so the server can run it; 3.3.15.0 L1: the Instrument look's rule).
 
-    studio_vars(tokens, posture)  [(variable, value)] -- every colour variable of styles/tokens.css, in one order
+    studio_vars(tokens, posture, palette=DEFAULT, daltonized=False)  [(variable, value)] -- every colour variable of
+                                  styles/tokens.css, in one order, the palette's four group colours last
+    group_vars(palette, daltonized)  `--group-1..4` (3.6.0.5 B21; a pack's palette takes the default palette's four)
     accent_vars(tokens, posture)  the ones that follow the accent and status pair (a -daltonized rule restates these)
     as_dict(name)                 {variable: value} for a theme name of the registry (its modifier applied), {} if unknown
 
@@ -19,6 +21,8 @@ soft fills are 6-8 % on a dark page. `--user` and `--tool` (YOU and TOOL in Live
 """
 
 from __future__ import annotations
+
+from halo_harness.themes.palettes import DEFAULT, GROUP_COLOURS
 
 # The posture's rule for every variable Studio derives: the alpha of each soft fill, the scrim (the ring, the shadow and
 # the lines are inline below, as the glows were before).
@@ -51,8 +55,16 @@ def accent_vars(t: dict, posture: str) -> list:
             ("--user", t["user"]), ("--tool", t["tool"])]
 
 
-def studio_vars(t: dict, posture: str) -> list:
-    """Every colour variable of styles/tokens.css for a palette's tokens, in one order."""
+def group_vars(palette: str = DEFAULT, daltonized: bool = False) -> list:
+    """3.6.0.5 B21: `--group-1..4` of a palette (plain or daltonized) from palettes.GROUP_COLOURS; a palette id it does
+    not hold (a pack's) takes the default palette's four."""
+    row = GROUP_COLOURS.get(palette) or GROUP_COLOURS[DEFAULT]
+    return [(f"--group-{i}", c) for i, c in enumerate(row["daltonized" if daltonized else "plain"], 1)]
+
+
+def studio_vars(t: dict, posture: str, palette: str = DEFAULT, daltonized: bool = False) -> list:
+    """Every colour variable of styles/tokens.css for a palette's tokens, in one order (the group four last: `palette`
+    names the row of GROUP_COLOURS, the default palette's when unknown)."""
     dark = posture == "dark"
     out = [("color-scheme", posture), ("--bg", t["bg"]), ("--bg-2", t["bg2"]), ("--surface", t["surface"]),
            ("--surface-2", t["surface2"]), ("--surface-glass", t["surface"]), ("--border", t["border"]),
@@ -63,7 +75,7 @@ def studio_vars(t: dict, posture: str) -> list:
     out += [("--text", t["text"]), ("--muted", t["muted"]), ("--faint", t["faint"]),
             ("--shadow-1", "0 16px 40px rgba(0, 0, 0, 0.7)" if dark else f"0 16px 40px {rgba(t['text'], '0.18')}"),
             ("--scrim", SCRIM_DARK if dark else rgba(t["text"], "0.30")), ("--bracket-alpha", "1")]
-    return out
+    return out + group_vars(palette, daltonized)
 
 
 def as_dict(name) -> dict:
@@ -74,4 +86,4 @@ def as_dict(name) -> dict:
     if not base:
         return {}
     t = registry.tokens(base if mod == "ansi" else name) or {}
-    return dict(studio_vars(t, registry.posture(base))) if t else {}
+    return dict(studio_vars(t, registry.posture(base), base, mod == "daltonized")) if t else {}

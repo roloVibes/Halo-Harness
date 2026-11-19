@@ -105,3 +105,26 @@ ANSI = {
 # `-daltonized`: a deuteranopia-safe pair, blue and orange (the Okabe-Ito hues), never red against green. The
 # registry moves each hue's lightness per palette until it reads on that palette's backgrounds.
 DALTONIZED_HUES = {"blue": "#56b4e9", "orange": "#e69f00", "vermillion": "#d55e00"}
+
+# 3.6.0.5 B7, B21: the four colours of Auto's groups (`--group-1..4`; group 5 takes colour 1), a table of their own and
+# not tokens, so TOKEN_NAMES and a pack theme's required list stay as they are. Plain: violet, pink, blue, sand (lighter
+# on a dark page, deeper on a light one); daltonized: the Okabe-Ito hues other than the blue and orange pair. Each is
+# never read as a state and reads 3:1 on the surface (tests/test_group_colours.py decides); a pack palette takes
+# DEFAULT's four (themes/packs.py).
+def _g(plain: str, daltonized: str) -> dict:
+    return {"plain": tuple(plain.split()), "daltonized": tuple(daltonized.split())}
+
+
+GROUP_COLOURS = {
+    "claude-dark": _g("#bc9efd #fa46c4 #1680f9 #baa47e", "#d277a9 #40bf9d #faed3e #fbb176"),
+    "claude-light": _g("#6a42c0 #cb0582 #1c4c82 #7e6944", "#c2478b #04a176 #0696e7 #9b9211"),
+    "holo": _g("#a386fc #bf4099 #6ea6fb #d2c097", "#fc7ec4 #8efcde #fdf7a5 #e2c1a8"),
+    "instrument": _g("#c6bae8 #eeadc0 #6ea6fb #d2c097", "#d277a9 #8fdac6 #eade3e #dcb495"),
+    "paper": _g("#6e47c2 #ac397a #107df9 #625835", "#c2478b #04a176 #0696e7 #9b9211"),
+    "midnight": _g("#b59efd #fa36b2 #86dcfc #dac7a8", "#d277a9 #40bf9d #fdf7a5 #fb9f56"),
+    "ember": _g("#b59efd #f38fc7 #6ea6fb #dac7a8", "#d277a9 #40bf9d #fdf7a5 #fa9a4e"),
+    "forest": _g("#b59efd #f38fc7 #6ea6fb #e3dbbf", "#d277a9 #40bf9d #e8e5ba #eea063"),
+    "slate": _g("#773fbc #ac397a #107df9 #594730", "#c2478b #04a176 #0696e7 #9b9211"),
+    "dusk": _g("#a058c7 #f916b5 #6ea6fb #c5b394", "#f079bb #0ef9b9 #bad8e8 #fb9f56"),
+    "dawn": _g("#6e47c2 #f909b1 #2761b7 #837546", "#c2478b #119b76 #776f03 #c27d47"),
+}

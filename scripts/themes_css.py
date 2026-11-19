@@ -5,7 +5,8 @@
     python scripts/themes_css.py --check   exit 1 when the block differs from what the registry renders
 
 One `:root[data-theme="<name>"]` rule per palette (the palette's own id and its `-ansi` name: a browser always
-draws full colour), one override rule per `-daltonized` name (only the variables it changes), and "follow the
+draws full colour), one override rule per `-daltonized` name (only the variables it changes, then the palette's
+daltonized four group colours, 3.6.0.5 B21), and "follow the
 system" (`data-theme="auto"`, a saved choice since 3.3.15.0 R4): palettes.FOLLOW_DARK (`instrument`), or paper inside
 `@media (prefers-color-scheme: light)`. `:root` alone is Halo's default (palettes.DEFAULT, `instrument`) on any
 system, so a page with no attribute draws it. Studio's derived variables (the surfaces, the lines, the ring, the soft fills, the shadow, the
@@ -29,7 +30,7 @@ WIDTH = 118
 
 # The posture's rule and the derivation live in halo_harness/themes/studio_css.py (3.3.12.0 R2: the server runs it
 # for a pack's palette at run time); re-exported here so this script renders exactly what it did.
-from halo_harness.themes.studio_css import SCRIM_DARK, SOFT, accent_vars, rgba, studio_vars  # noqa: E402,F401
+from halo_harness.themes.studio_css import SCRIM_DARK, SOFT, accent_vars, group_vars, rgba, studio_vars  # noqa: E402,F401
 
 
 def rule(selectors: list, decls: list, indent: str = "") -> list:
@@ -60,13 +61,13 @@ def render() -> str:
             sels = [":root"] + sels
         if p["id"] == FOLLOW_DARK:
             sels = sels + [_sel("auto")]
-        out += rule(sels, studio_vars(p["tokens"], p["posture"]))
+        out += rule(sels, studio_vars(p["tokens"], p["posture"], palette=p["id"]))
     for p in PALETTES:
         base = dict(accent_vars(p["tokens"], p["posture"]))
         changed = [(k, v) for k, v in accent_vars(daltonize(p["tokens"], p["posture"]), p["posture"]) if base.get(k) != v]
-        out += rule([_sel(p["id"] + "-daltonized")], changed)
+        out += rule([_sel(p["id"] + "-daltonized")], changed + group_vars(p["id"], daltonized=True))
     light = next(p for p in PALETTES if p["id"] == FOLLOW_LIGHT)
-    out += ["@media (prefers-color-scheme: light) {"] + rule([_sel("auto")], studio_vars(light["tokens"], "light"), "  ") + ["}"]
+    out += ["@media (prefers-color-scheme: light) {"] + rule([_sel("auto")], studio_vars(light["tokens"], "light", palette=FOLLOW_LIGHT), "  ") + ["}"]
     return "\n".join(out + [END])
 
 
