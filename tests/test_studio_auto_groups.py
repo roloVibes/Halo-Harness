@@ -379,13 +379,16 @@ def test_the_auto_drawing_uses_the_whole_room(ctx: Ctx):
 
 @test
 def test_a_helpers_card_stays_inside_the_drawer(ctx: Ctx):
-    """r/batch04 entry 2: at 1280 x 800 and 1440 x 900, on Auto, a click on a helper of group 1 opens its card inside the
-    drawer's content box; its Send button is in view, or a scroll INSIDE the card brings it into view."""
+    """r/batch04 entry 2: at 1280 x 800, 1440 x 900 and a short 1280 x 500, on Auto, a click on a helper of group 1 opens
+    its card inside the drawer's content box (its height the smaller of its own 264 px and the room); its Send button is
+    in view, or a scroll INSIDE the card brings it into view."""
     got = _room(ctx, "card")
-    for size in SIZES:
+    for size in (*SIZES, "1280x500"):
         at = got.get(size) or {}
         o, s = at.get("open") or {}, at.get("scrolled") or {}
         ctx.check(f"{size}: the helper's card opened, got {o.get('title')!r}", o.get("title") == "researcher")
+        if size in SIZES:
+            ctx.check(f"{size}: where it fits, the card keeps its own height, got {o.get('card')}", (o.get("card") or [0] * 4)[3] == 264)
         ctx.check(f"{size}: the card lies inside the drawing's content box and the drawer, got {o.get('card')} in {o.get('down')} / {o.get('drawer')}",
                   _inside(o.get("card"), o.get("down")) and _inside(o.get("card"), o.get("drawer")))
         shown = _inside(o.get("send"), o.get("vis")) and _inside(o.get("send"), o.get("down"))

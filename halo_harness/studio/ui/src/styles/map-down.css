@@ -99,6 +99,7 @@
    of fixed widths, so neither a word changing nor another target moves anything */
 .mp-down, .ag-run { position: relative; }
 .mp-step-in { position: absolute; left: var(--s-2); right: var(--s-2); bottom: 40px; height: 264px; z-index: 6; overflow-y: auto;
+  max-height: calc(100% - 40px - var(--s-2)); /* r/batch04 entry 2: never taller than the room it opens in; the rest scrolls inside */
   display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2); background: var(--surface);
   border: 1px solid var(--line-strong); box-shadow: var(--glow); }
 .mp-step-in-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-width: 0; }

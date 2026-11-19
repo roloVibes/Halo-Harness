@@ -869,7 +869,10 @@ console.log(JSON.stringify({spans: [0, 1, 59, 60, 125, 3599, 7200].map((s) => g.
     got = _run(["gw"], js, {"done": done, "slow": slow, "m": _m("k4", cost=0.01, t=10)})
     spans, money, lines = got.get("spans") or [], got.get("money") or [], got.get("lines") or []
     ctx.check(f"every span is the number, a no-break space and its unit, got {spans!r}",
-              len(spans) == 7 and all(re.fullmatch(r"\d+ (s|min|h)", x) for x in spans))
+              len(spans) == 7 and all(re.fullmatch(r"\d+\u00a0(s|min|h)", x) for x in spans))
+    src = (SRC / "routes" / "crew" / "map" / "groupWords.ts").read_text(encoding="utf-8")
+    ctx.check("the source writes the no-break space as an escape that can be seen (\\u00a0), never the bare character",
+              'const NB = "\\u00a0";' in src and "\u00a0" not in src)
     ctx.check(f"the cost has no inner space, got {money!r}", money == ["$0.00", "$0.02", "$12.50"])
     torn = [x for x in lines if re.search(r"\d (s|min|h)\b", x)]
     ctx.check(f"no line holds an ordinary space between a number and its unit, got {torn!r} of {lines!r}", lines and not torn)

@@ -17,7 +17,7 @@ const NAMES_SHOWN = 12; // G5: twelve names, then "and {n} more"
 
 export const money = (x: number): string => `$${(Number(x) || 0).toFixed(2)}`;
 /** r/batch04 entry 3: a number and its unit are held by a no-break space, so a narrow box never tears "0" from "s". */
-const NB = " ";
+const NB = "\u00a0";
 /** "{m} min" from 60 s (whole minutes, rounded down), else "{s} s". Every group line, member line and hover takes its
  *  spans from here. */
 export const span = (s: number): string => {

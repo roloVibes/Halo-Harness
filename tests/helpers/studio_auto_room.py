@@ -7,7 +7,7 @@ tests/helpers/studio_auto_groups_draw.py sets them). A fresh page is loaded at e
             the pictures' four groups: the drawing's scroll box, its visible part, the room it stands in, the slot, group
             1's name and counts; then a map of his (the scratch map of seven boxes, scratch_seven.NAME): the boxes and the
             scroll box's height, for the released rule
-    card    at 1280 x 800 and 1440 x 900, the four groups: a click on researcher A of group 1 opens its card; the card,
+    card    at 1280 x 800, 1440 x 900 and a short 1280 x 500, the four groups: a click on researcher A of group 1 opens its card; the card,
             the drawer and the drawing's content box, the Send button before and after the card is scrolled to its end
 
     python -m tests.helpers.studio_auto_room [step ...]
@@ -30,6 +30,7 @@ from tests.helpers.studio_session_map_down import MapDownDriver, Rows  # noqa: E
 from tests.helpers.studio_session_run import M, _main, _seed, _size  # noqa: E402
 
 SIZES = ((1280, 800), (1440, 900))
+CARD_SIZES = (*SIZES, (1280, 500))  # repair of batch 4: a window short enough that the card's own 264 px exceeds the room
 SCROLL = f"{M}?.querySelector('.mp-mini-scroll')"
 FILL = f"{M}?.querySelector('.mp-down-fill')"
 READ = f"""(() => {{ const s = {SCROLL}, f = {FILL}, g = ({GROUP})(1), r = {RECT};
@@ -99,7 +100,7 @@ def room(c, rig, rows: Rows, a: str, b: str) -> dict:
 def card(c, rig, rows: Rows, a: str, b: str) -> dict:
     out: dict = {}
     main = _main(rows, a)
-    for w, h in SIZES:
+    for w, h in CARD_SIZES:
         _open_at(c, rig, rows, a, b, "auto", True, [main, *four()], w, h)
         mem = f"{M}.querySelector('[data-member=r1]')"
         c.wait(f"!!({GROUP})(4) && !!{mem}", 20)
