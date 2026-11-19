@@ -191,7 +191,15 @@ def receipt(c, rig, lv, rows) -> dict:
     out["s13"] = c.wait(f"{line}?.textContent.includes('keeps running') && [{line}.textContent, !!{t('map-undo')}]", 20)
     rows.hide(lv.sid)
     from tests.helpers.studio_agents_live_draw import choose
-    c.wait(f"!{t('map-quiet')}", 20)  # the page has read that no session is open
+    # b/batch07: the fact the receipt's words come from (mapSwitch.ts setUse: mapQuiet.ts openOn over the fleet store) is
+    # the page's list of open sessions; the switcher's options say it ("· running in {session}", pickerRows.ts, the same
+    # openOn). The quiet line is no sign of that list alone: it also reads the map's own facts (quietOf: its name, file,
+    # next, scope), which the first click's reload of the maps changes, so it can be absent while the list still holds it.
+    try:
+        c.wait(f"{OPTS}.length > 0 && !{OPTS}.some((x) => x.includes(' · running in ')) && 1", 20)
+    except TimeoutError:
+        raise AssertionError("the page's list of open sessions (the Map switcher's '· running in' options, mapQuiet.ts openOn) "
+                             f"still held the hidden session after 20 s: {c.js(OPTS)}") from None
     choose(c, f"{M} [data-testid=map-switcher]", "ship-it")
     c.wait(f"{SW}.value === 'ship-it' && {t('map-uses')}?.getAttribute('aria-checked') === 'false'", 15)
     c.click_on(t("map-uses"))

@@ -17,6 +17,10 @@ No model is called.
             -> Live, holds still, its press brings the head into view; his map hops: Agents -> Live has no slot
     focus   (batch 6, B27) group 4's card [Open in Agents -> Live] from Session and from Agents -> Live: its head at the
             top within 1 s, its border pulsing 2 s (timed in the page)
+    scrolls (batch 7) Agents -> Live: React's commits while scrolling inside one group's span; a stored focus whose group
+            is not placed is dropped; two presses of Open within the pulse
+    longest (batch 7, last: it narrows the drawer) Session's slot with a 60-character name and a two-digit count, at the
+            default drawer width and at its narrowest
 
     python -m tests.helpers.studio_auto_groups_draw [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -282,6 +286,137 @@ def focus(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"focus": out}
 
 
+# b/batch07 entry 3: a counter of React's commits, added by this rig before the page loads (React calls a devtools hook
+# when one is there; nothing of the product's) -- only for the step that counts
+HOOK = """(() => { window.__commits = 0; window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = { supportsFiber: true, isDisabled: false,
+  renderers: new Map(), inject() { return 1; }, checkDCE() {}, onScheduleFiberRoot() {}, onCommitFiberUnmount() {},
+  onPostCommitFiberRoot() {}, onCommitFiberRoot() { window.__commits += 1; } }; })();"""
+LSCROLL = f"document.querySelector('{P} [data-testid=live-scroll]')"
+# 40 small scroll steps (2 px a frame) inside group 3's span, against 40 idle frames just before
+COUNT = f"""(async () => {{ const s = {LSCROLL}, g = s.querySelector('[data-testid=live-group][data-group="3"]');
+  const fr = () => new Promise((r) => requestAnimationFrame(() => r()));
+  const top = s.scrollTop + g.getBoundingClientRect().top - s.getBoundingClientRect().top;
+  s.scrollTop = top + 4; for (let i = 0; i < 10; i++) await fr();
+  const c0 = window.__commits; for (let i = 0; i < 40; i++) await fr(); const idle = window.__commits - c0;
+  const c1 = window.__commits; for (let i = 0; i < 40; i++) {{ s.scrollTop += 2; await fr(); }} for (let i = 0; i < 3; i++) await fr();
+  return {{hooked: window.__commits > 0, idle, scroll: window.__commits - c1, span: g.getBoundingClientRect().height,
+    moved: Math.round(s.scrollTop - top - 4)}}; }})()"""
+# for `ms` from now: did the scroll box move, did any group pulse
+STILL = f"""((ms) => {{ const s = {LSCROLL}, w = window.__still = {{top: s.scrollTop, moved: false, pulsed: false, done: false}}, t0 = performance.now();
+  const tick = () => {{ if (Math.abs(s.scrollTop - w.top) > 1) w.moved = true;
+    if (s.querySelector('[data-testid=live-group][data-pulse]')) w.pulsed = true;
+    if (performance.now() - t0 < ms) requestAnimationFrame(tick); else w.done = true; }};
+  requestAnimationFrame(tick); return 1; }})"""
+# group n's data-pulse as each batch of mutations leaves it, and every press of a card's Open in Agents -> Live
+PULSES = f"""((n) => {{ const g = ({LGROUP})(n), w =window.__pulses = {{t0: performance.now(), presses: [], states: []}};
+  document.addEventListener('click', (e) => {{ if (e.target.closest('[data-testid=map-step-in-live]')) w.presses.push(performance.now() - w.t0); }}, true);
+  new MutationObserver(() => w.states.push([performance.now() - w.t0, g.hasAttribute('data-pulse')])).observe(g, {{attributes: true, attributeFilter: ['data-pulse']}});
+  return 1; }})"""
+
+
+def _twelve(gone: int = 0) -> list:
+    return [member(f"t{i}{j}", "coder", f"step {j} of job {i}", f"job number {i}", i, state="done", model="glm-5")
+            for i in range(1, 13) if i != gone for j in range(1, 4)]
+
+
+def _live_open(c, n: int) -> None:
+    """Group n's card in Agents -> Live, then its Open in Agents -> Live (clicks in the page: two presses well inside 2 s)."""
+    c.js(f"({LGROUP})({n}).querySelector('[data-testid=map-group-name]').click(); 1")
+    c.wait(f"document.querySelector('{P} [data-testid=map-step-in]')?.dataset.target === 'group:{n}'", 10)
+    c.js(f"document.querySelector('{P} [data-testid=map-step-in-live]').click(); 1")
+
+
+def scrolls(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """b/batch07 entry 3 (Auto only): scrolling Agents -> Live inside one group's span commits nothing new; a stored focus
+    whose group is not placed at the drawing's first full draw is dropped (nothing jumps when it comes later); two presses
+    of a group card's Open within the pulse leave one pulse, ending 2 s after the last press."""
+    out: dict = {}
+    c.call("Page.enable")  # scripts added for new documents run only with the Page domain on
+    ident = (c.call("Page.addScriptToEvaluateOnNewDocument", source=HOOK) or {}).get("identifier")
+    try:
+        main = _main(rows, a)
+        _open(c, rig, rows, a, b, "auto", True, [main, *_twelve()])
+        c.wait(f"!!({GROUP})(12)", 20)
+        time.sleep(1.0)
+        # the stored focus: group 6's card in Session, group 6 gone from the rows, then its Open in Agents -> Live
+        c.click_on(f"({GROUP})(6).querySelector('[data-testid=map-group-name]')")
+        c.wait("document.querySelector('[data-testid=map-step-in]')?.dataset.target === 'group:6'", 10)
+        _set(rows, a, [main, *_twelve(gone=6)])
+        c.wait(f"!({GROUP})(6) && !!({GROUP})(12)", 20)
+        c.click_on("document.querySelector('[data-testid=map-step-in-live]')")
+        c.mouse("mouseMoved", 2, 400)  # the pointer off the frame (on the rail): a box that moves is drawn at once (R12)
+        c.wait(f"{LW}?.dataset.map === 'auto' && {LW}.querySelectorAll('[data-testid=live-group]').length === 11", 30)
+        time.sleep(1.5)  # its first full draw (placed and measured) has passed
+        c.js(f"{STILL}(3000)")
+        _set(rows, a, [main, *_twelve()])
+        c.wait(f"!!({LGROUP})(6)", 20)
+        out["stale"] = c.wait("window.__still.done && window.__still", 10)
+        # the commits of 40 small scroll steps inside one group's span
+        out["count"] = c.wait(COUNT, 20)
+        # two presses of group 4's Open within its pulse
+        c.js(f"{LSCROLL}.scrollTop = 0; 1")
+        time.sleep(0.5)
+        c.js(f"{PULSES}(4)")
+        _live_open(c, 4)
+        time.sleep(0.6)
+        _live_open(c, 4)
+        c.wait(f"window.__pulses.presses.length === 2 && performance.now() - window.__pulses.t0 > window.__pulses.presses[1] + 3500", 12)
+        out["twice"] = c.js(f"({{...window.__pulses, end: ({LGROUP})(4).hasAttribute('data-pulse')}})")
+    finally:
+        if ident:
+            c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=ident)
+        c.call("Page.disable")
+    return {"scrolls": out}
+
+
+LONGEST = "the parser keeps each nested block at its own indent, always"  # 60 characters (crew/groups.py TASK_MAX)
+SCROLLBOX = f"{M}?.querySelector('.mp-mini-scroll')"
+
+
+def _sixteen(fifth: str) -> list:
+    """Sixteen groups of three coders; the fifth named LONGEST and `fifth`, the others done."""
+    return [member(f"x{i}{j}", "coder", f"step {j} of part {i}", LONGEST if i == 5 else f"part {i} of the long run", i,
+                   state=fifth if i == 5 else "done", model="glm-5") for i in range(1, 17) for j in range(1, 4)]
+
+
+def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """b/batch07 entry 1 (B26): the slot's rect and the scroll box's rect are the same at the first draw and once the slot
+    names a 60-character group with a two-digit count, at the default drawer width and at its narrowest."""
+    from tests.helpers.studio_run_parts import settled
+    out: dict = {"len": len(LONGEST)}
+    main = _main(rows, a)
+    read = f"({{slot: ({RECT})({SLOT}), scroll: ({RECT})({SCROLLBOX}), text: {MORE}?.textContent || ''}})"
+    named = f"({MORE})?.textContent.startsWith('↓ {LONGEST} · working')"
+    _open(c, rig, rows, a, b, "auto", True, [main, *_sixteen("done")])
+    c.wait(f"!!({GROUP})(16)", 20)
+    time.sleep(1.0)
+    out["first"] = c.js(read)
+    _set(rows, a, [main, *_sixteen("running")])
+    c.wait(named, 20)
+    time.sleep(0.5)
+    out["named"] = c.js(read)
+    # the drawer at its least width (as tests/helpers/studio_run_parts.py drags it)
+    drawer = f"{SLOT}?.closest('[data-testid=stage-drawer]')"
+    _set(rows, a, [main, *_sixteen("done")])
+    c.wait(f"!({named})", 20)
+    for _ in range(3):
+        sp = c.js(f"""(() => {{ const d = {drawer};
+          const s = d?.querySelector(':scope > [data-testid=stage-splitter]'); if (!s) return null; const r = s.getBoundingClientRect();
+          return [r.left + r.width / 2, r.top + r.height / 2, d.dataset.side, +s.getAttribute('aria-valuemin'), Math.round(d.getBoundingClientRect().width)]; }})()""")
+        if not sp or sp[4] <= sp[3]:
+            break
+        c.drag(sp[0], sp[1], sp[0] + (-600 if sp[2] == "left" else 600), sp[1])
+        c.mouse("mouseMoved", 1279, 799)
+        settled(c, f"Math.round({drawer}?.getBoundingClientRect().width || 0)")
+    out["drawer"] = c.js(f"[Math.round({drawer}?.getBoundingClientRect().width || 0), +({drawer}?.querySelector(':scope > [data-testid=stage-splitter]')?.getAttribute('aria-valuemin') || 0)]")
+    out["narrow_first"] = settled(c, read)
+    _set(rows, a, [main, *_sixteen("running")])
+    c.wait(named, 20)
+    time.sleep(0.5)
+    out["narrow_named"] = c.js(read)
+    return {"longest": out}
+
+
 class AutoGroupsDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -295,7 +430,7 @@ class AutoGroupsDriver(MapDownDriver):
             rows = Rows(rig)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (scene, lines, grow, five, hover, slot, focus) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, longest) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

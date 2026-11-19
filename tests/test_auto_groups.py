@@ -518,7 +518,7 @@ def test_group_frames_leave_in_n_order(ctx: Ctx):
     import threading
     from types import SimpleNamespace
     from halo_harness.agent import agent_hooks
-    bad, stuck, unlocked = [], [], []
+    bad, stuck, unlocked, blind = [], [], [], []
     for rnd in range(200):
         main, tree, frames = _tree()
         gate = threading.Barrier(2)
@@ -554,11 +554,14 @@ def test_group_frames_leave_in_n_order(ctx: Ctx):
         if any(t.is_alive() for t in threads):
             stuck.append(rnd)
             break
+        if len(seen) != 2:  # b/batch07: the listener checked both groups' first frames, or this round proves nothing
+            blind.append((rnd, sorted(seen)))
         ns = [((d.get("spawn") or {}).get("group") or {}).get("n") for _k, _a, d in frames]
         ns = [n for n in ns if n is not None]
         if not (1 in ns and 2 in ns and ns.index(1) < ns.index(2)):
             bad.append((rnd, ns))
     ctx.check(f"all threads joined within 10 s in every round (no deadlock), stuck in rounds {stuck}", not stuck)
+    ctx.check(f"in every round the lock listener saw exactly the two groups' keys, not so in {blind[:5]}", not blind)
     ctx.check(f"in every round of 200 the first frame with n=1 left before the first with n=2, bad {bad[:5]}", not bad)
     ctx.check(f"every group's first frame left while its thread held the tree's lock, not so in {unlocked[:5]}",
               not unlocked)

@@ -46,6 +46,9 @@ import { TruthBlock } from "./TruthBlock";
 const NAV_ID = "session-lit-map";
 const READ_PX = 12; // R9: the rows' size on screen at 100 %: fitted with it the floor is 1.0, so it always opens at 100 %
 const MIN = 0.75, MAX = 2; // a zoom by hand: down to 75 %, never on opening
+// b/batch07: on Auto the slot's room is, from the first draw, that of the longest words it can show (a hidden twin): a name
+// at the engine's cut (crew/groups.py TASK_MAX, 60 characters of the widest letter) with a two-digit count
+const BELOW_ROOM = belowGroup("W".repeat(60), 99);
 
 /** An element's clientWidth / clientHeight, read before the first paint and again on every resize. */
 function useSize(ref: RefObject<HTMLElement | null>, on: boolean): { w: number; h: number } {
@@ -181,7 +184,8 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       {card && <StepIn t={card} map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below" data-auto={s.auto ? "" : undefined}>
         <div className="mp-down-more">{n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
-          onClick={wb ? () => go(wb.y * k) : down}>{wb ? belowGroup(wbName, n - 1) : moreBelow(n)}</button>}</div>
+          onClick={wb ? () => go(wb.y * k) : down}>{wb ? belowGroup(wbName, n - 1) : moreBelow(n)}</button>}
+          {s.auto && <button type="button" className="mp-link mp-below-twin" tabIndex={-1} aria-hidden="true">{BELOW_ROOM}</button>}</div>
         <WaitRow world={world} />
       </div>
       </RunCtx.Provider>

@@ -33,6 +33,7 @@ MODS = {
     "view": "routes/crew/map/view.ts", "ld": "routes/crew/map/layoutDown.ts", "lay": "routes/crew/map/layout.ts",
     "gw": "routes/crew/map/groupWords.ts", "hops": "routes/crew/map/overlayHops.ts", "sit": "routes/crew/map/stepInTarget.ts",
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
+    "slot": "routes/agents/liveSlot.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -157,6 +158,50 @@ def test_rows_without_group_on_auto_group_by_reply(ctx: Ctx):
             (3, "workflow:W#", "workflow", "workflow W", ["w"]), (4, "agent:z", "reply", "Task 4", ["z"])]
     ctx.check(f"rows with no group: one group per reply, n by first start; a step of W its workflow; a bare row its own, got {got}",
               got == want)
+
+
+_NODES = """const rec = {id: "r1", agents: D.map((a) => ({id: a.agent_id, key: `h1|s1|${a.agent_id}`, parent: a.parent || null,
+  name: a.name, role: "", model: "", state: a.state, reason: "", orphan: !!a.parent && !D.some((b) => b.agent_id === a.parent), row: a}))};
+const nodes = rec.agents.map((a) => ({id: a.id, key: a.key, parent: a.orphan ? null : a.parent, name: a.name, role: a.role, model: a.model, state: a.state, card: ""}));
+const tags = Object.fromEntries(M.groups.withGroups(nodes, rec).filter((n) => n.group).map((n) => [n.id, [n.group.id, n.group.title]]));
+"""
+
+
+@test
+def test_old_rows_get_one_task_number_everywhere(ctx: Ctx):
+    """b/batch07 entry 2 (1): a group with no engine n has ONE number (the drawing's: after the largest engine n, over
+    every fallback group in start order) in the Live tree, the Timeline (withGroups) and the drawing (autoGroups)."""
+    old = [MAIN, kid("c1", 1, step="s1"), kid("c1b", 2, step="s1"), kid("c2", 3), kid("c3", 4, step="s2"), kid("c3b", 5, step="s2")]
+    mixed = [MAIN, kid("e1", 1, step="s0", key="task:e", n=2), kid("e2", 2, step="s0", key="task:e", n=2),
+             kid("d1", 3, step="s1"), kid("d1b", 4, step="s1"), kid("d2", 5, step="s2"), kid("d2b", 6, step="s2")]
+    js = _NODES + """const gs = M.og.autoGroups(D);
+const drawn = Object.fromEntries(gs.flatMap((g) => g.members.map((m) => [m.aid, g.name])));
+console.log(JSON.stringify({tags, drawn}));"""
+    a, b = _run(["groups", "og"], js, old), _run(["groups", "og"], js, mixed)
+    ta, da = a.get("tags") or {}, a.get("drawn") or {}
+    ctx.check(f"the drawing: s1 'Task 1', the lone row 'Task 2', s2 'Task 3', got {da}",
+              da.get("c1") == "Task 1" and da.get("c2") == "Task 2" and da.get("c3") == da.get("c3b") == "Task 3")
+    ctx.check(f"the Live tree and the Timeline give each group the drawing's name, got {ta}",
+              (ta.get("c1") or [0, ""])[1] == "Task 1" and (ta.get("c3") or [0, ""])[1] == (ta.get("c3b") or [0, ""])[1] == "Task 3")
+    tb, db = b.get("tags") or {}, b.get("drawn") or {}
+    ctx.check(f"an engine n stays; the old groups number after it (3, 4) in both places, got {tb} {db}",
+              [(tb.get(x) or [0, ""])[1] for x in ("e1", "d1", "d2")] == [db.get(x) for x in ("e1", "d1", "d2")] == ["Task 2", "Task 3", "Task 4"])
+
+
+@test
+def test_orphan_roots_children_group_as_before(ctx: Ctx):
+    """b/batch07 entry 2 (2): only the children of the session's MAIN are grouped by spawn.group and named by groupName;
+    the children of an orphan root (its parent row missing) are grouped by spawn.step and titled by titleOf, as before."""
+    rows = [MAIN, kid("p", 1, parent="gone", step="x"),
+            kid("o1", 2, parent="p", step="s", task="do the thing", key="task:do the thing", n=1, desc="read A"),
+            kid("o2", 3, parent="p", step="s", task="do the thing", key="task:do the thing", n=1, desc="read B"),
+            kid("k1", 4, step="1", task="fix it", key="task:fix it", n=2, desc="one"),
+            kid("k2", 5, step="2", task="fix it", key="task:fix it", n=2, desc="two")]
+    got = _run(["groups"], _NODES + "console.log(JSON.stringify(tags));", rows)
+    ctx.check(f"the orphan root's children: one box by spawn.step, titled by titleOf, got {got.get('o1')} {got.get('o2')}",
+              got.get("o1") == got.get("o2") == ["t:r1|s", "read A and 1 more"])
+    ctx.check(f"main's children: grouped by spawn.group across two replies, named by groupName, got {got.get('k1')} {got.get('k2')}",
+              got.get("k1") == got.get("k2") == ["t:r1|task:fix it", "fix it"])
 
 
 @test
@@ -647,6 +692,35 @@ console.log(JSON.stringify({before, stored, other, kept, once, twice, after: m.l
     src = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
     ctx.check("StepIn: a group card's Open in Agents -> Live stores the group before the drawing's door",
               "focusGroup(" in src and src.index("focusGroup(") < src.index("onLive()"))
+
+
+@test
+def test_scroll_answer_changes_only_with_the_slot(ctx: Ctx):
+    """b/batch07 entry 3: Agents -> Live on Auto re-renders on a scroll only when the slot's answer (the group it names and
+    the count below) changes (routes/agents/liveSlot.ts slotAnswer, sameAnswer); a stored focus is taken when its group is
+    placed and dropped at a full draw that has not placed it (focusStep)."""
+    boxes = [{"id": "main", "x": 12, "y": 12, "w": 384, "h": 80, "rank": 0, "row": 0}] + [
+        _box(i, 100 + 200 * (i - 1), [f"m{i}"]) for i in range(1, 13)]
+    gs = [_grp(i, [_m(f"m{i}", "working" if i == 12 else "done")], f"g{i}") for i in range(1, 13)]
+    js = """const ans = (top) => M.slot.slotAnswer(D.boxes, D.gs, 1, top, 290);
+const walk = (from) => { let last = ans(from), sets = 0; for (let i = 1; i <= 40; i++) { const a = ans(from + 2 * i); if (!M.slot.sameAnswer(last, a)) { sets++; last = a; } } return sets; };
+const f = {sid: "s1", n: 3};
+console.log(JSON.stringify({inside: walk(300), across: walk(400), first: ans(300), none: M.slot.slotAnswer(D.boxes, undefined, 1, 300, 290),
+  same: [M.slot.sameAnswer(null, null), M.slot.sameAnswer({n: 1, more: 2}, {n: 1, more: 3}), M.slot.sameAnswer(null, {n: 1, more: 0})],
+  focus: [M.slot.focusStep(f, "s1", true, true), M.slot.focusStep(f, "s1", false, true), M.slot.focusStep(f, "s1", false, false),
+          M.slot.focusStep(f, "s2", false, true), M.slot.focusStep(null, "s1", false, true)]}));"""
+    got = _run(["slot"], js, {"boxes": boxes, "gs": gs})
+    ctx.check(f"the slot names group 12 with 8 more below (groups 4-12 below the view), got {got.get('first')}",
+              got.get("first") == {"n": 12, "more": 8})
+    ctx.check(f"40 small scroll steps inside one group's span: no new answer, got {got.get('inside')}", got.get("inside") == 0)
+    ctx.check(f"40 steps across one box's edge: one new answer (at most 2), got {got.get('across')}", got.get("across") == 1)
+    ctx.check(f"no groups (a map of his): no answer, got {got.get('none')}", got.get("none") is None)
+    ctx.check(f"sameAnswer compares the group and the count, got {got.get('same')}", got.get("same") == [True, False, False])
+    ctx.check(f"a stored focus: taken when placed, dropped at a full draw without it, kept until then and for another session, got {got.get('focus')}",
+              got.get("focus") == ["take", "drop", "wait", "wait", "none"])
+    src = (SRC / "routes/agents/LiveDraw.tsx").read_text(encoding="utf-8")
+    ctx.check("LiveDraw: one requestAnimationFrame per burst of scrolls, cancelled when the view leaves; the end listener once",
+              "requestAnimationFrame(" in src and "cancelAnimationFrame(" in src and "{ once: true }" in src and "sameAnswer(" in src)
 
 
 @test

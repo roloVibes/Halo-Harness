@@ -38,8 +38,9 @@ import { DownBox } from "../session/DownBox";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
 import { useRunWait, WaitRow } from "../crew/map/runWait";
-import { belowCount, firstSeen, keepSeen, workingBelow } from "../session/downFit";
+import { firstSeen, keepSeen } from "../session/downFit";
 import { LiveHead } from "./LiveHead";
+import { focusStep, sameAnswer, slotAnswer, type SlotAnswer } from "./liveSlot";
 
 const NAV_ID = "agents-live";
 const READ_PX = 12; // the rows' size on screen at 100 %: fitted with it the floor is 1.0, so it opens at 100 %
@@ -94,33 +95,47 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     if (t != null && Math.abs(t - el.scrollTop) > 0.5) el.scrollTop = t;
   }, [g]); // eslint-disable-line react-hooks/exhaustive-deps
   const focus = useLitStore((x) => x.focus);
+  const pulseOff = useRef<(() => void) | null>(null);
   useLayoutEffect(() => { // B27, after the two above so its scroll wins: the group asked for, its head at the top, pulsing 2 s
     const el = scroll.current, box = focus && focus.sid === s.sid ? g.boxes.find((b) => b.id === groupId(focus.n)) : undefined;
-    if (!el || !box || !shown || (g === fresh && !ready)) return; // taken once its box is placed and measured, on screen
+    if (!el || !shown) return; // on screen only
+    const full = g === fresh && ready; // b/batch07: taken once its box is placed and measured, else dropped at a full draw
+    const step = focusStep(focus, s.sid, !!box && (g !== fresh || ready), full);
+    if (step === "drop") takeFocus(s.sid);
+    if (step !== "take" || !box) return;
     takeFocus(s.sid);
     el.scrollTop = box.y * k;
     const l = box.x * k, r = (box.x + box.w) * k;
     if (l < el.scrollLeft) el.scrollLeft = l;
     else if (r > el.scrollLeft + el.clientWidth) el.scrollLeft = Math.min(l, r - el.clientWidth);
     const node = world.current?.querySelector<HTMLElement>(`[data-box="${CSS.escape(box.id)}"]`);
-    if (node) {
+    if (node) { // a second press restarts the pulse: one attribute, one end listener (once)
+      pulseOff.current?.();
+      node.removeAttribute("data-pulse");
+      void node.offsetWidth;
       const end = (e: AnimationEvent) => {
-        if (e.target !== node || e.animationName !== "mp-group-pulse") return;
+        if (e.target !== node || e.animationName !== "mp-group-pulse") return void node.addEventListener("animationend", end, { once: true });
         node.removeAttribute("data-pulse");
-        node.removeEventListener("animationend", end);
+        pulseOff.current = null;
       };
-      node.addEventListener("animationend", end);
+      node.addEventListener("animationend", end, { once: true });
       node.setAttribute("data-pulse", "");
+      pulseOff.current = () => (node.removeEventListener("animationend", end), node.removeAttribute("data-pulse"));
     }
     setCard(null);
   }, [focus, s.sid, g, shown]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [at, setAt] = useState({ top: 0, h: 0 }); // B26: where the view stands (Auto only)
-  useLayoutEffect(() => {
-    const el = scroll.current;
-    if (s.auto && el) setAt((o) => (o.top === el.scrollTop && o.h === el.clientHeight ? o : { top: el.scrollTop, h: el.clientHeight }));
-  });
-  const wb = s.auto && L.groups && at.h ? workingBelow(g.boxes, L.groups, k, at.top, at.h) : null;
-  const wbName = wb ? L.groups?.find((x) => x.n === wb.group?.n)?.name || "" : "";
+  // B26 (Auto only): the slot's answer, set only when it changes, at most once per animation frame of a scroll burst
+  const [ans, setAns] = useState<SlotAnswer>(null);
+  const told = useRef<SlotAnswer>(null), raf = useRef(0);
+  const answer = () => {
+    const el = scroll.current, a = s.auto && el ? slotAnswer(g.boxes, L.groups, k, el.scrollTop, el.clientHeight) : null;
+    if (!sameAnswer(told.current, a)) setAns((told.current = a));
+  };
+  useLayoutEffect(answer, [s.auto, g, k, L.groups, drawn, shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onScroll = () => { if (!raf.current) raf.current = requestAnimationFrame(() => ((raf.current = 0), answer())); };
+  useEffect(() => () => { cancelAnimationFrame(raf.current); raf.current = 0; }, [shown]); // the view leaves: no frame waits
+  const wb = ans ? g.boxes.find((b) => b.id === groupId(ans.n)) : undefined;
+  const wbName = ans ? L.groups?.find((x) => x.n === ans.n)?.name || "" : "";
   useMeasure(world, heights, setHeights, true); // R10 (runFrame.ts): never while the view is hidden
   useAskedBox("live", s.sid, L, world, setCard); // an ask's door: the asking agent's box selected, its card open
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
@@ -143,7 +158,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
           : !(got && "unreadable" in got) && <p className="cw-line" data-testid="live-reading">{readingMap(map)}</p>)}
         {drawn && (
           <div className="mp-scroll rc-scroll" ref={scroll} tabIndex={0} data-pan="1" title={NAV_HELP} aria-label="The session's map" data-testid="live-scroll"
-               onScroll={s.auto ? (e) => setAt({ top: e.currentTarget.scrollTop, h: e.currentTarget.clientHeight }) : undefined}>
+               onScroll={s.auto ? onScroll : undefined}>
             <div className="mp-world-size" style={{ width: g.w * k, height: g.h * k }}>
               <div className="mp-world" ref={world} data-testid="live-world" data-map={map} data-zoom={k.toFixed(3)}
                    style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
@@ -162,9 +177,9 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
           </div>
         )}
         {s.auto && <div className="ag-live-below" data-testid="live-below">
-          {wb && <button type="button" className="mp-link" data-testid="live-more-below" data-group={wb.group?.n}
+          {ans && wb && <button type="button" className="mp-link" data-testid="live-more-below" data-group={ans.n}
                          onClick={() => { if (scroll.current) scroll.current.scrollTop = wb.y * k; }}>
-            {belowGroup(wbName, belowCount(g.boxes, k, at.top, at.h) - 1)}</button>}
+            {belowGroup(wbName, ans.more)}</button>}
         </div>}
         {card && <StepIn t={card} map={map} sid={s.sid} close={closeCard} onLive={closeCard} />}
       </div>

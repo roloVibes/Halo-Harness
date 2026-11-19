@@ -14,6 +14,8 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
    still, and its press brings the head into view; on his map Agents -> Live has no slot. A group card's [Open in Agents
    -> Live] puts the head at the top within 1 s with its border pulsing 2 s. An ask's Open lands on the asker's group
    (tests/helpers/studio_auto_groups_doors.py).
+7. (batch 7) Session's slot holds still for the longest name at any drawer width; Agents -> Live renders on a scroll only
+   when the slot's words change, drops a focus its first full draw does not place, and restarts the pulse on a second press.
 Run: python -m tests.test_studio_auto_groups
 """
 from __future__ import annotations
@@ -174,6 +176,45 @@ def test_group_card_open_puts_its_head_at_the_top_within_1s(ctx: Ctx):
     ctx.check(f"Agents -> Live shows it (from Session and staying there), got {d.get('session_view')} {d.get('live_view')}",
               d.get("session_view") == "live" and d.get("live_view") == "live")
     ctx.check(f"the card closed, got {d.get('card')}", d.get("card") is False)
+
+
+@test
+def test_live_scroll_renders_only_when_the_slot_changes(ctx: Ctx):
+    """b/batch07 entry 3: Agents -> Live on Auto re-renders on a scroll only when the slot's words change; a stored focus
+    whose group is not placed at the first full draw is dropped; two presses of Open within the pulse leave one pulse."""
+    d = _ran(ctx, "scrolls")
+    n = d.get("count") or {}
+    ctx.check(f"the rig counts React's commits and scrolled 80 px inside group 3's span, got {n}",
+              n.get("hooked") is True and n.get("moved") == 80 and (n.get("span") or 0) > 90)
+    ctx.check(f"40 scroll steps add at most 2 commits over 40 idle frames, got {n}", (n.get("scroll") or 0) - (n.get("idle") or 0) <= 2)
+    st = d.get("stale") or {}
+    ctx.check(f"a focus on a group not placed at the first full draw is dropped: when it comes later nothing jumps or pulses, got {st}",
+              st.get("done") is True and st.get("moved") is False and st.get("pulsed") is False)
+    tw = d.get("twice") or {}
+    presses, states = tw.get("presses") or [], tw.get("states") or []
+    offs = [t for t, on in states if not on]
+    ctx.check(f"two presses within the pulse, at least 0.5 s apart, got {presses}",
+              len(presses) == 2 and 500 <= presses[1] - presses[0] < 2000)
+    ctx.check(f"the pulse ends once, about 2 s after the LAST press (it restarted), and is gone, got {states} end {tw.get('end')}",
+              len(offs) == 1 and 1800 <= offs[0] - presses[-1] <= 3000 and tw.get("end") is False)
+
+
+@test
+def test_the_slot_holds_still_for_the_longest_group_name(ctx: Ctx):
+    """b/batch07 entry 1: on Auto Session's slot reserves, from the first draw, the room of the longest words it can show
+    (a 60-character name and a two-digit count): the slot and the scroll box do not move when they appear, at the default
+    drawer width and at its narrowest."""
+    import re
+    d = _ran(ctx, "longest")
+    ctx.check(f"the name is 60 characters (the engine's cut), got {d.get('len')}", d.get("len") == 60)
+    for a, b in (("first", "named"), ("narrow_first", "narrow_named")):
+        x, y = d.get(a) or {}, d.get(b) or {}
+        ctx.check(f"{b}: the slot names the group with a two-digit count, got {y.get('text')!r}",
+                  re.fullmatch(r"↓ .{60} · working and \d\d more below", str(y.get("text") or "")) is not None)
+        ctx.check(f"{a} -> {b}: the slot's rect and the scroll box's rect are equal, got {x} -> {y}",
+                  bool(x.get("slot")) and x.get("slot") == y.get("slot") and x.get("scroll") == y.get("scroll"))
+    dr = d.get("drawer") or [0, 1]
+    ctx.check(f"the drawer was dragged to its narrowest, got {dr}", dr[0] <= dr[1] + 1)
 
 
 _DOORS: dict = {}

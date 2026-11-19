@@ -51,5 +51,6 @@ head comes to the top (in Agents -> 4 · Live, into view). The slot keeps its pl
 
 ## A map of your own
 
-A session on a map of your own draws exactly as before: its boxes, its lines, its workflow blocks; no groups, no slot,
-no colours of groups. Groups on your own maps are planned, not in this release.
+A session on a map of your own draws exactly as before: its boxes, its lines, its workflow blocks; no groups and no
+colours of groups. Session's drawer keeps its "↓ {n} more below" slot as before, and Agents -> 4 · Live has no slot.
+Groups on your own maps are planned, not in this release.

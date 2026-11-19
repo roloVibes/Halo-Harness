@@ -26,10 +26,13 @@
 .mp-down-below > .mp-wait-row { align-self: center; }
 .mp-down-more > [data-testid=map-more-below] { flex: 0 0 auto; white-space: nowrap; }
 /* 3.6.0.5 B26 on Auto (the row says so from the first draw): the slot's two columns are halves, so the words "↓ {name} ·
-   working ..." never widen theirs nor narrow the wait link's; they take two lines inside the same 32 px, a longer name
-   grows the slot upwards as a long wait link does (never cut) */
+   working ..." never widen theirs nor narrow the wait link's. b/batch07: their room is a hidden twin of the longest words
+   (MapDown.tsx BELOW_ROOM) in the same cell, so the slot's height changes only with the drawer's width, never cut */
 .mp-down-below[data-auto] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.mp-down-below[data-auto] > .mp-down-more { height: auto; min-height: 32px; min-width: 0; }
+.mp-down-below[data-auto] > .mp-down-more { display: grid; height: auto; min-height: 32px; min-width: 0; }
+.mp-down-below[data-auto] > .mp-down-more > * { grid-area: 1 / 1; align-self: end; justify-self: start; max-width: 100%;
+  white-space: normal; overflow-wrap: anywhere; line-height: 1.25; text-align: left; }
+.mp-below-twin { visibility: hidden; pointer-events: none; }
 .mp-down-more > [data-testid=map-more-below][data-group], .ag-live-below > [data-testid=live-more-below] { flex: 0 1 auto; white-space: normal; line-height: 1.25; text-align: left; }
 /* P8 (the owner's rule: a text is never cut): the wait link's row (runWait.tsx WaitRow; Session: beside "more below",
    Live: the tools row, left of the zoom). Its room is the tallest of hidden twins of the longest links this run can show,

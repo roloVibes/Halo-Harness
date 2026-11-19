@@ -99,6 +99,55 @@ export function groupName(rows: NameRow[], n: number): string {
   return `Task ${n}`;
 }
 
+/** The session's main row: the registry's MAIN id, or a parentless row of kind main (as overlay.ts reads it). */
+export const isMainRow = (r: { agent_id?: string; parent?: string | null; kind?: string | null }): boolean =>
+  r.agent_id === "main" || (!r.parent && String(r.kind || "") === "main");
+
+/** What placeGroups reads of a registry row. */
+export type PlaceRow = NameRow & { agent_id: string; parent?: string | null; kind?: string | null };
+export type Placed<R> = { key: string; n: number; by: "workflow" | "task" | "reply"; rows: R[] };
+const DEPTH = 24;
+
+/** 3.6.0.5 B3: every row but main's in its group, the groups in order of their first start. A row goes by its
+ *  `spawn.group` (crew/groups.py); else (rows from before groups) by the group of its ancestor whose parent is main:
+ *  that row's `spawn.group`, else "workflow:{W}#" when it runs a step of W, else "reply:{spawn.step}", else "agent:{id}".
+ *  n: the engine's; a group with none takes, in order of its first start, the numbers after the largest engine n. The
+ *  ONE numbering: the drawing (overlayGroups.ts autoGroups) and the Live tree and the Timeline (withGroups) call it. */
+export function placeGroups<R extends PlaceRow>(rows: R[]): Placed<R>[] {
+  const main = rows.find(isMainRow)?.agent_id || "main";
+  const byId = new Map(rows.map((r) => [r.agent_id, r]));
+  const top = (r: R): R => { // the ancestor whose parent is main (the row itself when the walk finds none)
+    let x = r;
+    for (let i = 0; i < DEPTH && String(x.parent || "") !== main; i++) {
+      const up = byId.get(String(x.parent || ""));
+      if (!up || isMainRow(up)) break;
+      x = up;
+    }
+    return String(x.parent || "") === main ? x : r;
+  };
+  const placeOf = (r: R): Omit<Placed<R>, "rows"> => {
+    const own = r.spawn?.group;
+    if (own?.key) return { key: own.key, n: Number(own.n) || 0, by: own.by };
+    const t = top(r), g = t.spawn?.group;
+    if (g?.key) return { key: g.key, n: Number(g.n) || 0, by: g.by };
+    if (t.crew?.workflow) return { key: `workflow:${t.crew.workflow}#`, n: 0, by: "workflow" };
+    if (t.spawn?.step) return { key: `reply:${t.spawn.step}`, n: 0, by: "reply" };
+    return { key: `agent:${t.agent_id}`, n: 0, by: "reply" };
+  };
+  const order = rows.map((r, i) => ({ r, i })).filter((p) => !isMainRow(p.r)).sort((p, q) => since(p.r) - since(q.r) || p.i - q.i).map((p) => p.r);
+  const found = new Map<string, Placed<R>>();
+  for (const r of order) {
+    const p = placeOf(r);
+    const g = found.get(p.key) || { ...p, rows: [] };
+    if (!g.n && p.n) g.n = p.n;
+    g.rows.push(r);
+    found.set(p.key, g);
+  }
+  let next = Math.max(0, ...[...found.values()].map((g) => g.n));
+  for (const g of found.values()) if (!g.n) g.n = ++next; // in order of first start: `order` is
+  return [...found.values()];
+}
+
 /** The nodes of one session's record, each with the box it is drawn in (`group`); `tiers`: the open lineup's. */
 export function withGroups(nodes: LiveNode[], rec: WorkRecord, tiers: Tier[] = []): LiveNode[] {
   const row = new Map<string, Row>(rec.agents.map((a) => [a.id, a]));
@@ -118,6 +167,7 @@ export function withGroups(nodes: LiveNode[], rec: WorkRecord, tiers: Tier[] = [
     };
     walk(id);
   };
+  let nOf: Map<string, number> | null = null; // main's groups' numbers (placeGroups), read once when main is met
   // in tree order (parents before their children), so an outer box is known before the boxes inside it
   for (const n of nodes) {
     const sq = row.get(n.id)?.row.square;
@@ -128,21 +178,22 @@ export function withGroups(nodes: LiveNode[], rec: WorkRecord, tiers: Tier[] = [
     }
     const list = (kids.get(n.id) || []).filter((k) => !k.virtual);
     const steps = new Map<string, LiveNode[]>();
-    const isMain = !n.parent; // B5: main's children group by their `spawn.group` key when their rows carry one
+    const own = row.get(n.id)?.row;
+    // B5: the session's main (never any other root, e.g. an orphan's) groups its children by `spawn.group` when they carry one
+    const isMain = !n.parent && !n.virtual && !!own && isMainRow({ ...own, agent_id: n.id });
     for (const k of list) {
       const spawn = row.get(k.id)?.row.spawn;
       const st = (isMain && spawn?.group?.key) || spawn?.step;
       if (st) steps.set(st, [...(steps.get(st) || []), k]);
     }
-    const rank = [...steps.keys()]; // a group with no engine n: its rank in start order
-    const startOf = (ms: LiveNode[]) => Math.min(...ms.map((m) => since(row.get(m.id)?.row || {})));
-    rank.sort((a, b) => startOf(steps.get(a)!) - startOf(steps.get(b)!));
+    if (isMain && !nOf) nOf = new Map(placeGroups(rec.agents.map((a) => ({ ...a.row, agent_id: a.id }))).flatMap((g) => g.rows.map((r) => [r.agent_id, g.n])));
     for (const [st, members] of steps) {
       if (members.length < MIN_TASK) continue;
       const outer = tag.get(n.id), d = (depth.get(n.id) || 0) + 1;
       if (d > 2) continue; // deeper than one level of nesting: a tree inside the outer box
       const spawns = members.map((m) => row.get(m.id)?.row.spawn);
-      const gn = Number(spawns.find((s) => s?.group?.n)?.group?.n) || rank.indexOf(st) + 1;
+      const first = [...members].sort((p, q) => since(row.get(p.id)?.row || {}) - since(row.get(q.id)?.row || {}))[0];
+      const gn = Number(spawns.find((s) => s?.group?.n)?.group?.n) || nOf?.get(first.id) || 0; // else the drawing's number
       const g: GroupTag = { id: `t:${rec.id}|${st}`, kind: "task", parent: n.id, outer: outer?.id,
         title: isMain ? groupName(members.map((m) => row.get(m.id)?.row || {}), gn)
           : titleOf(spawns.map((s) => String(s?.description || "")), String(spawns[0]?.lead || "")),

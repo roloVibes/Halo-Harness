@@ -5,14 +5,12 @@
 // counted off the map. A group is named in ONE place, groupName (../live/groups.ts). Pure: no React, no DOM, no store,
 // no clock (tests/test_map_groups.py runs it in node).
 //
-// Where a row goes: its `spawn.group` (crew/groups.py); else (rows from before groups were written) the group of its
-// ancestor whose parent is main: that row's `spawn.group`, else "workflow:{W}#" when it runs a step of W, else
-// "reply:{spawn.step}", else "agent:{its id}". n: the engine's; a group with none takes, in order of its first start,
-// the numbers after the largest engine n. A workflow run's group lists its steps (R14's rows) only when the step runner's
+// Where a row goes and its group's n: placeGroups (../live/groups.ts; the Live tree and the Timeline number the same
+// groups with it, b/batch07). A workflow run's group lists its steps (R14's rows) only when the step runner's
 // frames gave the workflow a block (`blocks[W]`: only a crew workflow sends `map_step`); without one it is drawn by its
 // members like any other group.
 import type { AgentRow } from "../../fleet/types";
-import { groupName } from "../live/groups";
+import { groupName, isMainRow, placeGroups } from "../live/groups";
 import type { StepRow } from "./mapTypes";
 import { stateOf, type BoxState, type OvRow } from "./overlay";
 import { rowStep, type BlockLit } from "./overlayBlocks";
@@ -25,10 +23,7 @@ export type AutoGroup = { n: number; key: string; by: "workflow" | "task" | "rep
 
 const str = (v: unknown): string => (v == null ? "" : String(v));
 const num = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
-const at = (r: GRow): number => (typeof r.since === "number" && isFinite(r.since) ? r.since : Infinity);
 const ANY = ["", "general-purpose"]; // the type the engine writes when the call named none (agent/subagent.py)
-const isMain = (r: GRow): boolean => r.agent_id === "main" || (!r.parent && str(r.kind) === "main");
-const DEPTH = 24;
 
 /** The workflow W of a key "workflow:{W}#{run}" (the LAST "#" splits), else "". */
 export function workflowOf(key: string): string {
@@ -47,39 +42,9 @@ function whoOf(r: GRow): string {
 
 /** Auto's groups of one session's rows, in n order; `blocks`: the overlay's (blocksOf) for a workflow run's steps. */
 export function autoGroups(rows: GRow[], blocks: Record<string, BlockLit> = {}): AutoGroup[] {
-  const main = rows.find(isMain)?.agent_id || "main";
-  const byId = new Map(rows.map((r) => [r.agent_id, r]));
-  const top = (r: GRow): GRow => { // the ancestor whose parent is main (the row itself when the walk finds none)
-    let x = r;
-    for (let i = 0; i < DEPTH && str(x.parent) !== main; i++) {
-      const up = byId.get(str(x.parent));
-      if (!up || isMain(up)) break;
-      x = up;
-    }
-    return str(x.parent) === main ? x : r;
-  };
-  const placeOf = (r: GRow): { key: string; n: number; by: AutoGroup["by"] } => {
-    const own = r.spawn?.group;
-    if (own?.key) return { key: own.key, n: num(own.n), by: own.by };
-    const t = top(r), g = t.spawn?.group;
-    if (g?.key) return { key: g.key, n: num(g.n), by: g.by };
-    if (t.crew?.workflow) return { key: `workflow:${t.crew.workflow}#`, n: 0, by: "workflow" };
-    if (t.spawn?.step) return { key: `reply:${t.spawn.step}`, n: 0, by: "reply" };
-    return { key: `agent:${t.agent_id}`, n: 0, by: "reply" };
-  };
-  const order = rows.map((r, i) => ({ r, i })).filter((p) => !isMain(p.r)).sort((p, q) => at(p.r) - at(q.r) || p.i - q.i).map((p) => p.r);
-  const found = new Map<string, { key: string; n: number; by: AutoGroup["by"]; rows: GRow[] }>();
-  for (const r of order) {
-    const p = placeOf(r);
-    const g = found.get(p.key) || { ...p, rows: [] };
-    if (!g.n && p.n) g.n = p.n;
-    g.rows.push(r);
-    found.set(p.key, g);
-  }
-  let next = Math.max(0, ...[...found.values()].map((g) => g.n));
-  for (const g of found.values()) if (!g.n) g.n = ++next; // in order of first start: `order` is
+  const main = rows.find(isMainRow)?.agent_id || "main";
   const out: AutoGroup[] = [];
-  for (const g of found.values()) {
+  for (const g of placeGroups(rows)) { // the one placing and numbering (../live/groups.ts), shared with the Live tree
     const members: Member[] = g.rows.map((r) => {
       const m: Member = { aid: r.agent_id, parent: str(r.parent), who: whoOf(r), description: str(r.spawn?.description) || str(r.task),
         model: str(r.model), state: stateOf([r]), cost: num(r.cost_usd), reason: str(r.model_reason),
