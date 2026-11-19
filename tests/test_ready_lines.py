@@ -578,6 +578,177 @@ def test_ready_lines_match_what_runs(ctx: Ctx):
     _scoped(no_tool)
 
 
+# -- batch 2: Studio's head and lines over Session's Live drawing (node; routes/session/readyWords.ts, built.ts) -----
+
+UI_SRC = ROOT / "halo_harness" / "studio" / "ui" / "src"
+READY_TS = UI_SRC / "routes" / "session" / "readyWords.ts"
+BUILT_TS = UI_SRC / "routes" / "crew" / "map" / "built.ts"
+BAR_TSX = UI_SRC / "routes" / "session" / "BuiltBar.tsx"
+TRUTH_TS = UI_SRC / "routes" / "crew" / "map" / "truth.ts"
+H_OPEN = {"act": "open-workflows", "label": "Open in Workflows"}
+H1 = "Just built: the workflow review. Ready in this session now, by name."
+H2 = ("Just built: the workflow review. It waits for your next session: this session started with no workflow, so it "
+      "has no Workflow tool.")
+H3 = "Just built: the workflow review. This project has its own workflow review, which runs under that name."
+# built.ts's neighbours stood in for (React, the store, the map files), as tests/test_map_overlay.py does for litStore:
+# `current(name)` answers from globalThis.__bodies
+BUILT_STUB = r"""export function createStore(init) { let s = init; return { get: () => s, update: (fn) => { s = { ...s, ...fn(s) }; },
+  subscribe: () => () => {} }; }
+export const useStore = () => null, putBody = () => {}, bump = () => {};
+export const current = (name) => (globalThis.__bodies || {})[name];"""
+BUILT_HOOK = r"""const STUB = %s;
+export async function resolve(spec, ctx, next) {
+  if (spec === 'react') return { url: STUB, shortCircuit: true };
+  const r = await next(spec, ctx);
+  if (/[\/-](store|mapFiles)\.(ts|mjs)$/.test(r.url)) return { url: STUB, shortCircuit: true };
+  return r; }"""
+
+
+def _ts(js: str, *args):
+    from tests.helpers import node_ts
+    return node_ts.run(js % tuple(json.dumps(a) for a in args))
+
+
+def _url(p: Path) -> str:
+    return p.resolve().as_uri()
+
+
+def _built(body: str, built_ts: Path = BUILT_TS, bodies=None, ready: bool = False):
+    """Run `body` in node with `m` = built.ts (its neighbours stood in for) and, with `ready`, `rw` = readyWords.ts;
+    `body` sets `res`."""
+    from urllib.parse import quote
+    hook = BUILT_HOOK % json.dumps("data:text/javascript," + quote(BUILT_STUB))
+    js = """import { register } from 'node:module';
+register('data:text/javascript,' + encodeURIComponent(%s));
+globalThis.__bodies = %s;
+const m = await import(%s);
+""" + ("const rw = await import(%s);\n" if ready else "") + "let res = null;\n" + body + "\nconsole.log(JSON.stringify(res));"
+    return _ts(js, hook, bodies or {}, _url(built_ts), *([_url(READY_TS)] if ready else []))
+
+
+@test
+def test_head_and_card_agree_with_p1_p2(ctx: Ctx):
+    """C12 C15 C22: on Auto the head over the drawing (H1, H2, H3) and the lines under it come from the same answer as
+    the terminal's card (crew/ready_now.py), letter for letter; a build of agents only gets the lines alone, no head."""
+    def answers(home):
+        from halo_harness.crew import ready_now
+        from tests.helpers.trust_dir import trust
+        review, checker = _write("workflow", REVIEW), _write("agent", CHECKER)
+        out = [ready_now.ready_and_later(_auto_session(home), [str(review), str(checker)]),
+               ready_now.ready_and_later(_auto_session(home, workflow_tool=False), [str(review), str(checker)])]
+        agents = ready_now.ready_and_later(_auto_session(home), [str(checker)])
+        trust(home / "proj")
+        _write("workflow", REVIEW, proj=home / "proj")
+        out.append(ready_now.ready_and_later(_auto_session(home), [str(review), str(checker)]))
+        return out, agents
+    from halo_harness.crew import ready_now
+    out, agents = _scoped(answers)
+    ctx.check(f"three answers and an agents-only one, got {out} {agents}", all(a is not None for a in [*out, agents]))
+    got = _ts("""const m = await import(%s);
+const A = %s, AG = %s;
+const view = A.map((r) => m.builtView({ t: 1, kind: "workflow", map: "", workflow: "review", next: "", ready: m.readyOf(r) }, true));
+const agents = m.builtView({ t: 1, kind: null, map: "", workflow: "", next: "", ready: m.readyOf(AG) }, true);
+const words = { FIRST_WORDS: m.FIRST_WORDS, P1: m.P1, P1_ITEM: m.P1_ITEM, P2: m.P2, P3: m.P3, WHY: m.WHY, STEP: m.STEP };
+console.log(JSON.stringify({ view, agents, words }));""", _url(READY_TS), out, agents)
+    for (name, h), v, a in zip((("H1", H1), ("H2", H2), ("H3", H3)), got["view"], out):
+        ctx.check(f"{name}: the head, got {v['head']}", v["head"] == {"text": h, **H_OPEN})
+        ctx.check(f"{name}: the lines equal the terminal's, got {v['lines']} vs {ready_now.p_lines(a)}",
+                  v["lines"] == ready_now.p_lines(a) and v["lines"])
+    ctx.check(f"agents only: no head, the P2 lines alone, got {got['agents']}",
+              got["agents"] == {"head": None, "lines": ready_now.p_lines(agents)} and got["agents"]["lines"] == [P2_AG1])
+    w = got["words"]
+    ctx.check(f"every word constant equals its Python twin, got {w}",
+              w["FIRST_WORDS"] == list(ready_now.FIRST_WORDS) and w["P1"] == ready_now.P1 and w["P1_ITEM"] == ready_now.P1_ITEM
+              and w["P2"] == ready_now.P2 and w["P3"] == ready_now.P3 and w["WHY"] == ready_now.WHY and w["STEP"] == ready_now.STEP)
+
+
+@test
+def test_auto_builder_done_without_ready_draws_no_head(ctx: Ctx):
+    """C12: on Auto a `builder_done` that carries no answer (an older session process) draws no workflow head and no
+    line; on a map of his the heads stay 3.6.0.2's, with or without an answer; the running and other heads stay too."""
+    got = _ts("""const m = await import(%s);
+const t = await import(%s);
+const R = m.readyOf({ ready: ["W"], later: [], p3: [] });
+const b = (kind, ready) => ({ t: 100, kind, map: kind === "other" ? "shop" : kind === "running" ? "auto" : "", workflow: "W", next: "", ready });
+const old = (kind) => t.justBuilt(kind, { workflow: "W", t: 100, map: kind === "other" ? "shop" : kind === "running" ? "auto" : "", next: "" });
+const res = { none: m.readyOf({ outcome: "applied" }), notList: m.readyOf({ ready: "W" }),
+  autoNo: m.builtView(b("workflow", null), true), his: m.builtView(b("workflow", null), false),
+  hisReady: m.builtView(b("workflow", R), false), oldW: t.justBuilt("workflow", { workflow: "W" }), kinds: {} };
+for (const k of ["running", "other"])
+  res.kinds[k] = { old: old(k), autoNo: m.builtView(b(k, null), true), autoReady: m.builtView(b(k, R), true), his: m.builtView(b(k, R), false) };
+console.log(JSON.stringify(res));""", _url(READY_TS), _url(TRUTH_TS))
+    ctx.check(f"no answer without a ready list, got {got['none']} {got['notList']}", got["none"] is None and got["notList"] is None)
+    ctx.check(f"on Auto, no answer: no head and no line, got {got['autoNo']}", got["autoNo"] == {"head": None, "lines": []})
+    ctx.check(f"his map: 3.6.0.2's workflow head, no line, got {got['his']} {got['hisReady']}",
+              got["his"] == {"head": got["oldW"], "lines": []} == got["hisReady"] and "on no map" in got["oldW"]["text"])
+    for k, v in got["kinds"].items():
+        ctx.check(f"{k}: justBuilt's own head on Auto with and without an answer and on his map, got {v}",
+                  v["autoNo"]["head"] == v["autoReady"]["head"] == v["his"]["head"] == v["old"] and v["his"]["lines"] == []
+                  and v["autoNo"]["lines"] == [])
+
+
+@test
+def test_built_keeps_ready_and_later(ctx: Ctx):
+    """C15: built.ts keeps the answer the frame carried (`readyOf`), and null for a frame without one."""
+    frame = {"outcome": "applied", "t": 100, "this_session": "auto",
+             "wrote": [{"kind": "workflow", "name": "review"}, {"kind": "agent", "name": "checker"}],
+             "ready": ["review"], "later": [{"kind": "agent", "name": "checker", "why": "AG1", "step": "review"}], "p3": []}
+    got = _built("""const F = %s;
+m.takeBuilt("S", F);
+m.takeBuilt("T", { ...F, ready: undefined, later: undefined, p3: undefined });
+const last = m.built.get().last;
+res = { S: last.S.ready, same: JSON.stringify(last.S.ready) === JSON.stringify(rw.readyOf(F)), T: last.T.ready, kind: last.S.kind };""" % json.dumps(frame),
+                 ready=True)
+    ctx.check(f"the answer kept as readyOf reads it, got {got}",
+              got["same"] and got["S"] == {"ready": ["review"], "later": frame["later"], "p3": []} and got["kind"] == "workflow")
+    ctx.check(f"a frame without ready keeps null, got {got['T']}", got["T"] is None)
+
+
+FALLBACK_JS = """const F = (ts) => ({ outcome: "applied", t: 100, wrote: [{ kind: "workflow", name: "review" }], ...(ts === undefined ? {} : { this_session: ts }) });
+m.takeBuilt("A", F("starter")); m.takeBuilt("B", F(undefined)); m.takeBuilt("C", F("shop"));
+const last = m.built.get().last;
+res = { A: last.A.kind, B: last.B.kind, C: last.C.kind };"""
+AUTO_BODY = {"auto": {"format": "map/1", "name": "auto", "boxes": [{"id": "code", "workflow": "review"}], "lines": []}}
+
+
+def _fallback_kinds(built_ts: Path = BUILT_TS) -> dict:
+    """The kinds built.ts gives a frame naming the default by its old name, by none and by his map shop, when only "auto"
+    has a body (a box running review): the running map's fallback read through isAuto (then the first two are "running")."""
+    return _built(FALLBACK_JS, built_ts, AUTO_BODY)
+
+
+@test
+def test_built_fallbacks_go_through_isauto(ctx: Ctx):
+    """The decisions' last part: the two map-name fallbacks of Session's build head read the default through isAuto,
+    never the literal "starter" (built.ts: the running map; BuiltBar.tsx: the pair)."""
+    got = _fallback_kinds()
+    ctx.check(f"starter and none run auto (running), shop does not (workflow), got {got}",
+              got == {"A": "running", "B": "running", "C": "workflow"})
+    for p in (BUILT_TS, BAR_TSX):
+        ctx.check(f"{p.name} holds no literal \"starter\"", '"starter"' not in p.read_text(encoding="utf-8"))
+    ctx.check("BuiltBar's pair falls back to auto through mapName",
+              'pair(mapName(s.map || "auto", s.plain !== false), b?.map || "")' in BAR_TSX.read_text(encoding="utf-8"))
+
+
+@test
+def test_build_without_map_adds_no_pair(ctx: Ctx):
+    """GUARD (green on the tree and after: R30, C12): on Auto a build that writes no map never adds the pair Running |
+    Just built and never changes which drawing is shown; a build that writes another map does (the control case)."""
+    got = _built("""const base = { outcome: "applied", t: 100, this_session: "auto" };
+const wf = { kind: "workflow", name: "review" }, ag = { kind: "agent", name: "checker" };
+const view = (sid) => { const s = m.built.get(); return { kind: s.last[sid].kind, which: s.which[sid] ?? null, auto: s.auto[sid] ?? null, marked: !!s.marked[sid] }; };
+m.takeBuilt("S", { ...base, wrote: [wf, ag] }); const one = view("S");
+m.takeBuilt("S", { ...base, wrote: [ag] }); const two = view("S");
+m.takeBuilt("S", { ...base, wrote: [{ kind: "map", name: "shop", added: true }] }); const three = view("S");
+res = { one, two, three };""")
+    ctx.check(f"a workflow and an agent: kind workflow, no pair chosen or marked, got {got['one']}",
+              got["one"] == {"kind": "workflow", "which": None, "auto": None, "marked": False})
+    ctx.check(f"an agent only: kind null, no pair, got {got['two']}",
+              got["two"] == {"kind": None, "which": None, "auto": None, "marked": False})
+    ctx.check(f"a map: kind other and the pair chosen, got {got['three']}",
+              got["three"] == {"kind": "other", "which": "built", "auto": True, "marked": False})
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

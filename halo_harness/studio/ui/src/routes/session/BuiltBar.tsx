@@ -9,15 +9,20 @@
 //   they wrap whole across the drawer's width, its buttons sit on their own row under them, and its height is taken
 //   from a hidden twin of the same words measured at the drawer's width before it is shown (as R20's truth block), so
 //   nothing moves after the head's first draw.
+// - on Auto (3.6.0.5 C12 C15): the head for a workflow on no map says whether it is ready in this session now, waits
+//   for the next session or is shadowed by the project's own workflow of that name (readyWords.ts), and the lines about
+//   each saved workflow and agent sit under it, or alone for a build of agents only; each line is one more block measured
+//   by its own twin, as the head.
 import { useLayoutEffect, useRef, useState } from "react";
 import { goSection } from "../../lib/store";
 import { setAgentsView } from "../agents/store";
 import { openFlow } from "../crew/flows/flowStore";
 import { pressPair, useBuilt } from "../crew/map/built";
 import type { LitSession } from "../crew/map/litStore";
-import { justBuilt, mapName, pair, type Line } from "../crew/map/truth";
+import { mapName, pair, type Line } from "../crew/map/truth";
+import { builtView } from "./readyWords";
 
-function BuiltHead({ head, kind, flows }: { head: Line; kind: string; flows: () => void }) {
+function BuiltHead({ head, kind, flows, ready }: { head: Line; kind: string; flows: () => void; ready?: boolean }) {
   const twin = useRef<HTMLSpanElement>(null);
   const [h, setH] = useState(0);
   useLayoutEffect(() => { // the twin's height at the drawer's width, read before the first paint and on every resize
@@ -30,9 +35,9 @@ function BuiltHead({ head, kind, flows }: { head: Line; kind: string; flows: () 
     return () => ro.disconnect();
   }, []);
   return (
-    <div className="mp-built-head" data-testid="session-built-head" data-kind={kind}>
+    <div className="mp-built-head" data-testid={ready ? "session-ready-line" : "session-built-head"} data-kind={kind}>
       <span className="mp-built-twin" ref={twin} aria-hidden="true">{head.text}</span>
-      <p className="mp-built-text" data-testid="session-built-text" style={{ minHeight: h || undefined }}>{head.text}</p>
+      <p className="mp-built-text" data-testid={ready ? "session-ready-text" : "session-built-text"} style={{ minHeight: h || undefined }}>{head.text}</p>
       {head.act === "open-workflows" && (
         <div className="mp-built-acts">
           <button type="button" className="mp-link" data-testid="session-built-open" onClick={flows}>{head.label}</button>
@@ -47,8 +52,9 @@ export function BuiltBar({ s }: { s: LitSession }) {
   const which = useBuilt((x) => x.which[s.sid]) || "running";
   const marked = useBuilt((x) => !!x.marked[s.sid]);
   const two = b?.kind === "other" && !!b.map;
-  const head = b?.kind ? justBuilt(b.kind, { workflow: b.workflow, t: b.t, map: b.map, next: b.next }) : null;
-  if (!two && !head) return null;
+  const auto = !!s.auto;
+  const { head, lines } = b ? builtView(b, auto) : { head: null, lines: [] as string[] };
+  if (!two && !head && !lines.length) return null;
   const [run, just] = pair(mapName(s.map || "auto", s.plain !== false), b?.map || "");
   const flows = () => { // R31: Agents -> Workflows with W open, on this press only
     setAgentsView("workflows");
@@ -67,6 +73,7 @@ export function BuiltBar({ s }: { s: LitSession }) {
         </div>
       )}
       {head && <BuiltHead key={head.text} head={head} kind={b!.kind!} flows={flows} />}
+      {lines.map((line, i) => <BuiltHead key={`${i}:${line}`} head={{ text: line }} kind="ready" flows={flows} ready />)}
     </div>
   );
 }
