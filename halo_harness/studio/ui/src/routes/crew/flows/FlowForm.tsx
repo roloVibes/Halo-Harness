@@ -8,6 +8,7 @@ import { TO_A_MAP } from "../map/truthWords";
 import { useCrew } from "../store";
 import type { Change } from "../types";
 import { Drawn, type DrawnStep } from "./Drawn";
+import { goneLine, staleLine } from "./flowDisk";
 import { askDeleteFlow, addStep, copyOpenFlow, costNow, discardFlow, flowDirty, newFlow, openFlow, removeFlow, saveFlow, setAdding, setFlow, useFlows } from "./flowStore";
 import { FlowTry } from "./FlowTry";
 import { makeForStep } from "./makeIt";
@@ -81,6 +82,7 @@ export function FlowForm() {
   const w = useFlows((s) => s.form);
   const maps = useFlows((s) => s.maps);
   const stale = useFlows((s) => s.stale);
+  const gone = useFlows((s) => s.gone);
   const open = useFlows((s) => s.open);
   const now = useFlows(costNow); // the band of the form as it stands (null while it is read)
   const cost = now?.cost;
@@ -96,10 +98,10 @@ export function FlowForm() {
   return (
     <div className="fl-page" data-testid="flow-form" data-name={w.name}>
       <div className="cw-form fl-form">
-        {stale && (
-          <div className="cw-stale" data-testid="flow-stale">
-            <span className="cw-line">The builder changed {open?.name} while you had edits here.</span>
-            <Button size="sm" onClick={() => open && void openFlow(open.name, open.scope)}>Reload it (your edits go)</Button>
+        {(stale || gone) && open && (
+          <div className="cw-stale" data-testid="flow-stale" data-gone={gone || undefined}>
+            <span className="cw-line" data-testid="flow-stale-line">{gone ? goneLine(open.name) : staleLine(open.name)}</span>
+            {!gone && <Button size="sm" onClick={() => void openFlow(open.name, open.scope)} data-testid="flow-stale-reload">Reload it (your edits go)</Button>}
           </div>
         )}
         <label className="cw-field">

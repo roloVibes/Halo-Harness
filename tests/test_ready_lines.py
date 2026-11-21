@@ -594,7 +594,7 @@ H3 = "Just built: the workflow review. This project has its own workflow review,
 # `current(name)` answers from globalThis.__bodies
 BUILT_STUB = r"""export function createStore(init) { let s = init; return { get: () => s, update: (fn) => { s = { ...s, ...fn(s) }; },
   subscribe: () => () => {} }; }
-export const useStore = () => null, putBody = () => {}, bump = () => {};
+export const useStore = () => null, putBody = () => {}, bump = () => {}, names = () => false;  // 3.6.0.9 V: names
 export const current = (name) => (globalThis.__bodies || {})[name];"""
 BUILT_HOOK = r"""const STUB = %s;
 export async function resolve(spec, ctx, next) {

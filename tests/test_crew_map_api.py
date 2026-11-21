@@ -53,6 +53,28 @@ def test_read_the_maps_and_one_map(ctx: Ctx):
                   "next" in r and r["next"] is None)
 
 
+@test
+def test_a_map_answer_carries_the_hashes_of_what_it_bakes_in(ctx: Ctx):
+    """3.6.0.9 V: GET / PUT crew/map carry `sig` (the map file's hash) and `deps` (each agent and workflow file whose
+    facts the answer holds), the hashes Studio's watcher sends (studio/files_live.py), so the page re-reads a map only
+    when one of them changed on disk."""
+    from halo_harness.crew import store
+    from halo_harness.studio.files_live import file_sig, sig
+    with CrewRig() as rig:
+        rig.studio()
+        st, m = rig.api("GET", "crew/map/ship-it")
+        flow = m["boxes"]["plan"]["names"][0]
+        agents = {a for s in m["boxes"]["plan"]["facts"][0]["steps"] for a in s["agents"]}
+        ctx.check(f"the map's own hash, got {m.get('sig')!r}", m.get("sig") == file_sig(m["path"]) and len(m["sig"]) == 16)
+        deps = m.get("deps") or {}
+        ctx.check(f"its workflow, the workflow's step agents and main, each the watcher's hash, got {deps}",
+                  f"workflow:{flow}" in deps and {f"agent:{a}" for a in agents} <= set(deps) and "agent:main" in deps
+                  and all(v == sig(k.split(":")[0], k.split(":", 1)[1], rig.proj, rig.state) for k, v in deps.items()))
+        st, put = rig.api("PUT", "crew/map/mine", {"map": {"boxes": [{"id": "c", "agent": "coder"}], "lines": [{"from": "main", "to": "c", "when": "always"}]}})
+        ctx.check(f"a save answers the written file's hash, got {st} {put.get('sig')!r}",
+                  st == 200 and put.get("sig") == file_sig(store.path_for("map", "mine", state_dir=rig.state)))
+
+
 def _map_body(name: str, boxes: int) -> dict:
     return {"format": "map/1", "name": name, "main": {"agent": "main"},
             "boxes": [{"id": f"b{i}", "agent": "coder"} for i in range(boxes)],

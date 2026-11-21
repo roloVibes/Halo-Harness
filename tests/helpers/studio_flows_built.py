@@ -7,6 +7,10 @@
              tab left for 1 · Agents and come back to with 2; the same with an unsaved edit in the form (the form keeps
              the edit and the list marks the built one); a NEW one built while he is away, the list's read held back as he
              comes back: open once the read lands (P4 batch 12); a fresh page on Session where Workflows was never opened
+    follows  3.6.0.9 V (the owner's point 34): the workflow open in the form follows its file: a plain write, a Builder
+             card's write (left and come back), the form's own Save (no read, no line), an unsaved edit (kept, the
+             stale line, Reload), the file removed (the form stays, Save writes it again), and a map naming a workflow
+             moves the list's "on the map" tag
 No model is called."""
 from __future__ import annotations
 
@@ -134,3 +138,94 @@ def built(c, rig) -> dict:
     out["fresh"] = c.wait(f"{FORM}?.dataset.name === 'other' && 'other'", 30)
     out["fresh_part"] = c.js(f"!!document.querySelector('{P}[data-testid=flow-form]')")
     return out
+
+
+STEPS = "[...document.querySelectorAll('[data-part=\"workflows\"] [data-testid=flow-step]')].map((s) => s.dataset.name)"
+
+
+def _until(c, expr: str, want, timeout: float = 12):
+    """`want` once `expr` (JSON-compared) equals it within `timeout`, else what it was then: a STATE, never a time."""
+    import json
+    try:
+        c.wait(f"JSON.stringify({expr}) === {json.dumps(json.dumps(want))}", timeout)
+        return want
+    except TimeoutError:
+        return c.js(expr)
+
+
+def follows(c, rig) -> dict:
+    import threading
+    from halo_harness.crew import store
+    from halo_harness.studio import api as A
+    from halo_harness.studio.events import bridge_for
+    out: dict = {}
+    base = rig.api("GET", "crew/workflow/my-review")[1]["workflow"]
+    path = store.path_for("workflow", "my-review", state_dir=rig.state)
+
+    def write(names: list, why: str = "followed") -> list:
+        store.write_text(path, store.dump({**base, "for": why, "steps": [{**base["steps"][0], "name": n} for n in names]}))
+        return names
+    _open(c, "my-review")
+    # (f) first, with no workflow write pending: a map that puts `other` on a box; the list's "on the map" tag follows
+    tag = f"{q('[data-testid=flow-item][data-name=other] [data-testid=flow-item-map]')}?.dataset.tag || ''"
+    out["tag_before"] = c.js(tag)
+    store.write_text(store.path_for("map", "follow-map", state_dir=rig.state),
+                     "format: map/1\nname: follow-map\nboxes:\n- {id: o, workflow: other}\nlines:\n- {from: main, to: o, when: always}\n")
+    out["tag_after"] = _until(c, tag, "on")
+    # (1) a plain write, as the Write tool makes: the open form shows the file's steps and words
+    out["plain"] = [_until(c, STEPS, write(["a", "b", "c"])), _until(c, f"{t('flow-for')}?.value", "followed", 5)]
+    # (2) a Builder card's write of the same name (its file, then its frame): left and come back, the form is the file
+    want = write(["a", "b", "c", "d"], "built")
+    _leave(c)
+    _frame(c, rig, [{"kind": "workflow", "name": "my-review", "added": False}])
+    _back(c)
+    out["built"] = [_until(c, STEPS, want), _until(c, f"{t('flow-for')}?.value", "built", 5)]
+    # (e) the form's own Save comes back from the watcher: nothing read again, no line
+    asked, seen, orig = [], threading.Event(), A.dispatch
+
+    def counted(req):
+        if req.method == "GET":
+            asked.append(str(req.path))
+        return orig(req)
+
+    def tap(f: dict) -> None:
+        d = f.get("data") or {}
+        if f.get("event") == "files_changed" and d.get("kind") == "workflows" and "my-review" in (d.get("names") or []):
+            seen.set()
+    taps = bridge_for(rig.server).taps
+    A.dispatch = counted
+    taps.append(tap)
+    try:
+        type_in(c, "flow-for", "saved here")
+        click(c, "flow-save")
+        c.wait(f"{t('flow-note')}?.innerText.startsWith('Saved my-review')", 20)
+        n0 = len(asked)
+        out["own_frame"] = seen.wait(15)
+        mark = store.path_for("workflow", "zz-mark", state_dir=rig.state)
+        store.write_text(mark, store.dump({**base, "name": "zz-mark"}))  # a later frame: the page has handled the one before
+        c.wait(f"!!{q('[data-testid=flow-item][data-name=zz-mark]')}", 20)
+        out["own_save"] = {"reads": asked[n0:].count("crew/workflow/my-review"), "line": c.js(f"!!{t('flow-stale')}"),
+                           "for": c.js(f"{t('flow-for')}?.value")}
+    finally:
+        A.dispatch = orig
+        taps.remove(tap)
+    # (3) an unsaved edit: his text stays, the steps stay, the line says so; its button reads the file
+    type_in(c, "flow-for", "typed by hand")
+    held = c.js(STEPS)
+    disk = write(["a", "b", "c", "d", "e"], "on disk")
+    line = "my-review changed on disk while you had edits here. Save writes yours over it."
+    out["dirty"] = {"line": _until(c, f"{t('flow-stale-line')}?.textContent || ''", line),
+                    "for": c.js(f"{t('flow-for')}?.value"), "kept": c.js(STEPS) == held,
+                    "button": c.js(f"{t('flow-stale-reload')}?.textContent || ''")}
+    if c.js(f"!!{t('flow-stale-reload')}"):
+        click(c, "flow-stale-reload")
+    out["reloaded"] = [_until(c, STEPS, disk), c.js(f"{t('flow-for')}?.value"), c.js(f"!!{t('flow-stale')}")]
+    # (d) the file removed: his form stays with the line, no Reload; Save writes it again
+    path.unlink()
+    out["removed"] = {"line": _until(c, f"{t('flow-stale-line')}?.textContent || ''", "my-review was removed on disk. Save writes it again."),
+                      "form": c.js(f"{FORM}?.dataset.name"), "steps": c.js(STEPS), "reload": c.js(f"!!{t('flow-stale-reload')}")}
+    if c.js(f"!!{t('flow-save')} && !{t('flow-save')}.disabled"):
+        click(c, "flow-save")
+        c.wait(f"{t('flow-note')}?.innerText.startsWith('Saved my-review')", 20)
+    out["written_again"] = [path.is_file(), c.js(f"!!{t('flow-stale')}")]
+    return {"follows": out}

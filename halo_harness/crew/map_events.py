@@ -14,7 +14,8 @@ record keeps the very same events:
     map_card   a Builder card main parked for the person: {id, changes} (crew/changes.py `public` rows: the ghosts the
                Map draws); {id, done: true} once it is answered or dismissed
     builder_done  3.6.0.2 R25: every Builder card, AFTER its files are written (or not): {id, outcome, wrote, undo,
-               next, this_session, maps, t} (`builder_done`); its receipt in the log is the same without `maps`;
+               next, this_session, maps, sigs, t} (`builder_done`); its receipt in the log is the same without `maps`
+               and `sigs` (3.6.0.9 V: each body's file hash, studio/files_live.py);
                ready, later and p3 on Auto (crew/ready_now.py)
 
 A spawned agent's row carries `crew: {map, box, line?, agent, saved, workflow?, step?, made_up?}` (agent/
@@ -241,20 +242,26 @@ def _this_map(session):
     return None
 
 
-def _bodies(session, wrote: list) -> dict:
-    """`{name: body}` of each map the card wrote, as `GET crew/map/<name>` gives it; one over 64 KB is left out."""
+def _bodies(session, wrote: list, sigs: "dict | None" = None) -> dict:
+    """`{name: body}` of each map the card wrote, as `GET crew/map/<name>` gives it; one over 64 KB is left out. 3.6.0.9
+    V: `sigs` gets each body's file hash (studio/files_live.py `file_sig`), of the very bytes the body was read from."""
+    import hashlib
     from halo_harness.crew import store
+    from halo_harness.yamlfile import safe_load
     out = {}
     for w in wrote:
         if w.get("kind") != "map" or w.get("removed"):
             continue
         try:
-            body = store.read(store.path_for("map", w["name"], cwd=getattr(session, "cwd", None)))
-            if body is None:
+            raw = store.path_for("map", w["name"], cwd=getattr(session, "cwd", None)).read_bytes()
+            body = safe_load(raw.decode("utf-8"))
+            if not isinstance(body, dict):
                 continue
             body = store.clean(body)
             if len(json.dumps(body, ensure_ascii=False, default=str).encode("utf-8")) <= MAP_BODY_MAX:
                 out[w["name"]] = body
+                if sigs is not None:
+                    sigs[w["name"]] = hashlib.sha1(raw).hexdigest()[:16]
         except Exception:
             continue
     return out
@@ -275,7 +282,8 @@ def builder_done(session, request_id: str, outcome) -> dict:
             session._builder_built = receipt
         except Exception:
             pass
-        data = {**receipt, "maps": _bodies(session, wrote)}
+        sigs: dict = {}
+        data = {**receipt, "maps": _bodies(session, wrote, sigs), "sigs": sigs}
         publish(session, "builder_done", data, log=False)
         top = _top(session)
         if not (closed(session) or closed(top)):

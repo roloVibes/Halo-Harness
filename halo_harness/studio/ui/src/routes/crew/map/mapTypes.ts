@@ -21,6 +21,10 @@ export type MapDetail = {
   problems: string[];
   boxes: Record<string, BoxFacts>;
   main: { agent: string; model?: string; does?: string };
+  /** 3.6.0.9 V: the hash of the map's file as read, and of each `agent:<name>` / `workflow:<name>` file whose facts are
+   *  in it (studio/files_live.py): the page reads the map again only when one of them differs on disk */
+  sig?: string;
+  deps?: Record<string, string>;
 };
 
 /** A box as the page draws it: on the map or under "Not connected yet"; `ghost` = the builder's preview. */

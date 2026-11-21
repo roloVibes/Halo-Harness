@@ -10,7 +10,7 @@
 // - tags "new {t}" (R29) on the boxes the build wrote: every box of a map it made, the boxes new or changed in a map it
 //   edited (against the body drawn before), the boxes running a workflow it wrote (their block rows too).
 import { createStore, useStore } from "../../../lib/store";
-import { current, putBody, bump } from "./mapFiles";
+import { current, names, putBody, bump } from "./mapFiles";
 import type { DrawBox, MapFile } from "./mapTypes";
 import { isAuto } from "./truthWords";
 import { readyOf, type Ready } from "../../session/readyWords";
@@ -39,6 +39,7 @@ export function takeBuilt(sid: string, d: Record<string, unknown>, now = Date.no
   const flows = wrote.filter((w) => w.kind === "workflow" && w.name).map((w) => String(w.name));
   const running = !d.this_session || isAuto(String(d.this_session)) ? "auto" : String(d.this_session);
   const bodies = d.maps && typeof d.maps === "object" ? (d.maps as Record<string, MapFile>) : {};
+  const sigs = d.sigs && typeof d.sigs === "object" ? (d.sigs as Record<string, string>) : {}; // 3.6.0.9 V: each body's hash
   const v = String(d.undo || `b${t}`);
   const tags: Record<string, number> = {};
   for (const m of maps) {
@@ -50,9 +51,13 @@ export function takeBuilt(sid: string, d: Record<string, unknown>, now = Date.no
         if (!old || JSON.stringify(old) !== JSON.stringify(b)) tags[`${m.name}:${b.id}`] = t;
       }
     }
-    if (body && typeof body === "object") putBody(m.name, v, body, flows);
+    if (body && typeof body === "object") putBody(m.name, v, body, flows, sigs[m.name] ? String(sigs[m.name]) : undefined);
     else bump(m.name, v); // R28: a body over 64 KB: read once, after the draw that needs it
   }
+  // 3.6.0.9 V: a build that wrote only a workflow or an agent the running map's boxes name: that map is read again once
+  // (its version moves), so its blocks show the new steps and the "new" tags land on them
+  const agentsWrote = wrote.filter((w) => w.kind === "agent" && w.name).map((w) => String(w.name));
+  if (!maps.some((m) => m.name === running) && (flows.some((w) => names(running, "workflows", w)) || agentsWrote.some((a) => names(running, "agents", a)))) bump(running, v);
   const other = maps.find((m) => m.name !== running);
   const onRunning = maps.some((m) => m.name === running) || flows.some((w) => (current(running)?.boxes || []).some((b) => b.workflow === w));
   const kind: BuiltKind | null = other ? "other" : onRunning ? "running" : flows.length ? "workflow" : null;

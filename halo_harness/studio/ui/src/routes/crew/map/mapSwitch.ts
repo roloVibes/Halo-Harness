@@ -5,10 +5,16 @@
 //   so the tab's first draw opens it (no fetch); drawn but not on screen -> the same, and it is opened (or re-read) when
 //   he comes back to the Map; on screen, the same map with no unsaved edit -> its detail re-read in place keeping his
 //   pick and When card; on screen with another map, the new-map draft or a When card -> the notice L4 in the row reserved
-//   for it (NoticeRow.tsx) with [Open it]. Never `goSection`, never a pop-up, nothing in front of him moves.
+//   for it (NoticeRow.tsx) with [Open it]. Never `goSection`, never a pop-up, nothing in front of him moves;
+// - 3.6.0.9 V: the open map follows its files, whoever wrote them: its own file, or a workflow or agent file one of its
+//   boxes names (the hashes the detail holds, `sig` / `deps`, against the watcher's: studio/files_live.py), is re-read in
+//   place (`rereadDetail`: the pick, the When card, the open boxes stay), after a drag in hand is dropped. The tab's own
+//   save (its hash already held) reads nothing; a Locked map is read too; a removed open map is left as it is.
 import { api } from "../../../lib/api";
 import { createStore, studio, useStore, writeLocal } from "../../../lib/store";
 import { onEvent } from "../../../lib/events";
+import { onFilesChanged, type FilesChange } from "../../../lib/filesLive";
+import { whenDropped } from "./drag";
 import { fleet, localId } from "../../fleet/store";
 import { agents, setAgentsView } from "../../agents/store";
 import { pickLive } from "../../agents/livePick";
@@ -50,6 +56,7 @@ export function watchLive(sid: string): void {
 export function markMapDrawn(): void {
   if (mapBuilt.get().drawn) return;
   mapBuilt.update(() => ({ drawn: true }));
+  onFilesChanged(["maps", "workflows", "agents"], follow);
   studio.subscribe(arrive);
   agents.subscribe(arrive);
   maps.subscribe(opened);
@@ -96,6 +103,24 @@ function arrive(): void {
   if (!p || !onScreen()) return;
   mapBuilt.update(() => ({ pending: null }));
   land(p, true);
+}
+
+const ONE: Record<string, string> = { workflows: "workflow", agents: "agent" };
+
+/** 3.6.0.9 V: whether what moved is the open map's file or one its detail bakes in, and differs from what it holds. */
+export function moves(name: string, sig: string | undefined, deps: Record<string, string>, c: FilesChange): boolean {
+  for (const [k, v] of Object.entries(c.sigs)) {
+    const at = k.indexOf(":"), kind = k.slice(0, at), n = k.slice(at + 1);
+    if (kind === "maps" ? n === name && v !== sig : !!ONE[kind] && `${ONE[kind]}:${n}` in deps && deps[`${ONE[kind]}:${n}`] !== v) return true;
+  }
+  return c.removed.some((n) => !!deps[`workflow:${n}`] || !!deps[`agent:${n}`]);
+}
+
+function follow(c: FilesChange): void {
+  const s = maps.get();
+  if (!s.name || !s.detail || !moves(s.name, s.detail.sig, s.detail.deps || {}, c)) return;
+  const name = s.name;
+  whenDropped(() => void (maps.get().name === name && rereadDetail(name)));
 }
 
 let shownName = "";

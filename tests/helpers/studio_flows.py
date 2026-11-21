@@ -14,6 +14,7 @@ tests/test_studio_flows.py reads what it saw:
     try      the band said first; a test request; each step's state, the agents that ran, the checks; seen
     delete   Delete asks on the page; Keep it.     tabs     the three tabs; back  W lands on 2 · Workflows
     head, built   3.6.0.2 R47: tests/helpers/studio_flows_built.py
+    follows       3.6.0.9 V: the open form follows its file (the same module)
 
     python -m tests.helpers.studio_flows [DIR]     DIR: also save studio-workflows-tab.png and studio-workflows-try.png
 No model is called beyond the mock upstream and the scripted builder."""
@@ -206,10 +207,10 @@ class FlowsDriver(Driver):
     def session(self, c):
         from tests.helpers.crew_rig import CrewRig
         SHOTS[:] = self.argv[:1]
-        from tests.helpers.studio_flows_built import built, head  # 3.6.0.2 R47 (its own module: it imports this one)
+        from tests.helpers.studio_flows_built import built, follows, head  # 3.6.0.2 R47, 3.6.0.9 V (it imports this one)
         with CrewRig() as rig:
             rig.studio()
-            yield tuple((fn, (c, rig)) for fn in (first, head, copy, drawn, make, write, try_it, delete, built))
+            yield tuple((fn, (c, rig)) for fn in (first, head, copy, drawn, make, write, try_it, delete, built, follows))
 
 
 if __name__ == "__main__":

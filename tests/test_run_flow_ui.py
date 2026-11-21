@@ -119,7 +119,7 @@ def test_the_workflows_form_draws_with_its_band(ctx: Ctx):
     src = (FLOWS / "flowStore.ts").read_text(encoding="utf-8")
     body = src[src.index("export async function openFlow"):src.index("export function newFlow")]
     ctx.check("openFlow reads the band before it puts the form, and asks once (no second, debounced read)",
-              'bandOf(w)' in body and "put(w, w, { name, scope: r.scope }, \"\", r.maps, band)" in body)
+              'bandOf(w)' in body and "put(w, w, { name, scope: r.scope }, \"\", r.maps, band, r.sig || \"\")" in body)  # 3.6.0.9 V: + its hash
 
 
 if __name__ == "__main__":

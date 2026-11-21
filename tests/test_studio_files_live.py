@@ -83,7 +83,32 @@ class _Home:
 
 
 def _data(frames: list) -> list:
-    return [f.get("data") for f in frames]
+    """The frames' data, each without 3.6.0.9 V's `sigs` (test_each_written_name_carries_its_files_hash checks those)."""
+    return [{k: v for k, v in (f.get("data") or {}).items() if k != "sigs"} for f in frames]
+
+
+@test
+def test_each_written_name_carries_its_files_hash(ctx: Ctx):
+    """3.6.0.9 V: agents, workflows and maps frames carry `sigs`: each written name's file hash, the same `file_sig` a
+    page holds from Studio's answers, so it reads again only what differs; config and layouts carry none."""
+    from halo_harness.studio.files_live import file_sig
+    with _Home() as h:
+        h.write("crew/maps/alpha.yaml", "name: alpha\nboxes: []\n")
+        h.write("crew/workflows/flow.yaml", "name: flow\nsteps: []\n")
+        got = {f["data"]["kind"]: f["data"] for f in h.wait(2)}
+        want = {"maps": {"alpha": file_sig(h.state / "crew/maps/alpha.yaml")}, "workflows": {"flow": file_sig(h.state / "crew/workflows/flow.yaml")}}
+        ctx.check(f"each name's hash, got {got}", {k: (got.get(k) or {}).get("sigs") for k in want} == want and all(len(v) == 16 for d in want.values() for v in d.values()))
+        before = want["maps"]["alpha"]
+        h.write("crew/maps/alpha.yaml", "name: alpha\nboxes: []\n# another\n")
+        again = (_data_raw(h.wait()) or [{}])[0]
+        ctx.check(f"another content, another hash, got {again}", (again.get("sigs") or {}).get("alpha") not in (None, "", before))
+        h.write("config.json", "{}")
+        cfg = (_data_raw(h.wait()) or [{}])[0]
+        ctx.check(f"config carries none, got {cfg}", cfg.get("kind") == "config" and "sigs" not in cfg)
+
+
+def _data_raw(frames: list) -> list:
+    return [f.get("data") or {} for f in frames]
 
 
 @test
@@ -190,7 +215,8 @@ def test_the_frame_reaches_a_browser_and_server_close_stops_the_watch(ctx: Ctx):
                     return f
             return None
         got = first(everyone)
-        ctx.check(f"the browser hears it, got {got}", bool(got) and got["data"] == {"kind": "maps", "names": ["live"], "removed": []})
+        ctx.check(f"the browser hears it, got {got}", bool(got) and _data([got]) == [{"kind": "maps", "names": ["live"], "removed": []}]
+                  and set((got["data"].get("sigs") or {})) == {"live"})
         ctx.check("a browser following one session hears it too", bool(first(one)))
     finally:
         srv.server_close()

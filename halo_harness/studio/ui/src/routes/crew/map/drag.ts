@@ -24,16 +24,29 @@ function clear(): void {
   if (r) r.setAttribute("d", "");
 }
 
+let dragging = false;
+const due: (() => void)[] = [];
+/** 3.6.0.9 V: run `fn` now, or after the drag in hand is dropped (or cancelled): a re-read never moves the map under it. */
+export function whenDropped(fn: () => void): void {
+  if (dragging) due.push(fn);
+  else fn();
+}
+const flush = () => {
+  dragging = false;
+  due.splice(0).forEach((fn) => fn());
+};
+
 function track(e: PointerEvent, move: (m: PointerEvent) => void, end: (m: PointerEvent | null) => void): void {
   const x0 = e.clientX, y0 = e.clientY;
+  dragging = true;
   let moved = false;
   const mv = (m: PointerEvent) => {
     if (!moved && Math.hypot(m.clientX - x0, m.clientY - y0) < MOVE) return;
     moved = true;
     move(m);
   };
-  const up = (m: PointerEvent) => (stop(), clear(), end(moved ? m : null));
-  const key = (k: KeyboardEvent) => { if (k.key === "Escape") (stop(), clear()); };
+  const up = (m: PointerEvent) => (stop(), clear(), end(moved ? m : null), flush());
+  const key = (k: KeyboardEvent) => { if (k.key === "Escape") (stop(), clear(), flush()); };
   const stop = () => {
     window.removeEventListener("pointermove", mv);
     window.removeEventListener("pointerup", up);

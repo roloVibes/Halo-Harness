@@ -4,7 +4,7 @@
 // answer counts only for the form it was asked for -- `costKey` -- so a slow one never shows another form's band), and
 // Save / Discard / Copy / Delete through the crew routes (studio/crew_flow_api.py). Nothing is written until Save.
 import { api, ApiError } from "../../../lib/api";
-import { onFilesChanged } from "../../../lib/filesLive";
+import { onFilesChanged, type FilesChange } from "../../../lib/filesLive";
 import { createStore, toast, useStore } from "../../../lib/store";
 import { TO_A_MAP } from "../map/truthWords";
 import type { Cost, FlowRow, Scope, Step, Workflow } from "../types";
@@ -23,7 +23,11 @@ export type FlowState = {
   note: string;
   asking: "" | "delete";
   busy: boolean;
+  /** 3.6.0.9 V: the open workflow's file changed on disk while the form held his edits (`gone`: it was removed) */
   stale: boolean;
+  gone: boolean;
+  /** 3.6.0.9 V: the hash of the file the form was read from or saved to (studio/files_live.py) */
+  sig: string;
   cost: Cost | null;
   writes: string[];
   missing: string[];
@@ -36,7 +40,7 @@ export type FlowState = {
 
 export const flows = createStore<FlowState>({
   loaded: false, error: "", flows: [], starters: [], open: null, form: null, saved: null, maps: [], note: "", asking: "", busy: false,
-  stale: false, cost: null, writes: [], missing: [], problems: [], costKey: "", adding: false,
+  stale: false, gone: false, sig: "", cost: null, writes: [], missing: [], problems: [], costKey: "", adding: false,
 });
 export const useFlows = <T,>(pick: (s: FlowState) => T): T => useStore(flows, pick);
 
@@ -46,11 +50,14 @@ export const flowDirty = (s: FlowState) => !!s.form && (!s.saved || !same(s.form
 export const blankFlow = (name: string): Workflow => ({ format: "workflow/1", name, for: "", steps: [] });
 
 let watching = false;
+let follow: (c: FilesChange) => void = () => undefined;
+/** 3.6.0.9 V: the open form follows its file (flowDisk.ts sets it; this store never imports it). */
+export const followWith = (fn: (c: FilesChange) => void): void => void (follow = fn);
 
 export async function loadFlows(): Promise<void> {
-  if (!watching) {  // 3.6.0.0 R5b: a workflow file written outside Studio shows at once
+  if (!watching) {  // 3.6.0.0 R5b: a workflow file written outside Studio shows at once; 3.6.0.9 V: the open one too
     watching = true;
-    onFilesChanged(["workflows"], () => void loadFlows());
+    onFilesChanged(["workflows"], (c) => (void loadFlows(), follow(c)));
   }
   try {
     const r = await api.get<{ workflows: FlowRow[]; starters: FlowRow[] }>("crew/workflows");
@@ -99,17 +106,17 @@ const bandState = (r: Band, key: string) => ({ cost: r.cost, writes: r.writes, m
 const bandOf = (w: Workflow): Promise<Band | null> => api.post<Band>("crew/workflow-cost", { workflow: w }).catch(() => null);
 
 /** `band`: read with the open (no second read); undefined: read it now, as an edit does. */
-function put(form: Workflow, saved: Workflow | null, open: FlowState["open"], note: string, maps: string[] = [], band?: Band | null): void {
-  flows.update(() => ({ form, saved, open, note, maps, asking: "", stale: false, adding: false, ...(band ? bandState(band, keyOf(form)) : {}) }));
+function put(form: Workflow, saved: Workflow | null, open: FlowState["open"], note: string, maps: string[] = [], band?: Band | null, sig = ""): void {
+  flows.update(() => ({ form, saved, open, note, maps, asking: "", stale: false, gone: false, sig, adding: false, ...(band ? bandState(band, keyOf(form)) : {}) }));
   if (band === undefined) refreshCost();
 }
 
 export async function openFlow(name: string, scope?: Scope): Promise<void> {
   try {
-    const r = await api.get<{ workflow: Workflow; scope: Scope; maps: string[] }>(`crew/workflow/${encodeURIComponent(name)}`, scope ? { scope } : undefined);
+    const r = await api.get<{ workflow: Workflow; scope: Scope; maps: string[]; sig?: string }>(`crew/workflow/${encodeURIComponent(name)}`, scope ? { scope } : undefined);
     const w = clean(r.workflow);
     const band = await bandOf(w);
-    put(w, w, { name, scope: r.scope }, "", r.maps, band);
+    put(w, w, { name, scope: r.scope }, "", r.maps, band, r.sig || "");
   } catch (e) {
     toast(msg(e), "error", 5000);
   }
@@ -175,8 +182,8 @@ export async function saveFlow(): Promise<boolean> {
   const path = `crew/workflow/${encodeURIComponent(w.name)}`;
   flows.update(() => ({ busy: true }));
   try {
-    if (s.open.name && s.open.name === w.name) await api.put(path, { workflow: w });
-    else await api.post(path, { workflow: w });
+    const r = s.open.name && s.open.name === w.name ? await api.put<{ sig?: string }>(path, { workflow: w })
+      : await api.post<{ sig?: string }>(path, { workflow: w });
     let note = `Saved ${w.name}. ${TO_A_MAP} A session's Workflow tool can also run it by its name.`;
     if (s.open.name && s.open.name !== w.name) {
       try {
@@ -187,7 +194,7 @@ export async function saveFlow(): Promise<boolean> {
       }
     }
     const now = flows.get().form;
-    flows.update(() => ({ open: { name: w.name, scope: s.open!.scope === "project" ? "project" : "yours" }, form: now === s.form ? w : now, saved: w, note, busy: false, stale: false }));
+    flows.update(() => ({ open: { name: w.name, scope: s.open!.scope === "project" ? "project" : "yours" }, form: now === s.form ? w : now, saved: w, note, busy: false, stale: false, gone: false, sig: r?.sig || "" }));
     await loadFlows();
     return true;
   } catch (e) {

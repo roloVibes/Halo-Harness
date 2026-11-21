@@ -2,7 +2,8 @@
 
     GET    crew/workflows                {workflows: [row], starters: [row], rows: [every row]}  a row: name, for, steps,
                                          own_copy, max_usd, scope, new, problems, maps (the maps it is on)
-    GET    crew/workflow/<name>          {workflow, scope, path, problems, maps, writable, cost, writes, missing}
+    GET    crew/workflow/<name>          {workflow, scope, path, sig, problems, maps, writable, cost, writes, missing}
+                                         (`sig`, and POST / PUT's: the file's hash, studio/files_live.py)
     POST   crew/workflow/<name> {workflow}   a new workflow of yours (409 when you have one by that name; 422 the lines)
     PUT    crew/workflow/<name> {workflow}   save it (a starter: 409, Copy makes yours)
     DELETE crew/workflow/<name>          delete yours (409 while a map has a box for it, saying which)
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 from halo_harness.crew import flow_cost, runner, store
 from halo_harness.crew.formats import workflow_problems
+from halo_harness.studio.files_live import file_sig  # 3.6.0.9 V: what the page holds is what is on disk
 from halo_harness.studio.owner_proof import owner_only
 
 ROW_KEYS = ("name", "for", "steps", "own_copy", "max_usd")
@@ -61,7 +63,8 @@ def get_workflow(req):
     if got is None:
         return 404, {"error": f"no workflow named {name!r}"}
     body = store.clean(got)
-    return 200, {"workflow": body, "scope": got["_scope"], "path": got["_path"], "problems": workflow_problems(body, name=name),
+    return 200, {"workflow": body, "scope": got["_scope"], "path": got["_path"], "sig": file_sig(got["_path"]),
+                 "problems": workflow_problems(body, name=name),
                  "maps": store.maps_with(name, cwd=req.cwd, state_dir=req.state_dir), "writable": got["_scope"] not in ("starter", "pack"),
                  **facts(body, req)}
 
@@ -94,7 +97,7 @@ def post_workflow(req):
         return 409, {"error": f"you have a workflow named {name} already: pick another name", "problems": []}
     path = store.path_for("workflow", name, state_dir=req.state_dir)
     store.write_text(path, store.dump(raw))
-    return 200, {"ok": True, "path": str(path), "workflow": raw}
+    return 200, {"ok": True, "path": str(path), "workflow": raw, "sig": file_sig(path)}
 
 
 def put_workflow(req):
@@ -110,7 +113,7 @@ def put_workflow(req):
     project = bool(found and found[1] == "project")
     path = store.path_for("workflow", name, cwd=req.cwd, state_dir=req.state_dir, project=project)
     store.write_text(path, store.dump(raw))
-    return 200, {"ok": True, "path": str(path), "workflow": raw}
+    return 200, {"ok": True, "path": str(path), "workflow": raw, "sig": file_sig(path)}
 
 
 def delete_workflow(req):

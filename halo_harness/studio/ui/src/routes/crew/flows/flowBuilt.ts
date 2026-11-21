@@ -9,6 +9,7 @@ import { createStore, studio, useStore, writeLocal } from "../../../lib/store";
 import { agents } from "../../agents/store";
 import { builders, onTab } from "../builderStore";
 import { loadCrew } from "../store";
+import { changedOnDisk } from "./flowDisk"; // 3.6.0.9 V: the open form follows its file
 import { showFlowTry } from "./flowRun";
 import { flowDirty, flows, loadFlows, openFlow, refreshCost } from "./flowStore";
 
@@ -48,9 +49,11 @@ export async function takeBuilt(urlNamed = false): Promise<void> {
   flowBuilt.update(() => ({ pending: "" }));
   writeLocal(FLOW_OPEN, null);
   const s = flows.get();
-  if (urlNamed || flowDirty(s)) return;
+  if (urlNamed) return;
+  if (s.open?.name === name) return changedOnDisk(name); // 3.6.0.9 V: the one open: read again, or `stale` over his edit
+  if (flowDirty(s)) return;
   if (!s.flows.some((w) => w.name === name)) return flowBuilt.update(() => ({ built: "" }));
-  if (s.open?.name !== name) await openFlow(name);
+  await openFlow(name);
 }
 
 let was = onScreen();

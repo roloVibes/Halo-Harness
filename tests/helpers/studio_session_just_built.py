@@ -15,6 +15,9 @@ fact reaches the page through GET live's rows (`Rows`) and the feed's frames (`b
             changes nothing in its words moves nothing (P3 batch 8)
     room    one map, nothing built, at 1280 x 800, 1440 x 900 and 1920 x 1080: the drawing's box (no pair row, no head
             room) and the '↓ n more below' words against the boxes wholly below (P3 batch 8)
+    follow  3.6.0.9 V (the owner's point 34): a workflow box's steps follow the workflow's file (a plain write, a
+            Builder card that wrote only the workflow: "new" on the new steps) and a step's agent file (its model); a
+            card's map body and the watcher's frame for that same write read the map zero times, a different write once
     fetch   nothing waits on the network: the head painted while every crew/map answer is held, one soft read for the
             running map, none for a body the frame brought, one for a body left out, none for left / failed / T4 / T10 / T8 / Empty,
             a removed map says so with no failed /api
@@ -159,14 +162,22 @@ def _parse(rig, text: str) -> dict:
 
 
 def _frame(rig, sid: str, wrote: list, maps: dict, outcome: str = "applied", undo: str = "u", this: str = "auto",
-           next_: "str | None" = None) -> dict:
+           next_: "str | None" = None, sigs: "dict | None" = None) -> dict:
+    """`builder_done` as P2b sends it; `sigs` (3.6.0.9 V) each body's file hash, as crew/map_events.py adds it."""
     from halo_harness.peers.identity import harness
     now = time.time()
     data = {"id": f"card-{undo}", "outcome": outcome, "wrote": wrote, "undo": undo, "next": next_, "this_session": this,
-            "maps": maps, "t": now}
+            "maps": maps, "t": now, **({"sigs": sigs} if sigs is not None else {})}
     rig.server.events.publish({"session_id": sid, "harness": harness()["id"], "event": "builder_done", "agent_id": "main",
                                "turn": 1, "data": data, "ts": now})
     return data
+
+
+def _sigs(rig, *names: str) -> dict:
+    """3.6.0.9 V: the hash of each map's file, as the Builder's frame carries it (studio/files_live.py file_sig)."""
+    from halo_harness.crew import store
+    from halo_harness.studio.files_live import file_sig
+    return {n: file_sig(store.path_for("map", n, state_dir=rig.state)) for n in names}
 
 
 def _on_shop(rig, rows: Rows, a: str, b: str) -> None:
@@ -248,7 +259,8 @@ def same(c, rig, rows: Rows, a: str, b: str) -> dict:
     n = c.js(f"{BOXES}.length")
     one = MAP.replace("lines:\n", "- {id: extra1, agent: writer}\nlines:\n") + "- {from: main, to: extra1, when: always}\n"
     before = c.js(f"{MAPREQS}.length")
-    _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", one)}, undo="u1", this="shop")
+    _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", one)}, undo="u1", this="shop",
+           sigs=_sigs(rig, "shop"))
     a_ok = _wait(c, f"!!{Q}('[data-testid=session-lit-map] [data-box=extra1]')", 5)
     a_reqs = c.js(f"{MAPREQS}.length") - before
     a_new = c.js(f"!!{Q}('[data-box=extra1][data-new]')")
@@ -500,6 +512,50 @@ def room(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"room": out}
 
 
+STEPROWS = "[...document.querySelectorAll('[data-testid=session-lit-map] [data-testid=session-map-step]')]"
+# review-flow with an agent box for coder too: a step's model is drawn from the facts of the map's agent box (litView.ts)
+FOLLOW_FLOW = REVIEW_FLOW.replace("lines:", "- {id: coder, agent: coder}\nlines:") + "- {from: main, to: coder, when: always}\n"
+
+
+def follow(c, rig, rows: Rows, a: str, b: str) -> dict:
+    from halo_harness.crew import store
+    fpath = store.path_for("workflow", "review", state_dir=rig.state)
+
+    def flow(n: int) -> None:
+        store.write_text(fpath, store.dump({**FLOW_REVIEW, "steps": [{"name": f"s{i}", "agents": ["coder"]} for i in range(n)]}))
+    flow(2)
+    _told(rig, "review-flow", lambda: _body(rig, "review-flow", FOLLOW_FLOW))
+    rows.reset()
+    rows.idle(b)
+    rows.idle(a, map="review-flow", map_plain=False, map_scope="yours", map_path=str(store.path_for("map", "review-flow", state_dir=rig.state)))
+    _open(c, rig, f"mode=session&session={a}&open=session-map")
+    out: dict = {"first": _wait(c, f"{STEPROWS}.length === 2", 30)}
+    n = f"{STEPROWS}.length"
+    flow(3)  # (1) a plain write of the workflow
+    out["plain"] = [_wait(c, f"{n} === 3", 12), c.js(n)]
+    flow(4)  # (2) a Builder card that wrote only the workflow: its file, then its frame
+    _frame(rig, a, [{"kind": "workflow", "name": "review", "added": False}], {}, undo="v2", this="review-flow")
+    out["built"] = [_wait(c, f"{n} === 4 && {STEPROWS}[3].hasAttribute('data-new')", 12), c.js(n),
+                    c.js(f"{STEPROWS}.map((r) => r.hasAttribute('data-new'))")]
+    starter = store.find("agent", "coder", state_dir=rig.state)
+    coder = dict(store.read(starter[0]) or {}) if starter else {}
+    store.write_text(store.path_for("agent", "coder", state_dir=rig.state), store.dump({**coder, "name": "coder", "model": "gpu-model-b"}))  # (3)
+    out["model"] = [_wait(c, f"{STEPROWS}.length === 4 && {STEPROWS}.every((r) => r.textContent.includes('gpu-model-b'))", 12),
+                    c.js(f"{STEPROWS}[0]?.textContent || ''")]
+    # (4) the read count: a card's body, then the watcher's frame for that same write: no read; a different write: one
+    m0, f0 = c.js(f"{MAPREQS}.length"), c.js("window.__jb.fc.length")
+    one = FOLLOW_FLOW.replace("lines:\n", "- {id: extra1, agent: writer}\nlines:\n") + "- {from: main, to: extra1, when: always}\n"
+    _frame(rig, a, [{"kind": "map", "name": "review-flow", "added": False}], {"review-flow": _body(rig, "review-flow", one)},
+           undo="v4", this="review-flow", sigs=_sigs(rig, "review-flow"))
+    drawn1 = _wait(c, f"!!{Q}('[data-testid=session-lit-map] [data-box=extra1]')", 10)
+    told = _wait(c, f"window.__jb.fc.slice({f0}).some((x) => x.includes('review-flow'))", 15)  # the watcher's frame, heard
+    two = one.replace("lines:\n", "- {id: extra2, agent: writer}\nlines:\n") + "- {from: main, to: extra2, when: always}\n"
+    _body(rig, "review-flow", two)
+    drawn2 = _wait(c, f"!!{Q}('[data-testid=session-lit-map] [data-box=extra2]')", 12)
+    out["reads"] = {"drawn": [drawn1, told, drawn2], "urls": c.js(f"{MAPREQS}.slice({m0}).map((r) => r.url)")}
+    return {"follow": out}
+
+
 class JustBuiltDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -516,7 +572,7 @@ class JustBuiltDriver(MapDownDriver):
             collect_page_errors(c)  # with the Page domain on: the hooks run before any page script
             c.call("Page.addScriptToEvaluateOnNewDocument", source=HOOKS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (word, same, once, heads, fetch, room) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (word, same, once, heads, fetch, room, follow) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

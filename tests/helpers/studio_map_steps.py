@@ -1,5 +1,7 @@
 """tests.helpers.studio_map_steps -- the steps of the Map tab's driver (tests/helpers/studio_map.py). Each waits for the
-value it reads; a drag is real pointer events through CDP; the keyboard path is driven too."""
+value it reads; a drag is real pointer events through CDP; the keyboard path is driven too. `follows` (3.6.0.9 V, the
+owner's point 34): the open map follows its files -- its own, a box's workflow, a box's agent -- keeping what he has
+open, and its own save reads nothing again."""
 from __future__ import annotations
 
 import base64
@@ -250,3 +252,97 @@ def builder(c, rig) -> dict:
     c.js(f"{t('builder-undo')}.click(); 1")
     out["b_undone"] = c.wait(f"!{box('my-reviewer')}", 30)
     return out
+
+
+FOLLOW_MAP = """format: map/1
+name: follow-map
+boxes:
+- {id: fw, workflow: follow-flow}
+- {id: fa, agent: my-reviewer}
+%s
+lines:
+- {from: main, to: fw, when: always}
+- {from: main, to: fa, when: always}
+"""
+
+
+def _pick_map(c, name: str) -> None:
+    c.wait(f"[...{t('map-switcher')}.options].some((o) => o.value === '{name}')", 20)
+    c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
+         f" set.call(s, '{name}'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{t('map-switcher')}?.value === '{name}'", 20)
+
+
+def _until(c, expr: str, timeout: float = 12):
+    """True once `expr` holds within `timeout` (a STATE, never a time), else False."""
+    try:
+        c.wait(f"!!({expr})", timeout)
+        return True
+    except TimeoutError:
+        return False
+
+
+def follows(c, rig) -> dict:
+    import threading
+    from halo_harness.crew import store
+    from halo_harness.studio import api as A
+    from halo_harness.studio.events import bridge_for
+    me = dict(store.read(store.path_for("agent", "my-reviewer", state_dir=rig.state)) or {})
+    flow = {"format": "workflow/1", "name": "follow-flow", "for": "follow", "steps": []}
+    fpath, mpath = store.path_for("workflow", "follow-flow", state_dir=rig.state), store.path_for("map", "follow-map", state_dir=rig.state)
+
+    def steps(n: int) -> None:
+        store.write_text(fpath, store.dump({**flow, "steps": [{"name": f"s{i}", "agents": ["my-reviewer"]} for i in range(n)]}))
+
+    def boxes(*ids: str) -> None:
+        store.write_text(mpath, FOLLOW_MAP % "\n".join(f"- {{id: {b}, agent: writer}}" for b in ids))
+    steps(2)
+    boxes()
+    _pick_map(c, "follow-map")
+    c.wait(f"!!{box('fw')} && !!{box('fa')} && {box('fw')}.innerText.includes('2 steps')", 20)
+    out: dict = {}
+    boxes("fx")  # (1) its own file, written with one more box
+    anywhere = lambda b: q(f'[data-map-box="{b}"]')  # noqa: E731 -- a box with no line is drawn under "Not connected yet"
+    out["box"] = _until(c, f"!!{anywhere('fx')}")
+    steps(3)  # (2) a box's workflow, one more step
+    out["steps"] = _until(c, f"{box('fw')}?.innerText.includes('3 steps')")
+    store.write_text(store.path_for("agent", "my-reviewer", state_dir=rig.state), store.dump({**me, "model": "gpu-model-b"}))  # (3)
+    out["model"] = _until(c, f"{box('fa')}?.innerText.includes('gpu-model-b')")
+    # (4) a box open and a When card open: another write of the map keeps both
+    c.js(f"{box('fw')}.click(); 1")
+    c.wait(f"{box('fw')}?.dataset.open !== undefined", 10)
+    c.js(f"{q('[data-testid=map-label][data-to=fa]')}.click(); 1")
+    c.wait(f"!!{t('map-when-card')}", 10)
+    boxes("fx", "fy")
+    out["kept"] = [_until(c, f"!!{anywhere('fy')}"), c.js(f"{box('fw')}?.dataset.open !== undefined"), c.js(f"!!{t('map-when-card')}")]
+    # the tab's own save (the When card's) comes back from the watcher: the map is not read again
+    asked, seen, orig = [], threading.Event(), A.dispatch
+
+    def counted(req):
+        if req.method == "GET":
+            asked.append(str(req.path))
+        return orig(req)
+
+    def tap(f: dict) -> None:
+        d = f.get("data") or {}
+        if f.get("event") == "files_changed" and d.get("kind") == "maps" and "follow-map" in (d.get("names") or []):
+            seen.set()
+    taps = bridge_for(rig.server).taps
+    A.dispatch = counted
+    try:
+        c.js(f"{t('map-when-always')}.click(); {t('map-when-save')}.click(); 1")
+        c.wait(f"!!{t('map-undo')} && !{t('map-when-card')}", 20)
+        taps.append(tap)
+        n0 = len(asked)
+        out["own_frame"] = seen.wait(15)
+        store.write_text(store.path_for("map", "zz-map-mark", state_dir=rig.state), "format: map/1\nname: zz-map-mark\nboxes: []\nlines: []\n")
+        c.wait(f"[...{t('map-switcher')}.options].some((o) => o.value === 'zz-map-mark')", 20)  # a later frame, handled
+        out["own_reads"] = asked[n0:].count("crew/map/follow-map")
+    finally:
+        A.dispatch = orig
+        if tap in taps:
+            taps.remove(tap)
+    # (5) the chain's Undo offered: a box's workflow written again keeps it
+    steps(4)
+    out["undo_kept"] = [_until(c, f"{box('fw')}?.innerText.includes('4 steps')"), c.js(f"!!{t('map-undo')}")]
+    return {"follows": out}

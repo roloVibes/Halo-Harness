@@ -94,14 +94,29 @@ def _box_facts(c, raw: dict, req, cwd=None) -> dict:
     return out
 
 
+def _sigs(path, main: str, boxes: dict, cwd, state_dir) -> dict:
+    """3.6.0.9 V: `sig`, the hash of the map's file as read (studio/files_live.py), and `deps`, the hash of each agent
+    and workflow file whose facts this answer bakes in (`agent:<name>` / `workflow:<name>`), so a page re-reads the map
+    when one of THOSE changes on disk, and only then."""
+    from halo_harness.studio.files_live import file_sig, sig
+    names = {("agent", main)}
+    for b in boxes.values():
+        names.update((b["kind"], n) for n in b["names"])
+        for f in b["facts"]:
+            names.update(("agent", a) for s in f.get("steps") or [] for a in s.get("agents") or [])
+    return {"sig": file_sig(path), "deps": {f"{k}:{n}": sig(k, n, cwd, state_dir) for k, n in sorted(names) if n}}
+
+
 def _answer(req, name: str, got: dict, cwd) -> dict:
     raw = store.clean(got)
     c = compile_raw(raw, name=name, cwd=cwd, state_dir=req.state_dir)
     main = store.load("agent", c.main.get("agent") or "main", cwd=cwd, state_dir=req.state_dir) or {}
+    boxes = _box_facts(c, raw, req, cwd)
     out = {"map": raw, "scope": got["_scope"], "path": got["_path"], "writable": True,
            "in_use": store.row_in_use(name, got["_scope"], in_use(None, req.cwd)[0]),
-           "next": _next(), "problems": c.problems, "boxes": _box_facts(c, raw, req, cwd),
-           "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")}}
+           "next": _next(), "problems": c.problems, "boxes": boxes,
+           "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")},
+           **_sigs(got["_path"], c.main.get("agent") or "main", boxes, cwd, req.state_dir)}
     if got["_scope"] == "starter" and store.is_auto(raw.get("name")):
         # 3.6.0.5 A22 (M1's {names}): the agents a NEW session on Auto gets now, the seven that ship with Halo first
         from halo_harness.config.agents_md import discover_agents

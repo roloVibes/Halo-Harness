@@ -215,8 +215,8 @@ def test_frame_carries_bodies_receipt_does_not(ctx: Ctx):
         ctx.check(f"exactly one builder_done receipt in the log, got {len(rec)}", len(rec) == 1)
         if rec:
             data = rec[0].get("data") or {}
-            ctx.check(f"the receipt is the frame minus maps, got keys {sorted(data)}",
-                      sorted(data) == sorted(k for k in d if k != "maps") and "maps" not in data
+            ctx.check(f"the receipt is the frame minus maps and sigs (3.6.0.9 V), got keys {sorted(data)}",
+                      sorted(data) == sorted(k for k in d if k not in ("maps", "sigs")) and "maps" not in data and "sigs" not in data
                       and all(data[k] == d[k] for k in data))
     # a map over 64 KB is left out of `maps`; the frame is still sent
     from tests.helpers.workflow_fakes import FakeSession
@@ -246,6 +246,9 @@ def test_frame_carries_bodies_receipt_does_not(ctx: Ctx):
                       sorted(seen[0].get("maps") or {}) == ["small"] and [w["name"] for w in seen[0]["wrote"]] == ["big", "small"])
             ctx.check(f"this_session is the session's map control's map, got {seen[0].get('this_session')!r}",
                       seen[0].get("this_session") == "small")
+            from halo_harness.studio.files_live import file_sig
+            ctx.check(f"3.6.0.9 V: `sigs` holds each body's file hash (the watcher's), none for the one left out, got {seen[0].get('sigs')}",
+                      seen[0].get("sigs") == {"small": file_sig(store.path_for("map", "small"))} and len(seen[0]["sigs"]["small"]) == 16)
         rec = [n for n in s.log.receipts() if n.get("event") == "builder_done"]
         ctx.check(f"its receipt has no bodies, got {[sorted(n.get('data') or {}) for n in rec]}",
                   len(rec) == 1 and "maps" not in rec[0]["data"])

@@ -3,7 +3,8 @@ in headless Chrome over tests/helpers/crew_rig.py with the pack that ships with 
 real one (the DevTools input domain). tests/test_studio_flows.py reads what it saw:
 
     flows   Agents -> 2 · Workflows: the groups in order, the group the pack's row sits in, its tag; its form: the
-            read-only line, Save off, no Delete; Copy: a workflow of his own (my-review-docs) open to edit, Save writes it
+            read-only line, Save off, no Delete; 3.6.0.9 V: the pack's workflow changed, its form shows the new steps;
+            Copy: a workflow of his own (my-review-docs) open to edit, Save writes it
     agents  1 · Agents: the pack's agent tagged the same; its form read-only the same way
     map     3 · Map, "Agents and workflows": the pack's workflow and agent tagged the same
 
@@ -46,6 +47,22 @@ def flows(c, rig) -> dict:
     c.wait(f"!!{Q}('[data-testid=\"flow-form\"][data-name=\"{FLOW}\"]') && !!{t('flow-savebar')}", 20)
     out["form"] = c.js(f"({{line: {t('flow-readonly')}?.innerText, save: {t('flow-save')}.disabled, delete: !!{t('flow-delete')},"
                        f" copy: !!{t('flow-copy')}}})")
+    # 3.6.0.9 V (4): the pack's workflow changes (its file, then the pack's notice, as an update gives it): the read-only
+    # form shows the new steps
+    from halo_harness.crew import store
+    from halo_harness.studio.packs_studio_live import notify
+    steps = f"[...document.querySelectorAll('[data-testid=flow-step]')].map((s) => s.dataset.name)"
+    where = store.find("workflow", FLOW, cwd=rig.proj, state_dir=rig.state)
+    raw = store.read(where[0]) if where else None
+    if raw:
+        raw["steps"] = [*(raw.get("steps") or []), {**raw["steps"][-1], "name": "pack-new-step"}]
+        store.write_text(where[0], store.dump(raw))
+        notify("update")
+        try:
+            c.wait(f"{steps}.includes('pack-new-step')", 15)
+        except TimeoutError:
+            pass
+    out["pack_follows"] = [bool(raw), c.js(steps), c.js(f"!!{t('flow-readonly')}")]
     c.click_on(t("flow-copy"))
     c.wait(f"{t('flow-name')}?.value === 'my-review-docs'", 20)
     out["copy"] = c.js(f"({{name: {t('flow-name')}.value, save: {t('flow-save')}.disabled, line: !!{t('flow-readonly')},"

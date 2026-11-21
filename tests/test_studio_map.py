@@ -128,6 +128,20 @@ def test_the_builder_draws_ghosts_apply_undo(ctx: Ctx):
 
 
 @test
+def test_the_open_map_follows_its_files(ctx: Ctx):
+    """3.6.0.9 V (the owner's point 34): the open map is the one on disk, whoever wrote it: its file, a box's workflow,
+    a box's agent; what he has open stays; its own save reads nothing again."""
+    f = _got(ctx).get("follows") or {}
+    ctx.check(f"(1) its file written with one more box: the box is drawn, got {f.get('box')}", f.get("box") is True)
+    ctx.check(f"(2) a box's workflow with one more step: the box says so, got {f.get('steps')}", f.get("steps") is True)
+    ctx.check(f"(3) a box's agent with another model: the box says it, got {f.get('model')}", f.get("model") is True)
+    ctx.check(f"(4) written again with a box open and a When card open: drawn, both kept, got {f.get('kept')}", f.get("kept") == [True, True, True])
+    ctx.check(f"its own save, come back from the watcher ({f.get('own_frame')}): not read again, got {f.get('own_reads')}",
+              f.get("own_frame") is True and f.get("own_reads") == 0)
+    ctx.check(f"(5) a box's workflow written again while Undo is offered: drawn, Undo kept, got {f.get('undo_kept')}", f.get("undo_kept") == [True, True])
+
+
+@test
 def test_the_old_doors_land_on_the_four_tabs(ctx: Ctx):
     """3.6.0.0 R5: Cast and the board went; their addresses and keys land on the Map (the board's on Workflows). 3.6.0.2 R52:
     Live is a tab again, so its address and L land on it."""

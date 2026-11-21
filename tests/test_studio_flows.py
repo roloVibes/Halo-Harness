@@ -16,7 +16,9 @@ this tab at 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `flows` view
    marked seen;
 7. Delete asks on the page; Keep it; the switch is the four tabs (3.6.0.2 R52), and W (the old board's key) lands on 2 · Workflows;
 8. 3.6.0.2 R47: the head line says what a workflow is and where maps are (its Map opens 3 · Map); a workflow main just
-   built opens in the form on the next visit (a mounted tab, a fresh page), never over an unsaved edit.
+   built opens in the form on the next visit (a mounted tab, a fresh page), never over an unsaved edit;
+9. 3.6.0.9 V: the workflow open in the form follows its file (a plain write, a Builder card, its own Save, an unsaved
+   edit, the file removed), and the list's "on the map" tag follows the maps.
 Run: python -m tests.test_studio_flows
 """
 from __future__ import annotations
@@ -151,6 +153,28 @@ def test_built_workflow_opens_next_visit(ctx: Ctx):
               got.get("fresh") == "other" and got.get("fresh_part") is True)
 
 
+@test
+def test_the_open_workflow_follows_its_file(ctx: Ctx):
+    """3.6.0.9 V (the owner's point 34): the workflow open in the form is the one on disk, whoever wrote it."""
+    f = _got(ctx).get("follows") or {}
+    ctx.check(f"(1) a plain write: the form shows the file's steps and words, got {f.get('plain')}", f.get("plain") == [["a", "b", "c"], "followed"])
+    ctx.check(f"(2) a Builder card's write of the open one, left and come back: the file's, got {f.get('built')}",
+              f.get("built") == [["a", "b", "c", "d"], "built"])
+    ctx.check(f"(e) its own Save, come back from the watcher ({f.get('own_frame')}): no read, no line, got {f.get('own_save')}",
+              f.get("own_frame") is True and f.get("own_save") == {"reads": 0, "line": False, "for": "saved here"})
+    ctx.check(f"(3) an unsaved edit: kept, the steps kept, the line and its button, got {f.get('dirty')}",
+              f.get("dirty") == {"line": "my-review changed on disk while you had edits here. Save writes yours over it.",
+                                 "for": "typed by hand", "kept": True, "button": "Reload it (your edits go)"})
+    ctx.check(f"(3) Reload reads the file's version, got {f.get('reloaded')}", f.get("reloaded") == [["a", "b", "c", "d", "e"], "on disk", False])
+    r = f.get("removed") or {}
+    ctx.check(f"(d) removed: the form stays with the line, no Reload, got {r}",
+              r.get("line") == "my-review was removed on disk. Save writes it again." and r.get("form") == "my-review"
+              and r.get("steps") == ["a", "b", "c", "d", "e"] and r.get("reload") is False)
+    ctx.check(f"(d) Save writes it again, the line goes, got {f.get('written_again')}", f.get("written_again") == [True, False])
+    ctx.check(f"(f) a map file putting it on a box: the list's tag follows, got {f.get('tag_before')!r} -> {f.get('tag_after')!r}",
+              f.get("tag_before") == "unused" and f.get("tag_after") == "on")
+
+
 _PACK: dict = {}
 PACK_LINE = "From the pack doc-review: read-only here. Copy makes it yours."
 
@@ -170,6 +194,9 @@ def test_a_packs_workflow_is_the_packs_and_read_only(ctx: Ctx):
     f = got.get("form") or {}
     ctx.check(f"its form: the line, Save off, no Delete, Copy, got {f}", f.get("line") == PACK_LINE and f.get("save") is True
               and f.get("delete") is False and f.get("copy") is True)
+    pf = got.get("pack_follows") or []
+    ctx.check(f"3.6.0.9 V (4): the pack's workflow changed, its read-only form shows the new steps, got {pf}",
+              len(pf) == 3 and pf[0] is True and (pf[1] or [""])[-1] == "pack-new-step" and pf[2] is True)
     cp = got.get("copy") or {}
     ctx.check(f"Copy: his own my-review-docs, open to edit, got {cp}", cp.get("name") == "my-review-docs" and cp.get("save") is False
               and cp.get("line") is False)

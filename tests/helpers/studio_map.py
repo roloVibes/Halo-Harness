@@ -31,7 +31,7 @@ sys.path.insert(0, str(REPO))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_agents import key  # noqa: E402
-from tests.helpers.studio_map_steps import builder, chain, drag, first, keys, maps, zoom  # noqa: E402
+from tests.helpers.studio_map_steps import builder, chain, drag, first, follows, keys, maps, zoom  # noqa: E402
 
 SHOTS: list = []
 
@@ -66,7 +66,7 @@ class MapDriver(Driver):
         with CrewRig() as rig:
             rig.studio()
             S.seed(rig)
-            yield tuple((fn, (c, rig)) for fn in (first, drag, chain, keys, maps, zoom, builder, doors))
+            yield tuple((fn, (c, rig)) for fn in (first, drag, chain, keys, maps, zoom, builder, follows, doors))
 
 
 __all__ = ["MapDriver", "key"]

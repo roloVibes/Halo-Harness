@@ -1084,6 +1084,29 @@ def test_same_name_edit_redraws(ctx: Ctx):
 
 
 @test
+def test_a_workflow_box_follows_its_files(ctx: Ctx):
+    """3.6.0.9 V (the owner's point 34): Session's drawing (Agents -> 4 Live draws through the same code) shows a workflow
+    box's steps as its file has them, whoever wrote it, and the model of its steps' agent as the agent's file has it."""
+    d = _built(ctx, "follow")
+    ctx.check(f"the drawing first shows the 2 steps, got {d.get('first')}", d.get("first") is True)
+    ctx.check(f"(1) a plain write of the workflow: 3 step rows, got {d.get('plain')}", d.get("plain") == [True, 3])
+    b = d.get("built") or []
+    ctx.check(f"(2) a Builder card that wrote only the workflow: 4 step rows, 'new' on the new one, got {b}",
+              len(b) == 3 and b[0] is True and b[1] == 4 and (b[2] or [False])[-1] is True)
+    ctx.check(f"(3) the steps' agent file with another model: the rows say it, got {d.get('model')}", (d.get("model") or [False])[0] is True)
+
+
+@test
+def test_a_builders_own_write_is_read_once_never_twice(ctx: Ctx):
+    """3.6.0.9 V: a card's map body, then the watcher's frame for that very write: the map is read zero times (the hashes
+    match); a different plain write right after is read once and drawn. No time window."""
+    r = (_built(ctx, "follow").get("reads") or {})
+    ctx.check(f"drawn from the body, the watcher's frame heard, the next write drawn, got {r.get('drawn')}", r.get("drawn") == [True, True, True])
+    urls = [u for u in r.get("urls") or [] if u.startswith("crew/map/review-flow")]
+    ctx.check(f"one read in all (the different write), got {r.get('urls')}", len(urls) == 1)
+
+
+@test
 def test_just_built_selected_once_only_when_untouched(ctx: Ctx):
     d = _built(ctx, "once")
     p, f, bk, s = d.get("plain") or {}, d.get("first") or {}, d.get("back") or {}, d.get("second") or {}

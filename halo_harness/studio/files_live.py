@@ -22,9 +22,13 @@ by name, mtime and size. A change is gathered for DEBOUNCE_S (0.3 s, again
 while files keep moving) and published once per kind:
 
     {"session_id": "studio", "event": "files_changed", "ts": ...,
-     "data": {"kind": "agents", "names": [added or modified], "removed": [...]}}
+     "data": {"kind": "agents", "names": [added or modified], "removed": [...],
+              "sigs": {name: sig}}}
 
-through `EventBridge.publish_local`. The packs' own folders are
+through `EventBridge.publish_local`. 3.6.0.9 V: `sigs` (agents, workflows, maps) is each written name's `sig`: a short
+hash of the bytes of the file the crew store reads for it (`crew.store.find`), "" when none. Studio's answers that
+carry a file (GET / PUT crew/workflow, GET / PUT crew/map, a map's `deps`) and the Builder's `builder_done` bodies carry
+the same hash, so a page reads again only what differs from what it holds -- exact, never a time window. The packs' own folders are
 packs_studio_live.py's (`pack_changed`). Studio's own writes (a PUT agent,
 workflow, map or layout) also come back as a frame 1.5 s later: that is fine, the page
 that wrote is already current (it compares what it reads with what it holds).
@@ -32,6 +36,7 @@ that wrote is already current (it compares what it reads with what it holds).
 
 from __future__ import annotations
 
+import hashlib
 import os
 import threading
 import time
@@ -43,6 +48,25 @@ DEBOUNCE_S = 0.3
 SETTLE_ROUNDS = 10  # a folder still moving after this many debounces publishes what it has
 FRAME_KIND = "files_changed"
 KINDS = ("agents", "workflows", "maps", "config", "layouts")
+SIGNED = {"agents": "agent", "workflows": "workflow", "maps": "map"}
+
+
+def file_sig(path) -> str:
+    """3.6.0.9 V: a short hash of the file's bytes ("" when it cannot be read): what a page holds is what is on disk."""
+    try:
+        return hashlib.sha1(Path(path).read_bytes()).hexdigest()[:16]
+    except (OSError, TypeError, ValueError):
+        return ""
+
+
+def sig(kind: str, name: str, cwd, state_dir) -> str:
+    """`file_sig` of the file the crew store reads for `name` (kind plural or singular), "" when there is none."""
+    from halo_harness.crew import store
+    try:
+        found = store.find(SIGNED.get(kind, kind), name, cwd=cwd, state_dir=state_dir)
+    except Exception:
+        found = None
+    return file_sig(found[0]) if found else ""
 
 
 def poll_s() -> float:
@@ -165,7 +189,11 @@ class Watcher:
             if again == now:
                 break
             now = again
-        frames = [{"session_id": "studio", "event": FRAME_KIND, "ts": time.time(), "data": d} for d in diff(self.last, now)]
+        moved = diff(self.last, now)
+        for d in moved:  # 3.6.0.9 V: each written name's hash, so a page that holds it reads nothing again
+            if d["kind"] in SIGNED:
+                d["sigs"] = {n: sig(d["kind"], n, self.cwd, self.state_dir) for n in d["names"]}
+        frames = [{"session_id": "studio", "event": FRAME_KIND, "ts": time.time(), "data": d} for d in moved]
         self.last = now
         for f in frames:
             try:
