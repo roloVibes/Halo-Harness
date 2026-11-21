@@ -166,7 +166,7 @@ def test_the_access_log_never_carries_the_token(ctx: Ctx):
     ctx.check("neither the token nor the key is in the log", token not in log and key not in log)
 
 
-SAYS = ("this page can look but not change things: only a Studio tab you opened or reloaded yourself may. In Studio, "
+SAYS = ("this page can look but not change things: only a Studio tab you opened yourself may. In Studio, "  # 3.6.0.6 PF
         "press Make this tab yours (it reloads the tab), or run `halo studio`.")
 TAB_LINE = "This tab can look but not change things, because a link or a script opened it."
 

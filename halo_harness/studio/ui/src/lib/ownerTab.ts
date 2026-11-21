@@ -6,12 +6,23 @@
 // server's sentence is pinned against studio/owner_proof.py NEEDS_OWNER by tests/test_studio_owner_proof.py.
 
 export const TAB_LINE = "This tab can look but not change things, because a link or a script opened it.";
+// 3.6.0.6 PF: the three cases there are (tests/test_owner_tab_ui.py)
+export const RELOAD_LINE = "This tab can look but not change things: Studio could not tell this reload from a link.";
+export const AGAIN_LINE = "This tab can look but not change things, because Studio was started again since it was opened.";
 export const MAKE_YOURS = "Make this tab yours";
 export const MAKE_YOURS_HOVER = "Reloads this tab; after that it can change things.";
 export const GLANCE_LINK_HOVER = "Opens Studio here; press Make this tab yours there to change things.";
 /** The server's refusal of a write without the proof, word for word (studio/owner_proof.py NEEDS_OWNER). */
 // prettier-ignore
-export const NEEDS_OWNER = "this page can look but not change things: only a Studio tab you opened or reloaded yourself may. In Studio, press Make this tab yours (it reloads the tab), or run `halo studio`.";
+export const NEEDS_OWNER = "this page can look but not change things: only a Studio tab you opened yourself may. In Studio, press Make this tab yours (it reloads the tab), or run `halo studio`.";
+
+/** Why this tab can only look ("" = it can change things): `served` = Studio served it the salt, `proofKey` = the key in
+ *  use is the one its proof is made for, `entry` = the type of the page's navigation entry ("reload", "navigate", ...).
+ *  Firefox's plain reload looks to Studio exactly like a link, so a reload without the salt says so. */
+export function ownerLine(served: boolean, proofKey: boolean, entry: string): string {
+  if (!served) return entry === "reload" ? RELOAD_LINE : TAB_LINE;
+  return proofKey ? "" : AGAIN_LINE;
+}
 const LEAD = NEEDS_OWNER.slice(0, NEEDS_OWNER.indexOf(" In Studio,"));
 
 /** Whether `text` (a toast's, an error's: with a view's prefix or not) is the server's refusal of a write. */

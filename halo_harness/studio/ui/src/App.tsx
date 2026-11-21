@@ -19,7 +19,7 @@ import { Workspace } from "./lib/workspace/Workspace";
 import { HoverCardHost, OwnerTabRow, Toasts } from "./lib/ui";
 import { PackFlows } from "./routes/crew/flows/PackFlows"; // 3.6.0.6 P: a pack's workflows, drawn by Studio
 import { RunDock } from "./routes/crew/flows/RunDock"; // 3.6.0.6 P: the palette's Run a workflow
-import { ownerPage } from "./lib/owner";
+import { useViewOnly } from "./lib/ui/OwnerTab"; // 3.6.0.6 PF: the one answer, read again when the key changes
 import { sections, useSections } from "./routes";
 import { startPacks } from "./routes/packs/store";
 import { Header } from "./shell/Header";
@@ -49,6 +49,7 @@ export function App() {
   const rail = useStore(studio, (s) => s.rail);
   const focus = useStore(studio, (s) => s.focus);
   const inspecting = useInspecting();
+  const looks = useViewOnly();
   const all = useSections();
   useGlobalKeys();
   useHopKeys();
@@ -69,7 +70,7 @@ export function App() {
 
   return (
     <div className="app" data-rail={rail} data-inspector={inspecting ? "open" : "closed"} data-focus={focus ? "on" : "off"}
-         data-owner={ownerPage() ? undefined : "view"}>
+         data-owner={looks ? "view" : undefined}>
       <OwnerTabRow />
       <Header />
       <Rail />

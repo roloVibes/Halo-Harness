@@ -11,8 +11,7 @@
 // script opened, a browser that sends no Fetch Metadata); 3.6.0.6 P: the cell reads VIEW ONLY, its hover the sentence, and
 // the way out is the notice row's Make this tab yours (lib/ui/OwnerTab.tsx).
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
-import { ownerPage } from "../lib/owner";
-import { TAB_LINE } from "../lib/ownerTab";
+import { useViewOnly } from "../lib/ui/OwnerTab"; // 3.6.0.6 PF: the one answer, its sentence the hover
 import { studio, useStore } from "../lib/store";
 import { FeedDot } from "../routes/orchestra/FeedDot";
 import { SECTIONS, useSectionDef } from "../routes";
@@ -26,6 +25,7 @@ export function StatusBar() {
   const line = useStore(studio, (s) => s.status[def.id] || s.status[section]);
   const title = def.title;
   const paged = !!def.paged; // 3.3.1.0 R1: Setup has pages, not a layout
+  const looks = useViewOnly();
   return (
     <HudStrip label="Status">
       <HudCell title="The live feed from every running halo session (/api/events)">
@@ -34,8 +34,8 @@ export function StatusBar() {
           <span className="mono">{FEED_TEXT[feed.status]}</span>
         </span>
       </HudCell>
-      {!ownerPage() && (
-        <HudCell title={TAB_LINE}>
+      {looks && (
+        <HudCell title={looks}>
           <span className="mono" data-testid="owner-note">VIEW ONLY</span>
         </HudCell>
       )}

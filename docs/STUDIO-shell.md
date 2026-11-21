@@ -281,6 +281,23 @@ script. Two values Studio derives from the token keep the two apart
   (`user_navigation`), and a script's click does nothing. A write refused for want of the proof raises ONE toast with
   the same sentence and button, wherever it was pressed (`lib/api.ts` -> `lib/ownerTab.ts` -> `lib/ui/Toast.tsx`).
   The rule of who gets the proof does not change.
+- **3.6.0.6: what makes a tab yours, measured.** Firefox's plain reload looks to Studio exactly like a link
+  (`same-origin`, `?1`, no Cache-Control), so the button reloads bypassing the cache (`location.reload(true)`: Firefox
+  then sends `Cache-Control: no-cache`; the other browsers ignore the argument). Measured in a real Firefox ESR and in
+  Chrome (`tests/test_studio_owner_tab_firefox.py`, `tests/test_studio_owner_tab.py`):
+
+  | What the person does | Chrome, Edge | Firefox | Safari |
+  |---|---|---|---|
+  | Presses **Make this tab yours** | yes | yes | not measured |
+  | Opens it with `halo` or `halo studio` | yes | yes | not measured |
+  | Enters the address in the address bar | yes | yes | not measured |
+  | Ctrl+Shift+R | yes | yes | not measured |
+  | A plain reload: F5 or Ctrl+R | yes | no | not measured |
+
+  The notice says which case it is (`lib/owner.ts` `viewOnly`, the one answer the notice row, the status bar's VIEW
+  ONLY cell and the glance read; `lib/ownerTab.ts` `ownerLine`): a link or a script opened the tab; a reload Studio could
+  not tell from a link; or Studio was started again since the tab was opened (a new address entered over the tab
+  gives it the new key without a reload, but its proof was made for the old key).
 - **A pack's key.** What a page embeds where no header can go (an iframe,
   an image, a video, a module import) carries `?k=<hex HMAC-SHA256 of
   "pack-raw:<id>" keyed by the token>`, not the token: Studio takes it on a

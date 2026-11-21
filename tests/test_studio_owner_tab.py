@@ -9,7 +9,9 @@ Chrome), with the pack that ships with Halo (doc-review) enabled. The rule of wh
    write carries the same sentence and button (a view's own toast of it folds into it);
 2. the button pressed for real: the tab reloads as his own page, and Try it answers 200 with its result;
 3. a scripted click() on the button does nothing (the handler takes only a trusted press);
-4. the toast's own button, pressed: the same, Try it answers 200; no page error on the way.
+4. the toast's own button, pressed: the same, Try it answers 200;
+5. (3.6.0.6 PF) Studio started again under his open tab and its new address entered over it: the row says so at once
+   ("... because Studio was started again since it was opened."), the press makes it his; no page error on the way.
 Run: python -m tests.test_studio_owner_tab
 """
 from __future__ import annotations
@@ -82,6 +84,26 @@ def test_the_toasts_button_makes_the_tab_his(ctx: Ctx):
     a = got.get("toast_after") or {}
     ctx.check(f"after its press: no row, no VIEW ONLY, got {a}", a.get("row") is None and a.get("cell") is None)
     ctx.check(f"Try it answers 200, got {got.get('toast_try')}", any(w.startswith("POST crew/try 200") for w in got.get("toast_try") or []))
+
+
+AGAIN = "This tab can look but not change things, because Studio was started again since it was opened."
+
+
+@test
+def test_a_tab_open_across_a_restart_says_so_and_the_press_makes_it_his(ctx: Ctx):
+    """3.6.0.6 PF: his own tab; Studio started again on the same port; its new address entered over the tab (only the
+    `#t=` differs: no reload). The page takes the new key, but its proof was made for the old one: the row says so at
+    once, with the button; one real press makes the tab work."""
+    got = _got(ctx)
+    ctx.check(f"entering the new address did not reload the tab, got {got.get('again_reloaded')}", got.get("again_reloaded") is False)
+    a = got.get("again") or {}
+    ctx.check(f"the row says Studio was started again, with the button, got {a}", a.get("row") == AGAIN and a.get("button") == BUTTON
+              and a.get("hover") == HOVER)
+    ctx.check(f"VIEW ONLY with the same sentence as its hover, got {a.get('cell')!r} {a.get('cell_hover')!r}",
+              (a.get("cell") or "").strip() == "VIEW ONLY" and a.get("cell_hover") == AGAIN)
+    p = got.get("again_pressed") or {}
+    ctx.check(f"after the press: no row, no VIEW ONLY, got {p}", p.get("row") is None and p.get("cell") is None)
+    ctx.check(f"Try it answers 200, got {got.get('again_try')}", any(w.startswith("POST crew/try 200") for w in got.get("again_try") or []))
     ctx.check(f"no page error on the way, got {got.get('page_errors')}", got.get("page_errors") == [])
     ctx.check(f"the driver ran to the end, got {got.get('failed')}", "failed" not in got)
 

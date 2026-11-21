@@ -8,7 +8,16 @@
 // (routes/packs/importPack.ts), so no pack script runs while the proof is being made. The functions it calls are
 // taken here, at boot, before any pack can replace them.
 
+import { ownerLine } from "./ownerTab";
+
 let salt = "";
+let entry = ""; // 3.6.0.6 PF: how this page came to be ("reload", "navigate", ...), read once at boot
+try {
+  const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+  entry = nav ? nav.type : "";
+} catch {
+  entry = "";
+}
 try {
   const root = document.documentElement;
   salt = root.dataset.ownerSalt || "";
@@ -25,6 +34,7 @@ const encode = encoder.encode.bind(encoder);
 const toHex = (n: number) => (n < 16 ? "0" : "") + n.toString(16);
 let made = ""; // the token the proof was made for
 let proof = ""; // the proof itself, once made
+let target = ""; // the token the proof is made for, known at once (the proof itself comes a moment later)
 let ready: Promise<void> = Promise.resolve();
 
 async function compute(token: string): Promise<void> {
@@ -40,7 +50,8 @@ async function compute(token: string): Promise<void> {
 /** Make the proof for the launch token, once, at boot (lib/api.ts). Later tokens get none: a page Studio served for
  *  another launch must be opened again from Studio. */
 export function makeOwnerProof(token: string): void {
-  if (made || !token) return;
+  if (target || !token) return;
+  target = token;
   ready = compute(token).catch(() => undefined);
 }
 
@@ -55,7 +66,9 @@ export function ownerProof(token: string): string {
   return token && token === made ? proof : "";
 }
 
-/** Whether this page can make changes: Studio served it the salt (a page the person opened themselves). */
-export function ownerPage(): boolean {
-  return !!salt;
+/** 3.6.0.6 PF: THE one answer to whether this tab can change things NOW with `token`, the key it is using: "" when it
+ *  can (Studio served it the salt and its proof is for that key; no key yet: nothing to say), else the sentence why it
+ *  can only look (lib/ownerTab.ts `ownerLine`). The shell reads it through lib/ui/OwnerTab.tsx `useViewOnly`. */
+export function viewOnly(token: string): string {
+  return ownerLine(!!salt, !token || token === target, entry);
 }

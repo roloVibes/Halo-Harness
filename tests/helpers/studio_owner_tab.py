@@ -9,9 +9,9 @@ tests/test_studio_owner_tab.py reads what it saw:
     press     the row's button pressed: the tab reloads, no row, no VIEW ONLY; Try it -> POST crew/try 200, its result
     scripted  a link again; a scripted click() on the button: no reload, the row stays
     toast     on that tab, Try it -> the toast's own button pressed: the tab reloads and Try it answers 200
-A tab left open across a restart of Studio is not driven here: an in-process restart leaves the browser's kept
-connections on the old server, which is not what a real restart does (a new process, a new key: the old tab's requests
-answer 401, studio/server.py `_guard`).
+    restarted (3.6.0.6 PF) Studio started again on the same port (a new key; the old server's kept connections ended,
+              as a real restart ends them with its process) and its new address entered over the tab: no reload, the
+              row says "Studio was started again"; its button pressed: Try it answers 200
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called beyond the mock upstream.
 
@@ -142,6 +142,50 @@ def from_toast(c, rig) -> dict:
     return out
 
 
+def kept_sockets(server) -> list:
+    """The connections `server` accepted: a real restart ends them with its process, so an in-process one ends them too."""
+    socks, take = [], server.process_request
+
+    def process_request(request, addr):
+        socks.append(request)
+        return take(request, addr)
+    server.process_request = process_request
+    return socks
+
+
+def restarted(c, rig) -> dict:
+    """3.6.0.6 PF: Studio started again on the SAME port under his open tab (a new key), and its new address entered
+    over the tab: only the fragment differs, so the browser does not reload and the page takes the new key."""
+    import socket
+    import threading
+    from halo_harness.studio.events import bridge_for
+    from halo_harness.studio.server import start_server
+    old = rig.server
+    port = old.server_address[1]
+    for fn in (old.shutdown, old.server_close):
+        fn()
+    for s in old.kept:
+        try:
+            s.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+    rig.server = start_server(port=port, cwd=rig.proj, state_dir=rig.state)
+    rig.server.kept = kept_sockets(rig.server)
+    threading.Thread(target=rig.server.serve_forever, daemon=True, name="crew-studio-again").start()
+    bridge_for(rig.server)
+    c.js("window.__before = 1; 1")
+    c.go(c.js("location.href.split('#')[0]") + "#t=" + rig.server.token)  # the new address, entered over the tab
+    c.wait(f"!!{ROW}", 30)
+    out = {"again": notice(c), "again_reloaded": c.js("window.__before !== 1")}
+    c.click_on(f"{ROW}.querySelector('[data-testid=\"owner-tab-yours\"]')")
+    landed(c)
+    out["again_pressed"] = notice(c)
+    try_it(c, "Review notes.md")
+    c.wait("(window.__w || []).some((w) => w.startsWith('POST crew/try '))", 30)
+    out["again_try"] = writes(c, "crew/try")
+    return out
+
+
 class OwnerTabDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1500, 900
@@ -152,12 +196,14 @@ class OwnerTabDriver(Driver):
         from tests.helpers.studio_session import collect_page_errors
         with CrewRig() as rig:
             rig.with_pack().studio()
+            rig.server.kept = kept_sockets(rig.server)
             collect_page_errors(c)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=WATCH)
             c.go(rig.url(f"&view=workflows&workflow={FLOW}"))  # as the launcher opens it: the owner's own page
             c.wait(f"document.readyState === 'complete' && !!{FORM}", 40)
             self.out["own_page"] = c.js(f"!{ROW} && !{Q}('[data-testid=\"owner-note\"]')")
-            yield ((link, (c, rig)), (press, (c, rig)), (scripted, (c, rig)), (from_toast, (c, rig)), (errors, (c,)))
+            yield ((link, (c, rig)), (press, (c, rig)), (scripted, (c, rig)), (from_toast, (c, rig)), (restarted, (c, rig)),
+                   (errors, (c,)))
 
 
 def errors(c) -> dict:

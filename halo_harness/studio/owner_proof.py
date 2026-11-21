@@ -31,8 +31,9 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 HEADER = "X-Halo-Owner"
 # 3.6.0.6 P (the owner's point 31): the words say the way out, the shell's "Make this tab yours" (a reload he presses
-# gets the salt, `user_navigation`); studio/ui/src/lib/ownerTab.ts holds the same sentence (tests/test_studio_owner_proof.py)
-NEEDS_OWNER = ("this page can look but not change things: only a Studio tab you opened or reloaded yourself may. In Studio, "
+# gets the salt, `user_navigation`); studio/ui/src/lib/ownerTab.ts holds the same sentence (tests/test_studio_owner_proof.py).
+# 3.6.0.6 PF: no "or reloaded": Firefox's plain reload looks exactly like a link; the button's reload bypasses the cache
+NEEDS_OWNER = ("this page can look but not change things: only a Studio tab you opened yourself may. In Studio, "
                "press Make this tab yours (it reloads the tab), or run `halo studio`.")
 _ID = r"[a-z][a-z0-9-]*"
 # 3.4.1.2 (SERVERS-2): the writes a pack's page may send without the proof, packlib/scoped.ts `allowed` (method, path)
