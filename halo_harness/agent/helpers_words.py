@@ -64,11 +64,14 @@ def longest_tail() -> str:
 
 
 def one_shot(session) -> bool:
-    """`halo -p` with one prompt: headless.run_print_mode sets `many_turns` False (a stream-json run, Studio's session,
-    sets it True; the terminal app leaves it unset and is `interactive`). A one-shot's first window is sized by its
-    prompt (agent/ollama_window_truth.py, the first call's rule: the window holds twice the prompt), so its request is
-    today's, byte for byte: no frozen block and no tail. The Agent and Task tools' kinds (`kinds_tail`) stay."""
-    return getattr(session, "many_turns", None) is False
+    """A session the window ladder sizes by its prompt: every session that is not marked as taking more turns
+    (agent/ollama_window_truth.many_turns, the ladder's OWN rule, asked here so the two can never differ): `halo -p`
+    with one prompt (headless.run_print_mode sets `many_turns` False), and any session that sets neither mark. The
+    terminal app marks its session `interactive`; a stream-json run, Studio's session, sets `many_turns` True. Such
+    a session's first window must hold twice its prompt, so its request is today's, byte for byte: no frozen block
+    and no tail. The Agent and Task tools' kinds (`kinds_tail`) stay."""
+    from halo_harness.agent.ollama_window_truth import many_turns
+    return not many_turns(session)  # the ladder's own rule: where it sizes the first window, the request is today's
 
 
 def _make(session) -> Optional[str]:

@@ -177,6 +177,7 @@ def test_a_real_session_on_auto_reads_the_block_and_one_with_no_map_todays_line(
             s = Session(cwd=h.repo, model_ref=parse_model_ref(ref), model_profile=ModelProfile(context_tokens=16384),
                         creds=ProviderCreds(base_url="http://127.0.0.1:9", api_key="k"), state_dir=h.state,
                         model_label=ref, session_context=sc, max_turns=5, agents=agents, crew_map=crew_map)
+            s.interactive = True  # the terminal app's session (controller.py): a one-shot keeps today's line
             msgs = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
             text, _m, _sent = shape(s, sc.system_prompt, msgs, reg.definitions(), purpose="turn")
             if crew_map is not None:
@@ -253,6 +254,16 @@ def _frozen_part(text: str) -> str:
         if mark in text:
             text = text[:text.index(mark)]
     return text
+    # the join: ONE rule. A one-shot here is exactly a session the window ladder sizes by its prompt, whichever way
+    # it was marked or left unmarked (a session a script builds sets neither mark and is on the ladder too)
+    from types import SimpleNamespace
+    from halo_harness.agent import helpers_words as H
+    from halo_harness.agent.ollama_window_truth import many_turns
+    marks = [{}, {"many_turns": False}, {"many_turns": True}, {"interactive": True}, {"interactive": False},
+             {"many_turns": False, "interactive": True}, {"many_turns": True, "interactive": False}]
+    ctx.check("a one-shot is exactly what the window ladder sizes by its prompt, however the session is marked",
+              all(H.one_shot(SimpleNamespace(**m)) == (not many_turns(SimpleNamespace(**m))) for m in marks)
+              and H.one_shot(SimpleNamespace()) and not H.one_shot(SimpleNamespace(interactive=True)))
 
 
 @test

@@ -113,7 +113,10 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
                               session_context=ctx, tool_registry=registry, state_dir=bridge_home(),
                               settings=ctx.settings, route=None, role_name=None, _measure_window=window,
                               _measure_platform=plat)
-    if one_shot:  # headless.run_print_mode: `-p` with one prompt (agent/helpers_words.one_shot)
+    # the measured session is one a person works in (the terminal app marks its session `interactive`); `one_shot`:
+    # as headless.run_print_mode marks `-p` with one prompt (agent/helpers_words.one_shot asks the ladder's own rule)
+    session.interactive = not one_shot
+    if one_shot:
         session.many_turns = False
     return new_session_state(session, cwd=cwd, control=control)
 

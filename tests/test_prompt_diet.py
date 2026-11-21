@@ -64,7 +64,7 @@ def _session(ref: str, window: int, **extra):
     if "proj" not in _FOLDER:
         _FOLDER["proj"] = tempfile.mkdtemp(prefix="pb_diet-proj-")
     stub = SimpleNamespace(model_ref=parse_model_ref(ref), model_profile=SimpleNamespace(context_tokens=window),
-                           _measure_window=window, **extra)
+                           _measure_window=window, **{"interactive": True, **extra})  # the terminal app's session
     return new_session_state(stub, cwd=_FOLDER["proj"], control="auto")
 
 
