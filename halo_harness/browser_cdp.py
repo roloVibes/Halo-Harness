@@ -221,10 +221,12 @@ def sweep_clean_profiles(home=None) -> None:
         folders = [p for p in root.iterdir() if p.is_dir() and p.name.startswith("clean-")]
     except OSError:
         return
+    dead = []
     for p in folders:
         m = re.match(r"clean-(\d+)-", p.name)
         if m and int(m.group(1)) != os.getpid() and not pid_running(int(m.group(1))) and not profile_pids(str(p)):
-            shutil.rmtree(p, ignore_errors=True)
+            dead.append(p)
+    _sweep(dead)
 
 
 SOCKET_MAX = 100  # a POSIX socket's address: 104 bytes on macOS, 108 on Linux (with its end)
@@ -280,9 +282,7 @@ def sweep_temps(home=None) -> None:
             found += [(p, re.match(r"(\d+)-\d+$", p.name)) for p in root.iterdir() if p.is_dir()] if root else []
         except OSError:
             continue
-    for p, m in found:
-        if m and int(m.group(1)) != os.getpid() and not pid_running(int(m.group(1))):
-            shutil.rmtree(p, ignore_errors=True)
+    _sweep([p for p, m in found if m and int(m.group(1)) != os.getpid() and not pid_running(int(m.group(1)))])
     _drop_short_root()
 
 
@@ -316,6 +316,19 @@ def _remove(folder) -> None:
         if not os.path.exists(folder):
             return
         time.sleep(0.1)
+
+
+def _sweep(folders) -> None:
+    """Removes the folders dead sessions left, with the patience of `_remove`: a start right after a hard end finds
+    them still held on Windows. When one stays all the same, the rest get one try each (the next start tries again),
+    so a start never waits more than about 2 s for folders it cannot have."""
+    patient = True
+    for p in folders:
+        if patient:
+            _remove(p)
+            patient = not os.path.exists(p)
+        else:
+            shutil.rmtree(p, ignore_errors=True)
 
 
 def end_browsers(limit: Optional[float] = None) -> None:

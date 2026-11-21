@@ -237,6 +237,21 @@ def test_a_clean_profile_left_by_a_gone_session_is_swept_and_a_live_one_kept(ctx
     ctx.check("the gone session's clean profile is removed", not gone.exists())
     ctx.check("a running session's clean profile stays", live.exists())
     ctx.check("Halo's kept profile is never swept", kept.exists())
+    # Windows lets go of a folder a moment after its processes end (a start right after a hard end, on a slow machine):
+    # a removal that does nothing at first is tried again, as the normal end's is
+    late = B.browser_home(home) / "clean-999993-1-1"
+    late.mkdir(parents=True)
+    real_rmtree, tries = shutil.rmtree, []
+
+    def rmtree(path, *a, **k):
+        tries.append(str(path))
+        return None if len(tries) < 3 else real_rmtree(path, *a, **k)
+    with mock.patch("halo_harness.children.pid_running", lambda pid: pid == 999992), \
+            mock.patch.object(B, "profile_pids", lambda _p: []), mock.patch.object(B.shutil, "rmtree", rmtree):
+        B.sweep_clean_profiles(home)
+    ctx.check(f"a folder the system lets go of late is removed at this start too, tries {tries}",
+              not late.exists() and tries == [str(late)] * 3)
+    ctx.check("and the running session's still stays", live.exists())
 
 
 @test
@@ -465,6 +480,19 @@ def test_a_temp_folder_a_hard_end_left_is_swept_and_a_live_ones_kept(ctx: Ctx):
     ctx.check(f"the sweep reads Halo's own folders only, never the system's temp, read {read}",
               set(read) <= allowed and str(Path(tempfile.gettempdir())) not in read)
     ctx.check("an empty short root goes with the sweep", short is None or not short.exists() or any(short.iterdir()))
+    late = root / "999993-1"  # Windows lets go of a folder late: the removal is tried again (as the clean profile's)
+    (late / "downloads").mkdir(parents=True)
+    real_rmtree, tries = shutil.rmtree, []
+
+    def rmtree(path, *a, **k):
+        tries.append(str(path))
+        return None if len(tries) < 3 else real_rmtree(path, *a, **k)
+    with mock.patch("halo_harness.children.pid_running", lambda pid: pid == 999992), \
+            mock.patch.object(B.shutil, "rmtree", rmtree):
+        B.sweep_temps(home)
+    ctx.check(f"a temp folder the system lets go of late is removed at this start too, tries {tries[:3]}",
+              not late.exists() and tries[:3] == [str(late)] * 3)
+    ctx.check("and the running session's and this process's own still stay", live.exists() and mine.exists())
     own, tmp = B.temp_folders(Path("/h/.halo/browser"))
     ctx.check(f"a home that fits: under Halo's home, got {own} {tmp}",
               own.parent == Path("/h/.halo/browser/tmp") and tmp == own)
