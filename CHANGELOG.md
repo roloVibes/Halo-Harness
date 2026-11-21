@@ -76,8 +76,11 @@ remain are at the end of this section.
   the same real-use step in a real pseudoconsole, with a second clipboard program lying in the project folder that
   must never be started (it was not); and, in a headless Chrome, the copy module (three of its six tests failed until
   the test compared line ends alike: Windows' clipboard hands text back with its own; then six of six) and the module
-  of the room rules. Not run: macOS locally (CI runs it at the release gate), Firefox and Safari, Wayland, a copy over
-  SSH into an outer terminal, the plain Windows console host, and a drag over a reply that is still being written.
+  of the room rules. The release gate's first run then showed, in the terminal app's own suite on all three systems,
+  that a reply selected as a whole widget (not by a drag) had been left out of the copy; it is copied again, and that
+  suite passes on the Linux VM. Not run: macOS locally (CI runs it at the release gate), Firefox and Safari, Wayland,
+  a copy over SSH into an outer terminal, the plain Windows console host, and a drag over a reply that is still being
+  written.
 
 ## [3.6.0.6] - 2026-11-21
 
