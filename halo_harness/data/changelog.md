@@ -1,5 +1,95 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.8] - 2026-11-21
+
+Halo runs and drives a browser by itself. Every session has a built-in Browser tool that uses a browser already on
+the machine, with nothing to install and no other product in between; Studio shows each step in words and with a
+picture of the page, and you can have a window you can watch. The limits that remain are at the end of this section.
+
+### Added
+
+- **A built-in Browser tool in every session.** Halo finds Google Chrome, Chromium, Microsoft Edge or Brave already on
+  the machine (in that order, or the one `HALO_CHROME` names), starts it itself and drives it. Nothing is installed
+  and nothing is downloaded. A session started from Studio has it too. With no browser on the machine the tool
+  answers "No browser found: install Google Chrome, Chromium, Microsoft Edge or Brave, or set HALO_CHROME to a
+  browser's path. Halo downloads none."
+- **What it can do.** Open a page, read it, click, type, press a key, scroll, go back, run JavaScript in the page,
+  take a screenshot, close. Every answer but screenshot's and close's gives the page's title, its address, its visible
+  text and a numbered list of what can be pressed or typed into; a control is named by its number, its words, or
+  `css:<selector>`.
+- **Real pages.** When a click opens a new tab the browser goes on in it and the answer begins "A new tab opened; now
+  on it." A page's alert, confirm or prompt box is answered at once and the answer begins "The page showed a box:
+  '...' (accepted)." A page that never finishes loading is read as it stands after 15 s, and the answer says so. A
+  download lands in the session's attachments folder when it is whole, and the answer says where.
+- **You can see the page.** After every action that can change the page, its picture is kept in the session's
+  attachments folder (the newest 20) and the answer names it. In Studio, a Browser step shows in Session's Live column
+  and in Agents -> 4 · Live in plain words ("Browser open <address>", "Browser click <target>" ...), and a click on
+  the step opens the picture of the page after it. The picture is not sent to the model; `screenshot` sends one.
+- **A window you can watch.** Settings has a head "Browser" with two settings. **Window**: "shown opens the browser
+  Halo drives as a window you can watch and sign in to; hidden runs it out of sight." (`halo config set
+  browser.window shown`; the tool's `show: true` does it for one session). **Profile**: "kept remembers sign-ins
+  between sessions in Halo's own folder (never your own browser's); clean starts empty every time."
+- **Sign-ins stay.** By default the browser uses a profile of Halo's own, kept between sessions, so a sign-in you make
+  once in the shown window is there next time. It is never your own browser's profile. One session uses it at a
+  time; another session at the same moment starts clean and says so.
+- **`halo doctor` has a row `browser`**: which browser Halo will use, or the line that says what to install.
+
+### Changed
+
+- **`--chrome` is no longer the way to a browser.** Its doc now says it uses another product's browser extension and
+  works only while that product does; the built-in Browser tool needs neither. The tip that named it names the
+  built-in tool.
+- **`--playwright` runs a fixed version** (`@playwright/mcp@0.0.86`, never the latest), says once before it starts
+  what the first start downloads (about 59 MB), and writes its page files in Halo's own folder, removed when the
+  session ends, instead of the folder halo was started in.
+- **Permissions for the tool.** Open, read, screenshot and close are decided as WebFetch is for the same address (a
+  rule `Browser(domain:example.com)` works); click, type, key, scroll, back and js ask in the default mode and never
+  in Auto.
+
+### Fixed
+
+- **Four `halo doctor` fix lines named headings that did not exist**, the Chrome row's among them ("see README.md
+  (Browser)"). They name real ones now.
+
+### Known limits
+
+- **Nothing listens on the network.** The browser talks to Halo over a pipe on Linux, macOS and Windows. It is Halo's
+  own child: it ends with the session on every way out, and `halo ps` lists it while it runs. The helpers the browser
+  starts for itself (its crash handler; on macOS the updater it wakes) are ended with it on Linux and macOS: asked to
+  end, and ended at most a second later if still there. What it may leave on the machine is Halo's kept profile only.
+- **A sign-in survives every ordinary way out** (quitting the terminal app, ending a session from Studio, Studio
+  stopping, the end of `halo -p`): Halo asks the browser to close and waits up to three seconds. A kill of Halo itself
+  cannot do that: a sign-in made in its last seconds may then be lost. Quitting the terminal app with a browser open
+  was not run for real on any system: only the order of its steps is tested. Studio stopping was driven inside the
+  test's own process, not by a real `halo studio --stop`.
+- **In Studio the picture's box can change its height once** when a browser shown as a window took the picture: the
+  page is smaller than the 1280 by 800 the box starts with.
+- **A download that cannot be moved into the session's folder is dropped without a line.**
+- **A session whose model gets the short tool list** (a small context window) is offered the Browser tool by name
+  only; it can still call it.
+- **The window was never opened in a test**: only the way the browser is started for it is checked. macOS was run on
+  CI's runners only (a headless Chrome there), never on a person's Mac. On Windows, Edge was run only as far as
+  starting and answering over the pipe; Brave and Chromium were never run, and only finding them is tested.
+- **Every Known limit of 3.6.0.7 still holds.**
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
+  check, eighteen of eighteen steps. Its new step starts a real Halo that opens a real page in a real installed
+  browser, presses a button, takes its pictures and closes; nothing of the browser is left after a normal end and
+  after a hard one. The system's temp folder was listed before and after a session there and on the PC: nothing of the
+  browser was added. On the PC (Windows), with a real headless Chrome, one at a time: the browser's own modules (among
+  them a sign-in that is still there in the next session), the Studio module (a session started from Studio opens,
+  presses and pictures a page; Live shows the steps and the picture), the changed plain modules and the node checks,
+  and the two new real-use steps. Chrome and Edge both answered over the pipe on Windows. The whole suite found five
+  things at the join, none in what the browser does (lists of main's tools and a recorded request that now hold the
+  Browser tool, a rule about reading the home folder, a test helper's server, the browser module started `ps` through
+  the standard starter): each is settled. CI then ran the browser's modules and the real-use step on its Windows and
+  macOS runners, with the Chrome installed there, and its first run found two more things, both in how the browser
+  ends: on Windows a start that came right after a hard end left that session's folder for a later start, and on macOS
+  Chrome's crash handler and the updater it wakes ran on after the browser was closed. Each has a fix and a test that
+  was red before, and this release's own CI run passed on both runners with them. Not run: a person's Mac, a browser
+  shown as a window, Edge beyond starting and answering, Brave and Chromium at all, and quitting the terminal app with
+  a browser open on any system.
+
 ## [3.6.0.7] - 2026-11-21
 
 Copying out of a session works. In the terminal app the words you drag over are the words you get, the moment you let
@@ -2437,102 +2527,3 @@ Every model field in Studio is a picker of the models you have: you never type a
   cut landed inside a home or project path, the stub that was left was kept as it was. It is now rewritten like the
   whole path (`~...`, `....`), as a cut-off name already was.
 - **Dependencies:** `opentelemetry-api` 1.45.2 (CVE-2026-126360 in 1.45.1, found by the audit gate).
-
-## [3.4.1.2] - 2026-11-12
-
-A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can
-no longer replace a shipped pack or workflow or import your Claude files, and a fleet hub can no longer plant settings on
-a member. The 2026-11-12 security review's findings, each with its test.
-
-### Studio, packs, supply chain
-
-- SERVERS-1, SERVERS-2: every change Studio makes needs the owner's own page. Any write without the owner proof is
-  refused, except a running pack's own routes, whichever route a write takes (typing into a session or answering its
-  cards included); the handlers that type into a session, start one, write or apply a bio or lineup, or shut Studio
-  down check it again themselves. A test lists every write route and fails on a new one until it is classified.
-- SERVERS-4, PACKS-2: a page a script opens (now also cut off from its opener), a frame, a link or a browser that
-  sends no Fetch Metadata gets Studio without the owner's salt (your own reload keeps it): it can look but not change things, and its status bar (the glance: under its answers) says
-  how to open Studio yourself. The shell makes the proof once at boot, keeps it where no other script on the page can
-  reach it, and loads no pack's page before. `halo studio --stop` and `--edit` keep working (the salt is
-  in the private studio.json beside the token).
-- SERVERS-2, PACKS-6: every grant says what it gives, none is blank: `studio-script` runs the pack's code inside
-  Studio's page with Studio's own power, including starting sessions that run commands; `doctor`, `cli:<verb>` and
-  `studio-routes` run its Python inside halo with your rights and Halo's keys; `services` and `hooks` run its programs
-  with your rights. A pack Halo does not ship gets one of those only on an explicit yes: `--grant NAME`, or
-  `--grant-all` after its lines and one question (`--yes` without a terminal); the Pack Manager asks in a dialog.
-- PACKS-1: a bare pack id (`halo pack install coach`, `halo pack test coach`, Studio's Install) is always the
-  pack Halo ships by that id, never a folder of the current directory; a `packs.sources` entry holding a shipped id
-  does not shadow it (one line says so; `halo pack install <id> --from <source>` takes it on purpose); the core's door
-  to a shipped pack opens its Python only when it is the shipped one (or a fork granted `studio-routes`).
-- SERVERS-5, PACKS-8: Export a clip films through a throwaway Studio of its own that answers only the replay page's
-  reads; on Linux and macOS its Chrome speaks DevTools over pipes and opens no port. The running Studio's key never
-  enters the filming browser.
-- SERVERS-7: the speech servers answer only programs on this machine at their own address: another Host name or any
-  browser Origin is refused; on Windows their port is exclusive, as Studio's.
-- SERVERS-8: a host's engine offer hands a paired peer only the engine's own key, never the value of another variable an
-  entry names.
-- PACKS-9: the CI workflow passes a dispatch's sha to its shell as data, never as script.
-- PACKS-10: `halo update` installs nothing when it cannot fetch the dependency lock and says how to install without it
-  on purpose; the installers fetch and check the lock first and stop the same way.
-- The design for the real fence of a pack's page (a sandboxed frame and a message broker) is written in the roadmap's
-  "Pack trust" item.
-
-### Engine, fleet files, replay privacy
-
-- **ENGINE-1.** A cloned repo's own workflows, lineups and bios (`.halo/workflows/`, `.halo/teams/`, `.halo/agents/`)
-  are read only in a folder you trusted, and a project workflow or lineup never takes a shipped or pack name (the
-  shipped `media` square stays the shipped one); `halo workflows list` and `halo config where` say which project
-  file is not used and why. A square the `Workflow` tool runs on the Orchestra engine starts its lanes in your
-  session's own permission mode and under its rules, and a test command a project file wrote (a stage's
-  `verify.test`, a lineup's `acceptance.test`) is decided as a Bash call -- your deny and ask rules, pack policies
-  and hooks -- before it runs. The same gate now keeps an untrusted repo from replacing the bio the default lineup's
-  main session runs, whose hooks ran at session start.
-- **ENGINE-2.** In a folder you have not trusted, CLAUDE.md imports come only from inside it; under the Claude config
-  folder only `*.md` files are ever imported (never credentials, settings, other projects' transcripts or history),
-  every import passes your Read deny rules, and each refusal is said once when the session starts.
-- **ENGINE-3.** Changing the permission mode (Shift+Tab, `/permissions`) no longer answers a card a pack, a hook or an
-  untrusted skill raised; an untrusted skill's commands run only on your own allow on its card.
-- **ENGINE-4.** Read and Edit deny rules now also cover `tee`, `cp`, `mv`, `install`, `ln`, `rm`, `unlink`, `shred`,
-  `truncate`, `dd`, `curl -o`, `wget -O` and `rsync` in Bash, and `Tee-Object`, `Rename-Item`, `Format-Hex`, `Import-Clixml`, `Export-Clixml`,
-  `Export-Csv`, piped readers, `${C:\path}` and the .NET stream readers and writers in PowerShell.
-- **ENGINE-5.** Switching the main session's permission mode reaches its running and background sub-agents at once;
-  a sub-agent is never left above its parent's mode.
-- **ENGINE-6.** A mission part's own-outputs-folder rule lifts only the mode's ask; an ask rule of yours stays an ask.
-- **PACKS-3.** A fleet member writes only the mission files its part may read and never a configuration-like path
-  (`.claude/`, `.mcp.json`, `.git`, a root CLAUDE.md or AGENTS.md), whatever a hub lists, and a mission folder (or a
-  repo part's worktree) is never a trusted folder. Fleet pack 1.0.4.
-- **PACKS-4.** On Windows, Halo never runs a program by its bare name from the current folder: every launch resolves
-  the program over the PATH folders first, and `NoDefaultCurrentDirectoryInExePath` is set before anything starts.
-- **PACKS-5, SERVERS-6.** Replays, `halo export --sanitize`, `/export --sanitize`, `halo session export`, the report
-  card and `halo bugreport` share one redaction: more key shapes (Groq, xAI, Perplexity, JWTs, tokens in URLs such as
-  Studio's launch link, random 30-character tokens, your secret environment values), and your home path, user name
-  and machine name in every spelling -- inside URLs and `user@host`, relative and `..` paths, 8.3 short names,
-  percent-encoded or full-width text, agent ids, the plan and keys.
-- **PACKS-7.** A hostile `.halo-replay` file cannot crash an import or the CLI (deep nesting is refused), carries no
-  terminal escape sequences into `halo replay` or `halo report`, and never replaces a replay you saved.
-
-### Privacy
-
-- **The pre-push gate checks names again.** `scripts/prepush.py` runs `halo audit privacy` in a scratch home, so it
-  never saw your private term list and every machine- and owner-name check was off in the gate. It now hands the list
-  over by file name (`HALO_PRIVACY_TERMS_FILE`, never on a command line), and when there is no list it says so in one
-  line ("name checks OFF"); CI, which has no list by design, says the same in its log.
-- **`halo audit privacy` reads more.** Every run starts with whether the name checks are on. The name terms now cover
-  the whole tree (plans, notes, reports, tools, scripts, the shipped packs, SVG text), not five folders; a finding
-  names a term by its number (`term #3`), never the term; files that are not text are counted as "not checked".
-  `--history` reads every ref the clone has (branches, tags, remotes), and `--since REV` leaves out what REV reaches.
-  An escaped Windows profile path (`C:\\Users\\<name>` in a string) and `/home/<a real default account>/...` are found
-  even when the name is a usual placeholder, unless the whole path is on the allowlist.
-- **`halo audit privacy --commits`** (new) reads every commit's author and committer address and its message: an
-  address that is not a GitHub noreply one is reported masked, with how many commits carry it, and a private term in a
-  message by its number. They fail the audit only on a commit that is not yet on `origin/master`; older ones are
-  counted (fixing them is a history rewrite). The pre-push gate runs it.
-- **Personal material out of the tree.** Machine and device names, the owner's home setup, other projects, local
-  folder paths and a user name in examples are replaced with neutral ones used the same way everywhere (`tower`,
-  `sagan`, `laptop`, `linux-vm`, the user `you`; docs/DEVELOPMENT.md "Names to use in examples and tests"); the test
-  fixture's memory text is now an invented one.
-- **Release tarballs leave out the working notes.** `plans/`, `research_notes/` and `reports/` are `export-ignore`, so
-  the release asset (`git archive` of the tag) no longer carries them; they stay in the repository.
-- **Supported versions.** SECURITY.md says the newest release is the supported one and that versions before 3.4.1.2
-  have known, fixed security problems (`halo update`). The review pages keep an open item's id, title and severity,
-  without the detail of how it works, until it is fixed.

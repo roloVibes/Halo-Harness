@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.8] - unreleased
+## [3.6.0.8] - 2026-11-21
 
 Halo runs and drives a browser by itself. Every session has a built-in Browser tool that uses a browser already on
 the machine, with nothing to install and no other product in between; Studio shows each step in words and with a
