@@ -15,7 +15,8 @@ record keeps the very same events:
                Map draws); {id, done: true} once it is answered or dismissed
     builder_done  3.6.0.2 R25: every Builder card, AFTER its files are written (or not): {id, outcome, wrote, undo,
                next, this_session, maps, sigs, t} (`builder_done`); its receipt in the log is the same without `maps`
-               and `sigs` (3.6.0.9 V: each body's file hash, studio/files_live.py);
+               and `sigs` (3.6.0.9 V: each body's file hash, studio/files_live.py, and `workflow:<name>` the hash of
+               each workflow it wrote);
                ready, later and p3 on Auto (crew/ready_now.py)
 
 A spawned agent's row carries `crew: {map, box, line?, agent, saved, workflow?, step?, made_up?}` (agent/
@@ -267,6 +268,19 @@ def _bodies(session, wrote: list, sigs: "dict | None" = None) -> dict:
     return out
 
 
+def _flow_sigs(session, wrote: list) -> dict:
+    """3.6.0.9 V: `{"workflow:<name>": hash}` of each workflow the card wrote, the hash Studio's watcher gives that name
+    (studio/files_live.py `sig`), so a page tells the card's own write, heard again from the watcher, from a later one."""
+    from halo_harness.studio.files_live import sig
+    out = {}
+    for w in wrote:
+        if w.get("kind") == "workflow" and w.get("name") and not w.get("removed"):
+            h = sig("workflows", str(w["name"]), getattr(session, "cwd", None), None)
+            if h:
+                out[f"workflow:{w['name']}"] = h
+    return out
+
+
 def builder_done(session, request_id: str, outcome) -> dict:
     """3.6.0.2 R25: a Builder card was answered and its files are written (or not): `{id, outcome: applied | left |
     failed, wrote: [{kind, name, added}], undo, next, this_session, maps, t}` on the feed; the same without `maps` as
@@ -283,7 +297,7 @@ def builder_done(session, request_id: str, outcome) -> dict:
         except Exception:
             pass
         sigs: dict = {}
-        data = {**receipt, "maps": _bodies(session, wrote, sigs), "sigs": sigs}
+        data = {**receipt, "maps": _bodies(session, wrote, sigs), "sigs": {**sigs, **_flow_sigs(session, wrote)}}
         publish(session, "builder_done", data, log=False)
         top = _top(session)
         if not (closed(session) or closed(top)):

@@ -64,11 +64,14 @@ FLOW_REVIEW = {"format": "workflow/1", "name": "review", "for": "review",
                "steps": [{"name": "code", "agents": ["coder"]}, {"name": "review", "agents": ["reviewer"]}]}
 # the page's event feed opened (a frame sent before it is lost); the maps each `files_changed` frame named; every /api
 # request with its answer's status
-HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0, reqs: [], held: [], hold: false, fc: [] };
+# fw (3.6.0.9 V batch 2): `{kind}:{name}` of each workflow or agent file the page heard, pushed 1 s after the frame: the
+# page's own handler (lib/filesLive.ts, a 300 ms debounce set as the same frame arrives) has run by then, by timer order
+HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0, reqs: [], held: [], hold: false, fc: [], fw: [] };
   const ES = window.EventSource; if (ES) { const W = function (u, o) { const es = new ES(u, o);
     es.addEventListener('open', () => { jb.open += 1; });
     es.addEventListener('files_changed', (e) => { try { const d = JSON.parse(e.data).data || {};
-      if (d.kind === 'maps') jb.fc.push([...(d.names || []), ...(d.removed || [])]); } catch (x) { jb.fc.push(['?']); } });
+      if (d.kind === 'maps') jb.fc.push([...(d.names || []), ...(d.removed || [])]);
+      if (d.kind === 'workflows' || d.kind === 'agents') setTimeout(() => jb.fw.push(...(d.names || []).map((n) => d.kind + ':' + n)), 1000); } catch (x) { jb.fc.push(['?']); } });
     return es; }; W.prototype = ES.prototype; window.EventSource = W; }
   const f = window.fetch.bind(window);
   window.fetch = (u, o) => { const s = String(u && u.url || u); if (!/\/api\//.test(s)) return f(u, o);
@@ -131,7 +134,7 @@ def _body(rig, name: str, text: str) -> dict:
     return store.read(p) or {}
 
 
-def _told(rig, name: str, write, timeout: float = 15) -> None:
+def _told(rig, name: str, write, timeout: float = 15, kind: str = "maps") -> None:
     """`write()` a map's file, then wait until Studio's watcher has published a `files_changed` naming `name`. The watcher
     reports a write up to ~1.8 s later (POLL_S 1.5 + DEBOUNCE_S 0.3): a page opened inside that window hears it as a new
     version and rightly reads the map again (mapFiles.ts), so a step that counts reads opens its page only after this."""
@@ -141,7 +144,7 @@ def _told(rig, name: str, write, timeout: float = 15) -> None:
 
     def tap(f: dict) -> None:
         d = f.get("data") or {}
-        if f.get("event") == "files_changed" and d.get("kind") == "maps" and name in [*(d.get("names") or []), *(d.get("removed") or [])]:
+        if f.get("event") == "files_changed" and d.get("kind") == kind and name in [*(d.get("names") or []), *(d.get("removed") or [])]:
             seen.set()
     taps = bridge_for(rig.server).taps
     taps.append(tap)
@@ -162,12 +165,12 @@ def _parse(rig, text: str) -> dict:
 
 
 def _frame(rig, sid: str, wrote: list, maps: dict, outcome: str = "applied", undo: str = "u", this: str = "auto",
-           next_: "str | None" = None, sigs: "dict | None" = None) -> dict:
+           next_: "str | None" = None, sigs: "dict | None" = None, **more) -> dict:
     """`builder_done` as P2b sends it; `sigs` (3.6.0.9 V) each body's file hash, as crew/map_events.py adds it."""
     from halo_harness.peers.identity import harness
     now = time.time()
     data = {"id": f"card-{undo}", "outcome": outcome, "wrote": wrote, "undo": undo, "next": next_, "this_session": this,
-            "maps": maps, "t": now, **({"sigs": sigs} if sigs is not None else {})}
+            "maps": maps, "t": now, **({"sigs": sigs} if sigs is not None else {}), **more}
     rig.server.events.publish({"session_id": sid, "harness": harness()["id"], "event": "builder_done", "agent_id": "main",
                                "turn": 1, "data": data, "ts": now})
     return data
@@ -556,6 +559,139 @@ def follow(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"follow": out}
 
 
+# 3.6.0.9 V batch 2 (the owner's point 34; reader V1, WHAT HE MEETS TODAY 5): what was built is said again after F5
+KEPT = "JSON.parse(sessionStorage.getItem('halo.studio.built') || '{}')"
+REFUSE_JS = ("if (window.name === 'refuse-storage') { const set = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) {"
+             " if (this === window.sessionStorage) throw new DOMException('refused', 'QuotaExceededError'); return set.call(this, k, v); }; }")
+SAID = f"""(() => {{ const hd = {HEAD};
+  return {{ head: hd?.querySelector('[data-testid=session-built-text]')?.textContent || '',
+    lines: [...document.querySelectorAll('[data-testid=session-ready-text]')].map((e) => e.textContent),
+    tags: [...document.querySelectorAll('[data-testid=session-lit-map] [data-box][data-new]')].map((x) =>
+      x.dataset.box + ' ' + (x.querySelector('[data-testid=session-map-new]')?.textContent || '')) }}; }})()"""
+WROTE_AUTO = [{"kind": "agent", "name": "checker", "added": True}, {"kind": "workflow", "name": "review", "added": True}]
+
+
+def _js_str(v: str) -> str:
+    import json
+    return json.dumps(v)
+
+
+def _f5(c, rig=None, query: str = "") -> None:
+    """F5 (a reload keeps the tab's sessionStorage); with `query`, the address is that session's page first (as he would
+    have it after picking it, then pressing F5)."""
+    from tests.helpers.studio_session import url
+    to = f"history.replaceState(null, '', {_js_str(url(rig, query))}); " if query else ""
+    c.js(f"(() => {{ window.__old = 1; {to}setTimeout(() => location.reload(), 0); return 1; }})()")
+    c.wait("!window.__old && document.readyState !== 'loading' && !!window.__jb && window.__jb.open > 0", 30)
+    c.mouse("mouseMoved", 1279, 799)
+
+
+def kept(c, rig, rows: Rows, a: str, b: str) -> dict:
+    from tests.helpers.studio_map_live import MAP
+    from tests.helpers.studio_session import page_errors
+    c.call("Page.addScriptToEvaluateOnNewDocument", source=REFUSE_JS)  # active only while window.name says so
+    out: dict = {}
+    _told(rig, "shop", lambda: _body(rig, "shop", MAP))
+    _on_shop(rig, rows, a, b)
+    rows.idle(b, map="auto", map_plain=True)
+    qa, qb = f"mode=session&session={a}&open=session-map", f"mode=session&session={b}&open=session-map"
+    ready_lines = "document.querySelectorAll('[data-testid=session-ready-line]').length"
+    # (1) b, on Auto: an applied card's head and ready lines
+    _open(c, rig, qb)
+    c.wait("!!document.querySelector('[data-testid=session-truth]')", 30)
+    _frame(rig, b, WROTE_AUTO, {}, undo="k1", this="auto", next_="auto", ready=["review"],
+           later=[{"kind": "agent", "name": "checker", "why": "AG1", "step": "review"}])
+    _wait(c, f"{ready_lines} >= 1 && !!{HEAD}", 10)
+    out["b_before"] = c.js(SAID)
+    # (2) a's page (its address, then F5): none of b's; then a box added to a's running map: its head and its tag
+    _f5(c, rig, qa)
+    c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
+    out["a_none"] = c.js(SAID)
+    plus = MAP.replace("lines:\n", "- {id: tester, agent: tester}\nlines:\n") + "- {from: main, to: tester, when: always}\n"
+    _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", plus)}, undo="k2", this="shop")
+    _wait(c, f"!!{Q}('[data-box=tester][data-new]') && !!{HEAD}", 10)
+    out["a_before"] = c.js(SAID)
+    # (3) F5: the same head and tag; b's page after F5: its head and lines
+    _f5(c)
+    _wait(c, f"!!{Q}('[data-box=tester][data-new]') && !!{HEAD}", 15)
+    out["a_after"] = c.js(SAID)
+    _f5(c, rig, qb)
+    _wait(c, f"{ready_lines} >= 1 && !!{HEAD}", 15)
+    out["b_after"] = c.js(SAID)
+    # (4) a's row gone (keepOpen drops it with the page's memory) and back: after F5 nothing of it is said
+    rows.hide(a)
+    out["dropped"] = _wait(c, f"!({_js_str(a)} in {KEPT}) && ({_js_str(b)} in {KEPT})", 15)
+    rows.hidden.discard(a)
+    rows.refresh()
+    _f5(c, rig, qa)
+    c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
+    time.sleep(0.5)
+    out["a_dropped"] = c.js(SAID)
+    # (5) a storage that refuses every write: the page works as today (head and tag drawn, no error), nothing is kept
+    c.js("window.name = 'refuse-storage'; 1")
+    _f5(c)
+    c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
+    stored = c.js("sessionStorage.getItem('halo.studio.built') || ''") or ""
+    plus2 = plus.replace("lines:\n", "- {id: tester2, agent: tester}\nlines:\n") + "- {from: main, to: tester2, when: always}\n"
+    _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", plus2)}, undo="k3", this="shop")
+    _wait(c, f"!!{Q}('[data-box=tester2][data-new]') && !!{HEAD}", 10)
+    out["refused"] = {**(c.js(SAID) or {}), "errors": page_errors(c),
+                      "refusing": c.js("(() => { try { sessionStorage.setItem('x', '1'); return false; } catch (e) { return true; } })()"),
+                      "same": c.js(f"(sessionStorage.getItem('halo.studio.built') || '') === {_js_str(stored)}")}
+    _f5(c)
+    c.wait(f"!!{DRAWN} && {BOXES}.length > 2", 30)
+    time.sleep(0.5)
+    out["refused_after"] = {**(c.js(SAID) or {}), "errors": page_errors(c)}
+    c.js("window.name = ''; 1")
+    return {"kept": out}
+
+
+LINES = "[...document.querySelectorAll('[data-testid=session-lit-line] .mp-truth-line')].map((e) => e.textContent)"
+CHANGED = f"{LINES}.filter((t) => t.startsWith('The workflow '))"
+
+
+def plain(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """3.6.0.9 V batch 2: a workflow on a box of the session's drawing, written by a plain write, is said in the truth
+    block's lines; a Builder card's own write is said by its head alone; no line for an agent file; kept over F5."""
+    from halo_harness.crew import store
+    from halo_harness.studio.files_live import file_sig
+    fpath = store.path_for("workflow", "review", state_dir=rig.state)
+
+    def flow(n: int) -> None:
+        store.write_text(fpath, store.dump({**FLOW_REVIEW, "steps": [{"name": f"s{i}", "agents": ["coder"]} for i in range(n)]}))
+    _told(rig, "review", lambda: flow(2), kind="workflows")
+    _told(rig, "review-flow", lambda: _body(rig, "review-flow", FOLLOW_FLOW))
+    rows.reset()
+    rows.idle(b)
+    rows.idle(a, map="review-flow", map_plain=False, map_scope="yours", map_path=str(store.path_for("map", "review-flow", state_dir=rig.state)))
+    _open(c, rig, f"mode=session&session={a}&open=session-map")
+    out: dict = {"first": [_wait(c, f"{STEPROWS}.length === 2", 30), c.js(CHANGED)]}
+    heard = "window.__jb.fw.filter((x) => x === 'workflows:review').length"
+    flow(3)  # (1) a plain write of the workflow
+    out["plain"] = [_wait(c, f"{CHANGED}.length === 1 && {STEPROWS}.length === 3", 15), c.js(CHANGED)]
+    flow(4)  # (2) another one: still one line for it
+    out["again"] = [_wait(c, f"{heard} >= 2 && {STEPROWS}.length === 4", 15), c.js(CHANGED)]
+    # (3) a Builder card that wrote it (its file, then its frame with the file's hash): its head and not the line as well,
+    # also once the watcher's frame for that very write has been heard and handled
+    flow(5)
+    _frame(rig, a, [{"kind": "workflow", "name": "review", "added": False}], {}, undo="p3", this="review-flow",
+           sigs={"workflow:review": file_sig(fpath)})
+    out["card"] = [_wait(c, f"{heard} >= 3 && {STEPROWS}.length === 5 && !!{HEAD}", 15),
+                   c.js(f"{HEAD}?.querySelector('[data-testid=session-built-text]')?.textContent || ''"), c.js(CHANGED)]
+    flow(6)  # (4) a different plain write right after: said again
+    out["after"] = [_wait(c, f"{CHANGED}.length === 1 && {STEPROWS}.length === 6", 15), c.js(CHANGED)]
+    # (5) an agent file: its model shows, no line
+    before = c.js(LINES)
+    starter = store.find("agent", "coder", state_dir=rig.state)
+    coder = dict(store.read(starter[0]) or {}) if starter else {}
+    store.write_text(store.path_for("agent", "coder", state_dir=rig.state), store.dump({**coder, "name": "coder", "model": "gpu-model-c"}))
+    out["agent"] = [_wait(c, "window.__jb.fw.includes('agents:coder')", 15), before, c.js(LINES)]
+    # (6) F5: the line is still there
+    _f5(c)
+    out["reload"] = [_wait(c, f"{CHANGED}.length === 1 && {STEPROWS}.length === 6", 15), c.js(CHANGED)]
+    return {"plain": out}
+
+
 class JustBuiltDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -572,7 +708,7 @@ class JustBuiltDriver(MapDownDriver):
             collect_page_errors(c)  # with the Page domain on: the hooks run before any page script
             c.call("Page.addScriptToEvaluateOnNewDocument", source=HOOKS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (word, same, once, heads, fetch, room, follow) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (word, same, once, heads, fetch, room, follow, kept, plain) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

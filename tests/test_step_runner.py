@@ -165,6 +165,39 @@ def test_a_bad_step_stops_before_any_call(ctx: Ctx):
               res.state == "failed" and not fake.calls and "the agent broken has a problem: careful" in res.line)
 
 
+@test
+def test_a_run_keeps_its_steps_and_the_next_run_takes_the_change(ctx: Ctx):
+    """3.6.0.9 V batch 2: the two facts Session's line states ("A run already going keeps its steps; the next run takes the
+    change."): the Workflow tool reads the file at each call (crew/flow_door.py `named`), a run reads its steps once at
+    its start (crew/runner.py `run`). The file is rewritten with a third step while the first step runs."""
+    import shutil
+    import tempfile
+    from halo_harness.crew import flow_door, store
+    tmp = Path(tempfile.mkdtemp(prefix="flow-change-"))
+    try:
+        state, proj = tmp / "state", tmp / "proj"
+        proj.mkdir()
+        p = store.path_for("workflow", "ship-a-fix", state_dir=state)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        two = _wf([{"name": "Make", "agents": ["implementer"]}, {"name": "Check", "agents": ["tester"]}])
+        three = _wf([*two["steps"], {"name": "Read", "agents": ["reader"]}])
+        store.write_text(p, store.dump(two))
+
+        def answer(name, prompt):
+            if name == "implementer":
+                store.write_text(p, store.dump(three))  # the plain write lands while the run is going
+            return f"{name} did it"
+        res, _ = _run(flow_door.named("ship-a-fix", cwd=proj, state_dir=state), Fake(answer))
+        on_disk = [s["name"] for s in (store.read(p) or {}).get("steps") or []]
+        ctx.check(f"the run that was going kept its two steps while the file got three, got {[s['name'] for s in res.steps]} "
+                  f"(file: {on_disk})", [s["name"] for s in res.steps] == ["Make", "Check"] and on_disk == ["Make", "Check", "Read"])
+        res, _ = _run(flow_door.named("ship-a-fix", cwd=proj, state_dir=state), Fake())
+        ctx.check(f"the next run takes the change, got {[(s['name'], s['state']) for s in res.steps]}",
+                  [(s["name"], s["state"]) for s in res.steps] == [("Make", "done"), ("Check", "done"), ("Read", "done")])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

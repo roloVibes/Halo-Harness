@@ -23,6 +23,7 @@ import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 import { onEvent } from "../../lib/events";
 import { followerOf, livePick, noteBuild, noteRows, staleList } from "./pick";
 import { keepOpen } from "../crew/map/built";
+import { startFlowFiles } from "./flowFiles";
 import { startLit } from "../crew/map/litStore";
 import { livePickAway, setAgentsView } from "../agents/store";
 
@@ -196,6 +197,7 @@ export function startSession(): void {
   studio.subscribe(onChange);
   fleet.subscribe(onChange);
   startLit(); // 3.6.0.2 R29: a build is heard with the drawer closed too (the view-bar word)
+  startFlowFiles(() => (fleet.get().loaded && !fleet.get().error ? localSessions(fleet.get()) : [])); // 3.6.0.9 V: a plain write's line
   onEvent("builder_done", (f) => noteBuild(f.session_id || "", (f.data || {}) as Record<string, unknown>, Date.now() / 1000)); // R4
   onChange();
 }

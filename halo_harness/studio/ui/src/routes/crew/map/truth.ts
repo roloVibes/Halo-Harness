@@ -25,6 +25,7 @@ export type TruthFacts = {
   unreadable: string | null; // the path of a map Studio cannot read here
   changed: { t: number; problem?: string } | null; // its own map changed while it runs (T5 / T6)
   workflow: string | null; // a workflow it runs that is a box on B (T7)
+  flowsChanged?: { name: string; t: number }[]; // 3.6.0.9 V: workflows of its drawing changed by a plain write (built.ts)
   busy: boolean; // never decides anything here (point 8: the sentence does not flip when a turn ends)
 };
 export type TruthState = "Empty" | "T1" | "T2" | "T3" | "T4" | "T8" | "T9" | "T10" | "T11" | "T12";
@@ -91,8 +92,14 @@ export function truthLines(f: TruthFacts): Line[] {
   const c = f.changed;
   if (c) out.push({ text: c.problem ? `${A} changed at ${clock(c.t)} but has a problem, so this session keeps the last good version: ${c.problem}.`
                                    : `${A} changed at ${clock(c.t)}; this session takes it at its next hand-off.` });
+  for (const w of f.flowsChanged || []) out.push({ text: flowChangedLine(w.name, w.t) });
   return out;
 }
+
+/** 3.6.0.9 V batch 2 (the owner's point 34): a workflow on a box of the session's drawing (on Auto: one it ran) changed
+ *  on disk by a write no Builder card named; `t` is the page's clock when it heard it. */
+export const flowChangedLine = (name: string, t: number): string =>
+  `The workflow ${name} changed at ${clock(t)}. A run already going keeps its steps; the next run takes the change.`;
 
 /** About how many 12 px text lines `lines` take at the drawer's `width` (7 px a character, 12 px padding each side; a
  *  button's label counts with its frame). It only CHOOSES the longest text; the truth block measures its hidden twin. */

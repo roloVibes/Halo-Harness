@@ -6,10 +6,11 @@
 // have: P4 batch 11), so the drawing below never moves when a fact changes; a name that really changes (a switch of the
 // map new sessions use, a workflow that starts) is measured again, once. The status line's room is its own twin's. Never amber. [New session] opens the New session form in the drawer's corner (R5: the form
 // starts a session, never this button).
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { useStore } from "../../lib/store";
 import { useSessionRecord } from "../../lib/work/record";
+import { useBuilt } from "../crew/map/built";
 import { lit, startLit } from "../crew/map/litStore";
 import type { MapDetail } from "../crew/map/mapTypes";
 import { nextMap, reserve, statusLine, statusRoom, truthLines, truthState, type Line, type TruthFacts } from "../crew/map/truth";
@@ -62,7 +63,9 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
   const B = nextMap(given.b);
   const body = useBody(B, !!flow && !given.none);
   const runs = !!flow && !!body && (body.boxes || []).some((b) => b?.workflow === flow);
-  const f: TruthFacts = { ...given, workflow: runs ? flow : null }; // R22: T7 only once B's body says W is a box on it
+  const moved = useBuilt((x) => (sid ? x.changed[sid] : undefined)); // 3.6.0.9 V: workflows changed by a plain write
+  const flowsChanged = useMemo(() => Object.entries(moved || {}).map(([name, t]) => ({ name, t })), [moved]);
+  const f: TruthFacts = { ...given, workflow: runs ? flow : null, flowsChanged }; // R22: T7 only once B's body says W is a box on it
   const lines = truthLines(f);
   const root = useRef<HTMLDivElement>(null), twin = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);

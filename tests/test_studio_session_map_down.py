@@ -1107,6 +1107,58 @@ def test_a_builders_own_write_is_read_once_never_twice(ctx: Ctx):
 
 
 @test
+def test_what_was_built_is_said_again_after_a_reload(ctx: Ctx):
+    """3.6.0.9 V batch 2 (the owner's point 34; reader V1, WHAT HE MEETS TODAY 5): after F5 the head, the ready lines and
+    the "new" tags are said again, per session (this tab's sessionStorage); a session's row gone takes them with it; a
+    storage that refuses writes changes nothing (the page works as before, nothing is kept)."""
+    import re
+    d = _built(ctx, "kept")
+    bb, ba = d.get("b_before") or {}, d.get("b_after") or {}
+    ctx.check(f"(1) on Auto: a head and ready lines before F5, got {bb}", bool(bb.get("head")) and len(bb.get("lines") or []) >= 1)
+    ctx.check(f"(3) after F5 on Auto: the same head and ready lines, got {ba} (before {bb})",
+              ba.get("head") == bb.get("head") and ba.get("lines") == bb.get("lines") and bool(ba.get("head")))
+    ctx.check(f"(2) another session's page shows none of them, got {d.get('a_none')}", d.get("a_none") == {"head": "", "lines": [], "tags": []})
+    ab, aa = d.get("a_before") or {}, d.get("a_after") or {}
+    ctx.check(f"(2) a box added to the running map: its head and its tag, got {ab}",
+              re.fullmatch(f"Changed in this session at {_T}; this session takes it at its next hand-off.", ab.get("head") or "") is not None
+              and len(ab.get("tags") or []) == 1 and re.fullmatch(f"tester new {_T}", (ab.get("tags") or [""])[0]) is not None)
+    ctx.check(f"(3) after F5: the same head and tag, got {aa} (before {ab})", aa == ab and bool(aa.get("head")))
+    ctx.check(f"(4) its row gone: its entry left this tab's storage, b's stayed, got {d.get('dropped')}", d.get("dropped") is True)
+    ctx.check(f"(4) back and F5: nothing of it is said, got {d.get('a_dropped')}", d.get("a_dropped") == {"head": "", "lines": [], "tags": []})
+    rf, ra = d.get("refused") or {}, d.get("refused_after") or {}
+    ctx.check(f"(5) storage refusing writes: the head and tag are drawn as today, no page error, nothing written, got {rf}",
+              rf.get("refusing") is True and bool(rf.get("head")) and any(t.startswith("tester2 new ") for t in rf.get("tags") or [])
+              and rf.get("errors") == [] and rf.get("same") is True)
+    ctx.check(f"(5) then F5: nothing kept, the page as today, got {ra}", ra.get("head") == "" and ra.get("tags") == [] and ra.get("errors") == [])
+
+
+@test
+def test_a_plain_write_of_a_workflow_is_said_in_words(ctx: Ctx):
+    """3.6.0.9 V batch 2 (the owner's point 34): a workflow on a box of the session's drawing written by a plain write (no
+    Builder card named it) is said in the truth block's lines, the page's clock time; a Builder card's own write is said by
+    its head alone; no line for an agent file; the line is kept over F5. tests.test_step_runner proves the two facts."""
+    import re
+    d = _built(ctx, "plain")
+    line = f"The workflow review changed at {_T}. A run already going keeps its steps; the next run takes the change."
+    one = lambda got: len(got or []) == 1 and re.fullmatch(line, (got or [""])[0]) is not None  # noqa: E731
+    ctx.check(f"the drawing first: 2 steps, no such line, got {d.get('first')}", d.get("first") == [True, []])
+    p = d.get("plain") or [False, []]
+    ctx.check(f"(1) a plain write: 3 steps and the one line, got {p}", p[0] is True and one(p[1]))
+    g = d.get("again") or [False, []]
+    ctx.check(f"(2) another plain write: still one line for it, got {g}", g[0] is True and one(g[1]))
+    cd = d.get("card") or [False, "", None]
+    ctx.check(f"(3) a Builder card that wrote it: its head, not this line as well (also after the watcher's frame for that "
+              f"write), got {cd}", cd[0] is True and re.fullmatch(f"Changed in this session at {_T}; this session takes it at its next "
+                                                                 f"hand-off.", cd[1] or "") is not None and cd[2] == [])
+    af = d.get("after") or [False, []]
+    ctx.check(f"(4) a different plain write right after: said again, got {af}", af[0] is True and one(af[1]))
+    ag = d.get("agent") or [False, None, None]
+    ctx.check(f"(5) an agent file: no line, got {ag}", ag[0] is True and ag[1] == ag[2] and bool(ag[1]))
+    rl = d.get("reload") or [False, []]
+    ctx.check(f"(6) after F5 the line is still there, got {rl}", rl[0] is True and one(rl[1]))
+
+
+@test
 def test_just_built_selected_once_only_when_untouched(ctx: Ctx):
     d = _built(ctx, "once")
     p, f, bk, s = d.get("plain") or {}, d.get("first") or {}, d.get("back") or {}, d.get("second") or {}

@@ -252,6 +252,17 @@ def test_frame_carries_bodies_receipt_does_not(ctx: Ctx):
         rec = [n for n in s.log.receipts() if n.get("event") == "builder_done"]
         ctx.check(f"its receipt has no bodies, got {[sorted(n.get('data') or {}) for n in rec]}",
                   len(rec) == 1 and "maps" not in rec[0]["data"])
+        # 3.6.0.9 V batch 2: a workflow the card wrote carries the hash the watcher gives its name (`workflow:<name>`), so
+        # Session tells the card's own write, heard again from the watcher, from a plain write after it
+        from halo_harness.studio.files_live import sig
+        wp = store.path_for("workflow", "solo")
+        wp.parent.mkdir(parents=True, exist_ok=True)
+        store.write_text(wp, store.dump({"format": "workflow/1", "name": "solo", "for": "x", "steps": [{"name": "a", "agents": ["coder"]}]}))
+        seen.clear()
+        map_events.builder_done(s, "q2", {"outcome": "applied", "undo": "u2", "wrote": [{"kind": "workflow", "name": "solo", "added": True}]})
+        want = sig("workflows", "solo", s.cwd, None)
+        ctx.check(f"a workflow's hash is the watcher's for that name, got {seen[0].get('sigs') if seen else None} want {want}",
+                  len(seen) == 1 and len(want) == 16 and seen[0].get("sigs") == {"workflow:solo": want})
     finally:
         os.environ.pop("BRIDGE_TEST_HOME", None) if saved is None else os.environ.__setitem__("BRIDGE_TEST_HOME", saved)
         shutil.rmtree(home, ignore_errors=True)
