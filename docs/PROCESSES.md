@@ -45,7 +45,7 @@ like every other child: `Browser.close` asks it to close, waits up to 3 s, then 
 profile is ended by pid (on Windows every process of the browser's own Job object). On Linux and macOS the browser
 starts helpers of its own that carry no profile and run on after it (its crash handler; on macOS the updater it
 wakes): they inherit a mark the browser is started with (`HALO_BROWSER` in its environment), and once the browser is
-gone each one still carrying it is asked to end and, still there a second later, ended by pid. Every orderly way out (the terminal
+gone each one still carrying it is asked to end and, still there at most a second later, ended by pid. Every orderly way out (the terminal
 app's quit and force quit, Studio ending a session or stopping, the end of `halo -p`) does this before any other stop,
 so the browser always gets that polite close and writes what it holds. `halo ps` lists it as `browser` while it runs.
 A hard end of Halo closes the pipe and the browser ends itself; a sign-in made in the last seconds before Halo is

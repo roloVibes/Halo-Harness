@@ -243,8 +243,10 @@ def _ps_env_pids(mark: str) -> "list[int]":
     so the mark is matched whole: after a space, followed by a space or the end."""
     me, out = os.getpid(), []
     try:
-        text = subprocess.run(["ps", "-axEww", "-o", "pid=,command="], capture_output=True, text=True, timeout=10,
-                              env=subprocess.Probe(dict(os.environ))).stdout  # Halo's own look: not a spawn
+        # Halo's own look, not a spawn; a byte that is not UTF-8 in ANY process's environment must not empty it
+        text = subprocess.run(["ps", "-axEww", "-o", "pid=,command="], capture_output=True, text=True,
+                              errors="replace", timeout=10,
+                              env=subprocess.Probe({**os.environ, "LC_ALL": "C"})).stdout
     except Exception:
         return []
     whole = re.compile(r"(?<=\s)" + re.escape(f"{MARK_ENV}={mark}") + r"(?=\s|$)")
@@ -395,7 +397,7 @@ def _remove(folder) -> None:
 def _sweep(folders) -> None:
     """Removes the folders dead sessions left, with the patience of `_remove`: a start right after a hard end finds
     them still held on Windows. When one stays all the same, the rest get one try each (the next start tries again),
-    so a start never waits more than about 2 s for folders it cannot have."""
+    so each of a start's two sweeps (profiles, temp folders) waits at most about 2 s for folders it cannot have."""
     patient = True
     for p in folders:
         if patient:

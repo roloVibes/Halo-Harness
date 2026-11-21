@@ -64,7 +64,7 @@ picture of the page, and you can have a window you can watch. The limits that re
 - **Nothing listens on the network.** The browser talks to Halo over a pipe on Linux, macOS and Windows. It is Halo's
   own child: it ends with the session on every way out, and `halo ps` lists it while it runs. The helpers the browser
   starts for itself (its crash handler; on macOS the updater it wakes) are ended with it on Linux and macOS: asked to
-  end, and ended a second later if still there. What it may leave on the machine is Halo's kept profile only.
+  end, and ended at most a second later if still there. What it may leave on the machine is Halo's kept profile only.
 - **A sign-in survives every ordinary way out** (quitting the terminal app, ending a session from Studio, Studio
   stopping, the end of `halo -p`): Halo asks the browser to close and waits up to three seconds. A kill of Halo itself
   cannot do that: a sign-in made in its last seconds may then be lost. Quitting the terminal app with a browser open
@@ -93,9 +93,10 @@ picture of the page, and you can have a window you can watch. The limits that re
   the standard starter): each is settled. CI then ran the browser's modules and the real-use step on its Windows and
   macOS runners, with the Chrome installed there, and its first run found two more things, both in how the browser
   ends: on Windows a start that came right after a hard end left that session's folder for a later start, and on macOS
-  Chrome's crash handler and the updater it wakes ran on after the browser was closed. Both are corrected, each with a
-  test that was red before. Not run: a person's Mac, a browser shown as a window, Edge beyond starting and answering,
-  Brave and Chromium at all, and quitting the terminal app with a browser open on any system.
+  Chrome's crash handler and the updater it wakes ran on after the browser was closed. Each has a fix and a test that
+  was red before, and this release's own CI run passed on both runners with them. Not run: a person's Mac, a browser
+  shown as a window, Edge beyond starting and answering, Brave and Chromium at all, and quitting the terminal app with
+  a browser open on any system.
 
 ## [3.6.0.7] - 2026-11-21
 
