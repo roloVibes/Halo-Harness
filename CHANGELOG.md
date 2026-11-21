@@ -62,8 +62,9 @@ picture of the page, and you can have a window you can watch. The limits that re
 ### Known limits
 
 - **Nothing listens on the network.** The browser talks to Halo over a pipe on Linux, macOS and Windows. It is Halo's
-  own child: it ends with the session on every way out, and `halo ps` lists it while it runs. What it may leave on
-  the machine is Halo's kept profile only.
+  own child: it ends with the session on every way out, and `halo ps` lists it while it runs. The helpers the browser
+  starts for itself (its crash handler; on macOS the updater it wakes) are ended with it on Linux and macOS: asked to
+  end, and ended a second later if still there. What it may leave on the machine is Halo's kept profile only.
 - **A sign-in survives every ordinary way out** (quitting the terminal app, ending a session from Studio, Studio
   stopping, the end of `halo -p`): Halo asks the browser to close and waits up to three seconds. A kill of Halo itself
   cannot do that: a sign-in made in its last seconds may then be lost. Quitting the terminal app with a browser open
@@ -74,9 +75,9 @@ picture of the page, and you can have a window you can watch. The limits that re
 - **A download that cannot be moved into the session's folder is dropped without a line.**
 - **A session whose model gets the short tool list** (a small context window) is offered the Browser tool by name
   only; it can still call it.
-- **The window was never opened in a test**: only the way the browser is started for it is checked. macOS was not run
-  at all. On Windows, Edge was run only as far as starting and answering over the pipe; Brave and Chromium were never
-  run, and only finding them is tested.
+- **The window was never opened in a test**: only the way the browser is started for it is checked. macOS was run on
+  CI's runners only (a headless Chrome there), never on a person's Mac. On Windows, Edge was run only as far as
+  starting and answering over the pipe; Brave and Chromium were never run, and only finding them is tested.
 - **Every Known limit of 3.6.0.7 still holds.**
 - **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
   the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
@@ -89,9 +90,12 @@ picture of the page, and you can have a window you can watch. The limits that re
   and the two new real-use steps. Chrome and Edge both answered over the pipe on Windows. The whole suite found five
   things at the join, none in what the browser does (lists of main's tools and a recorded request that now hold the
   Browser tool, a rule about reading the home folder, a test helper's server, the browser module started `ps` through
-  the standard starter): each is settled. Not run: macOS at all (CI runs it at the release gate), a browser shown as a
-  window, Edge beyond starting and answering, Brave and Chromium at all, and quitting the terminal app with a browser
-  open on any system.
+  the standard starter): each is settled. CI then ran the browser's modules and the real-use step on its Windows and
+  macOS runners, with the Chrome installed there, and its first run found two more things, both in how the browser
+  ends: on Windows a start that came right after a hard end left that session's folder for a later start, and on macOS
+  Chrome's crash handler and the updater it wakes ran on after the browser was closed. Both are corrected, each with a
+  test that was red before. Not run: a person's Mac, a browser shown as a window, Edge beyond starting and answering,
+  Brave and Chromium at all, and quitting the terminal app with a browser open on any system.
 
 ## [3.6.0.7] - 2026-11-21
 
