@@ -39,7 +39,7 @@ def test_the_extension_api_says_the_same(ctx: Ctx):
     doc = " ".join((REPO / "docs" / "EXTENSION_API.md").read_text(encoding="utf-8").split())
     ctx.check("the studio-script line", SCRIPT in doc)
     ctx.check("the studio-routes line", ROUTES in doc)
-    ctx.check("api.lib states its scope", "**The client's scope**" in doc and "this needs the owner's own page" in doc)
+    ctx.check("api.lib states its scope", "**The client's scope**" in doc and "this page can look but not change things" in doc)  # 3.6.0.6 P: the new words
     ctx.check("no 'Every call is the pack's own' any more", "Every call is the pack's own" not in doc)
     ctx.check("the key, not the token, in a pack GET's URL", "the pack's key in `?k=`" in doc and "token in `?t=`" not in doc)
 

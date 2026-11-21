@@ -96,6 +96,18 @@ def _packed(name: str) -> bool:
     return "--" in str(name or "")
 
 
+PACK_READ_ONLY = "From the pack {id}: read-only here. Copy makes it yours."
+
+
+def pack_read_only(kind: str, name: str, *, cwd=None, state_dir=None) -> str:
+    """3.6.0.6 P: the one sentence that refuses a write or a delete of an enabled pack's `<pack>--<name>` (one no file of
+    yours or this project's is read before), so a file of his is never made under the pack's name; "" for any other."""
+    if not _packed(name):
+        return ""
+    found = find(kind, name, cwd=cwd, state_dir=state_dir)
+    return PACK_READ_ONLY.format(id=str(name).split("--", 1)[0]) if found and found[1] == "pack" else ""
+
+
 def pack_match(kind: str, name: str, *, cwd=None, state_dir=None) -> list:
     """3.6.0.0 R5c: the enabled packs' `<pack>--<name>` whose own part is `name` -- a 3.5 name typed bare."""
     if not name or _packed(name):

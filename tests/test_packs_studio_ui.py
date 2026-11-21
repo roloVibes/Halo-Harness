@@ -129,8 +129,8 @@ def test_the_bundle_panels_api_acts(ctx: Ctx):
     said = str(got.get("bundle_grant_self"))  # 3.3.14.0 R1 (#4): a pack's page cannot change its own grant
     ctx.check(f"api.lib's client names its scope, got {said!r}",
               said.startswith("lib: POST pack/studio-bundle/grant: a pack's page reaches its own routes"))
-    ctx.check(f"a plain fetch with the token: 403, this needs the owner's own page, got {said!r}",
-              " | page: 403 this needs the owner's own page" in said)
+    ctx.check(f"a plain fetch with the token: 403, this page can look but not change things, got {said!r}",  # 3.6.0.6 P: the new words
+              " | page: 403 this page can look but not change things" in said)
     ctx.check(f"the grants are unchanged, got {got.get('bundle_grants_after')}", got.get("bundle_grants_after") == ["studio-script"])
 
 

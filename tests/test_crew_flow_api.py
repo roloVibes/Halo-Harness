@@ -81,6 +81,37 @@ def test_the_routes(ctx: Ctx):
         ctx.check("without the owner's proof: 403", rig.api("POST", "crew/workflow/x", {"workflow": _wf("x")}, owner=False)[0] == 403)
 
 
+PACK_SAYS = "From the pack doc-review: read-only here. Copy makes it yours."
+
+
+@test
+def test_a_packs_workflow_and_agent_are_read_only(ctx: Ctx):
+    """3.6.0.6 P: a pack's item is the pack's (scope `pack`, not writable); a write or a delete of its name is refused
+    with the one sentence and writes nothing -- never a file of his under the pack's name; Copy (`store.own_copy`)
+    still makes it his."""
+    with CrewRig() as rig:
+        rig.with_pack().studio()
+        wf, ag = "doc-review--review-docs", "doc-review--reviewer"
+        st, r = rig.api("GET", f"crew/workflow/{wf}")
+        ctx.check(f"the pack's workflow reads as the pack's, not writable, got {st} {r.get('scope')} {r.get('writable')}",
+                  st == 200 and r.get("scope") == "pack" and r.get("writable") is False)
+        st, r = rig.api("GET", f"crew/agent/{ag}")
+        ctx.check(f"the pack's agent reads as the pack's, not writable, got {st} {r.get('scope')} {r.get('writable')}",
+                  st == 200 and r.get("scope") == "pack" and r.get("writable") is False)
+        body = rig.api("GET", f"crew/workflow/{wf}")[1].get("workflow") or {}
+        abody = rig.api("GET", f"crew/agent/{ag}")[1].get("agent") or {}
+        for method, path, payload in (("PUT", f"crew/workflow/{wf}", {"workflow": body}), ("POST", f"crew/workflow/{wf}", {"workflow": body}),
+                                      ("DELETE", f"crew/workflow/{wf}", None), ("PUT", f"crew/agent/{ag}", {"agent": abody}),
+                                      ("POST", f"crew/agent/{ag}", {"agent": abody}), ("DELETE", f"crew/agent/{ag}", None)):
+            st, r = rig.api(method, path, payload)
+            ctx.check(f"{method} {path}: refused with the sentence, got {st} {r.get('error')!r}", st == 409 and r.get("error") == PACK_SAYS)
+        mine = [p.name for d in ("workflows", "agents") for p in (rig.state / "crew" / d).glob("*.yaml")] if (rig.state / "crew").exists() else []
+        ctx.check(f"no file of his under the pack's name, got {mine}", not any("--" in n for n in mine))
+        from halo_harness.crew import store
+        path, new = store.own_copy("workflow", wf, state_dir=rig.state, cwd=rig.proj)
+        ctx.check(f"Copy makes it his (my-review-docs), got {new}", new == "my-review-docs" and path.exists())
+
+
 @test
 def test_the_cost_band(ctx: Ctx):
     from halo_harness.crew import flow_cost

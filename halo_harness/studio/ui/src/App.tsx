@@ -12,11 +12,12 @@
 // 3.3.2.0 R1 "Quiet Studio": nothing opens on its own when a section shows (the first-visit welcome is gone); the
 // rail is icons (`data-rail="icons"`) or expanded (`"open"`), the inspector `data-inspector="closed"` until
 // something opens it, and Focus (`data-focus="on"`: F, the header button, the palette) hides the rail, the
-// inspector and the status bar.
+// inspector and the status bar. 3.6.0.6 P: a tab that can only look has the notice row on top (`data-owner="view"`).
 import { useEffect } from "react";
 import { studio, useStore } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
-import { HoverCardHost, Toasts } from "./lib/ui";
+import { HoverCardHost, OwnerTabRow, Toasts } from "./lib/ui";
+import { ownerPage } from "./lib/owner";
 import { sections, useSections } from "./routes";
 import { startPacks } from "./routes/packs/store";
 import { Header } from "./shell/Header";
@@ -65,7 +66,9 @@ export function App() {
   }, [section]);
 
   return (
-    <div className="app" data-rail={rail} data-inspector={inspecting ? "open" : "closed"} data-focus={focus ? "on" : "off"}>
+    <div className="app" data-rail={rail} data-inspector={inspecting ? "open" : "closed"} data-focus={focus ? "on" : "off"}
+         data-owner={ownerPage() ? undefined : "view"}>
+      <OwnerTabRow />
       <Header />
       <Rail />
       <main className="stage" aria-label="Workspace">

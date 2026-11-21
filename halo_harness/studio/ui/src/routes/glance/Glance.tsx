@@ -16,6 +16,7 @@ import { useWaits } from "../crew/live/useWaits";
 import { usePanels } from "../fleet/pstore";
 import { findAgent, fleet, sessionTitle, useFleet, useNow } from "../fleet/store";
 import { useLive } from "../shared/liveFeed";
+import { GLANCE_LINK_HOVER } from "../../lib/ownerTab"; // 3.6.0.6 P: the Studio it opens offers Make this tab yours
 import { Asks } from "./Asks";
 import { agoWords, elapsedWords, glance, spendOf, STALE_MS, startGlance, useGlance } from "./data";
 
@@ -117,7 +118,7 @@ export function Glance() {
         <Asks />
         <Recent sid={sid} />
         <footer className="gz-foot muted">
-          <a href="/?mode=session" data-testid="glance-studio">Open Studio</a>
+          <a href="/?mode=session" data-testid="glance-studio" title={GLANCE_LINK_HOVER}>Open Studio</a>
           <span> · this page reads and answers through this Studio; it calls no model</span>
           {!ownerPage() && <p className="gz-bad" data-testid="glance-owner-note">This tab can look but not answer: Studio lets only a page you opened yourself answer. Paste the glance's address into the address bar (or run halo studio --mode glance).</p>}
         </footer>

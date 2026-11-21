@@ -5,6 +5,7 @@ import { api, ApiError } from "../../lib/api";
 import { onFilesChanged } from "../../lib/filesLive";
 import { createStore, toast, useStore } from "../../lib/store";
 import { blank, type Agent, type Row, type Scope } from "./types";
+import { copyStem, readOnly } from "./scopeTag";
 
 export type CrewState = {
   loaded: boolean;
@@ -103,7 +104,7 @@ export function fillFromLive(a: Agent, helper: string): void {
 export async function copyFrom(name: string, scope: Scope): Promise<void> {
   try {
     const r = await api.get<{ agent: Agent }>(`crew/agent/${encodeURIComponent(name)}`, { scope });
-    const a = clean({ ...r.agent, name: unique(scope === "starter" ? `my-${name}` : `${name}-copy`) });
+    const a = clean({ ...r.agent, name: unique(copyStem(name, scope)) });
     crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], asking: "", stale: false,
       note: `A copy of ${name}, not saved yet: it is yours to change, then Save.` }));
   } catch (e) {
@@ -121,7 +122,7 @@ export function setMore(patch: Partial<NonNullable<Agent["more"]>>): void {
 
 export async function save(): Promise<boolean> {
   const s = crew.get();
-  if (!s.form || !s.open || s.open.scope === "starter") return false;
+  if (!s.form || !s.open || readOnly(s.open.scope)) return false;
   const a = clean(s.form);
   const path = `crew/agent/${encodeURIComponent(a.name)}`;
   crew.update(() => ({ busy: true }));
@@ -160,6 +161,7 @@ export function discard(): void {
 export function copyOpen(): void {
   const s = crew.get();
   if (!s.form) return;
+  if (s.open?.scope === "pack" && s.open.name) return void copyFrom(s.open.name, "pack"); // 3.6.0.6 P: as a shipped one
   const a = { ...s.form, name: unique(`${s.form.name}-copy`) };
   crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], note: `A copy of ${s.form!.name}, not saved yet.`, asking: "" }));
 }

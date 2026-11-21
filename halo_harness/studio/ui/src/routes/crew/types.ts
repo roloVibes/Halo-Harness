@@ -27,7 +27,7 @@ export type Agent = {
   more?: More;
 };
 
-export type Scope = "yours" | "project" | "starter";
+export type Scope = "yours" | "project" | "starter" | "pack"; // 3.6.0.6 P: an enabled pack's (scopeTag.ts)
 
 export type Row = Agent & { scope: Scope; new: boolean; used: string[]; problems: string[] };
 

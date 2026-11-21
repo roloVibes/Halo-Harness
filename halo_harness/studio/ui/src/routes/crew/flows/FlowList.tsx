@@ -1,6 +1,7 @@
 // The Workflows tab's list (3.6.0.0 R2; the approved mock's left column): + New workflow, then YOURS (yours and this
 // project's, each tagged `on the map` or `not on the map`; in this version nothing is on a map yet and one line says
-// so), then STARTERS TO COPY (a click copies one into the form as yours, not saved yet). A workflow the builder's
+// so), then 3.6.0.6 P: FROM PACKS (an enabled pack's, tagged `pack {id}`, read-only: Copy makes it yours), then
+// STARTERS TO COPY (a click copies one into the form as yours, not saved yet). A workflow the builder's
 // preview would make shows as a dashed ghost row. Hover a row: its whole line; click: the form.
 import { Button } from "../../../lib/ui";
 import { useBuilder } from "../builderStore";
@@ -8,6 +9,7 @@ import { TO_A_MAP } from "../map/truthWords";
 import type { FlowRow } from "../types";
 import { useFlowBuilt } from "./flowBuilt";
 import { copyFlowFrom, newFlow, openFlow, useFlows } from "./flowStore";
+import { scopeTag } from "../scopeTag";
 
 const stepsWord = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
 
@@ -20,7 +22,7 @@ function Item({ r, on, built }: { r: FlowRow; on: boolean; built: boolean }) { /
             data-testid="flow-item" data-name={r.name} data-scope={r.scope} data-built={built ? "1" : undefined}>
       <span className="cw-item-head">
         <b className="cw-item-name">{r.name}</b>
-        {r.scope === "project" && <span className="cw-tag" data-tag="project">this project's</span>}
+        {scopeTag(r.scope, r.name) && <span className="cw-tag" data-tag={r.scope}>{scopeTag(r.scope, r.name)}</span>}
         {(r.new || built) && <span className="cw-tag" data-tag="new">new</span>}
         <span className="cw-tag" data-tag={onMap ? "on" : "unused"} data-testid="flow-item-map">{onMap ? "on the map" : "not on the map"}</span>
         {r.problems.length > 0 && <span className="cw-tag" data-tag="bad" title={r.problems.join("\n")}>problem</span>}
@@ -46,7 +48,9 @@ function Ghosts() {
 }
 
 export function FlowList() {
-  const mine = useFlows((s) => s.flows);
+  const rows = useFlows((s) => s.flows);
+  const mine = rows.filter((r) => r.scope !== "pack");
+  const packed = rows.filter((r) => r.scope === "pack"); // 3.6.0.6 P: the packs' own, read-only, in a group of their own
   const starters = useFlows((s) => s.starters);
   const open = useFlows((s) => s.open);
   const loaded = useFlows((s) => s.loaded);
@@ -64,6 +68,8 @@ export function FlowList() {
         <p className="cw-hint" data-testid="flow-no-map">{`Nothing is on a map yet. ${TO_A_MAP}`}</p>
       )}
       {error && <p className="cw-hint" data-tone="bad">{error}</p>}
+      {packed.length > 0 && <div className="cw-group mono">From packs</div>}
+      {packed.map((r) => <Item key={`${r.scope}:${r.name}`} r={r} on={isOn(r)} built={false} />)}
       <div className="cw-group mono">Ships with Halo · Copy makes it yours</div>
       {starters.map((r) => (
         <button key={r.name} type="button" className="cw-item" onClick={() => void copyFlowFrom(r.name, "starter")} title={`Copy ${r.name}: ${r.for}`}

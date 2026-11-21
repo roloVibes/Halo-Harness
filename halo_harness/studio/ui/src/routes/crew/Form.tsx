@@ -8,6 +8,7 @@ import { ModelSelect } from "../shared/ModelSelect";
 import { prefill, useBuilder } from "./builderStore";
 import { More } from "./More";
 import { askDelete, copyOpen, crew, dirty, discard, newAgent, openAgent, remove, save, setForm, useCrew } from "./store";
+import { packReadOnly, readOnly } from "./scopeTag";
 import { TryIt } from "./TryIt";
 import { estimateFor, useTry } from "./tryStore";
 import { Careful, Uses } from "./Uses";
@@ -44,10 +45,11 @@ function SaveBar() {
     );
   return (
     <div className="cw-savebar" data-testid="crew-savebar">
-      <Button variant="primary" disabled={!isDirty || busy} onClick={() => void save()} data-testid="crew-save">Save</Button>
+      <Button variant="primary" disabled={!isDirty || busy || readOnly(open?.scope)} onClick={() => void save()} data-testid="crew-save">Save</Button>
       <Button disabled={!isDirty} onClick={discard} data-testid="crew-discard">Discard changes</Button>
       <Button onClick={copyOpen} data-testid="crew-copy">Copy</Button>
-      {!!open?.name && <Button variant="danger" onClick={() => askDelete(true)} data-testid="crew-delete">Delete...</Button>}
+      {!!open?.name && open.scope !== "pack" && <Button variant="danger" onClick={() => askDelete(true)} data-testid="crew-delete">Delete...</Button>}
+      {open?.scope === "pack" && <span className="cw-line" data-testid="crew-readonly">{packReadOnly(open.name)}</span>}
       <span className="cw-line" data-testid="crew-note">{note || (isDirty ? "Not saved yet." : "")}</span>
     </div>
   );

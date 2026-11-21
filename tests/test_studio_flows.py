@@ -151,6 +151,45 @@ def test_built_workflow_opens_next_visit(ctx: Ctx):
               got.get("fresh") == "other" and got.get("fresh_part") is True)
 
 
+_PACK: dict = {}
+PACK_LINE = "From the pack doc-review: read-only here. Copy makes it yours."
+
+
+def _pack(ctx: Ctx) -> dict:
+    return driver_got(ctx, "tests.helpers.studio_flows_pack", why="a pack's items are driven in headless Chrome", cache=_PACK, timeout=400)
+
+
+@test
+def test_a_packs_workflow_is_the_packs_and_read_only(ctx: Ctx):
+    """3.6.0.6 P: with doc-review enabled, its workflow sits under "From packs" (after Yours, before the ones that ship
+    with Halo), tagged "pack doc-review"; its form says it is read-only, Save off, no Delete; Copy makes his own."""
+    got = _pack(ctx)
+    ctx.check(f"the groups in order, got {got.get('groups')}", got.get("groups") == ["Yours", "From packs", "Ships with Halo · Copy makes it yours"])
+    ctx.check(f"the pack's row under From packs, tagged, got {got.get('group')!r} {got.get('tag')!r} {got.get('scope')!r}",
+              got.get("group") == "From packs" and got.get("tag") == "pack doc-review" and got.get("scope") == "pack")
+    f = got.get("form") or {}
+    ctx.check(f"its form: the line, Save off, no Delete, Copy, got {f}", f.get("line") == PACK_LINE and f.get("save") is True
+              and f.get("delete") is False and f.get("copy") is True)
+    cp = got.get("copy") or {}
+    ctx.check(f"Copy: his own my-review-docs, open to edit, got {cp}", cp.get("name") == "my-review-docs" and cp.get("save") is False
+              and cp.get("line") is False)
+    ctx.check(f"Save wrote his copy and nothing under the pack's name, got {got.get('copy_file')} {got.get('pack_file')}",
+              got.get("copy_file") is True and got.get("pack_file") is False)
+
+
+@test
+def test_a_packs_agent_and_the_maps_list_say_the_pack(ctx: Ctx):
+    got = _pack(ctx)
+    ctx.check(f"the Agents list tags the pack's agent, got {got.get('agent_tag')!r}", got.get("agent_tag") == "pack doc-review")
+    a = got.get("agent_form") or {}
+    ctx.check(f"its form: the line, Save off, no Delete, got {a}", a.get("line") == PACK_LINE and a.get("save") is True and a.get("delete") is False)
+    tags = got.get("map_tags") or []
+    ctx.check(f"the Map's add list tags the pack's workflow and agents, got {tags}",
+              len(tags) >= 3 and all(tag == "pack doc-review" for _ref, tag in tags))
+    ctx.check(f"no page error, the driver ran to the end, got {got.get('page_errors')} {got.get('failed')}",
+              got.get("page_errors") == [] and "failed" not in got)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

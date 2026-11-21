@@ -120,6 +120,22 @@ class CrewRig:
         bridge_for(self.server)
         return self.server
 
+    def with_pack(self, name: str = "doc-review", grants=("bash",)) -> "CrewRig":
+        """3.6.0.6 P: the pack (doc-review: the one that ships with Halo) installed and enabled in this rig's home."""
+        from halo_harness.packs import registry
+        from halo_harness.packs.discover import find
+        from halo_harness.packs.grants import enable
+        from halo_harness.packs.install import install
+        from tests.helpers.packs_home import fixture
+        src = self.root / "sources" / name
+        shutil.copytree(fixture(name), src, ignore=shutil.ignore_patterns("__pycache__"))
+        ok, lines = install(str(src), project=False, cwd=self.proj)
+        assert ok, lines
+        ok, lines = enable(find(name, cwd=self.proj), grant=list(grants))
+        assert ok, lines
+        registry.invalidate()
+        return self
+
     def url(self, extra: str = "") -> str:
         from halo_harness.studio.server import url_for
         return url_for(self.server, "agents").replace("#t=", f"&tour=off{extra}#t=")

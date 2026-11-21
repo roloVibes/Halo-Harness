@@ -4,7 +4,8 @@
                                        (yours | project | starter), new, used [workflow x | map y], problems
     GET    crew/agent/<name>           {agent, scope, path, problems, used, writable}  (?scope= picks one)
     POST   crew/agent/<name> {agent}   a new agent of yours (409 when you have one by that name)
-    PUT    crew/agent/<name> {agent}   save it (422 with the problem lines; a starter answers 409: Copy makes yours)
+    PUT    crew/agent/<name> {agent}   save it (422 with the problem lines; a starter answers 409: Copy makes yours;
+                                       3.6.0.6 P: so does an enabled pack's, and POST / DELETE of its name)
     DELETE crew/agent/<name>           delete yours (409 while a workflow or a map names it, saying which)
     crew/maps, crew/map/<name>, crew/map/<name>/use: studio/crew_map_api.py (3.6.0.0 R3)
     crew/workflows, crew/workflow/<name>, crew/workflow-cost: studio/crew_flow_api.py (3.6.0.0 R2)
@@ -49,7 +50,7 @@ def get_agent(req):
         return 404, {"error": f"no agent named {name!r}"}
     body = store.clean(got)
     return 200, {"agent": body, "scope": got["_scope"], "path": got["_path"], "problems": agent_problems(body, name=name),
-                 "used": store.used_by(name, cwd=req.cwd, state_dir=req.state_dir), "writable": got["_scope"] != "starter"}
+                 "used": store.used_by(name, cwd=req.cwd, state_dir=req.state_dir), "writable": got["_scope"] not in ("starter", "pack")}
 
 
 def _body(req, name: str):
@@ -63,8 +64,16 @@ def _body(req, name: str):
     return raw, None
 
 
+def _pack_refusal(req, name: str):
+    """3.6.0.6 P: an enabled pack's agent is the pack's: no write, no delete, the one sentence (crew/store.py)."""
+    said = store.pack_read_only("agent", name, cwd=req.cwd, state_dir=req.state_dir)
+    return (409, {"error": said, "problems": []}) if said else None
+
+
 def post_agent(req):
     name = req.params["name"]
+    if refused := _pack_refusal(req, name):
+        return refused
     raw, err = _body(req, name)
     if err:
         return err
@@ -77,6 +86,8 @@ def post_agent(req):
 
 def put_agent(req):
     name = req.params["name"]
+    if refused := _pack_refusal(req, name):
+        return refused
     raw, err = _body(req, name)
     if err:
         return err
@@ -93,7 +104,7 @@ def delete_agent(req):
     name = req.params["name"]
     found = store.find("agent", name, cwd=req.cwd, state_dir=req.state_dir, scope="yours")
     if not found:
-        return 404, {"error": f"no agent of yours named {name!r}"}
+        return _pack_refusal(req, name) or (404, {"error": f"no agent of yours named {name!r}"})
     used = store.used_by(name, cwd=req.cwd, state_dir=req.state_dir)
     if used:
         return 409, {"error": f"{name} is used by {', '.join(used)}: take it out there first", "problems": used}

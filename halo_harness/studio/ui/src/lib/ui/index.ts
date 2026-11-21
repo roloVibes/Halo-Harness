@@ -3,6 +3,7 @@ export { Button } from "./Button";
 export { Dialog } from "./Dialog";
 export type { DialogCostLines } from "./DialogCost"; // 3.3.15.0 L1: a confirmation's DOES / COSTS / WRITES
 export { Toasts } from "./Toast";
+export { OwnerTabRow } from "./OwnerTab"; // 3.6.0.6 P: the notice row of a tab that can only look
 export { Tabs, type TabItem } from "./Tabs";
 export { Field } from "./Field";
 export { TextBox, type TextBoxProps } from "./TextBox"; // 3.3.15.0 R3: the one text box

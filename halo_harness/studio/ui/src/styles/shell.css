@@ -17,6 +17,16 @@
 /* Focus outranks every rail/inspector pair (three attributes), so it wins whatever the two say */
 .app[data-focus="on"][data-rail][data-inspector] { grid-template-columns: 0 minmax(0, 1fr) 0; grid-template-rows: var(--topbar-h) minmax(0, 1fr) 0; }
 .app[data-focus="on"] > .rail, .app[data-focus="on"] > .inspector, .app[data-focus="on"] > .hud-strip { display: none; }
+/* 3.6.0.6 P: a tab that can only look has one notice row on top, there from the first draw (lib/ui/OwnerTab.tsx); Focus keeps it */
+.app[data-owner="view"] { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr) var(--status-h);
+  grid-template-areas: "note note note" "top top top" "rail stage inspector" "status status status"; }
+.app[data-owner="view"][data-focus="on"][data-rail][data-inspector] { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr) 0; }
+.owner-tab-row { grid-area: note; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 36px; padding: 4px 16px;
+  background: var(--bg-2); border-bottom: 1px solid var(--warn, var(--line-soft)); font-size: 13px; }
+.owner-tab-line { min-width: 0; overflow-wrap: anywhere; }
+.app[data-owner="view"] .toasts { top: calc(var(--topbar-h) + 44px); }
+.owner-toast { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.owner-toast .btn { pointer-events: auto; } /* a toast lets clicks through; its button takes them, as its ✕ does */
 
 /* -- top bar: 48 px, the second band; the section's name in mono caps, a / and its line -------- */
 .topbar {

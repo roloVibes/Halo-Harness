@@ -251,7 +251,7 @@ script. Two values Studio derives from the token keep the two apart
   install, sources, update, rollback, remove, service, settings or config,
   the bundles, Setup, Settings, a session (new, a command, a prompt) or
   (3.4.1.0 R4) an attention row's answer from Attention or the glance
-  without it answers 403 "this needs the owner's own page". A pack's page
+  without it answers 403 "this page can look but not change things". A pack's page
   gets `api.lib`'s client instead, scoped to its own routes
   ([EXTENSION_API.md](EXTENSION_API.md#apilib)).
 - **3.4.1.2 (the 2026-11-12 review's SERVERS-1, -2, -4, PACKS-2).** Every write needs the proof, not a list of
@@ -271,6 +271,16 @@ script. Two values Studio derives from the token keep the two apart
   prototype), and imports no pack module before it is made. `halo studio --stop` and `--edit` on a running Studio read the salt from the private `studio.json` beside the token. What this does not do: a pack's page
   script still runs in Studio's own page and can press Studio's buttons, so `studio-script` is said as Studio's own
   power; the sandboxed frame that would fence it is the roadmap's "Pack trust" item.
+- **3.6.0.6: Make this tab yours.** A tab that reached Studio by a link (the glance's Open Studio, a link in a note
+  or a chat, "open in new tab") or that a script opened has no proof, and the server cannot give it one: such a
+  navigation looks the same as a tab a pack's script opened during the person's click (`same-origin`, `?1`,
+  `navigate`, no `max-age=0`). So the shell offers the one thing the server can tell apart, the person's own reload:
+  the tab shows one notice row on top from its first draw, "This tab can look but not change things, because a link
+  or a script opened it.", with the button **Make this tab yours** (`lib/ui/OwnerTab.tsx`), whose handler reloads
+  the tab only for a trusted press (`event.isTrusted`); the reload it starts is his, so the server gives it the salt
+  (`user_navigation`), and a script's click does nothing. A write refused for want of the proof raises ONE toast with
+  the same sentence and button, wherever it was pressed (`lib/api.ts` -> `lib/ownerTab.ts` -> `lib/ui/Toast.tsx`).
+  The rule of who gets the proof does not change.
 - **A pack's key.** What a page embeds where no header can go (an iframe,
   an image, a video, a module import) carries `?k=<hex HMAC-SHA256 of
   "pack-raw:<id>" keyed by the token>`, not the token: Studio takes it on a

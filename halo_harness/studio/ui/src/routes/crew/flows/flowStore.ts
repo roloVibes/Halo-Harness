@@ -9,6 +9,7 @@ import { createStore, toast, useStore } from "../../../lib/store";
 import { TO_A_MAP } from "../map/truthWords";
 import type { Cost, FlowRow, Scope, Step, Workflow } from "../types";
 import { showFlowTry } from "./flowRun";
+import { copyStem, readOnly } from "../scopeTag";
 
 export type FlowState = {
   loaded: boolean;
@@ -112,7 +113,7 @@ export function newFlow(): void {
 export async function copyFlowFrom(name: string, scope: Scope): Promise<void> {
   try {
     const r = await api.get<{ workflow: Workflow }>(`crew/workflow/${encodeURIComponent(name)}`, { scope });
-    const w = clean({ ...r.workflow, name: unique(scope === "starter" ? `my-${name}` : `${name}-copy`) });
+    const w = clean({ ...r.workflow, name: unique(copyStem(name, scope)) });
     put(w, null, { name: "", scope: "yours" }, `A copy of ${name}, not saved yet: it is yours to change, then Save.`);
   } catch (e) {
     toast(msg(e), "error", 5000);
@@ -160,7 +161,7 @@ export const setAdding = (on: boolean) => flows.update(() => ({ adding: on }));
 
 export async function saveFlow(): Promise<boolean> {
   const s = flows.get();
-  if (!s.form || !s.open || s.open.scope === "starter") return false;
+  if (!s.form || !s.open || readOnly(s.open.scope)) return false;
   const w = clean(s.form);
   const path = `crew/workflow/${encodeURIComponent(w.name)}`;
   flows.update(() => ({ busy: true }));
@@ -195,6 +196,7 @@ export function discardFlow(): void {
 export function copyOpenFlow(): void {
   const s = flows.get();
   if (!s.form) return;
+  if (s.open?.scope === "pack" && s.open.name) return void copyFlowFrom(s.open.name, "pack"); // 3.6.0.6 P: as a shipped one
   put({ ...s.form, name: unique(`${s.form.name}-copy`) }, null, { name: "", scope: "yours" }, `A copy of ${s.form.name}, not saved yet.`);
 }
 

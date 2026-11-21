@@ -70,7 +70,7 @@ Problems; a save that fails leaves the file untouched.
   own page, so the writes that change what runs here (a pack's grant, enable, install, update, rollback, remove,
   service, settings; the bundles; Setup; Settings; a session started or typed into; 3.4.1.0 R4: an attention row
   answered, from Attention or the glance, `POST live/attention/answer`) also need `X-Halo-Owner`, a proof only the
-  shell's own page holds; without it they are a 403, "this needs the owner's own page". What a pack's
+  shell's own page holds; without it they are a 403, "this page can look but not change things". What a pack's
   page embeds (an iframe, an image, a module) carries that pack's GET-only key in `?k=`, never the token
   ([the owner's page and a pack's key](STUDIO-shell.md#the-owners-page-and-a-packs-key)). No other page frames the
   shell (`frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`), and `HALO_STUDIO_LOG` writes `t=...` and `k=...`.

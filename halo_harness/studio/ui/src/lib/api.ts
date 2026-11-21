@@ -8,6 +8,7 @@
 // Object.prototype is asked for a field while fetch reads them.
 import { limitFor, overLimit, within } from "./apiLimit";
 import { makeOwnerProof, ownerProof } from "./owner";
+import { isOwnerRefusal, ownerRefused } from "./ownerTab";
 
 const fetchOwn = window.fetch.bind(window);
 const bare = Object.create.bind(Object, null) as () => Record<string, unknown>;
@@ -202,7 +203,11 @@ async function request<T>(owner: boolean, method: string, path: string, body?: u
       data = { error: text.slice(0, 400) };
     }
   }
-  if (!res.ok) throw new ApiError(res.status, String(data.error || res.statusText), data);
+  if (!res.ok) {
+    // 3.6.0.6 P: a write refused for want of the proof raises the one toast with Make this tab yours (lib/ui/Toast.tsx)
+    if (owner && res.status === 403 && isOwnerRefusal(String(data.error || ""))) ownerRefused();
+    throw new ApiError(res.status, String(data.error || res.statusText), data);
+  }
   return data as T;
 }
 

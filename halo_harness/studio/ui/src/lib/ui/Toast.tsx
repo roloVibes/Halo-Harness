@@ -4,15 +4,19 @@
 // 3.3.15.0 L1, the Instrument look: 300 px, surface-2, one line in mono; one
 // arrives with a 16 px rise and fade over 220 ms, holds 4 s and leaves with a
 // 180 ms fade (a toast the store dropped stays here, `data-leaving`, for that
-// fade); an error keeps its red square and stays until its ✕ dismisses it.
+// fade); an error keeps its red square and stays until its ✕ dismisses it. 3.6.0.6 P: a write refused for want of the
+// owner proof (lib/ownerTab.ts) is ONE toast, the sentence and Make this tab yours, whichever view pressed it.
 import { useEffect, useRef, useState } from "react";
-import { studio, useStore, type ToastItem } from "../store";
+import { studio, toast, useStore, type ToastItem } from "../store";
+import { NEEDS_OWNER, onOwnerRefused } from "../ownerTab";
+import { OwnerTabSays } from "./OwnerTab";
 
 const LEAVE_MS = 180;
 
 export function Toasts() {
   const toasts = useStore(studio, (s) => s.toasts);
   const prev = useRef<ToastItem[]>(toasts);
+  useEffect(() => onOwnerRefused(() => toast(NEEDS_OWNER, "error")), []); // 3.6.0.6 P: every refused write, wherever pressed
   const [leaving, setLeaving] = useState<ToastItem[]>([]);
   useEffect(() => {
     const gone = prev.current.filter((t) => !toasts.some((n) => n.id === t.id));
@@ -28,9 +32,9 @@ export function Toasts() {
     <div className="toasts" aria-live="polite">
       {shown.map(({ t, out }) => (
         <div key={t.id} className={`toast toast-${t.tone}`} data-tone={t.tone} data-leaving={out || undefined}
-             role={t.tone === "error" ? "alert" : "status"}>
+             role={t.tone === "error" ? "alert" : "status"} data-testid={t.owner ? "owner-toast" : undefined}>
           <span className="toast-dot" aria-hidden="true" />
-          <span className="toast-text">{t.text}</span>
+          {t.owner ? <span className="toast-text owner-toast"><OwnerTabSays /></span> : <span className="toast-text">{t.text}</span>}
           {t.tone === "error" && !out && (
             <button className="icon-btn" onClick={() => dismiss(t.id)} aria-label="Dismiss" title="Dismiss" data-testid="toast-dismiss">✕</button>
           )}

@@ -535,7 +535,7 @@ workflows...`, `glossary`, `field-help`). Anything else rejects with an `Error` 
 made. 3.4.1.2: Studio answers EVERY write (any method but GET) only for a request carrying the owner's proof,
 `X-Halo-Owner`, which only the shell's own page holds, except a running pack's own routes (the `packs/<id>/...`,
 `pack/<id>/publish|attention` and `layout/<id>:<name>` writes above, the id taken from the path); anything else gets
-403 "this needs the owner's own page" ([STUDIO-shell.md](STUDIO-shell.md#the-owners-page-and-a-packs-key)).
+403 "this page can look but not change things" ([STUDIO-shell.md](STUDIO-shell.md#the-owners-page-and-a-packs-key)).
 **What the scope is not:** the client is the scope a well-behaved page keeps to, and the server enforces what it can,
 but a bundle runs in Studio's own page: it can read the token, draw over the shell and press its buttons, so
 `studio-script` is said plainly as Studio's own power (above). A real fence -- a sandboxed frame with a message broker

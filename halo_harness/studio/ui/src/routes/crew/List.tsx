@@ -6,6 +6,7 @@ import { Button } from "../../lib/ui";
 import { useBuilder } from "./builderStore";
 import { copyFrom, newAgent, openAgent, useCrew } from "./store";
 import type { Row } from "./types";
+import { scopeTag } from "./scopeTag";
 
 function Item({ r, on }: { r: Row; on: boolean }) {
   const unused = !r.used.length;
@@ -15,7 +16,7 @@ function Item({ r, on }: { r: Row; on: boolean }) {
             data-testid="crew-item" data-name={r.name} data-scope={r.scope}>
       <span className="cw-item-head">
         <b className="cw-item-name">{r.name}</b>
-        {r.scope === "project" && <span className="cw-tag" data-tag="project">this project's</span>}
+        {scopeTag(r.scope, r.name) && <span className="cw-tag" data-tag={r.scope}>{scopeTag(r.scope, r.name)}</span>}
         {r.new && <span className="cw-tag" data-tag="new">new</span>}
         {unused && <span className="cw-tag" data-tag="unused">not used yet</span>}
         {r.problems.length > 0 && <span className="cw-tag" data-tag="bad" title={r.problems.join("\n")}>problem</span>}

@@ -6,6 +6,7 @@ import { bootLiveSession, bootNoProvider } from "./boot";
 import { askedSection, sectionFor } from "./sectionStart";
 import { agentsDoor, doorOf, type AgentsView } from "./agentsDoor";
 import type { SessionInfo } from "./sessionInfo";
+import { isOwnerRefusal, TAB_LINE } from "./ownerTab";
 export type { SessionInfo };
 export { bootLiveSession, bootNoProvider, bootPackSections, type BootPackSection } from "./boot";
 
@@ -60,7 +61,7 @@ export type SectionId = ShellSectionId;
 export type ThemeChoice = string;
 export type FeedStatus = "off" | "connecting" | "open" | "retrying" | "down";
 
-export type ToastItem = { id: number; text: string; tone: "done" | "error" | "info" };
+export type ToastItem = { id: number; text: string; tone: "done" | "error" | "info"; owner?: boolean }; // owner: a refused write (lib/ownerTab.ts)
 
 export type PanelRef = { section: SectionId; panel: string };
 
@@ -224,6 +225,10 @@ export function toggleFocus(): void {
 let toastSeq = 0;
 /** 3.3.15.0 L1: a toast holds 4 s (lib/ui/Toast.tsx fades it out); an error stays until dismissed (its ✕). */
 export function toast(text: string, tone: ToastItem["tone"] = "info", ms = 4000): void {
+  if (isOwnerRefusal(text)) { // 3.6.0.6 P: a refused write is the one toast with Make this tab yours, never a second
+    if (!studio.get().toasts.some((t) => t.owner)) studio.update((s) => ({ toasts: [...s.toasts.slice(-3), { id: ++toastSeq, text: TAB_LINE, tone: "error", owner: true }] }));
+    return;
+  }
   const id = ++toastSeq;
   studio.update((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, tone }] }));
   if (tone !== "error") window.setTimeout(() => studio.update((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms);

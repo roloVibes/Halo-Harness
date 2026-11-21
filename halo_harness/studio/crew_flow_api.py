@@ -60,7 +60,7 @@ def get_workflow(req):
         return 404, {"error": f"no workflow named {name!r}"}
     body = store.clean(got)
     return 200, {"workflow": body, "scope": got["_scope"], "path": got["_path"], "problems": workflow_problems(body, name=name),
-                 "maps": store.maps_with(name, cwd=req.cwd, state_dir=req.state_dir), "writable": got["_scope"] != "starter",
+                 "maps": store.maps_with(name, cwd=req.cwd, state_dir=req.state_dir), "writable": got["_scope"] not in ("starter", "pack"),
                  **facts(body, req)}
 
 
@@ -75,8 +75,16 @@ def _body(req, name: str):
     return raw, None
 
 
+def _pack_refusal(req, name: str):
+    """3.6.0.6 P: an enabled pack's workflow is the pack's: no write, no delete, the one sentence (crew/store.py)."""
+    said = store.pack_read_only("workflow", name, cwd=req.cwd, state_dir=req.state_dir)
+    return (409, {"error": said, "problems": []}) if said else None
+
+
 def post_workflow(req):
     name = req.params["name"]
+    if refused := _pack_refusal(req, name):
+        return refused
     raw, err = _body(req, name)
     if err:
         return err
@@ -89,6 +97,8 @@ def post_workflow(req):
 
 def put_workflow(req):
     name = req.params["name"]
+    if refused := _pack_refusal(req, name):
+        return refused
     raw, err = _body(req, name)
     if err:
         return err
@@ -105,7 +115,7 @@ def delete_workflow(req):
     name = req.params["name"]
     found = store.find("workflow", name, cwd=req.cwd, state_dir=req.state_dir, scope="yours")
     if not found:
-        return 404, {"error": f"no workflow of yours named {name!r}"}
+        return _pack_refusal(req, name) or (404, {"error": f"no workflow of yours named {name!r}"})
     maps = store.maps_with(name, cwd=req.cwd, state_dir=req.state_dir)
     if maps:
         return 409, {"error": f"{name} is on the map {', '.join(maps)}: take it off there first", "problems": maps}

@@ -6,6 +6,7 @@ import { Button } from "../../../lib/ui";
 import { useCrew } from "../store";
 import type { Change, Step, When } from "../types";
 import { costNow, moveStep, removeStep, setStep, useFlows } from "./flowStore";
+import { readOnly, scopeTag } from "../scopeTag";
 
 const NONE: string[] = [];
 const KINDS: [string, string][] = [["always", "always"], ["needs", "only when the task needs ..."], ["says", "only when the task says ..."], ["ask", "only when I ask for it"]];
@@ -37,7 +38,7 @@ function Chips({ s, i }: { s: Step; i: number }) {
       <select className="input fl-add-agent" value="" aria-label={`Add an agent to step ${i + 1}`} data-testid="flow-chip-add"
               onChange={(e) => e.target.value && setStep(i, { agents: [...s.agents, e.target.value] })}>
         <option value="">+ agent</option>
-        {left.map((a) => <option key={`${a.scope}:${a.name}`} value={a.name}>{a.name}{a.scope === "starter" ? " (ships with Halo)" : ""}</option>)}
+        {left.map((a) => <option key={`${a.scope}:${a.name}`} value={a.name}>{a.name}{readOnly(a.scope) ? ` (${scopeTag(a.scope, a.name)})` : ""}</option>)}
       </select>
       {s.agents.length > 1 && <span className="cw-line fl-same">these work at the same time</span>}
     </div>

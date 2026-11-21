@@ -30,8 +30,10 @@ import secrets
 from urllib.parse import parse_qs, unquote, urlsplit
 
 HEADER = "X-Halo-Owner"
-NEEDS_OWNER = ("this needs the owner's own page: open Studio yourself (run `halo studio`, or paste its address into the "
-               "address bar) and do it there; a pack's page, or a tab a page or a script opened, can look but not change things")
+# 3.6.0.6 P (the owner's point 31): the words say the way out, the shell's "Make this tab yours" (a reload he presses
+# gets the salt, `user_navigation`); studio/ui/src/lib/ownerTab.ts holds the same sentence (tests/test_studio_owner_proof.py)
+NEEDS_OWNER = ("this page can look but not change things: only a Studio tab you opened or reloaded yourself may. In Studio, "
+               "press Make this tab yours (it reloads the tab), or run `halo studio`.")
 _ID = r"[a-z][a-z0-9-]*"
 # 3.4.1.2 (SERVERS-2): the writes a pack's page may send without the proof, packlib/scoped.ts `allowed` (method, path)
 PACK_PAGE = ((None, re.compile(rf"^packs/(?P<id>{_ID})/")),

@@ -166,6 +166,37 @@ def test_the_access_log_never_carries_the_token(ctx: Ctx):
     ctx.check("neither the token nor the key is in the log", token not in log and key not in log)
 
 
+SAYS = ("this page can look but not change things: only a Studio tab you opened or reloaded yourself may. In Studio, "
+        "press Make this tab yours (it reloads the tab), or run `halo studio`.")
+TAB_LINE = "This tab can look but not change things, because a link or a script opened it."
+
+
+@test
+def test_the_refusal_says_how_to_make_a_tab_yours(ctx: Ctx):
+    """3.6.0.6 P (the owner's point 31): the refusal's words, the page's own words (lib/ownerTab.ts), and the one
+    test of a refusal both ends share. The rule of who gets the proof is not touched (the tests above)."""
+    from halo_harness.studio.owner_proof import NEEDS_OWNER
+    ctx.check(f"the server's words, got {NEEDS_OWNER!r}", NEEDS_OWNER == SAYS)
+    words = UI / "src" / "lib" / "ownerTab.ts"
+    src = words.read_text(encoding="utf-8") if words.exists() else ""
+    for line in (TAB_LINE, "Make this tab yours", "Reloads this tab; after that it can change things.",
+                 "Opens Studio here; press Make this tab yours there to change things."):
+        ctx.check(f"lib/ownerTab.ts holds {line!r}", line in src)
+    ctx.check("lib/ownerTab.ts holds the server's sentence", SAYS.replace("`", "\\`") in src or SAYS in src)
+    if not src:
+        return
+    import json
+    from tests.helpers import node_ts
+    says = json.dumps(SAYS)
+    got = node_ts.run(f"const M = await import({json.dumps(words.resolve().as_uri())});\nconsole.log(JSON.stringify(["
+                      f"M.isOwnerRefusal({says}), M.isOwnerRefusal('Try it: ' + {says}), M.isOwnerRefusal('no model'),"
+                      f" M.isOwnerRefusal('')]));")
+    ctx.check(f"a refusal is known with or without a view's prefix, and nothing else is, got {got}", got == [True, True, False, False])
+    api = (UI / "src" / "lib" / "api.ts").read_text(encoding="utf-8")
+    ctx.check("lib/api.ts tells the one toast of a refused write (ownerRefused) where it makes the ApiError",
+              "ownerRefused(" in api and "isOwnerRefusal(" in api)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

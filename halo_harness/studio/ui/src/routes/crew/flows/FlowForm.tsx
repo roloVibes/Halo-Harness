@@ -12,6 +12,7 @@ import { askDeleteFlow, addStep, copyOpenFlow, costNow, discardFlow, flowDirty, 
 import { FlowTry } from "./FlowTry";
 import { makeForStep } from "./makeIt";
 import { GhostStep, StepRow } from "./StepRow";
+import { packReadOnly, readOnly, scopeTag } from "../scopeTag";
 
 function Empty() {
   const n = useFlows((s) => s.flows.length);
@@ -36,7 +37,7 @@ function AddStep() {
       {[...mine, ...starters].map((a) => (
         <button key={`${a.scope}:${a.name}`} type="button" className="cw-item" onClick={() => addStep(a.name, a.does)} title={a.does}
                 data-testid="flow-pick-agent" data-name={a.name}>
-          <span className="cw-item-head"><b className="cw-item-name">{a.name}</b>{a.scope === "starter" && <span className="cw-tag">ships with Halo</span>}</span>
+          <span className="cw-item-head"><b className="cw-item-name">{a.name}</b>{readOnly(a.scope) && <span className="cw-tag">{scopeTag(a.scope, a.name)}</span>}</span>
           <span className="cw-item-does">{a.does}</span>
         </button>
       ))}
@@ -52,6 +53,7 @@ function SaveBar() {
   const s = useFlows((x) => x);
   const isDirty = flowDirty(s);
   const name = s.form?.name || "";
+  const pack = s.open?.scope === "pack"; // 3.6.0.6 P: read-only here, Copy makes it yours
   if (s.asking === "delete")
     return (
       <div className="cw-savebar" data-testid="flow-delete-ask">
@@ -62,10 +64,11 @@ function SaveBar() {
     );
   return (
     <div className="cw-savebar" data-testid="flow-savebar">
-      <Button variant="primary" disabled={!isDirty || s.busy || s.open?.scope === "starter"} onClick={() => void saveFlow()} data-testid="flow-save">Save</Button>
+      <Button variant="primary" disabled={!isDirty || s.busy || readOnly(s.open?.scope)} onClick={() => void saveFlow()} data-testid="flow-save">Save</Button>
       <Button disabled={!isDirty} onClick={discardFlow} data-testid="flow-discard">Discard changes</Button>
       <Button onClick={copyOpenFlow} data-testid="flow-copy">Copy</Button>
-      {!!s.open?.name && <Button variant="danger" onClick={() => askDeleteFlow(true)} data-testid="flow-delete">Delete...</Button>}
+      {!!s.open?.name && !pack && <Button variant="danger" onClick={() => askDeleteFlow(true)} data-testid="flow-delete">Delete...</Button>}
+      {pack && <span className="cw-line" data-testid="flow-readonly">{packReadOnly(s.open!.name)}</span>}
       <span className="cw-line" data-testid="flow-note">{s.note || (isDirty ? "Not saved yet." : "")}</span>
     </div>
   );
