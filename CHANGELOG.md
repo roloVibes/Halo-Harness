@@ -8,6 +8,77 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.7] - unreleased
+
+Copying out of a session works. In the terminal app the words you drag over are the words you get, the moment you let
+go. In Studio a drag across Live rows copies the rows' own words, without the clock, labels, tags or buttons, and
+every reply has a Copy button, as does every code block of a Live text row and of the Prompt feed. The limits that
+remain are at the end of this section.
+
+### Added
+
+- **In the terminal app a drag copies the moment you let go.** No key is needed: the line "Copied the selection (N
+  characters)" shows, and the usual second line says which program took it. So pressing the terminal's own copy key
+  out of habit (it has nothing to copy while Halo owns the mouse) leaves the dragged words on the clipboard, and a
+  paste gives them. Every new drag copies again. A plain click copies nothing and says nothing.
+- **In Studio every reply has a Copy button**, in Session's Live column and in the Prompt panel's feed, and so does
+  every code block of a Live text row and of the Prompt feed. It shows when the row is hovered or the button has the
+  keyboard. It reads "Copy"; a press puts the text as the agent wrote it on the clipboard (a code block's button: the
+  code only, its indentation and line breaks kept) and reads "Copied" for two seconds in the same place. When the
+  browser refuses the clipboard it reads "Select and copy it yourself" and selects the text, so Ctrl+C copies it.
+  Nothing moves when a button shows or its word changes.
+
+### Changed
+
+- **Ctrl+C says what it copied.** With a selection: "Copied the selection (N characters)"; it copies the same words
+  again and never opens "Quit Halo?". With nothing selected: "Copied the last reply (N characters)"; a second press
+  within three seconds still asks "Quit Halo?".
+- **Code blocks in a reply are drawn as blocks in Live's text rows and in the Prompt feed**, in a fixed-width face
+  with a rule at their left, their fence lines kept as written.
+- **F1 help has a row "Drag"**: "Drag over text to copy it; Ctrl+C copies the selection again, or the last reply when
+  nothing is selected."
+
+### Fixed
+
+- **A drag over part of an answer copied the whole last answer.** In the terminal app, a drag over a few words of any
+  answer but the last, or of a code block, then Ctrl+C, gave the last answer; a drag over one word of a one-line row
+  gave the whole line. The words you drag over are now the words you get. A drag over a whole answer still copies its
+  source text.
+- **A click on a tool's card took the keyboard.** What you typed next went to the card: "/copy" after such a click
+  opened the card's pager and copied the card. It now goes to the chat box. Tab still reaches a card, and its keys
+  work once the keyboard is there.
+- **In Studio's Live column a drag across rows carried everything on the rows.** The paste held the clock, the kind
+  label, the agent's tag, "why?" and the Steer box's words. It now holds the rows' own words, one row a line.
+- **Selecting text in a Live row changed who you were steering.** A drag that selects words now leaves the steer
+  target where it was; a plain click on a row still chooses it.
+
+### Known limits
+
+- **A tool's output has no Copy button.** In Live a click on a tool row that shows "▸" opens the result under the row,
+  up to its first 4,000 characters, and it can be selected there; the Prompt feed shows its one-line preview only.
+- **In Live an agent's "DONE · ITS LAST WORDS" and "HANDS BACK" rows draw their code blocks as plain text**, with no
+  Copy of their own; the row's Copy copies the whole text.
+- **The Copy button shows on hover or keyboard focus**, so not on a touch screen.
+- **A drag in the terminal app does not set the Linux middle-click selection**; it sets the clipboard.
+- **A drag that starts on the blank cell before a word copies that leading space**: it copies what is highlighted.
+- **The once-a-session hint still says to hold Shift to select with the terminal itself**, which is not the key in
+  every terminal (iTerm2 uses Option).
+- **When the browser refuses the clipboard on a "DONE · ITS LAST WORDS" row**, the text selected for you is the
+  shortened one the row shows, not the whole.
+- **Every Known limit of 3.6.0.6 still holds.**
+- **Where it was checked.** On the Linux VM: the whole test suite, its browser modules included (on a copy with no git
+  history: the few tests that need it run in CI), and the full real-use check, seventeen of seventeen steps. Its new
+  step starts a real Halo in a terminal, drags over words of the first answer with the terminal's own mouse sequences
+  and reads what reached a stand-in clipboard program: those words on release, on a second drag and on Ctrl+C, then
+  the last answer when nothing is selected. A real drag in a real terminal window there (a private display) put the
+  dragged words on the real clipboard. The whole suite found the Copy button 6 px from "why?" where two controls are
+  never closer than 8; it stands 8 px away now. On the PC (Windows): the changed plain modules and the node checks;
+  the same real-use step in a real pseudoconsole, with a second clipboard program lying in the project folder that
+  must never be started (it was not); and, in a headless Chrome, the copy module (three of its six tests failed until
+  the test compared line ends alike: Windows' clipboard hands text back with its own; then six of six) and the module
+  of the room rules. Not run: macOS locally (CI runs it at the release gate), Firefox and Safari, Wayland, a copy over
+  SSH into an outer terminal, the plain Windows console host, and a drag over a reply that is still being written.
+
 ## [3.6.0.6] - 2026-11-21
 
 A workflow can be run for real from Studio, from every view that shows one: yours, this project's and an enabled
