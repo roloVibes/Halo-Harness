@@ -402,9 +402,8 @@ def test_invariant_a_no_safety_or_refusal_language(ctx: Ctx):
 # or its own override.
 _PATH_HOME_ALLOWED_CALLERS = {
     "halo_harness/browser_find.py":
-        "a browser a person installed for themselves lives under their REAL home (~/Applications on macOS, the "
-        "per-user folder on Windows): finding it there is the feature; read-only; takes an explicit home= its own "
-        "tests pass",
+        "a browser a person installed for themselves on macOS lives under their REAL home (~/Applications): "
+        "finding it there is the feature; read-only; takes an explicit home= its own tests pass",
     "halo_harness/bugreport.py":
         "reads the Databricks CLI's OWN ~/.databrickscfg marker (an external tool's config) to report "
         "provider enablement; never written",

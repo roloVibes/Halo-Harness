@@ -186,8 +186,8 @@ def _ps_pids(profile: str) -> "list[int]":
     matched whole there too: followed by a space or the end, never by more of a longer folder name."""
     me, out = os.getpid(), []
     try:
-        text = subprocess.run(["ps", "-axww", "-o", "pid=,command="], capture_output=True, text=True,
-                              timeout=10).stdout
+        text = subprocess.run(["ps", "-axww", "-o", "pid=,command="], capture_output=True, text=True, timeout=10,
+                              env=subprocess.Probe(dict(os.environ))).stdout  # Halo's own look: not a spawn (3.6.0.1)
     except Exception:
         return []
     whole = re.compile(re.escape(f"--user-data-dir={os.path.normpath(profile)}") + r"(?=\s|$)")
