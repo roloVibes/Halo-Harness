@@ -376,13 +376,24 @@ def _strip_task(body: dict) -> dict:
     return body
 
 
+def _strip_browser(body: dict) -> dict:
+    """3.6.0.8: the built-in Browser tool out of a recorded body: its definition among the tools, and its one line in
+    the system text ("- **Browser**: ...")."""
+    body["tools"] = [t for t in body.get("tools") or [] if (t.get("function") or t).get("name") != "Browser"]
+    for m in body.get("messages") or []:
+        if m.get("role") == "system" and isinstance(m.get("content"), str):
+            m["content"] = "\n".join(line for line in m["content"].split("\n") if not line.startswith("- **Browser**: "))
+    return body
+
+
 @test
 def test_r38_fixture_differs_only_by_task(ctx: Ctx):
     """R38's recorded plain-session requests (tests/fixtures/map_facts_plain_requests.json, asserted byte for byte by
-    tests/test_map_facts.py) were re-recorded ONCE in 3.6.0.5, for the Agent and the Task tools' `task`. 3.6.0.4's
-    recording is kept as tests/fixtures/map_facts_plain_requests_3604.json (never edited); this test proves `task` is
-    the only difference: take the property `task` and "task" in `required` out of the Agent and Task tools of each new
-    body, and the body is 3.6.0.4's letter for letter."""
+    tests/test_map_facts.py) were re-recorded in 3.6.0.5, for the Agent and the Task tools' `task`, and in 3.6.0.8, for
+    the built-in Browser tool (one more tool, one more line of the system text). 3.6.0.4's recording is kept as
+    tests/fixtures/map_facts_plain_requests_3604.json (never edited); this test proves those two are the only
+    differences: take the property `task` and "task" in `required` out of the Agent and Task tools of each new body,
+    take the Browser tool and its line out, and the body is 3.6.0.4's letter for letter."""
     new = json.loads((FIXTURES / "map_facts_plain_requests.json").read_text(encoding="utf-8"))
     old_path = FIXTURES / "map_facts_plain_requests_3604.json"
     ctx.check("3.6.0.4's recording is kept", old_path.is_file())
@@ -393,8 +404,13 @@ def test_r38_fixture_differs_only_by_task(ctx: Ctx):
     ctx.check("the recording happened: the new bodies are not 3.6.0.4's as they stand",
               all(n != o for n, o in zip(new, old)))
     for i, (n, o) in enumerate(zip(new, old)):
-        stripped = json.dumps(_strip_task(json.loads(n)), ensure_ascii=False)
-        ctx.check(f"request {i}: without task it is 3.6.0.4's letter for letter", stripped == o)
+        body = json.loads(n)
+        ctx.check(f"request {i}: the Browser tool is among the tools, with its one line in the system text",
+                  sum((t.get("function") or t).get("name") == "Browser" for t in body["tools"]) == 1
+                  and sum(line.startswith("- **Browser**: ") for m in body["messages"] if m.get("role") == "system"
+                          for line in str(m.get("content")).split("\n")) == 1)
+        stripped = json.dumps(_strip_browser(_strip_task(body)), ensure_ascii=False)
+        ctx.check(f"request {i}: without task and the Browser tool it is 3.6.0.4's letter for letter", stripped == o)
         ctx.check(f"request {i}: the Agent tool asks for task",
                   any((t.get("function") or {}).get("name") == "Agent"
                       and "task" in t["function"]["parameters"].get("required", []) for t in json.loads(n)["tools"]))
