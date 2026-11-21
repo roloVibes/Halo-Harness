@@ -3,7 +3,9 @@ live agent tree (Halo 3.0.5.0 "Fleet" round R1; the tree is
 agent/agent_registry.py). Every hook swallows its own errors: the tree never
 breaks a turn or a spawn.
 
-    turn_started / observe / turn_ended   Session.turn() (agent/loop.py); a child's task and hand-back talk
+    turn_started / observe / turn_ended   Session.turn() (agent/loop.py); a child's task and hand-back talk; main's
+                                          turn counts (3.6.0.10 M10)
+    tools_called                          main's own calls of one reply (Session._dispatch_tools)
     register_child                        _build_child_session (agent/subagent.py)
     register_queued                       a count/batch job waiting for a slot
     job_rows                              the background Bash jobs, as leaves under main
@@ -40,7 +42,12 @@ def job_rows(tree) -> list:
 def turn_started(session, text: str) -> None:
     try:
         tree = tree_for(session)
-        tree.started(agent_key(session), session, text)
+        aid = agent_key(session)
+        if aid == tree.root_id:  # 3.6.0.10 M10: main's next turn; a child of main's first start is a helper it started
+            tree.turn_begun()
+        else:
+            tree.helper_started(aid)
+        tree.started(aid, session, text)
         from halo_harness.live.talk import on_turn_started  # 3.3.16.2: a child's task is its parent's words to it
         on_turn_started(tree, agent_key(session), text)
     except Exception:
@@ -66,8 +73,22 @@ def turn_ended(session) -> None:
             pass
         try:
             tree.ended(agent_key(session))
+            if agent_key(session) == tree.root_id:
+                tree.turn_done()  # 3.6.0.10 M10
         except Exception:
             pass
+
+
+def tools_called(session, names) -> None:
+    """3.6.0.10 M10: main's own calls of one reply (agent/handout_kind.py: not a hand-out, not the task board)."""
+    tree = getattr(session, "_agent_tree", None)
+    if tree is None or agent_key(session) != tree.root_id:
+        return
+    try:
+        from halo_harness.agent.handout_kind import kind
+        tree.own_tools(sum(1 for n in names or () if kind(n) == "own"))
+    except Exception:
+        pass
 
 
 def spawn_of(tree, parent_aid: str, text: str) -> dict:

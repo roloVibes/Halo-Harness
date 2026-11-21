@@ -46,7 +46,8 @@ FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind"
           "opt_ins",  # 3.1.8.0 R5: its isolation / secrets / tool-list lines (isolation/lines.py)
           "square",  # 3.3.16.0 R3: {name, engine, does} on a square's agent or node (workflows/receipts.py)
           "spawn",  # 3.3.16.3: {step, description, lead} -- the parent's step that started it (agent_hooks.spawn_of)
-          "crew")  # 3.6.0.0 R4: {map, box, line?, made_up?} -- the map box it runs for (crew/map_events.py tag)
+          "crew",  # 3.6.0.0 R4: {map, box, line?, made_up?} -- the map box it runs for (crew/map_events.py tag)
+          "turn", "turn_total")  # 3.6.0.10 M10, main's row only: {n, helpers, tools, ended}, {helpers, tools}
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()
@@ -93,6 +94,7 @@ class AgentTree(ObserveMixin):
         self._held: dict = {}  # aid -> the timer of its trailing flush (a quiet change waiting for its window to end)
         self._reason: dict = {}
         self._said: dict = {}  # 3.3.16.3: aid -> what it wrote in its current reply (a spawn's `lead`)
+        self._helped: set = set()  # 3.6.0.10 M10: the helpers main's turn counts already counted
         self.controls = Controls(self)
         self.root_id = agent_key(root)
         team = getattr(root, "team_control", None) or getattr(getattr(root, "agent_runtime", None), "team_control", None)
@@ -178,6 +180,51 @@ class AgentTree(ObserveMixin):
             row.update({k: v for k, v in fields.items() if k in FIELDS})
             pub = self._commit(aid, row, before)
         self._publish(pub)
+
+    # ---- 3.6.0.10 M10: main's turn (agent/agent_hooks.py feeds it; agent/handout_kind.py says what "itself" is) ----
+    def _main_counts(self, change) -> None:
+        with self.lock:
+            row = self.rows.get(self.root_id)
+            if row is None:
+                return
+            before = dict(row)
+            change(row)
+            pub = self._commit(self.root_id, row, before)
+        self._publish(pub)
+
+    def turn_begun(self) -> None:
+        """Main's next turn: n + 1, nothing handed out or used yet; the session's totals carried on."""
+        def begin(row):
+            row["turn"] = {"n": (row.get("turn") or {}).get("n", 0) + 1, "helpers": 0, "tools": 0, "ended": False}
+            row["turn_total"] = dict(row.get("turn_total") or {"helpers": 0, "tools": 0})
+        self._main_counts(begin)
+
+    def _add(self, key: str, n: int) -> None:
+        def add(row):
+            if row.get("turn") is None:  # blank before main's first turn
+                return
+            row["turn"] = {**row["turn"], key: row["turn"][key] + n}
+            row["turn_total"] = {**row["turn_total"], key: row["turn_total"][key] + n}
+        if n:
+            self._main_counts(add)
+
+    def helper_started(self, aid: str) -> None:
+        """A child of main starts: counted once, at its first start (a resumed one is not counted again)."""
+        with self.lock:
+            row = self.rows.get(aid)
+            if aid == self.root_id or row is None or row.get("parent") != self.root_id or aid in self._helped:
+                return
+            self._helped.add(aid)
+        self._add("helpers", 1)
+
+    def own_tools(self, n: int) -> None:
+        self._add("tools", n)
+
+    def turn_done(self) -> None:
+        def done(row):
+            if row.get("turn") is not None:
+                row["turn"] = {**row["turn"], "ended": True}
+        self._main_counts(done)
 
     def row(self, aid: str) -> Optional[dict]:
         with self.lock:

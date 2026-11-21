@@ -138,8 +138,10 @@ def test_the_default_session_is_a_plain_session(ctx: Ctx):
         ctx.check("main's starter instructions are not in the system prompt",
                   "You are main, the agent the person talks to" not in plain_system and "Your instructions (the map" not in plain_system)
         agent_words, flow_words = s.tool_registry.get("Agent").description, s.tool_registry.get("Workflow").description
-        ctx.check("the Agent tool says what a plain session's said (no 'runs on the map', no 'only to these')",
-                  agent_words.endswith(RECORDED_AGENT_TAIL) and "runs on the map" not in agent_words)
+        kinds = s.tool_registry.get("Agent").kinds_tail  # 3.6.0.10 M8: on Auto the kinds end the Agent tool's words
+        ctx.check("the Agent tool says what a plain session's said (no 'runs on the map', no 'only to these'), then the kinds",
+                  agent_words.endswith(RECORDED_AGENT_TAIL + kinds) and "runs on the map" not in agent_words
+                  and (not s.agent_runtime.agents or kinds.startswith(" Helpers you can start (`subagent_type`): ")))
         ctx.check("the Workflow tool is a plain session's (not a map's)", "runs on the map" not in flow_words)
         rt = s.agent_runtime
         ctx.check(f"delegation as the lineup's, got depth {rt.max_depth} parallel {rt.max_concurrent}",

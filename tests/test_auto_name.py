@@ -335,15 +335,17 @@ def _agent(rig, name: str) -> None:
 
 @test
 def test_m1_hand_to_is_what_a_new_session_gets(ctx: Ctx):
-    """A22: M1's {names} are `hand_to` on GET crew/map/auto only: the agents a NEW session on Auto gets now, the seven
-    that ship with Halo first."""
+    """A22, 3.6.0.10 M9: M1's {names} are `hand_to` on GET crew/map/auto only: the kinds a NEW session on Auto would
+    tell main it can start (crew/kinds.py `names`), his own first, then the seven that ship with Halo, then the
+    built-ins not already covered; every name (main may read " and {n} more" where the tab lists them all)."""
     with CrewRig() as rig:
         rig.studio()
         _agent(rig, "extra")
         st, m = rig.api("GET", "crew/map/auto")
         got = m.get("hand_to")
-        ctx.check(f"GET crew/map/auto: hand_to, the seven first, then extra, got {st} {got}",
-                  st == 200 and isinstance(got, list) and set(got[:7]) == set(SEVEN) and "extra" in got)
+        want = ["extra"] + SEVEN + ["Judge", "Tester"]
+        ctx.check(f"GET crew/map/auto: hand_to is main's kinds, his extra first, got {st} {got}",
+                  st == 200 and got == want)
         st, m = rig.api("GET", "crew/map/ship-it")
         ctx.check(f"GET crew/map/ship-it: no hand_to, got {st} {sorted(m)}", st == 200 and "hand_to" not in m)
 

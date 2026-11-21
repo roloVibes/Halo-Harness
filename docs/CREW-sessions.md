@@ -11,11 +11,21 @@ A session runs on a map when one is named: `halo --map <name>` for this one run,
 Auto (the default) so the Map tab shows what it does, but sets no rules (3.6.0.0 R5): it runs exactly as a 3.5
 session with no lineup set -- every agent it finds can be spawned (yours win over one that ships with Halo of the same name),
 no money cap, delegation two deep and four at a time, each sub-agent's model picked as before, `halo roles point`
-honoured, the Workflow tool there, nothing added to the system prompt (`crew/compile.py` `is_default` is the one
+honoured, the Workflow tool there, no map rules in the system prompt (`crew/compile.py` `is_default` is the one
 check; `crew/map_control.py` `PlainMap` answers from one shipped file, `templates/crew/plain/session.yaml`, through
 `crew/plain.py`; an `--agent` session holds the same answers with no map drawn). With roles off ("One model for
 everything", `halo maps use --none`) a session runs on no map at all. Everything below is what a map you pick or
 write does. Each session row (Studio's sessions, `GET fleet`) carries `map`: the map it started with.
+
+**What main is told on Auto (3.6.0.10).** A top session on Auto tells main the kinds of helper it can start
+(`crew/kinds.py`): your own agents first, then Auto's seven, then other agents, then the built-ins not already covered.
+A local model reads them in its system text, made once at the first request (`agent/helpers_words.py`); a cloud model
+reads them at the end of the Agent and Task tools' words, set at the start (`crew/session_start.py`). When the list does
+not fit its room, main reads the first names and "and {n} more (a wrong name lists them all)". The Map tab's "Main can
+hand work to" comes from the same list and holds every name (`hand_to` on `GET crew/map/auto`; the tab writes twelve,
+then "and {n} more"). The session's status row says what main read: `kinds_told` (the names) and `kinds_more` (how many
+it read as "and {n} more"), once main has been told; these fields never reach a model. On a map of yours, with roles
+off and in an `--agent` session main is told none of this.
 
 ## What compiles to what
 

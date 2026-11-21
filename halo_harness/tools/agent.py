@@ -83,6 +83,8 @@ class AgentTool(Tool):
     result_cap = None
     # 3.1.9.0 R2: the session's lineup name (agent/loop.py sets it when the session starts)
     lineup = None
+    # 3.6.0.10 M8: on a top Auto session, the kinds it can start (crew/session_start.tool_state sets it at the start)
+    kinds_tail = ""
 
     # A property, not a class attribute, so each catalog build re-reads
     # the live role list and config instead of freezing whatever it was
@@ -109,6 +111,7 @@ class AgentTool(Tool):
         if self.lineup == PLAIN:
             text += (" The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose "
                      "yourself.")
+        text += self.kinds_tail or ""
         if getattr(self, "map_control", None) is not None:  # 3.6.0.0 R3: on a map, exactly main's agents
             from halo_harness.crew.map_session import tool_tail
             return text + tool_tail(self.map_control, "agent")

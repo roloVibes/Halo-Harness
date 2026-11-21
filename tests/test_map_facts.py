@@ -7,7 +7,10 @@
    parts are normalised (the scratch home and folder, today's date, the OS line). The map's frames, row tags, hops and
    the facts note never reach what a plain session sends: if a later change makes this red, the change is wrong. The
    fixture was re-recorded once in 3.6.0.5, for the Agent and Task tools' `task`, and
-   tests/test_auto_groups.py::test_r38_fixture_differs_only_by_task proves that is the only difference.
+   tests/test_auto_groups.py::test_r38_fixture_differs_only_by_task proves that is the only difference; in 3.6.0.8 for
+   the Browser tool; in 3.6.0.10 (M8) for the kinds at the end of the Agent and Task tools' words (the session now gets
+   the agents a new session gets) and the cloud text's true roles sentence, 3.6.0.9's kept as
+   map_facts_plain_requests_3609.json (tests/test_auto_groups.py proves only those differ).
 
 The tools are `default_tools(platform="linux")` so the one fixture holds on Windows, macOS and Linux (PowerShell is
 win32-only). Mock upstream, a fake spawn for the steps' agents; no real model. Record (only on the base):
@@ -71,12 +74,17 @@ def _session(home: Path, cwd: Path, mock):
     from halo_harness.permissions import PermissionEngine
     from halo_harness.providers.stream import ProviderCreds
     from halo_harness.tools.registry import ToolRegistry, default_tools
+    from halo_harness.config.agents_md import discover_agents
+    from halo_harness.crew.map_session import agents as map_agents
     reg = ToolRegistry(default_tools(platform="linux"))
     crew_map = prepare(None, cwd)[0]
+    # 3.6.0.10 M8: the agents a new session gets, as headless.build_session gives them (the kinds end the Agent tool's words)
+    found = map_agents(discover_agents(cwd, settings=None), crew_map)[0] if crew_map is not None else None
     s = Session(cwd=cwd, model_ref=parse_model_ref(MODEL), model_profile=ModelProfile(),
                 creds=ProviderCreds(base_url=mock.base_url, api_key="k"), state_dir=home / "sess-state", model_label=MODEL,
                 session_context=SessionContext(cwd=cwd, model_label=MODEL, tool_registry=reg), max_turns=6,
-                permission_engine=PermissionEngine(mode="bypassPermissions", cwd=cwd), crew_map=crew_map)
+                permission_engine=PermissionEngine(mode="bypassPermissions", cwd=cwd), crew_map=crew_map,
+                agents=found)
     s.interactive = True
     return s
 
@@ -485,6 +493,63 @@ def test_status_row_names_the_workflows_on_its_map(ctx: Ctx):
         ctx.check(f"the default map names none, got {plain.get('map_flows')!r}", "map_flows" not in plain)
         bad = session_row({"session_id": "s-x"}, {"map_flows": "review"}, [])
         ctx.check(f"a wrong type is dropped, got {bad.get('map_flows')!r}", bad.get("map_flows") is None)
+
+
+@test
+def test_m9_status_row_names_the_kinds_main_was_told(ctx: Ctx):
+    """3.6.0.10 M9: what he reads is what main reads. The status row carries `kinds_told` (the names main read) and
+    `kinds_more` (how many it read as " and {n} more"), next to `map_flows`: a local model's once its block is frozen
+    (its first request), a cloud model's from the start (the Agent tool's words); none on a map of his. session_row
+    forwards them, typed. These fields reach no model."""
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.agent import helpers_words as H
+        from halo_harness.agent.prompt_measure import new_session
+        from halo_harness.crew import map_facts
+        from halo_harness.crew.kinds import block, kinds
+        from halo_harness.peers.local_view import session_row
+        clean = ["planner", "researcher", "coder", "reviewer", "writer", "media-reader", "ops", "Judge", "Tester"]
+
+        def sess(ref, window, control=None):
+            s = new_session(ref, window=window, platform="linux", cwd=env.repo, control=control)
+            s.log, s.turn_count, s.busy = _Log(), 0, False
+            return s
+        local = sess("ol:tiny:3b", 16384)
+        before = map_facts.row(local)
+        ctx.check(f"a local model before its first request: no kinds yet, got {sorted(before)}",
+                  before and "kinds_told" not in before and "kinds_more" not in before)
+        H.frozen(local)
+        row = map_facts.row(local)
+        ctx.check(f"a local model once frozen: the nine, none more, got {row.get('kinds_told')} {row.get('kinds_more')}",
+                  row.get("kinds_told") == clean and row.get("kinds_more") == 0)
+        cloud = map_facts.row(sess("ant:claude-opus-5-5", 200000))
+        ctx.check(f"a cloud model from the start, got {cloud.get('kinds_told')} {cloud.get('kinds_more')}",
+                  cloud.get("kinds_told") == clean and cloud.get("kinds_more") == 0)
+        from halo_harness.crew import store
+        store.write_text(store.path_for("map", "mine9", state_dir=env.state),
+                         "format: map/1\nname: mine9\nboxes:\n- {id: c, agent: coder}\n"
+                         "lines:\n- {from: main, to: c, when: always}\n")
+        for ref, window in (("ol:tiny:3b", 16384), ("ant:claude-opus-5-5", 200000)):
+            his = sess(ref, window, control="mine9")
+            H.frozen(his)
+            mine = map_facts.row(his)
+            ctx.check(f"{ref} on a map of his: no kinds, got {sorted(mine)}",
+                      getattr(his.team_control, "map_name", "") == "mine9" and "kinds_told" not in mine)
+        rows = kinds(local.agent_runtime.agents)
+        cut = block(rows, H.M1, H.M2_HEAD, H.M2_END, H.M2_MORE, 150)
+        local._helpers_block = (local._helpers_block[0], cut)
+        row = map_facts.row(local)
+        ctx.check(f"a block cut to fit says the names it kept and how many more, got {row.get('kinds_told')} "
+                  f"{row.get('kinds_more')} from {cut!r}",
+                  cut and " more (a wrong name lists them all)" in cut and row.get("kinds_more", 0) > 0
+                  and row.get("kinds_told") == clean[:len(clean) - row["kinds_more"]]
+                  and all(n in cut for n in row["kinds_told"]))
+        fwd = session_row({"session_id": "s-kinds"}, {"kinds_told": clean, "kinds_more": 3}, [])
+        ctx.check(f"session_row forwards them, got {fwd.get('kinds_told')} {fwd.get('kinds_more')}",
+                  fwd.get("kinds_told") == clean and fwd.get("kinds_more") == 3)
+        bad = session_row({"session_id": "s-x"}, {"kinds_told": "planner", "kinds_more": "3"}, [])
+        ctx.check(f"a wrong type is dropped, got {bad.get('kinds_told')!r} {bad.get('kinds_more')!r}",
+                  bad.get("kinds_told") is None and bad.get("kinds_more") is None)
 
 
 @test

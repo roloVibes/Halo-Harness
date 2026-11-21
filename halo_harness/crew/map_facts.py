@@ -374,7 +374,8 @@ def result_tail(session, wrote, undo, use_written: bool = False) -> str:
 def row(session) -> dict:
     """The status row's map facts (R40): map_since, map_plain, map_next, map_next_none (new sessions start with no map:
     map_next None is then not "the default"), map_next_since, built, asked; on Auto `map_agents` (3.6.0.5 A22: the agents
-    the session had when it started, its own dict, never re-read from disk). Never raises."""
+    the session had when it started, its own dict, never re-read from disk); `map_flows`; on Auto `kinds_told`, `kinds_more`
+    (3.6.0.10 M9: the kinds main read, once frozen). Never raises."""
     try:
         f = facts(session)
     except Exception:
@@ -392,6 +393,11 @@ def row(session) -> dict:
         flows = sorted({str(n) for b in boxes.values() if isinstance(b, dict) and b.get("kind") == "workflow" for n in b.get("names") or []})
         if flows:
             out["map_flows"] = flows
+    except Exception:
+        pass
+    try:  # 3.6.0.10 M9: the kinds main was told (agent/helpers_words.told), once frozen; these reach no model
+        from halo_harness.agent.helpers_words import told
+        out.update(told(session) or {})
     except Exception:
         pass
     return out

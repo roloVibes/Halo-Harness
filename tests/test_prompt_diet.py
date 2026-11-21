@@ -34,7 +34,12 @@ os.environ.setdefault("BRIDGE_TEST_NO_BACKGROUND_NET", "1")
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-CLOUD_HASH = "1041e557d192ef0a140fdb5d77d98f3c1600a53e1c3fa3ca578b8d79c5440758"  # 3.6.0.1: Studio's paragraph names agents, workflows, the Map
+CLOUD_HASH = "1048ade682d5aa7954e758f5b891a185e535c122633cf02b6caf4ff6923f6924"  # 3.6.0.10 M8: roles ON is the default
+CLOUD_HASH_3601 = "1041e557d192ef0a140fdb5d77d98f3c1600a53e1c3fa3ca578b8d79c5440758"  # 3.6.0.1: Studio's paragraph names agents, workflows, the Map
+ROLES_3601 = ("With custom roles OFF (the default) every sub-agent runs the session model unless the call passes "
+              "`model:`; with roles ON the model table (`roles.*`) picks it (`role:`).")
+ROLES_M8 = ("With custom roles ON (the default) the model table (`roles.*`) picks a sub-agent's model (`role:`); with "
+            "roles OFF it runs the session model unless the call passes `model:`.")
 
 
 def _every_builtin() -> list:
@@ -193,11 +198,28 @@ def test_a_cloud_model_with_a_large_window_gets_todays_bytes(ctx: Ctx):
     tools = [{"name": "Bash", "description": "Runs a command."}, {"name": "Read", "description": "Reads a file."},
              {"name": "Write", "description": "Writes a file."}]
     fixed = build_system_prompt(model_label="ant:claude-opus-5-5", cwd="/work", tool_definitions=tools, family="claude")
-    ctx.check("the assembled prompt's bytes are 3.6.0.1's (a hash pin)",
+    ctx.check("the assembled prompt's bytes are 3.6.0.10's (a hash pin; only M8's roles sentence differs from 3.6.0.1's)",
               hashlib.sha256(fixed.encode("utf-8")).hexdigest() == CLOUD_HASH)
     text, defs, (out_text, _m, out_tools) = _cloud_and_lean("ant:claude-opus-5-5", 200000)
     ctx.check("the wire copy is the logged text, byte for byte, and every tool as it was",
               out_text == text and out_tools == defs)
+
+
+@test
+def test_m8_the_cloud_text_says_roles_are_on_by_default(ctx: Ctx):
+    """3.6.0.10 MW rule M8: custom roles are ON by default (roles.py), so the cloud text's "With custom roles OFF (the
+    default)" was false. CLOUD_HASH is pinned again once, and that sentence is the ONLY difference: put the old one
+    back and the bytes are 3.6.0.1's (CLOUD_HASH_3601)."""
+    from halo_harness.agent.prompt import build_system_prompt
+    from halo_harness.roles import roles_mode_enabled
+    tools = [{"name": "Bash", "description": "Runs a command."}, {"name": "Read", "description": "Reads a file."},
+             {"name": "Write", "description": "Writes a file."}]
+    fixed = build_system_prompt(model_label="ant:claude-opus-5-5", cwd="/work", tool_definitions=tools, family="claude")
+    ctx.check("roles are on by default (the scratch home sets none)", roles_mode_enabled() is True)
+    ctx.check("the false sentence is gone", ROLES_3601 not in fixed)
+    ctx.check("the true one is there, once", fixed.count(ROLES_M8) == 1)
+    ctx.check("only that sentence differs from 3.6.0.1's bytes",
+              hashlib.sha256(fixed.replace(ROLES_M8, ROLES_3601).encode("utf-8")).hexdigest() == CLOUD_HASH_3601)
 
 
 @test

@@ -7545,6 +7545,7 @@ class Session:
         # computed here exactly as before.
         if repair_outcomes is None:
             repair_outcomes = repair_assistant_turn(tool_use_blocks, self.tool_registry, catalog=self.session_catalog)
+        _agent_tree.tools_called(self, [(getattr(o, "block", None) or {}).get("name") for o in repair_outcomes])  # 3.6.0.10 M10
 
         end_turn = False
         pending_batch: list = []  # `item` dicts: a run of consecutive READY read-only calls, dispatch deferred

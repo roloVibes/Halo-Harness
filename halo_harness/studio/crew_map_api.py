@@ -122,11 +122,11 @@ def _answer(req, name: str, got: dict, cwd) -> dict:
            "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")},
            **_sigs(got["_path"], c.main.get("agent") or "main", boxes, cwd, req.state_dir)}
     if got["_scope"] == "starter" and store.is_auto(raw.get("name")):
-        # 3.6.0.5 A22 (M1's {names}): the agents a NEW session on Auto gets now, the seven that ship with Halo first
-        from halo_harness.config.agents_md import discover_agents
+        # 3.6.0.5 A22, 3.6.0.10 M9: the kinds a NEW session on Auto tells main it can start, every name (his first)
         from halo_harness.crew.compile import compile_map
-        from halo_harness.crew.map_session import agents
-        out["hand_to"] = list(agents(discover_agents(cwd), compile_map(DEFAULT_MAP, cwd=cwd, state_dir=req.state_dir))[0])
+        from halo_harness.crew.kinds import kinds, names
+        from halo_harness.crew.session_start import start_agents
+        out["hand_to"] = names(kinds(start_agents(cwd, compile_map(DEFAULT_MAP, cwd=cwd, state_dir=req.state_dir))))
     return out
 
 

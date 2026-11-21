@@ -120,8 +120,8 @@ def block(rows, lead: str, head: str, end: str, more: str, room: int, measure=No
         return None
     keep = [True] * len(rows)
 
-    def text(shown: int) -> str:
-        return lead + "\n" + _line(rows, keep, shown, head, end, more)
+    def text(shown: int) -> str:  # lead None: M2's line alone (M8, the Agent and Task tools' words)
+        return ("" if lead is None else lead + "\n") + _line(rows, keep, shown, head, end, more)
 
     out = text(len(rows))
     order = [i for part in WORDS_GO for i in reversed(range(len(rows))) if rows[i].get("part") == part]

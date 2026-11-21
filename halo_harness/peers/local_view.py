@@ -96,6 +96,9 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
     row.update({k: data.get(k) if isinstance(data.get(k), str) else None for k in ("map_scope", "map_path", "map_hash")})
     flows = data.get("map_flows")  # 3.6.0.9 V batch 2 repair: the workflows on its map's boxes (crew/map_facts.py row)
     row["map_flows"] = [str(n) for n in flows if isinstance(n, str)] if isinstance(flows, list) else None
+    told = data.get("kinds_told")  # 3.6.0.10 M9: the kinds main was told (crew/map_facts.py row)
+    row["kinds_told"] = [str(n) for n in told if isinstance(n, str)] if isinstance(told, list) else None
+    row["kinds_more"] = _num(data.get("kinds_more"))
     return row
 
 

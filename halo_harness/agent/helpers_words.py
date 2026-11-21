@@ -6,6 +6,8 @@
                                     main's model changes. None: not on Auto, or the block does not fit (today's line).
     tail(session, tools) -> str     per request, after the tools are capped (agent/prompt_wire.py): M3 when the request
                                     sends the Workflow tool and it lists his workflows, M4 when it sends the Builder
+    kinds_tail(session) -> str      M8: the end of the Agent and Task tools' words on Auto (their cloud copy)
+    told(session) -> dict | None    M9: `kinds_told`, `kinds_more` for the status row (what main read)
 
 The lean system text (agent/prompt_lean_system.py) writes `frozen` in place of today's delegate line. The frozen part
 names no tool but Agent, which every request that sends a tool sends. No tool's own words change here (A3), and
@@ -23,6 +25,7 @@ M1 = ("- Hand work out instead of doing it all yourself: give each part of a job
 M2_HEAD = "- Helpers you can start now (`subagent_type`): "
 M2_END = ". With no `subagent_type` Halo picks a kind from your words."
 M2_MORE = " and {n} more (a wrong name lists them all)"
+KINDS_HEAD = " Helpers you can start (`subagent_type`): "  # M8: the Agent and Task tools' words on Auto (cloud copy)
 M3 = "- The Workflow tool lists workflows you can run by `name`: run one when it fits the whole job."
 M4 = ("- Unasked, you may propose a helper or a workflow for work that will come back, with the Builder tool; nothing "
       "is written until the person approves its card.")
@@ -82,6 +85,47 @@ def frozen(session) -> Optional[str]:
     except Exception:
         pass
     return text
+
+
+def kinds_tail(session) -> str:
+    """M8: the end of the Agent and Task tools' words on a top Auto session (set at the start, crew/session_start.py
+    `tool_state`, so it is byte-equal for the session): the kinds and the clause, in the room M2's line has in the lean
+    block (the same names give way the same way). The lean copy of those tools drops it (tools/lean_descriptions.py)."""
+    try:
+        if not on_auto(session):
+            return ""
+        from halo_harness.agent.prompt_composition import tokens_of
+        from halo_harness.crew.kinds import CAP, block, kinds
+        rows = kinds(getattr(session.agent_runtime, "agents", None), getattr(session, "agent_type_restriction", None))
+        room = CAP - tokens_of(longest_tail()) - tokens_of(M1 + "\n")
+        return block(rows, None, KINDS_HEAD, M2_END, M2_MORE, room) or ""
+    except Exception:
+        return ""
+
+
+def told(session) -> Optional[dict]:
+    """M9: the kinds main was told, for the status row (never sent to a model): `kinds_told` the names it read,
+    `kinds_more` how many it read as " and {n} more". A lean session's once its block is frozen (its first request);
+    a cloud session's from the Agent tool's words (fixed at the start). None when main was told none."""
+    try:
+        from halo_harness.agent.prompt_lean import active
+        lean = active(session)
+    except Exception:
+        lean = False
+    if lean:
+        kept = getattr(session, _KEPT, None)
+        text = kept[1] if isinstance(kept, tuple) else None
+    else:
+        reg = getattr(session, "tool_registry", None)
+        text = getattr(reg.get("Agent") if reg is not None else None, "kinds_tail", "")
+    if not text:
+        return None
+    import re
+    from halo_harness.crew.kinds import kinds, names
+    listed = names(kinds(getattr(session.agent_runtime, "agents", None), getattr(session, "agent_type_restriction", None)))
+    m = re.search(re.escape(M2_MORE).replace(r"\{n\}", r"(\d+)"), text)
+    more = int(m.group(1)) if m else 0
+    return {"kinds_told": listed[:len(listed) - more], "kinds_more": more}
 
 
 def tail(session, tools) -> str:

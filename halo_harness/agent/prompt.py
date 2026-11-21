@@ -86,8 +86,8 @@ workflows and the Map: what runs now and what ran), Local, Packs and more, plus 
 or to see your agents, workflows or the map, run `halo studio --mode agents` (TUI: `/studio` or `/roles`); \
 Design is `--mode design--design` (`/design`); it is the GUI, never another program's page.
 - **Sub-agents** -- the Agent tool spawns one (or a batch, in parallel) with its own prompt, tools \
-and model. With custom roles OFF (the default) every sub-agent runs the session model unless the \
-call passes `model:`; with roles ON the model table (`roles.*`) picks it (`role:`). Delegation is \
+and model. With custom roles ON (the default) the model table (`roles.*`) picks a sub-agent's model \
+(`role:`); with roles OFF it runs the session model unless the call passes `model:`. Delegation is \
 expected on big jobs, not optional: surveys, searches, test runs and mechanical edits go to a \
 cheaper model (`model:` with a lower-priced row from the user's catalog, `halo models`), judgement, \
 design and the final review stay with you, independent pieces run in parallel, and your own \

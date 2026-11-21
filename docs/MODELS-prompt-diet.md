@@ -90,6 +90,20 @@ carries its own description) and the prose that explains rather than
 instructs. The log keeps the full prompt; a cloud model with a window of
 128k or more gets byte for byte what it got before (a hash test pins it).
 
+**On Auto main knows what it can hand out (3.6.0.10).** In a top session on
+Auto the delegation rule becomes two lines: when to hand work out, and the
+kinds of helper this session can start, your own agents first
+(`agent/helpers_words.py`, `crew/kinds.py`). They are made once, at the first
+request, and stay byte for byte the same (made again only when main's model
+changes). Per request, after the tools are capped, one line names the Workflow
+tool's workflows and one the Builder, only when that request sends them. The
+whole is held to 300 tokens: past it the few words after each name leave
+first, then names from the end, and main reads "and {n} more (a wrong name
+lists them all)". A cloud model reads the same kinds at the end of the Agent
+and Task tools' words. Studio's Map tab ("Main can hand work to") lists every
+name of the same list, and the session's status row says what main read
+(`kinds_told`, `kinds_more`); those fields never reach a model.
+
 **The estimate is the wire's** (`providers/ollama_wire_estimate.py`). The
 window used to be picked from an estimate over the Anthropic-shaped request
 while the body sent is Ollama-shaped, about 0.5 % apart. It is now the

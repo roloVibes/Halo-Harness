@@ -112,6 +112,8 @@ def test_tool_state_on_a_map_of_his_and_with_roles_off(ctx: Ctx):
     ctx.check("his map: the lineup is its name and the tools hold it",
               all(s.tool_registry.get(n).lineup == "map:mine" and s.tool_registry.get(n).map_control is mine for n in TOOLS)
               and s.agent_runtime.team_control is mine)
+    ctx.check("his map: no kinds in any tool's words (the map's own tail names main's agents)",
+              all(getattr(s.tool_registry.get(n), "kinds_tail", "") == "" for n in TOOLS))
     drawn = SimpleNamespace(is_map=True, map=SimpleNamespace(source="default"), name="auto")
     s = stub()
     tool_state(s, drawn)
@@ -122,6 +124,38 @@ def test_tool_state_on_a_map_of_his_and_with_roles_off(ctx: Ctx):
     ctx.check("roles off: no lineup, no map, no control",
               all(s.tool_registry.get(n).lineup is None and s.tool_registry.get(n).map_control is None for n in TOOLS)
               and s.agent_runtime.team_control is None)
+    ctx.check("roles off: no kinds in any tool's words", all(getattr(s.tool_registry.get(n), "kinds_tail", "") == ""
+                                                             for n in TOOLS))
+
+
+CLEAN = ["planner", "researcher", "coder", "reviewer", "writer", "media-reader", "ops", "Judge", "Tester"]
+
+
+@test
+def test_m8_the_agent_and_task_words_end_with_the_kinds_on_auto(ctx: Ctx):
+    """3.6.0.10 M8: on a top Auto session the Agent and Task tools' words end, after "The lineup is auto: ...", with the
+    kinds THIS session can start (crew/kinds.py, his own first) and the clause; set at the start by tool_state (M1a), so
+    a Session and the measure read the same words. The lean copy (a local model's) drops it: there main reads the
+    frozen block in the system text. The Workflow tool's words do not change."""
+    from halo_harness.agent.helpers_words import KINDS_HEAD, M2_END
+    from halo_harness.agent.prompt_measure import new_session
+    from halo_harness.tools.lean_descriptions import lean_definition
+    with _scratch() as root:
+        real = _real_session(root)
+        stub = new_session("ant:claude-opus-5-5", window=200000, cwd=root / "proj")
+        words = {n: real.tool_registry.get(n).description for n in TOOLS}
+        stub_words = {n: stub.tool_registry.get(n).description for n in TOOLS}
+        lean = lean_definition(real.tool_registry.get("Agent").definition())["description"]
+    for n in ("Agent", "Task"):
+        w = words[n]
+        listed = [b.split(" (")[0] for b in w.split(KINDS_HEAD)[-1][:-len(M2_END)].split("; ")] if KINDS_HEAD in w else []
+        ctx.check(f"{n}: ends with the kinds after the lineup line, got {w[-200:]!r}",
+                  w.count(KINDS_HEAD) == 1 and w.endswith(M2_END)
+                  and w.index("The lineup is auto: ") < w.index(KINDS_HEAD))
+        ctx.check(f"{n}: a clean home's nine kinds in order, each with its words, got {listed}", listed == CLEAN)
+    ctx.check("a Session and the measure read the same words", words == stub_words)
+    ctx.check("the Workflow tool's words hold no kinds", KINDS_HEAD not in words["Workflow"])
+    ctx.check("the lean Agent copy drops the kinds", KINDS_HEAD not in lean)
 
 
 if __name__ == "__main__":
