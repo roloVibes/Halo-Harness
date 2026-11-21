@@ -26,6 +26,7 @@ export type TruthFacts = {
   changed: { t: number; problem?: string } | null; // its own map changed while it runs (T5 / T6)
   workflow: string | null; // a workflow it runs that is a box on B (T7)
   flowsChanged?: { name: string; t: number }[]; // 3.6.0.9 V: workflows of its drawing changed by a plain write (built.ts)
+  flowsCan?: string[]; // batch 2 repair: the workflows whose line it can show (its drawing's boxes; on Auto: the ones it ran)
   busy: boolean; // never decides anything here (point 8: the sentence does not flip when a turn ends)
 };
 export type TruthState = "Empty" | "T1" | "T2" | "T3" | "T4" | "T8" | "T9" | "T10" | "T11" | "T12";
@@ -112,16 +113,19 @@ export function est(lines: Line[], width: number): number {
  *  HAS -- its own {A}, {B} and {W} (T1 / T3, T2 and T11 when B differs, each with and without T7 when a {W} is known and
  *  with and without T5, then T8, then the state it is in now) -- the lines that take the most room at `width`. Nothing is
  *  held for a name it does not have: a {B} switched on later or a {W} that starts later is a real change, and the truth
- *  block measures its twin again then (TruthBlock.tsx). Ties go to the longer text, then to the first. T6's problem is not
+ *  block measures its twin again then (TruthBlock.tsx); the workflow lines of `flowsCan` are held in every one. Ties go to the longer text, then to the first. T6's problem is not
  *  known in advance: the block grows for it (R12). */
 export function reserve(f: TruthFacts, width: number): { lines: Line[]; est: number } {
   const open: TruthFacts = { ...f, none: false, machine: null, ended: null, unreadable: null, studio: false, turns: Math.max(1, f.turns) };
   const after = (f.bSince && f.bSince > f.started ? f.bSince : f.started + 60) || 60;
   const bs: Partial<TruthFacts>[] = [{ b: f.a }];
   if (f.a && !onMap(f.a, nextMap(f.b))) bs.push({ b: f.b, bSince: after }, ...(f.b ? [{ b: f.b, bSince: null }] : []));
+  // batch 2 repair: the line of every workflow it can show, held from the first draw (a plain write adds it later)
+  const can = [...new Set([...(f.flowsCan || []), ...(f.flowsChanged || []).map((w) => w.name)])];
+  const flowsChanged = can.map((name) => ({ name, t: f.flowsChanged?.find((w) => w.name === name)?.t || f.started }));
   const cands: Line[][] = [];
   for (const b of bs) for (const workflow of f.workflow ? [f.workflow, null] : [null])
-    for (const changed of [{ t: f.changed?.t || f.started }, null]) cands.push(truthLines({ ...open, ...b, workflow, changed }));
+    for (const changed of [{ t: f.changed?.t || f.started }, null]) cands.push(truthLines({ ...open, ...b, workflow, changed, flowsChanged }));
   cands.push(truthLines({ ...open, ended: f.ended || f.started }), truthLines(f));
   const size = (ls: Line[]) => ls.reduce((n, l) => n + l.text.length + (l.label || "").length, 0);
   let best = cands[0], most = est(best, width);

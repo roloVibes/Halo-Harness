@@ -174,6 +174,6 @@ export function factsOf(row: SessionRow, ended: number | null = null, now = Date
     started: Number(row.map_since || row.started) || 0, turns: asked ? Math.max(1, Number(row.turns) || 0) : 0,
     studio: String(row.parent || "").startsWith("studio:"), ended, machine: null, unreadable: null,
     changed: hash?.t ? { t: hash.t } : null,
-    workflow: null, busy: !!row.busy,
+    workflow: null, busy: !!row.busy, flowsCan: Array.isArray(row.map_flows) ? row.map_flows.map(String) : [],
   };
 }

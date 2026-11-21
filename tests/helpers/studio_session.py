@@ -81,10 +81,11 @@ def collect_page_errors(c) -> None:
 # 3.6.0.9 V batch 2: Session keeps what was just built in the tab's sessionStorage across a reload (routes/crew/map/
 # builtKeep.ts). A driver's own navigation (to about:blank and back, step after step, with the same session ids) starts as
 # a new tab of Studio would: what an earlier step built is not carried into it. A reload (`location.reload()`) keeps it,
-# as it does for a person (tests/helpers/studio_session_just_built.py `kept` drives that).
+# as it does for a person (tests/helpers/studio_session_just_built.py `kept` drives that); so does an address opened
+# again in the same tab, which `kept` drives with window.name 'keep-tab' (this clear stands aside then).
 FRESH_TAB_JS = ("try { const n = (performance.getEntriesByType('navigation') || [])[0];"
                 " const reload = (n && n.type === 'reload') || (performance.navigation && performance.navigation.type === 1);"
-                " if (!reload) sessionStorage.removeItem('halo.studio.built'); } catch (e) {}")
+                " if (!reload && window.name !== 'keep-tab') sessionStorage.removeItem('halo.studio.built'); } catch (e) {}")
 
 
 def page_errors(c) -> list:

@@ -158,7 +158,8 @@ def wide(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.reset()
     rows.idle(b)
     rows.set(a, busy=False, status="idle", agents=[_main(rows, a, state="done")], map=WIDE48, map_plain=False, map_since=t0,
-             map_next=WIDE48, map_next_since=t0 - 3600, map_hash="h1")
+             map_next=WIDE48, map_next_since=t0 - 3600, map_hash="h1",
+             map_flows=["W"])  # 3.6.0.9 V batch 2 repair: the row names its map's workflow (crew/map_facts.py row): held from frame one
     c.call("Page.enable")  # the recorder runs before any page script
     sid = c.call("Page.addScriptToEvaluateOnNewDocument", source=FRAMES_JS) or {}
     sid = sid.get("identifier") if isinstance(sid, dict) else None

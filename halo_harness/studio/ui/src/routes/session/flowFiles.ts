@@ -16,8 +16,10 @@ import { knownFlows } from "./statusOf";
 /** One burst of workflow files written, heard with this harness's session rows `rows`. */
 export function takeFlowFiles(c: FilesChange, rows: SessionRow[], now = Date.now() / 1000): void {
   for (const w of c.names) {
-    const h = c.sigs[`workflows:${w}`] || "";
-    if (h && h === builtSigOf(w)) continue; // the Builder card's own write, heard again from the watcher
+    const own = builtSigOf(w), k = `workflows:${w}`;
+    // the Builder card's own write, heard again from the watcher: the file Studio reads, or (a session in another
+    // folder writes the file it reads) the very file that moved, has the hash the card's frame gave (batch 2 repair)
+    if (own && (c.sigs[k] === own || (c.moved?.[k] || []).includes(own))) continue;
     for (const r of rows) {
       const s = toLit(r);
       const boxed = !!s.map && names(s.map, "workflows", w);

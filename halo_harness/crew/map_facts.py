@@ -387,4 +387,11 @@ def row(session) -> dict:
             out["map_agents"] = list(getattr(runtime, "agents", {}) or {})
         except Exception:
             pass
+    try:  # 3.6.0.9 V batch 2 repair: the workflows on its map's boxes (Session holds their changed line's room from the start)
+        boxes = getattr(getattr(getattr(session, "team_control", None), "map", None), "boxes", None) or {}
+        flows = sorted({str(n) for b in boxes.values() if isinstance(b, dict) and b.get("kind") == "workflow" for n in b.get("names") or []})
+        if flows:
+            out["map_flows"] = flows
+    except Exception:
+        pass
     return out

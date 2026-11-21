@@ -576,17 +576,28 @@ def _js_str(v: str) -> str:
     return json.dumps(v)
 
 
-def _f5(c, rig=None, query: str = "") -> None:
+def _f5(c, rig=None, query: str = "", go: bool = False) -> None:
     """F5 (a reload keeps the tab's sessionStorage); with `query`, the address is that session's page first (as he would
-    have it after picking it, then pressing F5)."""
+    have it after picking it, then pressing F5); `go`: that address opened in this tab instead (no reload)."""
     from tests.helpers.studio_session import url
-    to = f"history.replaceState(null, '', {_js_str(url(rig, query))}); " if query else ""
-    c.js(f"(() => {{ window.__old = 1; {to}setTimeout(() => location.reload(), 0); return 1; }})()")
+    to = f"history.replaceState(null, '', {_js_str(url(rig, query))}); " if query and not go else ""
+    then = f"location.assign({_js_str(url(rig, query))})" if go else "location.reload()"
+    c.js(f"(() => {{ window.__old = 1; {to}setTimeout(() => {then}, 0); return 1; }})()")
     c.wait("!window.__old && document.readyState !== 'loading' && !!window.__jb && window.__jb.open > 0", 30)
     c.mouse("mouseMoved", 1279, 799)
 
 
 def kept(c, rig, rows: Rows, a: str, b: str) -> dict:
+    try:
+        return _kept(c, rig, rows, a, b)
+    finally:  # batch 2 repair: a failure midway never leaves storage refusing (or kept) for the later steps
+        try:
+            c.js("window.name = ''; 1")
+        except Exception:
+            pass
+
+
+def _kept(c, rig, rows: Rows, a: str, b: str) -> dict:
     from tests.helpers.studio_map_live import MAP
     from tests.helpers.studio_session import page_errors
     c.call("Page.addScriptToEvaluateOnNewDocument", source=REFUSE_JS)  # active only while window.name says so
@@ -615,6 +626,11 @@ def kept(c, rig, rows: Rows, a: str, b: str) -> dict:
     _f5(c)
     _wait(c, f"!!{Q}('[data-box=tester][data-new]') && !!{HEAD}", 15)
     out["a_after"] = c.js(SAID)
+    c.js("window.name = 'keep-tab'; 1")  # batch 2 repair: the rig's fresh-tab clear stands aside (studio_session.py)
+    _f5(c, rig, qa + "&again=1", go=True)  # its address opened again in this tab, not a reload: the tab's storage keeps it
+    _wait(c, f"!!{Q}('[data-box=tester][data-new]') && !!{HEAD}", 15)
+    out["a_again"] = c.js(SAID)
+    c.js("window.name = ''; 1")
     _f5(c, rig, qb)
     _wait(c, f"{ready_lines} >= 1 && !!{HEAD}", 15)
     out["b_after"] = c.js(SAID)
@@ -642,12 +658,16 @@ def kept(c, rig, rows: Rows, a: str, b: str) -> dict:
     c.wait(f"!!{DRAWN} && {BOXES}.length > 2", 30)
     time.sleep(0.5)
     out["refused_after"] = {**(c.js(SAID) or {}), "errors": page_errors(c)}
-    c.js("window.name = ''; 1")
     return {"kept": out}
 
 
 LINES = "[...document.querySelectorAll('[data-testid=session-lit-line] .mp-truth-line')].map((e) => e.textContent)"
 CHANGED = f"{LINES}.filter((t) => t.startsWith('The workflow '))"
+# batch 2 repair: where the drawing's top box, the truth block and the Open button stand (the line's room is held)
+GEOM = f"""(() => {{ const r = (e) => (e ? Math.round(e.getBoundingClientRect().top * 2) / 2 : null);
+  const tops = [...document.querySelectorAll('[data-testid=session-lit-map] [data-box]')].map(r), t = {Q}('[data-testid=session-truth]');
+  return {{ box: tops.length ? Math.min(...tops) : null, truth: t ? Math.round(t.getBoundingClientRect().height * 2) / 2 : null,
+           open: r({Q}('[data-testid=session-lit-open]')) }}; }})()"""
 
 
 def plain(c, rig, rows: Rows, a: str, b: str) -> dict:
@@ -663,12 +683,15 @@ def plain(c, rig, rows: Rows, a: str, b: str) -> dict:
     _told(rig, "review-flow", lambda: _body(rig, "review-flow", FOLLOW_FLOW))
     rows.reset()
     rows.idle(b)
-    rows.idle(a, map="review-flow", map_plain=False, map_scope="yours", map_path=str(store.path_for("map", "review-flow", state_dir=rig.state)))
+    rows.idle(a, map="review-flow", map_plain=False, map_scope="yours", map_path=str(store.path_for("map", "review-flow", state_dir=rig.state)),
+              map_flows=["review"])  # as crew/map_facts.py row names the workflows on its map's boxes (batch 2 repair)
     _open(c, rig, f"mode=session&session={a}&open=session-map")
     out: dict = {"first": [_wait(c, f"{STEPROWS}.length === 2", 30), c.js(CHANGED)]}
     heard = "window.__jb.fw.filter((x) => x === 'workflows:review').length"
+    g0 = c.js(GEOM)
     flow(3)  # (1) a plain write of the workflow
     out["plain"] = [_wait(c, f"{CHANGED}.length === 1 && {STEPROWS}.length === 3", 15), c.js(CHANGED)]
+    out["still"] = [g0, c.js(GEOM)]  # nothing moved when the line came: its room was held from the first draw
     flow(4)  # (2) another one: still one line for it
     out["again"] = [_wait(c, f"{heard} >= 2 && {STEPROWS}.length === 4", 15), c.js(CHANGED)]
     # (3) a Builder card that wrote it (its file, then its frame with the file's hash): its head and not the line as well,
@@ -689,6 +712,17 @@ def plain(c, rig, rows: Rows, a: str, b: str) -> dict:
     # (6) F5: the line is still there
     _f5(c)
     out["reload"] = [_wait(c, f"{CHANGED}.length === 1 && {STEPROWS}.length === 6", 15), c.js(CHANGED)]
+    # (7) batch 2 repair: on Auto, a workflow this session ran (its row says so) is said too, its room held from the first draw
+    ran = _room_rows(rows, a)
+    rows.reset()
+    rows.idle(b)
+    rows.idle(a, map="auto", map_plain=True, agents=[ran[0], {**ran[1], "crew": {"workflow": "review"}}])
+    _open(c, rig, f"mode=session&session={a}&open=session-map")
+    c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
+    time.sleep(0.5)
+    a0 = [c.js(CHANGED), c.js(GEOM)]
+    flow(7)
+    out["auto"] = [_wait(c, f"{CHANGED}.length === 1", 15), *a0, c.js(CHANGED), c.js(GEOM)]
     return {"plain": out}
 
 

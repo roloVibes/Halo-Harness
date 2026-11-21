@@ -10,8 +10,9 @@ import { onEvent } from "./events";
 
 export type FilesKind = "agents" | "workflows" | "maps" | "config" | "layouts";
 /** One merged change: the kinds that moved, the names written (added or modified), the names removed; 3.6.0.9 V:
- *  `sigs` the hash of each written file by `{kind}:{name}` (studio/files_live.py), the last one heard. */
-export type FilesChange = { kinds: FilesKind[]; names: string[]; removed: string[]; sigs: Record<string, string> };
+ *  `sigs` the hash of each written file by `{kind}:{name}` (studio/files_live.py), the last one heard; batch 2 repair:
+ *  `moved` the hashes of the files of that name that really moved (a workflow's, in any folder watched). */
+export type FilesChange = { kinds: FilesKind[]; names: string[]; removed: string[]; sigs: Record<string, string>; moved?: Record<string, string[]> };
 
 export const DEBOUNCE_MS = 300;
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
@@ -20,7 +21,7 @@ const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
 export function onFilesChanged(kinds: FilesKind | FilesKind[], fn: (c: FilesChange) => void, ms = DEBOUNCE_MS): () => void {
   const want = Array.isArray(kinds) ? kinds : [kinds];
   let timer = 0;
-  let acc: FilesChange = { kinds: [], names: [], removed: [], sigs: {} };
+  let acc: FilesChange = { kinds: [], names: [], removed: [], sigs: {}, moved: {} };
   const off = onEvent("files_changed", (f) => {
     const d = (f.data || {}) as Record<string, unknown>;
     const kind = String(d.kind || "") as FilesKind;
@@ -29,17 +30,20 @@ export function onFilesChanged(kinds: FilesKind | FilesKind[], fn: (c: FilesChan
     const removed = strs(d.removed);
     const sigs = d.sigs && typeof d.sigs === "object" ? (d.sigs as Record<string, unknown>) : {};
     const signed = Object.fromEntries(Object.entries(sigs).map(([n, v]) => [`${kind}:${n}`, String(v)]));
+    const mv = d.moved && typeof d.moved === "object" ? (d.moved as Record<string, unknown>) : {};
+    const moved = Object.fromEntries(Object.entries(mv).map(([n, v]) => [`${kind}:${n}`, strs(v)]));
     const unsigned = [...names, ...removed].map((n) => `${kind}:${n}`).filter((k) => !(k in signed));
     acc = {
       kinds: acc.kinds.includes(kind) ? acc.kinds : [...acc.kinds, kind],
       names: [...acc.names.filter((n) => !removed.includes(n)), ...names.filter((n) => !acc.names.includes(n))],
       removed: [...acc.removed.filter((n) => !names.includes(n)), ...removed.filter((n) => !acc.removed.includes(n))],
       sigs: { ...Object.fromEntries(Object.entries(acc.sigs).filter(([k]) => !unsigned.includes(k))), ...signed },
+      moved: { ...acc.moved, ...moved },
     };
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
       const c = acc;
-      acc = { kinds: [], names: [], removed: [], sigs: {} };
+      acc = { kinds: [], names: [], removed: [], sigs: {}, moved: {} };
       fn(c);
     }, ms);
   });

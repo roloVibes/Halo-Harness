@@ -69,6 +69,15 @@ def sig(kind: str, name: str, cwd, state_dir) -> str:
     return file_sig(found[0]) if found else ""
 
 
+def moved_sigs(old: dict, new: dict, kind: str, name: str) -> list:
+    """3.6.0.9 V batch 2 repair: `file_sig` of each file of `name` that moved between two snapshots, in any folder watched
+    (a Builder card of a session in another folder writes the file its session reads, which may not be the one Studio
+    reads): a page tells the card's own write, heard again here, by the hash of the file it wrote."""
+    was = set((old.get(kind) or {}).get(name) or ())
+    out = {file_sig(Path(e[0]) / f"{name}.yaml") for e in (new.get(kind) or {}).get(name) or () if e not in was}
+    return sorted(out - {""})
+
+
 def poll_s() -> float:
     try:
         v = float(os.environ.get("HALO_STUDIO_FILES_POLL_S") or DEFAULT_POLL_S)
@@ -193,6 +202,8 @@ class Watcher:
         for d in moved:  # 3.6.0.9 V: each written name's hash, so a page that holds it reads nothing again
             if d["kind"] in SIGNED:
                 d["sigs"] = {n: sig(d["kind"], n, self.cwd, self.state_dir) for n in d["names"]}
+            if d["kind"] == "workflows":  # batch 2 repair: the files that really moved, whichever folder Studio reads
+                d["moved"] = {n: moved_sigs(self.last, now, d["kind"], n) for n in d["names"]}
         frames = [{"session_id": "studio", "event": FRAME_KIND, "ts": time.time(), "data": d} for d in moved]
         self.last = now
         for f in frames:

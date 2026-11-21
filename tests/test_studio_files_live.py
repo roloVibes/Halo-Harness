@@ -83,8 +83,9 @@ class _Home:
 
 
 def _data(frames: list) -> list:
-    """The frames' data, each without 3.6.0.9 V's `sigs` (test_each_written_name_carries_its_files_hash checks those)."""
-    return [{k: v for k, v in (f.get("data") or {}).items() if k != "sigs"} for f in frames]
+    """The frames' data, each without 3.6.0.9 V's `sigs` and `moved` (test_each_written_name_carries_its_files_hash and
+    test_a_workflow_frame_carries_the_hash_of_the_file_that_moved check those)."""
+    return [{k: v for k, v in (f.get("data") or {}).items() if k not in ("sigs", "moved")} for f in frames]
 
 
 @test
@@ -109,6 +110,37 @@ def test_each_written_name_carries_its_files_hash(ctx: Ctx):
 
 def _data_raw(frames: list) -> list:
     return [f.get("data") or {} for f in frames]
+
+
+@test
+def test_a_workflow_frame_carries_the_hash_of_the_file_that_moved(ctx: Ctx):
+    """3.6.0.9 V batch 2 repair: a session in another folder than Studio's reads (and its Builder card writes) another
+    file of the same workflow name than the one Studio reads. The frame's `sigs` stays Studio's file's hash; `moved` is
+    the hash of the file that really moved, so a page tells the card's own write (builder_done's hash) by it."""
+    from halo_harness import project_gate
+    from halo_harness.crew import store
+    from halo_harness.studio.files_live import file_sig
+    was = project_gate.trusted
+    project_gate.trusted = lambda cwd=None: True
+    try:
+        with _Home() as h:
+            (h.proj / ".halo" / "crew" / "workflows").mkdir(parents=True)
+            (h.proj / ".halo" / "crew" / "workflows" / "review.yaml").write_text("name: review\nsteps: []\n", encoding="utf-8")
+            h.write("crew/workflows/review.yaml", "name: review\nsteps: []\n# yours\n")
+            h.wait(1)
+            studio = store.find("workflow", "review", cwd=h.proj, state_dir=h.state)[0]
+            other = next(p for p in (h.proj / ".halo" / "crew" / "workflows" / "review.yaml", h.state / "crew" / "workflows" / "review.yaml")
+                         if os.path.normcase(str(p)) != os.path.normcase(str(studio)))
+            other.write_text("name: review\nsteps: []\n# the card's write\n", encoding="utf-8")
+            got = (_data_raw(h.wait()) or [{}])[0]
+            ctx.check(f"sigs: the file Studio reads, unchanged, got {got}", (got.get("sigs") or {}).get("review") == file_sig(studio))
+            ctx.check(f"moved: the file written, got {got}", (got.get("moved") or {}).get("review") == [file_sig(other)]
+                      and file_sig(other) != file_sig(studio))
+            h.write("crew/maps/m.yaml", "name: m\n")
+            m = (_data_raw(h.wait()) or [{}])[0]
+            ctx.check(f"a map frame carries no moved, got {m}", m.get("kind") == "maps" and "moved" not in m)
+    finally:
+        project_gate.trusted = was
 
 
 @test

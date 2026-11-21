@@ -460,6 +460,34 @@ def test_status_row_carries_built(ctx: Ctx):
 
 
 @test
+def test_status_row_names_the_workflows_on_its_map(ctx: Ctx):
+    """3.6.0.9 V batch 2 repair: the row carries `map_flows`, the workflows on the boxes of the map the session runs on, so
+    Session holds the room of "The workflow {name} changed at ..." from its first draw (before the map is read); the
+    default map has none; session_row forwards it, typed."""
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.crew import store
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.peers.local_view import session_row
+        for n in ("review", "ship"):
+            store.write_text(store.path_for("workflow", n, state_dir=env.state), f"name: {n}\nsteps:\n- name: s1\n  agents: [coder]\n")
+        store.write_text(store.path_for("map", "flows2", state_dir=env.state),
+                         "format: map/1\nname: flows2\nboxes:\n- {id: main, agent: main}\n- {id: r, workflow: review}\n"
+                         "- {id: s, workflow: ship}\n- {id: c, agent: coder}\nlines:\n- {from: main, to: r, when: always}\n"
+                         "- {from: main, to: s, when: always}\n- {from: main, to: c, when: always}\n")
+        s = _Sess(control_for(compile_map("flows2", cwd=env.repo, state_dir=env.state), cwd=env.repo))
+        st = _status(s, env.repo)
+        ctx.check(f"the map's workflow boxes, got {st.get('map_flows')!r}", st.get("map_flows") == ["review", "ship"])
+        row = session_row({"session_id": "s-flows", "cwd": str(env.repo)}, st, [])
+        ctx.check(f"session_row forwards them, got {row.get('map_flows')!r}", row.get("map_flows") == ["review", "ship"])
+        plain = _status(_Sess(_default_control(env.repo)), env.repo)
+        ctx.check(f"the default map names none, got {plain.get('map_flows')!r}", "map_flows" not in plain)
+        bad = session_row({"session_id": "s-x"}, {"map_flows": "review"}, [])
+        ctx.check(f"a wrong type is dropped, got {bad.get('map_flows')!r}", bad.get("map_flows") is None)
+
+
+@test
 def test_status_row_has_no_switch_field(ctx: Ctx):
     """R46 GUARD (green on the base too: no switch field exists; it must stay so)."""
     from tests.helpers.config_seed import ConfigHome

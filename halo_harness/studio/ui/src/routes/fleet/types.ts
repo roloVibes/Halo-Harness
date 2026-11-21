@@ -84,6 +84,7 @@ export type SessionRow = {
   map_hash?: string | null;
   /** 3.6.0.5 A22 B30 (crew/map_facts.py row): on Auto, the agents this session had at its start (main's hover G5). */
   map_agents?: string[] | null;
+  map_flows?: string[] | null; // 3.6.0.9 V batch 2 repair: the workflows on its map's boxes (crew/map_facts.py row)
   pending?: Pending;
   model?: string | null;
   /** 3.3.5.0 R0 (e): what the effort level does on its model (`think on`, `effort n/a`, or the level). */

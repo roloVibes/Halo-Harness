@@ -414,6 +414,25 @@ def test_reserve_holds_only_the_names_it_has(ctx: Ctx):
 
 
 @test
+def test_reserve_holds_the_workflow_lines_its_drawing_can_show(ctx: Ctx):
+    """3.6.0.9 V batch 2 repair (the checker: the drawing moved 36 px when the line came): "The workflow {name} changed
+    at {time}. ..." is held from the first draw for every workflow of `flowsCan` (its drawing's boxes; on Auto the ones it
+    ran), with T5 and T7 as well; nothing is held when it has none."""
+    f = dict(BASE, a="shop", plain=False, b="shop", bSince="@09:07")
+    _, out = ts("""const f = D.f, s = f.started, can = ['review', D.w48];
+      const all = can.map((name) => ({ name, t: s + 600 }));
+      out.over = []; out.held = T.reserve({ ...f, flowsCan: can }, 408).lines.filter((l) => l.text.startsWith('The workflow ')).length;
+      for (const w of [408, 360]) for (const workflow of [null, 'review']) for (const changed of [null, { t: s }]) {
+        const g = { ...f, workflow, flowsCan: can }, r = T.reserve(g, w).est;
+        for (const flowsChanged of [[], all.slice(0, 1), all]) {
+          const e = T.est(T.truthLines({ ...g, changed, flowsChanged }), w); if (e > r) out.over.push([w, workflow, !!changed, flowsChanged.length, e, r]); } }
+      out.none = [408, 360].map((w) => [T.reserve(f, w).est, T.reserve({ ...f, flowsCan: [] }, w).est]);""", dict(f=f, w48="mw" * 24))
+    ctx.check(f"every state with its workflow lines fits the reserve at 408 and 360, over: {out['over']}", out["over"] == [])
+    ctx.check(f"both workflow lines are in the reserve, got {out.get('held')}", out.get("held") == 2)
+    ctx.check(f"with no workflow the reserve is today's, got {out['none']}", all(a == b for a, b in out["none"]))
+
+
+@test
 def test_status_room_holds_the_sentences_this_run_can_show(ctx: Ctx):
     """R23 with the coordinator's ruling of P4 batch 11: the status line's twin holds the sentences this run can show with
     its REAL names (its rows, the workflows it knows, a model reply or him, a hand-off outside the map unless it runs on the

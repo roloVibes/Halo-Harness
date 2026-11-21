@@ -13,7 +13,7 @@ import { useSessionRecord } from "../../lib/work/record";
 import { useBuilt } from "../crew/map/built";
 import { lit, startLit } from "../crew/map/litStore";
 import type { MapDetail } from "../crew/map/mapTypes";
-import { nextMap, reserve, statusLine, statusRoom, truthLines, truthState, type Line, type TruthFacts } from "../crew/map/truth";
+import { isAuto, nextMap, reserve, statusLine, statusRoom, truthLines, truthState, type Line, type TruthFacts } from "../crew/map/truth";
 import { NewSession } from "./NewSession";
 import { mapBody, noteBody, type MapBody } from "./pick";
 import { knownFlows, nameOf, statusOf } from "./statusOf";
@@ -65,7 +65,14 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
   const runs = !!flow && !!body && (body.boxes || []).some((b) => b?.workflow === flow);
   const moved = useBuilt((x) => (sid ? x.changed[sid] : undefined)); // 3.6.0.9 V: workflows changed by a plain write
   const flowsChanged = useMemo(() => Object.entries(moved || {}).map(([name, t]) => ({ name, t })), [moved]);
-  const f: TruthFacts = { ...given, workflow: runs ? flow : null, flowsChanged }; // R22: T7 only once B's body says W is a box on it
+  // batch 2 repair: a workflow line's room is held from the first draw: its map's workflow boxes (the row's, so before
+  // the map is read), on Auto the workflows it ran as far as the page knows and those a Builder card made ready in it
+  // (so "use it now" moves nothing: test_studio_auto scene 4)
+  const known = knownFlows(rows, events);
+  const ready = useBuilt((x) => (sid ? x.last[sid]?.ready?.ready : undefined));
+  const flowsCan = [...new Set([...(given.flowsCan || []),
+                                ...(given.plain && isAuto(given.a) ? [...known.map((k) => k.name), ...(ready || [])] : [])])];
+  const f: TruthFacts = { ...given, workflow: runs ? flow : null, flowsChanged, flowsCan }; // R22: T7 only once B's body says W is a box on it
   const lines = truthLines(f);
   const root = useRef<HTMLDivElement>(null), twin = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
@@ -81,7 +88,7 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
     return () => ro.disconnect();
   }, []);
   const room = given.none ? lines : reserve(f, w || 408).lines;
-  const names = `${f.a}|${f.bNone ? "" : nextMap(f.b)}|${f.workflow || ""}|${held ? "held" : ""}`, named = useRef(names);
+  const names = `${f.a}|${f.bNone ? "" : nextMap(f.b)}|${f.workflow || ""}|${held ? "held" : ""}|${flowsCan.join(",")}`, named = useRef(names);
   useLayoutEffect(() => { // R20: the reserve of the REAL names, measured; it only grows while they stay (P4 batch 11)
     const h = twin.current?.offsetHeight || 0;
     if (named.current !== names) (named.current = names, most.current = h, setMinH(h)); // a name changed: measured again, once
@@ -90,7 +97,7 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
   const busy = !!given.busy;
   const status = statusOf(rows, events, busy, off);
   // every sentence this run can show, each measured in the twin: a short one can wrap taller than a long one (P4 batch 12)
-  const said = statusRoom(status, rows.map(nameOf), knownFlows(rows, events), !!given.plain || !given.a);
+  const said = statusRoom(status, rows.map(nameOf), known, !!given.plain || !given.a);
   const stwin = useRef<HTMLDivElement>(null), sMost = useRef(0);
   const [sMin, setSMin] = useState(0);
   useLayoutEffect(() => { // R23: the status line's room is the tallest sentence this run can show, from its first draw

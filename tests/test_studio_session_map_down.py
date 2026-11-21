@@ -1123,6 +1123,8 @@ def test_what_was_built_is_said_again_after_a_reload(ctx: Ctx):
               re.fullmatch(f"Changed in this session at {_T}; this session takes it at its next hand-off.", ab.get("head") or "") is not None
               and len(ab.get("tags") or []) == 1 and re.fullmatch(f"tester new {_T}", (ab.get("tags") or [""])[0]) is not None)
     ctx.check(f"(3) after F5: the same head and tag, got {aa} (before {ab})", aa == ab and bool(aa.get("head")))
+    ag = d.get("a_again") or {}
+    ctx.check(f"(3) its address opened again in the same tab (not a reload): the same head and tag, got {ag}", ag == ab and bool(ag.get("head")))
     ctx.check(f"(4) its row gone: its entry left this tab's storage, b's stayed, got {d.get('dropped')}", d.get("dropped") is True)
     ctx.check(f"(4) back and F5: nothing of it is said, got {d.get('a_dropped')}", d.get("a_dropped") == {"head": "", "lines": [], "tags": []})
     rf, ra = d.get("refused") or {}, d.get("refused_after") or {}
@@ -1144,6 +1146,10 @@ def test_a_plain_write_of_a_workflow_is_said_in_words(ctx: Ctx):
     ctx.check(f"the drawing first: 2 steps, no such line, got {d.get('first')}", d.get("first") == [True, []])
     p = d.get("plain") or [False, []]
     ctx.check(f"(1) a plain write: 3 steps and the one line, got {p}", p[0] is True and one(p[1]))
+    g0, g1 = [g or {} for g in ((d.get("still") or []) + [{}, {}])[:2]]
+    ctx.check(f"(1) nothing moved when the line came (its room held from the first draw: top box, truth block, Open), "
+              f"got {g0} -> {g1}", bool(g0) and all(g0.get(k) is not None and g1.get(k) is not None
+                                                     and abs(g0[k] - g1[k]) <= 0.5 for k in ("box", "truth", "open")))
     g = d.get("again") or [False, []]
     ctx.check(f"(2) another plain write: still one line for it, got {g}", g[0] is True and one(g[1]))
     cd = d.get("card") or [False, "", None]
@@ -1156,6 +1162,12 @@ def test_a_plain_write_of_a_workflow_is_said_in_words(ctx: Ctx):
     ctx.check(f"(5) an agent file: no line, got {ag}", ag[0] is True and ag[1] == ag[2] and bool(ag[1]))
     rl = d.get("reload") or [False, []]
     ctx.check(f"(6) after F5 the line is still there, got {rl}", rl[0] is True and one(rl[1]))
+    au = (d.get("auto") or []) + [None] * 5
+    ctx.check(f"(7) on Auto, a workflow it ran: no line first, the one line after a plain write, got {au[:5]}",
+              au[0] is True and au[1] == [] and one(au[3]))
+    ctx.check(f"(7) on Auto nothing moved when the line came, got {au[2]} -> {au[4]}",
+              bool(au[2]) and bool(au[4]) and all(au[2].get(k) is not None and au[4].get(k) is not None
+                                                 and abs(au[2][k] - au[4][k]) <= 0.5 for k in ("box", "truth", "open")))
 
 
 @test
