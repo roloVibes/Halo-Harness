@@ -232,13 +232,18 @@ def picker(c, url, ctx) -> dict:
     w(c, f"!!{PICK}", 20)
     out = {"pick_options": c.js(f"[...{PICK}.options].map((o) => o.value)"),
            "pick_label": c.js(_text("[data-testid=orchestra-workflow-picker] label")),
-           # 3.6.0.3: the picker is the LAST thing in the goal form's own scrolling box of fields (it was the form's
-           # next sibling): still under every field, and above the row of Run, Dry run and Clear the form
+           # 3.6.0.3: the picker is in the goal form's own scrolling box of fields (it was the form's next sibling): under
+           # every field, and above the row of Run, Dry run and Clear the form. 3.6.0.6: the one thing that may follow it
+           # there is the list "Workflows" (Run it for the workflows a session runs by name), which comes once they are
+           # read: "the picker is the last child" was then true only for a read made before that list was drawn (the
+           # release gate of 3.6.0.6: red on Linux, green on Windows and macOS)
            "pick_under_goal": c.js("(() => { const f = document.querySelector('[data-testid=orchestra-goal-form] .og-fields'),"
                                    " p = document.querySelector('[data-testid=orchestra-workflow-picker]');"
                                    " if (!f || !p || !f.contains(p)) return false;"
                                    " let top = p; while (top.parentElement !== f) top = top.parentElement;"
-                                   " return top === f.lastElementChild; })()")}
+                                   " for (let n = top.nextElementSibling; n; n = n.nextElementSibling)"
+                                   " if (!n.matches('[data-testid=goal-flows]') && !n.querySelector('[data-testid=goal-flows]')) return false;"
+                                   " return true; })()")}
     c.js(f"(() => {{ const s = {PICK}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; "
          f"set.call(s, 'doc-review/review'); s.dispatchEvent(new Event('change', {{bubbles: true}})); return 1; }})()")
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 15)
