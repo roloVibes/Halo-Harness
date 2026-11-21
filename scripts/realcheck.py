@@ -1,7 +1,7 @@
 """scripts/realcheck.py -- Halo driven the way a person drives it (3.6.0.0 R11).
 
     python scripts/realcheck.py [--only STEP ...] [--list] [--json FILE] [--summary FILE] [--real-local REF]
-                                [--keep] [--installed] [--browser PATH|NAME|none]
+                                [--keep] [--installed] [--browser PATH|NAME|none] [--name-the-end]
 
 Every bug the owner hit in one week (a launch that spins, a Studio left running overnight, a beep at start, a theme
 that did not apply, an update that broke the install, a helper burning a core) passed thousands of unit tests. This
@@ -21,6 +21,7 @@ docs/DEVELOPMENT.md ("realcheck") says how to read it."""
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import os
 import shutil
 import sys
@@ -75,6 +76,9 @@ def _steps() -> list:
 
 
 def main(argv=None) -> int:
+    # 3.6.0.9: a fault that ends this process (a stack overflow, a heap fault: seen once as a bare 127 after the last
+    # line, on Windows) is said by Python itself, with where each thread was
+    faulthandler.enable()
     ap = argparse.ArgumentParser(prog="realcheck", description=__doc__.split("\n\n")[1])
     ap.add_argument("--only", nargs="+", metavar="STEP", help="run these steps only")
     ap.add_argument("--list", action="store_true", help="list the steps and exit")
@@ -83,6 +87,9 @@ def main(argv=None) -> int:
     ap.add_argument("--real-local", metavar="REF", default="", help="ol:<model>@<http://host:port>: a real Ollama for step 8")
     ap.add_argument("--keep", action="store_true", help="keep the scratch folder (its processes are still ended)")
     ap.add_argument("--installed", action="store_true", help="the `halo` on PATH instead of this checkout")
+    ap.add_argument("--name-the-end", action="store_true",
+                    help="CI: run the checker as a child and say in one line how it ended when that was not its "
+                         "own exit (scripts/realcheck/named_end.py)")
     ap.add_argument("--browser", metavar="PATH|NAME|none", default=None,
                     help="the browser the Studio steps use (headless, a throw-away profile), or `none`: those steps "
                          "SKIP (default: REALCHECK_BROWSER, else HALO_CHROME, else an installed Chrome)")
@@ -169,4 +176,8 @@ def run(chosen: list, *, installed: bool = False, real_local: str = "", keep: bo
 
 
 if __name__ == "__main__":
+    if "--name-the-end" in sys.argv[1:]:  # the parent: the checker is its child, and its end is named
+        from realcheck.named_end import run_named
+        sys.exit(run_named([sys.executable, str(Path(__file__).resolve())]
+                           + [a for a in sys.argv[1:] if a != "--name-the-end"]))
     sys.exit(main())

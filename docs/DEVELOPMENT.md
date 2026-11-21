@@ -213,6 +213,7 @@ python scripts/realcheck.py --only closing no-reuse --json out.json
 python scripts/realcheck.py --real-local ol:qwen3:1.7b@http://<host>:11434   # step 8 on a real Ollama too
 python scripts/realcheck.py --browser none   # on your own machine: the six browser steps SKIP, by name
 python scripts/realcheck.py --browser chromium   # or a path: a separate browser for the Studio steps
+python scripts/realcheck.py --name-the-end   # CI: one line saying how the checker itself ended, if not by its own exit
 ```
 
 The six steps that open a browser (`studio`, `session-map`, `auto-groups`, `auto-ready-lines`, `browser`, `idle-cpu`) drive it headless with a throw-away profile

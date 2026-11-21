@@ -1716,6 +1716,50 @@ def test_copy_drag_reads_the_screen_and_the_clipboard_program(ctx: Ctx):
     ctx.check("UTF-8 elsewhere", read_copy("déjà".encode("utf-8")) == "déjà")
 
 
+@test
+def test_the_checkers_own_end_is_named_by_its_parent(ctx: Ctx):
+    """3.6.0.9: at 3.6.0.8's gate the checker passed all 18 steps on Windows, printed its last line, and then ended with
+    a status the shell could only call 127, with no line of its own (twice in one CI attempt, never again on a rerun).
+    A process cannot say how it ended; its parent can. `--name-the-end` runs the checker as a child and names the end."""
+    _main_module()
+    from realcheck import named_end as N
+    for code in (0, 1, 2):
+        got = N.run_named([sys.executable, "-c", f"import sys; sys.exit({code})"], say=lambda _l: ctx.check(
+            f"an end of the checker's own ({code}) gets no line", False))
+        ctx.check(f"the checker's own exit code {code} passes through, got {got}", got == code)
+    said: list = []
+    if os.name == "nt":
+        crash = ("import ctypes; k = ctypes.windll.kernel32; k.TerminateProcess.argtypes = [ctypes.c_void_p, "
+                 "ctypes.c_uint]; k.GetCurrentProcess.restype = ctypes.c_void_p; "
+                 "k.TerminateProcess(k.GetCurrentProcess(), 0xC00000FD)")  # the status a stack overflow leaves
+        got = N.run_named([sys.executable, "-c", crash], say=said.append)
+        ctx.check(f"a crash-kind status is named in hex with its kind, got {got} {said}",
+                  got == 1 and len(said) == 1 and "0xC00000FD" in said[0] and "stack overflow" in said[0])
+    else:
+        got = N.run_named([sys.executable, "-c", "import os, signal; os.kill(os.getpid(), signal.SIGSEGV)"],
+                          say=said.append)
+        ctx.check(f"an end by a signal is named, got {got} {said}",
+                  got == 1 and len(said) == 1 and "signal 11" in said[0] and "SIGSEGV" in said[0])
+    ctx.check(f"the line begins as the checker's lines do, got {said}", said[0].startswith("realcheck: "))
+    line = N.end_line(0xC000013A, ["12:00:01 SIGBREAK"])
+    ctx.check(f"a console control event is named, and one the parent saw is said with its time, got {line!r}",
+              "0xC000013A" in line and "console control event" in line and "12:00:01 SIGBREAK" in line)
+    ctx.check(f"a status the line does not know is still said in hex, got {N.end_line(0xC0000999, [])!r}",
+              "0xC0000999" in N.end_line(0xC0000999, []))
+    text = (REPO / ".github" / "workflows" / "suites.yml").read_text(encoding="utf-8")
+    runs = [ln for ln in text.splitlines() if "scripts/realcheck.py" in ln and "run:" in ln]
+    ctx.check(f"CI's real-use step asks for it, got {runs}", bool(runs) and all("--name-the-end" in ln for ln in runs))
+    # and Python's own fault reporter is on in the checker: a fault says where each thread was
+    probe = ("import faulthandler, importlib.util, io, sys; from contextlib import redirect_stdout; "
+             f"spec = importlib.util.spec_from_file_location('rc', r'{REPO / 'scripts' / 'realcheck.py'}'); "
+             "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); before = faulthandler.is_enabled()\n"
+             "with redirect_stdout(io.StringIO()):\n    m.main(['--list'])\n"
+             "print(before, faulthandler.is_enabled())")
+    r = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, timeout=120)
+    ctx.check(f"the checker's main turns the fault reporter on, got {r.stdout.strip()!r} {r.stderr[-200:]!r}",
+              r.stdout.strip() == "False True")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
