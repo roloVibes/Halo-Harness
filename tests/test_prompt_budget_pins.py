@@ -185,10 +185,12 @@ def test_below_65536_the_real_session_sends_no_builder(ctx: Ctx):
 
 
 # 3.6.0.10 M7: on Auto main's lean text carries a block (agent/helpers_words.py: when to hand work out, the kinds it can
-# start; a tail for the Workflow tool and the Builder when a request sends them) in place of today's 61-token delegate
-# line. Block and longest tail hold at most crew/kinds.py CAP tokens, and CAP is at most each lean case's
-# CAP_W = min(300, B_W - F_W + 61 - 100): B_W its bound, F_W its first turn on the base 9624c426 (the larger figure,
-# written above CASES and REAL_CASES), 100 kept free. Measured 2026-11-21: block 225 (clean home), longest tail 74.
+# start; a tail for the Workflow tool when a request sends it, and no line about the Builder) in place of today's
+# 61-token delegate line. Block and longest tail hold at most crew/kinds.py CAP tokens, and CAP is at most each lean
+# case's CAP_W = min(300, B_W - F_W + 61 - 100): B_W its bound, F_W its first turn on the base 9624c426 (the larger
+# figure, written above CASES and REAL_CASES), 100 kept free. Measured 2026-11-21: block 225 (clean home), longest tail
+# 28 (M3 alone; it was 74 with the Builder line, now gone). A new Auto session at 65,536 with the Builder sent:
+# 9,200 / 9,161 (it was 9,246 / 9,207 with that line); every other lean case is unchanged. No bound moved.
 F_W = {"an unknown remote model": 8014, "a 16,384 window": 6272, "a 49,152 window": 8012,
        "a 65,536 window (lean)": 8012, "a new Auto session at 65,536": 9036}
 TODAY_LINE = 61

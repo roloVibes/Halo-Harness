@@ -169,13 +169,17 @@ def test_m7_the_block_fits_its_cap_and_gives_way_in_order(ctx: Ctx):
     out, line = _block(_rows())
     ctx.check(f"a clean home: every word, {tokens_of(out)} <= {room}",
               tokens_of(out) <= room and "Judge (pass or fail a result); Tester (run tests, report)." in line)
-    out, line = _block(_rows(his=1))
-    ctx.check(f"one of his: the built-ins' words leave first, his stay: {line}",
+    # The mixes below are sized to pass the room of a tail of M3 only (272 tokens, 2026-11-21; with the M4 line it was
+    # 226 and one of his, two of his and three others overflowed it): each overflows the room, so something gives way.
+    out, line = _block(_rows(his=1, other=6))
+    ctx.check(f"one of his and six others: the built-ins' words leave first, his and the others' stay: {line}",
               "his-00 (Sorts the inbox by sender and date)" in line and "planner (plan, outline)" in line
+              and "cc-00 (Helper number 0)" in line
               and "Judge (" not in line and "Tester (" not in line and tokens_of(out) <= room)
-    out, line = _block(_rows(his=2, other=3))
+    out, line = _block(_rows(his=2, other=20))
     ctx.check(f"the others' words leave before Auto's, his last: {line}",
-              "cc-00 (" not in line and "his-00 (" in line and tokens_of(out) <= room)
+              "cc-00 (" not in line and "cc-19;" in line and "ops;" in line and "planner (plan, outline)" in line
+              and "his-00 (" in line and "his-01 (" in line and tokens_of(out) <= room)
     out, line = _block(_rows(his=30, other=40))
     ctx.check(f"30 of his and 40 others: names only, his first, the rest counted: {line}",
               line.startswith(W.M2_HEAD + "his-00, his-01, ") and "(" not in line.split(": ", 1)[1].split(" and ")[0]

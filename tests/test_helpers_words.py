@@ -6,9 +6,10 @@ kinds THIS session can start, his own first), made at the first shaping and kept
 main's model changes (A1). On his map, with roles off, in an `--agent` session, restricted, as a sub-agent, or for a
 model that takes no tools, today's line stays letter for letter.
 M6: per request, after the tools are capped (agent/prompt_wire.py), a short TAIL names the Workflow tool (when that
-request sends it and it lists his workflows) and the Builder (when that request sends it); the frozen part never
-changes with it. Below 65,536 the Builder is not sent, so main reads no word of it but its name among the tools left
-out; at 65,536 it is sent and the tail says so; a smaller ask that drops it drops the tail in that request only.
+request sends it and it lists his workflows), and nothing else; the frozen part never changes with it. Below 65,536
+the Builder is not sent, so main reads no word of it but its name among the tools left out; at 65,536 it is sent and
+main reads only its own words: no tail line tells main to propose unasked (M4 below is the words that must not be sent:
+the decisions' section 3).
 A scratch home of its own per test (ConfigHome restores every variable); never a model, a server or the network.
 Run: python -m tests.test_helpers_words
 """
@@ -206,23 +207,33 @@ def test_below_65536_main_reads_no_word_of_the_builder(ctx: Ctx):
 
 
 @test
-def test_at_65536_the_tail_names_the_builder_and_a_smaller_ask_drops_it_there_only(ctx: Ctx):
+def test_at_65536_the_builder_is_sent_and_main_reads_no_word_of_proposing_unasked(ctx: Ctx):
+    """The decisions' section 3: the tail keeps only the Workflow clause, so main is never told to propose on its own
+    (the Builder's own words say "never on your own"; two sentences that pull against each other are not sent). M4 is
+    kept here as the words that must not be sent."""
+    from halo_harness.agent.helpers_words import frozen
     with _Home() as h:
         for platform in ("win32", "linux"):
+            s49 = _session(h, window=49152, platform=platform, builder=True)
+            _shaped(s49)
             s = _session(h, window=65536, platform=platform, builder=True)
             text, sent = _shaped(s)
-            after = text.split("\n\n" + M4, 1)[1] if ("\n\n" + M4) in text else None
-            ctx.check(f"{platform}: the Builder is sent at 65,536 and the tail names it, last but the by-name line",
-                      "Builder" in sent and after is not None and (after == "" or after.startswith("\n\n" + BY_NAME)))
+            ctx.check(f"{platform}: the Builder is sent at 65,536", "Builder" in sent)
+            ctx.check(f"{platform}: no word of proposing unasked in main's system text",
+                      "Unasked" not in text and M4 not in text and "propose a helper" not in text
+                      and "with the Builder tool" not in text)
+            ctx.check(f"{platform}: the frozen block is byte-equal to the one at 49,152",
+                      frozen(s) is not None and frozen(s) == frozen(s49) and frozen(s) in text)
             s._ladder_pass = {"small": True, "turn": getattr(s, "turn_count", None)}  # agent/degrade.py's smaller ask
             small, sent_small = _shaped(s)
-            ctx.check(f"{platform}: a smaller ask sends no Builder and no tail",
-                      "Builder" not in sent_small and M4 not in small)
+            ctx.check(f"{platform}: a smaller ask sends no Builder and no proposing words",
+                      "Builder" not in sent_small and "Unasked" not in small and M4 not in small)
             s._ladder_pass = None
             back, _sent = _shaped(s)
-            ctx.check(f"{platform}: the next request sends it again, the tail with it", back == text)
-            ctx.check(f"{platform}: the frozen part is byte-equal throughout",
-                      _frozen_part(text) == _frozen_part(small) == _frozen_part(back) and M1 in _frozen_part(text))
+            ctx.check(f"{platform}: the next request is byte-equal to the first", back == text)
+            ctx.check(f"{platform}: a smaller ask changes nothing in the frozen block",
+                      _frozen_part(text) == _frozen_part(small) == _frozen_part(back) and M1 in _frozen_part(text)
+                      and frozen(s) == frozen(s49))
 
 
 @test
@@ -242,7 +253,8 @@ def test_the_workflow_tail_names_his_workflows_only_when_sent(ctx: Ctx):
         defs = [{"name": "Read"}, {"name": "Agent"}]
         ctx.check("a request that does not send the Workflow tool or the Builder: no tail", tail(s, defs) == "")
         both = tail(s, defs + [{"name": "Workflow"}, {"name": "Builder"}])
-        ctx.check(f"both sent: M3 then M4, got {both!r}", both == "\n\n" + M3 + "\n" + M4)
+        ctx.check(f"both sent: M3 only (the Builder adds nothing), got {both!r}", both == "\n\n" + M3)
+        ctx.check("the Builder alone: no tail", tail(s, defs + [{"name": "Builder"}]) == "")
         s2 = _session(h, control="auto")
         s2._helpers_off = True
         ctx.check("today's line: no tail either", tail(s2, defs + [{"name": "Workflow"}, {"name": "Builder"}]) == "")

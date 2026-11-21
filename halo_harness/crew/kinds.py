@@ -95,6 +95,8 @@ def names(rows) -> list:
 # M7: the block main reads (agent/helpers_words.py: its frozen part plus its longest tail) holds at most CAP tokens, at
 # every window: CAP_W = min(300, B_W - F_W + 61 - 100) is 300 at each window the pins measure (tests/
 # test_prompt_budget_pins.py checks it there). Past it words leave, then names; nothing fits: None (today's line).
+# The longest tail is M3 alone (28 tokens, measured 2026-11-21; the design's 27 + 45 + 1 = 73 counted a Builder line
+# that is no longer sent), so the frozen part has 272 of CAP (it had 226). CAP itself is unchanged.
 CAP = 300
 WORDS_GO = ("built-in", "other", "auto", "his")  # whose words leave first
 NAMES_KEEP = 1  # names leave from the end of the list, down to this many

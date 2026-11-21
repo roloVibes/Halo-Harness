@@ -5,13 +5,14 @@
                                     made at the session's first shaping and kept byte-equal; made again only when
                                     main's model changes. None: not on Auto, or the block does not fit (today's line).
     tail(session, tools) -> str     per request, after the tools are capped (agent/prompt_wire.py): M3 when the request
-                                    sends the Workflow tool and it lists his workflows, M4 when it sends the Builder
+                                    sends the Workflow tool and it lists his workflows; nothing else
     kinds_tail(session) -> str      M8: the end of the Agent and Task tools' words on Auto (their cloud copy)
     told(session) -> dict | None    M9: `kinds_told`, `kinds_more` for the status row (what main read)
 
 The lean system text (agent/prompt_lean_system.py) writes `frozen` in place of today's delegate line. The frozen part
 names no tool but Agent, which every request that sends a tool sends. No tool's own words change here (A3), and
-nothing here changes which tools go out (A2).
+nothing here changes which tools go out (A2). The tail never tells main to propose a helper or a workflow unasked:
+the Builder tool's own words say "never on your own", and two sentences that pull against each other are not sent.
 """
 
 from __future__ import annotations
@@ -27,8 +28,6 @@ M2_END = ". With no `subagent_type` Halo picks a kind from your words."
 M2_MORE = " and {n} more (a wrong name lists them all)"
 KINDS_HEAD = " Helpers you can start (`subagent_type`): "  # M8: the Agent and Task tools' words on Auto (cloud copy)
 M3 = "- The Workflow tool lists workflows you can run by `name`: run one when it fits the whole job."
-M4 = ("- Unasked, you may propose a helper or a workflow for work that will come back, with the Builder tool; nothing "
-      "is written until the person approves its card.")
 _KEPT = "_helpers_block"  # the session's frozen block: (main's model, the text or None)
 
 
@@ -59,7 +58,7 @@ def on_auto(session) -> bool:
 
 
 def longest_tail() -> str:
-    return "\n\n" + M3 + "\n" + M4
+    return "\n\n" + M3
 
 
 def _make(session) -> Optional[str]:
@@ -129,15 +128,13 @@ def told(session) -> Optional[dict]:
 
 
 def tail(session, tools) -> str:
-    """The lines for THIS request's tools (after the cap), "" when none apply or the session reads today's line."""
+    """M3 when THIS request (after the cap) sends the Workflow tool and it lists his workflows; "" otherwise, and
+    always "" when the session reads today's line."""
     if not tools or frozen(session) is None:
         return ""
     sent = {t.get("name") for t in tools if isinstance(t, dict)}
-    lines = []
     if "Workflow" in sent:
         from halo_harness.crew.flow_door import tail as flows
         if flows():
-            lines.append(M3)
-    if "Builder" in sent:
-        lines.append(M4)
-    return "\n\n" + "\n".join(lines) if lines else ""
+            return "\n\n" + M3
+    return ""
