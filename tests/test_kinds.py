@@ -140,6 +140,51 @@ def test_a_restriction_and_an_empty_list(ctx: Ctx):
     ctx.check("no agents: none", kinds({}) == [] and kinds(None) == [])
 
 
+def _rows(his: int = 0, other: int = 0) -> list:
+    from halo_harness.crew.kinds import kinds
+    with _scratch() as root:
+        rows = kinds(_agents(root))
+    mine = [{"name": f"his-{i:02d}", "words": "Sorts the inbox by sender and date", "part": "his"} for i in range(his)]
+    more = [{"name": f"cc-{i:02d}", "words": f"Helper number {i}", "part": "other"} for i in range(other)]
+    return mine + rows[:7] + more + rows[7:]
+
+
+def _block(rows, room=None):
+    from halo_harness.agent import helpers_words as W
+    from halo_harness.agent.prompt_composition import tokens_of
+    from halo_harness.crew.kinds import CAP, block
+    room = CAP - tokens_of(W.longest_tail()) if room is None else room
+    out = block(rows, W.M1, W.M2_HEAD, W.M2_END, W.M2_MORE, room)
+    return out, (out or "").split("\n")[-1]
+
+
+@test
+def test_m7_the_block_fits_its_cap_and_gives_way_in_order(ctx: Ctx):
+    """3.6.0.10 M7: frozen block + longest tail <= CAP; past it words leave (built-ins, others, Auto's seven, his
+    last), then names from the end (" and {n} more"); nothing fits: None (today's line)."""
+    from halo_harness.agent import helpers_words as W
+    from halo_harness.agent.prompt_composition import tokens_of
+    from halo_harness.crew.kinds import CAP
+    room = CAP - tokens_of(W.longest_tail())
+    out, line = _block(_rows())
+    ctx.check(f"a clean home: every word, {tokens_of(out)} <= {room}",
+              tokens_of(out) <= room and "Judge (pass or fail a result); Tester (run tests, report)." in line)
+    out, line = _block(_rows(his=1))
+    ctx.check(f"one of his: the built-ins' words leave first, his stay: {line}",
+              "his-00 (Sorts the inbox by sender and date)" in line and "planner (plan, outline)" in line
+              and "Judge (" not in line and "Tester (" not in line and tokens_of(out) <= room)
+    out, line = _block(_rows(his=2, other=3))
+    ctx.check(f"the others' words leave before Auto's, his last: {line}",
+              "cc-00 (" not in line and "his-00 (" in line and tokens_of(out) <= room)
+    out, line = _block(_rows(his=30, other=40))
+    ctx.check(f"30 of his and 40 others: names only, his first, the rest counted: {line}",
+              line.startswith(W.M2_HEAD + "his-00, his-01, ") and "(" not in line.split(": ", 1)[1].split(" and ")[0]
+              and line.endswith(" more (a wrong name lists them all)" + W.M2_END) and tokens_of(out) <= room)
+    ctx.check("M1 is always whole", out.split("\n")[0] == W.M1)
+    ctx.check("M1 and one name do not fit: None (today's line)", _block(_rows(), room=tokens_of(W.M1))[0] is None)
+    ctx.check("no rows: None", _block([])[0] is None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

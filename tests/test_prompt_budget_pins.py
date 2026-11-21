@@ -184,6 +184,101 @@ def test_below_65536_the_real_session_sends_no_builder(ctx: Ctx):
                       and new["sent_window"] == old["sent_window"])
 
 
+# 3.6.0.10 M7: on Auto main's lean text carries a block (agent/helpers_words.py: when to hand work out, the kinds it can
+# start; a tail for the Workflow tool and the Builder when a request sends them) in place of today's 61-token delegate
+# line. Block and longest tail hold at most crew/kinds.py CAP tokens, and CAP is at most each lean case's
+# CAP_W = min(300, B_W - F_W + 61 - 100): B_W its bound, F_W its first turn on the base 9624c426 (the larger figure,
+# written above CASES and REAL_CASES), 100 kept free. Measured 2026-11-21: block 225 (clean home), longest tail 74.
+F_W = {"an unknown remote model": 8014, "a 16,384 window": 6272, "a 49,152 window": 8012,
+       "a 65,536 window (lean)": 8012, "a new Auto session at 65,536": 9036}
+TODAY_LINE = 61
+M2_HEAD = "- Helpers you can start now (`subagent_type`): "
+
+
+def _lean_cases():
+    """(label, ref, window, prompt bound, tool block bound or None, builder) of every lean case."""
+    out = [(label, ref, window, bound, tools, False) for label, ref, window, bound, tools, _s in CASES if window < 200000]
+    return out + [(label, ref, window, bound, None, True) for label, ref, window, bound, _s in REAL_CASES
+                  if window < 200000]
+
+
+def _lean_text(ref: str, window: int, platform: str, cwd, **kw):
+    """(the session, its lean system text): the measure's own stub (prompt_measure.new_session) shaped as a request."""
+    from halo_harness.agent.prompt_measure import new_session
+    from halo_harness.agent.prompt_wire import shape
+    s = new_session(ref, window=window, platform=platform, cwd=cwd, **kw)
+    msgs = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
+    text, _m, _t = shape(s, s.session_context.system_prompt, msgs, s.tool_registry.definitions(), purpose="measure")
+    return s, text
+
+
+def _block_holds(ctx: Ctx, where: str, cwd) -> None:
+    from halo_harness.agent.helpers_words import frozen, longest_tail
+    from halo_harness.agent.prompt_composition import tokens_of
+    from halo_harness.crew.kinds import CAP
+    for platform in ("win32", "linux"):
+        for label, ref, window, bound, tools_max, builder in _lean_cases():
+            kw = {"control": "auto", "builder": True} if builder else {}
+            m = first_turn_at(ref, window, platform, cwd, **kw)
+            tools = sum(r["tokens"] for r in m["tools"] if r["offered"])
+            ctx.check(f"{where}, {platform}, {label}: the first turn is {m['prompt']:,} tokens -- "
+                      + why("the first turn", bound), m["prompt"] <= bound)
+            if tools_max is not None:
+                ctx.check(f"{where}, {platform}, {label}: the tool block is {tools:,} -- " + why("the tool block", tools_max),
+                          tools <= tools_max)
+            if window == 32768:
+                ctx.check(f"{where}, {platform}, {label}: the system message is {m['system_message']:,} -- "
+                          + why("the lean system message", SYSTEM_LEAN), m["system_message"] <= SYSTEM_LEAN)
+            s, text = _lean_text(ref, window, platform, cwd, **kw)
+            block = frozen(s) or ""
+            size = tokens_of(block) + tokens_of(longest_tail())
+            ctx.check(f"{where}, {platform}, {label}: M2's head in the lean text", M2_HEAD in text and block in text)
+            ctx.check(f"{where}, {platform}, {label}: block and longest tail {size} <= CAP {CAP}", size <= CAP)
+
+
+def first_turn_at(ref: str, window: int, platform: str, cwd, **kw) -> dict:
+    from halo_harness.agent.prompt_measure import first_turn
+    return first_turn(ref, window=window, platform=platform, cwd=cwd, **kw)
+
+
+@test
+def test_the_block_holds_its_cap_at_every_lean_window(ctx: Ctx):
+    from halo_harness.crew.kinds import CAP
+    for label, _ref, _w, bound, _t, _b in _lean_cases():
+        cap_w = min(300, bound - F_W[label] + TODAY_LINE - 100)
+        ctx.check(f"{label}: CAP {CAP} <= CAP_W {cap_w}", CAP <= cap_w)
+    _block_holds(ctx, "the pins' home", _home()["proj"])
+
+
+@test
+def test_thirty_agents_of_his_and_forty_claude_code_agents(ctx: Ctx):
+    """M7: with 30 agents of his and 40 Claude Code agents every pin holds, the block gives way (his names first)."""
+    from tests.helpers.fake_home import build_fake_home
+    fh = _home()
+    before = os.environ.get("BRIDGE_TEST_HOME")
+    big = build_fake_home()
+    os.environ["BRIDGE_TEST_HOME"] = str(big["home"])
+    try:
+        from halo_harness.crew.store import state_dir_of
+        mine = state_dir_of() / "crew" / "agents"
+        mine.mkdir(parents=True, exist_ok=True)
+        for i in range(30):
+            (mine / f"his-{i:02d}.yaml").write_text(
+                f"format: agent/1\nname: his-{i:02d}\ndoes: Does the job number {i} for the owner every day.\n"
+                "model: auto\nuses:\n- read\ncareful: ask-changes\n", encoding="utf-8")
+        cc = Path(big["claude_dir"]) / "agents"
+        cc.mkdir(parents=True, exist_ok=True)
+        for i in range(40):
+            (cc / f"cc-{i:02d}.md").write_text(f"---\nname: cc-{i:02d}\ndescription: Helper number {i}.\n---\n"
+                                               f"You are helper {i}.\n", encoding="utf-8")
+        _block_holds(ctx, "30 of his, 40 Claude Code", big["proj"])
+        s, text = _lean_text("ol:tiny:3b@lan", 16384, "linux", big["proj"])
+        ctx.check("his own lead, the rest counted", (M2_HEAD + "his-00, his-01") in text
+                  and " more (a wrong name lists them all). With no `subagent_type`" in text)
+    finally:
+        os.environ["BRIDGE_TEST_HOME"] = before if before is not None else str(fh["home"])
+
+
 @test
 def test_copilot_set_up_grows_the_lean_first_turn_by_its_lean_size_at_most(ctx: Ctx):
     """3.3.17.0: with Copilot not set up (the default, every pin above) copilot_ask is not registered; set up,

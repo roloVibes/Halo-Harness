@@ -63,7 +63,11 @@ def rules(session, harness: str) -> str:
            ("- To remember something for next time, write it only inside the memory directory your context names."
             if has_write else "- You cannot save memory in this build: never say you did."),
            "- A hook may rewrite a call, add context or block it: the result is what happened."]
-    if _has(session, "Agent"):
+    from halo_harness.agent.helpers_words import frozen
+    block = frozen(session) if _has(session, "Agent") else None  # 3.6.0.10 M4: on Auto, when to hand out and to whom
+    if block:
+        out.append(block)
+    elif _has(session, "Agent"):
         pick = "`role:` picks the model table's model" if _roles_on() else "`model:` names a cheaper model"
         out.append(f"- On a big job delegate surveys, searches, test runs and mechanical edits with the Agent tool "
                    f"({pick}), independent pieces in parallel; keep judgement and the final review yourself.")

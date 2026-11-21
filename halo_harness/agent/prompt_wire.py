@@ -254,6 +254,10 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
     if lean and tools:
         _profile_tools_max(session)
         tools, dropped = L.cap_tools(session, tools, _task_text(messages))
+        from halo_harness.agent.helpers_words import tail as helpers_tail  # 3.6.0.10 M6: from the tools really sent
+        helpers = helpers_tail(session, tools)
+        if helpers:
+            system_text = (system_text or "").rstrip() + helpers
         if dropped and tools:  # 3.3.6.0 R4 (G3): the rest are reachable by name (and through ToolSearch)
             system_text = (system_text or "").rstrip() + "\n\n" + _by_name_line(session, [])
         if dropped and purpose == "turn":

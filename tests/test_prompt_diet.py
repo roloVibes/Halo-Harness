@@ -178,7 +178,8 @@ def test_the_lean_system_text_keeps_the_instructions(ctx: Ctx):
     from halo_harness.agent.prompt_composition import tokens_of
     text, _defs, (lean, _m, _t) = _cloud_and_lean("ol:qwen3-coder:30b@lan", 32768)
     for must in ("native tool calls", "CLAUDE.md", "Read a file before you edit it", "ExitPlanMode",
-                 "memory directory", "Agent tool", "Your working directory is /work", "Never end a turn"):
+                 "memory directory", "Agent tool", "Your working directory is /work", "Never end a turn",
+                 "- Helpers you can start now (`subagent_type`): planner (plan, outline);"):  # 3.6.0.10 M4: on Auto
         ctx.check(f"lean keeps {must!r}", must in lean)
     ctx.check("lean drops the per-tool list and the reference prose",
               "## Tools available in this session" not in lean and "Custom slash commands" not in lean)

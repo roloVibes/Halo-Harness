@@ -90,3 +90,49 @@ def kinds(agents: Optional[dict], restriction=None, plain=None) -> list:
 
 def names(rows) -> list:
     return [r["name"] for r in rows or []]
+
+
+# M7: the block main reads (agent/helpers_words.py: its frozen part plus its longest tail) holds at most CAP tokens, at
+# every window: CAP_W = min(300, B_W - F_W + 61 - 100) is 300 at each window the pins measure (tests/
+# test_prompt_budget_pins.py checks it there). Past it words leave, then names; nothing fits: None (today's line).
+CAP = 300
+WORDS_GO = ("built-in", "other", "auto", "his")  # whose words leave first
+NAMES_KEEP = 1  # names leave from the end of the list, down to this many
+
+
+def _line(rows, keep: list, shown: int, head: str, end: str, more: str) -> str:
+    """M2's line: the first `shown` rows, each with its words where `keep` says, then " and {n} more" when cut."""
+    worded = [bool(k and r.get("words")) for r, k in zip(rows[:shown], keep)]
+    bits = [f"{r['name']} ({r['words']})" if w else r["name"] for r, w in zip(rows, worded)]
+    sep = "; " if any(worded) else ", "
+    cut = len(rows) - shown
+    return head + sep.join(bits) + (more.format(n=cut) if cut else "") + end
+
+
+def block(rows, lead: str, head: str, end: str, more: str, room: int, measure=None) -> Optional[str]:
+    """`lead` and M2's line over `rows`, joined by a line break, in at most `room` tokens (`measure`, the request
+    estimator's `tokens_of` by default): words leave first (WORDS_GO, each part from its last row), then names from
+    the end of the list (" and {n} more"); None when `lead` and NAMES_KEEP names do not fit, or there are no rows."""
+    if measure is None:
+        from halo_harness.agent.prompt_composition import tokens_of as measure
+    rows = list(rows or [])
+    if not rows:
+        return None
+    keep = [True] * len(rows)
+
+    def text(shown: int) -> str:
+        return lead + "\n" + _line(rows, keep, shown, head, end, more)
+
+    out = text(len(rows))
+    order = [i for part in WORDS_GO for i in reversed(range(len(rows))) if rows[i].get("part") == part]
+    order += [i for i in reversed(range(len(rows))) if i not in order]
+    for i in order:
+        if measure(out) <= room:
+            return out
+        keep[i] = False
+        out = text(len(rows))
+    for shown in range(len(rows), NAMES_KEEP - 1, -1):
+        out = text(shown)
+        if measure(out) <= room:
+            return out
+    return None
