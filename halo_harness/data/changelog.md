@@ -1,5 +1,204 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.5] - 2026-11-20
+
+The default is called Auto everywhere you read it, and the word "starter" leaves what Halo shows you. On Auto, the Live
+drawings show each piece of work main hands out as a named, coloured group, and after a build Halo says what is ready in
+this session now. The Attention chip left the Agents section: Session's Attention button counts what waits. A map of
+your own is drawn as before. The limits that remain are at the end of this section.
+
+### Added
+
+- **On Auto, each piece of work is a named, coloured group.** In Session's Live drawer and in Agents -> 4 · Live, a
+  session on Auto shows main alone until main starts a helper. Then each piece of work main hands out is one box in a
+  colour of its own: four colours that repeat (the fifth group takes the first again), never a state's colour. A new
+  group comes under the last one and nothing already drawn moves; main's box keeps the room of its usual fullest state
+  from the first draw (a longer line, such as a long command, grows it once, and it then holds), so the groups under it
+  stand still. In Session the drawing fills its drawer from the first draw; a group that does not fit whole is cut by
+  the drawer's edge and reached by scrolling. Helpers on the same piece of work share one box, also when main hands out
+  more of it in a later reply; a helper started by a helper sits in its parent's box; each run of a saved workflow is a
+  box of its own, named "workflow {W}", with its steps, so two runs of one workflow are two boxes. A group's name is the
+  few words main gave the work, else the words its helpers share, else "Task {n}", and the Timeline's **by group** and
+  the glance page use the same name. A session recorded before this release groups its helpers by the reply that started
+  them.
+- **A group's head says how its work goes, and every helper says why it got its model.** The head reads, for example,
+  "3 agents · 3 working · $0.04" (a part that is zero is left out; "1 failed" is red), and "3 agents · all done · $0.09
+  · 2 min" once every helper is done; under it, a line says which models were picked and why. Inside, each helper reads
+  "{who}: {description}" over "{model} · {state}", its left edge in its state's colour; a helper started by a helper
+  adds "started by {who}: {task}"; up to eight are shown, then "+{n} more". **Save as an agent** shows only on a helper
+  that is no saved agent. Hover a helper for "Why this model: ..." ("Why this model: named by main or by your settings"
+  when there is no reason); click it for its card with the same line. Hover the head for "Started by main at {t}", one
+  line per helper and the cost; click it for a card with Pause and Stop for each helper still working and **Open in
+  Agents -> Live**. Hover main for its model and "Can hand work to: {names}", the agents this session started with.
+- **Main's line into a group shows the work.** It lights while a helper of that group works, then stays as a trace that
+  is heavier the more helpers the group had. A line into a group carries no label: the group's head names it.
+- **Work that starts out of sight is named.** On Auto, when a helper starts working in a group wholly below what you
+  see, the slot at the foot of the drawing reads "↓ {name} · working" (or "↓ {name} · working and {n} more below").
+  Press it and the group's head comes to the top of Session's Live drawer (in Agents -> 4 · Live, into view). The slot's
+  room is there from the first draw, so nothing above it moves when a name appears. On a map of your own Session's slot
+  is as before and Agents -> 4 · Live has no slot.
+- **The doors land on the group.** A group card's **Open in Agents -> Live** opens Agents -> 4 · Live on that session
+  with the group's head at the top and its border pulsing for two seconds (with reduced motion: a still outline for
+  the same two seconds). An attention alert's **Open**, or a row's **O**, for a question a helper of a session on Auto
+  asks opens that helper's group, selected, with the helper's card open and the question's choices in it. Main's own
+  questions land on main as before.
+- **After a build on Auto, Halo says what is ready in this session now.** When a Builder card is applied in a session on
+  Auto, its result (what main reads, and the terminal's card) ends with lines worked out from what the session really
+  has: "Ready in this session now: the workflow review.", "Saved for your next session: the agent checker (this
+  session's list of agents was fixed when it started; ...)", "Saved for your next session: the agent checker (this
+  session keeps the checker it started with).", "Saved for your next session: the workflow review (this session started
+  with no workflow, so it has no Workflow tool).", or "Not run under its name: the workflow review (this project has its
+  own workflow review, which runs first)." The line about a session with no Workflow tool is given only when that is the
+  reason: when the session's own rules leave the tool out (a deny rule, a tool list), no line is shown for that
+  workflow. The terminal's Builder card shows them right under its header, also while folded. In Studio the head over
+  Session's Live drawing says "Just built: the workflow review. Ready in this session now, by name." (or that it waits
+  for your next session, or that this project's own workflow of that name runs under that name), with **Open in
+  Workflows** and the same lines under it; a build of agents only gets the lines alone. Nothing is made usable that was
+  not usable before. On a map of your own, after an undo, or when you leave every line, there is no such line.
+- **A docs page, "Studio: Auto's groups"**, says what the boxes, the slot and the doors are; the Studio index links it.
+
+### Changed
+
+- **The default is Auto, and `auto`, `starter` and no map set are one map.** It ships as `auto`, with the same seven
+  boxes and lines as before. `--map starter`, `crew.map: starter`, a goal's `lineup: starter` and `halo maps use
+  starter` all run on Auto, as a plain session; `halo maps use auto`, `halo maps use starter` and `halo maps use --off`
+  take `crew.map` out of config.
+- **The terminal says Auto.** `/status` reads "Map: Auto (the default: main picks who works on each task, and a model
+  for each one)"; `halo doctor` "Map: Auto (the default: main picks who works on each task); halo maps use <name>
+  changes it, halo maps list shows them"; `halo setup map --terminal` "map: Auto (the default)"; `halo init`'s summary
+  "Lineup: Auto (the default)". `halo maps list` starts with a row for `auto` (`default`, "main picks who works on each
+  task") and ends "in use: Auto (the default)". `halo maps use --off` says "New sessions run on Auto (the default); no
+  map of yours is set." A map with a problem: "halo: the map {X} has a problem, so this session runs on Auto (the
+  default):". An old `team: auto` says "... lineups are gone; Auto is the default, so team: auto needs nothing. Clear
+  the old key with halo config set team null."
+- **What comes with Halo says "ships with Halo".** `halo maps show`, `halo agents show` and `halo workflows show`, the
+  rows of Setup -> Map, the Map's switcher and the Builder name a map, agent or workflow that comes with Halo "(ships
+  with Halo)", and the scope column of `halo maps list`, `halo agents list` and `halo workflows list` reads `shipped`.
+  Studio's Agents and Workflows lists head them "Ships with Halo · Copy makes it yours". The refusals say it too, for
+  example "coder ships with Halo (read-only): halo agents copy coder makes yours (my-coder)", and the Builder's copy row
+  reads "Copy the map ship-it (ships with Halo) as yours (the changes below go into your copy)". Every agent, workflow
+  and map file that ships with Halo starts "# Ships with Halo (3.6.0.0): read-only; ...".
+- **Agents -> 3 · Map on Auto shows main alone and one line**: "Auto has no plan to edit: main picks who works on each
+  task as it goes, and Live draws each task as a named group. Main can hand work to: {names}." with **Watch it in Live**
+  (it opens Agents -> 4 · Live on the newest session on Auto) and "· + New map makes a map of your own." With no session
+  on Auto, "Nothing runs on Auto right now." stands where the button was. Auto has no box to edit, no switch, no Lock
+  and no Add; Run a goal stays. The bar's slot says "New sessions run on Auto (the default)." while no map is set. Over
+  a session on Auto Studio says "This session runs on Auto (the default), as it started at {t}. Main picks who works on
+  each task; each task shows as a named, coloured group." Old sessions, logs and links that name starter open and read
+  as Auto (the default).
+- **The map lists put Auto first.** The Map's switcher lists "Auto (the default)", then your maps, then "{name} (this
+  project's)", then "{name} (ships with Halo)", then **+ New map**; no row says "· in use". Setup -> Map lists "Auto
+  (the default)" first with "Main picks who works on each task; each one's model is picked for its task, and the reason
+  is shown.", and One model for everything last; with Auto picked its preview reads "PREVIEW · Auto (the default)" with
+  no **Edit on the Map**. Setup's strip and the Map glance say "Auto (the default)", and a theme set to follow the
+  system reads "Follow the system" in Setup (the config value `auto` is unchanged).
+- **Turning your map's "New sessions run on this" off** says "New sessions run on Auto (the default); a running session
+  keeps its own."
+- **An old map of yours named `starter` or `auto` is kept and listed, and no longer runs.** On 3.6.0.4 a map of yours
+  named starter was what new sessions ran on; now a session with no map set, with `--map starter` or with `crew.map`
+  naming starter or auto runs the shipped Auto. Halo never renames, moves or deletes your file. It is listed among your
+  maps as "starter · your copy from before" (in `halo maps list` under its own name, never in use). In Setup -> Map its
+  row has one button, **Copy as my-map**, and pressing its name opens your file read-only on Agents -> 3 · Map; there
+  the bar shows its name and the same button, with no switch and no Lock. The copy holds your boxes and lines, is named
+  my-map (my-map-2, my-map-3 ... when taken) and opens on the Map; turn on its **New sessions run on this** to run it
+  again. In the terminal, `halo maps show starter` and `halo maps copy starter` read the shipped Auto, not your file.
+- **A new map can never be named `auto` or `starter`.** Studio's **+ New map**, `halo maps copy --as`, the Builder and
+  Studio's map API answer "{name} is a name of the default (Auto); give your map another name." and write nothing.
+- **The Builder no longer copies the default as a map of yours.** With no map named (outside a session with no map
+  set, or in Studio's builder box with Auto open on the Map), a map change used to offer to copy the default as your own
+  map named starter. Now it writes nothing and answers "Name the map: Auto (the default) stays as it is, where main
+  chooses who works. Pass a new name in args.map to make a map that routes."
+- **Asking the Builder to use the map "starter" or "Auto" says what happens.** When Auto is already in use it answers
+  "New sessions run on Auto (the default) already." and shows no card. When a map of yours is set, the card has one row,
+  "New sessions run on Auto (the default); a running session keeps its own.", and applying it takes `crew.map` out of
+  your config.
+- **Asking for a workflow on Auto makes no map.** In a session on Auto, "build me a review workflow: a coder then a
+  checker" gives one card that makes the agents not saved yet and the workflow, with no map row and no "New sessions run
+  on it" row, headed "Your review workflow: the workflow review (coder, then checker)." In a session on a map of your
+  own the card is as before.
+- **Main is asked to name the piece of work each helper belongs to**, in 2 to 6 words, on the Agent and the Task tool,
+  and to give helpers on the same work the same words: these become the group's name. A call that leaves them out still
+  runs exactly as on 3.6.0.4, also when a local model's reply is repaired.
+- **`halo explain auto`** (and Studio's Glossary) says "Auto: the default. Main picks who works on each task, and a
+  model for each one; Live draws each task as a named, coloured group." The docs and the README say Auto (the default)
+  and "ships with Halo" throughout.
+- **Session's Attention button counts what waits on you.** It reads "Attention 2" while two decisions wait, the number
+  and the button in the amber the Agents chip had, and just "Attention" while none does. Its room for two digits is
+  there from the first draw, so nothing in Session's bar moves when the number comes, changes or goes; a count of 100 or
+  more shows the true number, and the button widens for it. While its drawer is open the button keeps its pressed look
+  and only the number is amber. A decision that belongs to no session (a conflict whose holder is in no session) is
+  listed and counted in Session's Attention too.
+- **The doors that opened Agents' Attention open Session's Attention drawer.** The palette's two lines read "Session:
+  Attention" and "Session: answer next" (the oldest row picked), in the palette's Session group, with no key hint. A
+  pack's attention row with no section of its own opens there on **O**. A note sent to your phone or chat through a
+  pack's bridge, for a decision Halo has no card of its own for (a file conflict, for example), now ends "(answer it in
+  Studio: Session, Attention)".
+
+### Removed
+
+- **The word "starter" from what Halo shows you.** Studio's pages, the terminal's lines, `halo` commands' output and
+  help, Studio's API answers and what a session on Auto is told were cleared of it, and checks now scan for it. It stays
+  only in the name of your own old file ("starter · your copy from before"), in a refusal that repeats a name you typed,
+  and in the notes of earlier releases (`halo whatsnew`). `halo media`'s ComfyUI starter workflows keep their own word.
+- **The glossary's "starter" entry.** `halo explain auto` is the default's entry now.
+- **The Attention chip in Agents.** No "Attention · n" chip on any Agents tab (1 · Agents, 2 · Workflows, 3 · Map, 4 ·
+  Live), no Attention panel over the tab, no A key in Agents, and no Attention step or A key in Agents' section help.
+  Decisions wait in Session's Attention. An ask's alert, clicked while you are in Agents, still lands on 4 · Live on the
+  asking box's card (on Auto, on its group).
+
+### Fixed
+
+- **Turning off a map that was not in use said new sessions run on no map.** Through Studio's map API, turning off a
+  map while another map of yours was set changed nothing, yet the answer read "New sessions run on no map (as before
+  maps)." It now reads "{name} was not in use; new sessions still run on {set}."
+- **A running workflow was named by its raw input.** While main ran a workflow, its box in the Live drawings and its
+  card in Agents -> 4 · Live read `Workflow {"name": "review", "task": "..."}`: several lines, so the box grew and
+  everything under it moved at the moment the workflow started. A workflow is now named by its name (`Workflow review`),
+  or by its task when it has no name.
+
+### Known limits
+
+- **Every Known limit of 3.6.0.4 still holds**, except renaming "starter" to Auto with agents drawn in named groups,
+  which this release does for Auto.
+- **A map of your own draws no groups.** Its boxes, lines and workflow blocks draw exactly as on 3.6.0.4, with no group
+  colours. Groups on a map of your own are not in this release.
+- **At a small window (1280 x 800) a group can be only partly in view in Session's Live drawing.** The drawing fills its
+  drawer, but a group of three helpers is taller than the room left under main, and after a build the head and its lines
+  take more of it. What does not fit is reached by scrolling; the line at the foot names a working group that is not
+  wholly in view ("↓ {name} · working"), and one press on it brings that group's head to the top.
+- **With no live session, the count on Session's Attention button is not visible until Session is opened.** Session
+  then shows its Start view; **Open anyway** shows the bar and the count. The glance and the alert still show a decision
+  that waits.
+- **In Agents' Feed, an ask card's keys can open Session's Attention out of sight.** A key pressed while Studio is
+  still reading the card's answers (its hover then says "Studio is reading its answers: this opens Attention"), or R on
+  a question, opens Session's drawer, not something in Agents. Answer it there: Session's Attention lists it.
+- **On a map of your own, main's box still changes height with what main does**, and the boxes under it move with it, as
+  on 3.6.0.4. On Auto it keeps the room of its usual fullest state.
+- **On Auto a helper inside a group cannot be reached with the keyboard.** The keyboard reaches a group and its card,
+  not a single helper in it; a click opens a helper's card. On 3.6.0.4 every helper box was a tab stop.
+- **Main is not yet told which kinds of helper it can start, and nothing measures how often it hands work out.** The
+  agents it can hand work to are shown to you: this session's on main's hover, a new session's on Auto's Map tab.
+- **A theme from a pack takes the group colours of the shipped palette of its kind**: a light one the shipped light
+  palette's four, a dark one the default palette's four, not colours of its own.
+- **A group name in unusually wide letters can make Session's slot one line taller.** The slot's room is sized for a
+  long name of ordinary letters; the text is never cut.
+- **On Auto, a workflow built in a session that an older Halo started gets no head and no lines in Studio**, because
+  that session's build carries no answer about what is ready. Studio no longer says "It is on no map, so no session runs
+  it yet", which is false on Auto. A session started by this release gets the lines.
+- **Where it was checked.** On the Linux VM, with a browser: the whole test suite, its browser modules included (on a
+  copy with no git history: the few tests that need it run in CI), and the full real-use check, sixteen of sixteen
+  steps passed, among them the two new ones that drive a real terminal session and a real Studio through Auto's groups
+  and through a build on Auto with its true lines, with nothing of the run left running. On the PC (Windows), without
+  a browser: the Python and node checks of each change, and, before the Attention change, the real-use check with its
+  five browser steps skipped by name (11 passed). With a browser on Windows, one real-use step was run on the PC, the
+  build on Auto: the release gate's first Windows run had failed in it (a workflow's start grew main's box; see
+  Fixed), and it passed on the PC after the fix. The release gate's hosted Windows and macOS runs also showed that
+  with reduced motion (those machines have it on) the group's two-second cue lasted one frame; it is a still outline
+  now, and the groups' browser test presses once with reduced motion on every system (run on the PC, with and without
+  the fix). macOS was not run locally: CI runs it, and the other browser steps on Windows, at the release gate. How
+  the four group colours look to a person was judged by no check; the checks measure only that they stay apart from
+  the state colours and from each other, also for colour-blind eyes.
+
 ## [3.6.0.4] - 2026-11-18
 
 A small release with one fix at its heart: a running terminal session could vanish from Studio for good after one
@@ -2484,59 +2683,3 @@ The candidate passed on the Windows PC and was red on both GitHub runners; each 
 #### Docs
 
 - docs/REPLAY.md (a clip's plan needs no Pillow).
-
-## [3.4.0.1] - 2026-11-12
-
-What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says
-when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Linux VM, paired through the fleet pack,
-with a mission split across both, and wrote 29 defects; each line below names the one it fixes (the fleet pack is 1.0.1).
-
-- 15: a mission part is `done` only when its work is: the brief asks the worker to end its hand-back with `Outcome: done`
-  or `Outcome: blocked -- <why>`, and a part whose hand-back says it is blocked, or whose named outputs are not in the
-  mission folder, ends `failed` with the reason (the worker decides before it writes `result.json`; the hub checks a
-  member's `done` again). The mission ends "N of M part(s) did not finish: ..." (fleet/mission_outcome.py).
-- 4: `halo recall --fleet` and `/recall --fleet` run with the fleet pack on (they asked the pack for a module that
-  stayed in core); a pack module that does not import says its real error instead of "install the pack".
-- 10, 17, 26: one source of truth for a session's cost, its record (live/session_cost.py): a harness's "today" counts
-  its finished sessions too, on the hub's own machine and on a member (its announce carries its `cost_today`), so the
-  fleet caps and Studio's machine boxes see mission and goal-run spend; a call Halo could not price stays unknown
-  (`$x+`), never $0. History's session costs read the same.
-- 21: a goal run whose split failed counts its lead's calls (split.json keeps them).
-- 18: a mission part's hand-back pushed to the hub has its full local paths cut (home -> `~`, a path -> its last part).
-- 1: `halo studio --no-open` with its output redirected writes its URL lines at once.
-- 12: Halo never opens Windows Firewall, and now says when it is in the way: a hub (and `halo host serve`) on Windows
-  reads the inbound rules (no elevation) and prints one line with the command an administrator runs (remove the
-  `python.exe` Block rules Windows made from a declined prompt, then allow the port); `halo doctor`, Setup -> Machines
-  and `halo fleet serve` say the same; a join that times out says "the hub did not answer on <host>:<port>: on Windows
-  the firewall is the usual cause; on the hub run `halo doctor`" (peers/firewall.py; FLEET.md "Windows Firewall").
-- 13: opening Studio loads and calls no model: the Ollama steward's job started with Studio or the hub reads the logs
-  and runs the rules; its note and a new model's probe run only under `halo ollama steward --watch` or the new
-  `ollama.steward.watch: true`.
-- 14: a plan that needs what only an away member has names it ("X has gpu but is offline (no halo session open
-  there): open one, then plan again"); `halo fleet join` says a member is online only while a halo session runs there.
-- 16: each capability card carries the permission mode a mission part runs in; a part placed where calls that ask are
-  refused gets a note in the plan with what lets them through.
-- 27: `halo fleet leave` after a kick says "it had already removed this harness".
-- 11: `halo fleet status` names a joined hub by the hub's name, not this harness's.
-- 19: a capability card from an older read, or made by another Halo version, shows "(refreshing ...)" and is
-  gathered again.
-- 7: the fleet pack has a `halo doctor` row: whether it runs, the hub here (and the firewall in its way), each joined
-  hub and whether it answers.
-- 2: `halo pack install` / `list` count a pack's CLI verbs, slash commands, doctor rows and Studio server modules (the
-  fleet pack "offered nothing"); an empty `halo pack list` points at `--available`.
-- 3: with the fleet pack installed but off, its verbs say "the fleet pack is installed but off: halo pack enable fleet
-  --grant-all" (not "install it").
-- 5, 6: `halo studio --help` names the fleet pack for `--fleet` and `--mode fleet`; `halo pack --help` lists `cli:<verb>`
-  among the grants.
-- 8, 9: Studio's words name the Mission panel on Agents -> Live and Live's inspector, not the Runs view that went.
-- 20: `halo orchestra new` with no `--file` says a run cannot split without the goal's files; such a run stops before
-  the lead is asked.
-- 22: History folds a goal run's and a mission's own sessions under their row ("3 sessions inside").
-- 23, 24, 25: the Mission report counts parts per harness ("1 (#2)"), keeps its total whole, and says "nothing to
-  merge (files parts only)".
-- 28, 29: with the fleet pack off, Setup's line names no machines, and `?mode=fleet` / `halo studio --mode fleet` say
-  the pack's line instead of pointing at Setup -> Machines.
-- Tests: `test_studio_local_hf` (two servers: the driver's fallback click started a second one after a first start had
-  answered; it now waits for Start's answer and checks one server started) and `test_bundle_reserve` (one route call
-  timing out under load marked the host down for 30 s, so every read after it had no card; the readiness wait clears
-  the mark its own probe set).
