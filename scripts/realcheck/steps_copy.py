@@ -7,9 +7,11 @@ they never dragged inside a reply.
 
 The clipboard is never the person's: a small program of the step's own, named as the system's clipboard program is
 (wl-copy, xclip and xsel on Linux, pbcopy on macOS, clip.exe on Windows: halo_harness/tui/clipboard.py), stands first
-on the PATH of the halo it starts and writes what it is given to a file in the scratch home. Windows looks for a bare
-`clip.exe` in the folder the program runs in before its own system folder and only then on PATH, so there the program
-also stands in the project folder halo runs in."""
+on the PATH of the halo it starts and writes what it is given to a file in the scratch home. On Windows the step also
+lays a SECOND program, named `clip.exe`, in the project folder halo runs in: that one must never be started. (Halo
+resolves a bare program name over the PATH folders, never the folder it runs in: halo_harness/subprocess_safe.py,
+3.4.1.2. The first version of this step laid its stand-in in the project folder as well, on the belief that Windows
+would look there first; it does not, for Halo, and this step now says so with a real run.)"""
 from __future__ import annotations
 
 import io
@@ -171,9 +173,10 @@ def _shim(h) -> "tuple[Path, Path]":
     script = bin_dir / "clipshim.py"
     script.write_text(SHIM.format(out=str(out)), encoding="utf-8")
     if sys.platform == "win32":
-        exe = _launcher(script)
-        for d in (bin_dir, h.proj):
-            (d / "clip.exe").write_bytes(exe)
+        (bin_dir / "clip.exe").write_bytes(_launcher(script))
+        decoy = bin_dir / "decoyshim.py"  # a clip.exe lying in the project folder: it must never be started
+        decoy.write_text(SHIM.format(out=str(h.dir / "decoy")), encoding="utf-8")
+        (h.proj / "clip.exe").write_bytes(_launcher(decoy))
     else:
         for name in ("pbcopy",) if sys.platform == "darwin" else ("wl-copy", "xclip", "xsel"):
             p = bin_dir / name
@@ -242,6 +245,11 @@ def copy_drag(ctx):
             have = len(got)
         ev["copies"] = [None if x is None else excerpt(x, 120) for x in seen]
         bad.extend(judge(seen, DRAGGED, fakes.COPY_TWO))
+        strays = _copies(h.dir / "decoy")
+        ev["decoy_started"] = len(strays)
+        if strays:
+            bad.append(f"the clip.exe lying in the project folder was started {len(strays)} time(s): Halo must never take a "
+                       "program from the folder it runs in (halo_harness/subprocess_safe.py)")
         time.sleep(3.2)  # out of the Ctrl+C window the last copy opened: the quit below is a person's double press
         ev["quit_keys"] = screen.quit_with_ctrl_c(t)
         ev["exit"] = t.poll()
