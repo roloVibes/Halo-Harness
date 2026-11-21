@@ -31,6 +31,9 @@ SHELLS = ("Bash", "PowerShell")
 AFTER_NEEDS = ("copilot_ask",)  # offered only once set up (tools/copilot_ask.py): right after the lineup's needs
 # 3.6.0.6 W: offered by name only in a window of this size or less (the smallest lean block never grows for it)
 BY_NAME_UNDER = {"Browser": 16384}
+# 3.6.0.10 MW batch 4: a top session's own built-in (headless.py registers it): ranked as the LAST of the built-ins, before
+# the tools of packs and MCP servers, and counted with them where the cap is the built-ins' count (prompt_lean.tools_cap)
+LAST_BUILTINS = ("Builder",)
 
 
 def tools_budget(window: Optional[int]) -> Optional[int]:
@@ -146,6 +149,8 @@ def _bands(session, tools: list, task: str, shell: Optional[str]) -> dict:
             rank[id(t)] = (4, 0.0, i)  # no square this model needs: last
         elif n in order:
             rank[id(t)] = (2, 0.0, order[n])
+        elif n in LAST_BUILTINS:
+            rank[id(t)] = (2, 0.0, len(order) + LAST_BUILTINS.index(n))
         else:
             rank[id(t)] = (3, -relevance(t, task), i)
     return rank

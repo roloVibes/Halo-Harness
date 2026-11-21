@@ -107,6 +107,10 @@ LEAN = {
     "OrchestraRelease": ("Release a unit you claimed once your edit is written, then add an OrchestraNote.", {}),
     "OrchestraClaims": ("List this run's goal files, their units and every live claim.", {}),
     "OrchestraNote": ("Add a line to this run's log: what you changed, what the next worker should know.", {}),
+    # 3.6.0.10 MW batch 4: a top session's own; its "when" sentence and the tools by name follow (tools/builder_tool.py)
+    "Builder": ("Make or change the person's agents, workflows and maps. Send {\"tool\": <name>, \"args\": {...}}, or "
+                "{\"changes\": [{\"tool\", \"args\"}, ...]} for several on one card; nothing is written until the person "
+                "approves the card.", {}),
 }
 
 # a dynamic tail of the long description that stays (the squares this lineup enabled)
@@ -127,6 +131,9 @@ def _strip(schema):
 
 
 def _tail(name: str, desc: str) -> str:
+    if name == "Builder":  # the session's own "when" sentence, then its tools by name from crew/tools.py TOOLS itself
+        from halo_harness.tools.builder_tool import short_tail
+        return short_tail(desc)
     for marker in _KEEP_TAIL.get(name, ()):
         at = desc.find(marker)
         if at >= 0:

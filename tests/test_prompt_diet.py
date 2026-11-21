@@ -46,10 +46,11 @@ def _every_builtin() -> list:
     from halo_harness.tools.mcp_tool import ListMcpResourcesTool, ReadMcpResourceTool
     from halo_harness.tools import orchestra_claims as O
     from halo_harness.tools.copilot_ask import CopilotAskTool  # 3.3.17.0: registered only once Copilot is set up
+    from halo_harness.tools.builder_tool import BuilderTool  # 3.6.0.10 MW batch 4: a top session's, sent to a lean main
     from halo_harness.tools.registry import default_tools
     return default_tools(platform="win32") + [ListMcpResourcesTool(), ReadMcpResourceTool(), O.OrchestraClaimTool(),
                                               O.OrchestraClaimsTool(), O.OrchestraNoteTool(), O.OrchestraReleaseTool(),
-                                              CopilotAskTool()]
+                                              CopilotAskTool(), BuilderTool()]
 
 
 _FOLDER: dict = {}
@@ -166,6 +167,59 @@ def test_copilot_ask_sits_right_after_the_lineups_needs(ctx: Ctx):
     others = [r for n, r in by.items() if r[0] >= 2]
     ctx.check(f"Workflow < copilot_ask < every other built-in, got {by['Workflow']} {by['copilot_ask']}",
               by["Workflow"] < by["copilot_ask"] and all(by["copilot_ask"] < r for r in others))
+
+
+# 3.6.0.10 MW batch 4 (the owner, 2026-11-21: "1 - yes"): a lean main is sent the Builder wherever the tool budget holds
+BUILDER_AT = (("ol:tiny:3b@lan", 8192, False), ("ol:tiny:3b@lan", 16384, False), ("ol:room-model", 32768, True),
+              ("ol:qwen3-coder:30b@lan", 49152, True))
+
+
+@test
+def test_a_lean_main_is_sent_the_builder_where_the_tool_budget_holds(ctx: Ctx):
+    """A NEW top Auto session with the Builder registered (as headless.py registers it for a session someone answers):
+    at 32,768 and 49,152 the Builder is sent, in its short words, inside the window's tool budget (4,500, unchanged);
+    at 8,192 and 16,384 it cannot fit and the by-name line names it, as before."""
+    from halo_harness.agent.prompt_diet import tools_budget
+    from halo_harness.agent.prompt_measure import first_turn
+    _session("ol:tiny:3b@lan", 16384)
+    for platform in ("win32", "linux"):
+        for ref, window, sent in BUILDER_AT:
+            m = first_turn(ref, window=window, platform=platform, cwd=_FOLDER["proj"], control="auto", builder=True)
+            names = [r["name"] for r in m["tools"] if r["offered"]]
+            tools = sum(r["tokens"] for r in m["tools"] if r["offered"])
+            label = f"{platform} {window:,}"
+            ctx.check(f"{label}: the tool block {tools:,} stays inside its budget {tools_budget(window):,}",
+                      tools <= tools_budget(window))
+            if sent:
+                row = next((r for r in m["tools"] if r["name"] == "Builder"), {})
+                ctx.check(f"{label}: the Builder is sent, got {names}", "Builder" in names)
+                ctx.check(f"{label}: in its short words ({row.get('tokens')} tokens, the long ones are 1,024)",
+                          row.get("tokens") is not None and row["tokens"] < 1024)
+            else:
+                ctx.check(f"{label}: the Builder is not sent and the by-name line names it, got {m['left_out']}",
+                          "Builder" not in names and "Builder" in m["left_out"])
+
+
+@test
+def test_the_builder_ranks_last_of_the_builtins_before_pack_and_mcp_tools(ctx: Ctx):
+    """On a top session the Builder is ranked with the built-ins, as the last of them (before the tools of packs and MCP
+    servers, which rank by the task's words), so the room it needs is not taken first."""
+    from halo_harness.agent import prompt_diet as D
+    from halo_harness.agent.prompt_lean import _builtin_names
+    from halo_harness.tools.builder_tool import BuilderTool
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    mcp = {"name": "mcp__shop__orders", "description": "List orders.", "input_schema": {"type": "object", "properties": {}}}
+    defs = [mcp] + ToolRegistry(default_tools(platform="linux") + [BuilderTool()]).definitions()
+    saved = D.workflow_needed
+    try:
+        D.workflow_needed = lambda s: False
+        rank = D._bands(_session("ol:qwen3-coder:30b@lan", 49152), defs, "", None)
+    finally:
+        D.workflow_needed = saved
+    by = {t["name"]: rank[id(t)] for t in defs}
+    builtins = [by[n] for n in _builtin_names() if n in by and n != "Workflow"]  # Workflow unneeded ranks last of all
+    ctx.check(f"every built-in < the Builder < an MCP tool, got {by['Builder']} {by[mcp['name']]}",
+              all(r < by["Builder"] for r in builtins) and by["Builder"] < by[mcp["name"]])
 
 
 def _cloud_and_lean(session_ref: str, window: int):

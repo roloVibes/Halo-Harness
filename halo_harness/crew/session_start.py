@@ -7,6 +7,7 @@ the measure (`agent/prompt_measure.first_turn`) and a real session (`agent/loop.
     tool_state(session, control)                                    the Agent, Task and Workflow tools' `lineup` and
                                                                     `map_control`; the runtime's `team_control`;
                                                                     on Auto the Agent and Task tools' `kinds_tail` (M8)
+                                                                    and the Builder's `on_auto` (MW batch 4)
     start_agents(cwd, compiled, *, settings=None)                   the agents a new session gets (Studio's hand_to too)
     new_session_state(session, *, cwd, control=None)                a NEW top session's state on a stub: its control,
                                                                     its agents (as headless.build_session finds them),
@@ -42,12 +43,15 @@ def tool_state(session, control) -> None:
     runtime = getattr(session, "agent_runtime", None)
     if control is not None and runtime is not None:
         runtime.team_control = control
-    from halo_harness.agent.helpers_words import kinds_tail  # 3.6.0.10 M8: on Auto, the kinds end the Agent/Task words
+    from halo_harness.agent.helpers_words import kinds_tail, on_auto  # 3.6.0.10 M8: on Auto, the kinds end the Agent/Task words
     said = kinds_tail(session)
     for name in ("Agent", "Task"):
         tool = registry.get(name) if registry is not None else None
         if tool is not None:
             tool.kinds_tail = said
+    builder = registry.get("Builder") if registry is not None else None
+    if builder is not None:  # 3.6.0.10 MW batch 4: its "when" sentence, chosen once: on Auto main may also propose
+        builder.on_auto = on_auto(session)
 
 
 def start_agents(cwd, compiled, *, settings=None) -> dict:

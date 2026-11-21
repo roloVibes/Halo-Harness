@@ -1384,6 +1384,9 @@ class Session:
         # on 3.5; roles off ("One model for everything") holds none. Delegation caps ride the existing depth /
         # in-flight knobs. A child Session never builds its own (the control travels down through
         # `_build_child_session`).
+        # 3.6.0.10 MW batch 4: known before the tools' state below (helpers_words.on_auto reads it: a restricted session
+        # keeps the Builder's and the Agent tool's words of today)
+        self.agent_type_restriction = agent_type_restriction
         if agent_depth == 0 and not getattr(session_context, "bare", False):
             # 3.6.0.10 M1a: the control and the tools' state come from ONE place the measure uses too
             from halo_harness.crew import session_start as _start
@@ -1430,7 +1433,6 @@ class Session:
                     pass
                 if self.hook_runner is not None:
                     self._merge_main_member_hooks()
-        self.agent_type_restriction = agent_type_restriction
         # H6 scope F: background sub-agent completions wait here (a plain
         # list under a lock, exactly like the steering queue) until the
         # NEXT turn() call applies them as a user-role notice (dsh: "report

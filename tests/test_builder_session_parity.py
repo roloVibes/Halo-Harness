@@ -200,6 +200,81 @@ def test_print_mode_previews_and_writes_nothing(ctx: Ctx):
         ctx.check(f"previewed, not applied, said so, got {got.content[-160:]!r}", "Not applied" in got.content and _crew(home.state) == {})
 
 
+def _listed(short: str) -> dict:
+    """{tool: [argument names, `?` kept]} as the Builder's short words list them ("\\n  name {a, b?}")."""
+    out = {}
+    for line in short.split("\n  ")[1:]:
+        name, _sp, rest = line.partition(" ")
+        out[name] = [a.strip() for a in rest.strip().strip("{}").split(",") if a.strip()]
+    return out
+
+
+@test
+def test_a_call_from_the_short_words_gives_the_card(ctx: Ctx):
+    """3.6.0.10 MW batch 4: a lean main reads the Builder's short words (tools/lean_descriptions.py): its tools by name
+    with their argument names only, made from crew/tools.py TOOLS itself. A call written only from them is taken by the
+    tool's real code and gives the card; what the short words leave out (a step's shape, the fields) is told by the
+    tool's own error, which names what was missing or wrong."""
+    import json
+    from halo_harness.crew.tools import TOOLS
+    from halo_harness.crew.session_tool import preview
+    from halo_harness.tools.builder_tool import BuilderTool
+    from halo_harness.tools.lean_descriptions import has_lean, lean_definition
+    from tests.helpers.config_seed import ConfigHome
+    ctx.check("the Builder has short words", has_lean("Builder"))
+    full = BuilderTool().definition()
+    short = lean_definition(full)["description"]
+    listed = _listed(short)
+    ctx.check(f"every tool main is offered, in TOOLS' order, got {list(listed)}",
+              list(listed) == [n for n in TOOLS if not n.startswith("try_")])
+    want = {"agent_make": ["name", "does", "instructions?", "model?", "needs?", "uses?", "careful?", "more?"],
+            "workflow_make": ["name", "for", "steps", "own_copy?", "max_usd?"],
+            "step_add": ["workflow", "step", "index?"], "workflow_change": ["name", "fields"],
+            "studio_show": ["what", "name?"], "map_line_add": ["map?", "from", "to", "when?"]}
+    ctx.check(f"argument names only, from TOOLS, got {({n: listed.get(n) for n in want})}",
+              all(listed.get(n) == a for n, a in want.items()))
+    ctx.check("shorter than the long words, the same schema's names",
+              len(json.dumps(lean_definition(full))) < len(json.dumps(full)) // 2
+              and set(lean_definition(full)["input_schema"]["properties"]) == set(full["input_schema"]["properties"]))
+
+    class _S:
+        cwd = None
+    with ConfigHome() as home:
+        _S.cwd = home.home
+        d = home.state / "crew" / "workflows"
+        d.mkdir(parents=True)
+        (d / "ship.yaml").write_text("format: workflow/1\nname: ship\nfor: Ship a change.\nsteps:\n  - {name: do, agents: "
+                                     "[coder], gets: the task, hands: the change}\n", encoding="utf-8")
+        good = [("agent_make", {"name": "my-sorter", "does": "Sorts the inbox"}, "the new agent my-sorter"),
+                ("workflow_make", {"name": "triage", "for": "Triage a bug", "steps": [{"name": "look", "agents": ["coder"]}]},
+                 "the workflow triage with 1 step"),
+                ("step_add", {"workflow": "ship", "step": {"name": "check", "agents": ["reviewer"]}}, "a new step in ship"),
+                ("workflow_change", {"name": "ship", "fields": {"for": "Ship a change, tested."}}, "1 change(s) to ship")]
+        for tool, args, said in good:
+            ctx.check(f"{tool}: only names the short words list", set(args) <= {a.rstrip("?") for a in listed[tool]})
+            pv = preview(_S(), {"tool": tool, "args": args})
+            ctx.check(f"{tool}: taken by the real code, a card, got {pv['text'][:120]!r}",
+                      said in pv["text"] and pv.get("card") and pv["card"] == preview(_S(), {"tool": tool, "args": args})["card"])
+        wrong = [("agent_make", {"name": "my-sorter"}, "does: "), ("agent_make", {"name": "x", "does": "d", "careful": "maybe"},
+                  "careful: one of ask-changes, ask-commands, own"),
+                 ("workflow_make", {"name": "triage", "for": "Triage", "steps": ["look", "fix"]}, 'steps: a list of steps, each {"name", "agents"'),
+                 ("workflow_make", {"name": "triage", "for": "Triage", "steps": "look then fix"}, 'steps: a list of steps, each {"name", "agents"'),
+                 ("workflow_make", {"name": "triage", "steps": [{"name": "look", "agents": ["coder"]}]}, "for: "),
+                 ("step_add", {"workflow": "ship"}, 'step: {"name", "agents"'),
+                 ("step_add", {"workflow": "ship", "step": "check it"}, 'step: {"name", "agents"'),
+                 ("step_add", {"workflow": "ship", "step": {"name": "check", "agents": ["reviewer"]}, "index": "two"},
+                  "index: a step number (1-based)"),
+                 ("workflow_change", {"name": "ship", "for": "Ship it."}, "fields: {any of for, own_copy, max_usd}"),
+                 ("workflow_change", {"name": "ship", "fields": "for: Ship it."}, "fields: {any of for, own_copy, max_usd}"),
+                 ("workflow_change", {"name": "ship", "fields": {"colour": "red"}}, "colour: not a field of a workflow")]
+        for tool, args, says in wrong:
+            pv = preview(_S(), {"tool": tool, "args": args})
+            ctx.check(f"{tool} {args}: no card, the error names what is needed ({says!r}), got {pv['text'][:160]!r}",
+                      not pv.get("rows") and says in pv["text"])
+        ctx.check("nothing was written", sorted(p.name for p in d.iterdir()) == ["ship.yaml"]
+                  and not (home.state / "crew" / "agents").exists())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

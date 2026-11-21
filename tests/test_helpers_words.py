@@ -6,10 +6,10 @@ kinds THIS session can start, his own first), made at the first shaping and kept
 main's model changes (A1). On his map, with roles off, in an `--agent` session, restricted, as a sub-agent, or for a
 model that takes no tools, today's line stays letter for letter.
 M6: per request, after the tools are capped (agent/prompt_wire.py), a short TAIL names the Workflow tool (when that
-request sends it and it lists his workflows), and nothing else; the frozen part never changes with it. Below 65,536
-the Builder is not sent, so main reads no word of it but its name among the tools left out; at 65,536 it is sent and
-main reads only its own words: no tail line tells main to propose unasked (M4 below is the words that must not be sent:
-the decisions' section 3).
+request sends it and it lists his workflows), and nothing else; the frozen part never changes with it. At 16,384 the
+Builder is not sent, so main reads no word of it but its name among the tools left out; from 32,768 (MW batch 4) it is
+sent and main reads only its own words: no tail line tells main to propose unasked (M4 below is the words that must not
+be sent: the decisions' section 3). MW batch 4: the propose words live in the Builder's own words, on Auto only.
 A scratch home of its own per test (ConfigHome restores every variable); never a model, a server or the network.
 Run: python -m tests.test_helpers_words
 """
@@ -195,15 +195,129 @@ def _frozen_part(text: str) -> str:
 
 
 @test
-def test_below_65536_main_reads_no_word_of_the_builder(ctx: Ctx):
+def test_the_builder_is_sent_from_32768_and_the_system_text_says_nothing_of_it(ctx: Ctx):
+    """3.6.0.10 MW batch 4 (the owner: a local main may be sent the Builder): at 16,384 it is not sent and "Builder" is
+    only among the tools left out; at 32,768 and 49,152 it is sent (its short words) and main's system text holds no word
+    of it and no M4. (On the base it was sent at 65,536 and up only.)"""
     with _Home() as h:
         for platform in ("win32", "linux"):
             for window in (16384, 32768, 49152):
                 s = _session(h, window=window, platform=platform, builder=True)
                 text, sent = _shaped(s)
-                ctx.check(f"{platform} {window:,}: the Builder is not sent", "Builder" not in sent)
-                ctx.check(f"{platform} {window:,}: no M4, and \"Builder\" only among the tools left out",
-                          M4 not in text and "Builder" not in _frozen_part(text) and M2_HEAD in text)
+                if window == 16384:
+                    ctx.check(f"{platform} {window:,}: the Builder is not sent", "Builder" not in sent)
+                    ctx.check(f"{platform} {window:,}: no M4, and \"Builder\" only among the tools left out",
+                              M4 not in text and "Builder" not in _frozen_part(text) and BY_NAME in text)
+                else:
+                    ctx.check(f"{platform} {window:,}: the Builder is sent, got {sent}", "Builder" in sent)
+                    ctx.check(f"{platform} {window:,}: no M4 and no word of the Builder in the system text",
+                              M4 not in text and "Builder" not in text)
+                ctx.check(f"{platform} {window:,}: the frozen block", M2_HEAD in text)
+
+
+# The Builder's "when" sentence (tools/builder_tool.py): today's, and the Auto form (the decisions' section 3; the
+# owner, 2026-11-21: "2 - yes"); today's whole description, byte for byte, by its sha256 on the base 8bf5c9c1
+WHEN_TODAY = "Use it when the person asks for an agent, a workflow or a map change, never on your own."
+WHEN_AUTO = ("Use it when the person asks for an agent, a workflow or a map change, or by yourself to propose an agent "
+             "or a workflow for work that will come back.")
+BUILDER_SHA = "9832d47c7a28792242d47e8b92c6b895d2584bb200099f121d908dc5a1b2f466"
+
+
+def _proposes(text: str) -> bool:
+    """Main's system text tells it to propose a helper, an agent or a workflow (today's plan-mode line "propose a plan"
+    is not that, and stays)."""
+    import re
+    rest = text.replace("investigate and propose a plan", "")
+    return "Unasked" in rest or "Builder" in rest or re.search(r"propos", rest, re.I) is not None
+
+
+def _builder_words(s) -> "tuple[str, str]":
+    """(the long words, the short words) of the session's Builder."""
+    from halo_harness.tools.lean_descriptions import lean_definition
+    d = s.tool_registry.get("Builder").definition()
+    return d["description"], lean_definition(d)["description"]
+
+
+def _request(s, text: str = "hi") -> "tuple[str, dict]":
+    from halo_harness.agent.prompt_wire import shape
+    msgs = [{"role": "user", "content": [{"type": "text", "text": text}]}]
+    out, _m, sent = shape(s, s.session_context.system_prompt, msgs, s.tool_registry.definitions(), purpose="measure")
+    return out, {t.get("name"): t for t in sent or []}
+
+
+def _real(h, *, crew_map, restriction=None, ref="ol:room-model"):
+    """A real agent.loop.Session with the Builder, as headless.build_session builds one for a session someone answers."""
+    from halo_harness.agent.assemble import SessionContext
+    from halo_harness.agent.loop import Session
+    from halo_harness.config.agents_md import discover_agents
+    from halo_harness.crew import map_session
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from halo_harness.providers.stream import ProviderCreds
+    from halo_harness.tools.builder_tool import BuilderTool
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    agents = map_session.agents(discover_agents(h.repo, settings=None), crew_map)[0] if crew_map is not None else None
+    reg = ToolRegistry(default_tools() + [BuilderTool()])
+    sc = SessionContext(cwd=h.repo, model_label=ref, tool_registry=reg)
+    return Session(cwd=h.repo, model_ref=parse_model_ref(ref), model_profile=ModelProfile(context_tokens=32768),
+                   creds=ProviderCreds(base_url="http://127.0.0.1:9", api_key="k"), state_dir=h.state, model_label=ref,
+                   session_context=sc, max_turns=5, agents=agents, crew_map=crew_map, agent_type_restriction=restriction)
+
+
+@test
+def test_on_auto_the_builder_may_propose_and_everywhere_else_its_words_are_todays(ctx: Ctx):
+    """The decisions' section 3: the propose words live in ONE place, the Builder's own words, chosen ONCE per session at
+    its start (crew/session_start.tool_state, by `on_auto`). On Auto (a local main's short words and a cloud main's long
+    ones) its sentence is the Auto form and not "never on your own"; on his map, with roles off, in an `--agent` session,
+    restricted: today's description byte for byte. Ten requests with an agent saved between: byte-equal Builder words;
+    the system text never says "Unasked" or "propose"."""
+    import hashlib
+    import json
+    from halo_harness.crew import map_session
+    from halo_harness.crew.session_start import start_control, tool_state
+    from halo_harness.theme import set_config_value
+    with _Home() as h:
+        for ref, window in (("ol:room-model", 32768), ("ant:claude-opus-5-5", 200000)):
+            long, short = _builder_words(_session(h, window=window, builder=True, ref=ref))
+            ctx.check(f"Auto, {ref}: the Auto sentence in the long and the short words, never \"never on your own\"",
+                      WHEN_AUTO in long and WHEN_AUTO in short and "never on your own" not in long + short)
+        ctx.check("a real Session on Auto: the Auto sentence",
+                  WHEN_AUTO in _builder_words(_real(h, crew_map=map_session.prepare(None, h.repo)[0]))[0])
+        s = _session(h, window=32768, builder=True, ref="ol:room-model")
+        first, sent = _request(s)
+        ctx.check("the request sends the Builder in its short Auto words",
+                  "Builder" in sent and WHEN_AUTO in sent["Builder"]["description"])
+        seen = []
+        for i in range(10):
+            if i == 5:
+                _his(h, "sorter", "Sorts the inbox by sender and date.")
+            text, sent = _request(s, f"request {i}")
+            seen.append((json.dumps(sent.get("Builder"), sort_keys=True), _proposes(text)))
+        ctx.check("ten requests, an agent saved between: the Builder's words byte-equal, no proposing in the system text",
+                  len({w for w, _p in seen}) == 1 and not any(p for _w, p in seen) and not _proposes(first))
+
+        def todays(label, sess):
+            long, short = _builder_words(sess)
+            ctx.check(f"{label}: today's description, byte for byte, and today's sentence in the short words",
+                      hashlib.sha256(long.encode()).hexdigest() == BUILDER_SHA and WHEN_TODAY in short
+                      and WHEN_AUTO not in short)
+        maps = h.state / "crew" / "maps"
+        maps.mkdir(parents=True)
+        (maps / "mine.yaml").write_text("format: map/1\nname: mine\nboxes:\n- {id: coder, agent: coder}\nlines:\n"
+                                        "- {from: main, to: coder}\n", encoding="utf-8")
+        todays("his map", _session(h, control="mine", builder=True))
+        s = _session(h, builder=True)
+        s.team_control = start_control(None, cwd=h.repo)  # an `--agent` session: a plain session's answers, no map
+        tool_state(s, s.team_control)
+        todays("an --agent session", s)
+        s = _session(h, builder=True)
+        s.agent_type_restriction = {"planner"}  # known at the start, as a real Session has it
+        tool_state(s, s.team_control)
+        todays("a restricted session", s)
+        todays("a real restricted Session",
+               _real(h, crew_map=map_session.prepare(None, h.repo)[0], restriction={"planner"}))
+        todays("a real --agent Session", _real(h, crew_map=None))
+        set_config_value("roles.enabled", False)
+        todays("roles off", _session(h, control=None, builder=True))
 
 
 @test

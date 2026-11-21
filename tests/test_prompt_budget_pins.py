@@ -38,17 +38,25 @@ CASES = (("an unknown remote model", "ol:room-model", 32768, 9000, 4500, 32768),
          ("a 49,152 window", "ol:qwen3-coder:30b@lan", 49152, 9000, 4500, 49152),
          ("a 65,536 window (lean)", "ol:qwen3-coder:30b@lan", 65536, 9000, None, 65536),
          ("a 200k cloud model", "ant:claude-opus-5-5", 200000, 18000, None, 200000))
-# A real new Auto session someone answers also carries the Builder (headless.py adds it); a request SENDS it only at
-# 65,536 and up. Its wire size on the base 9624c426: 1,024 tokens (2026-11-21). These cases pin that session: the
+# A real new Auto session someone answers also carries the Builder (headless.py adds it); on the base a request sent it
+# only at 65,536 and up. Its wire size on the base 9624c426: 1,024 tokens (2026-11-21). These cases pin that session: the
 # window's bound above plus the Builder's size, so the Builder cannot grow unseen either:
 #   65,536: 9,000 + 1,024 = 10,024 (measured 9,036 / 8,997); 200k cloud: 18,000 + 1,024 = 19,024 (18,593 / 18,244).
+# MW batch 4 (2026-11-21), the bounds unchanged: a lean main reads the Builder's short words (386 tokens; 403 with the
+# Auto sentence), sent from 32,768: 32,768 8,581 / 8,542 (tool block 4,383 of 4,500); 49,152 8,579 / 8,540 (4,383);
+# 65,536 8,579 / 8,540 (was 9,200 / 9,161); 200k cloud on Auto, the long words with the Auto sentence (1,041):
+# 18,858 / 18,509 (was 18,841 / 18,492). Today's long words (not Auto) stay 1,024.
 BUILDER_WIRE = 1024
 # (label, model ref, window, prompt bound, sent window)
 REAL_CASES = (("a new Auto session at 65,536", "ol:qwen3-coder:30b@lan", 65536, 9000 + BUILDER_WIRE, 65536),
               ("a new Auto session on a 200k cloud model", "ant:claude-opus-5-5", 200000, 18000 + BUILDER_WIRE, 200000))
-# Below 65,536 the Builder is not sent: the tools are the same; the system text only names it among the tools left out
-NO_BUILDER = (("an unknown remote model", "ol:room-model", 32768), ("a 16,384 window", "ol:tiny:3b@lan", 16384),
-              ("a 49,152 window", "ol:qwen3-coder:30b@lan", 49152))
+# At 16,384 the Builder is not sent: the tools are the same; the system text only names it among the tools left out
+NO_BUILDER = (("a 16,384 window", "ol:tiny:3b@lan", 16384),)
+# 3.6.0.10 MW batch 4 (the owner, 2026-11-21: a local main may be sent the Builder): at 32,768 and 49,152 it is sent in
+# its short words (tools/lean_descriptions.py) inside the same tool block bound (4,500) and prompt bound (9,000); the
+# other tools sent are the same. (label, model ref, window, prompt bound, tool block bound): the CASES' own bounds.
+LEAN_BUILDER = tuple((label, ref, window, prompt_max, tools_max) for label, ref, window, prompt_max, tools_max, _s in CASES
+                     if window in (32768, 49152))
 BY_NAME_MAX = 40  # "Other tools you can call by name (...): Builder." where no such line was (linux), else ", Builder"
 AUTO_SEVEN = ("planner", "researcher", "coder", "reviewer", "writer", "media-reader", "ops")
 UNKNOWN_TOTAL = 26000
@@ -167,9 +175,25 @@ def test_a_real_new_auto_session_with_the_builder(ctx: Ctx):
 
 
 @test
-def test_below_65536_the_real_session_sends_no_builder(ctx: Ctx):
-    """3.6.0.10 M1b: at 16,384, 32,768 and 49,152 a real new Auto session sends the same tools as the pins measure;
-    the only difference is the Builder's name among the tools left out (the by-name line)."""
+def test_at_16384_the_real_session_sends_no_builder_and_at_32768_and_49152_its_short_words(ctx: Ctx):
+    """3.6.0.10 M1b: at 16,384 a real new Auto session sends the same tools as the pins measure; the only difference is
+    the Builder's name among the tools left out (the by-name line). MW batch 4: at 32,768 and 49,152 it sends the same
+    tools plus the Builder in its short words, inside the same bounds (on the base it sent no Builder there)."""
+    for platform in ("win32", "linux"):
+        for label, ref, window, prompt_max, tools_max in LEAN_BUILDER:
+            old = _measure(ref, window, platform)
+            new = _measure(ref, window, platform, control="auto", builder=True)
+            sent_old = [(r["name"], r["tokens"]) for r in old["tools"] if r["offered"]]
+            sent_new = [(r["name"], r["tokens"]) for r in new["tools"] if r["offered"]]
+            tools = sum(t for _n, t in sent_new)
+            ctx.check(f"{platform}, {label}: the same tools and the Builder, got {[n for n, _t in sent_new]}",
+                      [x for x in sent_new if x[0] != "Builder"] == sent_old and "Builder" in [n for n, _t in sent_new])
+            ctx.check(f"{platform}, {label}: the tool block is {tools:,} -- " + why("the lean tool block", tools_max),
+                      tools <= tools_max)
+            ctx.check(f"{platform}, {label}: the first turn is {new['prompt']:,} -- " + why("the first turn", prompt_max),
+                      new["prompt"] <= prompt_max and new["sent_window"] == old["sent_window"])
+            ctx.check(f"{platform}, {label}: the system message is {new['system_message']:,} -- "
+                      + why("the lean system message", SYSTEM_LEAN), new["system_message"] <= SYSTEM_LEAN)
     for platform in ("win32", "linux"):
         for label, ref, window in NO_BUILDER:
             old = _measure(ref, window, platform)

@@ -10,9 +10,9 @@
     told(session) -> dict | None    M9: `kinds_told`, `kinds_more` for the status row (what main read)
 
 The lean system text (agent/prompt_lean_system.py) writes `frozen` in place of today's delegate line. The frozen part
-names no tool but Agent, which every request that sends a tool sends. No tool's own words change here (A3), and
-nothing here changes which tools go out (A2). The tail never tells main to propose a helper or a workflow unasked:
-the Builder tool's own words say "never on your own", and two sentences that pull against each other are not sent.
+names no tool but Agent, which every request that sends a tool sends. The tail never tells main to propose a helper or a
+workflow: those words live in ONE place, the Builder tool's own (tools/builder_tool.py), whose Auto form `on_auto` picks
+once at the session's start (crew/session_start.tool_state; MW batch 4, the owner's answer of 2026-11-21).
 """
 
 from __future__ import annotations

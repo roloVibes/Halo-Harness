@@ -185,8 +185,10 @@ def tools_cap(session, window: Optional[int]) -> Optional[int]:
     if window < 16384:
         return len(CORE_TOOL_NAMES)
     if window <= 32768:  # 3.3.16.1: an alias (Task) is not a tool of its own
-        from halo_harness.agent.prompt_diet import ALIASES
-        return max(len(CORE_TOOL_NAMES), len([n for n in _builtin_names() if n not in ALIASES]))
+        from halo_harness.agent.prompt_diet import ALIASES, LAST_BUILTINS
+        get = getattr(getattr(session, "tool_registry", None), "get", None)  # 3.6.0.10 MW: the session's Builder counts
+        own = [n for n in LAST_BUILTINS if callable(get) and get(n) is not None]
+        return max(len(CORE_TOOL_NAMES), len([n for n in _builtin_names() if n not in ALIASES]) + len(own))
     return 64 if window < LEAN_WINDOW else None
 
 

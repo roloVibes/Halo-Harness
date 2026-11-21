@@ -91,7 +91,10 @@ def workflow_make(args: dict, ctx) -> dict:
         return {"text": name_problem(name), "rows": []}
     if _mine(name, ctx):
         return {"text": f"{name} is one of your workflows already: use step_add / step_change / workflow_change", "rows": []}
-    steps = [s for s in args.get("steps") or [] if isinstance(s, dict)]
+    raw = args.get("steps") or []
+    if not isinstance(raw, list) or not all(isinstance(s, dict) for s in raw):  # 3.6.0.10 MW: never dropped unsaid
+        return {"text": "steps: a list of steps, each " + _STEP, "rows": []}
+    steps = raw
     if not str(args.get("for") or "").strip():
         return {"text": "for: one line on what the workflow is for is needed", "rows": []}
     for s in steps:
@@ -118,9 +121,12 @@ def workflow_change(args: dict, ctx) -> dict:
         why = "ships with Halo: workflow_copy it first" if _any(name, ctx) else "no workflow of yours by that name"
         return {"text": f"{name}: {why}", "rows": []}
     rows = []
-    for k, v in (args.get("fields") or {}).items():
+    if not isinstance(args.get("fields"), dict):  # 3.6.0.10 MW: say what is needed (a string crashed, a top-level for was lost)
+        return {"text": "fields: {any of for, own_copy, max_usd}", "rows": []}
+    for k, v in args["fields"].items():
         if k not in ("for", "own_copy", "max_usd"):
-            return {"text": f"{k}: change steps with step_add / step_change / step_move / step_remove", "rows": []}
+            return {"text": f"{k}: not a field of a workflow (any of for, own_copy, max_usd); change steps with step_add / "
+                            "step_change / step_move / step_remove", "rows": []}
         if v != now.get(k):
             rows.append(row("change", _t(name), f"{name}, {k}: {v}", {"op": "step_wf", "field": k, "value": v}))
     return {"text": f"preview: {len(rows)} change(s) to {name}" if rows else f"{name}: nothing would change", "rows": rows}
@@ -161,11 +167,15 @@ def step_add(args: dict, ctx) -> dict:
     name, now, err = _target(args, ctx)
     if err:
         return {"text": err, "rows": []}
-    s = args.get("step") if isinstance(args.get("step"), dict) else {}
+    if not isinstance(args.get("step"), dict):  # 3.6.0.10 MW: name what is needed, not a missing step's name
+        return {"text": "step: " + _STEP, "rows": []}
+    s = args["step"]
     p = _step_problem(s)
     if p:
         return {"text": p, "rows": []}
-    at = args.get("index") if isinstance(args.get("index"), int) else None
+    at = args.get("index")
+    if at is not None and (not isinstance(at, int) or isinstance(at, bool)):  # was put at the end unsaid
+        return {"text": "index: a step number (1-based); leave it out for the end", "rows": []}
     where = f"as step {at}" if at else "at the end"
     r = row("change", _t(name), f"{name}, a new step {where}: {step_line(s)}", {"op": "step_add", "step": step_clean(s), "index": at})
     return {"text": _note_missing(f"preview: a new step in {name}", [s], ctx), "rows": [r]}
