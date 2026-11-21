@@ -189,11 +189,25 @@ def chrome_server_config(*, bypass_mode: bool = True):
                             args=["--claude-in-chrome-mcp"], env=env, scope="dynamic"), None
 
 
+#: 3.6.0.6 W: the ONE place the version `--playwright` runs is fixed: the one a reader ran for real (never `@latest`,
+#: which ran an alpha of Playwright two days old on 2026-11-20).
+PLAYWRIGHT_VERSION = "0.0.86"
+PLAYWRIGHT_NOTICE = (f"--playwright: starting Playwright's own server with npx (version {PLAYWRIGHT_VERSION}); the "
+                     f"first start downloads about 59 MB from the npm registry.")
+
+
+def playwright_output_dir() -> Path:
+    """Where the server writes its page files (its `--output-dir`): a folder of this halo process under Halo's home,
+    never the folder halo was started from."""
+    from halo_harness.config.paths import bridge_home
+    return bridge_home() / "playwright" / str(os.getpid())
+
+
 def playwright_server_config(*, cdp_endpoint: Optional[str] = None, headless: bool = False):
     """`(config_or_None, error_or_None)`. `{type: stdio, command: npx,
-    args: ["-y", "@playwright/mcp@latest", ...]}`, named `playwright`;
-    `--playwright-cdp <endpoint>` -> `--cdp-endpoint <endpoint>`,
-    `--playwright-headless` -> `--headless` passthrough to the server."""
+    args: ["-y", "@playwright/mcp@<PLAYWRIGHT_VERSION>", "--output-dir", <playwright_output_dir()>, ...]}`, named
+    `playwright`; `--playwright-cdp <endpoint>` -> `--cdp-endpoint <endpoint>`, `--playwright-headless` ->
+    `--headless` passthrough to the server."""
     from halo_harness.mcp.manager import McpServerConfig
     npx = shutil.which("npx") or shutil.which("npx.cmd")
     node = shutil.which("node") or shutil.which("node.exe")
@@ -207,7 +221,7 @@ def playwright_server_config(*, cdp_endpoint: Optional[str] = None, headless: bo
         missing = ", ".join(n for n, p in (("node", node), ("npx", npx)) if not p)
         return None, (f"--playwright: {missing} not found on PATH -- @playwright/mcp needs node/npx "
                        f"(see `doctor`).")
-    args = ["-y", "@playwright/mcp@latest"]
+    args = ["-y", f"@playwright/mcp@{PLAYWRIGHT_VERSION}", "--output-dir", str(playwright_output_dir())]
     if cdp_endpoint:
         args += ["--cdp-endpoint", cdp_endpoint]
     if headless:
@@ -253,6 +267,7 @@ def build_manager(
         cfg, err = playwright_server_config(cdp_endpoint=playwright_cdp, headless=playwright_headless)
         if cfg is not None:
             dynamic["playwright"] = cfg
+            notices.append(PLAYWRIGHT_NOTICE)  # said once, with this session's other notices, before it starts
         elif err:
             notices.append(err)
 

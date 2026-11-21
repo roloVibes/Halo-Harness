@@ -70,8 +70,10 @@ def test_a_node_half_that_cannot_run_fails_with_the_switch_and_skips_without(ctx
 @test
 def test_ci_runs_every_node_half_with_the_switch_and_realcheck_has_its_time(ctx: Ctx):
     """suites.yml: the studio-ui job, after `npm ci`, runs every module that imports tests/helpers/node_ts.py with
-    HALO_NODE_TS_REQUIRED=1 (its grep finds every such module on this tree); the realcheck STEP has 53 minutes and its
-    JOB 58 (3.6.0.5: room for the budgets of auto-groups and auto-ready-lines; 3.6.0.6 C: + copy-drag's 2 on Windows); the names of the jobs are as they were. docs/DEVELOPMENT.md names the switch. Red on fc214582."""
+    HALO_NODE_TS_REQUIRED=1 (its grep finds every such module on this tree); the realcheck STEP has 56 minutes and its
+    JOB 61 (3.6.0.5: room for the budgets of auto-groups and auto-ready-lines; 3.6.0.7: + copy-drag's 2 on Windows;
+    3.6.0.8: + the browser step's 180 s, 3 minutes more); the names of the jobs are as they were. docs/DEVELOPMENT.md
+    names the switch. Red on fc214582."""
     yml = (REPO / ".github" / "workflows" / "suites.yml").read_text(encoding="utf-8")
     jobs = re.split(r"\n(?=  [a-z][a-z0-9-]*:\n)", yml)
     ui = next((j for j in jobs if j.startswith("  studio-ui:")), "")
@@ -93,10 +95,10 @@ def test_ci_runs_every_node_half_with_the_switch_and_realcheck_has_its_time(ctx:
                    "test_agents_door", "test_studio_door_kept", "test_api_limit", "test_studio_prompt_words"} <= found)
     step_rc = re.search(r"- name: realcheck\n\s+timeout-minutes: (\d+)", rc)
     job_rc = re.search(r"\n    timeout-minutes: (\d+)", rc)
-    ctx.check(f"the realcheck step has 53 minutes, got {step_rc and step_rc.group(1)}",
-              step_rc is not None and step_rc.group(1) == "53")
-    ctx.check(f"the realcheck job has 58 minutes, got {job_rc and job_rc.group(1)}",
-              job_rc is not None and job_rc.group(1) == "58")
+    ctx.check(f"the realcheck step has 56 minutes, got {step_rc and step_rc.group(1)}",
+              step_rc is not None and step_rc.group(1) == "56")
+    ctx.check(f"the realcheck job has 61 minutes, got {job_rc and job_rc.group(1)}",
+              job_rc is not None and job_rc.group(1) == "61")
     ctx.check("the job names are as they were",
               "name: studio-ui (build + drift gate)" in ui
               and "name: realcheck (${{ matrix.os }}${{ matrix.install == 'installed' && ', installed' || '' }})" in rc)

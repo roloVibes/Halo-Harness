@@ -84,7 +84,7 @@ def _check_python() -> str:
     version = f"{info.major}.{info.minor}.{info.micro}"
     if (info.major, info.minor) >= (3, 10):
         return f"{OK} Python {version}"
-    return _fix(f"{WARN} Python {version}", see="docs/harness/INSTALL.md (Prerequisites: Python 3.10+)")
+    return _fix(f"{WARN} Python {version}", see="docs/harness/INSTALL.md (Installing halo)")
 
 
 def _check_claude_layout() -> list:
@@ -163,7 +163,7 @@ def _check_state_dir_migration() -> Optional[str]:
         return None
     old_dir, new_dir = both
     return _fix(f"{WARN} state dir: both {old_dir} and {new_dir} exist",
-                see="docs/harness/INSTALL.md (Upgrading from rolo-claude 1.0.1)")
+                see="docs/harness/INSTALL.md (Upgrading from a pre-2.0 install (1.0.1))")
 
 
 def _check_openrouter() -> str:
@@ -288,7 +288,17 @@ def _check_chrome() -> str:
     if registered:
         return f"{OK} claude={claude_exe}; native host registered ({detail}){pipe}"
     return _fix(f"{WARN} claude={claude_exe}; Chrome extension native host NOT registered ({detail}) -- "
-                 f"install/enable Claude in Chrome first", see="README.md (Browser)")
+                 f"install/enable Claude in Chrome first", see="docs/COMMANDS-main-io.md (--chrome, --no-chrome)")
+
+
+def _check_browser() -> str:
+    """3.6.0.6 W: the browser the built-in Browser tool would start (browser_find.find_browser), or the one line that
+    says what to install. Starts nothing."""
+    from halo_harness.browser_find import find_browser, none_found
+    got = find_browser()
+    if got:
+        return f"{OK} Halo will use {got[0]} ({got[1]}) for the Browser tool"
+    return f"{WARN} {none_found()}"
 
 
 def _check_plugins() -> str:
@@ -1242,7 +1252,7 @@ def _check_permission_rules(cwd: Optional[Path] = None) -> Optional[str]:
         return None
     shown = "; ".join(f"{action} {raw!r}: {err}" for action, raw, err, _src in bad[:5])
     return _fix(f"{WARN} Permission rules: {len(bad)} deny/ask rule(s) could not be parsed and do not apply "
-                f"({shown})", see="docs/CONFIG.md (permissions)")
+                f"({shown})", see="docs/CONFIG.md (Permissions and hooks)")
 
 
 def _check_state_modes() -> Optional[str]:
@@ -1781,6 +1791,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("openrouter", _row("openrouter", _check_openrouter)))
     entries.append(("databricks", _row("databricks", _check_databricks)))
     entries.append(("experiential", _row("experiential", _check_experiential)))
+    entries.append(("browser", _row("browser", _check_browser)))
     entries.append(("chrome", _row("chrome", _check_chrome)))
     entries.append(("playwright", _row("playwright", _check_playwright)))
     entries.append(("ripgrep", _row("ripgrep", _check_ripgrep)))

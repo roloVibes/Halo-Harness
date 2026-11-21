@@ -22,6 +22,7 @@ The multi-agent, multi-workflow harness you can watch: every model's thinking, h
 See, shape and steer multi-model agent work, on any model, including your own. Halo runs the agent loop (a prompt,
 tool calls, permission rules, hooks, MCP servers, skills, sub-agents, sessions) on the models you choose, and Halo
 Studio, a page in your browser, is where you watch it and change it.
+Opens and drives a browser by itself (Chrome, Chromium, Edge or Brave already on the machine).
 
 <p align="center">
   <a href="#see">See</a> ·

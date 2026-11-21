@@ -32,13 +32,16 @@ class FakeBrowser:
     """browser_cdp.Browser's methods, on a two-page site in memory."""
     made: list = []
 
-    def __init__(self, profile=None, **kw):
+    def __init__(self, profile=None, show=None, **kw):
         self.notes, self.name, self.started, self.closed = [], "Google Chrome", 0, False
         self.url, self.state, self.typed = "about:blank", "before", ""
+        self.want_show = bool(show)
         FakeBrowser.made.append(self)
 
     def start(self):
         self.started += 1
+        if self.want_show and self.started == 1:
+            self.notes.insert(0, "A browser window is open on your desktop.")
         return self
 
     def open(self, url, wait_s=15):
@@ -131,9 +134,16 @@ def test_each_action_answers_the_page_and_a_change_ends_with_its_picture(ctx: Ct
         r = tool.run({"action": "click", "target": "Sign in"}, c)
         ctx.check(f"a miss is a plain sentence, got {_text(r)!r}",
                   r.is_error and _text(r) == "No control matches 'Sign in'. Call read to see the list.")
+        # batch 2 (rewritten to the truth: `show` was "not built yet" in batch 1): show restarts the session's
+        # headless browser as a window, keeping no state; the answer begins with the window's line, then the load's
         out = _text(tool.run({"action": "open", "url": "https://example.com/slow", "show": True}, c))
-        ctx.check(f"show is accepted and ignored with one line; a slow load is said, got {out[:240]!r}",
-                  T.SHOW_LATER in out and "still loading after 15 s" in out)
+        ctx.check(f"show: a window, said first; a slow load is said next, got {out[:240]!r}",
+                  out.splitlines()[:2] == ["A browser window is open on your desktop.",
+                                           "The page was still loading after 15 s; this is what it shows so far."])
+        ctx.check("the headless one was ended and a shown one started",
+                  FakeBrowser.made[0].closed and FakeBrowser.made[-1].want_show and len(FakeBrowser.made) == 2)
+        tool.run({"action": "open", "url": "https://example.com/c", "show": True}, c)
+        ctx.check("a shown one is kept for the next show", len(FakeBrowser.made) == 2)
         shot = tool.run({"action": "screenshot"}, c)
         body = _text(shot)
         ctx.check(f"screenshot: a model that cannot see gets the path and the note, got {body[:200]!r}",
@@ -143,7 +153,7 @@ def test_each_action_answers_the_page_and_a_change_ends_with_its_picture(ctx: Ct
         seen = tool.run({"action": "screenshot"}, c2)
         ctx.check("a model that sees gets the image block", isinstance(seen.content, list)
                   and seen.content[1]["type"] == "image" and seen.content[0]["text"].startswith("Screenshot saved at"))
-        b = FakeBrowser.made[0]
+        b = FakeBrowser.made[1]
         r = tool.run({"action": "close"}, c)
         ctx.check(f"close ends it now and says so, got {_text(r)!r}", _text(r) == T.CLOSED and b.closed)
         T.close_for(c2.session_dir.name)
@@ -160,6 +170,70 @@ def test_pictures_keep_the_newest_twenty(ctx: Ctx):
     from halo_harness.tools.screenshot import images_folder
     names = sorted(int(p.stem.split("-")[1]) for p in images_folder(c.session_dir.name).glob("page-*.png"))
     ctx.check(f"the newest 20 kept, got {names}", names == list(range(4, 24)))
+
+
+@test
+def test_a_browser_steps_words_come_from_one_place_for_the_card_and_live(ctx: Ctx):
+    """W batch 2 entry 2: a Browser call's row reads, by action, the words below, in the terminal's tool card
+    (Tool.summary) and in Studio's Live rows (agent_transcript.tool_label); the typed text is not in them."""
+    from halo_harness.agent.agent_transcript import tool_label
+    from halo_harness.tools import browser as T
+    tool = T.BrowserTool()
+    for inp, want in (({"action": "open", "url": "https://example.com/a"}, "Browser open https://example.com/a"),
+                      ({"action": "read"}, "Browser read"),
+                      ({"action": "click", "target": "Press me"}, "Browser click Press me"),
+                      ({"action": "type", "target": "2", "text": "my secret words"}, "Browser type into 2"),
+                      ({"action": "screenshot"}, "Browser screenshot"),
+                      ({"action": "close"}, "Browser close")):
+        ctx.check(f"the card: {want!r}, got {tool.summary(inp)!r}", tool.summary(inp) == want)
+        ctx.check(f"Live: 'Browser: ' + the same words, got {tool_label('Browser', inp)!r}",
+                  tool_label("Browser", inp) == "Browser: " + want[len("Browser "):])
+    ctx.check("the typed text is in neither", "secret" not in tool.summary({"action": "type", "target": "2",
+                                                                           "text": "my secret words"}))
+
+
+@test
+def test_a_window_on_request_or_by_the_setting_and_none_where_there_is_no_display(ctx: Ctx):
+    """W batch 2 entry 2: `show` (or `browser.window` = shown) starts the browser WITHOUT the headless switch and the
+    first answer says a window is open; with no display it says so and runs headless. No window is opened here."""
+    from halo_harness import browser_cdp as B
+    with mock.patch("halo_harness.theme.get_config_value", lambda k, default=None: default):
+        ctx.check("unset: hidden", B.window_setting() == "hidden" and B.Browser("clean").want_show is False)
+    with mock.patch("halo_harness.theme.get_config_value",
+                    lambda k, default=None: "shown" if k == "browser.window" else default):
+        ctx.check("the setting shown: every browser wants a window", B.Browser("clean").want_show is True)
+    for display, head, want in ((True, False, B.WINDOW_OPEN), (False, True, B.NO_DISPLAY)):
+        b = B.Browser("clean", show=True, exe="/opt/chrome")
+        b.profile, b.notes = "/h/browser/clean-1", []
+        with mock.patch.object(B, "has_display", lambda: display):
+            b._pick_window()
+        argv = b.argv()
+        ctx.check(f"display {display}: headless {head}, got {argv}", ("--headless=new" in argv) is head)
+        ctx.check(f"display {display}: the first line {want!r}, got {b.notes}", b.notes == [want])
+    ctx.check("a headless one by default", "--headless=new" in B.Browser("clean", show=False, exe="/x").argv())
+    ctx.check("the two lines word for word",
+              B.WINDOW_OPEN == "A browser window is open on your desktop."
+              and B.NO_DISPLAY == "No display here: the browser runs without a window.")
+
+
+@test
+def test_what_real_pages_do_is_said_first_word_for_word(ctx: Ctx):
+    """W batch 2 entry 1: the lines an answer begins with (a page's box, a new tab, a load that did not end, a
+    download), word for word, and the order they come in."""
+    from halo_harness import browser_cdp as B
+    from halo_harness.tools import browser as T
+    ctx.check("a box", B.box_line("Are you\n sure?") == "The page showed a box: 'Are you sure?' (accepted).")
+    ctx.check("a new tab", B.NEW_TAB == "A new tab opened; now on it.")
+    ctx.check("a load", B.STILL_LOADING == "The page was still loading after 15 s; this is what it shows so far.")
+    ctx.check("a download", B.downloaded_line("/a/report.pdf", 2048) == "Downloaded: /a/report.pdf (2 KiB).")
+    ctx.check("limits: 15 s a load, 5 s a control", B.LOAD_WAIT_S == 15.0 and B.CONTROL_WAIT_S == 5.0)
+    fb = FakeBrowser()
+    fb.notes = [B.box_line("hi"), B.NEW_TAB]
+    out = T.page_answer(fb, _ctx("sess-first"), loaded=False).splitlines()
+    ctx.check(f"in the order they happened, then the load, then the page, got {out[:4]}",
+              out[:4] == ["The page showed a box: 'hi' (accepted).", B.NEW_TAB, B.STILL_LOADING, "Title: Test page"])
+    props = T.BrowserTool().input_schema["properties"]
+    ctx.check("nothing new offered to a model", sorted(props) == ["action", "enter", "show", "target", "text", "url"])
 
 
 @test

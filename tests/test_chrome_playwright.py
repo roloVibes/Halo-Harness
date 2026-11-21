@@ -173,7 +173,14 @@ def test_playwright_server_config_shape(ctx: Ctx):
     ctx.check("no error", err is None)
     ctx.check("named playwright", cfg.name == "playwright")
     ctx.check("stdio transport", cfg.type == "stdio")
-    ctx.check("base args per verified doc", cfg.args[:2] == ["-y", "@playwright/mcp@latest"])
+    # 3.6.0.6 W (rewritten to the truth): a fixed, tested version, never @latest; the page files go under Halo's home
+    ctx.check(f"the fixed version, never @latest, got {cfg.args}",
+              cfg.args[:2] == ["-y", "@playwright/mcp@0.0.86"] and not any("@latest" in a for a in cfg.args))
+    ctx.check("ONE constant holds it", S.PLAYWRIGHT_VERSION == "0.0.86")
+    i = cfg.args.index("--output-dir") if "--output-dir" in cfg.args else -1
+    from halo_harness.config.paths import bridge_home
+    ctx.check(f"its page files go under Halo's home, got {cfg.args}",
+              i > 0 and Path(cfg.args[i + 1]).parent == bridge_home() / "playwright")
 
 
 @test
@@ -220,6 +227,23 @@ def test_build_manager_wires_chrome_into_configs_without_connecting(ctx: Ctx):
             os.environ.pop("BRIDGE_CLAUDE_EXE", None)
         else:
             os.environ["BRIDGE_CLAUDE_EXE"] = old
+
+
+@test
+def test_build_manager_says_once_what_playwright_downloads_before_it_starts(ctx: Ctx):
+    """3.6.0.6 W: --playwright says, once and word for word, the version it starts and what the first start downloads;
+    nothing is started here (start=False; node and npx stood in)."""
+    from unittest import mock
+    with mock.patch.object(S.shutil, "which", lambda name, *a, **k: "/usr/bin/" + name.replace(".cmd", "")):
+        mgr, notices = S.build_manager(cwd=Path("."), claude_json={}, playwright=True, start=False)
+    if mgr is None:
+        raise SkipTest("mcp package not installed")
+    want = ("--playwright: starting Playwright's own server with npx (version 0.0.86); the first start downloads "
+            "about 59 MB from the npm registry.")
+    ctx.check(f"the notice, once, word for word, got {notices}", notices.count(want) == 1)
+    ctx.check("start=False never connects", mgr.handles["playwright"].state == "pending")
+    mgr2, notices2 = S.build_manager(cwd=Path("."), claude_json={}, start=False)
+    ctx.check("no --playwright: no notice", want not in (notices2 or []))
 
 
 @test

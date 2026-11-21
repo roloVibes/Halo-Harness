@@ -211,11 +211,11 @@ python scripts/realcheck.py                  # every step; exit 0 only when none
 python scripts/realcheck.py --list           # the steps and their budgets
 python scripts/realcheck.py --only closing no-reuse --json out.json
 python scripts/realcheck.py --real-local ol:qwen3:1.7b@http://<host>:11434   # step 8 on a real Ollama too
-python scripts/realcheck.py --browser none   # on your own machine: the five browser steps SKIP, by name
+python scripts/realcheck.py --browser none   # on your own machine: the six browser steps SKIP, by name
 python scripts/realcheck.py --browser chromium   # or a path: a separate browser for the Studio steps
 ```
 
-The five steps that open a browser (`studio`, `session-map`, `auto-groups`, `auto-ready-lines`, `idle-cpu`) drive it headless with a throw-away profile
+The six steps that open a browser (`studio`, `session-map`, `auto-groups`, `auto-ready-lines`, `browser`, `idle-cpu`) drive it headless with a throw-away profile
 (`tests/helpers/cdp.py`): never your own Chrome profile, never a window on the desktop. By default they use
 `HALO_CHROME`, else an installed Chrome. `--browser` (or the `REALCHECK_BROWSER` environment variable) changes that:
 a path or a command name on PATH is the browser they use, and one that names nothing FAILs each of them saying so;
@@ -241,7 +241,7 @@ no user or host name in the session's log or on the screen, and after `/clear` t
 id; each of its five asserts is reported alone), `session-map` (the owner's sentence, 3.6.0.2: a workflow asked for in a terminal session
 gives one Builder card that says what it builds, Studio's Live button shows `new` within 5 s without opening
 anything, the drawer draws the new map down and marked, Agents opens on Live, the next question's request carries
-the facts note, two more turns leave the drawer as it was; each of its six asserts is reported alone), `auto-groups` (3.6.0.5, Auto's own groups: a session on Auto in a terminal, five replies of the fake model, drawn as four named, coloured groups in Session's Live drawer and in Agents -> Live; before any call no page uses the default's old name; `/status` says Auto; each of its eight asserts is reported alone), `auto-ready-lines` (3.6.0.5, the true lines: in a home with one workflow of its own, a build on Auto asked for in a terminal session gives one card with no map, the folded card and Studio's head say the workflow is ready now and the agent is saved for the next session, `crew.map` is unchanged, and "use it now" draws the workflow as a group in the drawer; each of its six asserts is reported alone), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a
+the facts note, two more turns leave the drawer as it was; each of its six asserts is reported alone), `auto-groups` (3.6.0.5, Auto's own groups: a session on Auto in a terminal, five replies of the fake model, drawn as four named, coloured groups in Session's Live drawer and in Agents -> Live; before any call no page uses the default's old name; `/status` says Auto; each of its eight asserts is reported alone), `auto-ready-lines` (3.6.0.5, the true lines: in a home with one workflow of its own, a build on Auto asked for in a terminal session gives one card with no map, the folded card and Studio's head say the workflow is ready now and the agent is saved for the next session, `crew.map` is unchanged, and "use it now" draws the workflow as a group in the drawer; each of its six asserts is reported alone), `browser` (3.6.0.6, Halo's own Browser tool on this system's installed browser: a real `halo -p` in a home whose `browser.profile` is `clean`, the fake model calling Browser open on a page the step serves on 127.0.0.1, click, screenshot, close: the reply carries the page's text after the click, a PNG is in the session's attachments folder, no process of the browser's tree listens on a socket, and after halo ended no process and no profile folder is left; first the same with halo ended hard in the middle: the browser is gone 5 s later), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a
 fake Ollama named as another machine; one load for a one-shot, none for the next), `update` (`halo update --check`
 online, offline and on the stable channel, in plain words), `closing` (seven launches -- a session, `halo init`,
 `halo studio`, a one-shot mid-turn, a sub-agent mid-run, a session with an MCP server, a managed local model server

@@ -28,7 +28,6 @@ CHANGES = ("open", "click", "type", "key", "scroll", "back", "js")  # each answe
 READS = ("open", "read", "screenshot", "close")  # decided as WebFetch is (permissions.py)
 PICTURES_KEPT = 20
 TEXT_CAP = 12_000
-SHOW_LATER = "show: a window you can see is not built yet; this browser runs without one."
 CLOSED = "The browser is closed."
 NOT_OPEN = "No browser is open. Call open with a url first."
 
@@ -46,14 +45,40 @@ def _key(ctx: ToolContext) -> str:
     return Path(ctx.session_dir).name if ctx.session_dir else "_unscoped"
 
 
-def browser_for(key: str, start: bool = True):
-    """The session's one browser (started now when `start`), or None."""
+def step_words(input) -> str:
+    """A Browser call's row, the ONE place its words are made: the terminal's tool card (BrowserTool.summary) and
+    Studio's Live rows (agent_transcript.tool_label) both read it. The typed text is never in the words."""
+    inp = input if isinstance(input, dict) else {}
+    action = str(inp.get("action") or "?").strip().lower()
+
+    def one(v) -> str:
+        t = " ".join(str(v or "").split())
+        return t if len(t) <= 100 else t[:97] + "..."
+    target, text = one(inp.get("target")), one(inp.get("text"))
+    words = {"open": f"open {one(inp.get('url'))}", "click": f"click {target}",
+             "type": f"type into {target}" if target else "type", "key": f"key {text}",
+             "scroll": f"scroll {text}"}.get(action, action)
+    return f"Browser {words}".strip()
+
+
+def browser_for(key: str, start: bool = True, *, show: Optional[bool] = None, folder: Optional[Path] = None):
+    """The session's one browser (started now when `start`), or None. `show` True: a window a person can watch; a
+    running browser without one is ended first (it keeps no state). `folder`: where its downloads land."""
     from halo_harness.browser_cdp import Browser
     with _LOCK:
         b = _BROWSERS.get(key)
+        if b is not None and start and show and not getattr(b, "want_show", False):
+            _BROWSERS.pop(key, None)
+            old, b = b, None
+        else:
+            old = None
         if b is None and start:
-            b = _BROWSERS[key] = Browser()
+            b = _BROWSERS[key] = Browser(show=True) if show else Browser()
+    if old is not None:
+        old.close()
     if b is not None and start:
+        if folder is not None:
+            b.download_dir = folder
         b.start()
     return b
 
@@ -92,20 +117,30 @@ def save_picture(b, sid: Optional[str]) -> Path:
     return path
 
 
+def _notes(b) -> "list[str]":
+    """What happened during the action, in order (a window, a box, a new tab, a download): the answer begins with it."""
+    if hasattr(b, "collect"):
+        b.collect()
+    if hasattr(b, "take_notes"):
+        return b.take_notes()
+    out, b.notes = list(b.notes), []
+    return out
+
+
 def page_answer(b, ctx: ToolContext, *, loaded: bool = True, said: str = "") -> str:
+    from halo_harness.browser_cdp import STILL_LOADING
     from halo_harness.tools.truncate import spill_and_truncate
+    lines = _notes(b)
+    if not loaded:
+        lines.append(STILL_LOADING)
     pg = b.page()
     b.last_url = pg["url"]
     rows, total = b.controls()
     text = spill_and_truncate(pg["text"].strip(), cap=TEXT_CAP, session_dir=ctx.session_dir,
                               tool_use_id=(f"{ctx.tool_use_id}-page" if ctx.tool_use_id else None))
-    lines = list(b.notes)
-    b.notes = []
     if said:
         lines.append(said)
     lines += [f"Title: {pg['title'] or '(none)'}", f"Address: {pg['url']}"]
-    if not loaded:
-        lines.append("The page was still loading after 15 s; this is what it shows so far.")
     lines += ["", text or "(the page shows no text)", ""]
     if total:
         head = f"Controls ({total})" if total == len(rows) else f"Controls (the first {len(rows)} of {total})"
@@ -147,9 +182,7 @@ class BrowserTool(Tool):
         return str(inp.get("url") or "") if inp.get("action") == "open" else self._page_url
 
     def summary(self, input: dict) -> str:
-        inp = input if isinstance(input, dict) else {}
-        what = inp.get("url") if inp.get("action") == "open" else inp.get("target") or inp.get("text") or ""
-        return f"Browser({inp.get('action') or '?'}{': ' + str(what)[:80] if what else ''})"
+        return step_words(input)
 
     def permission_content(self, input: dict) -> str:
         inp = input if isinstance(input, dict) else {}
@@ -171,25 +204,26 @@ class BrowserTool(Tool):
         try:
             if action != "open" and browser_for(key, start=False) is None:
                 return ToolResult(NOT_OPEN, is_error=True)
-            b = browser_for(key)
+            from halo_harness.tools.screenshot import images_folder
+            b = browser_for(key, show=bool(inp.get("show")) and action == "open", folder=images_folder(sid))
             loaded, said = True, ""
             if action == "open":
-                said = SHOW_LATER if inp.get("show") else ""
                 loaded = b.open(str(inp.get("url") or ""))
             elif action == "click":
-                b.press(inp.get("target"))
+                loaded = b.press(inp.get("target")) is not False
             elif action == "type":
-                b.type_into(inp.get("target"), str(inp.get("text") or ""), bool(inp.get("enter")))
+                loaded = b.type_into(inp.get("target"), str(inp.get("text") or ""), bool(inp.get("enter"))) is not False
             elif action == "key":
-                b.key(str(inp.get("text") or ""))
+                loaded = b.key(str(inp.get("text") or "")) is not False
             elif action == "scroll":
                 b.scroll(str(inp.get("text") or ""))
             elif action == "back":
-                b.back()
+                loaded = b.back() is not False
             elif action == "js":
                 from halo_harness.tools.truncate import spill_and_truncate
                 said = "Result: " + spill_and_truncate(b.js(str(inp.get("text") or "")), cap=TEXT_CAP, session_dir=None,
                                                        tool_use_id=None)
+                loaded = getattr(b, "loaded", True) is not False
             elif action == "screenshot":
                 return self._screenshot(b, sid, ctx)
             answer = page_answer(b, ctx, loaded=loaded, said=said)

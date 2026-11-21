@@ -19,6 +19,14 @@ Halo's Job object on Windows), in the ledger as `browser` while it runs, and clo
 the browser's own Job (Windows, browser_pipe_win.end_job); then a clean profile is removed. A hard end of Halo closes
 the pipe, and the browser ends itself on its closed pipe (and the reaper / the Job end what is left).
 
+WHAT REAL PAGES DO (batch 2): an action that opens a new tab goes on IN it (NEW_TAB begins its answer; a current tab
+that closes hands back to the one before it; there is always one current tab); a page's alert, confirm or prompt box
+is answered at once on the pipe's reader thread (accepted; a prompt with its default text) and said (box_line); every
+wait has a limit (LOAD_WAIT_S for a load, CONTROL_WAIT_S for a control to appear; STILL_LOADING when a load did not
+end); a download lands in `download_dir` only (the session's attachments folder) and is said (downloaded_line).
+THE WINDOW: `browser.window` hidden (the default) or shown, or `show=True` for one browser: a window a person can
+watch (WINDOW_OPEN), or NO_DISPLAY and headless where there is no display.
+
     Browser(profile="kept"|"clean").start()     find, spawn, attach to its page (raises NoBrowser, BrowserError)
     .open(url) -> bool                          navigate; wait for the load up to LOAD_WAIT_S (False: went on)
     .page() -> {title, url, text}               the page's title, address and visible text
@@ -64,6 +72,48 @@ class BrowserError(RuntimeError):
 
 class NoBrowser(BrowserError):
     """No browser on this machine (browser_find.none_found())."""
+
+
+class NoAnswer(BrowserError):
+    """A call's wait ran out (its late answer is dropped)."""
+
+
+NEW_TAB = "A new tab opened; now on it."
+STILL_LOADING = "The page was still loading after 15 s; this is what it shows so far."
+WINDOW_OPEN = "A browser window is open on your desktop."
+NO_DISPLAY = "No display here: the browser runs without a window."
+WINDOWS = ("hidden", "shown")
+CONTROL_WAIT_S = 5.0
+
+
+def box_line(message: str) -> str:
+    """What an action's answer says for a page's alert, confirm or prompt box Halo answered at once."""
+    return f"The page showed a box: '{' '.join(str(message or '').split())}' (accepted)."
+
+
+def size_words(n: int) -> str:
+    return f"{n} bytes" if n < 1024 else f"{n / 1024:.0f} KiB" if n < 1024 * 1024 else f"{n / 1048576:.1f} MiB"
+
+
+def downloaded_line(path, size: int) -> str:
+    return f"Downloaded: {path} ({size_words(size)})."
+
+
+def window_setting() -> str:
+    """`browser.window`: hidden (the default) or shown (every session's browser opens as a window on the desktop)."""
+    try:
+        from halo_harness.theme import get_config_value
+        v = str(get_config_value("browser.window", default="hidden") or "hidden").strip().lower()
+    except Exception:
+        v = "hidden"
+    return v if v in WINDOWS else "hidden"
+
+
+def has_display() -> bool:
+    """Windows and macOS always draw a window; Linux and the BSDs only with an X or Wayland display."""
+    if os.name == "nt" or sys.platform == "darwin":
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
 def browser_home(home=None) -> Path:
@@ -171,6 +221,8 @@ class _Pipe:
         self.closed = False
         self.cv = threading.Condition()
         self._wlock = threading.Lock()
+        self._drop: set = set()  # the ids of sends nobody waits for (and of calls whose wait ran out)
+        self.on_event = None  # called on the reader thread with each event; it may send(), never call()
         threading.Thread(target=self._read, name="halo-browser-pipe", daemon=True).start()
 
     def _read(self) -> None:
@@ -187,19 +239,29 @@ class _Pipe:
                         msg = json.loads(raw.decode("utf-8", "replace"))
                     except ValueError:
                         continue
+                    handler = None
                     with self.cv:
                         if "id" in msg:
-                            self.answers[msg["id"]] = msg
+                            if msg["id"] in self._drop:
+                                self._drop.discard(msg["id"])
+                            else:
+                                self.answers[msg["id"]] = msg
                         else:
                             self.events = (self.events + [msg])[-200:]
+                            handler = self.on_event
                         self.cv.notify_all()
+                    if handler is not None:
+                        try:
+                            handler(msg)
+                        except Exception:
+                            pass
         except OSError:
             pass
         with self.cv:
             self.closed = True
             self.cv.notify_all()
 
-    def call(self, method: str, params: dict, session: Optional[str], timeout: float) -> dict:
+    def _write(self, method: str, params: dict, session: Optional[str]) -> int:
         mid = next(_SEQ)
         msg = {"id": mid, "method": method, "params": params}
         if session:
@@ -212,6 +274,19 @@ class _Pipe:
                     view = view[os.write(self.wfd, view):]
             except OSError as e:
                 raise BrowserError("The browser has closed. Call open to start it again.") from e
+        return mid
+
+    def send(self, method: str, params: dict, session: Optional[str]) -> None:
+        """A message nobody waits for (the reader thread answers a page's box this way: it cannot wait on itself)."""
+        if self.closed:
+            return
+        mid = self._write(method, params, session)
+        with self.cv:
+            if self.answers.pop(mid, None) is None:
+                self._drop.add(mid)
+
+    def call(self, method: str, params: dict, session: Optional[str], timeout: float) -> dict:
+        mid = self._write(method, params, session)
         end = time.monotonic() + timeout
         with self.cv:
             while mid not in self.answers:
@@ -219,7 +294,8 @@ class _Pipe:
                     raise BrowserError("The browser has closed. Call open to start it again.")
                 left = end - time.monotonic()
                 if left <= 0:
-                    raise BrowserError(f"The browser did not answer {method} in {timeout:.0f} s.")
+                    self._drop.add(mid)
+                    raise NoAnswer(f"The browser did not answer {method} in {timeout:.0f} s.")
                 self.cv.wait(min(left, 0.5))
             got = self.answers.pop(mid)
         if "error" in got:
@@ -357,10 +433,18 @@ class Browser:
     """ONE browser: Halo's child, on a pipe, with Halo's kept profile or a clean one (see the module docstring)."""
 
     def __init__(self, profile: Optional[str] = None, *, home=None, exe: Optional[str] = None, popen=None,
-                 show: bool = False):
+                 show: Optional[bool] = None):
         self.want = profile if profile in PROFILES else profile_setting()
-        self.home, self.exe, self.show = home, exe, show
+        self.want_show = (window_setting() == "shown") if show is None else bool(show)
+        self.home, self.exe, self.show = home, exe, self.want_show
         self.popen = popen
+        self.download_dir: Optional[Path] = None  # where a download lands (the tool: the session's attachments)
+        self.loaded = True  # whether the last action's load ended within LOAD_WAIT_S
+        self.tabs: "list[str]" = []  # the tabs, oldest first; the last is the current one
+        self.sessions: dict = {}  # target id -> DevTools session id
+        self._seen: set = set()  # every page target met so far
+        self._downloads: dict = {}  # guid -> {"name", "state", "said"}
+        self._nmu = threading.Lock()  # the notes: the reader thread adds a box's line
         self.proc = None
         self.pipe: Optional[_Pipe] = None
         self.job = None
@@ -398,6 +482,8 @@ class Browser:
             root.mkdir(parents=True, exist_ok=True)
             sweep_clean_profiles(self.home)
             self._pick_profile(root)
+            self._pick_window()
+            self.tabs, self.sessions, self._seen, self._downloads = [], {}, set(), {}
             try:
                 self._spawn()
                 self._attach()
@@ -405,6 +491,12 @@ class Browser:
                 self.close()
                 raise
             return self
+
+    def _pick_window(self) -> None:
+        """A window when one was asked for and this machine can draw it; the first answer says which."""
+        self.show = self.want_show and has_display()
+        if self.want_show:
+            self.notes.insert(0, WINDOW_OPEN if self.show else NO_DISPLAY)
 
     def _pick_profile(self, root: Path) -> None:
         self.notes = []
@@ -456,13 +548,140 @@ class Browser:
                 raise BrowserError(f"{self.name} did not start: it ended with code {code}.") from e
             raise
         pages = [t for t in got.get("targetInfos") or [] if t.get("type") == "page"]
+        self._seen = {t["targetId"] for t in pages}
         target = next((t["targetId"] for t in pages if t.get("url") == "about:blank"), None) or \
             (pages[0]["targetId"] if pages else None)
+        self.pipe.on_event = self._on_event
         if target is None:
-            target = self.pipe.call("Target.createTarget", {"url": "about:blank"}, None, CALL_WAIT_S)["targetId"]
-        self.session = self.pipe.call("Target.attachToTarget", {"targetId": target, "flatten": True}, None,
-                                      CALL_WAIT_S)["sessionId"]
+            target = self._new_blank()
+        self._take_tab(target)
+        if self.download_dir is not None:
+            Path(self.download_dir).mkdir(parents=True, exist_ok=True)
+            self.pipe.call("Browser.setDownloadBehavior", {"behavior": "allowAndName", "eventsEnabled": True,
+                                                           "downloadPath": str(self.download_dir)}, None, CALL_WAIT_S)
+
+    def _new_blank(self) -> str:
+        tid = self.pipe.call("Target.createTarget", {"url": "about:blank"}, None, CALL_WAIT_S)["targetId"]
+        self._seen.add(tid)
+        return tid
+
+    def _take_tab(self, target: str) -> None:
+        """Attach to `target`, make it the current tab (the last of `tabs`)."""
+        sid = self.pipe.call("Target.attachToTarget", {"targetId": target, "flatten": True}, None,
+                             CALL_WAIT_S)["sessionId"]
+        self.sessions[target] = sid
+        self.tabs = [t for t in self.tabs if t != target] + [target]
+        self.session = sid
         self.call("Page.enable")
+
+    # -- what the page and the browser say while an action runs (the reader thread) ------------------------------------
+    def _note(self, line: str) -> None:
+        with self._nmu:
+            self.notes.append(line)
+
+    def take_notes(self) -> "list[str]":
+        """The lines the next answer begins with, in the order they happened; emptied."""
+        with self._nmu:
+            out, self.notes = list(self.notes), []
+        return out
+
+    def _on_event(self, msg: dict) -> None:
+        method, p = msg.get("method"), msg.get("params") or {}
+        if method == "Page.javascriptDialogOpening":
+            # answered AT ONCE so the page never freezes: alert and confirm accepted, prompt with its default text
+            answer = {"accept": True}
+            if p.get("type") == "prompt":
+                answer["promptText"] = str(p.get("defaultPrompt") or "")
+            self.pipe.send("Page.handleJavaScriptDialog", answer, msg.get("sessionId"))
+            self._note(box_line(p.get("message")))
+        elif method == "Browser.downloadWillBegin" and p.get("guid"):
+            with self._nmu:
+                self._downloads[p["guid"]] = {"name": str(p.get("suggestedFilename") or ""), "state": "inProgress",
+                                              "said": False}
+        elif method == "Browser.downloadProgress" and p.get("guid"):
+            with self._nmu:
+                d = self._downloads.setdefault(p["guid"], {"name": "", "state": "inProgress", "said": False})
+                d["state"] = str(p.get("state") or d["state"])
+
+    # -- after an action: a new tab, a closed one, the load, a download -------------------------------------------------
+    def _follow_tabs(self) -> None:
+        """A tab the action opened becomes the current one (its answer begins NEW_TAB); a current tab that closed
+        hands back to the one before it; there is always exactly one current tab."""
+        infos = self.pipe.call("Target.getTargets", {}, None, CALL_WAIT_S).get("targetInfos") or []
+        pages = [t for t in infos if t.get("type") == "page"]
+        alive = {t["targetId"] for t in pages}
+        self.tabs = [t for t in self.tabs if t in alive]
+        new = [t["targetId"] for t in pages if t["targetId"] not in self._seen]
+        self._seen |= alive
+        for tid in new:
+            try:
+                self._take_tab(tid)
+            except BrowserError:
+                continue
+            self._note(NEW_TAB)
+            end = time.monotonic() + 2.0  # a new tab is about:blank until its own address commits
+            while time.monotonic() < end:
+                try:
+                    if self.eval("location.href", timeout=2.0) != "about:blank":
+                        break
+                except BrowserError:
+                    pass
+                time.sleep(0.1)
+        was = self.session
+        if not self.tabs:
+            self._take_tab(self._new_blank())
+        elif self.sessions.get(self.tabs[-1]) != self.session:
+            self.session = self.sessions[self.tabs[-1]]
+        if new or was != self.session:  # the current tab is the one in front (its picture is the one taken)
+            try:
+                self.pipe.call("Target.activateTarget", {"targetId": self.tabs[-1]}, None, CALL_WAIT_S)
+            except BrowserError:
+                pass
+
+    def _finish_downloads(self, until: float) -> None:
+        """Each download that began: wait (up to `until`) for its end, give it its own name in the download folder
+        and say where it is. One still going is said by a later answer, once it has ended."""
+        if self.download_dir is None:
+            return
+        while True:
+            with self._nmu:
+                going = [g for g, d in self._downloads.items() if not d["said"] and d["state"] == "inProgress"]
+                done = [(g, d) for g, d in self._downloads.items() if not d["said"] and d["state"] == "completed"]
+                for _g, d in done:
+                    d["said"] = True
+            for g, d in done:
+                path = self._name_download(g, d["name"])
+                if path is not None:
+                    self._note(downloaded_line(path, path.stat().st_size))
+            if not going or time.monotonic() >= until:
+                return
+            time.sleep(0.1)
+
+    def _name_download(self, guid: str, name: str) -> Optional[Path]:
+        folder = Path(self.download_dir)
+        got = folder / guid
+        if not got.is_file():
+            return None
+        safe = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", os.path.basename(name or "")).strip(" .") or "download"
+        stem, ext = os.path.splitext(safe)
+        path, n = folder / safe, 2
+        while path.exists():
+            path, n = folder / f"{stem} ({n}){ext}", n + 1
+        try:
+            got.rename(path)
+        except OSError:
+            return got
+        return path
+
+    def _settle(self) -> bool:
+        """After an action: a moment for a navigation or a new tab to begin, the tab followed, its load waited for (up
+        to LOAD_WAIT_S), a download's end too. Sets and returns `loaded`."""
+        until = time.monotonic() + LOAD_WAIT_S
+        time.sleep(0.3)
+        self._follow_tabs()
+        self.loaded = self.wait_loaded(max(0.5, until - time.monotonic()))
+        self._finish_downloads(until)
+        return self.loaded
 
     # -- calls -------------------------------------------------------------------------------------------------------
     def call(self, method: str, timeout: float = CALL_WAIT_S, **params) -> dict:
@@ -500,10 +719,21 @@ class Browser:
             raise BrowserError("open needs `url`: the address to open.")
         if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", url):
             url = "https://" + url
-        r = self.call("Page.navigate", url=url)
+        until = time.monotonic() + wait_s
+        try:
+            r = self.call("Page.navigate", wait_s, url=url)
+        except NoAnswer:  # the page's own address never answered: what is there is the answer
+            self.loaded = False
+            return False
         if r.get("errorText"):
-            raise BrowserError(f"The page did not open: {r['errorText']} ({url}).")
-        return self.wait_loaded(wait_s)
+            time.sleep(0.3)  # an address that is a download ends its navigation "aborted" as the download begins
+            with self._nmu:
+                began = any(not d["said"] for d in self._downloads.values())
+            if not began:
+                raise BrowserError(f"The page did not open: {r['errorText']} ({url}).")
+        self.loaded = self.wait_loaded(max(0.5, until - time.monotonic()))
+        self._finish_downloads(until)
+        return self.loaded
 
     def page(self) -> dict:
         got = self.eval("({title: document.title, url: location.href, "
@@ -524,7 +754,11 @@ class Browser:
             how, what = "css", t[4:].strip()
         else:
             how, what = "words", t
+        end = time.monotonic() + CONTROL_WAIT_S  # a control still to appear is waited for, up to 5 s
         got = self.eval(f"{_FIND_JS}({json.dumps(how)}, {json.dumps(what)})")
+        while got == "none" and how != "n" and time.monotonic() < end:
+            time.sleep(0.2)
+            got = self.eval(f"{_FIND_JS}({json.dumps(how)}, {json.dumps(what)})")
         if got == "stale":
             raise BrowserError("The list is from an earlier page. Call read to see the list.")
         if got == "badcss":
@@ -541,18 +775,13 @@ class Browser:
         self.call("Input.dispatchMouseEvent", type=kind, x=x, y=y, button="none" if kind == "mouseMoved" else "left",
                   buttons=1 if held else 0, clickCount=0 if kind == "mouseMoved" else 1)
 
-    def _settle(self) -> None:
-        """After an action: a moment for a navigation to begin, then its load (up to LOAD_WAIT_S)."""
-        time.sleep(0.3)
-        self.wait_loaded()
-
-    def press(self, target) -> None:
+    def press(self, target) -> bool:
         x, y = self._locate(target)
         for kind in ("mouseMoved", "mousePressed", "mouseReleased"):
             self._mouse(kind, x, y)
-        self._settle()
+        return self._settle()
 
-    def type_into(self, target, text: str, enter: bool = False) -> None:
+    def type_into(self, target, text: str, enter: bool = False) -> bool:
         if target not in (None, ""):
             x, y = self._locate(target)
             for kind in ("mouseMoved", "mousePressed", "mouseReleased"):
@@ -562,11 +791,12 @@ class Browser:
                       " document.execCommand('selectAll'); return 1; })()")
         self.call("Input.insertText", text=str(text or ""))
         if enter:
-            self.key("Enter")
-        else:
-            time.sleep(0.05)
+            return self.key("Enter")
+        time.sleep(0.05)
+        self.loaded = True
+        return True
 
-    def key(self, name: str) -> None:
+    def key(self, name: str) -> bool:
         key, code, vk, text, mods = parse_key(name)
         down = {"type": "keyDown" if text else "rawKeyDown", "key": key, "code": code, "windowsVirtualKeyCode": vk,
                 "modifiers": mods}
@@ -574,7 +804,7 @@ class Browser:
             down["text"] = text
         self.call("Input.dispatchKeyEvent", **down)
         self.call("Input.dispatchKeyEvent", type="keyUp", key=key, code=code, windowsVirtualKeyCode=vk, modifiers=mods)
-        self._settle()
+        return self._settle()
 
     def scroll(self, where: str) -> None:
         w = str(where or "").strip().lower()
@@ -586,21 +816,27 @@ class Browser:
         else:
             raise BrowserError("scroll takes `text`: up, down, top or bottom.")
         time.sleep(0.2)
+        self.loaded = True
 
-    def back(self) -> None:
+    def back(self) -> bool:
         h = self.call("Page.getNavigationHistory")
         i, entries = int(h.get("currentIndex") or 0), h.get("entries") or []
         if i <= 0 or i >= len(entries) + 1 or not entries:
             raise BrowserError("There is no page before this one.")
         self.call("Page.navigateToHistoryEntry", entryId=entries[i - 1]["id"])
-        self._settle()
+        return self._settle()
 
     def js(self, expr: str) -> str:
         if not str(expr or "").strip():
             raise BrowserError("js needs `text`: the JavaScript to run in the page.")
         v = self.eval(str(expr))
-        time.sleep(0.1)
+        self._settle()  # a script may open a tab, go to another address or start a download
         return v if isinstance(v, str) else "undefined" if v is None else json.dumps(v, ensure_ascii=False)
+
+    def collect(self) -> None:
+        """A download that ended since the last action is said in this answer (no wait)."""
+        if self.pipe is not None:
+            self._finish_downloads(time.monotonic())
 
     def screenshot(self) -> bytes:
         return base64.b64decode(self.call("Page.captureScreenshot", format="png")["data"])

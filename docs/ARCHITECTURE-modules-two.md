@@ -381,7 +381,8 @@ and `isolation/Dockerfile` the worker image.
   tool, `/screenshot`'s capture), `tools/screenshot_capture.py` (the per-OS capture behind the runner seam),
   `agent/eyes_offer.py` (the fact for the session's model, the visual lane, the describer, the three choices, the
   card), `agent/eyes_turn.py` (what the choice does to the turn; the Screenshot tool's lines), `tui/widgets/eyes_card.py`
-  (the TUI's menu), `studio/session_eyes_api.py` (the steer's image, the screenshot command, `GET sessions/<sid>/eyes`)
+  (the TUI's menu), `studio/session_eyes_api.py` (the steer's image, the screenshot command, `GET sessions/<sid>/eyes`, and
+  3.6.0.6 W's one read-only `GET sessions/<sid>/attachments/<name>`: a picture of the session's own attachments folder)
   and `ui/src/routes/shared/EyeChip.tsx`, `ui/src/routes/session/` `steerImage.ts`, `LiveImage.tsx`.
 - The steward sees every local server (3.3.8.0 R2, docs/MODELS-steward-servers.md, docs/COMMANDS-local-servers.md):
   `ollama_steward/servers_hf.py` (the roster: manual entries, Halo's registry rows, the probe's cache; a ledger url's

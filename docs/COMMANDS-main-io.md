@@ -162,21 +162,28 @@ the model. Open, read, screenshot and close are decided as WebFetch is for the s
 ask in the default mode. Halo looks for Google Chrome, Chromium, Microsoft Edge, then Brave, or the one
 `HALO_CHROME` names; with none it says "No browser found: install Google Chrome, Chromium, Microsoft Edge or Brave,
 or set HALO_CHROME to a browser's path. Halo downloads none." The setting `browser.profile` picks Halo's own kept
-profile (the default) or a clean one per session. The two flags below start other products' browser servers.
+profile (the default) or a clean one per session; `browser.window` = `shown` (or `show: true` on open) opens it as
+a window you can watch and sign in to. A link that opens a new tab, a page's alert, confirm or prompt box, a page
+that never finishes loading and a download are each said at the start of the answer; a download lands in the
+session's attachments folder. `halo doctor`'s row `browser` names the browser Halo will use. The two flags below start
+other products' browser servers.
 
 #### `--chrome`, `--no-chrome`
 What: `--chrome` starts the claude-in-chrome extension's native-messaging
 bridge as a dynamic MCP server for this session (screenshots, page
 reading/interaction tools); `--no-chrome` forces it off even if a settings
 file would otherwise enable it by default. `halo doctor` reports
-whether the native host is registered at all.
+whether the native host is registered at all. `--chrome` uses Claude Code's own browser extension and works only
+while that product does; the built-in Browser tool needs neither.
 
 #### `--playwright`, `--playwright-cdp ENDPOINT`, `--playwright-headless`
 What: `--playwright` drives a real local Chromium/Chrome/Brave via
 Playwright as a dynamic MCP server instead; `--playwright-cdp` attaches to
 an already-running browser's DevTools Protocol endpoint instead of
 launching a new one; `--playwright-headless` runs without a visible window.
-Needs `node`/`npx` on PATH (`halo doctor` checks for both).
+Needs `node`/`npx` on PATH (`halo doctor` checks for both). It runs `@playwright/mcp@0.0.86`, a fixed version (never
+`@latest`), and says so once before it starts: the first start downloads about 59 MB from the npm registry. Its page
+files go to `~/.halo/playwright/<pid>/`, never the folder halo was started from.
 
 ### MCP flags
 

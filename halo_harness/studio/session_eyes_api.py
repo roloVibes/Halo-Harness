@@ -85,4 +85,26 @@ def get_eyes(req):
     return 200, offer_for(model)
 
 
-ROUTES = [("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/eyes$", get_eyes)]
+PICTURE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+                 ".webp": "image/webp"}
+
+
+def get_attachment(req):
+    """3.6.0.6 W: ONE read-only route for a session's own attachments folder (a Browser step's page picture, a
+    screenshot), behind the same token as every read: a picture by its name, never a path outside that folder."""
+    from halo_harness.studio.raw_body import RawBody
+    from halo_harness.tools.screenshot import images_folder
+    sid, name = req.params["sid"], req.params["name"]
+    kind = PICTURE_TYPES.get(Path(name).suffix.lower())
+    folder = images_folder(sid)
+    target = folder / name
+    root = folder.parent.resolve()
+    if kind is None or sid in (".", "..") or folder.resolve().parent != root or target.resolve().parent != folder.resolve():
+        return 404, {"error": "no such picture"}
+    if not target.is_file():
+        return 404, {"error": "no such picture"}
+    return 200, RawBody(target.read_bytes(), kind, {"Cache-Control": "no-store"})
+
+
+ROUTES = [("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/eyes$", get_eyes),
+          ("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/attachments/(?P<name>[A-Za-z0-9_. ()-]+)$", get_attachment)]

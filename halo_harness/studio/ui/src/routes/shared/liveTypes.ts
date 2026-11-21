@@ -48,4 +48,6 @@ export type LiveLine = {
   tokens?: number;
   /** 3.3.16.2: one agent's words to another. */
   talk?: Talk;
+  /** 3.6.0.6 W: the page's picture a Browser step's detail shows (its own, else the newest one before it). */
+  pic?: string;
 };

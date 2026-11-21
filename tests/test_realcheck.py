@@ -53,16 +53,18 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         rc = m.main(["--list"])
     lines = out.getvalue().splitlines()
     names = [line.split()[0] for line in lines]
-    ctx.check(f"the seventeen steps in order, got {names}", rc == 0 and names == [
+    ctx.check(f"the eighteen steps in order, got {names}", rc == 0 and names == [
         "starts", "first-run", "theme", "question", "turn", "copy-drag", "studio", "prompt", "session-map",
-        "auto-groups", "auto-ready-lines", "packs", "local", "update", "closing", "no-reuse", "idle-cpu"])
+        "auto-groups", "auto-ready-lines", "browser", "packs", "local", "update", "closing", "no-reuse", "idle-cpu"])
     # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`; 3.6.0.5: the two Auto steps after `session-map`;
-    # 3.6.0.6 C: `copy-drag` (a drag over an earlier answer in a terminal session) after `turn`
+    # 3.6.0.7: `copy-drag` (a drag over an earlier answer in a terminal session) after `turn`; 3.6.0.8: `browser`,
+    # the built-in Browser tool, after the two Auto steps
     win = sys.platform == "win32"
     for step, want, words in (("copy-drag", "120s" if win else "60s", "120 s on Windows, 60 s elsewhere"),
                               ("session-map", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
                               ("auto-groups", "150s" if win else "90s", "150 s on Windows, 90 s elsewhere"),
-                              ("auto-ready-lines", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere")):
+                              ("auto-ready-lines", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
+                              ("browser", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere")):
         budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
         ctx.check(f"{step}'s budget is {want} here ({words}), got {budget!r}", budget == want)
     ctx.check("an unknown step: exit 2", m.main(["--only", "no-such-step"]) == 2)
@@ -969,6 +971,25 @@ def test_ci_drives_an_installed_halo_on_every_system(ctx: Ctx):
     ctx.check(f"a realcheck leg per system against the wheel in a fresh venv, got {bad}", bad == [])
     checkout = text.replace("        install: [checkout, installed]\n", "")
     ctx.check("the check sees a job without that leg", _installed_leg_problems(checkout) != [])
+
+
+@test
+def test_the_browser_steps_judge_passes_only_a_whole_clean_run(ctx: Ctx):
+    """3.6.0.6 W: the `browser` step's verdict (steps_browser.judge) on what it saw: the page's text after the click in
+    the reply, a PNG, no listener, nothing left after a hard and a normal end, no profile folder."""
+    _main_module()
+    from realcheck import fakes
+    from realcheck.steps_browser import judge
+    reply = f"{fakes.BROWSER_DONE} {fakes.BROWSER_AFTER}"
+    ctx.check("a whole clean run passes", judge(reply, ["page-1.png"], [], [], [], []) == [])
+    for args, word in (((fakes.BROWSER_DONE, ["p"], [], [], [], []), "after the click"),
+                       ((reply, [], [], [], [], []), "no PNG"),
+                       ((reply, ["p"], ["LISTEN 127.0.0.1:9222 pid=7,"], [], [], []), "listened"),
+                       ((reply, ["p"], [], ["pid 9 (chrome)"], [], []), "hard end"),
+                       ((reply, ["p"], [], [], ["pid 9 (chrome)"], []), "still ran"),
+                       ((reply, ["p"], [], [], [], ["clean-1-2-3"]), "profile folder")):
+        got = judge(*args)
+        ctx.check(f"{word}: one problem that says so, got {got}", len(got) == 1 and word in got[0])
 
 
 def _browser_steps(m) -> list:

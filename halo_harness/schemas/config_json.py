@@ -104,7 +104,7 @@ _SCALARS = {
 # agent/preflight.py), shell auto|bash|powershell (3.3.16.1, agent/prompt_diet.py)
 # `background`: when_done continue|tell|wait, self_turns (3.4.1.3, agent/bg_pickup.py)
 # `crew`: map (3.6.0.0 R3: the map new sessions run on, crew/compile.py in_use; Studio's Map tab, `halo maps use`)
-# `browser`: profile kept|clean (3.6.0.6 W: the Browser tool's browser, browser_cdp.py)
+# `browser`: profile kept|clean, window hidden|shown (3.6.0.6 W: the Browser tool's browser, browser_cdp.py)
 _SECTIONS = ("agents", "attention", "background", "browser", "caps", "clipboard", "comfy", "connectors", "control", "copilot", "crew", "databricks", "tools",
              "embeddings", "experiential", "governor", "harness", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",

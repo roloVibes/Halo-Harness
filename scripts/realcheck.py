@@ -41,7 +41,7 @@ from realcheck.report import FAIL, PASS, SKIP, Result, markdown, run_info, to_js
 def _steps() -> list:
     """(name, budget seconds, what it checks, the function)."""
     from realcheck import steps_a as A, steps_b as B, steps_c as C, steps_close as Z, steps_map as M, steps_prompt as P
-    from realcheck import steps_auto as S, steps_copy as K
+    from realcheck import steps_auto as S, steps_browser as W, steps_copy as K
     return [
         ("starts", 20, "`halo --version` and `--help` answer in 2 s; --help names every command", A.starts),
         ("first-run", 120, "`halo init` in a fresh home: address, page, Setup's read, no beep, instrument", A.first_run),
@@ -62,6 +62,9 @@ def _steps() -> list:
         ("auto-ready-lines", 180 if sys.platform == "win32" else 120, "a build on Auto says what is ready: the card "
          "makes no map, the folded card and Studio's head say ready now and saved for the next session, crew.map "
          "unchanged; 'use it now' draws the workflow as a group", S.auto_ready_lines),
+        ("browser", 180 if sys.platform == "win32" else 120, "the built-in Browser tool: a real `halo -p` opens a real page "
+         "in this system's browser, presses its button, takes its picture; no listener; nothing left after a normal "
+         "and a hard end", W.browser),
         ("packs", 120, "the shipped doc-review pack installs, is listed, and its agent takes work by name", C.packs),
         ("local", 120, "`halo local ps|warm|unload` on another machine's Ollama; one load per one-shot", C.local),
         ("update", 90, "`halo update --check` online and offline, in plain words", C.update),

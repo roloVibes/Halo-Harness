@@ -100,6 +100,68 @@ def _listening(pids: list) -> list:
         return [f"cannot look: {e}"]
 
 
+SITE = {
+    "/tabs.html": "<!doctype html><title>Tabs</title><body><a href='/second.html' target='_blank'>New tab</a>"
+                  "<button onclick=\"window.close()\">Close me</button></body>",
+    "/second.html": SECOND,
+    "/boxes.html": "<!doctype html><title>Boxes</title><body><p id='s'>no box yet</p>"
+                   "<button onclick=\"alert('Saved!'); document.getElementById('s').textContent = 'after alert'\">"
+                   "Alert</button><button onclick=\"document.getElementById('s').textContent = 'confirm said ' + "
+                   "confirm('Delete it?')\">Confirm</button><button onclick=\"document.getElementById('s')"
+                   ".textContent = 'prompt said ' + prompt('Your name?', 'Ada')\">Prompt</button></body>",
+    "/slow.html": "<!doctype html><title>Slow</title><body><p>the text that is there</p><img src='/never.png'>"
+                  "</body>",
+    "/dl.html": "<!doctype html><title>Files</title><body><a href='/report.txt'>Get the report</a></body>",
+}
+REPORT = b"the report, " * 100
+
+
+class _Site:
+    """The pages above on 127.0.0.1 (port 0) for as long as the `with` lasts; /never.png never answers (until the
+    site ends), /report.txt is a download."""
+
+    def __enter__(self) -> str:
+        import http.server
+        import threading
+        self.stop = stop = threading.Event()
+
+        class Page(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                path = self.path.split("?", 1)[0]
+                if path == "/never.png":
+                    stop.wait(120)
+                    return
+                if path == "/report.txt":
+                    body, ctype, extra = REPORT, "text/plain", {"Content-Disposition": 'attachment; filename="report.txt"'}
+                elif path in SITE:
+                    body, ctype, extra = SITE[path].encode("utf-8"), "text/html; charset=utf-8", {}
+                else:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                for k, v in extra.items():
+                    self.send_header(k, v)
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+
+        self.srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Page)
+        self.srv.daemon_threads = True
+        self.th = threading.Thread(target=self.srv.serve_forever, name="w-site", daemon=True)
+        self.th.start()
+        return f"http://127.0.0.1:{self.srv.server_address[1]}"
+
+    def __exit__(self, *exc):
+        self.stop.set()
+        self.srv.shutdown()
+        self.srv.server_close()
+        self.th.join(10)
+
+
 class _Locked:
     def __enter__(self):
         from tests.helpers.chrome_lock import lock_for
@@ -263,6 +325,69 @@ def test_a_real_browser_over_the_pipe_opens_reads_presses_types_and_closes_clean
             b.close()
     ctx.check("no process carries the profile afterwards", not _tree_pids(profile))
     ctx.check("the clean profile folder is gone", not os.path.exists(profile))
+
+
+@test
+def test_real_pages_a_new_tab_a_box_an_endless_load_and_a_download(ctx: Ctx):
+    """W batch 2 entry 1, a real browser on pages this test serves on 127.0.0.1: (a) a link with target=_blank: the
+    browser goes on in the new tab and says so; a tab that closes hands back to the one before; (b) alert, confirm
+    and prompt are answered at once (the action returns, the page went on) and each is said; (c) a page whose load
+    never ends: open returns within the limit with what is there; (d) a download lands in the download folder only,
+    under its own name, and is said."""
+    from halo_harness import browser_cdp as B
+    from halo_harness.browser_find import find_browser
+    if find_browser() is None:
+        ctx.check("a browser on this machine", False)
+        return
+    home, dl = Path(_scratch("browser-cdp-pages2-")), Path(_scratch("browser-cdp-dl-"))
+    their_dl = Path.home() / "Downloads" / "report.txt"
+    before = their_dl.stat().st_mtime if their_dl.exists() else None
+    with _Locked(), _Site() as site:
+        b = B.Browser("clean", home=home)
+        b.download_dir = dl
+        try:
+            b.start()
+            b.take_notes()
+            ctx.check("(a) the page with the link", b.open(site + "/tabs.html") and b.page()["title"] == "Tabs")
+            b.press("New tab")
+            notes = b.take_notes()
+            ctx.check(f"(a) on the new tab, said, got {notes} {b.page()['title']!r}",
+                      notes == [B.NEW_TAB] and b.page()["title"] == "Second" and len(b.tabs) == 2)
+            b.js("window.close(); 'closing'")
+            notes = b.take_notes()
+            ctx.check(f"(a) it closed: back on the one before, got {b.page()['title']!r} {notes}",
+                      b.page()["title"] == "Tabs" and len(b.tabs) == 1 and B.NEW_TAB not in notes)
+            b.press("New tab")
+            ctx.check("(a) the line word for word", b.take_notes() == ["A new tab opened; now on it."])
+            b.open(site + "/boxes.html")
+            b.take_notes()
+            t = time.monotonic()
+            b.press("Alert")
+            ctx.check(f"(b) an alert: answered at once, said, the page went on, got {b.page()['text'][:60]!r}",
+                      b.take_notes() == ["The page showed a box: 'Saved!' (accepted)."] and "after alert" in
+                      b.page()["text"] and time.monotonic() - t < 10)
+            b.press("Confirm")
+            ctx.check("(b) a confirm: accepted", b.take_notes() == ["The page showed a box: 'Delete it?' (accepted)."]
+                      and "confirm said true" in b.page()["text"])
+            b.press("Prompt")
+            ctx.check("(b) a prompt: its default text", "prompt said Ada" in b.page()["text"] and len(b.take_notes()) == 1)
+            t = time.monotonic()
+            loaded = b.open(site + "/slow.html")
+            took = time.monotonic() - t
+            ctx.check(f"(c) an endless load returns within the limit with what is there, got {loaded} in {took:.1f}s",
+                      loaded is False and took < B.LOAD_WAIT_S + 5 and "the text that is there" in b.page()["text"])
+            b.open(site + "/dl.html")
+            b.take_notes()
+            b.press("Get the report")
+            notes = b.take_notes()
+            got = dl / "report.txt"
+            ctx.check(f"(d) the download is said, got {notes}", notes == [f"Downloaded: {got} (1 KiB)."])
+            ctx.check(f"(d) only the file, under its own name, got {sorted(p.name for p in dl.iterdir())}",
+                      got.is_file() and got.read_bytes() == REPORT and [p.name for p in dl.iterdir()] == ["report.txt"])
+            after = their_dl.stat().st_mtime if their_dl.exists() else None
+            ctx.check("(d) nothing written to the person's own Downloads", after == before)
+        finally:
+            b.close()
 
 
 @test

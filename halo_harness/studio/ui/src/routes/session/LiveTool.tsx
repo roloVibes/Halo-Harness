@@ -9,6 +9,7 @@ import { useState } from "react";
 import { short } from "../orchestra/format";
 import { useNow } from "../fleet/store";
 import type { LiveLine } from "../shared/liveFeed";
+import { BrowserShot } from "./BrowserShot";
 
 /** 4s, 1m 05s. */
 export function dur(ms: number): string {
@@ -20,7 +21,7 @@ export function ToolRow({ l }: { l: LiveLine }) {
   const now = useNow(!l.ended, 1000);
   const [open, setOpen] = useState(false);
   const took = l.ended && l.t0 && l.ended > l.t0 + 400 ? dur(l.ended - l.t0) : "";
-  const more = !!l.full && l.full.trim() !== (l.result || "").trim();
+  const more = (!!l.full && l.full.trim() !== (l.result || "").trim()) || !!l.pic;
   const toggle = () => more && setOpen((o) => !o);
   return (
     <div className="slv-tool" data-running={!l.ended || undefined} data-error={l.error || undefined} data-open={(more && open) || undefined} data-more={more || undefined}>
@@ -39,6 +40,7 @@ export function ToolRow({ l }: { l: LiveLine }) {
           </div>
         )}
       </div>
+      {more && open && l.pic && <BrowserShot path={l.pic} />}
       {more && open && <pre className="slv-full mono" data-testid="session-live-full">{l.full}</pre>}
     </div>
   );

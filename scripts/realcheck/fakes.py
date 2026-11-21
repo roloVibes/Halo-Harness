@@ -21,6 +21,9 @@ never by model name, so a sub-agent or a workflow step on another model is answe
                          AUTOBUILD_DONE
   RC-AUTOUSE             one Workflow call to review whose step children carry RC-SUBHANG, then AUTOUSE_DONE
   RC-COPYONE / RC-COPYTWO  COPY_ONE / COPY_TWO (copy-drag: two answers, the first one dragged over)
+  RC-BROWSER url=U       3.6.0.6 W: Browser open U, click "Press me", screenshot, close, then BROWSER_DONE + the click
+                         result's line that holds BROWSER_AFTER (the page's text after the click)
+  RC-BROWSERHOLD url=U   Browser open U, then the next model call is held until `release()` (the step ends halo hard)
   RC-SUBWAIT             SUB_DONE after SUBWAIT_S seconds (a fresh wait: `release()` never shortens it)
   RC-SUB / anything else  SUB_DONE / ANSWER
 
@@ -63,6 +66,7 @@ AUTOUSE_PROMPT, AUTOUSE_DONE = "RC-AUTOUSE: use it now", "RC-AUTOUSE-DONE"
 SUBWAIT_S = 3.0  # each RC-SUBWAIT child answers after this long
 # 3.6.0.6 C: copy-drag's two answers (steps_copy.DRAGGED is a run of words of the first)
 COPY_ONE, COPY_TWO = "COPYDRAG-ALPHA with some words, then COPYDRAG-OMEGA.", "COPYDRAG-LAST only, the last one."
+BROWSER_DONE, BROWSER_AFTER = "RC-BROWSER-DONE", "after the press, realcheck"  # 3.6.0.6 W: steps_browser.py
 
 
 def _agent(desc: str, agent: str, task: "str | None" = None) -> dict:
@@ -220,6 +224,9 @@ class Provider:
             if done_here == 0:
                 return _finish(h, tool_step(("Bash", {"command": PERM_CMD, "description": "rc perm"}, "call_rc_perm")))
             return _finish(h, text_step(ANSWER))
+        m = re.search(r"RC-BROWSER(HOLD)? url=(\S+)", turn)
+        if m:
+            return self._browser(h, body, m.group(2), bool(m.group(1)), done_here)
         if "RC-AUTOGROUPS" in turn:
             if done_here in _AUTOGROUPS_AT:
                 return _finish(h, tool_step(*AUTOGROUPS_REPLIES[_AUTOGROUPS_AT[done_here]]))
@@ -271,6 +278,20 @@ class Provider:
                 return _finish(h, tool_step(steps[done]))
             return _finish(h, text_step(WORK_DONE))
         return _finish(h, text_step(ANSWER))
+
+    def _browser(self, h, body, url: str, hold: bool, done_here: int) -> None:
+        from tests.helpers.mock_openai import _finish
+        steps = [{"action": "open", "url": url}, {"action": "click", "target": "Press me"}, {"action": "screenshot"},
+                 {"action": "close"}]
+        if hold and done_here >= 1:
+            self._hold("RC-BROWSERHOLD")
+            return _finish(h, text_step(ANSWER))
+        if done_here < len(steps):
+            return _finish(h, tool_step(("Browser", steps[done_here], f"call_rc_browser_{done_here}")))
+        results = [_text(m.get("content")) for m in (body or {}).get("messages") or []
+                   if isinstance(m, dict) and m.get("role") == "tool"]
+        line = next((ln for r in results[-len(steps):] for ln in r.splitlines() if BROWSER_AFTER in ln), "")
+        return _finish(h, text_step(f"{BROWSER_DONE} {line}".strip()))
 
     def stop(self) -> None:
         self.release()

@@ -29,7 +29,7 @@ EFFECTS = ("now", "next session", "next launch")
 EFFECT_WORDS = {"now": "takes effect now", "next session": "takes effect in the next session",
                 "next launch": "takes effect on the next launch"}
 
-GROUPS = (("general", "General"), ("studio", "Studio"), ("agents", "Agents and roles"),
+GROUPS = (("general", "General"), ("studio", "Studio"), ("browser", "Browser"), ("agents", "Agents and roles"),
           ("knowledge", "Knowledge and recall"), ("supervise", "Supervise"), ("steer", "Steer and turn"),
           ("models", "Models"), ("providers", "Providers"), ("ollama", "Ollama"), ("network", "Network and routing"),
           ("remote", "Remote"), ("packs", "Packs"), ("connectors", "Connectors"),

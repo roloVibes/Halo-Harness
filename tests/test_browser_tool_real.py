@@ -72,6 +72,45 @@ def test_through_the_tool_a_real_page_is_read_pressed_typed_and_pictured(ctx: Ct
     ctx.check(f"nothing left, got {left}", not left)
 
 
+@test
+def test_through_the_tool_real_pages_answers_begin_with_what_happened(ctx: Ctx):
+    """W batch 2 entry 1 through the TOOL: a new tab, a page's box, an endless load and a download each begin the
+    answer with their line; the download lands in the session's attachments folder."""
+    from halo_harness.browser_find import find_browser
+    from halo_harness.tools import browser as T
+    from halo_harness.tools.base import ToolContext
+    from halo_harness.tools.screenshot import images_folder
+    from tests.test_browser_cdp import _Site
+    if find_browser() is None:
+        ctx.check("a browser on this machine", False)
+        return
+    sess = Path(_scratch("browser-real-sess2-")) / f"sess-pages-{os.getpid()}"
+    sess.mkdir(parents=True)
+    c = ToolContext(cwd=sess, session_dir=sess, model_ref="ol:tiny:3b@lan")
+    tool = T.BrowserTool()
+    with _Locked(), _Site() as site:
+        try:
+            tool.run({"action": "open", "url": site + "/tabs.html"}, c)
+            out = tool.run({"action": "click", "target": "New tab"}, c).content
+            ctx.check(f"a new tab: said first, its page read, got {out[:120]!r}",
+                      out.splitlines()[0] == "A new tab opened; now on it." and "Title: Second" in out)
+            tool.run({"action": "open", "url": site + "/boxes.html"}, c)
+            out = tool.run({"action": "click", "target": "Alert"}, c).content
+            ctx.check(f"a box: said first, the page went on, got {out[:120]!r}",
+                      out.splitlines()[0] == "The page showed a box: 'Saved!' (accepted)." and "after alert" in out)
+            out = tool.run({"action": "open", "url": site + "/slow.html"}, c).content
+            ctx.check(f"an endless load: said first, the text that is there, got {out[:160]!r}",
+                      out.splitlines()[0] == "The page was still loading after 15 s; this is what it shows so far."
+                      and "the text that is there" in out)
+            tool.run({"action": "open", "url": site + "/dl.html"}, c)
+            out = tool.run({"action": "click", "target": "Get the report"}, c).content
+            got = images_folder(sess.name) / "report.txt"
+            ctx.check(f"a download: said first, in the session's attachments folder, got {out[:200]!r}",
+                      out.splitlines()[0] == f"Downloaded: {got} (1 KiB)." and got.is_file())
+        finally:
+            T.close_for(sess.name)
+
+
 def text_step(text: str) -> list:
     """One streamed assistant message (scripts/realcheck/fakes.py's shape)."""
     return [{"choices": [{"index": 0, "delta": {"role": "assistant"}}]},

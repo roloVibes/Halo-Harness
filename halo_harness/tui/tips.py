@@ -90,7 +90,7 @@ TIPS: "tuple[Tip, ...]" = (
     Tip('Paste 4 or more lines and it becomes a [Pasted text #1] placeholder'),
     Tip('halo -p "prompt" prints an answer without the TUI'),
     Tip('--output-format json turns a -p answer into a script-friendly payload'),
-    Tip('halo --chrome connects the Claude in Chrome extension'),
+    Tip('Ask for a page: the built-in Browser tool opens, reads and clicks it; no extension needed'),
     Tip('--playwright adds browser tools over the Chrome DevTools Protocol'),
     Tip('/agents lists sub-agents; @agent-<name> asks for one by name'),
     Tip('/skills lists discovered skills; run one as /<skill-name>'),

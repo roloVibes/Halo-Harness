@@ -21,6 +21,7 @@ import type { AgentKey, Entry } from "../fleet/types";
 import { lineOf, packOf } from "../packs/events";
 import { ASK_EVENTS, askOfFrame, askOfRow, withAsk, type AskLine, type RowAsk } from "./liveAsk";
 import type { LiveKind, LiveLine } from "./liveTypes";
+import { picOf } from "../session/browserPic";
 
 export type { LiveKind, LiveLine, Talk } from "./liveTypes";
 export type OpenTool = { tool: string; id: string; t0: number };
@@ -109,7 +110,7 @@ export function toolStart(key: AgentKey, id: string, tool: string, ts: number, t
 }
 
 /** The newest open tool row of `key` (with `id` when the frame names one) takes its result (and its policy line). */
-export function toolEnd(key: AgentKey, id: string, text: string, isError: boolean, policy = ""): void {
+export function toolEnd(key: AgentKey, id: string, text: string, isError: boolean, policy = "", picture = ""): void {
   live.update((s) => {
     const open = { ...s.open };
     if (open[key] && (!id || !open[key].id || open[key].id === id)) delete open[key];
@@ -117,7 +118,8 @@ export function toolEnd(key: AgentKey, id: string, text: string, isError: boolea
       const x = s.lines[j];
       if (x.key === key && x.kind === "tool" && !x.ended && (!id || !x.id || x.id === id)) {
         const lines = s.lines.slice();
-        lines[j] = { ...x, result: firstLine(text) || (isError ? "failed" : "ok"), full: fullOf(text), ended: Date.now(), error: isError, ...(policy ? { policy } : {}) };
+        const pic = picOf(lines, j, x, picture || text);
+        lines[j] = { ...x, result: firstLine(text) || (isError ? "failed" : "ok"), full: fullOf(text), ended: Date.now(), error: isError, ...(policy ? { policy } : {}), ...(pic ? { pic } : {}) };
         return { lines, open };
       }
     }
@@ -141,7 +143,7 @@ export function fromEntry(key: AgentKey, e: Entry, at = false): void {
   if ((e.kind === "text" || e.kind === "thinking") && !at) return addText(key, e.kind, String(e.text || ""), ts);
   if (e.kind === "text" || e.kind === "thinking") return addLine({ key, kind: e.kind, ts, text: keepEnd(String(e.text || "")) }, true);
   if (e.kind === "tool_call") return at ? addLine({ key, kind: "tool", ts, text: "", tool: name, id: String(e.id || ""), target, ended: ts * 1000 }, true) : toolStart(key, String(e.id || ""), name, ts, target);
-  if (e.kind === "tool_result") return at ? backlogResult(key, e) : toolEnd(key, String(e.id || ""), String(e.text || ""), !!e.is_error, String(e.policy || ""));
+  if (e.kind === "tool_result") return at ? backlogResult(key, e) : toolEnd(key, String(e.id || ""), String(e.text || ""), !!e.is_error, String(e.policy || ""), String(e.picture || ""));
   if (e.kind === "spawn") return addLine({ key, kind: "spawn", ts, text: label || `${name}: ${e.task || ""}` }, at);
   if (e.kind === "handback") return at || !talkedBack(key) ? addLine({ key, kind: "output", ts, text: keepEnd(String(e.text || "")) }, at) : undefined;
   if (e.kind === "user") return addLine({ key, kind: e.you ? "you" : "asked", ts, text: keepEnd(String(e.text || "")) }, at);
@@ -154,7 +156,8 @@ function backlogResult(key: AgentKey, e: Entry): void {
     const j = s.lines.findIndex((x) => x.key === key && x.kind === "tool" && !!e.id && x.id === String(e.id));
     if (j < 0) return {};
     const lines = s.lines.slice();
-    lines[j] = { ...lines[j], result: firstLine(e.text) || (e.is_error ? "failed" : "ok"), full: fullOf(e.text), error: !!e.is_error, ...(e.policy ? { policy: e.policy } : {}) };
+    const pic = picOf(lines, j, lines[j], String(e.picture || e.text || ""));
+    lines[j] = { ...lines[j], result: firstLine(e.text) || (e.is_error ? "failed" : "ok"), full: fullOf(e.text), error: !!e.is_error, ...(e.policy ? { policy: e.policy } : {}), ...(pic ? { pic } : {}) };
     return { lines };
   });
 }

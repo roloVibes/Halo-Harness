@@ -24,6 +24,7 @@ Every entry carries `ts` when the source had one. Long text is capped.
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Optional
 
@@ -53,6 +54,10 @@ def tool_label(name: str, args) -> str:
     """`Bash: npm test` -- the tool and the one argument that says what it does. A Workflow call is said by the
     workflow's name, else by its task (3.6.0.5: `Workflow: review`, never its raw input: main's box on Auto holds the
     room of a usual line, and a workflow's start is a usual line)."""
+    if name == "Browser":  # 3.6.0.6 W: "Browser: open <address>", the words of the terminal's card (tools/browser.py)
+        from halo_harness.tools.browser import step_words
+        words = step_words(args)
+        return f"Browser: {words[len('Browser '):]}" if words.startswith("Browser ") else words
     if isinstance(args, dict):
         for key in (_WORKFLOW_KEYS if name == "Workflow" else _ARG_KEYS):
             if isinstance(args.get(key), str) and args[key].strip():
@@ -116,7 +121,7 @@ def entries_from_nodes(nodes: list, *, final: bool = False) -> list:
         elif kind == "tool_result":
             out.append({"kind": "tool_result", "id": node.get("tool_use_id"), "name": node.get("tool"),
                         "text": _cap(node.get("content")), "is_error": bool(node.get("is_error")), "ts": ts,
-                        **_policy(node.get("policy"))})
+                        **_policy(node.get("policy")), **_picture(node.get("content"))})
         elif kind == "meta" and isinstance(node.get("control", node.get("fleet")), dict):  # 3.5.0.0: "fleet" before
             out.append({"kind": "control", **node.get("control", node.get("fleet")), "ts": ts})
         elif kind == "meta" and isinstance(node.get("control_note", node.get("fleet_note")), str):
@@ -138,6 +143,16 @@ def _policy(p) -> dict:
     return {"policy": str(p["line"])} if isinstance(p, dict) and p.get("line") else {}
 
 
+_PICTURE = re.compile(r'(?:^Picture: |Screenshot saved at |"path": ")([^\n"]*?page-\d+\.png)', re.M)
+
+
+def _picture(content) -> dict:
+    """3.6.0.6 W: a Browser step's picture (its result's `Picture:` line, cut off the capped text by a long page, or
+    the screenshot's path), so Live's detail can show the page."""
+    m = _PICTURE.search(_content_text(content) if content is not None else "")
+    return {"picture": m.group(1)} if m else {}
+
+
 def tail(entries: list, n: int, kinds=None) -> list:
     if kinds:
         wanted = {str(k) for k in kinds}
@@ -154,7 +169,8 @@ def entry_from_event(ev) -> Optional[dict]:
     if kind == "tool_result":
         return {"kind": "tool_result", "id": data.get("id"), "name": data.get("name"),
                 "text": _cap(data.get("content") if data.get("content") is not None else data.get("summary") or ""),
-                "is_error": bool(data.get("is_error")), "ts": ts, **_policy(data.get("policy"))}
+                "is_error": bool(data.get("is_error")), "ts": ts, **_policy(data.get("policy")),
+                **_picture(data.get("content"))}
     if kind == "user_message":
         return {"kind": "user", "text": _cap(data.get("text") or ""), "ts": ts}
     if kind in ("permission_request", "question", "plan_review"):

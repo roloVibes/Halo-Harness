@@ -80,6 +80,9 @@
 .slv-full { margin: 0; padding: 6px 8px; max-height: 18em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; color: var(--text);
   background: color-mix(in srgb, var(--bg) 70%, transparent); border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: var(--radius-sm); }
 .slv-tool[data-error] .slv-full { border-left-color: var(--bad); }
+/* 3.6.0.6 W: a Browser step's page picture in its detail: the detail's width, its own shape; a click opens it whole */
+.slv-shot { width: 100%; max-width: 100%; margin: 4px 0; background: var(--surface); border-radius: 4px; overflow: hidden; }
+.slv-shot img { display: block; width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
 .slv-out { display: grid; gap: 4px; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); border-left: 3px solid var(--accent);
   background: var(--surface-2); min-width: 0; }
 .slv-out[data-state="done"] { border-left-color: var(--ok); }
