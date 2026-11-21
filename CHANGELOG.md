@@ -88,9 +88,9 @@ workflows and agents are named as the pack's. The limits that remain are at the 
   then showed two more things: on macOS the palette's list of workflows stayed empty when Run a workflow was picked
   before the workflows had been read (fixed: the list is read again when they come; the test now holds Studio's
   answers back to make that moment, red without the fix on the PC), and an older test of the Run a goal drawer
-  expected the pack picker to be the last thing in the form, which the new Workflows list under it ended. Not run:
-  macOS locally (CI runs it at the release gate), Firefox on Windows or macOS, Safari, and a look-only tab across a
-  real restart of Studio by a person (the test starts a second Studio under the open tab).
+  expected the pack picker to be the last thing in the form's box of fields, which the new Workflows list under it
+  ended. Not run: macOS locally (CI runs it at the release gate), Firefox on Windows or macOS, Safari, and a look-only
+  tab across a real restart of Studio by a person (the test starts a second Studio under the open tab).
 
 ## [3.6.0.5] - 2026-11-20
 

@@ -12,7 +12,7 @@ export type FlowCommand = { id: string; group: string; label: string; hint?: str
 
 export function flowCommands(): FlowCommand[] {
   if (!flows.get().loaded) void loadFlows();
-  // read again each time the palette draws (shell/Palette.tsx): a pick made before the workflows are read shows the one
+  // read again whenever the palette works out its rows (shell/Palette.tsx): a pick made before the workflows are read shows the one
   // waiting line, then the list when they come (it was read once at the pick, and stayed empty)
   const list = (): FlowCommand[] => !flows.get().loaded
     ? [{ id: "run-flow-reading", group: RUN_A_WORKFLOW, label: READING, disabled: true, run: () => undefined }]

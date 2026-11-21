@@ -28,7 +28,7 @@ export function Palette() {
   // 3.6.0.6 P: a command's own list (Run a workflow), kept as the function that reads it: it is read again when the
   // workflows arrive or change, as the Settings rows and the agents above (a pick at once on a slow first read)
   const [sub, setSub] = useState<(() => Command[]) | null>(null);
-  const flowsRead = useFlows((s) => (s.loaded ? s.flows.length : -1));
+  const flowsRead = useFlows((s) => (s.loaded ? s.flows : null)); // the array itself: every read puts in a new one
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const close = () => studio.update(() => ({ paletteOpen: false }));

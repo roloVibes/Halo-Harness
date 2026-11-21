@@ -249,12 +249,14 @@ LABELS = "[...document.querySelectorAll('.palette-item .palette-label')].map((x)
 
 def early(c, rig) -> dict:
     """Run a workflow picked BEFORE the workflows are read (Ctrl+K at once on a slow first read: the release gate of
-    3.6.0.6, the macOS runner): the list says it is reading, then lists them. Studio's answers are held 3 s for it."""
-    rig.server.slow_ms = 3000
+    3.6.0.6, the macOS runner): the list says it is reading, then lists them. Studio's answers are held 6 s for it (the
+    hold runs from the moment the palette opens and asks for the workflows: a slow runner needs the room to make the pick
+    inside it; a pick that came too late would find the list and fail here, never pass)."""
+    rig.server.slow_ms = 6000
     try:
         c.go("about:blank")
         c.go(rig.url("&view=live"))  # a view that does not read the workflows by itself
-        c.wait(f"!!{q('[data-testid=agents]')}", 60)
+        c.wait(f"!!{q('[data-testid=agents]')}", 90)
         c.js("document.activeElement?.blur(); 1")
         ctrl_k(c)
         c.wait(f"!!{q('[data-testid=palette] input')}", 20)
@@ -263,7 +265,7 @@ def early(c, rig) -> dict:
         c.click_on("[...document.querySelectorAll('.palette-item')].find((x) => x.querySelector('.palette-label').textContent === 'Run a workflow')")
         c.wait(f"{LABELS}.length > 0 && !{LABELS}.includes('Run a workflow')", 10)
         EARLY["first"] = c.js(LABELS)
-        c.wait(f"{LABELS}.includes('{FLOW}')", 30)
+        c.wait(f"{LABELS}.includes('{FLOW}')", 40)
         EARLY["then"] = c.js(LABELS)
     finally:
         rig.server.slow_ms = 0

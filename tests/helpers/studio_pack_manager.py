@@ -242,7 +242,7 @@ def picker(c, url, ctx) -> dict:
                                    " if (!f || !p || !f.contains(p)) return false;"
                                    " let top = p; while (top.parentElement !== f) top = top.parentElement;"
                                    " for (let n = top.nextElementSibling; n; n = n.nextElementSibling)"
-                                   " if (!n.matches('[data-testid=goal-flows]') && !n.querySelector('[data-testid=goal-flows]')) return false;"
+                                   " if (!n.matches('[data-testid=goal-flows]')) return false;"
                                    " return true; })()")}
     c.js(f"(() => {{ const s = {PICK}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; "
          f"set.call(s, 'doc-review/review'); s.dispatchEvent(new Event('change', {{bubbles: true}})); return 1; }})()")
