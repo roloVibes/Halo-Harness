@@ -56,13 +56,14 @@ import os
 import re
 import shutil
 import signal
-import subprocess
 import sys
 import threading
 import time
 import weakref
 from pathlib import Path
 from typing import Optional
+
+from halo_harness import subprocess_safe as subprocess  # a bare program name (`ps`) is never taken from the current folder
 
 LOAD_WAIT_S = 15.0
 CALL_WAIT_S = 30.0
