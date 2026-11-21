@@ -243,6 +243,35 @@ def palette(c, rig, own=True) -> dict:
     return {"listed_tag": listed, **_dock(c)}
 
 
+EARLY: dict = {}
+LABELS = "[...document.querySelectorAll('.palette-item .palette-label')].map((x) => x.textContent)"
+
+
+def early(c, rig) -> dict:
+    """Run a workflow picked BEFORE the workflows are read (Ctrl+K at once on a slow first read: the release gate of
+    3.6.0.6, the macOS runner): the list says it is reading, then lists them. Studio's answers are held 3 s for it."""
+    rig.server.slow_ms = 3000
+    try:
+        c.go("about:blank")
+        c.go(rig.url("&view=live"))  # a view that does not read the workflows by itself
+        c.wait(f"!!{q('[data-testid=agents]')}", 60)
+        c.js("document.activeElement?.blur(); 1")
+        ctrl_k(c)
+        c.wait(f"!!{q('[data-testid=palette] input')}", 20)
+        c.call("Input.insertText", text="Run a workflow")
+        c.wait(f"{LABELS}.includes('Run a workflow')", 20)
+        c.click_on("[...document.querySelectorAll('.palette-item')].find((x) => x.querySelector('.palette-label').textContent === 'Run a workflow')")
+        c.wait(f"{LABELS}.length > 0 && !{LABELS}.includes('Run a workflow')", 10)
+        EARLY["first"] = c.js(LABELS)
+        c.wait(f"{LABELS}.includes('{FLOW}')", 30)
+        EARLY["then"] = c.js(LABELS)
+    finally:
+        rig.server.slow_ms = 0
+        for _ in range(2):
+            c.key("Escape")
+    return {"early": EARLY}
+
+
 def _dock(c) -> dict:
     form = "[data-testid=run-flow-dock] [data-testid=run-flow-form]"
     c.wait(f"!!{q(form)}", 20)
@@ -337,8 +366,8 @@ class RunFlowDriver(Driver):
             c.call("Page.addScriptToEvaluateOnNewDocument", source=WATCH)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=FIRST)
             try:
-                self.out.update(own=OWN, viewonly=VIEWONLY)
-                yield ((own, (c, rig)), (viewonly, (c, rig)), (errors, (c,)), (ended, (rig,)))
+                self.out.update(early=EARLY, own=OWN, viewonly=VIEWONLY)
+                yield ((early, (c, rig)), (own, (c, rig)), (viewonly, (c, rig)), (errors, (c,)), (ended, (rig,)))
             finally:
                 from halo_harness.studio import sessions_new_api as N
                 N.end_started(wait_s=10.0)

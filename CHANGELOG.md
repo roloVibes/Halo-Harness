@@ -20,11 +20,12 @@ workflows and agents are named as the pack's. The limits that remain are at the 
   enabled pack's, yours, this project's) there is a **Run it**: in Agents -> 2 · Workflows beside **Try it** (Try it
   is unchanged); in the Map's **Run a goal** drawer, under a head "Workflows"; in Packs -> Pack Manager under the
   pack; in a pack's own section, in a row Studio draws above the pack's page; on the card of a workflow's box on the
-  Map; and in the palette as **Run a workflow**. A press opens one form in place: the workflow's name, a box for the
-  task, the line "Starts a new session in {folder} that runs this workflow's steps on your models. It can change files
-  there. Cost and time depend on the models its steps use.", **Run** and **Cancel**. Run answers in the same place with
-  "Started: session {id}." and **Watch it in Live**, which opens Agents -> 4 · Live on that session when you press it
-  and shows the run as a group. Nothing under the form moves.
+  Map; and in the palette as **Run a workflow** (picked before the workflows are read, its list says "Reading the
+  workflows..." and fills when they come). A press opens one form in place: the workflow's name, a box for the task,
+  the line "Starts a new session in {folder} that runs this workflow's steps on your models. It can change files
+  there. Cost and time depend on the models its steps use.", **Run** and **Cancel**. Run answers in the same place
+  with "Started: session {id}." and **Watch it in Live**, which opens Agents -> 4 · Live on that session when you
+  press it and shows the run as a group. Nothing under the form moves.
 - **How it runs.** Run starts a new session in Studio's folder that runs the workflow by its name, step by step,
   through the same code as the Workflow tool. No model is asked to start it. The session is Studio's own and ends with
   Studio. In a terminal the same is `halo --headless --run-workflow <name> --workflow-task="<task>"`.
@@ -83,9 +84,13 @@ workflows and agents are named as the pack's. The limits that remain are at the 
   On the PC (Windows), in a headless Chrome, one at a time: the three browser modules this release adds to (the tab
   that can only look, a pack's workflows in the lists, Run it in every view), and the plain and node checks of the
   join. The Run it module failed there in four runs of seven until the test scrolled the Map's drawing as a person
-  does (the Known limit above); after that it passed three of three, and twice on the VM. Not run: macOS locally (CI
-  runs it at the release gate), Firefox on Windows or macOS, Safari, and a look-only tab across a real restart of
-  Studio by a person (the test starts a second Studio under the open tab).
+  does (the Known limit above); after that it passed three of three, and twice on the VM. The release gate's first run
+  then showed two more things: on macOS the palette's list of workflows stayed empty when Run a workflow was picked
+  before the workflows had been read (fixed: the list is read again when they come; the test now holds Studio's
+  answers back to make that moment, red without the fix on the PC), and an older test of the Run a goal drawer
+  expected the pack picker to be the last thing in the form, which the new Workflows list under it ended. Not run:
+  macOS locally (CI runs it at the release gate), Firefox on Windows or macOS, Safari, and a look-only tab across a
+  real restart of Studio by a person (the test starts a second Studio under the open tab).
 
 ## [3.6.0.5] - 2026-11-20
 

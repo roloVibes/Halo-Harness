@@ -10,6 +10,7 @@ import { packs } from "../routes/packs/store";
 import { settings } from "../routes/settings/store";
 import { fleet } from "../routes/fleet/store";
 import { agentLines } from "../routes/fleet/commands";
+import { useFlows } from "../routes/crew/flows/flowStore"; // 3.6.0.6 P: Run a workflow's list is read again when they change
 
 // 3.1.6.0 R6: the section groups in the registry's order (before, Roles, Design and Team sorted above Go to);
 // 3.2.0.0 R3: the packs' groups after the sections'
@@ -24,7 +25,10 @@ export function Palette() {
   const agents = useStore(fleet, agentLines);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
-  const [sub, setSub] = useState<Command[] | null>(null); // 3.6.0.6 P: a command's own list (Run a workflow)
+  // 3.6.0.6 P: a command's own list (Run a workflow), kept as the function that reads it: it is read again when the
+  // workflows arrive or change, as the Settings rows and the agents above (a pick at once on a slow first read)
+  const [sub, setSub] = useState<(() => Command[]) | null>(null);
+  const flowsRead = useFlows((s) => (s.loaded ? s.flows.length : -1));
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const close = () => studio.update(() => ({ paletteOpen: false }));
@@ -32,13 +36,13 @@ export function Palette() {
   const matches = useMemo(() => {
     if (!open) return [] as Command[];
     const order = groupOrder();
-    const scored = (sub || commands())
+    const scored = (sub ? sub() : commands())
       .map((c) => ({ c, s: Math.max(fuzzy(q, c.label), fuzzy(q, c.group + " " + c.label) - 1) }))
       .filter((x) => x.s >= 0);
     if (q.trim()) scored.sort((a, b) => b.s - a.s);
     else scored.sort((a, b) => order.indexOf(a.c.group) - order.indexOf(b.c.group));
     return scored.map((x) => x.c);
-  }, [open, q, section, catalog, agents, sub]);
+  }, [open, q, section, catalog, agents, sub, flowsRead]);
 
   useEffect(() => {
     if (open) {
@@ -57,7 +61,8 @@ export function Palette() {
   const run = (c?: Command) => {
     if (!c || c.disabled) return; // 3.3.2.0 R2: a disabled entry's hint says why; Enter leaves the palette open
     if (c.list) {
-      setSub(c.list());
+      const read = c.list;
+      setSub(() => read);
       setQ("");
       setSel(0);
       input.current?.focus();

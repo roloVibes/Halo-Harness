@@ -4,7 +4,7 @@
 import { scopeTag } from "../scopeTag";
 import { flows, loadFlows } from "./flowStore";
 import { DOCK } from "./RunDock";
-import { RUN_A_WORKFLOW, offer, runnable } from "./runWords";
+import { READING, RUN_A_WORKFLOW, offer, runnable } from "./runWords";
 import { openRun } from "./runFlowStore";
 
 export type FlowCommand = { id: string; group: string; label: string; hint?: string; disabled?: boolean; run: () => void;
@@ -12,10 +12,14 @@ export type FlowCommand = { id: string; group: string; label: string; hint?: str
 
 export function flowCommands(): FlowCommand[] {
   if (!flows.get().loaded) void loadFlows();
-  const list = (): FlowCommand[] => runnable(flows.get().flows).map((r) => {
-    const off = offer(r).off;
-    return { id: "run-flow-" + r.name, group: RUN_A_WORKFLOW, label: r.name, hint: off || scopeTag(r.scope, r.name) || undefined,
-             disabled: !!off, run: () => void openRun(DOCK, r.name) };
-  });
+  // read again each time the palette draws (shell/Palette.tsx): a pick made before the workflows are read shows the one
+  // waiting line, then the list when they come (it was read once at the pick, and stayed empty)
+  const list = (): FlowCommand[] => !flows.get().loaded
+    ? [{ id: "run-flow-reading", group: RUN_A_WORKFLOW, label: READING, disabled: true, run: () => undefined }]
+    : runnable(flows.get().flows).map((r) => {
+      const off = offer(r).off;
+      return { id: "run-flow-" + r.name, group: RUN_A_WORKFLOW, label: r.name, hint: off || scopeTag(r.scope, r.name) || undefined,
+               disabled: !!off, run: () => void openRun(DOCK, r.name) };
+    });
   return [{ id: "run-flow", group: "Agents", label: RUN_A_WORKFLOW, run: () => undefined, list }];
 }

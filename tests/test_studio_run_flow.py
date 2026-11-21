@@ -79,6 +79,9 @@ def test_every_other_view_that_shows_it_runs_it_the_same_way(ctx: Ctx):
     p = own.get("palette") or {}
     ctx.check(f"the palette lists it with its tag and opens the same form, got {p.get('listed_tag')!r} {p.get('line')!r}",
               p.get("listed_tag") == "pack doc-review" and p.get("name") == FLOW and bool(LINE.match(str(p.get("line") or ""))))
+    e = _got(ctx).get("early") or {}
+    ctx.check(f"Run a workflow picked before the workflows are read says so, then lists them, got {e}",
+              e.get("first") == ["Reading the workflows..."] and FLOW in (e.get("then") or []))
 
 
 @test

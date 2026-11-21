@@ -14,6 +14,8 @@ export const WATCH = "Watch it in Live";
 export const RUN_HEAD = "Workflows";
 /** The palette's one command (routes/crew/flows/commands.ts). */
 export const RUN_A_WORKFLOW = "Run a workflow";
+/** The palette's list while the workflows are still being read (a pick made at once on a slow first read). */
+export const READING = "Reading the workflows...";
 export const RUN_PATH = "crew/run";
 
 /** The line the form says before Run, word for word (what it does, what it may change, what it costs). */
