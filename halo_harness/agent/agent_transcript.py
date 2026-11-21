@@ -33,6 +33,7 @@ FLUSH_BYTES = 1800
 FLUSH_S = 2.0
 SPAWN_TOOLS = ("Agent", "Task")
 _ARG_KEYS = ("command", "file_path", "path", "pattern", "url", "query", "description", "prompt", "subagent_type")
+_WORKFLOW_KEYS = ("name", "task")  # the Workflow tool's own arguments (tools/workflow.py INPUT_SCHEMA): its name wins
 
 
 def one_line(value, cap: int = ARG_CAP) -> str:
@@ -49,9 +50,11 @@ def first_line(text, cap: int = 120) -> str:
 
 
 def tool_label(name: str, args) -> str:
-    """`Bash: npm test` -- the tool and the one argument that says what it does."""
+    """`Bash: npm test` -- the tool and the one argument that says what it does. A Workflow call is said by the
+    workflow's name, else by its task (3.6.0.5: `Workflow: review`, never its raw input: main's box on Auto holds the
+    room of a usual line, and a workflow's start is a usual line)."""
     if isinstance(args, dict):
-        for key in _ARG_KEYS:
+        for key in (_WORKFLOW_KEYS if name == "Workflow" else _ARG_KEYS):
             if isinstance(args.get(key), str) and args[key].strip():
                 return f"{name}: {one_line(args[key], 100)}"
         return f"{name}: {one_line(args, 100)}" if args else str(name)

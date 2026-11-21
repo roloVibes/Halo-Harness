@@ -158,6 +158,10 @@ your own is drawn as before. The limits that remain are at the end of this secti
 - **Turning off a map that was not in use said new sessions run on no map.** Through Studio's map API, turning off a
   map while another map of yours was set changed nothing, yet the answer read "New sessions run on no map (as before
   maps)." It now reads "{name} was not in use; new sessions still run on {set}."
+- **A running workflow was named by its raw input.** While main ran a workflow, its box in the Live drawings and its
+  card in Agents -> 4 · Live read `Workflow {"name": "review", "task": "..."}`: several lines, so the box grew and
+  everything under it moved at the moment the workflow started. A workflow is now named by its name (`Workflow review`),
+  or by its task when it has no name.
 
 ### Known limits
 
@@ -193,8 +197,10 @@ your own is drawn as before. The limits that remain are at the end of this secti
   passed, among them the two new ones that drive a real terminal session and a real Studio through Auto's groups and
   through a build on Auto with its true lines, with nothing of the run left running. On the PC (Windows), without a
   browser: the Python and node checks of each change, and, before the Attention change, the real-use check with its five
-  browser steps skipped by name (11 passed). macOS was not run, and nothing was run with a browser on Windows: CI runs
-  both at the release gate. How the four group colours look to a person was judged by no check; the checks measure only
+  browser steps skipped by name (11 passed). With a browser on Windows, one real-use step was run on the PC, the build on
+  Auto: the release gate's first Windows run had failed in it (a workflow's start grew main's box; see Fixed), and it
+  passed on the PC after the fix. macOS was not run locally: CI runs it, and the other browser steps on Windows, at the
+  release gate. How the four group colours look to a person was judged by no check; the checks measure only
   that they stay apart from the state colours and from each other, also for colour-blind eyes.
 
 ## [3.6.0.4] - 2026-11-18
