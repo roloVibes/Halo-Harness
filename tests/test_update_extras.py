@@ -102,7 +102,14 @@ def test_halo_update_keeps_the_extras_the_install_was_made_with(ctx: Ctx):
 @test
 def test_the_printed_lines_come_from_the_install(ctx: Ctx):
     from halo_harness import voice  # 3.6.0.3 B: the clip's Pillow line left with the clip; no kept code prints the images one
-    ctx.check(f"voice's line, got {voice.INSTALL_LINE!r}", voice.INSTALL_LINE == upd.extra_install_line("voice"))
+    # voice reads its line ONCE per process (voice.install_line), so in a shard where an earlier module had already
+    # asked for it, this compared a line made THEN with one made NOW; when a module in between leaves the process
+    # looking like another install, the two differ (the release gate of 3.6.0.5, on Linux, Windows and macOS, the
+    # day a new test module moved this one to another shard). The check is that voice's line IS the install's line:
+    # both are made now.
+    voice._LINE.clear()
+    want = upd.extra_install_line("voice")
+    ctx.check(f"voice's line, got {voice.INSTALL_LINE!r}, the install's {want!r}", voice.INSTALL_LINE == want)
     bare = re.compile(r"""halo-harness\[[\w,]+\]["'`]""")
     hits, unpinned = [], []
     # checker, batch 1: the steward's knowledge (*.md under halo_harness) too, and a line broken after `install`
