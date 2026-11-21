@@ -32,6 +32,11 @@ def _leaves(owner) -> list:
 
 def _covers_whole(owner, pieces: dict) -> bool:
     from textual.selection import SELECT_ALL
+    if owner in pieces and _leaves(owner) != [owner]:
+        # the transcript widget ITSELF is selected, not its leaves (a selection set on the widget: select all, a
+        # selection made by code): it draws no text of its own to cut a range from, so it is the whole of it, its
+        # source, as before 3.6.0.7 (the release gate: a reply selected this way was left out of the copy)
+        return True
     for leaf in _leaves(owner):
         full = _drawn(leaf, SELECT_ALL)
         if not full or not full[0].strip():

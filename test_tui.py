@@ -6371,8 +6371,8 @@ def test_ctrl_c_with_input_selection_copies_and_does_not_arm_quit(ctx: Ctx):
             notified = []
             app.notify = lambda msg, **kw: notified.append(msg)
             await pilot.press("ctrl+c")
-            ctx.check(f"a 'Copied N characters' notice was shown, got {notified}",
-                      any("Copied 11 characters" in m for m in notified))
+            ctx.check(f"a 'Copied the selection (N characters)' notice was shown, got {notified}",
+                      any("Copied the selection (11 characters)" in m for m in notified))  # 3.6.0.7: Ctrl+C says what it copied
             ctx.check(f"the text landed in Textual's own clipboard register, got {app.clipboard!r}",
                       app.clipboard == "secret text")
             ctx.check("Ctrl+C did not arm the double-press quit countdown",
@@ -7141,7 +7141,7 @@ def test_multi_widget_selection_concatenates_texts_in_document_order(ctx: Ctx):
             ctx.check(f"all three texts concatenated in DOCUMENT order, glyph-stripped, got {app.clipboard!r}",
                       app.clipboard == expected)
             ctx.check(f"toast names what was copied and the char count, got {notified}",
-                      any(f"Copied selection ({len(expected)} characters)" in m for m in notified))
+                      any(f"Copied the selection ({len(expected)} characters)" in m for m in notified))
     asyncio.run(body())
 
 
