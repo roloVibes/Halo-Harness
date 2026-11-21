@@ -82,13 +82,18 @@ def test_every_driver_adds_and_reads_through_the_one_pair(ctx: Ctx):
     ctx.check(f"no helper reads window.__errs but page_errors, got {reads}", not reads)
     ctx.check(f"no driver with the collector turns Page off, got {off}", not off)
     users = sorted(p.name for p in HELPERS.glob("*.py") if "collect_page_errors(c)" in p.read_text(encoding="utf-8"))
-    want = sorted(["studio_session.py", "studio_controls.py", "studio_session_just_built.py", "studio_session_map_down.py",
-                   "studio_session_map_down_draw.py", "studio_auto_groups_draw.py", "studio_session_run.py",
-                   "studio_session_step_in.py", "studio_session_truth.py", "studio_run_parts.py",
-                   "studio_auto_room.py",  # r/batch04: Session's room on Auto and a helper's card
-                   # 3.6.0.6: the tab that can only look, a pack's workflow in the lists, Run it in every view
-                   "studio_owner_tab.py", "studio_flows_pack.py", "studio_run_flow.py"])
-    ctx.check(f"the fourteen drivers that collect page errors call collect_page_errors(c), got {users}", users == want)
+    # the drivers known to collect page errors: none of them may stop. A NEW driver joins by calling collect_page_errors(c)
+    # (the checks above keep it to the one pair); it does not have to be written here (3.6.0.6 and 3.6.0.7 each added
+    # drivers and each made this list red at the join: a list that must be edited by every release pins nothing)
+    known = sorted(["studio_session.py", "studio_controls.py", "studio_session_just_built.py", "studio_session_map_down.py",
+                    "studio_session_map_down_draw.py", "studio_auto_groups_draw.py", "studio_session_run.py",
+                    "studio_session_step_in.py", "studio_session_truth.py", "studio_run_parts.py",
+                    "studio_auto_room.py",  # r/batch04: Session's room on Auto and a helper's card
+                    # 3.6.0.6: the tab that can only look, a pack's workflow in the lists, Run it in every view
+                    "studio_owner_tab.py", "studio_flows_pack.py", "studio_run_flow.py",
+                    "studio_copy.py"])  # 3.6.0.7: copying in Session's Live column and the Prompt feed
+    gone = [n for n in known if n not in users]
+    ctx.check(f"every driver known to collect page errors still calls collect_page_errors(c), stopped: {gone}", not gone)
 
 
 if __name__ == "__main__":
