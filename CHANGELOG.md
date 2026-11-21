@@ -25,10 +25,11 @@ limits that remain are at the end of this section.
   shows the pack's new steps when the pack changes.
 - **The map you have open follows its files** (Agents, 3 Map). The map is drawn again when its file changes; a
   workflow box shows its workflow's new steps and an agent box its agent's new model when those files change. Before,
-  only the list of maps was read again, and the open map stayed old until you switched maps or reloaded the page. A
-  box you opened, an open When card and an Undo on offer stay as they are. While you drag a box or a line the redraw
-  waits for the drop; a drag whose release never reaches the window (the window lost the focus) now ends as Escape
-  ends it. A locked map is drawn again too.
+  a map written other than by the Builder's card, or a changed workflow or agent on one of its boxes, re-read only the
+  list of maps: the open map stayed old until you switched maps or reloaded the page. A box you opened, an open When
+  card and an Undo on offer stay as they are. While you drag a box or a line the redraw waits for the drop; a drag
+  whose release never reaches the window (the window lost the focus) now ends as Escape ends it. A locked map is drawn
+  again too.
 - **The drawings follow a changed workflow** (Session's drawing; Agents, 4 Live draws with the same code). A workflow
   box's steps follow the workflow's file: after a plain write, and after a Builder card that changed only the
   workflow, with "new" on the new steps. Before, a plain write showed nothing, and a Builder card put "new" on the old
@@ -58,8 +59,8 @@ limits that remain are at the end of this section.
 - **Studio follows the files of its own folder.** A session started in a terminal in another project writes that
   project's workflows, maps and agents where Studio does not look: they are not listed and not followed.
 - **A session whose model gets the short tool list is not sent the Builder tool** (a small context window: measured
-  with the default tools at 49,152 and below; sent at 65,536). Such a session changes a workflow by editing its file.
-  Studio now shows that change; the card's head and the "new" marks come only with the Builder's card.
+  with the default tools at 49,152 and below; sent at 65,536). Such a session can change a workflow only by editing
+  its file. Studio now shows that change; the card's head and the "new" marks come only with the Builder's card.
 - **Agents, 4 Live has no test of its own for this.** It draws with the code Session's drawing uses, which is tested.
   Live has no head and no "changed" line of its own.
 - **The line can still move the drawing once** in two cases: a session that was started before this release, and a
@@ -69,17 +70,19 @@ limits that remain are at the end of this section.
 - **On the Map, not checked during a redraw:** the picked box, and a Builder ghost waiting for Apply or Undo. When the
   open map's file is removed, the tab does nothing, as before.
 - **Not understood: how the real-use check ended once at the gate of 3.6.0.8.** On CI's Windows runner both real-use
-  jobs passed all 18 steps and their checker then ended with a fault of its own, with no line; the rerun and the
-  release's own run were green. The switch above is there so that the next time names itself.
+  jobs passed all 18 steps, and then their checker ended with status 127 and no line of its own. Git Bash reports 127
+  for a crash-kind Windows status. The rerun and the release's own run were green. The switch above is there so that
+  the next time names itself.
 - **Every Known limit of 3.6.0.8 still holds.**
 - **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
   the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
   check through its new parent, eighteen of eighteen steps. This release's browser tests ran there on a real headless
   Chrome: the open workflow's form, the open map (also with a drag in hand), Session's drawing, one read per change,
   the head after a reload, and the line for a changed workflow (also on Auto). On the PC (Windows), one at a time with
-  a real headless Chrome: the same three Studio modules, and the plain and node modules the change touches. Not run:
-  macOS at all (CI runs it at the release gate), Agents, 4 Live, a real model asked to change a workflow, and a
-  session started in another folder than Studio's.
+  a real headless Chrome: the three Studio modules that hold these browser tests (the Workflows tab, the Map tab and
+  Session's drawing), and the plain and node modules the change touches. Not run: macOS at all (CI runs it at the
+  release gate), Agents, 4 Live, a real model asked to change a workflow, and a session started in another folder than
+  Studio's.
 
 ## [3.6.0.8] - 2026-11-21
 

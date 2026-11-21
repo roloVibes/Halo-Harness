@@ -435,6 +435,13 @@ def test_reserve_holds_the_workflow_lines_its_drawing_can_show(ctx: Ctx):
       out.seven = said(many.map((name, i) => ({ name, t: s + 600 + 60 * i })));
       const time = (t) => T.flowChangedLine('x', t).slice('The workflow x changed at '.length).split('. A run')[0];
       out.t600 = time(s + 600); out.t660 = time(s + 660); out.t960 = time(s + 960);
+      // the reviewer: whichever of them change, in whichever order, the line fits the room held (names of unlike lengths)
+      const mixed = ['a-very-long-workflow-name-here', 'bb', 'c', 'another-long-name-for-a-workflow', 'e5', 'f', 'gg'];
+      out.mixedOver = [];
+      for (const w of [408, 360]) { const r = T.reserve({ ...f, flowsCan: mixed }, w).est;
+        for (let k = 1; k <= mixed.length; k++) for (const order of [mixed, [...mixed].reverse()]) {
+          const ws = order.slice(0, k).map((name, i) => ({ name, t: s + 600 + 60 * i }));
+          const e = T.est(T.truthLines({ ...f, flowsCan: mixed, flowsChanged: ws }), w); if (e > r) out.mixedOver.push([w, k, e, r]); } }
       out.cap = [408, 360].map((w) => [T.reserve({ ...f, flowsCan: many.slice(0, 4) }, w).est, T.reserve({ ...f, flowsCan: many }, w).est,
                                        T.reserve({ ...f, flowsCan: many.slice(0, 1) }, w).est, T.reserve(f, w).est]);""", dict(f=f, w48="mw" * 24))
     ctx.check(f"every state with its workflow lines fits the reserve at 408 and 360, over: {out['over']}", out["over"] == [])
@@ -447,6 +454,8 @@ def test_reserve_holds_the_workflow_lines_its_drawing_can_show(ctx: Ctx):
               out["two"] == [f"The workflows build and review changed, the last at {out['t660']}{tail}"])
     ctx.check(f"seven: one line, the three newest and how many more, got {out['seven']}",
               out["seven"] == [f"The workflows g7, f6, e5 and 4 more changed, the last at {out['t960']}{tail}"])
+    ctx.check(f"whichever workflows change, in whichever order, the line fits the room held, over: {out['mixedOver']}",
+              out["mixedOver"] == [])
     ctx.check(f"the room held for seven workflows is the room for four (names as long), and more than none, got {out['cap']}",
               all(four == seven and one > none for four, seven, one, none in out["cap"]))
 

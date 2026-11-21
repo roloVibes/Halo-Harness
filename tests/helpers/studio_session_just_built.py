@@ -662,7 +662,7 @@ def _kept(c, rig, rows: Rows, a: str, b: str) -> dict:
 
 
 LINES = "[...document.querySelectorAll('[data-testid=session-lit-line] .mp-truth-line')].map((e) => e.textContent)"
-CHANGED = f"{LINES}.filter((t) => t.startsWith('The workflow '))"
+CHANGED = f"{LINES}.filter((t) => t.startsWith('The workflow'))"  # one workflow or several: both forms
 # batch 2 repair: where the drawing's top box, the truth block and the Open button stand (the line's room is held)
 GEOM = f"""(() => {{ const r = (e) => (e ? Math.round(e.getBoundingClientRect().top * 2) / 2 : null);
   const tops = [...document.querySelectorAll('[data-testid=session-lit-map] [data-box]')].map(r), t = {Q}('[data-testid=session-truth]');
