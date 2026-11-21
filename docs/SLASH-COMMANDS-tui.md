@@ -64,9 +64,8 @@ placeholders expanded to the pasted text; a message you sent is no longer
 a draft. **`Ctrl+Shift+C`** copies the whole draft in one key, wherever
 focus is (many terminals keep `Ctrl+Shift+C` as their own copy key and
 never pass it on; `/copy draft` works in every terminal, and `Ctrl+A` then
-`Ctrl+C` in most). A selection plus `Ctrl+C` still copies just the selection, and
-`Ctrl+C` with nothing selected still copies the last reply (a second press
-asks to quit).
+`Ctrl+C` in most). Drag over text to copy it; Ctrl+C copies the selection again, or the last reply when nothing is selected.
+After the last reply is copied, a second `Ctrl+C` within 3 seconds asks to quit.
 
 3.1.6.0: **after every copy the status line says exactly what landed:**
 "copied N characters via xclip" (or `wl-copy`, `xsel`, `clip.exe`,

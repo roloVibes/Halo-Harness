@@ -15,6 +15,7 @@ from halo_harness.tui.widgets.input_sanitize import SafeStatic
 
 
 class LaneOfferCard(SafeStatic, can_focus=True):
+    FOCUS_ON_CLICK = False  # 3.6.0.6 C: a click or drag leaves the keys in the chat box; Tab still reaches it
     BINDINGS = [Binding("y,enter", "accept", "Keep it as the coder lane", show=False)]
 
     def __init__(self, *, line: str, offer: dict, on_decide: Callable) -> None:

@@ -227,7 +227,11 @@ evidence: times, bytes, excerpts, the process list). Each step has a time budget
 home: the address in 2 s, the page in 2 s more, Setup's first read in 5 s, no BEL, instrument in the terminal and the
 page), `theme` (`halo config set theme paper` is what the terminal's first frame and the page draw), `question`
 (`halo -p` in 5 s; the request's bytes against the day-one size + 10%, `REQUEST_BYTES` in steps_a.py), `turn` (Read,
-a sub-agent and the Workflow tool, from the session's own log), `studio` (headless Chrome through every section: drawn
+a sub-agent and the Workflow tool, from the session's own log), `copy-drag` (3.6.0.6, a session in a terminal gives
+two answers; the terminal's own mouse sequences drag over words of the first; on release (a second drag too), and again on Ctrl+C, the
+clipboard holds exactly those words, and after a click Ctrl+C holds the last answer; the clipboard is a small program
+of the step's own, named as the system's clipboard program is, first on halo's PATH -- on Windows also in the folder
+halo runs in -- that writes what it is given into the scratch home; no browser), `studio` (headless Chrome through every section: drawn
 in 5 s, no failed /api call, no console error, `hold_still`, two early choices, one prompt from the Prompt panel;
 SKIP without Chrome), `prompt` (3.6.0.2, one prompt in two views: its own Studio and a session in a terminal; a
 prompt sent the way Studio's Prompt sends it shows once in the terminal, `/model` sent from Studio switches the model,

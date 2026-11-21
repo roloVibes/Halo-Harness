@@ -41,13 +41,16 @@ from realcheck.report import FAIL, PASS, SKIP, Result, markdown, run_info, to_js
 def _steps() -> list:
     """(name, budget seconds, what it checks, the function)."""
     from realcheck import steps_a as A, steps_b as B, steps_c as C, steps_close as Z, steps_map as M, steps_prompt as P
-    from realcheck import steps_auto as S
+    from realcheck import steps_auto as S, steps_copy as K
     return [
         ("starts", 20, "`halo --version` and `--help` answer in 2 s; --help names every command", A.starts),
         ("first-run", 120, "`halo init` in a fresh home: address, page, Setup's read, no beep, instrument", A.first_run),
         ("theme", 90, "a theme set with `halo config set theme` is the one the terminal and the page draw", A.theme_pick),
         ("question", 30, "`halo -p` gets the answer in 5 s; the request's size is in budget", A.question),
         ("turn", 120, "a real turn: Read, a sub-agent and the Workflow tool, from the session's own log", A.real_turn),
+        ("copy-drag", 120 if sys.platform == "win32" else 60, "a drag over words of an earlier answer in a terminal "
+         "session copies those words on release (each time) and on Ctrl+C; Ctrl+C with nothing selected the last answer",
+         K.copy_drag),
         ("studio", 300, "Studio walked through in headless Chrome: each section loads, holds still, a prompt", B.studio),
         ("prompt", 120, "one prompt in two views: Studio's sends show once in a terminal session, /model, an ask "
          "answered in Studio, no user or host name, follows after /clear", P.prompt),

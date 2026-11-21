@@ -2553,67 +2553,34 @@ class BridgeApp(App):
         self.notify(f"Copied {label} ({len(final_text)} characters)", timeout=2)
         return True
 
-    def _copy_text_for_widgets(self, widgets, selections=None) -> "Optional[str]":
+    def _copy_text_for_widgets(self, widgets) -> "Optional[str]":
         """W4c item 1: every widget's own `copy_text()` (its stored
         source -- see each widget class for what that means to it), cleaned
         (`clean_copy_text`) and concatenated in the given order
-        (`join_copied_texts`). A widget with no `copy_text` at all (a
-        permission/question/plan/effort/rewind/improve card -- none of
-        them ever the target of a transcript drag in practice) simply
-        contributes nothing; there is no cell-reading fallback.
-
-        2.0.7 copy-out fix (rolo 2026-10-07: "copying text from the session
-        to another file seems to not really work well"): `selections`, when
-        given, is the SAME map `_selected_transcript_text` read -- for a
-        widget whose Selection is a PARTIAL range (not the widget's whole
-        extent), the copy is narrowed to that RANGE of its source text via
-        `Selection.extract` (Textual offsets are line/x within the widget's
-        content), so a grazing drag copies exactly what was dragged, never
-        the whole widget. The widget's own `Selection.full` (a drag covering
-        its entire extent) keeps the whole-text path -- its source, cleaned,
-        unchanged."""
+        (`join_copied_texts`): `Y`'s whole current turn. A widget with no
+        `copy_text` contributes nothing here; a mouse selection is read by
+        `_selected_transcript_text` instead."""
         from halo_harness.tui.clipboard import clean_copy_text, join_copied_texts
         parts = []
         for widget in widgets:
             get_text = getattr(widget, "copy_text", None)
             if callable(get_text):
-                raw = get_text()
-                sel = (selections or {}).get(widget)
-                if sel is not None and getattr(sel, "start", None) is not None:
-                    # Full-coverage detection without a `.full` attribute
-                    # (Textual 8.2.8's Selection is a NamedTuple): a
-                    # selection whose line span already covers every line
-                    # of the widget's own content IS the whole widget --
-                    # keep the stored-source path (cleaning and all).
-                    n_lines = len(raw.splitlines())
-                    covers_all = (sel.start.y <= 0 and sel.end is not None
-                                  and sel.end.y >= n_lines - 1)
-                    if not covers_all:
-                        try:
-                            extracted = sel.extract(raw)
-                            if extracted:
-                                raw = extracted
-                        except Exception:
-                            pass
-                parts.append(clean_copy_text(raw))
+                parts.append(clean_copy_text(get_text()))
         return join_copied_texts(parts) or None
 
     def _selected_transcript_text(self) -> "Optional[str]":
-        """W4c item 1: `screen.selections` is Textual's own PUBLIC
-        selection map (`{widget: Selection(start, end)}`, kept live by its
-        native mouse-drag handling) -- the KEYS decide which widgets the
-        drag touched, and 2.0.7's copy-out fix narrows each PARTIAL
-        selection to its dragged RANGE (see `_copy_text_for_widgets`);
-        a whole-widget drag keeps the stored-source path. Ordered by each
-        widget's position in the transcript, not dict order (which Textual
-        gives no documented guarantee about)."""
-        selected = self.screen.selections
-        if not selected:
-            return None
-        order = self.transcript.widgets_in_order()
-        ordered = [w for w in order if w in selected]
-        ordered.extend(w for w in selected if w not in ordered)
-        return self._copy_text_for_widgets(ordered, selections=selected)
+        """3.6.0.6 C: the words a drag selected (`screen.selections`, Textual's
+        own map of the LEAF widgets the drag touched): a whole widget copies its
+        source, any partial range (rows AND columns) Textual's drawn text for it,
+        in screen order -- see tui/copy_selection.py."""
+        from halo_harness.tui.copy_selection import selected_text
+        return selected_text(self.screen.selections, self.transcript.widgets_in_order())
+
+    def on_text_selected(self, _event) -> None:
+        """3.6.0.6 C (T2): letting go of a drag over the transcript copies the
+        dragged words at once (tui/copy_selection.py)."""
+        from halo_harness.tui.copy_selection import copy_on_release
+        copy_on_release(self)
 
     def _current_turn_text(self) -> "Optional[str]":
         """W4c item 2 (`Y`): every transcript widget from the LAST
@@ -2646,6 +2613,8 @@ class BridgeApp(App):
         hint = getattr(self, "_shift_drag_hint", None)
         if hint is not None and not hint.shown:
             hint.observe(self, event)
+        from halo_harness.tui import copy_selection
+        copy_selection.observe(self, event)  # 3.6.0.6 C: a move away from the press is a drag, copied on release
         from textual import events
         if isinstance(event, (events.Key, events.Paste)) and not event.is_forwarded:
             # 3.6.0.2 P5 batch 4 (K13, K17, K19, J1 M1/M2): which widget this key reaches, decided where it arrives.
@@ -2673,13 +2642,12 @@ class BridgeApp(App):
         focused = self.screen.focused
         picked = getattr(focused, "selected_text", None) if focused is not None else None
         if picked and isinstance(picked, str):
+            from halo_harness.tui.copy_selection import SELECTION_LABEL
             self.copy_to_clipboard(picked, confirm=True)
-            self.notify(f"Copied {len(picked)} characters", timeout=2)
+            self.notify(f"Copied {SELECTION_LABEL} ({len(picked)} characters)", timeout=2)
             return
-        selected = self._selected_transcript_text()
-        if selected:
-            self.copy_to_clipboard(selected, confirm=True)
-            self.notify(f"Copied selection ({len(selected)} characters)", timeout=2)
+        from halo_harness.tui.copy_selection import SELECTION_LABEL
+        if self.perform_copy(self._selected_transcript_text(), label=SELECTION_LABEL):
             return
         from halo_harness.theme import get_config_value
         quit_on_double = bool(get_config_value("quit_on_double_ctrl_c", True))
@@ -2711,7 +2679,8 @@ class BridgeApp(App):
             return
         final_text = apply_crlf_if_configured(text)
         self.copy_to_clipboard(final_text, confirm=True)
-        self.notify(f"Copied {len(final_text)} characters" + running, timeout=2)
+        from halo_harness.tui.copy_selection import COPIED_LAST_REPLY
+        self.notify(COPIED_LAST_REPLY.format(n=len(final_text)) + running, timeout=2)
 
     # ---- Ctrl+V: a real system-clipboard paste (W2c item 3) --------------
     #

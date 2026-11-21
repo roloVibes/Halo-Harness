@@ -517,10 +517,11 @@ live check; the control socket it rides on is [REMOTE.md](REMOTE.md).
 
 ## Keys: Ctrl+C copies, a second press asks before quitting
 
+Drag over text to copy it; Ctrl+C copies the selection again, or the last reply when nothing is selected.
 `Ctrl+C` is the copy key. One press copies the current selection (the chat
-box, any text field, or a transcript drag), or, with nothing selected, your
-last assistant reply, and says "Copied N characters" (or "Nothing to
-copy"). It never interrupts a running turn -- `Esc` does that. Press it a
+box, any text field, or a transcript drag) and says "Copied the selection
+(N characters)", or, with nothing selected, your last assistant reply, and
+says "Copied the last reply (N characters)" (or "Nothing to copy"). It never interrupts a running turn -- `Esc` does that. Press it a
 second time within 3 seconds and a card asks "Quit Halo? Enter quits, Esc
 stays"; nothing closes until you press `Enter`. `halo config set
 quit_on_double_ctrl_c false` removes the card (every press just copies).

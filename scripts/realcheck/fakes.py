@@ -20,6 +20,7 @@ never by model name, so a sub-agent or a workflow step on another model is answe
   RC-AUTOBUILD           one Builder call `AUTO_BUILD_CHANGES` (the agent checker, the workflow review: no map), then
                          AUTOBUILD_DONE
   RC-AUTOUSE             one Workflow call to review whose step children carry RC-SUBHANG, then AUTOUSE_DONE
+  RC-COPYONE / RC-COPYTWO  COPY_ONE / COPY_TWO (copy-drag: two answers, the first one dragged over)
   RC-SUBWAIT             SUB_DONE after SUBWAIT_S seconds (a fresh wait: `release()` never shortens it)
   RC-SUB / anything else  SUB_DONE / ANSWER
 
@@ -60,6 +61,8 @@ AUTOBUILD_PROMPT = "RC-AUTOBUILD: build me a review workflow: a coder then a che
 AUTOBUILD_DONE = "RC-AUTOBUILD-DONE"
 AUTOUSE_PROMPT, AUTOUSE_DONE = "RC-AUTOUSE: use it now", "RC-AUTOUSE-DONE"
 SUBWAIT_S = 3.0  # each RC-SUBWAIT child answers after this long
+# 3.6.0.6 C: copy-drag's two answers (steps_copy.DRAGGED is a run of words of the first)
+COPY_ONE, COPY_TWO = "COPYDRAG-ALPHA with some words, then COPYDRAG-OMEGA.", "COPYDRAG-LAST only, the last one."
 
 
 def _agent(desc: str, agent: str, task: "str | None" = None) -> dict:
@@ -204,6 +207,8 @@ class Provider:
         with self._lock:
             self.calls.append((last[:40], len(json.dumps(body or {}))))
         turn, done_here, result = _this_turn(body)
+        if "RC-COPYONE" in turn or "RC-COPYTWO" in turn:
+            return _finish(h, text_step(COPY_ONE if "RC-COPYONE" in turn else COPY_TWO))
         if "RC-MAPASK" in turn:
             return _finish(h, text_step(MAPASK_DONE))
         if "RC-MAPBUILD" in turn:

@@ -27,6 +27,7 @@ def location_text(finding: dict) -> str:
 
 
 class ReviewCard(SafeStatic, can_focus=True):
+    FOCUS_ON_CLICK = False  # 3.6.0.6 C: a click or drag leaves the keys in the chat box; Tab still reaches it
     BINDINGS = [
         Binding("enter", "toggle_details", "Details", show=False),
         Binding("c", "copy_location", "Copy location", show=False),

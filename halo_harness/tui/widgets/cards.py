@@ -82,6 +82,7 @@ class ToolCard(SafeStatic, can_focus=True):
     MCP/Agent calls get at least this counter even though only Bash
     streams `tool_progress` lines of its own."""
 
+    FOCUS_ON_CLICK = False  # 3.6.0.6 C: a click or drag leaves the keys in the chat box; Tab still reaches it
     BINDINGS = [
         Binding("o", "open_pager", "Pager", show=False),
         Binding("y", "copy_card", "Copy", show=False),
@@ -309,6 +310,8 @@ class _AnswerCard(SafeStatic):
     bindings only run while its own screen is the one on top: a dialog
     opened over the base screen keeps every key it is typed (review 3
     item 11; the App also keeps focus off a hidden card)."""
+
+    FOCUS_ON_CLICK = False  # 3.6.0.6 C: a click or drag leaves the keys in the chat box; Tab still reaches it
 
     def check_action(self, action: str, parameters: tuple) -> "bool | None":
         try:
@@ -755,6 +758,7 @@ class EffortCard(SafeStatic, can_focus=True):
     with no adjustable effort at all (`levels` empty) shows one line saying
     so and closes on any key (`on_select(None)`)."""
 
+    FOCUS_ON_CLICK = False  # 3.6.0.6 C: a click or drag leaves the keys in the chat box; Tab still reaches it
     BINDINGS = [
         Binding("left,h", "move_left", "Previous", show=False),
         Binding("right,l", "move_right", "Next", show=False),
@@ -856,6 +860,7 @@ class RewindCard(SafeStatic, can_focus=True):
     the target shadow-repo step and asks to confirm before touching the
     real working tree. `on_decide(confirmed: bool)` fires exactly once."""
 
+    FOCUS_ON_CLICK = False  # 3.6.0.6 C: a click or drag leaves the keys in the chat box; Tab still reaches it
     BINDINGS = [
         Binding("1,y,enter", "confirm", "Restore", show=False),
         Binding("2,n,escape", "cancel", "Cancel", show=False),

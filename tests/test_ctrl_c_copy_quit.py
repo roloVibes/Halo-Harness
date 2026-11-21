@@ -5,7 +5,8 @@ probably want to quit, and a popup should show confirming").
 
 The contract:
   * the first Ctrl+C copies a selection, else the last assistant reply, and
-    says "Copied N characters" / "Nothing to copy"; it never interrupts a
+    says "Copied the selection (N characters)" / "Copied the last reply (N
+    characters)" / "Nothing to copy"; it never interrupts a
     running turn (Esc does);
   * a second press within DOUBLE_CTRL_C_WINDOW_S (3 s) opens the "Quit
     Halo?" card -- Enter quits, Esc stays and the window resets;
@@ -109,7 +110,8 @@ def test_ctrl_c_with_a_transcript_selection_copies_it(ctx: Ctx):
                 await pilot.press("ctrl+c")
                 await app.workers.wait_for_complete()
                 ctx.check(f"range copied to the sink, got {env.sink}", env.sink == ["line one\nline two"])
-                ctx.check(f"toast shown, got {notices}", any("Copied selection (17 characters)" in m for m in notices))
+                ctx.check(f"toast shown, got {notices}",
+                          any("Copied the selection (17 characters)" in m for m in notices))
                 ctx.check("a selection copy does not arm the window", app._ctrl_c_deadline is None)
     _run(body())
 
@@ -126,8 +128,8 @@ def test_ctrl_c_without_selection_copies_the_last_reply(ctx: Ctx):
                 await pilot.press("ctrl+c")
                 await app.workers.wait_for_complete()
                 ctx.check(f"last reply reached the sink, got {env.sink}", env.sink == ["the last reply text"])
-                ctx.check(f"toast 'Copied N characters', got {notices}",
-                          any(m.startswith("Copied 19 characters") for m in notices))
+                ctx.check(f"toast 'Copied the last reply (N characters)', got {notices}",
+                          any(m.startswith("Copied the last reply (19 characters)") for m in notices))
                 ctx.check("the first press did not quit", fake.quit_called is False and not _card_open(app))
     _run(body())
 

@@ -53,12 +53,14 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         rc = m.main(["--list"])
     lines = out.getvalue().splitlines()
     names = [line.split()[0] for line in lines]
-    ctx.check(f"the sixteen steps in order, got {names}", rc == 0 and names == [
-        "starts", "first-run", "theme", "question", "turn", "studio", "prompt", "session-map", "auto-groups",
-        "auto-ready-lines", "packs", "local", "update", "closing", "no-reuse", "idle-cpu"])
-    # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`; 3.6.0.5: the two Auto steps after `session-map`
+    ctx.check(f"the seventeen steps in order, got {names}", rc == 0 and names == [
+        "starts", "first-run", "theme", "question", "turn", "copy-drag", "studio", "prompt", "session-map",
+        "auto-groups", "auto-ready-lines", "packs", "local", "update", "closing", "no-reuse", "idle-cpu"])
+    # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`; 3.6.0.5: the two Auto steps after `session-map`;
+    # 3.6.0.6 C: `copy-drag` (a drag over an earlier answer in a terminal session) after `turn`
     win = sys.platform == "win32"
-    for step, want, words in (("session-map", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
+    for step, want, words in (("copy-drag", "120s" if win else "60s", "120 s on Windows, 60 s elsewhere"),
+                              ("session-map", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
                               ("auto-groups", "150s" if win else "90s", "150 s on Windows, 90 s elsewhere"),
                               ("auto-ready-lines", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere")):
         budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
@@ -1649,6 +1651,45 @@ def test_browser_names_the_browser_the_steps_use_and_one_that_names_nothing_fail
     got = [(r.status, r.detail) for r in results]
     ctx.check(f"a browser that names nothing fails each browser step, saying so, got {got}",
               got == [("FAIL", f"the browser named by --browser does not exist: {missing}")] * 2)
+
+
+@test
+def test_copy_drag_judges_the_dragged_words_the_last_answer_and_nothing(ctx: Ctx):
+    """3.6.0.6 C: copy-drag's pure judge -- per gesture, what reached the clipboard (None: nothing)."""
+    from realcheck.steps_copy import judge
+    words, last = "ALPHA with some words", "the last one."
+    ctx.check("all four right: nothing to say", judge([words, words, words, last], words, last) == [])
+    said = judge([last, words, words, last], words, last)
+    ctx.check(f"the drag copied the last answer: said so, got {said}",
+              said == [f"letting go of the drag copied the LAST answer, not {words!r}"])
+    said = judge([None, None, None, None], words, last)
+    ctx.check(f"nothing copied: each gesture said, got {said}", said == [
+        "letting go of the drag put nothing on the clipboard", "the same drag again put nothing on the clipboard",
+        "Ctrl+C after the drag put nothing on the clipboard", "Ctrl+C with nothing selected put nothing on the clipboard"])
+    said = judge([words, words, "ALPHA with some", words], words, last)
+    ctx.check(f"other words: the words shown, got {said}", len(said) == 2 and "'ALPHA with some'" in said[0]
+              and said[1] == f"Ctrl+C with nothing selected copied {words!r}, not {last!r}")
+
+
+@test
+def test_copy_drag_reads_the_screen_and_the_clipboard_program(ctx: Ctx):
+    """3.6.0.6 C: the screen copy-drag reads (cursor moves, erases, a wide character, Windows' re-draws), the mouse
+    sequences it sends, and clip.exe's UTF-16 with its BOM read back as text."""
+    from realcheck.steps_copy import cells, drag_bytes, find, read_copy
+    raw = ("\x1b[?1049h\x1b[2J\x1b[3;5Hold words here\x1b[3;5H\x1b[K\x1b[38;2;1;2;3m"
+           "日x ALPHA with\x1b[1C" "some\x1b[m\r\n\x1b[4;1Hnext \x1b]0;title\x07row\x1b[4;3H\x1b[2X").encode("utf-8")
+    grid = cells(raw, 40, 6)
+    row = "".join(grid[2])
+    ctx.check(f"the erased line holds only the new text, got {row!r}", row.rstrip() == "    日x ALPHA with some")
+    ctx.check(f"a word is found by its cell (the wide character takes two), got {find(grid, 'ALPHA')}",
+              find(grid, "ALPHA") == (8, 2))
+    ctx.check(f"an erase of two cells, got {''.join(grid[3])!r}", "".join(grid[3]).rstrip() == "ne   row")
+    ctx.check("a word not on the screen: None", find(grid, "words here") is None)
+    seqs = drag_bytes((8, 2), (20, 2))
+    ctx.check(f"press, two moves, release, 1-based, got {seqs}", seqs == [
+        b"\x1b[<0;9;3M", b"\x1b[<32;15;3M", b"\x1b[<32;21;3M", b"\x1b[<0;21;3m"])
+    ctx.check("clip.exe's UTF-16LE with its BOM", read_copy(b"\xff\xfe" + "déjà".encode("utf-16-le")) == "déjà")
+    ctx.check("UTF-8 elsewhere", read_copy("déjà".encode("utf-8")) == "déjà")
 
 
 if __name__ == "__main__":
