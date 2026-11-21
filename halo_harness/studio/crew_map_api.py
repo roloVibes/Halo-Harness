@@ -38,15 +38,6 @@ from halo_harness.studio.owner_proof import owner_only
 _NAME = r"(?P<name>[a-z][a-z0-9-]{0,47})"
 
 
-def _row_in_use(name: str, scope: str, used) -> bool:
-    """3.6.0.5 A4: one row, ONE answer (GET crew/maps and GET crew/map/<name>): a default's name is in use only as the
-    shipped row (scope starter) while Auto is; his own old file named auto or starter never is (the alias makes it
-    impossible to set)."""
-    if store.is_auto(name):
-        return scope == "starter" and store.is_auto(used)
-    return name == used
-
-
 def _rows(req) -> list:
     seen, out = set(), []
     used = in_use(None, req.cwd)[0]
@@ -56,7 +47,7 @@ def _rows(req) -> list:
         if key in seen:
             continue
         seen.add(key)
-        on = _row_in_use(r["name"], r["_scope"], used)
+        on = store.row_in_use(r["name"], r["_scope"], used)  # 3.6.0.5 A4: one row, ONE answer (GET crew/maps and map/<name>)
         out.append({"name": r["name"], "scope": r["_scope"], "in_use": on, "problems": r["_problems"],
                     "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or [])})
     return out
@@ -108,7 +99,7 @@ def _answer(req, name: str, got: dict, cwd) -> dict:
     c = compile_raw(raw, name=name, cwd=cwd, state_dir=req.state_dir)
     main = store.load("agent", c.main.get("agent") or "main", cwd=cwd, state_dir=req.state_dir) or {}
     out = {"map": raw, "scope": got["_scope"], "path": got["_path"], "writable": True,
-           "in_use": _row_in_use(name, got["_scope"], in_use(None, req.cwd)[0]),
+           "in_use": store.row_in_use(name, got["_scope"], in_use(None, req.cwd)[0]),
            "next": _next(), "problems": c.problems, "boxes": _box_facts(c, raw, req, cwd),
            "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")}}
     if got["_scope"] == "starter" and store.is_auto(raw.get("name")):
@@ -240,10 +231,11 @@ def post_use(req):
     moved = starts_said(before, start_modes(req.cwd, req.state_dir))
     # 3.6.0.5 A21 (W18): off with none set is Auto; roles off (no map for new sessions) keeps the true words
     after, src = in_use(None, req.cwd)
+    from halo_harness.crew.map_facts import BACK_TO_AUTO
     said = (f"New sessions run on {name}; a running session keeps its own" if on
             else f"{name} was not in use; new sessions still run on {after}"  # 3.6.0.5: off for a map not in use
             if src == "config" and after != name
-            else "New sessions run on Auto (the default); a running session keeps its own"
+            else BACK_TO_AUTO
             if src == "default" else "New sessions run on no map (as before maps)")
     return 200, {"undo_id": undo_id, "in_use": in_use(None, req.cwd)[0], "said": f"{said}{'; ' + moved if moved else ''}."}
 

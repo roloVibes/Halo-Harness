@@ -7,7 +7,8 @@ thread, no network call). Only a session on Auto -- its own control, or its top 
 (crew/map_control.py `PlainMap`) -- gets an answer; any other session gets None, and so do a fault and a raise.
 
 - A workflow W the card wrote is READY when the session holds the Workflow tool and crew/flow_door.py `named(W, cwd)`
-  (the very call the Workflow tool makes) finds the file the card wrote. With no Workflow tool it waits (WF). When
+  (the very call the Workflow tool makes) finds the file the card wrote. With no Workflow tool it waits (WF), but only
+  when the offer's drop is the reason: when the session's own rules leave the tool out, no line at all. When
   `named(W)` finds another file (the project's own W runs first) it gets P3. When it finds nothing: no line at all
   rather than a line that may be false.
 - An agent x the card wrote always waits for the next session: AG2 when the session started with an agent named x,
@@ -50,6 +51,24 @@ def _owner(session):
     return None
 
 
+def _rules_leave_out_workflow(owner) -> bool:
+    """True when the session's OWN rules keep the Workflow tool out, so WF's reason ("started with no workflow") is not
+    the true one and no line is given (r/batch05): read from what the session recorded at its start -- a bare deny rule
+    on its permission engine (settings or --disallowedTools; Agent or Task take Workflow too, permissions.py
+    bare_deny_tool_names), its `--tools` list (cli_flags), a worker's capabilities (isolation/capabilities.py
+    session_caps, the call narrow_session made). Only the offer's drop (workflows/offer.py) leaves this False."""
+    from halo_harness.isolation.capabilities import allowed, session_caps
+    from halo_harness.permissions import bare_deny_tool_names, split_tool_rule_list
+    engine = getattr(owner, "permission_engine", None)
+    if "Workflow" in bare_deny_tool_names(list(getattr(engine, "deny_rules", None) or [])):
+        return True
+    tools = (getattr(owner, "cli_flags", None) or {}).get("tools")
+    if isinstance(tools, str) and tools.strip().lower() != "default" and "Workflow" not in split_tool_rule_list(tools):
+        return True
+    caps = session_caps(team=None, agent=None)[0]
+    return caps is not None and not allowed("Workflow", caps)
+
+
 def _steps_hold(body: dict, name: str) -> bool:
     for step in (body or {}).get("steps") or []:
         if isinstance(step, dict) and name in (step.get("agents") or []):
@@ -83,13 +102,14 @@ def ready_and_later(session, wrote) -> Optional[dict]:
                 agents.append((p.stem, key))
         reg = getattr(owner, "tool_registry", None)
         has_tool = reg is not None and reg.get("Workflow") is not None
+        wf = not has_tool and not _rules_leave_out_workflow(owner)  # WF only when its words name the reason
         ready: list = []
         bodies: dict = {}
         later: list = []
         p3: list = []
         for w, key in flows:
             if not has_tool:
-                later.append({"kind": "workflow", "name": w, "why": "WF"})
+                later += [{"kind": "workflow", "name": w, "why": "WF"}] if wf else []
                 continue
             got = named(w, cwd)
             if got is None:

@@ -102,11 +102,12 @@ def map_rows(cwd=None, state_dir=None) -> list:
             continue
         seen.add(key)
         row = {"name": name, "label": name, "scope": scope, "description": str(r.get("about") or ""),
-               "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or []), "active": name == used, "default": False}
+               "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or []),
+               "active": store.row_in_use(name, scope, used), "default": False}  # RULINGS 7: one row, ONE answer
         if is_auto and scope == "starter":
-            auto.append({**row, "label": DEFAULT_WORDS, "active": store.is_auto(used), "default": source == "default"})
+            auto.append({**row, "label": DEFAULT_WORDS, "default": source == "default"})
         elif is_auto:
-            his.append({**row, "label": f"{name} · your copy from before", "active": False, "old": True})
+            his.append({**row, "label": f"{name} · your copy from before", "old": True})
         elif scope == "project":
             proj.append(row)
         elif scope == "starter":

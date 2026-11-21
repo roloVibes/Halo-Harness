@@ -32,7 +32,7 @@ from halo_harness.crew import map_when, store
 from halo_harness.crew.changes import row
 from halo_harness.crew.changes_map import USE_TARGET, apply_map
 from halo_harness.crew.formats import LINE_WHEN, MAP, circle, name_problem, when_problem
-from halo_harness.crew.map_facts import NEXT_HANDOFF, ROW_BOX, ROW_LINE, ROW_NEW_MAP
+from halo_harness.crew.map_facts import BACK_TO_AUTO, DEFAULT_WORDS, NEXT_HANDOFF, ROW_BOX, ROW_LINE, ROW_NEW_MAP
 from halo_harness.crew.spec import MODES
 
 
@@ -345,6 +345,14 @@ def map_use(args: dict, ctx) -> dict:
                     and not _new(name, ctx)):
         return {"text": f"no map named {name!r}", "rows": []}
     now, _src = in_use(None, ctx.get("cwd"))
+    if store.is_auto(name):  # 3.6.0.5 (r/batch05): a name of the default is Auto, never his old file of that name
+        from halo_harness.crew.compile import DEFAULT_MAP
+        if store.is_auto(now):
+            return {"text": f"New sessions run on {DEFAULT_WORDS} already.", "rows": []}
+        words = _use_words(DEFAULT_MAP, ctx)  # what Auto's agents may do beyond the map in use: unticked, as for any map
+        return {"text": f"preview: new sessions run on {DEFAULT_WORDS}", "rows": [row("change", USE_TARGET,
+                f"{BACK_TO_AUTO}{words}.", {"op": "use", "value": DEFAULT_MAP, **_file_mark(DEFAULT_MAP, ctx)},
+                bool(words))]}
     if now == name:
         return {"text": f"new sessions run on {name} already", "rows": []}
     words = _use_words(name, ctx)

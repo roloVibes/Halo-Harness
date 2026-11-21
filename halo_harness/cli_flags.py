@@ -62,5 +62,7 @@ def cli_flags_from_args(args) -> dict:
         "prompt_suggestions": (g("prompt_suggestions") or "").lower() in _TRUTHY_PROMPT_SUGGESTIONS,
         "restricted": bool(g("restricted", False)),
         "system_prompt_snapshot": g("system_prompt_snapshot") or "off",
+        # 3.6.0.5 (r/batch05): `--tools` as typed, so the session knows its own tool list left a tool out (crew/ready_now.py)
+        "tools": g("tools"),
         "worktree": g("worktree"),
     }

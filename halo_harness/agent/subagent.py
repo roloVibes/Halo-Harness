@@ -1334,6 +1334,13 @@ def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index:
                                            **child_fields)
 
 
+def _group_task(tool_input: dict) -> str:
+    """Main's `task` words of an Agent/Task call: a value that is not text is no task (r/batch05: grouped by its reply,
+    as a call without one; agent/repair.py check_schema never refuses it)."""
+    task = tool_input.get("task")
+    return task if isinstance(task, str) else ""
+
+
 def _wrap_task_result(text: str, task_id: str) -> str:
     """H6 scope F (OpenCode adopt item): resumable sub-agent tasks -- a
     later `Agent(task_id=..., prompt=...)` resumes the SAME child session
@@ -1566,7 +1573,7 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
     jobs, error = _prepare_fanout_jobs(spec, tool_input, runtime)
     if error is not None:
         return [], ToolResult(error, is_error=True)
-    group_task = str(tool_input.get("task") or "")  # 3.6.0.5 B3: count and batch children share the call's one task
+    group_task = _group_task(tool_input)  # 3.6.0.5 B3: count and batch children share the call's one task
     n = len(jobs)
     if n > 1:
         for i, job in enumerate(jobs):
@@ -1906,7 +1913,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         child, meta_path = _build_child_session(
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override, parent_tool_use_id=tool_id,
             background=background, role_override=role_override, effort_override=effort_override,
-            task_text=f"{description}\n{prompt}", group_task=str(tool_input.get("task") or ""),
+            task_text=f"{description}\n{prompt}", group_task=_group_task(tool_input),
         )
     except Exception as e:
         # 2.0.2 review finding 4 (major): this module's own docstring says

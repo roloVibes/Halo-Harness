@@ -131,6 +131,15 @@ def is_auto(name) -> bool:
     return isinstance(name, str) and name.strip().lower() in ("auto", "starter")
 
 
+def row_in_use(name, scope, used) -> bool:
+    """3.6.0.5 A4 (RULINGS 7): one map row, ONE in-use answer everywhere (Studio, Setup, `halo maps list`, the
+    Builder's context): a default's name is in use only as the shipped row (scope starter) while Auto is; his own old
+    file named auto or starter never is (the alias makes it impossible to set). `used` is crew/compile.py in_use's name."""
+    if is_auto(name):
+        return scope == "starter" and is_auto(used)
+    return name == used
+
+
 DEFAULT_NAME = "{name} is a name of the default (Auto); give your map another name."
 
 

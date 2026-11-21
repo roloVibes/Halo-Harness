@@ -58,7 +58,7 @@ def cmd_maps(argv) -> int:
             if key in seen:
                 continue
             seen.add(key)
-            mark = "*" if r["name"] == used and not auto else " "
+            mark = "*" if store.row_in_use(r["name"], r["_scope"], used) else " "
             bad = f"  problem: {r['_problems'][0]}" if r["_problems"] else ""
             print(f"{mark} {r['name']:<20} {store.scope_words(r['_scope'], short=True):<8} {len(r.get('boxes') or [])} boxes, {len(r.get('lines') or [])} lines{bad}")
             gone = store.dangling_line(r, cwd=cwd) if r["_scope"] != "starter" and not r["_problems"] else ""

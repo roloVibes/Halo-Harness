@@ -118,7 +118,8 @@ def _maps_text(cwd, state_dir) -> str:
     lines = []
     for r in store.rows("map", cwd=cwd, state_dir=state_dir):
         conn = "; ".join(f"{ln.get('from')} -> {ln.get('to')}" for ln in r.get("lines") or [] if isinstance(ln, dict))
-        lines.append(f"- {r['name']} ({store.scope_words(r['_scope'])}){' IN USE' if r['name'] == used else ''}: {len(r.get('boxes') or [])} boxes | "
+        on = store.row_in_use(r["name"], r["_scope"], used)  # 3.6.0.5 RULINGS 7: one row, ONE in-use answer
+        lines.append(f"- {r['name']} ({store.scope_words(r['_scope'])}){' IN USE' if on else ''}: {len(r.get('boxes') or [])} boxes | "
                      f"lines: {conn[:400] or 'none'}")
     return "\n".join(lines) or "(none yet)"
 

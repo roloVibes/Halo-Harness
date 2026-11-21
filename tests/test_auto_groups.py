@@ -139,9 +139,10 @@ def _check_the_turn(ctx: Ctx, label: str, session, events: list, resolved: list,
               len(follow) == 1 and CHILD_SAID in json.dumps(follow[0].get("content")))
 
 
-def _run_openrouter_turn(ctx: Ctx, name: str) -> None:
+def _run_openrouter_turn(ctx: Ctx, name: str, call: "dict | None" = None, label: str = "") -> None:
     from tests.helpers.mock_openai import SCENARIOS, MockUpstream, _finish
     seen: dict = {}
+    call = CALL if call is None else call
 
     def scenario(h, body):  # records only; every check runs on the test's own thread
         msgs = [m for m in body.get("messages") or [] if isinstance(m, dict)]
@@ -151,7 +152,7 @@ def _run_openrouter_turn(ctx: Ctx, name: str) -> None:
             seen["followup"] = [m for m in msgs if m.get("role") == "tool"]
             _finish(h, _text("Main is done."))
         else:
-            _finish(h, _call(name, CALL))
+            _finish(h, _call(name, call))
 
     scn = f"auto-groups-{name.lower()}"
     SCENARIOS[scn] = scenario
@@ -164,7 +165,11 @@ def _run_openrouter_turn(ctx: Ctx, name: str) -> None:
                 events = list(session.turn("read report A with a sub-agent"))
             finally:
                 _unwrap(session)
-            _check_the_turn(ctx, name, session, events, resolved, seen, name)
+            _check_the_turn(ctx, label or name, session, events, resolved, seen, name)
+            if label:  # r/batch05 entry 4: a task that is not a non-empty text is no task: no task words on the row
+                rows = _children(session)
+                spawn = (rows[0].get("spawn") if rows else None) or {}
+                ctx.check(f"{label}: the helper's row has no task words, got {spawn.get('task')!r}", not spawn.get("task"))
     finally:
         mock.stop()
         SCENARIOS.pop(scn, None)
@@ -210,6 +215,56 @@ def test_task_tool_without_task_runs(ctx: Ctx):
     from halo_harness.tools.agent import TaskTool
     _schema_asserts(ctx, TaskTool(), "Task")
     _run_openrouter_turn(ctx, "Task")
+
+
+NOT_TEXT = (("null", None), ("an empty string", ""), ("a number", 5), ("a list", ["fix the login"]))
+
+
+@test
+def test_task_that_is_not_text_never_refuses_a_call(ctx: Ctx):
+    """r/batch05 entry 4: an Agent or a Task call whose `task` is null, an empty string, a number or a list RUNS, as on
+    3.6.0.4 (which ignored the key): the repair check passes it, one real turn runs the helper and groups it by its
+    reply with no task words, and the loop's repair round hands the reply back with no error."""
+    from halo_harness.agent.repair import repair_tool_use_block
+    from halo_harness.tools.agent import AgentTool, TaskTool
+    from halo_harness.tools.registry import ToolRegistry
+    reg = ToolRegistry([AgentTool(), TaskTool()])
+    for name in ("Agent", "Task"):
+        for label, value in NOT_TEXT:
+            got = repair_tool_use_block({"name": name, "input": {**CALL, "task": value}}, reg)
+            ctx.check(f"{name}, task {label}: the check passes it, got {got.ok} {got.error_text!r}",
+                      got.ok and got.error_kind is None)
+            _run_openrouter_turn(ctx, name, {**CALL, "task": value}, f"{name}, task {label}")
+    _repair_round_takes(ctx, [{**CALL, "task": v} for _l, v in NOT_TEXT])
+
+
+def _repair_round_takes(ctx: Ctx, replies: list) -> None:
+    """The loop's repair round on a local model (Ollama route): each reply in `replies` comes back from
+    `_attempt_tool_repair_once` as it is, with no repair error."""
+    from tests.helpers.mock_ollama import MockUpstream, _finish_chat
+    from halo_harness.tools.agent import AgentTool
+    todo = list(replies)
+
+    def scenario(h, body):
+        _finish_chat(h, [{"message": {"role": "assistant", "content": json.dumps(todo[0] if todo else {})}, "done": True,
+                          "done_reason": "stop", "eval_count": 5}])
+
+    mock = MockUpstream().start()
+    mock.scenarios["auto-groups-task-values"] = scenario
+    try:
+        with _Env() as e:
+            os.environ["OLLAMA_HOST"] = mock.base_url  # this test's own loopback mock
+            session = _session(e, model="ol:auto-groups-task-values", base_url=mock.base_url, api_key="")
+            while todo:
+                want = todo[0]
+                session._repair_error = None
+                got = session._attempt_tool_repair_once(tool_name="Agent", schema=AgentTool().input_schema,
+                                                        error_message="arguments were not valid JSON", raw_input="{")
+                ctx.check(f"the repair round hands back task {want.get('task')!r}, got {got!r} "
+                          f"(error {session._repair_error!r})", got == want and not session._repair_error)
+                todo.pop(0)
+    finally:
+        mock.stop()
 
 
 @test

@@ -316,9 +316,14 @@ def check_schema(name: str, schema: Optional[dict]) -> Optional[dict]:
     """3.6.0.5 B23: the schema a call is CHECKED against. The Agent and Task tools ask main for `task` (it is in their
     `required` as main sees it), but a call that leaves it out still runs as on 3.6.0.4: for those two names only, a
     shallow copy whose `required` lacks "task"; every other name (or a schema without it) comes back unchanged. The ONE
-    place that drops `task`: `repair_tool_use_block` and the loop's local repair round both call it."""
-    if name in ("Agent", "Task") and isinstance(schema, dict) and "task" in (schema.get("required") or []):
-        return {**schema, "required": [r for r in schema["required"] if r != "task"]}
+    place that drops `task`: `repair_tool_use_block` and the loop's local repair round both call it. r/batch05: the copy
+    lacks the `task` property too, so `task` is never a reason to refuse (null, a number or a list ran on 3.6.0.4)."""
+    if name in ("Agent", "Task") and isinstance(schema, dict):
+        props = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+        req = schema.get("required") or []
+        if "task" in req or "task" in props:
+            return {**schema, "required": [r for r in req if r != "task"],
+                    "properties": {k: v for k, v in props.items() if k != "task"}}
     return schema
 
 

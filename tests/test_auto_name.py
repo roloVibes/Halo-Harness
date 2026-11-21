@@ -1046,6 +1046,67 @@ def test_the_map_switch_is_quoted_by_its_new_name(ctx: Ctx):
                                               "unset, new sessions run on Auto (the default).")
 
 
+# --- r/batch05 (the judge of the joined candidate, engine M1 and M2) ------------------------------------------------
+
+@test
+def test_builder_maps_text_marks_one_row_in_use(ctx: Ctx):
+    """r/batch05 entry 1 (RULINGS 7): his own old auto.yaml and starter.yaml, no map set: the MAPS block of the
+    Builder's context marks exactly ONE row IN USE, the one that ships with Halo; the one rule lives in the crew store
+    and Studio's routes call it (no second copy)."""
+    from halo_harness.crew import builder, store
+    from halo_harness.studio import crew_map_api
+    with CrewRig() as rig:
+        _his_map(rig, "auto")
+        _his_map(rig, "starter")
+        _config(rig)
+        text = builder._maps_text(rig.proj, rig.state)
+        marked = [ln for ln in text.splitlines() if " IN USE" in ln]
+        ctx.check(f"one row IN USE, the shipped auto, got {marked}",
+                  len(marked) == 1 and marked[0].startswith("- auto (ships with Halo) IN USE:"))
+        ctx.check(f"his two old files are listed, never in use, got {text.splitlines()}",
+                  "- auto (yours): 1 boxes | lines: none" in text.splitlines()
+                  and "- starter (yours): 1 boxes | lines: none" in text.splitlines())
+    ctx.check("the one rule is the crew store's row_in_use", callable(getattr(store, "row_in_use", None)))
+    ctx.check("Studio's routes keep no copy of their own", not hasattr(crew_map_api, "_row_in_use"))
+
+
+AUTO_ALREADY = "New sessions run on Auto (the default) already."
+AUTO_BACK = "New sessions run on Auto (the default); a running session keeps its own"
+
+
+@test
+def test_map_use_on_a_default_name_says_the_truth(ctx: Ctx):
+    """r/batch05 entry 2: `map_use` with a name of the default, his own old starter.yaml present. With Auto in use: the
+    answer says new sessions run on Auto already, no row. With his ship-it set: ONE row in the release's own words for
+    going back to the default, its value the default; applied, crew.map is unset. No line holds the word starter."""
+    from halo_harness.crew import changes_map, tools_map
+    from halo_harness.crew.compile import DEFAULT_MAP
+    with CrewRig() as rig:
+        _his_map(rig, "starter")
+        _his_map(rig, "ship-it")
+        ctx_ = {"cwd": rig.proj, "state_dir": rig.state}
+        _config(rig)
+        for name in ("starter", "Auto", "auto"):
+            got = tools_map.map_use({"map": name}, ctx_)
+            ctx.check(f"none set, map_use {name!r}: already, no row, got {got}",
+                      got == {"text": AUTO_ALREADY, "rows": []})
+        _config(rig, map="ship-it")
+        for name in ("starter", "Auto"):
+            got = tools_map.map_use({"map": name}, ctx_)
+            rows = got.get("rows") or []
+            said = str(rows[0].get("summary")) if rows else ""
+            ctx.check(f"ship-it set, map_use {name!r}: one row in the release's words, got {got.get('text')!r} {said!r}",
+                      len(rows) == 1 and (said == AUTO_BACK + "." or (said.startswith(AUTO_BACK + " -- ")
+                                                                       and said.endswith("."))))
+            op = rows[0]["op"] if rows else {}
+            ctx.check(f"its value is the default, got {op.get('op')!r} {op.get('value')!r}",
+                      op.get("op") == "use" and op.get("value") == DEFAULT_MAP)
+            crew = json.loads(changes_map.config_text(op.get("value"))).get("crew") or {}
+            ctx.check(f"applied, crew.map is unset, got {crew}", "map" not in crew)
+            ctx.check(f"no line of the result holds the word starter, got {got.get('text')!r} {said!r}",
+                      "starter" not in (str(got.get("text")) + "\n" + said).lower())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

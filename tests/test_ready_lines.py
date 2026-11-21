@@ -749,6 +749,79 @@ res = { one, two, three };""")
               got["three"] == {"kind": "other", "which": "built", "auto": True, "marked": False})
 
 
+# -- r/batch05 entry 3 (the judge of the joined candidate, engine M3): WF only when its words are the reason ----------
+
+def _deny_agent(s) -> None:
+    """`--disallowedTools Agent` as build_session records it: a bare deny rule on the session's permission engine
+    (permissions.py freeze_tool_registry took Agent, Task and Workflow out of its tools)."""
+    from halo_harness.permissions import PermissionEngine, parse_rule
+    s.permission_engine = PermissionEngine(deny_rules=[parse_rule("Agent", action="deny")], mode="default", cwd=s.cwd)
+
+
+def _tools_list(s) -> None:
+    """`--tools Read,Edit,Builder` as the session records it (cli_flags from the parsed arguments)."""
+    from types import SimpleNamespace
+    from halo_harness.cli_flags import cli_flags_from_args
+    s.cli_flags = cli_flags_from_args(SimpleNamespace(tools="Read,Edit,Builder"))
+
+
+@test
+def test_no_wf_line_when_the_sessions_own_rules_leave_the_tool_out(ctx: Ctx):
+    """r/batch05 entry 3: an Auto session whose Workflow tool is out by its own rules (a bare deny of Agent, a --tools
+    list without it, a worker's capabilities without "agent") builds a workflow: no 'Saved for your next session' and no
+    'Ready now' line for it, and the builder_done frame's `later` holds no WF item."""
+    from halo_harness.isolation.capabilities import CAPS_ENV
+    from halo_harness.orchestra.workers import LANE_ENV
+
+    def check(label: str, s, tail: str = "") -> None:
+        from halo_harness.crew import ready_now
+        review = _write("workflow", REVIEW)
+        ans = ready_now.ready_and_later(s, [str(review)])
+        ctx.check(f"{label}: no line for the workflow, got {ans} {ready_now.p_lines(ans)}",
+                  ans == {"ready": [], "later": [], "p3": []} and ready_now.p_lines(ans) == [])
+
+    def by_rules(home):
+        s = _auto_session(home, workflow_tool=False)
+        _deny_agent(s)
+        check("a bare deny of Agent", s)
+        s = _auto_session(home, workflow_tool=False)
+        _tools_list(s)
+        check("a --tools list without it", s)
+        saved = {k: os.environ.get(k) for k in (LANE_ENV, CAPS_ENV)}
+        os.environ.update({LANE_ENV: "1", CAPS_ENV: "read,edit"})
+        try:
+            s = _auto_session(home, workflow_tool=False)
+            check("a worker's capabilities without agent", s)
+            pv, out = _apply(s)
+            ctx.check(f"caps: the card's outcome holds no WF item and the result no WF line, got {pv['outcome']}",
+                      not [it for it in pv["outcome"].get("later") or [] if it.get("why") == "WF"] and P2_WF not in _p_of(out))
+        finally:
+            for k, v in saved.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+    _scoped(by_rules)
+
+    real = _auto_session
+    for label, setup in (("a bare deny of Agent", _deny_agent), ("a --tools list without it", _tools_list)):
+        def made(home, _setup=setup, **kw):
+            s = real(home, **kw)
+            _setup(s)
+            return s
+
+        def turn(home, _label=label, _made=made):
+            globals()["_auto_session"] = _made
+            try:
+                got = _drive(CARD, _apply_all, home=home, workflow_tool=False)
+            finally:
+                globals()["_auto_session"] = real
+            later = [it for f in got["frames"] for it in (f.get("later") or [])]
+            ctx.check(f"{_label}: the turn ended, got {got['error']!r}", got["ended"] and got["error"] is None)
+            ctx.check(f"{_label}: the frame's later holds no WF item, got {later}",
+                      got["frames"] and not [it for it in later if it.get("why") == "WF"])
+            ctx.check(f"{_label}: no line for the workflow in the result, got {_p_of(got['result'])}",
+                      not [ln for ln in _p_of(got["result"]) if "workflow review" in ln])
+        _scoped(turn)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

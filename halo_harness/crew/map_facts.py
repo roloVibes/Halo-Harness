@@ -18,6 +18,7 @@ import time
 S13 = "This session keeps running on {old}, as it started. Start a new session to run on {new}."
 TERMINAL_TAIL = "In the terminal: quit, then run halo; /clear keeps {old}."
 DEFAULT_WORDS = "Auto (the default)"  # 3.6.0.5 A7: `auto`, `starter` and no map set are one map
+BACK_TO_AUTO = "New sessions run on Auto (the default); a running session keeps its own"  # W18 (Studio's off, map_use)
 
 
 def s13(old: str, new: str) -> str:
