@@ -7,13 +7,15 @@
 // already keeps (shared/liveFeed.ts, the session's main agent) plus the turns and outputs of promptStore.ts.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useBorn } from "../../lib/motion/born";
-import { Empty } from "../../lib/ui";
+import { CopyButton, Empty } from "../../lib/ui";
+import { replySource } from "../../lib/copyText";
 import { short } from "../orchestra/format";
 import { keyOf } from "../fleet/store";
 import { useLive, type LiveLine } from "../shared/liveFeed";
 import { LADDER, STATE_WORDS, usePrompt, type Out, type Receipt, type Turn } from "./promptStore";
 import { answer } from "./promptSend";
 import { askLabel, STEERING } from "./promptWords";
+import { REPLY_TITLE, ReplyText } from "./ReplyText";
 
 type Row = { ts: number; n: number; turn?: Turn; line?: LiveLine; out?: Out };
 const SHOWN: LiveLine["kind"][] = ["text", "tool", "ask", "state", "error", "output", "you"];
@@ -96,7 +98,20 @@ function LiveBody({ sid, l }: { sid: string; l: LiveLine }) {
     );
   if (l.kind === "you") return <div className="spp-steer" data-testid="prompt-steer-row"><span className="mono muted">↳ steer: </span>{short(l.text, 300)}</div>;
   if (l.kind === "state" || l.kind === "error") return <div className="spp-state mono" data-state={l.state || (l.kind === "error" ? "failed" : "")}>{short(l.text, 200)}</div>;
-  return <div className="spp-text" data-testid="prompt-text">{l.text}</div>;
+  return <Reply l={l} />;
+}
+
+/** 3.6.0.6 C: a reply, its code blocks each with a Copy, and its own Copy on the line under it (room from the first draw). */
+function Reply({ l }: { l: LiveLine }) {
+  const box = useRef<HTMLDivElement>(null);
+  return (
+    <div ref={box}>
+      <ReplyText text={l.text} className="spp-text" testid="prompt-text" />
+      <div className="spp-reply-foot">
+        <CopyButton testid="copy-reply" text={() => replySource(l)} of={() => box.current?.querySelector("[data-reply]")} title={REPLY_TITLE} />
+      </div>
+    </div>
+  );
 }
 
 export function PromptFeed({ sid, hid }: { sid: string; hid: string }) {

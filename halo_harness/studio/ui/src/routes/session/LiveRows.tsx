@@ -20,7 +20,8 @@
 // "after your steer". 3.3.6.0 R4: a text or output row carries "why?" (Why.tsx: Why this answer?, in the Inspector).
 // 3.3.16.2: THINK rows (LiveThink.tsx) and TALK rows (LiveTalk.tsx); an action row after a thought: why? opens it (LiveWhy.tsx).
 import { memo, useRef, type MouseEvent } from "react";
-import { Kbd } from "../../lib/ui";
+import { CopyButton, Kbd } from "../../lib/ui";
+import { replySource } from "../../lib/copyText";
 import { clock, short } from "../orchestra/format";
 import { answerRow } from "../fleet/extras";
 import { panels, usePanels, type AttnRow } from "../fleet/pstore";
@@ -31,6 +32,7 @@ import { ThinkBody } from "./LiveThink";
 import { TalkBody } from "./LiveTalk";
 import { ToolRow } from "./LiveTool";
 import { WhyChip } from "./LiveWhy";
+import { REPLY_TITLE, ReplyText } from "./ReplyText";
 import { steerAgent } from "./steer";
 import { WhyButton } from "./Why";
 
@@ -131,7 +133,7 @@ function Body({ l, live, name, led, ledN }: BodyProps) {
       return (
         <div className="slv-out" data-state={l.state}>
           <div className="slv-out-head mono">{l.state === "done" ? "DONE · ITS LAST WORDS" : "HANDS BACK"}</div>
-          <div className="slv-out-text">{short(l.text, 900)}</div>
+          <div className="slv-out-text" data-reply="">{short(l.text, 900)}</div>
         </div>
       );
     case "spawn":
@@ -145,6 +147,8 @@ function Body({ l, live, name, led, ledN }: BodyProps) {
     case "state":
     case "error":
       return <div className="slv-state mono" data-state={l.state || (l.kind === "error" ? "failed" : "")}>{short(l.text, 260)}</div>;
+    case "text":
+      return <ReplyText text={l.text} className="slv-text" testid="session-live-text" kind={l.kind} typing={live} />;
     default:
       return <div className="slv-text" data-kind={l.kind} data-typing={live || undefined}>{l.text}</div>;
   }
@@ -156,11 +160,22 @@ type RowProps = {
   thought?: LiveLine; led?: LiveLine; ledN?: number;
 };
 
+/** 3.6.0.6 C: a drag that selected text inside the row is not a click on it (the click that ends a drag): the pointer
+ *  moved since the press and the row holds a selection. A plain click, on selected words too, still chooses the row. */
+const dragged = (el: HTMLElement | null, from: number[], e: MouseEvent): boolean => {
+  const s = window.getSelection();
+  const moved = from.length === 2 && Math.hypot(e.clientX - from[0], e.clientY - from[1]) > 3;
+  return moved && !!el && !!s && !s.isCollapsed && s.toString() !== "" && (el.contains(s.anchorNode) || el.contains(s.focusNode));
+};
+
 export const LiveRow = memo(function LiveRow({ l, who, last, target, onPin, onHover, onTarget, thought, led, ledN }: RowProps) {
-  const pick = (e: MouseEvent) => !(e.target as HTMLElement).closest(".slv-who, .slv-ask-keys, button, a, [role=button]") && onTarget(l);
+  const row = useRef<HTMLDivElement>(null);
+  const from = useRef<number[]>([]);
+  const pick = (e: MouseEvent) => !dragged(row.current, from.current, e) && !(e.target as HTMLElement).closest(".slv-who, .slv-ask-keys, button, a, [role=button]") && onTarget(l);
+  const reply = l.kind === "text" || l.kind === "output";
   return (
-    <div className="fac-line slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} data-target={target || undefined}
-         data-after={l.after || undefined} tabIndex={target ? 0 : -1} onMouseEnter={() => onHover(l.key)} onClick={pick}
+    <div ref={row} className="fac-line slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} data-target={target || undefined}
+         data-after={l.after || undefined} tabIndex={target ? 0 : -1} onMouseEnter={() => onHover(l.key)} onMouseDown={(e) => (from.current = [e.clientX, e.clientY])} onClick={pick}
          title={target ? `Your steer goes to ${who.name}, under this row` : undefined}>
       <span className="mono fac-ts" data-testid="session-live-time">{clock(l.ts)}</span>
       <span className="mono fac-kind" data-testid="session-live-kind">{l.label || KIND[l.kind] || l.kind}</span>
@@ -168,7 +183,8 @@ export const LiveRow = memo(function LiveRow({ l, who, last, target, onPin, onHo
       <div className="fac-text slv-body" data-testid="live-row" data-kind={l.kind === "thinking" ? "think" : l.kind}>
         {l.after && <span className="slv-after mono" data-testid="live-after-steer">after your steer</span>}
         <Body l={l} name={who.name} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} led={led} ledN={ledN} />
-        {thought ? <WhyChip l={l} thought={thought} /> : (l.kind === "text" || l.kind === "output") && <WhyButton l={l} />}
+        {thought ? <WhyChip l={l} thought={thought} /> : reply && <WhyButton l={l} />}
+        {reply && <CopyButton testid="copy-reply" text={() => replySource(l)} of={() => row.current?.querySelector("[data-reply]")} title={REPLY_TITLE} />}
       </div>
     </div>
   );
