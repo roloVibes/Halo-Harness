@@ -270,6 +270,23 @@ def test_a_helper_the_browser_left_is_ended_by_its_mark(ctx: Ctx):
         ctx.check(f"it is ended by pid, got {ended}", ended == [kids[0].pid] and gone)
         ctx.check("and nothing carries the mark after it", B.helper_pids(mine) == [])
         ctx.check("another browser's helper is not touched", kids[1].poll() is None and B.helper_pids(other) == [kids[1].pid])
+        # the close has a bound of its own (END_WAIT_S + 2 s is what the rest of Halo waits for it): with no time left a
+        # helper that does not end when asked is ended hard at once, never after another wait
+        deaf = f"{os.getpid()}-903"
+        kids.append(subprocess.Popen(
+            [sys.executable, "-c", "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('up', "
+                                   "flush=True); time.sleep(120)"],
+            start_new_session=True, env={**os.environ, B.MARK_ENV: deaf}, stdout=subprocess.PIPE))
+        kids[2].stdout.readline()  # it ignores the polite signal from here on
+        t = time.monotonic()
+        ended = B.end_helpers(deaf, until=t)
+        took = time.monotonic() - t
+        try:
+            gone = kids[2].wait(timeout=10) is not None
+        except subprocess.TimeoutExpired:
+            gone = False
+        ctx.check(f"with no time left it is ended hard at once, took {took:.2f} s, got {ended}",
+                  ended == [kids[2].pid] and gone and took < B.HELPER_WAIT_S)
     finally:
         for k in kids:
             if k.poll() is None:

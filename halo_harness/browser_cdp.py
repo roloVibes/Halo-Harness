@@ -255,10 +255,11 @@ def _ps_env_pids(mark: str) -> "list[int]":
     return out
 
 
-def end_helpers(mark: str, wait_s: float = HELPER_WAIT_S) -> "list[int]":
+def end_helpers(mark: str, wait_s: float = HELPER_WAIT_S, until: Optional[float] = None) -> "list[int]":
     """Once the browser is gone: every helper still carrying its mark is asked to end and, still there after `wait_s`,
     ended hard, BY PID. Looked for again afterwards (a helper may have started another while it ended), three times
-    at most. The pids that were ended."""
+    at most. `until` (a time.monotonic() value) is the close's own bound: no wait goes past it, so with no time left a
+    helper is ended hard at once. The pids that were ended."""
     ended: "list[int]" = []
     for _ in range(3):
         found = [p for p in helper_pids(mark) if p not in ended]
@@ -267,6 +268,8 @@ def end_helpers(mark: str, wait_s: float = HELPER_WAIT_S) -> "list[int]":
         for pid in found:
             _signal(pid, signal.SIGTERM)
         end, left = time.monotonic() + wait_s, found
+        if until is not None:
+            end = min(end, until)
         while left and time.monotonic() < end:
             time.sleep(0.1)
             now = set(helper_pids(mark))
@@ -1137,7 +1140,9 @@ class Browser:
             if self.profile:
                 end_profile_pids(self.profile, wait_s=max(0.0, end - time.monotonic()))
             if proc is not None:
-                end_helpers(self.mark)  # its crash handler, the updater it woke: no profile on their command line
+                # its crash handler, the updater it woke: no profile on their command line. Inside the close's own
+                # bound: the rest of Halo waits END_WAIT_S + 2 s for a close
+                end_helpers(self.mark, until=end + 1.0)
                 try:
                     from halo_harness import children
                     children.unregister(proc.pid)
