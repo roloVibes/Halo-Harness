@@ -25,15 +25,18 @@ function clear(): void {
 }
 
 let dragging = false;
-const due: (() => void)[] = [];
-/** 3.6.0.9 V: run `fn` now, or after the drag in hand is dropped (or cancelled): a re-read never moves the map under it. */
-export function whenDropped(fn: () => void): void {
-  if (dragging) due.push(fn);
+const due = new Map<string, () => void>();
+/** 3.6.0.9 V: run `fn` now, or after the drag in hand is dropped (or cancelled): a re-read never moves the map under it.
+ *  A later wait of the same `key` replaces the earlier one, so frames heard during one drag make one re-read. */
+export function whenDropped(key: string, fn: () => void): void {
+  if (dragging) due.set(key, fn);
   else fn();
 }
 const flush = () => {
   dragging = false;
-  due.splice(0).forEach((fn) => fn());
+  const fns = [...due.values()];
+  due.clear();
+  fns.forEach((fn) => fn());
 };
 
 function track(e: PointerEvent, move: (m: PointerEvent) => void, end: (m: PointerEvent | null) => void): void {
@@ -47,14 +50,20 @@ function track(e: PointerEvent, move: (m: PointerEvent) => void, end: (m: Pointe
   };
   const up = (m: PointerEvent) => (stop(), clear(), end(moved ? m : null), flush());
   const key = (k: KeyboardEvent) => { if (k.key === "Escape") (stop(), clear(), flush()); };
+  // a pointerup that never comes (the pointer cancelled, the window left mid-drag) ends the drag as Escape does
+  const lost = () => (stop(), clear(), flush());
   const stop = () => {
     window.removeEventListener("pointermove", mv);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("keydown", key);
+    window.removeEventListener("pointercancel", lost);
+    window.removeEventListener("blur", lost);
   };
   window.addEventListener("pointermove", mv);
   window.addEventListener("pointerup", up);
   window.addEventListener("keydown", key);
+  window.addEventListener("pointercancel", lost);
+  window.addEventListener("blur", lost);
 }
 
 const under = (m: PointerEvent, sel: string): HTMLElement | null =>

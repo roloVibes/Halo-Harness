@@ -345,4 +345,60 @@ def follows(c, rig) -> dict:
     # (5) the chain's Undo offered: a box's workflow written again keeps it
     steps(4)
     out["undo_kept"] = [_until(c, f"{box('fw')}?.innerText.includes('4 steps')"), c.js(f"!!{t('map-undo')}")]
+    out.update(_held(c, rig, fpath, boxes, steps, taps, A, orig))
     return {"follows": out}
+
+
+def _held(c, rig, fpath, boxes, steps, taps, A, orig) -> dict:
+    """(6) a drag in hand while the map and its workflow are written: nothing is read until it ends; a drag whose
+    pointerup never comes ends with the window's blur (as Escape does), and the two changes heard (each its own call:
+    the page merges frames that land together) make ONE read."""
+    import threading
+    from halo_harness.crew import store
+    asked, heard = [], {"maps:follow-map": threading.Event(), "workflows:follow-flow": threading.Event()}
+
+    def counted(req):
+        if req.method == "GET":
+            asked.append(str(req.path))
+        return orig(req)
+
+    def tap(f: dict) -> None:
+        d = f.get("data") or {}
+        for n in d.get("names") or [] if f.get("event") == "files_changed" else []:
+            if f"{d.get('kind')}:{n}" in heard:
+                heard[f"{d.get('kind')}:{n}"].set()
+
+    def handled(key: str, mark: str) -> bool:  # its frame sent, then a later frame shown: the page has handled it
+        ok = heard[key].wait(20)
+        store.write_text(store.path_for("map", mark, state_dir=rig.state), f"format: map/1\nname: {mark}\nboxes: []\nlines: []\n")
+        c.wait(f"[...{t('map-switcher')}.options].some((o) => o.value === '{mark}')", 20)
+        return ok
+    open_list(c)  # a row of the Add list in hand, as `drag` holds one; moved and let go inside the list, it adds nothing
+    row = q('[data-testid="map-add-row"][data-ref="tester"]')
+    x, y = center(c, row)
+    x -= c.rect(row)[2] * 0.2  # on the row's text, away from its Add
+    out: dict = {}
+    A.dispatch = counted
+    taps.append(tap)
+    try:
+        c.mouse("mouseMoved", x, y)
+        c.mouse("mousePressed", x, y)
+        c.mouse("mouseMoved", x, y + 20)
+        out["in_hand"] = c.js(f"{t('map-drag-ghost')}?.hidden === false")  # the drag's ghost follows the pointer
+        n0 = len(asked)
+        boxes("fx", "fy", "fz")
+        first = handled("maps:follow-map", "zz-map-held-1")
+        steps(5)
+        out["held_frames"] = first and handled("workflows:follow-flow", "zz-map-held-2")
+        out["held"] = not c.js(f"!!{q('[data-map-box=fz]')}") and asked[n0:].count("crew/map/follow-map") == 0
+        c.js("window.dispatchEvent(new Event('blur')); 1")
+        out["after_blur"] = _until(c, f"!!{q('[data-map-box=fz]')} && {box('fw')}?.innerText.includes('5 steps')")
+        c.mouse("mouseMoved", x, y)
+        c.mouse("mouseReleased", x, y)
+        handled("maps:follow-map", "zz-map-held-3")  # (already heard) a later frame, handled: every read is counted
+        out["held_reads"] = asked[n0:].count("crew/map/follow-map")
+    finally:
+        A.dispatch = orig
+        if tap in taps:
+            taps.remove(tap)
+    return out

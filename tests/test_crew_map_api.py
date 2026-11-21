@@ -75,6 +75,27 @@ def test_a_map_answer_carries_the_hashes_of_what_it_bakes_in(ctx: Ctx):
                   st == 200 and put.get("sig") == file_sig(store.path_for("map", "mine", state_dir=rig.state)))
 
 
+@test
+def test_a_hand_written_workflow_with_odd_step_agents_still_opens(ctx: Ctx):
+    """3.6.0.9 V repair: a session's plain Write of a workflow whose step names an agent as a mapping or a number is a
+    format problem, never a failed answer: GET crew/map still answers 200, and `deps` holds only the names that are
+    names."""
+    with CrewRig() as rig:
+        rig.studio()
+        st, m = rig.api("GET", "crew/map/ship-it")
+        flow = m["boxes"]["plan"]["names"][0]
+        p = rig.state / "crew" / "workflows" / f"{flow}.yaml"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        for agents in ("\n      - name: coder\n", " [coder, 7]\n"):
+            p.write_text(f"format: workflow/1\nname: {flow}\nfor: probe\nsteps:\n  - name: a\n    agents:{agents}",
+                         encoding="utf-8")
+            st, m = rig.api("GET", "crew/map/ship-it")
+            deps = (m or {}).get("deps") or {}
+            ctx.check(f"agents:{agents.strip()} answers 200 with string names in deps, got {st} {str(m)[:200]}",
+                      st == 200 and f"workflow:{flow}" in deps and all(isinstance(k, str) for k in deps)
+                      and "agent:7" not in deps)
+
+
 def _map_body(name: str, boxes: int) -> dict:
     return {"format": "map/1", "name": name, "main": {"agent": "main"},
             "boxes": [{"id": f"b{i}", "agent": "coder"} for i in range(boxes)],

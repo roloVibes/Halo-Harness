@@ -120,7 +120,7 @@ function follow(c: FilesChange): void {
   const s = maps.get();
   if (!s.name || !s.detail || !moves(s.name, s.detail.sig, s.detail.deps || {}, c)) return;
   const name = s.name;
-  whenDropped(() => void (maps.get().name === name && rereadDetail(name)));
+  whenDropped(`reread:${name}`, () => void (maps.get().name === name && rereadDetail(name)));
 }
 
 let shownName = "";

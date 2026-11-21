@@ -139,6 +139,10 @@ def test_the_open_map_follows_its_files(ctx: Ctx):
     ctx.check(f"its own save, come back from the watcher ({f.get('own_frame')}): not read again, got {f.get('own_reads')}",
               f.get("own_frame") is True and f.get("own_reads") == 0)
     ctx.check(f"(5) a box's workflow written again while Undo is offered: drawn, Undo kept, got {f.get('undo_kept')}", f.get("undo_kept") == [True, True])
+    ctx.check(f"(6) a drag in hand ({f.get('in_hand')}), the map and its workflow written ({f.get('held_frames')}): nothing read, got "
+              f"{f.get('held')}; the window's blur ends it and both are drawn, got {f.get('after_blur')}; one read, got "
+              f"{f.get('held_reads')}", f.get("in_hand") is True and f.get("held_frames") is True and f.get("held") is True
+              and f.get("after_blur") is True and f.get("held_reads") == 1)
 
 
 @test

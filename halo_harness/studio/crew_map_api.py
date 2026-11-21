@@ -97,14 +97,18 @@ def _box_facts(c, raw: dict, req, cwd=None) -> dict:
 def _sigs(path, main: str, boxes: dict, cwd, state_dir) -> dict:
     """3.6.0.9 V: `sig`, the hash of the map's file as read (studio/files_live.py), and `deps`, the hash of each agent
     and workflow file whose facts this answer bakes in (`agent:<name>` / `workflow:<name>`), so a page re-reads the map
-    when one of THOSE changes on disk, and only then."""
+    when one of THOSE changes on disk, and only then. A hand-written step whose `agents` is not a list of names (a
+    format problem `problems` already lists) adds no dep: only a non-empty string is a name."""
     from halo_harness.studio.files_live import file_sig, sig
-    names = {("agent", main)}
+    pairs = [("agent", main)]
     for b in boxes.values():
-        names.update((b["kind"], n) for n in b["names"])
+        pairs += [(b["kind"], n) for n in b["names"]]
         for f in b["facts"]:
-            names.update(("agent", a) for s in f.get("steps") or [] for a in s.get("agents") or [])
-    return {"sig": file_sig(path), "deps": {f"{k}:{n}": sig(k, n, cwd, state_dir) for k, n in sorted(names) if n}}
+            for s in f.get("steps") or []:
+                got = s.get("agents")
+                pairs += [("agent", a) for a in (got if isinstance(got, list) else [])]
+    names = {(k, n) for k, n in pairs if isinstance(n, str) and n}
+    return {"sig": file_sig(path), "deps": {f"{k}:{n}": sig(k, n, cwd, state_dir) for k, n in sorted(names)}}
 
 
 def _answer(req, name: str, got: dict, cwd) -> dict:
