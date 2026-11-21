@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.9] - unreleased
+## [3.6.0.9] - 2026-11-21
 
 What Studio shows now follows the files. When a session, the Builder's card or a hand changes a workflow, a map or an
 agent, the workflow you have open, the map you have open and the drawings show it a moment later, with no reload. The

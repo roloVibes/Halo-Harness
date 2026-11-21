@@ -1,5 +1,96 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.9] - 2026-11-21
+
+What Studio shows now follows the files. When a session, the Builder's card or a hand changes a workflow, a map or an
+agent, the workflow you have open, the map you have open and the drawings show it a moment later, with no reload. The
+limits that remain are at the end of this section.
+
+### Changed
+
+- **The workflow you have open follows its file** (Agents, 2 Workflows). When the workflow that is open in the form
+  changes on disk, the form shows the new steps and words a moment later. Before, the list beside it showed the new
+  number of steps while the form kept the old ones, and Save would have written the old ones back over the change. If
+  you have unsaved edits in the form, nothing you typed changes: the form says "{name} changed on disk while you had
+  edits here. Save writes yours over it." with the button "Reload it (your edits go)". If the file is removed, the
+  form stays and says "{name} was removed on disk. Save writes it again." A pack's workflow that is open read-only
+  shows the pack's new steps when the pack changes. In the list, a workflow's "on the map" tag now follows a map
+  changed while you look at it; before, it changed only when a workflow file changed or the list was read again.
+- **The map you have open follows its files** (Agents, 3 Map). The map is drawn again when its file changes; a
+  workflow box shows its workflow's new steps and an agent box its agent's new model when those files change. Before,
+  a map written other than by the Builder's card, or a changed workflow or agent on one of its boxes, re-read only the
+  list of maps: the open map stayed old until you switched maps or reloaded the page. A box you opened, an open When
+  card and an Undo on offer stay as they are. While you drag a box or a line the redraw waits for the drop; a drag
+  whose release never reaches the window (the window lost the focus) now ends as Escape ends it. A locked map is drawn
+  again too.
+- **The drawings follow a changed workflow** (Session's drawing; Agents, 4 Live draws with the same code). A workflow
+  box's steps follow the workflow's file: after a plain write, and after a Builder card that changed only the
+  workflow, with "new" on the new steps. Before, a plain write showed nothing, and a Builder card put "new" on the old
+  steps. A step's model follows the agent's file, where the map has an agent box for that agent.
+- **What was built is still said after a reload.** After a Builder card, Session's head ("Changed in this session at
+  ...", "Just built: ..."), the ready lines on Auto and "new" on the boxes it wrote are there again when the page is
+  loaded again in the same tab, for that session. Before, a reload showed the new steps and dropped every word about
+  what had changed. Only that browser tab keeps them (at most the 20 newest sessions); nothing leaves the machine.
+- **A workflow changed by a plain edit is said in words.** When a workflow on a box of the session's drawing changes
+  on disk and no Builder card wrote it, Session's lines gain "The workflow {name} changed at {time}. A run already
+  going keeps its steps; the next run takes the change." It is one line however many changed: "The workflows build and
+  review changed, the last at {time}. ..." names the newest first, three at most, then how many more. The room for the
+  line is held from the first draw, so nothing moves when it comes. On Auto the line is for a workflow the session has
+  run or is running. A Builder card that wrote the workflow shows its own head and not this line as well.
+- **The real-use check says how it ended itself** (for developers). `python scripts/realcheck.py --name-the-end` runs
+  the check as a child and, when the check did not end by its own exit, prints one line with the true exit status and
+  its kind; the check also turns on Python's own fault reporter. CI passes the switch.
+
+### Fixed
+
+- **A Builder card's write was read twice.** Studio's file watcher reports every write about a second and a half
+  later, and the page then read again what the card had just brought. The page now compares the file's hash with what
+  it holds and reads only what differs; a different write that lands right after is still read.
+- **A local model server could keep running after the last Halo on its home was killed.** A session that is killed
+  hard cannot take its row out of the list of sessions, and the watcher that stops the server took that row for a
+  living session for as long as any program had its process number; Windows can give a dead number to another program
+  soon after. The watcher now tells such a program from the session by when it began. That works on Windows and macOS;
+  on Linux a row carries nothing to tell by, and the number is taken at its word, as before. On Windows the watcher
+  also waited two seconds for the server to obey a soft stop that the system had refused outright, as it does for a
+  console program, which a model server is. It now goes on to the hard stop at once: by its own waits the server now
+  ends at most a little over one second after its last Halo, where it was up to a little over three.
+
+### Known limits
+
+- **Studio follows the files of its own folder.** A session started in a terminal in another project writes that
+  project's workflows, maps and agents where Studio does not look: they are not listed and not followed.
+- **A session whose model gets the short tool list is not sent the Builder tool** (a small context window: measured
+  with the default tools at 49,152 and below; sent at 65,536). Such a session can change a workflow only by editing
+  its file. Studio now shows that change; the card's head and the "new" marks come only with the Builder's card.
+- **Agents, 4 Live has no test of its own for this.** It draws with the code Session's drawing uses, which is tested.
+  Live has no head and no "changed" line of its own.
+- **The line can still move the drawing once** in two cases: a session that was started before this release, and a
+  workflow box added to the map after the session started (until its next hand-off).
+- **One order is not tested:** the watcher's report of a Builder card's write reaching the page before the card's own.
+  The card's session then still shows the card's head; another session with the same workflow on a box keeps the line.
+- **On the Map, not checked during a redraw:** the picked box, and a Builder ghost waiting for Apply or Undo. When the
+  open map's file is removed, the tab does nothing, as before.
+- **Not understood: how the real-use check ended once at the gate of 3.6.0.8.** On CI's Windows runner both real-use
+  jobs passed all 18 steps, and then their checker ended with status 127 and no line of its own. Git Bash reports 127
+  for a crash-kind Windows status. The rerun and the release's own run were green. The switch above is there so that
+  the next time names itself.
+- **Every Known limit of 3.6.0.8 still holds.**
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
+  check through its new parent, eighteen of eighteen steps. This release's browser tests ran there on a real headless
+  Chrome: the open workflow's form, the open map (also with a drag in hand), Session's drawing, one read per change,
+  the head after a reload, and the line for a changed workflow (also on Auto). On the PC (Windows), one at a time with
+  a real headless Chrome: the three Studio modules that hold these browser tests (the Workflows tab, the Map tab and
+  Session's drawing), and the plain and node modules the change touches. CI's first run on this release then failed
+  once in the real-use check on its Windows runner: of 28 ways out, a hard kill of a session with a model server
+  beside it left the server and its watcher running 5 s later. Reading the watcher found the two things under Fixed:
+  the first explains why only a hard kill failed (only a hard kill leaves the session's row; the same case passed by
+  Ctrl+C and by a closed terminal), and the second took 2 s off every way out. The run cannot be repeated on demand.
+  Each has a test that was red before. The same run showed, on CI's Linux and macOS runners, that the Workflows list's
+  "on the map" tag did not follow a changed map: its test had passed elsewhere only by its timing, and now tests the
+  rule. Not checked by hand: macOS (CI's macOS runners ran the suites and the real-use check). Not run: Agents, 4
+  Live, a real model asked to change a workflow, and a session started in another folder than Studio's.
+
 ## [3.6.0.8] - 2026-11-21
 
 Halo runs and drives a browser by itself. Every session has a built-in Browser tool that uses a browser already on
@@ -2494,36 +2585,3 @@ Studio's bundle: `studio.js` 1,430,286 -> 1,332,425 bytes, `studio.css` 273,323 
 step, Settings no Fleet page, the palette no fleet lines. A home with fleet state keeps its files (`~/.halo/fleet.json`,
 `<state>/fleet/`) untouched; the pairing with a `halo host` (another machine's models) keeps working, its records
 still live in those files.
-
-## [3.4.1.3] - 2026-11-13
-
-Every model field in Studio is a picker of the models you have: you never type a model reference from memory. Every drawing in Studio zooms the same way: Ctrl or Cmd + wheel, or a pinch. Finished background work shows up, and the agent picks it up, without you sending a message.
-
-### Pick, don't type
-
-- One model picker everywhere (`studio/ui/src/routes/shared/picker/`): the models of the providers set up here, grouped by provider with each provider's state in one line, searchable (ref, name, provider, best-at, takes, `cheap`, `free`, `local`, a window like `200k`), one line per row with what the model takes, keys (type to filter, Up / Down, Enter, Esc). Agents -> Models' **Test a model** (it was a bare text box), a bio's preferred model, fallback and schedule model, a lineup card's and a tier's model, the escalation's Switch to, the goal and workflow forms, the plan review, Setup's default model, Settings' model rows (`model`, `compactionModel`, both steward models, every role's model, `embeddings.model` with the Ollama models only), Session's New session, the Prompt panel's `/model `, and the design and signal packs' `model` settings all open it.
-- A saved model the catalog lacks shows as it is, marked "not in your catalog", and stays selectable; with no model at all the picker says why in one line with Refresh or Setup.
-- The last row of the picker, always: "use a reference that is not listed", checked as you type against the session's own parser (`GET /api/models/check`); a wrong prefix says which prefixes exist.
-- A field that needs a capability (a bio's `models.needs`) lists the models that state it first and dims the others.
-- Agents -> Models fits its panel: no sideways scroll; long lines wrap or end in an ellipsis with the whole on hover.
-- A static check (`tests/test_studio_model_pickers.py`) fails when a new text field in Studio is labelled as a model field without going through the picker.
-
-### Zoom and pan, the same on every drawing
-
-- One module (`studio/ui/src/lib/canvasNav.ts`) for Agents -> Live (and its replay), Session's Map, Agents -> Cast and the design pack's artboards: Ctrl + wheel (Cmd on a Mac) zooms around the pointer, a trackpad pinch zooms smoothly, a wheel notch is one step; the page's own zoom stays put over a drawing; a plain wheel scrolls, Shift + wheel pans sideways; `+`, `-` and `0` on a focused drawing; drag the background to pan, double-click it to fit; the zoom is kept for the visit.
-- Session's Map opens fitted to its panel but never smaller than its text reads: a bigger tree opens on the main agent with "more than shows: Fit shows all", and has its own - / % / + / Fit buttons; a resize no longer throws your zoom away.
-- The plan review and the Workflows board keep scrolling only: both are in the Agents section the next release replaces.
-
-### Finished background work, without a prompt
-
-- A background sub-agent or Bash job that finishes while the session is idle shows at once, with no model call: one transcript line and the status bar in the terminal (`◼ background work finished: ...`), the session's row in Studio's Attention (Agents -> Live's chip, the glance, and the browser alert when `studio.alerts` is `browser`), the line in Session's feed (`agent/bg_pickup.py`).
-- Then the main agent takes a turn by itself to read the results and report or carry on (`↻ Halo picks up the finished background work`): finishes within 3 s are one turn; never while the input box holds text or an ask is open; the turn carries no message of yours, only the finished work under the status-notice frame (not a message from the human), and is logged as such.
-- `background.self_turns` (default 3) caps such turns in a row with no message from you; the session's spend cap stops them too; either says so in one line.
-- `background.when_done` (Settings -> Steer and turn): `continue` (the default), `tell` (shown only; your next message reads it) or `wait` (the behaviour before). A finish during a running turn, `-p` and the other headless runs are unchanged.
-
-### Also
-
-- **A path cut in half is still private.** A task is shortened to 200 characters before a replay is saved; when the
-  cut landed inside a home or project path, the stub that was left was kept as it was. It is now rewritten like the
-  whole path (`~...`, `....`), as a cut-off name already was.
-- **Dependencies:** `opentelemetry-api` 1.45.2 (CVE-2026-126360 in 1.45.1, found by the audit gate).
