@@ -223,6 +223,61 @@ def test_the_ps_path_matches_the_profile_whole_too(ctx: Ctx):
 
 
 @test
+def test_the_browsers_helpers_are_found_by_its_mark_whole(ctx: Ctx):
+    """A helper the browser starts (its crash handler; on macOS the updater it wakes) carries no profile on its command
+    line and outlives it (CI's macOS runner: five ran on after the close). It carries the browser's mark in its
+    environment; macOS reads `ps -E`, where the environment follows the command line: the mark is matched whole."""
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    mark = "4242-7"
+    text = "\n".join([f"  21 /Apps/Updater --wake-all PATH=/usr/bin {B.MARK_ENV}={mark} HOME=/h",
+                      f"  22 /Apps/crash_handler --database=/x HOME=/h {B.MARK_ENV}={mark}",
+                      f"  23 /Apps/Updater --wake {B.MARK_ENV}={mark}1 HOME=/h",
+                      "  24 /bin/other HOME=/h",
+                      f"  {os.getpid()} python {B.MARK_ENV}={mark}"])
+    with mock.patch.object(B.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=text)):
+        got = B._ps_env_pids(mark)
+    ctx.check(f"only the processes whose environment carries exactly this mark, got {got}", got == [21, 22])
+    one, two = B.Browser("clean", home=Path(_scratch("browser-mark-"))), B.Browser("clean", home=Path(_scratch("browser-mark-")))
+    ctx.check(f"every browser is started with a mark of its own, got {one.env().get(B.MARK_ENV)!r} "
+              f"{two.env().get(B.MARK_ENV)!r}",
+              bool(one.env().get(B.MARK_ENV)) and one.env().get(B.MARK_ENV) != two.env().get(B.MARK_ENV)
+              and one.env().get(B.MARK_ENV) == one.env().get(B.MARK_ENV))
+
+
+@test
+def test_a_helper_the_browser_left_is_ended_by_its_mark(ctx: Ctx):
+    """A real process that carries a browser's mark and runs on is found and ended by pid; another browser's stays."""
+    from halo_harness import browser_cdp as B
+    if os.name == "nt":
+        ctx.check("on Windows the browser's Job holds its helpers: nothing is looked for and nothing ended",
+                  B.helper_pids("1-1") == [] and B.end_helpers("1-1") == [])
+        return
+    mine, other = f"{os.getpid()}-901", f"{os.getpid()}-902"
+    kids = [subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True,
+                             env={**os.environ, B.MARK_ENV: m}) for m in (mine, other)]
+    try:
+        end = time.monotonic() + 15
+        while time.monotonic() < end and B.helper_pids(mine) != [kids[0].pid]:
+            time.sleep(0.1)
+        ctx.check(f"found by its mark, got {B.helper_pids(mine)} for pid {kids[0].pid}", B.helper_pids(mine) == [kids[0].pid])
+        ended = B.end_helpers(mine)
+        try:
+            gone = kids[0].wait(timeout=10) is not None
+        except subprocess.TimeoutExpired:
+            gone = False
+        ctx.check(f"it is ended by pid, got {ended}", ended == [kids[0].pid] and gone)
+        ctx.check("and nothing carries the mark after it", B.helper_pids(mine) == [])
+        ctx.check("another browser's helper is not touched", kids[1].poll() is None and B.helper_pids(other) == [kids[1].pid])
+    finally:
+        for k in kids:
+            if k.poll() is None:
+                k.kill()
+            k.wait(timeout=10)
+
+
+@test
 def test_a_clean_profile_left_by_a_gone_session_is_swept_and_a_live_one_kept(ctx: Ctx):
     from unittest import mock
     from halo_harness import browser_cdp as B

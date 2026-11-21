@@ -42,7 +42,10 @@ Windows such a daemon is in Halo's Job object and ends with it.
 **The browser the Browser tool drives is the session's child** (3.6.0.6): Halo starts one Chrome, Chromium, Edge or
 Brave per session on the first Browser call, talks to it over a pipe (no network port), and ends it with the session
 like every other child: `Browser.close` asks it to close, waits up to 3 s, then every process still carrying its
-profile is ended by pid (on Windows every process of the browser's own Job object). Every orderly way out (the terminal
+profile is ended by pid (on Windows every process of the browser's own Job object). On Linux and macOS the browser
+starts helpers of its own that carry no profile and run on after it (its crash handler; on macOS the updater it
+wakes): they inherit a mark the browser is started with (`HALO_BROWSER` in its environment), and once the browser is
+gone each one still carrying it is asked to end and, still there a second later, ended by pid. Every orderly way out (the terminal
 app's quit and force quit, Studio ending a session or stopping, the end of `halo -p`) does this before any other stop,
 so the browser always gets that polite close and writes what it holds. `halo ps` lists it as `browser` while it runs.
 A hard end of Halo closes the pipe and the browser ends itself; a sign-in made in the last seconds before Halo is

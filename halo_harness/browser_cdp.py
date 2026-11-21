@@ -70,6 +70,9 @@ CALL_WAIT_S = 30.0
 START_WAIT_S = 60.0  # a cold start on a slow Windows CI runner; a healthy start answers in well under a second
 CLOSE_WAIT_S = 5.0
 END_WAIT_S = 3.0  # the longest any way out waits for the browser to close itself before it is stopped hard
+HELPER_WAIT_S = 1.0  # how long a helper the browser left is given to end when asked, before it is ended hard
+MARK_ENV = "HALO_BROWSER"  # in the browser's environment: its helpers inherit it and carry no profile (helper_pids)
+_MARKS = itertools.count(1)
 # the browser's own background work, which nobody asked for and which writes temp files and goes to the network
 QUIET = ("--disable-component-update", "--disable-background-networking", "--disable-domain-reliability", "--no-pings",
          "--disable-default-apps")
@@ -211,6 +214,74 @@ def end_profile_pids(profile: str, wait_s: float = CLOSE_WAIT_S) -> "list[int]":
         except OSError:
             pass
     return left
+
+
+def helper_pids(mark: str) -> "list[int]":
+    """Every process (not this one) whose ENVIRONMENT carries `HALO_BROWSER=<mark>`: what the browser started with that
+    mark has started in turn (its crash handler; on macOS the updater it wakes). Such a helper carries no profile on
+    its command line, is no child of Halo and runs on after the browser. /proc on Linux, `ps -E` on macOS. [] on
+    Windows (the browser's Job holds its processes there) and for an empty mark."""
+    if os.name == "nt" or not mark:
+        return []
+    if os.path.exists("/proc/self/environ"):
+        me, key, out = os.getpid(), f"{MARK_ENV}={mark}".encode(), []
+        for d in os.listdir("/proc"):
+            if not d.isdigit() or int(d) == me:
+                continue
+            try:
+                with open(f"/proc/{d}/environ", "rb") as f:
+                    if key in f.read().split(b"\0"):
+                        out.append(int(d))
+            except OSError:
+                continue
+        return out
+    return _ps_env_pids(mark)
+
+
+def _ps_env_pids(mark: str) -> "list[int]":
+    """helper_pids where there is no /proc (macOS): `ps -E` prints the environment after the command line as one text,
+    so the mark is matched whole: after a space, followed by a space or the end."""
+    me, out = os.getpid(), []
+    try:
+        text = subprocess.run(["ps", "-axEww", "-o", "pid=,command="], capture_output=True, text=True, timeout=10,
+                              env=subprocess.Probe(dict(os.environ))).stdout  # Halo's own look: not a spawn
+    except Exception:
+        return []
+    whole = re.compile(r"(?<=\s)" + re.escape(f"{MARK_ENV}={mark}") + r"(?=\s|$)")
+    for line in text.splitlines():
+        pid, _, rest = line.strip().partition(" ")
+        if pid.isdigit() and int(pid) != me and whole.search(" " + rest):
+            out.append(int(pid))
+    return out
+
+
+def end_helpers(mark: str, wait_s: float = HELPER_WAIT_S) -> "list[int]":
+    """Once the browser is gone: every helper still carrying its mark is asked to end and, still there after `wait_s`,
+    ended hard, BY PID. Looked for again afterwards (a helper may have started another while it ended), three times
+    at most. The pids that were ended."""
+    ended: "list[int]" = []
+    for _ in range(3):
+        found = [p for p in helper_pids(mark) if p not in ended]
+        if not found:
+            break
+        for pid in found:
+            _signal(pid, signal.SIGTERM)
+        end, left = time.monotonic() + wait_s, found
+        while left and time.monotonic() < end:
+            time.sleep(0.1)
+            now = set(helper_pids(mark))
+            left = [p for p in found if p in now]
+        for pid in left:
+            _signal(pid, signal.SIGKILL)
+        ended += found
+    return ended
+
+
+def _signal(pid: int, sig) -> None:
+    try:
+        os.kill(pid, sig)
+    except OSError:
+        pass
 
 
 def sweep_clean_profiles(home=None) -> None:
@@ -597,6 +668,7 @@ class Browser:
         self._lock_fh = None
         self._closed = False
         self._mu = threading.RLock()
+        self.mark = f"{os.getpid()}-{next(_MARKS)}"  # in the browser's environment: finds the helpers it leaves
 
     # -- start -----------------------------------------------------------------------------------------------------
     @property
@@ -670,11 +742,12 @@ class Browser:
                 "about:blank"]
 
     def env(self) -> dict:
-        """This process's environment with the temp folder the browser's own: what it writes as temporary is there."""
+        """This process's environment with the browser's mark (its helpers inherit it: end_helpers) and with the temp
+        folder the browser's own: what it writes as temporary is there."""
         if self.tmp is None:
-            return dict(os.environ)
+            return {**os.environ, MARK_ENV: self.mark}
         t = str(self.tmp)
-        return {**os.environ, "TMP": t, "TEMP": t, "TMPDIR": t}
+        return {**os.environ, MARK_ENV: self.mark, "TMP": t, "TEMP": t, "TMPDIR": t}
 
     def _spawn(self) -> None:
         from halo_harness import subprocess_safe
@@ -1064,6 +1137,7 @@ class Browser:
             if self.profile:
                 end_profile_pids(self.profile, wait_s=max(0.0, end - time.monotonic()))
             if proc is not None:
+                end_helpers(self.mark)  # its crash handler, the updater it woke: no profile on their command line
                 try:
                     from halo_harness import children
                     children.unregister(proc.pid)
