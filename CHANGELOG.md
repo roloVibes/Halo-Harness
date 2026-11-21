@@ -8,6 +8,85 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.6] - unreleased
+
+A workflow can be run for real from Studio, from every view that shows one: yours, this project's and an enabled
+pack's. A Studio tab that can only look says so and says why, and one press makes it yours, in Firefox too. A pack's
+workflows and agents are named as the pack's. The limits that remain are at the end of this section.
+
+### Added
+
+- **Run it: a workflow runs for real from Studio.** Wherever Studio shows a workflow that a session runs by name (an
+  enabled pack's, yours, this project's) there is a **Run it**: in Agents -> 2 · Workflows beside **Try it** (Try it
+  is unchanged); in the Map's **Run a goal** drawer, under a head "Workflows"; in Packs -> Pack Manager under the
+  pack; in a pack's own section, in a row Studio draws above the pack's page; on the card of a workflow's box on the
+  Map; and in the palette as **Run a workflow**. A press opens one form in place: the workflow's name, a box for the
+  task, the line "Starts a new session in {folder} that runs this workflow's steps on your models. It can change files
+  there. Cost and time depend on the models its steps use.", **Run** and **Cancel**. Run answers in the same place with
+  "Started: session {id}." and **Watch it in Live**, which opens Agents -> 4 · Live on that session when you press it
+  and shows the run as a group. Nothing under the form moves.
+- **How it runs.** Run starts a new session in Studio's folder that runs the workflow by its name, step by step,
+  through the same code as the Workflow tool. No model is asked to start it. The session is Studio's own and ends with
+  Studio. In a terminal the same is `halo --headless --run-workflow <name> --workflow-task="<task>"`.
+- **A tab that can only look says so, and one press makes it yours.** A Studio tab that a link or a script opened may
+  look but not change things (that rule is as before). It now says so in one line at the top, from its first draw,
+  with a button, **Make this tab yours**, that reloads the tab so that it can change things. The line gives the
+  reason: "because a link or a script opened it", "Studio could not tell this reload from a link", or "because Studio
+  was started again since it was opened". When a press is refused in such a tab, one toast carries the same line and
+  the same button, whatever view you pressed in. The status bar's VIEW ONLY and the glance say the same.
+
+### Changed
+
+- **A pack's workflows and agents are named as the pack's.** They carry the tag "pack {id}" in Agents ->
+  2 · Workflows (in a group of their own, "From packs"), in the Agents list, in a step's agent picker and in the
+  Map's "Agents and workflows" list. They are read-only like the ones that ship with Halo: the form says so, Save is
+  off, there is no Delete, and **Copy** makes one yours.
+- **The refusal's words.** A write from a page that may only look is answered with "this page can look but not change
+  things: only a Studio tab you opened yourself may. In Studio, press Make this tab yours (it reloads the tab), or run
+  `halo studio`."
+- **A workflow's form no longer jumps a moment after it opens.** Its "What it costs and writes" lines are read before
+  the form is first drawn, so **Try it** and the rows under it stay where they are.
+
+### Fixed
+
+- **A tab that looked yours and could change nothing.** When Studio was started again and its new address was entered
+  over an open Studio tab, the tab read as before, showed no VIEW ONLY, and every launch was refused. It now shows the
+  line with its reason and the button, and one press makes it work.
+- **A pack's workflow looked like yours.** It was listed under Yours with no tag, the Map's list called a pack's items
+  "ships with Halo", and the form offered Save, which wrote a file of yours under the pack's name, and Delete, which
+  failed.
+- **A group could stay undrawn in Live until the pointer moved.** When Live (in Agents, and Session's Live drawer)
+  opened with the pointer over the drawing and nothing drawn yet, the first group appeared only once the pointer left
+  the drawing.
+
+### Known limits
+
+- **A workflow that ships with Halo has no Run it**: Copy makes it yours, and yours has one. A workflow with a problem
+  has Run it off, and its hover says the first problem.
+- **On the Map, an opened workflow box with the Run it form can be taller than the drawing's room.** In a low window
+  the **Run** button is then below the drawing's edge: scroll the drawing to reach it. (Seen on Windows in a window
+  800 px high.)
+- **Live draws a second, small group ("Task 2") beside a run's own group**, for the run's own record. The Workflow
+  tool's runs do the same.
+- **A plain reload (F5, Ctrl+R) makes a tab yours in Chrome, not in Firefox.** Edge sends what Chrome sends and was
+  not run. In Firefox use the button (pressed in a real Firefox, in Studio), or Ctrl+Shift+R, or enter the address
+  again (both measured in a real Firefox on a stand-in page judged by Studio's own rule, not in Studio). Safari was
+  not measured.
+- **The Agents list tags a pack's agents but keeps them under Yours**; only the Workflows list has the group
+  "From packs".
+- **Every Known limit of 3.6.0.5 still holds.**
+- **Where it was checked.** On the Linux VM, with a browser: the whole test suite, its browser modules included (on a
+  copy with no git history: the few tests that need it run in CI; one YAML test also failed there, only because that
+  machine's Halo had been installed without the dependency lock and so with a newer YAML library than the lock names),
+  and the full real-use check, sixteen of sixteen steps. Make this tab yours was pressed in a real Firefox there (a
+  hidden display, a throwaway profile): a tab a program opened, a tab the glance's link opened, the press, and Ctrl+R.
+  On the PC (Windows), in a headless Chrome, one at a time: the three browser modules this release adds to (the tab
+  that can only look, a pack's workflows in the lists, Run it in every view), and the plain and node checks of the
+  join. The Run it module failed there in four runs of seven until the test scrolled the Map's drawing as a person
+  does (the Known limit above); after that it passed three of three, and twice on the VM. Not run: macOS locally (CI
+  runs it at the release gate), Firefox on Windows or macOS, Safari, and a look-only tab across a real restart of
+  Studio by a person (the test starts a second Studio under the open tab).
+
 ## [3.6.0.5] - 2026-11-20
 
 The default is called Auto everywhere you read it, and the word "starter" leaves what Halo shows you. On Auto, the Live
