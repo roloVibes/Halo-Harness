@@ -767,26 +767,29 @@ def _stop_line(entry: dict) -> str:
 
 # -- stopping, bounded ---------------------------------------------------------------------------------------------
 
-def _signal_tree(pid: int, hard: bool) -> None:
-    """Its process group when it leads one (POSIX), else the pid; Windows: the tree (taskkill /T, /F when hard)."""
+def _signal_tree(pid: int, hard: bool) -> bool:
+    """Its process group when it leads one (POSIX), else the pid; Windows: the tree (taskkill /T, /F when hard).
+    False when the request was refused or could not be made (Windows: taskkill's own answer; a soft one is refused for
+    a console program with no window), so a caller need not wait for what was never asked (3.6.0.9); True otherwise."""
     if os.name == "nt":
         try:
             from halo_harness import subprocess_safe as sp
-            sp.run(["taskkill", "/PID", str(pid), "/T"] + (["/F"] if hard else []), capture_output=True, timeout=5)
+            r = sp.run(["taskkill", "/PID", str(pid), "/T"] + (["/F"] if hard else []), capture_output=True, timeout=5)
+            return r.returncode == 0
         except Exception:
-            pass
-        return
+            return False
     sig = signal.SIGKILL if hard else signal.SIGTERM
     try:
         if os.getpgid(pid) == pid and pid != os.getpgid(0):
             os.killpg(pid, sig)
-            return
+            return True
     except OSError:
         pass
     try:
         os.kill(pid, sig)
+        return True
     except OSError:
-        pass
+        return False
 
 
 def _polite(entry: dict, state_dir) -> None:

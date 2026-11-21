@@ -55,9 +55,12 @@ limits that remain are at the end of this section.
   it holds and reads only what differs; a different write that lands right after is still read.
 - **A local model server could keep running after the last Halo on its home was killed.** A session that is killed
   hard cannot take its row out of the list of sessions, and the watcher that stops the server took that row for a
-  living session for as long as any program had its process number; Windows gives a dead number to the next program at
-  once. The watcher now tells such a program from the session by when it began. That works on Windows and macOS; on
-  Linux a row carries nothing to tell by, and the number is taken at its word, as before.
+  living session for as long as any program had its process number; Windows can give a dead number to another program
+  soon after. The watcher now tells such a program from the session by when it began. That works on Windows and macOS;
+  on Linux a row carries nothing to tell by, and the number is taken at its word, as before. On Windows the watcher
+  also waited two seconds for the server to obey a soft stop that the system had refused outright, as it does for a
+  console program, which a model server is. It now goes on to the hard stop at once: by its own waits the server ends
+  a little over one second after its last Halo, where it was a little over three.
 
 ### Known limits
 
@@ -87,10 +90,11 @@ limits that remain are at the end of this section.
   a real headless Chrome: the three Studio modules that hold these browser tests (the Workflows tab, the Map tab and
   Session's drawing), and the plain and node modules the change touches. CI's first run on this release then failed
   once in the real-use check on its Windows runner: of 28 ways out, a hard kill of a session with a model server
-  beside it left the server and its watcher running 5 s later. The model server fault under Fixed is what reading the
-  watcher found; it explains that run, which cannot be repeated on demand, and the test that now holds the rule was
-  red before. Not run: macOS at all (CI runs it at the release gate), Agents, 4 Live, a real model asked to change a
-  workflow, and a session started in another folder than Studio's.
+  beside it left the server and its watcher running 5 s later. Reading the watcher found the two things under Fixed;
+  either would explain that run (only a hard kill leaves the session's row, and the same case passed by Ctrl+C and by
+  a closed terminal), which cannot be repeated on demand. Each has a test that was red before. Not run: macOS at all
+  (CI runs it at the release gate), Agents, 4 Live, a real model asked to change a workflow, and a session started in
+  another folder than Studio's.
 
 ## [3.6.0.8] - 2026-11-21
 

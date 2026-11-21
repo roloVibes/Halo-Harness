@@ -67,8 +67,10 @@ def _end_server(pid: int, start: str) -> None:
     # watch returns after this, so giving up here left the server running with no owner
     if not C.provably_same(pid, start, tries=5):
         return
-    closing._signal_tree(pid, hard=False)
-    deadline = time.monotonic() + 2.0
+    # 3.6.0.9: a soft stop the system refused outright (Windows: taskkill without /F on a console program, which a
+    # model server is) is not waited for: the 2 s were spent on nothing, and the server outlived its last Halo by them
+    asked = closing._signal_tree(pid, hard=False)
+    deadline = time.monotonic() + (0.0 if asked is False else 2.0)
     while time.monotonic() < deadline and C.same_process(pid, start):
         time.sleep(0.1)
     if C.provably_same(pid, start, tries=5):

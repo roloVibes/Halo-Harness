@@ -87,6 +87,40 @@ def test_a_home_watch_that_cannot_read_the_server_once_still_stops_it(ctx: Ctx):
 
 
 @test
+def test_a_soft_stop_the_system_refuses_is_followed_by_the_hard_one_at_once(ctx: Ctx):
+    """3.6.0.9: on Windows a soft stop of a model server (taskkill without /F on a console program) is refused
+    outright, and the home watch still waited its 2 s for the server to go before the hard stop: about 4 s from the
+    last Halo's end to the server's, with two programs started on the way (CI's slow Windows runner: once more than
+    the 5 s the real-use check allows). A request that was refused is not waited for; one that was made still is."""
+    from halo_harness import closing_home_watch as W
+
+    class _Deaf(_Server):  # it does not end when asked softly
+        def __init__(self, start: str, refused: bool):
+            super().__init__(start)
+            self.refused = refused
+
+        def signal(self, pid, hard=False):
+            self.signals.append("KILL" if hard else "TERM")
+            if hard:
+                self.running = False
+            return not (self.refused and not hard)
+
+    waited = {}
+    for refused in (True, False):
+        srv, clock = _Deaf("ps:Sun Nov 15 10:00:00 2026", refused), [0.0]
+        patches = _watch_patches(srv)[:-1] + [
+            mock.patch.object(W.time, "sleep", lambda s: clock.__setitem__(0, clock[0] + s)),
+            mock.patch.object(W.time, "monotonic", lambda: clock[0])]
+        with _Patched(patches):
+            W._end_server(4343, srv.start)
+        waited[refused] = (round(clock[0], 1), list(srv.signals), srv.running)
+    ctx.check(f"a soft stop that was refused: the hard one follows with no wait, got {waited[True]}",
+              waited[True] == (0.0, ["TERM", "KILL"], False))
+    ctx.check(f"a soft stop that was made and not obeyed: the 2 s as before, then the hard one, got {waited[False]}",
+              waited[False] == (2.0, ["TERM", "KILL"], False))
+
+
+@test
 def test_a_server_whose_start_time_is_never_readable_is_never_signalled(ctx: Ctx):
     from halo_harness import closing_home_watch as W
     srv = _Server("ps:Sun Nov 15 10:00:00 2026", blind=range(1, 99))
