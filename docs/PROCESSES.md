@@ -42,8 +42,9 @@ Windows such a daemon is in Halo's Job object and ends with it.
 **The browser the Browser tool drives is the session's child** (3.6.0.6): Halo starts one Chrome, Chromium, Edge or
 Brave per session on the first Browser call, talks to it over a pipe (no network port), and ends it with the session
 like every other child: `Browser.close`, then every process still carrying its profile ended by pid (on Windows every
-process of the browser's own Job object); `halo ps` lists it as `browser` while it runs. A hard end of Halo closes
-the pipe and the browser ends itself. One thing stays on purpose: Halo's own browser profile,
+process of the browser's own Job object). A quit's stop of leftovers never takes the session's own browser first, so
+the browser always gets that polite close and writes what it holds. `halo ps` lists it as `browser` while it runs.
+A hard end of Halo closes the pipe and the browser ends itself. One thing stays on purpose: Halo's own browser profile,
 `~/.halo/browser/profile` (with `browser.profile` at its default, `kept`), so a sign-in made once is there next
 time; it is never your own browser's profile. With `browser.profile` set to `clean` each session's profile is
 thrown away at its end, and one a hard end left behind is removed by the next start.

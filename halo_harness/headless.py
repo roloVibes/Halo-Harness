@@ -1711,10 +1711,11 @@ def _stop_own_children_quietly() -> None:
     import os
     try:
         from halo_harness.children import prune
-        mine = [e for e in prune() if e.get("owner_pid") == os.getpid() and e.get("what") != "supervisor"]
+        from halo_harness.children_stop import closes_itself, stop_entry, summary
+        mine = [e for e in prune() if e.get("owner_pid") == os.getpid() and e.get("what") != "supervisor"
+                and not closes_itself(e)]
         if not mine:
             return
-        from halo_harness.children_stop import stop_entry, summary
         line = summary([stop_entry(e) for e in mine])
         if line:
             print(f"halo: {line}", file=sys.stderr)

@@ -209,6 +209,13 @@ def other_live_sessions() -> list:
             and (r.get("kind") or "tui") in ("tui", "headless") and C.pid_running(r["pid"])]
 
 
+def closes_itself(entry: dict) -> bool:
+    """3.6.0.6 W: this process's own browser (the Browser tool's) is left to its own Browser.close, which the closing
+    procedure runs (closing.on_close) before its own stops: a quit's stop of leftovers runs earlier and is a hard end
+    on Windows, and Halo's kept profile would lose what the browser had not written yet (a sign-in)."""
+    return entry.get("what") == "browser" and entry.get("owner_pid") == os.getpid()
+
+
 def quit_targets(state_dir=None) -> list:
     """What a quit stops: only what a session started -- this session's own
     children and, when no other halo session of this home runs, orphans (a
@@ -225,6 +232,8 @@ def quit_targets(state_dir=None) -> list:
         if e.get("keep") or e.get("what") in ("host", "update", "terminal", "steward"):
             continue  # 3.6.0.0 R10: asked to keep running; the closing procedure names it
         mine = e.get("owner_pid") == me
+        if closes_itself(e):
+            continue
         # No owner: started from a plain shell (`halo --bg`, a Studio a shell
         # command opened), on purpose -- a quit leaves it; `halo update`,
         # `halo bg stop` and `halo studio --stop` end it.

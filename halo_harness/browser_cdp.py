@@ -110,15 +110,22 @@ def profile_pids(profile: str) -> "list[int]":
             if _carries(args, profile):
                 out.append(int(d))
         return out
+    return _ps_pids(profile)
+
+
+def _ps_pids(profile: str) -> "list[int]":
+    """profile_pids on macOS (and under HALO_TEST_NO_PROC): `ps` prints a command line as one text, so the profile is
+    matched whole there too: followed by a space or the end, never by more of a longer folder name."""
+    me, out = os.getpid(), []
     try:
         text = subprocess.run(["ps", "-axww", "-o", "pid=,command="], capture_output=True, text=True,
                               timeout=10).stdout
     except Exception:
         return []
-    needle = f"--user-data-dir={os.path.normpath(profile)}"
+    whole = re.compile(re.escape(f"--user-data-dir={os.path.normpath(profile)}") + r"(?=\s|$)")
     for line in text.splitlines():
         pid, _, cmd = line.strip().partition(" ")
-        if pid.isdigit() and int(pid) != me and needle in cmd:
+        if pid.isdigit() and int(pid) != me and whole.search(cmd):
             out.append(int(pid))
     return out
 

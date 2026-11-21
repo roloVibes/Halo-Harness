@@ -11,16 +11,14 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("BRIDGE_TEST_HOME", tempfile.mkdtemp(prefix="browser-closing-home-"))
 
+from tests.test_browser_cdp import _Locked, _scratch, _tree_pids  # noqa: E402  (sets a scratch home first)
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
-from tests.test_browser_cdp import _Locked, _tree_pids  # noqa: E402
 
 test, TESTS = new_registry()
 GONE_S = 5.0
@@ -57,13 +55,40 @@ def _end_left(pids: list) -> None:
 
 
 @test
+def test_a_quit_leaves_the_sessions_own_browser_to_its_own_close(ctx: Ctx):
+    """A quit's ledger stop (children_stop.stop_for_quit) runs BEFORE the closing procedure; on Windows it is a hard end
+    (taskkill, then the tree), which loses what the browser had not written yet: the kept profile's sign-in. So it never
+    takes this process's own browser (Browser.close, registered with closing.on_close, ends it the polite way); a
+    browser a gone session left behind is still stopped like any orphan."""
+    from unittest import mock
+    from halo_harness import children_stop as S
+    me = os.getpid()
+    rows = [{"pid": 101, "what": "browser", "owner_pid": me, "cmd": ["chrome"]},
+            {"pid": 102, "what": "bg", "owner_pid": me, "cmd": ["halo"]},
+            {"pid": 103, "what": "browser", "owner_pid": 999999, "cmd": ["chrome"]}]
+    with mock.patch.object(S.C, "prune", lambda state_dir=None: rows), \
+            mock.patch.object(S, "other_live_sessions", lambda: []), \
+            mock.patch.object(S.C, "owner_alive", lambda e: e.get("owner_pid") == me):
+        got = [e["pid"] for e in S.quit_targets()]
+    ctx.check(f"the quit stops this session's other children and a gone session's browser, never its own browser, "
+              f"got {got}", got == [102, 103])
+    from halo_harness import headless
+    stopped = []
+    with mock.patch("halo_harness.children.prune", lambda state_dir=None: rows), \
+            mock.patch.object(S, "stop_entry", lambda e, **k: stopped.append(e["pid"]) or {"what": e["what"],
+                                                                                          "pid": e["pid"], "ok": True}):
+        headless._stop_own_children_quietly()
+    ctx.check(f"a `-p` run's own stop leaves its browser to Browser.close too, got {stopped}", stopped == [102])
+
+
+@test
 def test_a_hard_end_of_the_session_ends_its_browser_within_5_s(ctx: Ctx):
     from halo_harness import browser_cdp as B
     from halo_harness.browser_find import find_browser
     if find_browser() is None:
         ctx.check("a browser on this machine", False)
         return
-    home = Path(tempfile.mkdtemp(prefix="browser-closing-hard-"))
+    home = Path(_scratch("browser-closing-hard-"))
     with _Locked():
         p, info = _standin(home, "clean")
         left = []
@@ -94,7 +119,7 @@ def test_the_closing_procedure_ends_the_browser_and_the_ledger_named_it(ctx: Ctx
     if find_browser() is None:
         ctx.check("a browser on this machine", False)
         return
-    home = Path(tempfile.mkdtemp(prefix="browser-closing-close-"))
+    home = Path(_scratch("browser-closing-close-"))
     with _Locked():
         p, info = _standin(home, "kept", "close")
         try:
@@ -118,7 +143,7 @@ def test_the_ledger_lists_a_running_browser_as_browser(ctx: Ctx):
     if find_browser() is None:
         ctx.check("a browser on this machine", False)
         return
-    home = Path(tempfile.mkdtemp(prefix="browser-closing-ledger-"))
+    home = Path(_scratch("browser-closing-ledger-"))
     with _Locked():
         p, info = _standin(home, "clean")
         try:

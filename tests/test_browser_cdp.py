@@ -7,16 +7,40 @@ browser at a time and stays. The plain tests run anywhere; the real ones need a 
 """
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import struct
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("BRIDGE_TEST_HOME", tempfile.mkdtemp(prefix="browser-cdp-home-"))
+_SCRATCH: "list[str]" = []
+
+
+def _scratch(prefix: str) -> str:
+    """A temp folder this run removes when it exits (a real browser's profile in it is 5 to 90 MB)."""
+    d = tempfile.mkdtemp(prefix=prefix)
+    _SCRATCH.append(d)
+    return d
+
+
+@atexit.register
+def _remove_scratch() -> None:
+    for d in reversed(_SCRATCH):
+        for _ in range(30):  # Windows lets go of a folder a moment after a browser's processes end
+            shutil.rmtree(d, ignore_errors=True)
+            if not os.path.exists(d):
+                break
+            time.sleep(0.1)
+
+
+if not os.environ.get("BRIDGE_TEST_HOME"):
+    os.environ["BRIDGE_TEST_HOME"] = _scratch("browser-cdp-home-")
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -32,7 +56,7 @@ SECOND = "<!doctype html><title>Second</title><body><p>the second page</p></body
 
 
 def _pages() -> str:
-    d = Path(tempfile.mkdtemp(prefix="browser-cdp-pages-"))
+    d = Path(_scratch("browser-cdp-pages-"))
     (d / "first.html").write_text(PAGE, encoding="utf-8")
     (d / "second.html").write_text(SECOND, encoding="utf-8")
     return (d / "first.html").as_uri()
@@ -114,10 +138,28 @@ def test_the_profile_is_matched_whole_never_by_a_prefix(ctx: Ctx):
 
 
 @test
+def test_the_ps_path_matches_the_profile_whole_too(ctx: Ctx):
+    """macOS (and Linux under HALO_TEST_NO_PROC) reads `ps`, where a command line is one text: the profile is matched
+    whole there too, never as the start of a longer folder name."""
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    prof = os.path.normpath("/h/browser/profile")
+    text = "\n".join([f"  11 /opt/chrome --user-data-dir={prof} about:blank",
+                      f"  12 /opt/chrome --type=renderer --user-data-dir={prof}2 --lang=en",
+                      f"  13 /opt/chrome --type=gpu-process --user-data-dir={prof}",
+                      f"  14 /opt/chrome --user-data-dir={prof}-old about:blank",
+                      f"  {os.getpid()} python --user-data-dir={prof}"])
+    with mock.patch.object(B.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=text)):
+        got = B._ps_pids(prof)
+    ctx.check(f"only the processes that carry exactly this profile, got {got}", got == [11, 13])
+
+
+@test
 def test_a_clean_profile_left_by_a_gone_session_is_swept_and_a_live_one_kept(ctx: Ctx):
     from unittest import mock
     from halo_harness import browser_cdp as B
-    home = Path(tempfile.mkdtemp(prefix="browser-sweep-"))
+    home = Path(_scratch("browser-sweep-"))
     gone, live = B.browser_home(home) / "clean-999991-1-1", B.browser_home(home) / "clean-999992-1-1"
     kept = B.browser_home(home) / "profile"
     for p in (gone, live, kept):
@@ -149,7 +191,7 @@ def test_no_browser_says_the_one_line_and_starts_nothing(ctx: Ctx):
     started = []
     with mock.patch("halo_harness.browser_find.find_browser", lambda **k: None), \
             mock.patch.dict(os.environ, {"HALO_CHROME": ""}):
-        b = B.Browser("clean", home=tempfile.mkdtemp(prefix="browser-none-"), popen=lambda *a, **k: started.append(a))
+        b = B.Browser("clean", home=_scratch("browser-none-"), popen=lambda *a, **k: started.append(a))
         try:
             b.start()
             ctx.check("start raised", False)
@@ -168,7 +210,7 @@ def test_a_real_browser_over_the_pipe_opens_reads_presses_types_and_closes_clean
     ctx.check(f"a browser on this machine ({none_found() if not found else found[0]})", found is not None)
     if not found:
         return
-    home = Path(tempfile.mkdtemp(prefix="browser-cdp-real-"))
+    home = Path(_scratch("browser-cdp-real-"))
     url = _pages()
     with _Locked():
         b = B.Browser("clean", home=home)
@@ -205,7 +247,9 @@ def test_a_real_browser_over_the_pipe_opens_reads_presses_types_and_closes_clean
             b.key("End")
             png = b.screenshot()
             w, h = _png_size(png)
-            ctx.check(f"a PNG of the page's size, got {w} x {h}", (w, h) == (B.WIDTH, B.HEIGHT) or (w > 0 and h > 0))
+            size = b.js("[innerWidth, innerHeight, devicePixelRatio].join(' ')").split()
+            want = (round(int(size[0]) * float(size[2])), round(int(size[1]) * float(size[2])))
+            ctx.check(f"a PNG of the page's size {want}, got {w} x {h}", (w, h) == want)
             try:
                 b.press("Sign in")
                 ctx.check("a missing control is refused", False)
@@ -228,7 +272,7 @@ def test_the_kept_profile_is_halos_own_serves_one_browser_and_stays(ctx: Ctx):
     if find_browser() is None:
         ctx.check("a browser on this machine", False)
         return
-    home = Path(tempfile.mkdtemp(prefix="browser-cdp-kept-"))
+    home = Path(_scratch("browser-cdp-kept-"))
     with _Locked():
         first = B.Browser("kept", home=home)
         second = B.Browser("kept", home=home)
