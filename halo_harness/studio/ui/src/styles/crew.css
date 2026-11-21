@@ -107,3 +107,15 @@
 .cw-widen { font-weight: 600; }
 .cw-receipt { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; padding: 4px var(--s-2); border: 1px solid var(--ok); border-radius: var(--r-control); }
 .cw-receipt > .cw-line { flex: 1 1 200px; color: var(--text); }
+/* 3.6.0.6 P: Run it (routes/crew/flows/RunFlow.tsx): its form opens in place under the button */
+.rf { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); min-width: 0; }
+.rf-form { display: flex; flex-direction: column; gap: var(--s-2); align-self: stretch; padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface-2); min-width: 0; }
+.rf-list { display: flex; flex-direction: column; gap: var(--s-2); }
+.rf-item { display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2) 0; border-top: 1px solid var(--line); min-width: 0; }
+.pm-links .rf-pack { flex-basis: 100%; }
+.section-view:has(> .rf-pack) { display: flex; flex-direction: column; }
+.section-view > .rf-pack { flex: none; max-height: 40%; overflow: auto; padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--line); }
+.section-view:has(> .rf-pack) > :not(.rf-pack) { position: relative; inset: auto; flex: 1 1 auto; min-height: 0; }
+.rf-inline { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2); }
+.rf-inline > .rf { flex: 1 1 240px; }
+.rf-dock { position: fixed; right: var(--s-4); bottom: var(--s-6); width: min(440px, calc(100vw - 2 * var(--s-4))); z-index: 40; }

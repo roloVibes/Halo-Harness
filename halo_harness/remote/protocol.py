@@ -190,6 +190,9 @@ def run_cmd(handle, req: dict, conn) -> Any:
     if cmd == "subscribe":
         kinds = req.get("kinds")
         conn.start_feed([k for k in kinds if isinstance(k, str)] if isinstance(kinds, list) else None)
+        heard = getattr(handle, "subscribed", None)  # 3.6.0.6 P: a headless session's first listener (headless_session.py)
+        if heard is not None:
+            heard.set()
         return {"subscribed": True}
     if cmd == "unsubscribe":
         conn.stop_feed()

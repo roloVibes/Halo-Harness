@@ -145,6 +145,7 @@ owner POST ^crew/workflow/(?P<name>[a-z][a-z0-9-]{0,47})$
 owner PUT ^crew/workflow/(?P<name>[a-z][a-z0-9-]{0,47})$
 owner DELETE ^crew/workflow/(?P<name>[a-z][a-z0-9-]{0,47})$
 owner POST ^crew/workflow-cost$
+owner POST ^crew/run$
 owner POST ^crew/try$
 owner POST ^crew/try/(?P<tid>t[0-9a-f]{10})/stop$
 owner POST ^crew/try/(?P<tid>t[0-9a-f]{10})/seen$

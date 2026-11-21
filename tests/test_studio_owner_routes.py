@@ -96,7 +96,8 @@ def test_servers_1_the_handlers_are_owner_only_themselves(ctx: Ctx):
     from halo_harness.studio import crew_api, sessions_api
     from halo_harness.studio.api import Request
     from halo_harness.studio.owner_proof import NEEDS_OWNER
-    wanted = {"sessions/x/command", "sessions/new", "crew/agent/x", "crew/map/x", "crew/map/x/use", "crew/workflow/x"}  # 3.6.0.0 R5
+    wanted = {"sessions/x/command", "sessions/new", "crew/agent/x", "crew/map/x", "crew/map/x/use", "crew/workflow/x",
+              "crew/run"}  # 3.6.0.0 R5; 3.6.0.6 P: Run it
     routes = list(crew_api.ROUTES) + list(sessions_api.ROUTES)
     gated = {(m, p) for m, p, fn in routes if getattr(fn, "owner_only", False)}
     import re

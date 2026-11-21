@@ -66,7 +66,9 @@ export type PackEntry = {
 };
 
 /** boot (3.2.1.0 R1): the served page's sections only (`data-pack-sections`), before `GET pack/registry` answers. */
-export type Registry = { version: number; core: string[]; packs: PackEntry[]; boot?: boolean };
+/** `crew_workflows` (3.6.0.6 P): each enabled pack's crew workflows (Run it in its section's head and in the Pack Manager). */
+export type Registry = { version: number; core: string[]; packs: PackEntry[]; boot?: boolean;
+                         crew_workflows?: Record<string, { name: string; problems: string[] }[]> };
 
 /** A `pack_event` frame's data (halo_harness/ext/events.py publish_event). */
 /** 3.2.0.0 R5: `problems` when the data does not match the kind's schema (published all the same). */

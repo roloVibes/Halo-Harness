@@ -17,6 +17,8 @@ import { useEffect } from "react";
 import { studio, useStore } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
 import { HoverCardHost, OwnerTabRow, Toasts } from "./lib/ui";
+import { PackFlows } from "./routes/crew/flows/PackFlows"; // 3.6.0.6 P: a pack's workflows, drawn by Studio
+import { RunDock } from "./routes/crew/flows/RunDock"; // 3.6.0.6 P: the palette's Run a workflow
 import { ownerPage } from "./lib/owner";
 import { sections, useSections } from "./routes";
 import { startPacks } from "./routes/packs/store";
@@ -74,6 +76,7 @@ export function App() {
       <main className="stage" aria-label="Workspace">
         {all.filter((s) => (visited as string[]).includes(s.id)).map((s) => (
           <div key={s.id} className="section-view" hidden={s.id !== section} data-section={s.id}>
+            {"pack" in s && <PackFlows pack={String(s.pack)} where={`section:${s.id}`} />}
             {s.view ? <s.view section={s.id} specs={s.panels} /> : <Workspace section={s.id} specs={s.panels} />}
           </div>
         ))}
@@ -87,6 +90,7 @@ export function App() {
       <FleetDialogs />
       <PanelDialogs />
       <GlanceDoor />
+      <RunDock />
       <Toasts />
       <HoverCardHost />
     </div>

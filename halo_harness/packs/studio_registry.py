@@ -140,7 +140,21 @@ def registry(*, cwd=None, state_dir=None) -> dict:
     from halo_harness.packs.contribute import _active
     data = S.load(state_dir)
     packs = [entry(p, S.granted(p.id, data)) for p in _active(cwd, state_dir) if R.studio_of(p.manifest)]
-    return {"version": 1, "core": list(R.CORE_SECTIONS), "packs": packs}
+    return {"version": 1, "core": list(R.CORE_SECTIONS), "packs": packs, "crew_workflows": crew_workflows(cwd, state_dir)}
+
+
+def crew_workflows(cwd=None, state_dir=None) -> dict:
+    """3.6.0.6 P: each enabled pack's crew workflows, {pack: [{name, problems}]}: Studio draws Run it for each in the
+    pack's section head and under the pack in the Pack Manager (ui routes/crew/flows/PackFlows.tsx), never the pack."""
+    from halo_harness.crew import store
+    out: dict = {}
+    try:
+        for r in store.rows("workflow", cwd=cwd, state_dir=state_dir):
+            if r["_scope"] == "pack" and "--" in r["name"]:
+                out.setdefault(r["name"].split("--")[0], []).append({"name": r["name"], "problems": list(r["_problems"])})
+    except Exception:
+        return {}
+    return out
 
 
 def section_heads(*, cwd=None, state_dir=None) -> list:

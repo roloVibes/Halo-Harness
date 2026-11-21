@@ -127,6 +127,8 @@ COMMAND_KINDS = frozenset({
     # Halo 2.0.2 round D: safety-net counterpart to "approval_request", mirroring "permission_reply" (agent/loop.py's
     # `approval_reply` branch). 3.4.1.3 `bg_pickup`: background work finished while idle (agent/bg_pickup.py).
     "approval_reply", "bg_pickup",
+    # 3.6.0.6 P: a crew workflow run by name between turns, no model asked (crew/flow_run.py; Studio's Run it).
+    "run_workflow",
 })
 
 _ids = itertools.count(1)

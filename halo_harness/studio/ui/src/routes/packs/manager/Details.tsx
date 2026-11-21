@@ -11,6 +11,7 @@ import { goSection, type SectionId } from "../../../lib/store";
 import { runWorkflow } from "../../orchestra/workflowRun";
 import { cli, grantPack, selected, togglePick, useMgr } from "./store";
 import type { PackRow, Permission } from "./types";
+import { PackFlows } from "../../crew/flows/PackFlows"; // 3.6.0.6 P: its crew workflows, each with Run it
 
 const author = (a: unknown) => (typeof a === "string" ? a : a && typeof a === "object" ? String((a as { name?: string }).name || "") : "");
 
@@ -44,6 +45,7 @@ function Links({ p }: { p: PackRow }) {
         <button key={w.ref} className="og-link" onClick={() => runWorkflow(w)} data-testid="pm-details-run" data-ref={w.ref}>Run {w.name}</button>
       ))}
       {!p.running && <span className="muted">{p.installed ? "Enable it and its section and workflows open from here." : "Install and enable it to open its section and workflows."}</span>}
+      {p.running && <PackFlows pack={p.id} where="manager" />}
     </div>
   );
 }

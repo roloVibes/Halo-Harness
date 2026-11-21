@@ -7,6 +7,7 @@ import { studio, useStore } from "../../../lib/store";
 import type { TryRec, Workflow } from "../types";
 import { costNow, useFlows } from "./flowStore";
 import { markFlowSeen, running, setFlowTryText, startFlowTry, stopFlowTry, useFlowTry } from "./flowRun";
+import { RunItButton, RunItForm } from "./RunFlow";
 
 const STATE: Record<string, string> = { running: "running", stopping: "stopping", done: "done", stopped: "stopped by you", failed: "failed" };
 const NONE: string[] = [];
@@ -59,6 +60,8 @@ export function FlowTry({ w }: { w: Workflow }) {
   const cost = now?.cost;
   const missing = now?.missing || NONE;
   const here = useStore(studio, (s) => s.section === "agents");
+  const open = useFlows((s) => s.open); // 3.6.0.6 P: Run it runs the saved workflow by its name
+  const row = useFlows((s) => s.flows.find((f) => f.name === s.open?.name));
   const live = running(rec);
   const mine = !!rec && rec.workflow === w.name;
   useEffect(() => { // the result drawn while the page is in view: seen (else it waits in Attention)
@@ -79,10 +82,12 @@ export function FlowTry({ w }: { w: Workflow }) {
           {live
             ? <Button variant="danger" onClick={() => void stopFlowTry()} data-testid="flow-try-stop">Stop</Button>
             : <Button variant="primary" disabled={!text.trim() || busy || !!blocked} onClick={() => void startFlowTry()} data-testid="flow-try-send">Try it</Button>}
+          {open && <RunItButton name={open.name} scope={open.scope} problems={row?.problems} where="flows" />}
           <span className="cw-line" data-testid="flow-try-estimate">
             {blocked || `Runs every step once, as the form holds it now, on a copy of the project that is thrown away after; nothing in your project changes. It costs one run: ${cost?.line || "reading the prices..."}.`}
           </span>
         </div>
+        {open && <RunItForm name={open.name} where="flows" />}
         {rec && mine && <Result r={rec} />}
       </div>
     </div>

@@ -127,6 +127,9 @@ on `halo studio` sends it its own `shutdown` first and prints the `halo --resume
 With `-p`, `--private` or `control.enabled:
 false` it exits 2 and says why (each would leave it with no door). After End session, `halo --resume <id>` opens that session in a
 terminal like any other (the Prompt panel's **Open in terminal** copies that line).
+`--run-workflow NAME --workflow-task TEXT` (Halo 3.6.0.6): the session first runs that crew workflow by name on the
+task, on its own step runner, the way the `Workflow` tool runs it (no model is asked to start it; the receipt lands in
+the session's log). Studio's **Run it** starts a session this way.
 ```sh
 halo --headless --session-for studio --cwd ~/work/shop --model or:qwen/qwen3-coder
 halo --resume 3f9c2a1b            # after End session, in a terminal: the same log

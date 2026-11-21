@@ -34,6 +34,7 @@ from halo_harness.remote.handle import ControllerHandle
 KIND = "headless"
 DRAIN_S = 0.2
 CARD_KINDS = ("permission", "question", "plan", "approval")
+LISTEN_WAIT_S = 15.0  # 3.6.0.6 P: --run-workflow waits this long at most for Studio to listen, so Live sees every step
 
 
 class HeadlessHandle(ControllerHandle):
@@ -45,6 +46,7 @@ class HeadlessHandle(ControllerHandle):
         self.done = done
         self._seen: dict = {}  # ask id -> when this handle first saw it parked
         self._seen_lock = threading.Lock()
+        self.subscribed = threading.Event()  # remote/protocol.py `subscribe` sets it: someone listens to the feed
 
     def _close_after_shutdown(self, text: str) -> None:
         self.done.set()
@@ -123,6 +125,15 @@ def _watch_turns(handle, controller) -> None:
     handle.hub.add_observer(on_event)
 
 
+def _run_when_heard(handle, controller, name: str, task: str) -> None:
+    """Queue the workflow once Studio's feed listens (or after LISTEN_WAIT_S without it), so its first steps reach
+    Live; the run itself is the session's own command (controller.run_workflow)."""
+    def go() -> None:
+        handle.subscribed.wait(LISTEN_WAIT_S)
+        controller.run_workflow(name, task)
+    threading.Thread(target=go, daemon=True, name="halo-headless-run-workflow").start()
+
+
 def drain(controller, done: threading.Event) -> None:
     """The TUI's drain loop without the TUI: read every event until the worker ends or `done` is set."""
     while not done.is_set():
@@ -160,6 +171,8 @@ def run(args) -> int:
               + ", so this session would have no door; it ended", file=sys.stderr)
         return 1
     _watch_turns(handle, controller)
+    if getattr(args, "run_workflow", None):  # 3.6.0.6 P: Studio's Run it -- the workflow by name, no model asked
+        _run_when_heard(handle, controller, args.run_workflow, getattr(args, "workflow_task", None) or "")
     for sig in (getattr(signal, "SIGTERM", None), getattr(signal, "SIGBREAK", None)):
         if sig is not None:
             try:

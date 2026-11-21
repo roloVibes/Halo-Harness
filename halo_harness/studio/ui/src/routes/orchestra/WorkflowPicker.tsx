@@ -4,14 +4,42 @@
 // again on each pack_changed frame); a pick fills in the same form the Pack
 // Manager's Run <workflow> does (workflowRun.ts `runWorkflow`), whose Run
 // compiles it as `halo workflow run` does. No running pack with a workflow:
-// no select.
+// no select. 3.6.0.6 P: under it, the head "Workflows" lists every crew workflow a session runs by name (an enabled
+// pack's with its tag, yours, this project's), each with the one Run it (routes/crew/flows/RunFlow.tsx).
 import { useEffect } from "react";
 import { Field } from "../../lib/ui";
+import { loadFlows, useFlows } from "../crew/flows/flowStore";
+import { RunFlow } from "../crew/flows/RunFlow";
+import { RUN_HEAD, runnable } from "../crew/flows/runWords";
+import { scopeTag } from "../crew/scopeTag";
 import { startManager, useMgr } from "../packs/manager/store";
 import type { PackWorkflow } from "../packs/manager/types";
 import { runWorkflow } from "./workflowRun";
 
+function CrewFlows() {
+  const all = useFlows((s) => s.flows);
+  useEffect(() => { void loadFlows(); }, []);
+  const rows = runnable(all);
+  if (!rows.length) return null;
+  return (
+    <div className="og-wf-pick rf-list" data-testid="goal-flows">
+      <span className="cw-label mono">{RUN_HEAD}</span>
+      {rows.map((r) => (
+        <div key={`${r.scope}:${r.name}`} className="rf-item" data-testid="goal-flow" data-name={r.name} data-scope={r.scope}>
+          <span className="cw-item-head"><b className="cw-item-name mono">{r.name}</b>
+            {scopeTag(r.scope, r.name) && <span className="cw-tag" data-testid="goal-flow-tag">{scopeTag(r.scope, r.name)}</span>}</span>
+          <RunFlow name={r.name} scope={r.scope} problems={r.problems} where="goal" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function WorkflowPicker() {
+  return (<><PackPicker /><CrewFlows /></>);
+}
+
+function PackPicker() {
   const packs = useMgr((s) => s.data?.packs);
   useEffect(() => startManager(), []);
   const flows: PackWorkflow[] = (packs || []).filter((p) => p.running).flatMap((p) => p.workflows || []);

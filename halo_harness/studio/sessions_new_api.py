@@ -4,7 +4,8 @@ guard as every Studio route.
     GET  sessions/new        {model: the default (config `model`), cwd: Studio's, models: [{ref, label, provider,
                               price, context}]} -- the first screen's model picker (the Setup default-model block's
                               rows: studio/model.py model_rows, cached, so a read opens no connection)
-    POST sessions/new {model?, cwd?} -> 202 {session_id, pid, cwd, model, log, resume}
+    POST sessions/new {model?, cwd?} -> 202 {session_id, pid, cwd, model, log, resume}  (`start`: 3.6.0.6 P's
+                             POST crew/run starts its session the same way, plus `--run-workflow`)
                              `halo --headless --session-for studio` (halo_harness/headless_session.py) as a child
                              with no console (its own process group / session), so closing the tab never ends it;
                              it is Studio's child all the same (3.6.0.0 R10, closing.py): when the Studio process
@@ -144,13 +145,18 @@ def post_new(req):
     cwd, why = _cwd_of(req, body.get("cwd"))
     if cwd is None:
         return 422, {"error": why, "problems": [why]}
-    model = " ".join(str(body.get("model") or "").split())[:200]
+    return start(req, cwd, body.get("model"))
+
+
+def start(req, cwd: Path, model, extra: tuple = ()):
+    """The one way Studio starts a session (POST sessions/new; 3.6.0.6 P: POST crew/run adds `--run-workflow`)."""
+    model = " ".join(str(model or "").split())[:200]
     if model.startswith("-"):
         return 422, {"error": f"model {model!r} is not a model ref", "problems": ["model"]}
     sid = uuid.uuid4().hex
     log = Path(req.state_dir).joinpath(*LOG_DIR, f"{sid}.log")
     try:
-        proc = spawn(argv_for(sid, cwd, model), log, cwd)
+        proc = spawn(argv_for(sid, cwd, model) + list(extra), log, cwd)
     except OSError as e:
         return 502, {"error": f"the session could not start: {e}"}
     row = {"session_id": sid, "pid": proc.pid, "cwd": str(cwd), "model": model or _default_model(),

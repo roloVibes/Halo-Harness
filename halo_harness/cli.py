@@ -113,6 +113,9 @@ _REAL_FLAGS = [
     # control socket its only door; Studio's "New session" starts one with `--session-for studio`.
     (["--headless"], dict(dest="headless", action="store_true")),
     (["--session-for"], dict(dest="session_for", default=None, metavar="WHO")),
+    # Halo 3.6.0.6 P: with --headless, run this crew workflow by name on the task first (Studio's Run it; crew/flow_run.py).
+    (["--run-workflow"], dict(dest="run_workflow", default=None, metavar="NAME")),
+    (["--workflow-task"], dict(dest="workflow_task", default=None, metavar="TEXT")),
     # Halo 2.0.3.1 (clipboard image paste): `-p`'s own way to attach an
     # image to the one turn it sends, Claude Code stream-json parity for
     # a plain `-p`/`--input-format text` run -- repeatable (several

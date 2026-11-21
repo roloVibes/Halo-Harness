@@ -655,6 +655,12 @@ class Controller:
             return "A turn is already running -- /compact is queued and will run once it finishes."
         return ""
 
+    def run_workflow(self, name: str, task: str) -> None:
+        """3.6.0.6 P: a crew workflow run by name on the worker thread, between turns, as `/compact` is queued: the
+        Workflow tool's code (crew/flow_run.py), never a prompt asking main to call it (`halo --headless
+        --run-workflow`, Studio's Run it)."""
+        self.commands.put(events.Command("run_workflow", {"name": str(name or "").strip(), "task": str(task or "").strip()}))
+
     def clear_session(self) -> str:
         """U5 must-do: `/clear` queued onto the worker thread (`run_clear`)
         -- `Session.clear()` fires real `SessionEnd(clear)`/

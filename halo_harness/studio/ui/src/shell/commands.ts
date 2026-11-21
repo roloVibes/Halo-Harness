@@ -18,13 +18,16 @@ import { runCommands } from "../routes/crew/run/commands"; // 3.4.0.0 D: a goal 
 import { fleetCommands } from "../routes/fleet/commands";
 import { packPageCommands } from "../packlib/kbd"; // 3.3.13.0 R2: a pack page's own lines (api.lib.commands)
 import { agentsCommands } from "../routes/agents/commands";
+import { flowCommands } from "../routes/crew/flows/commands"; // 3.6.0.6 P: Run a workflow
 import { settingsCommands } from "../routes/settings/commands";
 import { localCommands } from "../routes/local/commands";
 import { promptCommand } from "../routes/session/promptStore";
 import { GLANCE_HINT, openGlanceDoor } from "../routes/glance/Door";
 
 /** `disabled`: drawn with its hint saying why (3.3.2.0 R2: nothing to arrange, nothing to reset); Enter does nothing. */
-export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; disabled?: boolean; run: () => void };
+/** `list` (3.6.0.6 P, Run a workflow): Enter on it shows these instead of running it (shell/Palette.tsx). */
+export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; disabled?: boolean; run: () => void;
+                        list?: () => Command[] };
 
 /** Open a panel (a drawer, a tab, or an optional one added) and focus it, bringing the section's workspace up first. */
 export function revealPanel(def: SectionDef, p: PanelSpec): void {
@@ -91,7 +94,7 @@ export function commands(): Command[] {
     });
   }
   out.push(promptCommand()); // 3.3.11.0 R1: Session's Prompt panel, Alt+Enter
-  out.push(...agentsCommands(), ...runCommands(), ...fleetCommands(), ...mediaCommands());
+  out.push(...agentsCommands(), ...flowCommands(), ...runCommands(), ...fleetCommands(), ...mediaCommands());
   out.push(...settingsCommands()); // 3.3.3.0 R2: "Settings: <title>", one per config key
   out.push(...localCommands()); // 3.3.5.0 R1: "Local: <page>", one per page
   out.push(...packCommands(packs.get().reg), ...packPageCommands());

@@ -8,6 +8,8 @@
     DELETE crew/workflow/<name>          delete yours (409 while a map has a box for it, saying which)
     POST   crew/workflow-cost {workflow} {cost, writes, problems, missing}: the band for the form as it stands, unsaved
     POST   crew/try {kind: workflow, body, request}   Try it on the step runner (crew/trial_flow.py)
+    POST   crew/run {name, task, cwd?, model?}  3.6.0.6 P: Run it -- 202 {session_id, workflow, cwd, ...}: a new session
+                                         runs that workflow by name on the task (crew/flow_run.py); 404 no such workflow
 
 `cost` = {low, high, unknown: [agent], cap, line} (crew/flow_cost.py); `writes` the lines on what Save and a run write;
 `missing` the agents a step names that are not agents of yours. Every write is owner-only (studio/owner_proof.py).
@@ -147,6 +149,36 @@ def post_try_flow(req, publish):
     return 200, {"try": rec}
 
 
+TASK_MAX = 8000  # the task rides on the session's argv (Windows' command line holds 32k characters)
+
+
+def post_run(req):
+    """3.6.0.6 P: Run it -- a real run of a crew workflow (an enabled pack's, yours, this project's) on a task. A new
+    session, started as POST sessions/new starts one (Studio's child; it ends with Studio), runs it by name on its own
+    command pump (crew/flow_run.py: the Workflow tool's code, no model asked); 202 says the session, workflow, folder."""
+    from halo_harness.crew import flow_door
+    from halo_harness.studio import sessions_new_api as N
+    body = req.body if isinstance(req.body, dict) else {}
+    name, task = str(body.get("name") or "").strip(), str(body.get("task") or "").strip()
+    cwd, why = N._cwd_of(req, body.get("cwd"))  # noqa: SLF001  the same folder rules as a new session
+    if cwd is None:
+        return 422, {"error": why, "problems": [why]}
+    wf = flow_door.named(name, cwd, req.state_dir) if name else None
+    if wf is None:
+        return 404, {"error": f"no workflow named {name!r} that a session runs (yours, this project's or an enabled pack's)"}
+    if not task:
+        return 422, {"error": "say what the workflow should work on: the task is empty", "problems": ["task"]}
+    if len(task) > TASK_MAX:
+        return 422, {"error": f"the task is {len(task)} characters; a run takes at most {TASK_MAX}", "problems": ["task"]}
+    clean = store.clean(wf)
+    probs = workflow_problems(clean, name=str(clean.get("name") or "")) or runner.preflight(clean, _resolve(req))[0]
+    if probs:
+        return 422, {"error": probs[0], "problems": probs}
+    full = str(wf.get("name") or name)
+    status, out = N.start(req, cwd, body.get("model"), ("--run-workflow", full, "--workflow-task", task))
+    return status, ({**out, "workflow": full} if status == 202 else out)
+
+
 _NAME = r"(?P<name>[a-z][a-z0-9-]{0,47})"
 ROUTES: list = [
     ("GET", r"^crew/workflows$", get_workflows),
@@ -155,4 +187,5 @@ ROUTES: list = [
     ("PUT", rf"^crew/workflow/{_NAME}$", owner_only(put_workflow)),
     ("DELETE", rf"^crew/workflow/{_NAME}$", owner_only(delete_workflow)),
     ("POST", r"^crew/workflow-cost$", owner_only(post_cost)),
+    ("POST", r"^crew/run$", owner_only(post_run)),  # 3.6.0.6 P: Run it
 ]

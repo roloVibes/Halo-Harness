@@ -8759,6 +8759,10 @@ class Session:
             elif kind == "run_clear":
                 self._pump_clear(out)
                 self._resubmit_leftover_steers(commands)
+            elif kind == "run_workflow":  # 3.6.0.6 P: Studio's Run it (crew/flow_run.py), between turns, no model asked
+                from halo_harness.crew.flow_run import pump as _pump_flow
+                _pump_flow(self, data, out)
+                self._resubmit_leftover_steers(commands)
             elif kind == "run_resume":
                 # /resume and Ctrl+P: the log switch runs HERE, between
                 # turns, never under one (agent/session_switch.py)

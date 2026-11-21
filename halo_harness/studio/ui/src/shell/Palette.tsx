@@ -24,6 +24,7 @@ export function Palette() {
   const agents = useStore(fleet, agentLines);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
+  const [sub, setSub] = useState<Command[] | null>(null); // 3.6.0.6 P: a command's own list (Run a workflow)
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const close = () => studio.update(() => ({ paletteOpen: false }));
@@ -31,18 +32,19 @@ export function Palette() {
   const matches = useMemo(() => {
     if (!open) return [] as Command[];
     const order = groupOrder();
-    const scored = commands()
+    const scored = (sub || commands())
       .map((c) => ({ c, s: Math.max(fuzzy(q, c.label), fuzzy(q, c.group + " " + c.label) - 1) }))
       .filter((x) => x.s >= 0);
     if (q.trim()) scored.sort((a, b) => b.s - a.s);
     else scored.sort((a, b) => order.indexOf(a.c.group) - order.indexOf(b.c.group));
     return scored.map((x) => x.c);
-  }, [open, q, section, catalog, agents]);
+  }, [open, q, section, catalog, agents, sub]);
 
   useEffect(() => {
     if (open) {
       setQ("");
       setSel(0);
+      setSub(null);
       window.setTimeout(() => input.current?.focus(), 0);
     }
   }, [open]);
@@ -54,6 +56,13 @@ export function Palette() {
   if (!open) return null;
   const run = (c?: Command) => {
     if (!c || c.disabled) return; // 3.3.2.0 R2: a disabled entry's hint says why; Enter leaves the palette open
+    if (c.list) {
+      setSub(c.list());
+      setQ("");
+      setSel(0);
+      input.current?.focus();
+      return;
+    }
     close();
     c.run();
   };
