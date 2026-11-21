@@ -38,7 +38,10 @@ FEED = "document.querySelector('[data-testid=\"prompt-feed\"]')"
 HOOK = ("(() => { window.__copied = window.__copied || []; const cb = navigator.clipboard; if (!cb || cb.__wrapped) return !!cb;"
         " const w = Clipboard.prototype.writeText.bind(cb); cb.writeText = (t) => { window.__copied.push(t); return w(t); };"
         " cb.__wrapped = true; return true; })()")
-READ = "navigator.clipboard.readText().then((t) => t, (e) => 'READ-REFUSED: ' + e)"
+# Windows' own clipboard hands text back with CRLF line ends whatever was put on it (the page wrote LF): the read is
+# compared with its line ends as LF. (On Windows the page's clipboard is the system's: this module replaces what a
+# person had copied; it is for CI and the Linux VM, not for a machine in use.)
+READ = "navigator.clipboard.readText().then((t) => t.replace(/\\r\\n/g, '\\n'), (e) => 'READ-REFUSED: ' + e)"
 
 
 def row_of(word: str) -> str:
