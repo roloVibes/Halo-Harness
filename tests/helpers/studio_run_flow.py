@@ -45,6 +45,13 @@ def ctrl_k(c) -> None:
         c.call("Input.dispatchKeyEvent", type=kind, key="k", code="KeyK", windowsVirtualKeyCode=75, modifiers=2)
 
 
+# Where Try it was at its FIRST draw, against its form's top (a scroll is not a move): taken the moment React puts it in
+# the page, so a later move (an answer that lands after the form, a control added beside it) is seen whenever it comes.
+FIRST = """(() => { window.__tryFirst = {}; new MutationObserver(() => {
+  const s = document.querySelector('[data-testid=flow-try-send]'), f = s && s.closest('[data-testid=flow-form]');
+  if (s && f && window.__tryFirst[f.dataset.name] == null) window.__tryFirst[f.dataset.name] = s.getBoundingClientRect().top - f.getBoundingClientRect().top;
+}).observe(document, {childList: true, subtree: true}); })();"""
+
 STATE = ("[...document.querySelectorAll('[data-testid=run-flow-form]')].map((f) => [f.dataset.name, f.querySelector('textarea').value, f.querySelector('[data-testid=run-flow-run]').disabled, f.getBoundingClientRect().top, document.activeElement?.outerHTML.slice(0, 80)])")
 
 
@@ -86,8 +93,7 @@ def run_in(c, where: str, form: str, task: str = "Review notes.md") -> dict:
     try:
         c.wait(f"(window.__w || []).filter((w) => w.startsWith('POST crew/run ')).length > {n0}", 30)
     except TimeoutError:
-        c.shot('/tmp/fix-P-2/fail.png')
-        raise TimeoutError(f"no POST crew/run after Run: {c.js(STATE)}")
+        raise TimeoutError(f"no POST crew/run after Run: {c.js(STATE)}") from None
     out["posted"] = c.js("(window.__w || []).filter((w) => w.startsWith('POST crew/run ')).pop()")
     if out["posted"].endswith(" 202"):
         c.wait(f"!!{q('[data-testid=run-flow-receipt]')}", 20)
@@ -113,9 +119,12 @@ def flows(c, rig, own=True) -> dict:
     beside = c.js(f"!!{q('[data-testid=run-flow-open]')} && {q('[data-testid=run-flow-open]')}.parentElement === {send}.parentElement")
     c.js(f"{q('[data-testid=run-flow-open]')}.scrollIntoView({{block: 'center'}}); 1")
     rel = f"({send}.getBoundingClientRect().top - {q(form)}.getBoundingClientRect().top)"  # in the form: a scroll of the page is not a move
-    try0 = c.js(rel)
+    try0 = c.js(f"(window.__tryFirst || {{}})[{FLOW!r}] ?? null")  # its first draw (FIRST), not a moment after it
     got = run_in(c, "[data-testid=flow-try]", "[data-testid=flow-try] [data-testid=run-flow-form]")
+    if own:  # its band read (the owner's page reads it; a view-only tab cannot): what came after the first draw is in
+        c.wait(f"!!{q('[data-testid=flow-cost-line]')} && !{q('[data-testid=flow-cost-line]')}.textContent.includes('reading the prices')", 60)
     held = c.js(f"!!{send} && {rel} === {try0} && {send}.textContent === 'Try it'")
+    got["try_first"], got["try_now"] = try0, c.js(rel)
     if own and got.get("receipt"):
         c.click_on(q("[data-testid=run-flow-watch]"))
         text = "(document.querySelector('[data-section=agents]:not([hidden])')?.innerText || '')"
@@ -209,8 +218,7 @@ def _dock(c) -> dict:
     try:
         c.wait(f"(window.__w || []).filter((w) => w.startsWith('POST crew/run ')).length > {n0}", 30)
     except TimeoutError:
-        c.shot('/tmp/fix-P-2/fail.png')
-        raise TimeoutError(f"no POST crew/run after Run: {c.js(STATE)}")
+        raise TimeoutError(f"no POST crew/run after Run: {c.js(STATE)}") from None
     out["posted"] = c.js("(window.__w || []).filter((w) => w.startsWith('POST crew/run ')).pop()")
     if out["posted"].endswith(" 202"):
         out["receipt"] = c.wait(f"{q('[data-testid=run-flow-dock] [data-testid=run-flow-receipt]')}?.textContent", 20)
@@ -291,6 +299,7 @@ class RunFlowDriver(Driver):
             store.write_text(store.path_for("map", MAP, state_dir=rig.state), store.dump(raw))
             collect_page_errors(c)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=WATCH)
+            c.call("Page.addScriptToEvaluateOnNewDocument", source=FIRST)
             try:
                 self.out.update(own=OWN, viewonly=VIEWONLY)
                 yield ((own, (c, rig)), (viewonly, (c, rig)), (errors, (c,)), (ended, (rig,)))

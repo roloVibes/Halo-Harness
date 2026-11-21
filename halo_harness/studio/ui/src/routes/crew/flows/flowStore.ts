@@ -83,24 +83,33 @@ export function refreshCost(): void {
     if (!f) return;
     const key = keyOf(f);
     try {
-      const r = await api.post<{ cost: Cost; writes: string[]; missing: string[]; problems: string[] }>("crew/workflow-cost", { workflow: f });
-      if (keyOf(flows.get().form) === key) flows.update(() => ({ cost: r.cost, writes: r.writes, missing: r.missing, problems: r.problems, costKey: key }));
+      const r = await api.post<Band>("crew/workflow-cost", { workflow: f });
+      if (keyOf(flows.get().form) === key) flows.update(() => bandState(r, key));
     } catch {
       /* the band stays unread; the next edit asks again */
     }
   }, 250);
 }
 
-function put(form: Workflow, saved: Workflow | null, open: FlowState["open"], note: string, maps: string[] = []): void {
-  flows.update(() => ({ form, saved, open, note, maps, asking: "", stale: false, adding: false }));
-  refreshCost();
+type Band = { cost: Cost; writes: string[]; missing: string[]; problems: string[] };
+const bandState = (r: Band, key: string) => ({ cost: r.cost, writes: r.writes, missing: r.missing, problems: r.problems, costKey: key });
+
+/** P batch 2 repair: a saved workflow's band, read before its form is first drawn (the one POST an open makes), so its
+ *  lines above Try it and Run it are in the first draw and never push them down after it; null when it cannot be read. */
+const bandOf = (w: Workflow): Promise<Band | null> => api.post<Band>("crew/workflow-cost", { workflow: w }).catch(() => null);
+
+/** `band`: read with the open (no second read); undefined: read it now, as an edit does. */
+function put(form: Workflow, saved: Workflow | null, open: FlowState["open"], note: string, maps: string[] = [], band?: Band | null): void {
+  flows.update(() => ({ form, saved, open, note, maps, asking: "", stale: false, adding: false, ...(band ? bandState(band, keyOf(form)) : {}) }));
+  if (band === undefined) refreshCost();
 }
 
 export async function openFlow(name: string, scope?: Scope): Promise<void> {
   try {
     const r = await api.get<{ workflow: Workflow; scope: Scope; maps: string[] }>(`crew/workflow/${encodeURIComponent(name)}`, scope ? { scope } : undefined);
     const w = clean(r.workflow);
-    put(w, w, { name, scope: r.scope }, "", r.maps);
+    const band = await bandOf(w);
+    put(w, w, { name, scope: r.scope }, "", r.maps, band);
   } catch (e) {
     toast(msg(e), "error", 5000);
   }

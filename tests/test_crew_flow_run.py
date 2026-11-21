@@ -110,6 +110,23 @@ def test_studio_runs_a_packs_workflow_by_name_in_a_session_that_ends_with_studio
     ctx.check(f"no child survives, got {rig.survivors()}", rig.survivors() == [])
 
 
+@test
+def test_a_task_that_starts_with_a_dash_reaches_the_session_whole(ctx: Ctx):
+    """Batch 2 repair (the checker's third finding): the task rode as its own argv item after --workflow-task, so a task
+    such as "-v" was read as an option and the child exited with an argparse error after Studio said "Started". The argv
+    Studio gives the session (crew_flow_api.run_argv) parses back to the very name and task, whatever the task starts with."""
+    from halo_harness import cli
+    from halo_harness.studio.crew_flow_api import run_argv
+    parser = cli._build_parser()  # noqa: SLF001
+    for task in ("-v", "--fix the docs", "- bullet list", "-1", "Review docs/a.md"):
+        try:
+            ns, _rest = parser.parse_known_args(["--headless", *run_argv(FLOW, task)])
+            got = (ns.run_workflow, ns.workflow_task)
+        except SystemExit as e:
+            got = ("exit", e.code)
+        ctx.check(f"{task!r} reaches the session whole, got {got}", got == (FLOW, task))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

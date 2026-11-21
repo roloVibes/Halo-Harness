@@ -92,6 +92,36 @@ def test_every_view_offers_the_one_run_it(ctx: Ctx):
     ctx.check("a pack page's scoped client is not given the route", "crew/run" not in read(SRC / "packlib" / "scoped.ts"))
 
 
+@test
+def test_watch_it_in_live_is_not_held_on_an_empty_drawing(ctx: Ctx):
+    """Batch 2 repair (the checker's first finding): Watch it in Live lands on Agents -> 4 · Live with the pointer over the
+    drawing, and the drawing kept "under the pointer" (runFrame.ts useHeld, 3.6.0.2 R12) was its first one: no box at all,
+    so the run's group was never drawn until the pointer left. A drawing with no box is never held (drawnAll), in Agents'
+    Live and in Session's drawer alike."""
+    from tests.test_map_groups import _stubbed
+    js = """const d = m.drawnAll;
+console.log(JSON.stringify([d([], {}), d([{id: "main"}], {main: 107}), d([{id: "main"}, {id: "group:1"}], {main: 107}), d([{id: "a"}], {})]));"""
+    got = _stubbed("routes/crew/map/runFrame.ts", js)
+    ctx.check(f"no box: nothing to hold; every box measured: held; one unmeasured: not yet, got {got}", got == [False, True, False, False])
+    read = lambda p: p.read_text(encoding="utf-8")  # noqa: E731
+    ctx.check("Agents -> 4 · Live holds only a drawing with its boxes measured (drawnAll)",
+              "useHeld<G>(held, map, fresh, drawnAll(fresh.boxes, heights))" in read(SRC / "routes" / "agents" / "LiveDraw.tsx"))
+    ctx.check("Session's Live drawer the same",
+              "drawnAll(live.boxes, heights))" in read(SRC / "routes" / "session" / "MapDown.tsx"))
+
+
+@test
+def test_the_workflows_form_draws_with_its_band(ctx: Ctx):
+    """Batch 2 repair (the checker's second finding): the band ("What it costs and writes" above Try it, and the estimate
+    beside it) came 0.3 s after the form, and its lines pushed Try it and Run it down by about 90 px. A saved workflow is
+    opened with its band read in the same step (flowStore.ts openFlow: one POST crew/workflow-cost, as before), so the
+    form's first draw holds it and the row never moves by itself."""
+    src = (FLOWS / "flowStore.ts").read_text(encoding="utf-8")
+    body = src[src.index("export async function openFlow"):src.index("export function newFlow")]
+    ctx.check("openFlow reads the band before it puts the form, and asks once (no second, debounced read)",
+              'bandOf(w)' in body and "put(w, w, { name, scope: r.scope }, \"\", r.maps, band)" in body)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

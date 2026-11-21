@@ -47,7 +47,8 @@ def _started(ctx: Ctx, where: str, v: dict) -> None:
 @test
 def test_run_it_beside_try_it_runs_the_packs_workflow_and_live_draws_it(ctx: Ctx):
     f = (_got(ctx).get("own") or {}).get("flows") or {}
-    ctx.check("Run it stands beside Try it, and Try it is untouched", f.get("beside") is True and f.get("try_held") is True)
+    ctx.check(f"Run it stands beside Try it, and Try it is where it was first drawn, got {f.get('beside')} "
+              f"{f.get('try_first')} -> {f.get('try_now')}", f.get("beside") is True and f.get("try_held") is True)
     ctx.check(f"the form names the workflow and says the line, got {f.get('name')!r} {f.get('line')!r}",
               f.get("name") == FLOW and bool(LINE.match(str(f.get("line") or ""))))
     ctx.check(f"its buttons are Run and Cancel, got {f.get('buttons')}", f.get("buttons") == ["Run", "Cancel"])
@@ -87,7 +88,7 @@ def test_each_session_runs_it_by_name_and_ends_with_studio(ctx: Ctx):
     ctx.check(f"one session per Run (six views, then the one after Make this tab yours), got {len(sids)}", len(sids) == 7)
     ctx.check(f"each session's record holds the receipt, got {receipts}", receipts and all(receipts.values()))
     ctx.check(f"Studio's stop ended them, none survives, got {got.get('ended')} {got.get('survivors')}",
-              (got.get("ended") or 0) >= 1 and got.get("survivors") == [])
+              got.get("ended") == len(sids) and got.get("survivors") == [])
     ctx.check(f"no page error, got {got.get('page_errors')}", got.get("page_errors") == [])
 
 

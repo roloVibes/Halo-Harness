@@ -28,7 +28,7 @@ import { holding, tagOf, useBuilt } from "../crew/map/built";
 import { useHold } from "../crew/map/hold";
 import { useLit } from "../crew/map/LitMini";
 import { RunLine } from "../crew/map/RunLine";
-import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
+import { drawnAll, selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
 import { BELOW_SAMPLE, belowGroup } from "../crew/map/groupWords";
 import { StepIn } from "../crew/map/StepIn";
@@ -90,7 +90,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   useEffect(() => () => holding(s.sid, false), [s.sid]);
   useEffect(() => setCard(null), [s.sid, shown]);
   // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
-  const g = useHeld<Down>(held, `${shown}|${cw}`, live, live.boxes.every((b) => heights[b.id] != null));
+  const g = useHeld<Down>(held, `${shown}|${cw}`, live, drawnAll(live.boxes, heights));
 
   const [k, setK] = useState(1);
   const [restTop, setRestTop] = useState(0); // the scrollTop the scroll box's height is counted from

@@ -29,7 +29,7 @@ import { groupId } from "../crew/map/litView";
 import { belowGroup } from "../crew/map/groupWords";
 import { whenWords } from "../crew/map/mapTypes";
 import { RunLine } from "../crew/map/RunLine";
-import { selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
+import { drawnAll, selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
 import { StepIn } from "../crew/map/StepIn";
 import type { Hit } from "../crew/map/stepInTarget";
@@ -70,7 +70,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   }, [v, heights]);
   // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
   const ready = fresh.boxes.every((b) => heights[b.id] != null);
-  const g = useHeld<G>(held, map, fresh, ready);
+  const g = useHeld<G>(held, map, fresh, drawnAll(fresh.boxes, heights));
   useEffect(() => setCard(null), [s.sid, map]);
 
   const [k, setK] = useState(1);

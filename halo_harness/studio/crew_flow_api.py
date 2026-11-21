@@ -152,6 +152,12 @@ def post_try_flow(req, publish):
 TASK_MAX = 8000  # the task rides on the session's argv (Windows' command line holds 32k characters)
 
 
+def run_argv(name: str, task: str) -> tuple:
+    """The session's argv for a run: the task joined to its option with "=", so a task that starts with "-" is never
+    read as an option of its own (argparse takes everything after the "=" as the value)."""
+    return ("--run-workflow", name, "--workflow-task=" + task)
+
+
 def post_run(req):
     """3.6.0.6 P: Run it -- a real run of a crew workflow (an enabled pack's, yours, this project's) on a task. A new
     session, started as POST sessions/new starts one (Studio's child; it ends with Studio), runs it by name on its own
@@ -175,7 +181,7 @@ def post_run(req):
     if probs:
         return 422, {"error": probs[0], "problems": probs}
     full = str(wf.get("name") or name)
-    status, out = N.start(req, cwd, body.get("model"), ("--run-workflow", full, "--workflow-task", task))
+    status, out = N.start(req, cwd, body.get("model"), run_argv(full, task))
     return status, ({**out, "workflow": full} if status == 202 else out)
 
 

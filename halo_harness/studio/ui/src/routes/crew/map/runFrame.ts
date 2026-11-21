@@ -29,6 +29,11 @@ export const selected = (card: Target | null, id: string, workflow?: string, mem
   !!card && (card.id === `box:${id}` || (!!workflow && (card.id === `head:${workflow}` || card.id.startsWith(`step:${workflow}:`)))
     || (!!members && (card.id === id || (card.id.startsWith("member:") && members.includes(card.id.slice(7))))));
 
+/** useHeld's `ready`: every box measured, and at least one box. A drawing with no box yet (its rows or its map still
+ *  coming, as when Watch it in Live lands on a run under the pointer) is never held: there is nothing in it to move. */
+export const drawnAll = (boxes: { id: string }[], heights: Record<string, number>): boolean =>
+  boxes.length > 0 && boxes.every((b) => heights[b.id] != null);
+
 /** The geometry to draw: `fresh` unless held, measured, and still the same drawing (`key`: the map, and the width laid out). */
 export function useHeld<G>(held: boolean, key: string, fresh: G, ready: boolean): G {
   const kept = useRef<{ key: string; g: G; ready: boolean } | null>(null);
