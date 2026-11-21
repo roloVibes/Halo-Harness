@@ -239,6 +239,10 @@ def test_the_gate_six_processes_one_bucket(ctx: Ctx):
     finally:
         srv.shutdown()
         srv.server_close()
+        # leave the process as it was found: the storm's cooldown for the host on 127.0.0.1 also lives in the governor's
+        # in-process mirror, and the next module that asks a host there inherited it (3.6.0.10: the suite's shards
+        # moved and tests.test_host_peers' bench job, now in this shard, never got its answer)
+        governor_state.reset_degraded_for_tests()
         if old_gov is None:
             os.environ.pop("GOVERNOR_STATE_DIR", None)
         else:
