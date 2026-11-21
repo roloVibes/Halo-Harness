@@ -22,7 +22,8 @@ limits that remain are at the end of this section.
   you have unsaved edits in the form, nothing you typed changes: the form says "{name} changed on disk while you had
   edits here. Save writes yours over it." with the button "Reload it (your edits go)". If the file is removed, the
   form stays and says "{name} was removed on disk. Save writes it again." A pack's workflow that is open read-only
-  shows the pack's new steps when the pack changes.
+  shows the pack's new steps when the pack changes. In the list, a workflow's "on the map" tag now follows a changed
+  map too; before, it changed only when a workflow file changed.
 - **The map you have open follows its files** (Agents, 3 Map). The map is drawn again when its file changes; a
   workflow box shows its workflow's new steps and an agent box its agent's new model when those files change. Before,
   a map written other than by the Builder's card, or a changed workflow or agent on one of its boxes, re-read only the
@@ -92,9 +93,10 @@ limits that remain are at the end of this section.
   once in the real-use check on its Windows runner: of 28 ways out, a hard kill of a session with a model server
   beside it left the server and its watcher running 5 s later. Reading the watcher found the two things under Fixed;
   either would explain that run (only a hard kill leaves the session's row, and the same case passed by Ctrl+C and by
-  a closed terminal), which cannot be repeated on demand. Each has a test that was red before. Not run: macOS at all
-  (CI runs it at the release gate), Agents, 4 Live, a real model asked to change a workflow, and a session started in
-  another folder than Studio's.
+  a closed terminal), which cannot be repeated on demand. Each has a test that was red before. The same run showed, on
+  CI's Linux and macOS runners, that the Workflows list's "on the map" tag did not follow a changed map: its test had
+  passed elsewhere only by its timing, and now tests the rule. Not run: macOS at all (CI runs it at the release gate),
+  Agents, 4 Live, a real model asked to change a workflow, and a session started in another folder than Studio's.
 
 ## [3.6.0.8] - 2026-11-21
 

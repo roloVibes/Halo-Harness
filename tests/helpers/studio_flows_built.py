@@ -14,6 +14,7 @@
 No model is called."""
 from __future__ import annotations
 
+import os
 import time
 
 from tests.helpers.studio_agents import key
@@ -168,10 +169,18 @@ def follows(c, rig) -> dict:
     _open(c, "my-review")
     # (f) first, with no workflow write pending: a map that puts `other` on a box; the list's "on the map" tag follows
     tag = f"{q('[data-testid=flow-item][data-name=other] [data-testid=flow-item-map]')}?.dataset.tag || ''"
+    # every workflow write made so far has been heard (a new workflow is in the list), so what follows is the
+    # map's doing alone: on CI's Linux and macOS runners the tag once followed only because a workflow
+    # write was still on its way when the map was written
+    settled = store.path_for("workflow", "zz-settled", state_dir=rig.state)
+    store.write_text(settled, store.dump({**base, "name": "zz-settled"}))
+    out["settled"] = _until(c, f"!!{q('[data-testid=flow-item][data-name=zz-settled]')}", True)
     out["tag_before"] = c.js(tag)
     store.write_text(store.path_for("map", "follow-map", state_dir=rig.state),
                      "format: map/1\nname: follow-map\nboxes:\n- {id: o, workflow: other}\nlines:\n- {from: main, to: o, when: always}\n")
     out["tag_after"] = _until(c, tag, "on")
+    os.remove(str(settled))
+    _until(c, f"!!{q('[data-testid=flow-item][data-name=zz-settled]')}", False)
     # (1) a plain write, as the Write tool makes: the open form shows the file's steps and words
     out["plain"] = [_until(c, STEPS, write(["a", "b", "c"])), _until(c, f"{t('flow-for')}?.value", "followed", 5)]
     # (2) a Builder card's write of the same name (its file, then its frame): left and come back, the form is the file

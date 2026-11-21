@@ -58,6 +58,7 @@ export async function loadFlows(): Promise<void> {
   if (!watching) {  // 3.6.0.0 R5b: a workflow file written outside Studio shows at once; 3.6.0.9 V: the open one too
     watching = true;
     onFilesChanged(["workflows"], (c) => (void loadFlows(), follow(c)));
+    onFilesChanged(["maps"], () => void loadFlows());  // the list's "on the map" tags follow a changed map
   }
   try {
     const r = await api.get<{ workflows: FlowRow[]; starters: FlowRow[] }>("crew/workflows");
