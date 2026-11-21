@@ -116,6 +116,61 @@ def test_every_orderly_way_out_ends_the_browser_first_and_within_3_s(ctx: Ctx):
 
 
 @test
+def test_the_browsers_end_keeps_to_the_quits_deadline(ctx: Ctx):
+    """W batch 3 repair (the checker): a quit's way out shares one deadline (closing.QUIT_BUDGET_S); the browser's
+    orderly end takes its share of it and leaves Controller.QUIT_RESERVE_S for the stops after, never all of it."""
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    from halo_harness import closing
+    from halo_harness import controller as Cm
+    got: list = []
+    with mock.patch.object(B, "end_browsers", lambda limit=None: got.append(limit)), \
+            mock.patch.object(closing, "time_left", lambda cap: min(cap, closing.QUIT_BUDGET_S)):
+        Cm._end_browsers()
+    ctx.check(f"an armed deadline: the browsers get it less the reserve, got {got}",
+              got == [closing.QUIT_BUDGET_S - Cm.QUIT_RESERVE_S])
+    got.clear()
+    with mock.patch.object(B, "end_browsers", lambda limit=None: got.append(limit)):
+        Cm._end_browsers()  # no deadline armed (a test, a Studio hosting a session): the browser's own bound
+    ctx.check(f"no deadline: the browser's own bound, got {got}", got == [B.END_WAIT_S + 2.0])
+
+    class Slow:  # a browser whose close never ends in time
+        proc = SimpleNamespace(pid=0)
+
+        def close(self):
+            time.sleep(30)
+    slow = Slow()
+    with mock.patch.object(B, "_LIVE", [slow]):
+        t = time.monotonic()
+        B.end_browsers(0.2)
+        took = time.monotonic() - t
+    ctx.check(f"end_browsers returns at its limit, took {took:.1f} s", took < 2.0)
+
+
+@test
+def test_studio_stopping_waits_out_a_sessions_browser_close(ctx: Ctx):
+    """W batch 3 repair (the checker): Studio stopping gives each session it started its `shutdown` and waits for it to
+    leave before the hard end; that wait covers the session's browser close (END_WAIT_S), or a close of 2 to 3 s is cut
+    by the hard end and the sign-in is lost on Windows. Counted on an injected clock."""
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    from halo_harness.studio import live_agents_api as L
+    from halo_harness.studio import sessions_new_api as S
+    clock = [0.0]
+    proc = SimpleNamespace(pid=424242, poll=lambda: None)  # a session that never leaves by itself
+    fake_time = SimpleNamespace(monotonic=lambda: clock[0], sleep=lambda s: clock.__setitem__(0, clock[0] + s))
+    with mock.patch.object(S, "_procs", {424242: proc}), \
+            mock.patch.object(S, "_rows", {424242: {"session_id": "s" * 12, "cwd": "."}}), \
+            mock.patch.object(S, "time", fake_time), mock.patch.object(L, "forward", lambda *a, **k: None), \
+            mock.patch.object(L, "caller", lambda: {}):
+        rows = S.end_started()
+    ctx.check(f"the session is named, got {rows}", len(rows) == 1)
+    ctx.check(f"the wait covers the browser's close, waited {clock[0]:.1f} s", B.END_WAIT_S < clock[0] < B.END_WAIT_S + 2)
+
+
+@test
 def test_a_close_that_is_not_answered_ends_the_browser_hard_within_3_s(ctx: Ctx):
     """Browser.close asks, waits up to END_WAIT_S for the browser to be gone, and then stops it hard: never longer."""
     from halo_harness import browser_cdp as B

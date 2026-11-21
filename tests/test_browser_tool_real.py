@@ -167,6 +167,9 @@ def _halo(home: Path, proj: Path, state_dir: Path, steps: list) -> "tuple[int, s
     env.update(HOME=str(home), USERPROFILE=str(home), BRIDGE_TEST_HOME=str(home), BRIDGE_STATE_DIR=str(state_dir),
                OLLAMA_HOST="http://127.0.0.1:9", HALO_NO_UPDATER="1", OPENROUTER_API_KEY="sk-or-test-not-a-key",
                BRIDGE_OPENROUTER_BASE_URL=mock.base_url, PYTHONPATH=str(ROOT))
+    given = home / "systemp"  # the system's temp folder this halo sees (W batch 3: nothing of the browser may land there)
+    given.mkdir(exist_ok=True)
+    env.update(TMP=str(given), TEMP=str(given), TMPDIR=str(given))
     if sys.platform == "win32":  # a real Windows home has these; Chrome waits forever on a USERPROFILE without them
         appdata = home / "AppData"
         for sub in ("Local", "Roaming"):
@@ -225,6 +228,8 @@ def test_a_real_halo_session_drives_the_browser_and_leaves_nothing(ctx: Ctx):
     ctx.check(f"no process carries the browser's profile, got {left}", not left)
     left = _gone(str(home))
     ctx.check(f"nothing of the session is left running, got {left}", not left)
+    temps = sorted(os.listdir(home / "systemp"))  # on the base, Windows: scoped_dir<pid>_* of the browser (26 MB)
+    ctx.check(f"nothing is left in the system's temp folder the session had, got {temps[:6]}", not temps)
 
 
 class _CookiePage:
@@ -357,7 +362,7 @@ def test_a_sign_in_outlives_studio_ending_the_session_and_studio_stopping(ctx: C
                                             how, server)
                 ctx.check(f"({how}) the session signed in, got {res[-1:]!r} {said}",
                           len(res) == 2 and "signedin=yes" in res[1])
-                ctx.check(f"({how}) ended, got {said!r}", "did not end" not in said and "never" not in said)
+                ctx.check(f"({how}) ended by its own way out (never the hard end), got {said!r}", not said)
                 left = _gone(str(rig.state / "browser" / "profile"))
                 ctx.check(f"({how}) nothing carries the kept profile after, got {left}", not left)
                 res, said = _studio_session(rig, [{"action": "open", "url": url},

@@ -173,10 +173,14 @@ def note_started(proc, row: dict) -> None:
     _rows[proc.pid] = row
 
 
-def end_started(wait_s: float = 2.0) -> list:
+def end_started(wait_s: Optional[float] = None) -> list:
     """Studio is closing: the sessions THIS process started end with it (closing.py: nothing outlives the Halo that
     started it). Each gets its own `shutdown` first, so its turn ends at a tool boundary and its log is whole; the
-    closing procedure ends whatever is still there after. Returns their rows (`ended_line` says them)."""
+    closing procedure ends whatever is still there after. Returns their rows (`ended_line` says them). The wait covers
+    a session's browser closing (browser_cdp.END_WAIT_S, then a moment): a hard end inside it loses a sign-in."""
+    if wait_s is None:
+        from halo_harness.browser_cdp import END_WAIT_S
+        wait_s = END_WAIT_S + 1.0
     live = [(proc, _rows[pid]) for pid, proc in list(_procs.items()) if pid in _rows and proc.poll() is None]
     if not live:
         return []

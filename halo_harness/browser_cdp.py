@@ -23,9 +23,12 @@ runs it again for any other exit. A hard end of Halo closes the pipe, and the br
 (and the reaper / the Job end what is left: a sign-in made in its last seconds may be lost).
 
 NOTHING ELSE IS LEFT (batch 3): the browser's TMP, TEMP and TMPDIR are a temp folder of its own, `<halo home>/browser/
-tmp/<pid>-<n>-<ms>`, removed when it ends (one a hard end left is swept by the next start: only when the pid in its
-name is no longer alive), and QUIET switches stop its own background work (an updater, pings, reports). A download is
-staged in that folder and moved into `download_dir` only when the browser says it is whole.
+tmp/<pid>-<n>` (on Linux and macOS, a home too deep for the browser's socket gets `/tmp/halo-browser-<uid>/<pid>-<n>`
+instead), removed when it ends (one a hard end left is swept by the next start: only when the pid in its name is no
+longer alive; the sweep reads only these two folders, never the system's temp), and QUIET switches stop its own
+background work (an updater, pings, reports). A download is staged in `<halo home>/browser/tmp/<pid>-<n>/downloads`
+(always under Halo's home, so the move is one rename) and moved into `download_dir` only when the browser says it is
+whole.
 
 WHAT REAL PAGES DO (batch 2): an action that opens a new tab goes on IN it (NEW_TAB begins its answer; a current tab
 that closes hands back to the one before it; there is always one current tab); a page's alert, confirm or prompt box
@@ -227,32 +230,83 @@ SOCKET_MAX = 100  # a POSIX socket's address: 104 bytes on macOS, 108 on Linux (
 SOCKET_TAIL = len("/.org.chromium.Chromium.XXXXXX/SingletonSocket")  # what the browser puts in its temp folder
 
 
-def temp_folder(root: Path) -> Path:
-    """The browser's own temp folder: `<root>/tmp/<pid>-<n>`. On Linux and macOS the browser keeps a socket (a file,
-    never a network port) in it, whose whole path must fit a socket's address: a home too deep for it gets a folder of
-    its own in the system's temp instead, `halo-browser-<pid>-<n>`, by the same rules (removed with it, swept by pid)."""
+SHORT_ROOT = "/tmp"  # POSIX, a home too deep for the socket: never TMPDIR (macOS's alone is about 48 characters)
+
+
+def _fits(folder: Path) -> bool:
+    return len(str(folder)) + SOCKET_TAIL <= SOCKET_MAX
+
+
+def short_root() -> Optional[Path]:
+    """POSIX: Halo's folder for the temp folders of a home too deep for the browser's socket, `/tmp/halo-browser-<uid>`
+    (one per user: the sweep reads it alone, never the whole of /tmp); None on Windows."""
+    return None if os.name == "nt" else Path(SHORT_ROOT) / f"halo-browser-{os.getuid()}"
+
+
+def _own_short_root() -> bool:
+    """The short root is made this user's own (0700) and is used only when it is: never a link, never another's."""
+    d = short_root()
+    try:
+        d.mkdir(mode=0o700, exist_ok=True)
+        st = os.lstat(d)
+    except OSError:
+        return False
+    import stat
+    return stat.S_ISDIR(st.st_mode) and st.st_uid == os.getuid() and not st.st_mode & 0o077
+
+
+def temp_folders(root: Path) -> "tuple[Path, Optional[Path]]":
+    """(own, tmp). `own` = `<root>/tmp/<pid>-<n>`: this browser's folder under Halo's home (its download staging).
+    `tmp` = its TMP, TEMP and TMPDIR: `own`, except on Linux and macOS when `own` is too deep for the socket the browser
+    keeps in it (a file, never a network port; its whole path must fit a socket's address): then
+    `<short_root()>/<pid>-<n>`, and None when even that does not fit (the browser keeps the system's temp)."""
     name = f"{os.getpid()}-{next(_SEQ)}"
     own = Path(root) / "tmp" / name
-    if os.name == "nt" or len(str(own)) + SOCKET_TAIL <= SOCKET_MAX:
-        return own
-    import tempfile
-    return Path(tempfile.gettempdir()) / f"halo-browser-{name}"
+    if os.name == "nt" or _fits(own):
+        return own, own
+    short = short_root() / name
+    return own, (short if _fits(short) else None)
 
 
 def sweep_temps(home=None) -> None:
     """A browser's temp folder whose session is gone (a hard end) is removed at the next start: only when the pid in its
-    name is no longer alive (never by a name alone, never one in use)."""
-    import tempfile
+    name is no longer alive (never by a name alone, never one in use). Reads Halo's two folders only (`<halo home>/
+    browser/tmp` and, on POSIX, the short root), never the system's temp."""
     from halo_harness.children import pid_running
     found = []
-    for root, pat in ((browser_home(home) / "tmp", r"(\d+)-\d+$"), (Path(tempfile.gettempdir()), r"halo-browser-(\d+)-\d+$")):
+    for root in (browser_home(home) / "tmp", short_root()):
         try:
-            found += [(p, re.match(pat, p.name)) for p in root.iterdir() if p.is_dir()]
+            found += [(p, re.match(r"(\d+)-\d+$", p.name)) for p in root.iterdir() if p.is_dir()] if root else []
         except OSError:
             continue
     for p, m in found:
         if m and int(m.group(1)) != os.getpid() and not pid_running(int(m.group(1))):
             shutil.rmtree(p, ignore_errors=True)
+    _drop_short_root()
+
+
+def _make_short(folder: Path) -> bool:
+    for _ in range(3):
+        if not _own_short_root():
+            return False
+        try:
+            folder.mkdir(exist_ok=True)
+            return True
+        except FileNotFoundError:
+            continue  # another session dropped the empty root a moment before
+        except OSError:
+            return False
+    return False
+
+
+def _drop_short_root() -> None:
+    """The short root goes when nothing is in it (another session's folder keeps it)."""
+    d = short_root()
+    if d is not None:
+        try:
+            d.rmdir()
+        except OSError:
+            pass
 
 
 def _remove(folder) -> None:
@@ -263,15 +317,17 @@ def _remove(folder) -> None:
         time.sleep(0.1)
 
 
-def end_browsers() -> None:
+def end_browsers(limit: Optional[float] = None) -> None:
     """THE orderly end of this process's browsers, which every orderly way out of a session calls BEFORE any other stop
     of its children: each one's Browser.close (asked to close, up to END_WAIT_S, then the hard stop by pid), all at
-    once. Idempotent; never raises; never waits much past END_WAIT_S."""
+    once. Idempotent; never raises; never waits much past END_WAIT_S, nor past `limit` (a quit's share of its way-out
+    deadline: a close still going then goes on beside the stops after it)."""
     live = [b for b in list(_LIVE) if b.proc is not None]
     threads = [threading.Thread(target=b.close, name="halo-browser-end", daemon=True) for b in live]
     for th in threads:
         th.start()
-    end = time.monotonic() + END_WAIT_S + 2.0  # the hard stop after the bound gets a moment
+    wait = END_WAIT_S + 2.0  # the hard stop after the bound gets a moment
+    end = time.monotonic() + (wait if limit is None else max(0.0, min(wait, limit)))
     for th in threads:
         th.join(max(0.0, end - time.monotonic()))
 
@@ -513,7 +569,8 @@ class Browser:
         self._downloads: dict = {}  # guid -> {"name", "state", "said"}
         self._auto: dict = {}  # target id -> the session its automatic attach made (a new tab, held at its start)
         self._first: dict = {}  # DevTools session id -> where in `notes` its first line is (NEW_TAB goes before it)
-        self.tmp: Optional[Path] = None  # the browser's own temp folder (its TMP, TEMP, TMPDIR; downloads staged)
+        self.tmp: Optional[Path] = None  # the browser's own temp folder (its TMP, TEMP, TMPDIR)
+        self.stage: Optional[Path] = None  # its folder under Halo's home (downloads staged in `downloads`)
         self._nmu = threading.Lock()  # the notes: the reader thread adds a box's line
         self.proc = None
         self.pipe: Optional[_Pipe] = None
@@ -555,8 +612,10 @@ class Browser:
             self._pick_profile(root)
             self._pick_window()
             self.tabs, self.sessions, self._seen, self._downloads, self._auto = [], {}, set(), {}, {}
-            self.tmp = temp_folder(root)
-            (self.tmp / "downloads").mkdir(parents=True, exist_ok=True)
+            self.stage, self.tmp = temp_folders(root)
+            (self.stage / "downloads").mkdir(parents=True, exist_ok=True)
+            if self.tmp is not None and self.tmp != self.stage and not _make_short(self.tmp):
+                self.tmp = None  # the short root is not this user's own: the browser keeps the system's temp
             try:
                 self._spawn()
                 self._attach()
@@ -598,6 +657,8 @@ class Browser:
 
     def env(self) -> dict:
         """This process's environment with the temp folder the browser's own: what it writes as temporary is there."""
+        if self.tmp is None:
+            return dict(os.environ)
         t = str(self.tmp)
         return {**os.environ, "TMP": t, "TEMP": t, "TMPDIR": t}
 
@@ -641,7 +702,7 @@ class Browser:
         if self.download_dir is not None:
             Path(self.download_dir).mkdir(parents=True, exist_ok=True)
             self.pipe.call("Browser.setDownloadBehavior", {"behavior": "allowAndName", "eventsEnabled": True,
-                                                           "downloadPath": str(self.tmp / "downloads")}, None,
+                                                           "downloadPath": str(self.stage / "downloads")}, None,
                            CALL_WAIT_S)  # staged in Halo's own folder; moved into download_dir only when whole
 
     def _new_blank(self) -> str:
@@ -771,7 +832,7 @@ class Browser:
         """A whole download moves from the staging folder into `download_dir` under its own name (a taken name gets
         " (2)" before its ending, never an overwrite)."""
         folder = Path(self.download_dir)
-        got = (self.tmp / "downloads" / guid) if self.tmp else folder / guid
+        got = (self.stage / "downloads" / guid) if self.stage else folder / guid
         end = time.monotonic() + 2.0  # the browser renames its part file a moment after it says "completed"
         while not got.is_file() and time.monotonic() < end:
             time.sleep(0.05)
@@ -783,11 +844,13 @@ class Browser:
         path, n = folder / safe, 2
         while path.exists():
             path, n = folder / f"{stem} ({n}){ext}", n + 1
-        try:
-            shutil.move(str(got), str(path))  # one rename: Halo's home is one folder tree
-        except OSError:
-            return None
-        return path
+        for _ in range(20):  # one rename (staging is under Halo's home); Windows may hold a file it just wrote a moment
+            try:
+                shutil.move(str(got), str(path))
+                return path
+            except OSError:
+                time.sleep(0.1)
+        return None
 
     def _settle(self) -> bool:
         """After an action: a moment for a navigation or a new tab to begin, the tab followed, its load waited for (up
@@ -994,8 +1057,11 @@ class Browser:
                     pass
             if self.kind == "clean" and self.profile:
                 _remove(self.profile)
-            if self.tmp is not None:
-                _remove(self.tmp)  # its temp files and the download staging go with it
+            if self.stage is not None:
+                _remove(self.stage)  # the download staging (and its temp files when they were there) go with it
+            if self.tmp is not None and self.tmp != self.stage:
+                _remove(self.tmp)
+                _drop_short_root()
             if self._lock_fh is not None:
                 try:
                     self._lock_fh.close()  # the lock goes with the handle

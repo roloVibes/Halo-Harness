@@ -47,9 +47,10 @@ QUIT_RESERVE_S = 1.0  # fx jb8: what a leaving halo keeps of closing.QUIT_BUDGET
 def _end_browsers() -> None:
     """The session's browsers end the orderly way (browser_cdp.end_browsers: asked to close, up to 3 s, then by pid)
     BEFORE any other stop of the session's children: a hard stop first would lose what the browser had not written."""
-    try:
-        from halo_harness.browser_cdp import end_browsers
-        end_browsers()
+    try:  # within the way-out deadline, keeping QUIT_RESERVE_S of it for the stops after
+        from halo_harness import closing
+        from halo_harness.browser_cdp import END_WAIT_S, end_browsers
+        end_browsers(max(0.0, closing.time_left(END_WAIT_S + 2.0 + QUIT_RESERVE_S) - QUIT_RESERVE_S))
     except Exception:
         pass
 

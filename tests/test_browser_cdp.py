@@ -381,6 +381,17 @@ def test_real_pages_a_new_tab_a_box_an_endless_load_and_a_download(ctx: Ctx):
             took = time.monotonic() - t
             ctx.check(f"(c) an endless load returns within the limit with what is there, got {loaded} in {took:.1f}s",
                       loaded is False and took < B.LOAD_WAIT_S + 5 and "the text that is there" in b.page()["text"])
+            # W batch 3 entry 4: a box raised by the first line of a tab that has just opened is answered too (before
+            # (d), so a fault in (d) never hides this one)
+            b.open(site + "/opens-box.html")
+            b.take_notes()
+            t = time.monotonic()
+            b.press("Box tab")
+            took, notes = time.monotonic() - t, b.take_notes()
+            ctx.check(f"(e) a box in a new tab's first moment: answered, said after the new tab, the page went on, "
+                      f"got {notes} {took:.1f}s {b.page()['text'][:60]!r}",
+                      notes == [B.NEW_TAB, "The page showed a box: 'Hello at once' (accepted)."]
+                      and "after the first box" in b.page()["text"] and took < B.LOAD_WAIT_S)
             b.open(site + "/dl.html")
             b.take_notes()
             b.press("Get the report")
@@ -403,21 +414,12 @@ def test_real_pages_a_new_tab_a_box_an_endless_load_and_a_download(ctx: Ctx):
             ctx.check(f"(d) a taken name gets ' (2)', whole, got {sorted(p.name for p in dl.iterdir())}",
                       sorted(p.name for p in dl.iterdir()) == ["report (2).txt", "report.txt"]
                       and second.read_bytes() == REPORT)
-            staging = getattr(b, "tmp", None)
-            ctx.check(f"(d) the staging folder is Halo's own, inside the browser's temp folder, got {staging}",
-                      staging is not None and (Path(staging) / "downloads").is_dir())
+            staging = getattr(b, "stage", None)
+            ctx.check(f"(d) the staging folder is Halo's own, under Halo's home (one rename away), got {staging}",
+                      staging is not None and (Path(staging) / "downloads").is_dir()
+                      and Path(staging).parent == B.browser_home(home) / "tmp")
             ctx.check("(d) and it is empty once the file moved",
                       staging is not None and not any((Path(staging) / "downloads").iterdir()))
-            # W batch 3 entry 4: a box raised by the first line of a tab that has just opened is answered too
-            b.open(site + "/opens-box.html")
-            b.take_notes()
-            t = time.monotonic()
-            b.press("Box tab")
-            took, notes = time.monotonic() - t, b.take_notes()
-            ctx.check(f"(e) a box in a new tab's first moment: answered, said after the new tab, the page went on, "
-                      f"got {notes} {took:.1f}s {b.page()['text'][:60]!r}",
-                      notes == [B.NEW_TAB, "The page showed a box: 'Hello at once' (accepted)."]
-                      and "after the first box" in b.page()["text"] and took < B.LOAD_WAIT_S)
         finally:
             b.close()
         ctx.check("the staging folder went with the browser", staging is None or not os.path.exists(staging))
@@ -440,22 +442,68 @@ def test_a_temp_folder_a_hard_end_left_is_swept_and_a_live_ones_kept(ctx: Ctx):
     home = Path(_scratch("browser-tmp-sweep-"))
     root = B.browser_home(home) / "tmp"
     gone, live, mine = root / "999991-1", root / "999992-1", root / f"{os.getpid()}-1"
-    sys_gone = Path(tempfile.gettempdir()) / "halo-browser-999991-7"
-    for p in (gone, live, mine, sys_gone):
+    short = getattr(B, "short_root", lambda: None)()
+    deep_gone = [short / "999991-7"] if short is not None else []
+    for p in (gone, live, mine, *deep_gone):
         (p / "downloads").mkdir(parents=True)
-    _SCRATCH.append(str(sys_gone))
-    with mock.patch("halo_harness.children.pid_running", lambda pid: pid == 999992):
+    read: list = []
+    real_iterdir = Path.iterdir
+
+    def iterdir(self):
+        read.append(str(self))
+        return real_iterdir(self)
+    with mock.patch("halo_harness.children.pid_running", lambda pid: pid == 999992), \
+            mock.patch.object(Path, "iterdir", iterdir):
         B.sweep_temps(home)
     ctx.check("the gone session's temp folder is removed", not gone.exists())
-    ctx.check("and one it had in the system's temp (a home too deep for the browser's socket)", not sys_gone.exists())
+    ctx.check("and one it had in the short root (a POSIX home too deep for the browser's socket)",
+              not any(p.exists() for p in deep_gone))
     ctx.check("a running session's temp folder stays", live.exists())
     ctx.check("this process's own stays", mine.exists())
-    short = B.temp_folder(Path("/h/.halo/browser"))
-    ctx.check(f"a home that fits: under Halo's home, got {short}", short.parent == Path("/h/.halo/browser/tmp"))
-    deep = B.temp_folder(Path("/h/" + "d" * 80 + "/.halo/browser"))
-    ctx.check(f"a POSIX home too deep for the browser's socket: a folder of its own in the system's temp, got {deep}",
-              deep.parent == Path(tempfile.gettempdir()) and deep.name.startswith("halo-browser-")
-              if os.name != "nt" else deep.parent.name == "tmp")
+    # the checker: reading the whole system temp cost 18 s on a real Windows TEMP of 450,000 entries
+    allowed = {str(root)} | ({str(short)} if short is not None else set())
+    ctx.check(f"the sweep reads Halo's own folders only, never the system's temp, read {read}",
+              set(read) <= allowed and str(Path(tempfile.gettempdir())) not in read)
+    ctx.check("an empty short root goes with the sweep", short is None or not short.exists() or any(short.iterdir()))
+    own, tmp = B.temp_folders(Path("/h/.halo/browser"))
+    ctx.check(f"a home that fits: under Halo's home, got {own} {tmp}",
+              own.parent == Path("/h/.halo/browser/tmp") and tmp == own)
+    own, tmp = B.temp_folders(Path("/h/" + "d" * 80 + "/.halo/browser"))
+    ctx.check(f"a home too deep: downloads still staged under Halo's home, got {own}", own.parent.name == "tmp"
+              and str(own).startswith("/h/" if os.name != "nt" else str(Path("/h/"))))
+    ctx.check(f"and on POSIX the browser's temp in the short root, within the socket's limit, got {tmp}",
+              (tmp is not None and tmp.parent == short and len(str(tmp)) + B.SOCKET_TAIL <= B.SOCKET_MAX)
+              if os.name != "nt" else tmp == own)
+    # macOS: TMPDIR alone is about 48 characters; the short root never comes from it
+    with mock.patch.dict(os.environ, {"TMPDIR": "/var/folders/xy/" + "z" * 30 + "/T/"}):
+        own, tmp = B.temp_folders(Path("/h/" + "d" * 80 + "/.halo/browser"))
+    ctx.check(f"a long TMPDIR (macOS) never makes the socket path too long, got {tmp}",
+              os.name == "nt" or (tmp is not None and len(str(tmp)) + B.SOCKET_TAIL <= B.SOCKET_MAX))
+
+
+@test
+def test_a_whole_download_a_moment_held_still_reaches_the_session(ctx: Ctx):
+    """W batch 3 repair (the checker): a move that fails a moment (Windows holds a file it has just written) is tried
+    again; the download reaches the session's folder instead of going with the staging folder at the close."""
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    home, dl = Path(_scratch("browser-dl-held-")), Path(_scratch("browser-dl-held-to-"))
+    b = B.Browser("clean", home=home)
+    b.stage = b.tmp = home / "stage"
+    b.download_dir = dl
+    (b.stage / "downloads").mkdir(parents=True)
+    (b.stage / "downloads" / "g-1").write_bytes(REPORT)
+    real_move, tries = B.shutil.move, []
+
+    def move(src, dst):
+        tries.append(dst)
+        if len(tries) < 3:
+            raise PermissionError(32, "The process cannot access the file because it is being used")
+        return real_move(src, dst)
+    with mock.patch.object(B.shutil, "move", move):
+        got = b._name_download("g-1", "report.txt")
+    ctx.check(f"moved after the hold, got {got} after {len(tries)} tries",
+              got == dl / "report.txt" and got.read_bytes() == REPORT and len(tries) == 3)
 
 
 @test
@@ -479,8 +527,8 @@ def test_after_the_browser_nothing_of_it_is_left_in_the_temp_folder(ctx: Ctx):
             own = getattr(b, "tmp", None)
             ctx.check(f"the browser's own temp folder is under Halo's home (or, for a home too deep for its socket, "
                       f"its own in the system's temp), got {own}",
-                      own is not None and Path(own).is_dir() and (Path(own).parent == B.browser_home(home) / "tmp"
-                                                                  or Path(own).name.startswith("halo-browser-")))
+                      own is not None and Path(own).is_dir() and Path(own).parent in (B.browser_home(home) / "tmp",
+                                                                                      B.short_root()))
             b.open("data:text/html,<title>temp</title><p>a page</p>")
             time.sleep(20)  # the browser's own background work (an updater) starts some seconds in
         finally:
