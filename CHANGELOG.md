@@ -22,8 +22,8 @@ limits that remain are at the end of this section.
   you have unsaved edits in the form, nothing you typed changes: the form says "{name} changed on disk while you had
   edits here. Save writes yours over it." with the button "Reload it (your edits go)". If the file is removed, the
   form stays and says "{name} was removed on disk. Save writes it again." A pack's workflow that is open read-only
-  shows the pack's new steps when the pack changes. In the list, a workflow's "on the map" tag now follows a changed
-  map too; before, it changed only when a workflow file changed.
+  shows the pack's new steps when the pack changes. In the list, a workflow's "on the map" tag now follows a map
+  changed while you look at it; before, it changed only when a workflow file changed or the list was read again.
 - **The map you have open follows its files** (Agents, 3 Map). The map is drawn again when its file changes; a
   workflow box shows its workflow's new steps and an agent box its agent's new model when those files change. Before,
   a map written other than by the Builder's card, or a changed workflow or agent on one of its boxes, re-read only the
@@ -60,8 +60,8 @@ limits that remain are at the end of this section.
   soon after. The watcher now tells such a program from the session by when it began. That works on Windows and macOS;
   on Linux a row carries nothing to tell by, and the number is taken at its word, as before. On Windows the watcher
   also waited two seconds for the server to obey a soft stop that the system had refused outright, as it does for a
-  console program, which a model server is. It now goes on to the hard stop at once: by its own waits the server ends
-  a little over one second after its last Halo, where it was a little over three.
+  console program, which a model server is. It now goes on to the hard stop at once: by its own waits the server now
+  ends at most a little over one second after its last Halo, where it was up to a little over three.
 
 ### Known limits
 
@@ -91,12 +91,13 @@ limits that remain are at the end of this section.
   a real headless Chrome: the three Studio modules that hold these browser tests (the Workflows tab, the Map tab and
   Session's drawing), and the plain and node modules the change touches. CI's first run on this release then failed
   once in the real-use check on its Windows runner: of 28 ways out, a hard kill of a session with a model server
-  beside it left the server and its watcher running 5 s later. Reading the watcher found the two things under Fixed;
-  either would explain that run (only a hard kill leaves the session's row, and the same case passed by Ctrl+C and by
-  a closed terminal), which cannot be repeated on demand. Each has a test that was red before. The same run showed, on
-  CI's Linux and macOS runners, that the Workflows list's "on the map" tag did not follow a changed map: its test had
-  passed elsewhere only by its timing, and now tests the rule. Not run: macOS at all (CI runs it at the release gate),
-  Agents, 4 Live, a real model asked to change a workflow, and a session started in another folder than Studio's.
+  beside it left the server and its watcher running 5 s later. Reading the watcher found the two things under Fixed:
+  the first explains why only a hard kill failed (only a hard kill leaves the session's row; the same case passed by
+  Ctrl+C and by a closed terminal), and the second took 2 s off every way out. The run cannot be repeated on demand.
+  Each has a test that was red before. The same run showed, on CI's Linux and macOS runners, that the Workflows list's
+  "on the map" tag did not follow a changed map: its test had passed elsewhere only by its timing, and now tests the
+  rule. Not checked by hand: macOS (CI's macOS runners ran the suites and the real-use check). Not run: Agents, 4
+  Live, a real model asked to change a workflow, and a session started in another folder than Studio's.
 
 ## [3.6.0.8] - 2026-11-21
 

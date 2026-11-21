@@ -68,7 +68,9 @@ def _end_server(pid: int, start: str) -> None:
     if not C.provably_same(pid, start, tries=5):
         return
     # 3.6.0.9: a soft stop the system refused outright (Windows: taskkill without /F on a console program, which a
-    # model server is) is not waited for: the 2 s were spent on nothing, and the server outlived its last Halo by them
+    # model server is) is not waited for: the 2 s were spent on nothing, and the server outlived its last Halo by them.
+    # (taskkill /T also answers no when only ONE process of the tree could not be asked: a windowed root that would
+    # have closed politely is then stopped hard too. The servers this watch owns are console programs.)
     asked = closing._signal_tree(pid, hard=False)
     deadline = time.monotonic() + (0.0 if asked is False else 2.0)
     while time.monotonic() < deadline and C.same_process(pid, start):

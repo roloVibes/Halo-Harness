@@ -180,7 +180,7 @@ def follows(c, rig) -> dict:
                      "format: map/1\nname: follow-map\nboxes:\n- {id: o, workflow: other}\nlines:\n- {from: main, to: o, when: always}\n")
     out["tag_after"] = _until(c, tag, "on")
     os.remove(str(settled))
-    _until(c, f"!!{q('[data-testid=flow-item][data-name=zz-settled]')}", False)
+    out["settled_left"] = _until(c, f"!!{q('[data-testid=flow-item][data-name=zz-settled]')}", False)
     # (1) a plain write, as the Write tool makes: the open form shows the file's steps and words
     out["plain"] = [_until(c, STEPS, write(["a", "b", "c"])), _until(c, f"{t('flow-for')}?.value", "followed", 5)]
     # (2) a Builder card's write of the same name (its file, then its frame): left and come back, the form is the file

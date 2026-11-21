@@ -89,8 +89,8 @@ def test_a_home_watch_that_cannot_read_the_server_once_still_stops_it(ctx: Ctx):
 @test
 def test_a_soft_stop_the_system_refuses_is_followed_by_the_hard_one_at_once(ctx: Ctx):
     """3.6.0.9: on Windows a soft stop of a model server (taskkill without /F on a console program) is refused
-    outright, and the home watch still waited its 2 s for the server to go before the hard stop: about 4 s from the
-    last Halo's end to the server's, with two programs started on the way (CI's slow Windows runner: once more than
+    outright, and the home watch still waited its 2 s for the server to go before the hard stop: up to a little over
+    three seconds from the last Halo's end to the server's, with two programs started on the way (CI's slow Windows runner: once more than
     the 5 s the real-use check allows). A request that was refused is not waited for; one that was made still is."""
     from halo_harness import closing_home_watch as W
 

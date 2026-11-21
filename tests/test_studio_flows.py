@@ -173,6 +173,9 @@ def test_the_open_workflow_follows_its_file(ctx: Ctx):
     ctx.check(f"(d) Save writes it again, the line goes, got {f.get('written_again')}", f.get("written_again") == [True, False])
     ctx.check(f"(f) a map file putting it on a box: the list's tag follows, got {f.get('tag_before')!r} -> {f.get('tag_after')!r}",
               f.get("tag_before") == "unused" and f.get("tag_after") == "on")
+    ctx.check(f"(f) by the map alone: every earlier workflow write had been heard before it, and the marker left "
+              f"again, got {f.get('settled')!r} {f.get('settled_left')!r}",
+              f.get("settled") is True and f.get("settled_left") is False)
 
 
 _PACK: dict = {}
