@@ -46,8 +46,11 @@ SECTIONS = (("session", "session", ""),  # 1 · Agents opens its list beside its
 # what each section draws once it is there (the measure waits for it, then for two equal reads)
 # 3.3.18.0: a view of Agents is ready when its workspace has laid out a cell AND drawn what the view shows (Live over this
 # seeded home: its one empty sentence), never on its bar alone (a Windows runner measured Live's 0 of 0 panels once)
-READY = {"session": ".ws-cell", "agents-busy": "[data-part=map] [data-testid=map-canvas]",
-         "agents-map": "[data-part=map] [data-testid=map-canvas]", "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
+# 3.6.0.5: the Map on Auto draws Auto's plan, not a drawing; the empty drawing that stands for a moment before the map is
+# known is not a thing to wait for (the macOS runner never saw it, twice, on the release gate of 3.6.0.5)
+MAP_DRAWN = "[data-part=map] :is([data-testid=map-auto], [data-testid=map-canvas]:not(:empty))"
+READY = {"session": ".ws-cell", "agents-busy": MAP_DRAWN,
+         "agents-map": MAP_DRAWN, "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
          "settings": "[data-testid=settings-rail-group]", "local": "[data-testid=local-rail-page]"}
 
 MEASURE = r"""(() => {

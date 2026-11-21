@@ -40,7 +40,10 @@ ACTIVE = "(document.activeElement?.dataset.panel || document.activeElement?.data
 BADGE = q("[data-testid=layout-badge]")
 TOASTS = "(document.querySelector('.toasts')?.textContent || '')"
 SAVED = "JSON.parse(localStorage.getItem('halo.studio.layout.agents-map') || 'null')"
-CANVAS = q(".workspace[data-section=agents-map] .stage-main [data-testid=map-canvas]")
+# the Map tab has drawn its main part: Auto's plan, or a map's drawing with something in it (3.6.0.5: Auto's tab has
+# no drawing; the EMPTY drawing that stands for a moment before the map is known is not a thing to wait for: the
+# macOS runner never saw it, twice, on the release gate of 3.6.0.5)
+CANVAS = q(".workspace[data-section=agents-map] .stage-main :is([data-testid=map-auto], [data-testid=map-canvas]:not(:empty))")
 
 
 def _url(ctx, query: str) -> str:
