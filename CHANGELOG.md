@@ -22,8 +22,9 @@ picture of the page, and you can have a window you can watch. The limits that re
   answers "No browser found: install Google Chrome, Chromium, Microsoft Edge or Brave, or set HALO_CHROME to a
   browser's path. Halo downloads none."
 - **What it can do.** Open a page, read it, click, type, press a key, scroll, go back, run JavaScript in the page,
-  take a screenshot, close. Every answer gives the page's title, its address, its visible text and a numbered list of
-  what can be pressed or typed into; a control is named by its number, its words, or `css:<selector>`.
+  take a screenshot, close. Every answer but screenshot's and close's gives the page's title, its address, its visible
+  text and a numbered list of what can be pressed or typed into; a control is named by its number, its words, or
+  `css:<selector>`.
 - **Real pages.** When a click opens a new tab the browser goes on in it and the answer begins "A new tab opened; now
   on it." A page's alert, confirm or prompt box is answered at once and the answer begins "The page showed a box:
   '...' (accepted)." A page that never finishes loading is read as it stands after 15 s, and the answer says so. A
@@ -55,7 +56,7 @@ picture of the page, and you can have a window you can watch. The limits that re
 
 ### Fixed
 
-- **Three `halo doctor` fix lines named headings that did not exist**, the Chrome row's among them ("see README.md
+- **Four `halo doctor` fix lines named headings that did not exist**, the Chrome row's among them ("see README.md
   (Browser)"). They name real ones now.
 
 ### Known limits
@@ -64,16 +65,18 @@ picture of the page, and you can have a window you can watch. The limits that re
   own child: it ends with the session on every way out, and `halo ps` lists it while it runs. What it may leave on
   the machine is Halo's kept profile only.
 - **A sign-in survives every ordinary way out** (quitting the terminal app, ending a session from Studio, Studio
-  stopping, the end of `halo -p`): Halo asks the browser to close and waits up to three seconds. A kill of Halo
-  itself cannot do that: a sign-in made in its last seconds may then be lost. Quitting the terminal app with a
-  browser open was run for real on Linux only.
+  stopping, the end of `halo -p`): Halo asks the browser to close and waits up to three seconds. A kill of Halo itself
+  cannot do that: a sign-in made in its last seconds may then be lost. Quitting the terminal app with a browser open
+  was not run for real on any system: only the order of its steps is tested. Studio stopping was driven inside the
+  test's own process, not by a real `halo studio --stop`.
 - **In Studio the picture's box can change its height once** when a browser shown as a window took the picture: the
   page is smaller than the 1280 by 800 the box starts with.
 - **A download that cannot be moved into the session's folder is dropped without a line.**
 - **A session whose model gets the short tool list** (a small context window) is offered the Browser tool by name
   only; it can still call it.
-- **The window was never opened in a test**: only the way the browser is started for it is checked. macOS was not
-  run at all; Edge, Brave and Chromium were run only as far as starting and answering over the pipe on Windows.
+- **The window was never opened in a test**: only the way the browser is started for it is checked. macOS was not run
+  at all. On Windows, Edge was run only as far as starting and answering over the pipe; Brave and Chromium were never
+  run, and only finding them is tested.
 - **Every Known limit of 3.6.0.7 still holds.**
 - **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
   the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
@@ -84,11 +87,11 @@ picture of the page, and you can have a window you can watch. The limits that re
   them a sign-in that is still there in the next session), the Studio module (a session started from Studio opens,
   presses and pictures a page; Live shows the steps and the picture), the changed plain modules and the node checks,
   and the two new real-use steps. Chrome and Edge both answered over the pipe on Windows. The whole suite found five
-  things at the join, none in the browser itself (lists of main's tools and a recorded request that now hold the
-  Browser tool, a rule about reading the home folder, a test helper's server, a module that started `ps` through the
-  standard starter): each is settled. Not run: macOS at all (CI runs it at the release gate), a browser shown as a
-  window, Edge, Brave and Chromium beyond starting and answering, and quitting the terminal app with a browser open on
-  Windows.
+  things at the join, none in what the browser does (lists of main's tools and a recorded request that now hold the
+  Browser tool, a rule about reading the home folder, a test helper's server, the browser module started `ps` through
+  the standard starter): each is settled. Not run: macOS at all (CI runs it at the release gate), a browser shown as a
+  window, Edge beyond starting and answering, Brave and Chromium at all, and quitting the terminal app with a browser
+  open on any system.
 
 ## [3.6.0.7] - 2026-11-21
 
