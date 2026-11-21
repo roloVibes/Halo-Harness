@@ -8,6 +8,88 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.8] - unreleased
+
+Halo runs and drives a browser by itself. Every session has a built-in Browser tool that uses a browser already on
+the machine, with nothing to install and no other product in between; Studio shows each step in words and with a
+picture of the page, and you can have a window you can watch. The limits that remain are at the end of this section.
+
+### Added
+
+- **A built-in Browser tool in every session.** Halo finds Google Chrome, Chromium, Microsoft Edge or Brave already on
+  the machine (in that order, or the one `HALO_CHROME` names), starts it itself and drives it. Nothing is installed
+  and nothing is downloaded. A session started from Studio has it too. With no browser on the machine the tool
+  answers "No browser found: install Google Chrome, Chromium, Microsoft Edge or Brave, or set HALO_CHROME to a
+  browser's path. Halo downloads none."
+- **What it can do.** Open a page, read it, click, type, press a key, scroll, go back, run JavaScript in the page,
+  take a screenshot, close. Every answer gives the page's title, its address, its visible text and a numbered list of
+  what can be pressed or typed into; a control is named by its number, its words, or `css:<selector>`.
+- **Real pages.** When a click opens a new tab the browser goes on in it and the answer begins "A new tab opened; now
+  on it." A page's alert, confirm or prompt box is answered at once and the answer begins "The page showed a box:
+  '...' (accepted)." A page that never finishes loading is read as it stands after 15 s, and the answer says so. A
+  download lands in the session's attachments folder when it is whole, and the answer says where.
+- **You can see the page.** After every action that can change the page, its picture is kept in the session's
+  attachments folder (the newest 20) and the answer names it. In Studio, a Browser step shows in Session's Live column
+  and in Agents -> 4 · Live in plain words ("Browser open <address>", "Browser click <target>" ...), and a click on
+  the step opens the picture of the page after it. The picture is not sent to the model; `screenshot` sends one.
+- **A window you can watch.** Settings has a head "Browser" with two settings. **Window**: "shown opens the browser
+  Halo drives as a window you can watch and sign in to; hidden runs it out of sight." (`halo config set
+  browser.window shown`; the tool's `show: true` does it for one session). **Profile**: "kept remembers sign-ins
+  between sessions in Halo's own folder (never your own browser's); clean starts empty every time."
+- **Sign-ins stay.** By default the browser uses a profile of Halo's own, kept between sessions, so a sign-in you make
+  once in the shown window is there next time. It is never your own browser's profile. One session uses it at a
+  time; another session at the same moment starts clean and says so.
+- **`halo doctor` has a row `browser`**: which browser Halo will use, or the line that says what to install.
+
+### Changed
+
+- **`--chrome` is no longer the way to a browser.** Its doc now says it uses another product's browser extension and
+  works only while that product does; the built-in Browser tool needs neither. The tip that named it names the
+  built-in tool.
+- **`--playwright` runs a fixed version** (`@playwright/mcp@0.0.86`, never the latest), says once before it starts
+  what the first start downloads (about 59 MB), and writes its page files in Halo's own folder, removed when the
+  session ends, instead of the folder halo was started in.
+- **Permissions for the tool.** Open, read, screenshot and close are decided as WebFetch is for the same address (a
+  rule `Browser(domain:example.com)` works); click, type, key, scroll, back and js ask in the default mode and never
+  in Auto.
+
+### Fixed
+
+- **Three `halo doctor` fix lines named headings that did not exist**, the Chrome row's among them ("see README.md
+  (Browser)"). They name real ones now.
+
+### Known limits
+
+- **Nothing listens on the network.** The browser talks to Halo over a pipe on Linux, macOS and Windows. It is Halo's
+  own child: it ends with the session on every way out, and `halo ps` lists it while it runs. What it may leave on
+  the machine is Halo's kept profile only.
+- **A sign-in survives every ordinary way out** (quitting the terminal app, ending a session from Studio, Studio
+  stopping, the end of `halo -p`): Halo asks the browser to close and waits up to three seconds. A kill of Halo
+  itself cannot do that: a sign-in made in its last seconds may then be lost. Quitting the terminal app with a
+  browser open was run for real on Linux only.
+- **In Studio the picture's box can change its height once** when a browser shown as a window took the picture: the
+  page is smaller than the 1280 by 800 the box starts with.
+- **A download that cannot be moved into the session's folder is dropped without a line.**
+- **A session whose model gets the short tool list** (a small context window) is offered the Browser tool by name
+  only; it can still call it.
+- **The window was never opened in a test**: only the way the browser is started for it is checked. macOS was not
+  run at all; Edge, Brave and Chromium were run only as far as starting and answering over the pipe on Windows.
+- **Every Known limit of 3.6.0.7 still holds.**
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
+  check, eighteen of eighteen steps. Its new step starts a real Halo that opens a real page in a real installed
+  browser, presses a button, takes its pictures and closes; nothing of the browser is left after a normal end and
+  after a hard one. The system's temp folder was listed before and after a session there and on the PC: nothing of the
+  browser was added. On the PC (Windows), with a real headless Chrome, one at a time: the browser's own modules (among
+  them a sign-in that is still there in the next session), the Studio module (a session started from Studio opens,
+  presses and pictures a page; Live shows the steps and the picture), the changed plain modules and the node checks,
+  and the two new real-use steps. Chrome and Edge both answered over the pipe on Windows. The whole suite found five
+  things at the join, none in the browser itself (lists of main's tools and a recorded request that now hold the
+  Browser tool, a rule about reading the home folder, a test helper's server, a module that started `ps` through the
+  standard starter): each is settled. Not run: macOS at all (CI runs it at the release gate), a browser shown as a
+  window, Edge, Brave and Chromium beyond starting and answering, and quitting the terminal app with a browser open on
+  Windows.
+
 ## [3.6.0.7] - 2026-11-21
 
 Copying out of a session works. In the terminal app the words you drag over are the words you get, the moment you let
