@@ -186,6 +186,67 @@ def test_a_real_session_on_auto_reads_the_block_and_one_with_no_map_todays_line(
                 _todays(ctx, label, text)
 
 
+@test
+def test_a_one_shot_on_auto_reads_todays_line_and_the_terminal_and_studio_read_the_block(ctx: Ctx):
+    """MW repair after the whole suite (2026-11-21): in a one-shot (`halo -p` with one prompt: headless.run_print_mode
+    sets `many_turns` False) main reads today's line letter for letter: no M1, no M2, no M3, its whole system text the
+    one the same session reads with the block turned off, so a small one-shot asks the window it asked before. The same
+    session facts in the terminal app (`interactive`, controller.py) and in a Studio session (stream-json: `many_turns`
+    True) read the block. A local and a cloud model; the Agent tool's own kinds (M8) stay in every mode."""
+    from halo_harness.agent.assemble import SessionContext
+    from halo_harness.agent.helpers_words import told
+    from halo_harness.agent.loop import Session
+    from halo_harness.agent.prompt_wire import shape
+    from halo_harness.config.agents_md import discover_agents
+    from halo_harness.crew import map_session
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from halo_harness.providers.stream import ProviderCreds
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    with _Home() as h:
+        compiled = map_session.prepare(None, h.repo)[0]
+        agents = map_session.agents(discover_agents(h.repo, settings=None), compiled)[0]
+
+        def real(ref, window, mode):
+            reg = ToolRegistry(default_tools())
+            sc = SessionContext(cwd=h.repo, model_label=ref, tool_registry=reg)
+            s = Session(cwd=h.repo, model_ref=parse_model_ref(ref), model_profile=ModelProfile(context_tokens=window),
+                        creds=ProviderCreds(base_url="http://127.0.0.1:9", api_key="k"), state_dir=h.state,
+                        model_label=ref, session_context=sc, max_turns=5, agents=agents, crew_map=compiled)
+            if mode == "one-shot":
+                s.many_turns = False  # headless.run_print_mode, `-p` with one prompt
+            elif mode == "terminal":
+                s.interactive = True  # controller.py, the terminal app
+            elif mode == "studio":
+                s.many_turns = True  # headless.run_print_mode, `--input-format stream-json`
+            else:
+                s._helpers_off = True  # the same facts with the block turned off: today's text
+            msgs = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
+            text = shape(s, sc.system_prompt, msgs, reg.definitions(), purpose="turn")[0]
+            return s, text, getattr(reg.get("Agent"), "kinds_tail", "")
+
+        s, local, _k = real("ol:tiny:3b@lan", 16384, "one-shot")
+        _todays(ctx, "a local one-shot", local)
+        today = real("ol:tiny:3b@lan", 16384, "today")[1]
+        ctx.check("a local one-shot: its whole system text is today's, byte for byte", local == today)
+        ctx.check("a local one-shot: the same text on its second request", shape(
+            s, s.session_context.system_prompt, [{"role": "user", "content": [{"type": "text", "text": "again"}]}],
+            s.tool_registry.definitions(), purpose="turn")[0] == local)
+        ctx.check(f"a local one-shot: the status row names no kinds told, got {told(s)!r}", told(s) is None)
+        for mode in ("terminal", "studio"):
+            s, text, _k = real("ol:tiny:3b@lan", 16384, mode)
+            ctx.check(f"a local session in {mode}: M1 and M2 in place of today's line",
+                      (M1 + "\n" + M2_CLEAN) in text and TODAY_ON not in text)
+            ctx.check(f"a local session in {mode}: the status row names the kinds it read",
+                      bool((told(s) or {}).get("kinds_told")))
+        cloud = {mode: real("ant:claude-opus-5-5", 200000, mode) for mode in ("one-shot", "terminal")}
+        for mode, (s, text, kinds) in cloud.items():
+            ctx.check(f"a cloud {mode}: no M1, no M2 head, no M3 in the system text",
+                      M1 not in text and M2_HEAD not in text and M3 not in text)
+            ctx.check(f"a cloud {mode}: the Agent tool's own words still end with the kinds (M8)", bool(kinds))
+        ctx.check("a cloud one-shot reads what the terminal app reads, byte for byte (the system text and the kinds)",
+                  cloud["one-shot"][1:] == cloud["terminal"][1:])
+
+
 def _frozen_part(text: str) -> str:
     """The system text up to its tail and by-name line (what must not change between requests)."""
     for mark in ("\n\n" + M3, "\n\n" + M4, "\n\n" + BY_NAME):

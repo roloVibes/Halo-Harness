@@ -157,6 +157,65 @@ def test_the_measured_session_is_a_new_auto_session(ctx: Ctx):
               any(r["name"] == "Builder" and r["offered"] for r in m["tools"]))
 
 
+# 3.6.0.10 MW repair (2026-11-21): a ONE-SHOT (`halo -p`, one prompt) on a local model is the only request that walks
+# the ladder (agent/ollama_window_truth.start_window): its first call asks 16,384 only while its prompt, as the first
+# call's rule sees it (wire chars / 3.5 less 1,024, a fresh home's ratio 1.0; ollama_window_truth.py prompt_estimate,
+# reply_room.fitted `first`), is at most HALF of it: 8,192. Batch 2's block (+164 tokens) crossed that unseen in the
+# whole suite; in a one-shot main now reads today's line (agent/helpers_words.one_shot). The prompt carries the home's
+# path about eight times (the working directory, the memory directory, the CLAUDE.md heading): 41 characters more
+# path measured +96 tokens. So the case is measured at two path lengths and read at a 60-character home path (the
+# module's fake home on the PC), the same figure on every machine. Measured at 65,536 (cap), win32 / linux shells:
+#   the base 9624c426 8,012 / 7,973; MW 8f1efb45 (the block in a one-shot) 8,176 / 8,137; this repair 8,012 / 7,973.
+#   Slack under 8,192: 180 / 219 tokens (about 77 characters of path). An empty home: 4,631 / 4,592 (slack 3,561).
+#   Not padded, and plainly: in this home the pin alone would NOT have caught batch 2 (8,176 is under 8,192), and
+#   tests/test_ollama_window_fixes.py's own home (a CLAUDE.md, a longer prompt) has only 7 tokens of slack on the PC
+#   (W2's measure, the base and this repair alike), moving with the temp folder's path: that test caught it.
+ONE_SHOT = ("ol:qwen3-coder:30b@lan", 65536)
+ONE_SHOT_HALF = 8192
+ONE_SHOT_PATH = 60
+
+
+def _one_shot_prompt(platform: str) -> "tuple[int, int]":
+    """(the one-shot's first prompt read at a ONE_SHOT_PATH-character home path, as measured here): the module's fake
+    home and a second one whose path is 40 characters longer, the prompt taken as linear in the path's length."""
+    import shutil
+    from halo_harness.agent.prompt_measure import first_turn
+    from tests.helpers.fake_home import build_fake_home
+    ref, window = ONE_SHOT
+    fh = _home()
+    near = first_turn(ref, window=window, platform=platform, cwd=fh["proj"], one_shot=True)["prompt"]
+    root = Path(tempfile.mkdtemp(prefix="halo-fakehome-"))
+    was = os.environ.get("BRIDGE_TEST_HOME")
+    try:
+        far_home = build_fake_home(root / ("p" * 40))
+        os.environ["BRIDGE_TEST_HOME"] = str(far_home["home"])
+        far = first_turn(ref, window=window, platform=platform, cwd=far_home["proj"], one_shot=True)["prompt"]
+    finally:
+        if was is None:
+            os.environ.pop("BRIDGE_TEST_HOME", None)
+        else:
+            os.environ["BRIDGE_TEST_HOME"] = was
+        shutil.rmtree(root, ignore_errors=True)
+    n, f = len(str(fh["home"])), len(str(far_home["home"]))
+    return near + round((far - near) * (ONE_SHOT_PATH - n) / (f - n)), near
+
+
+@test
+def test_a_one_shot_on_a_local_model_asks_16384_first(ctx: Ctx):
+    import math
+    from halo_harness.agent.ollama_window_truth import RATIO_DEADBAND
+    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted, room
+    for platform in ("win32", "linux"):
+        prompt, here = _one_shot_prompt(platform)
+        ctx.check(f"{platform}: a one-shot's first prompt is {prompt:,} tokens at a {ONE_SHOT_PATH}-character home path "
+                  f"({here:,} here) -- " + why("a one-shot's first prompt (half of 16,384, the ladder's step)",
+                                                ONE_SHOT_HALF), prompt <= ONE_SHOT_HALF)
+        ladder = int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + room(16384, PROVIDER_DEFAULT)[0]
+        sized = fitted(16384, prompt, PROVIDER_DEFAULT, ceiling=ONE_SHOT[1], first=True)[1]
+        ctx.check(f"{platform}: it asks 16,384 (the ladder's need {ladder:,}, the first call's window {sized:,})",
+                  ladder <= 16384 and sized == 16384)
+
+
 @test
 def test_a_real_new_auto_session_with_the_builder(ctx: Ctx):
     """3.6.0.10 M1b: the real new Auto session, the Builder on the wire, at 65,536 and on the cloud."""

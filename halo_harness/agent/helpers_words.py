@@ -3,7 +3,9 @@
     on_auto(session) -> bool        a top session on Auto that may hand work out (else today's line, byte for byte)
     frozen(session) -> str | None   M1 and M2: when to hand work out, the kinds THIS session can start (his own first),
                                     made at the session's first shaping and kept byte-equal; made again only when
-                                    main's model changes. None: not on Auto, or the block does not fit (today's line).
+                                    main's model changes. None: not on Auto, a one-shot (`one_shot`), or the block
+                                    does not fit (today's line).
+    one_shot(session) -> bool       `halo -p` with one prompt: main reads today's line, letter for letter
     tail(session, tools) -> str     per request, after the tools are capped (agent/prompt_wire.py): M3 when the request
                                     sends the Workflow tool and it lists his workflows; nothing else
     kinds_tail(session) -> str      M8: the end of the Agent and Task tools' words on Auto (their cloud copy)
@@ -61,8 +63,16 @@ def longest_tail() -> str:
     return "\n\n" + M3
 
 
+def one_shot(session) -> bool:
+    """`halo -p` with one prompt: headless.run_print_mode sets `many_turns` False (a stream-json run, Studio's session,
+    sets it True; the terminal app leaves it unset and is `interactive`). A one-shot's first window is sized by its
+    prompt (agent/ollama_window_truth.py, the first call's rule: the window holds twice the prompt), so its request is
+    today's, byte for byte: no frozen block and no tail. The Agent and Task tools' kinds (`kinds_tail`) stay."""
+    return getattr(session, "many_turns", None) is False
+
+
 def _make(session) -> Optional[str]:
-    if not on_auto(session):
+    if one_shot(session) or not on_auto(session):
         return None
     from halo_harness.agent.prompt_composition import tokens_of
     from halo_harness.crew.kinds import CAP, block, kinds

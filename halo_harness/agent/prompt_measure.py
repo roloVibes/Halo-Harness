@@ -2,9 +2,11 @@
 costs before anything is sent (`halo local prompt`, `/status`, `halo doctor`, Studio's model card, the
 steward's fit plan, tests/test_prompt_budget_pins.py).
 
-    first_turn(ref, *, window=None, platform=None, cwd=None, text="hi", control=None, builder=False) -> Measure
-    new_session(ref, *, window=, platform=, cwd=, control=None, builder=False)  the stub it measures: a NEW top
-                                         session in `cwd` (crew/session_start.py; 3.6.0.10 M1b)
+    first_turn(ref, *, window=None, platform=None, cwd=None, text="hi", control=None, builder=False,
+               one_shot=False) -> Measure
+    new_session(ref, *, window=, platform=, cwd=, control=None, builder=False, one_shot=False)  the stub it
+                                         measures: a NEW top session in `cwd` (crew/session_start.py; 3.6.0.10
+                                         M1b); `one_shot`: as `halo -p` with one prompt marks it (many_turns False)
     first_turn_line(m) -> "Halo's own first turn: 9,150 tokens of 32,768 (28 %)"
     composition_text(session, first=)   `/cost`, `/status` (first: the line above on a local model)
     doctor_note(ref, cwd)                `halo doctor`'s default-model row
@@ -88,7 +90,7 @@ def _why_kept(session, sent: list) -> dict:
 
 
 def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-                control: Optional[str] = None, builder: bool = False):
+                control: Optional[str] = None, builder: bool = False, one_shot: bool = False):
     """The session a measure runs on: a NEW top session in `cwd` (3.6.0.10 M1b): the built-in tools of `platform`,
     the Builder when `builder` (as headless.build_session adds it for a session someone answers), and the state a
     start sets (crew/session_start.new_session_state: `control` is what `--map` would name, None the folder's own)."""
@@ -111,11 +113,13 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
                               session_context=ctx, tool_registry=registry, state_dir=bridge_home(),
                               settings=ctx.settings, route=None, role_name=None, _measure_window=window,
                               _measure_platform=plat)
+    if one_shot:  # headless.run_print_mode: `-p` with one prompt (agent/helpers_words.one_shot)
+        session.many_turns = False
     return new_session_state(session, cwd=cwd, control=control)
 
 
 def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-               text: str = "hi", control: Optional[str] = None, builder: bool = False) -> dict:
+               text: str = "hi", control: Optional[str] = None, builder: bool = False, one_shot: bool = False) -> dict:
     from halo_harness.agent import prompt_lean as L
     from halo_harness.agent.derive import derive_request
     from halo_harness.agent.prompt_composition import compose, composition_line, known_texts
@@ -124,7 +128,8 @@ def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = N
     from halo_harness.config.paths import bridge_home
     from halo_harness.providers.ollama_prompt import window_for
     from halo_harness.providers.ollama_wire_estimate import wire_estimate
-    session = new_session(ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder)
+    session = new_session(ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder,
+                          one_shot=one_shot)
     ref, plat, window = session.model_ref, session._measure_platform, session._measure_window
     ctx, registry, log = session.session_context, session.tool_registry, session.log
     log.add(type="meta", model=ref.raw, tools=registry.definitions())
