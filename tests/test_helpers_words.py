@@ -216,9 +216,11 @@ def test_a_one_shot_on_auto_reads_todays_line_and_the_terminal_and_studio_read_t
             if mode == "one-shot":
                 s.many_turns = False  # headless.run_print_mode, `-p` with one prompt
             elif mode == "terminal":
-                s.interactive = True  # controller.py, the terminal app
-            elif mode == "studio":
-                s.many_turns = True  # headless.run_print_mode, `--input-format stream-json`
+                s.interactive = True  # controller.py: the terminal app, and Studio's and remote sessions
+            elif mode == "stream-json":
+                s.many_turns = True  # headless.run_print_mode, `-p --input-format stream-json`
+            elif mode == "unmarked":
+                pass  # a session a script or a tool builds: neither mark
             else:
                 s._helpers_off = True  # the same facts with the block turned off: today's text
             msgs = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
@@ -233,7 +235,19 @@ def test_a_one_shot_on_auto_reads_todays_line_and_the_terminal_and_studio_read_t
             s, s.session_context.system_prompt, [{"role": "user", "content": [{"type": "text", "text": "again"}]}],
             s.tool_registry.definitions(), purpose="turn")[0] == local)
         ctx.check(f"a local one-shot: the status row names no kinds told, got {told(s)!r}", told(s) is None)
-        for mode in ("terminal", "studio"):
+        # the join: ONE rule. A one-shot here is exactly a session the window ladder sizes by its prompt, however it
+        # was marked or left unmarked: a session a script builds sets neither mark and is on the ladder too
+        unmarked = real("ol:tiny:3b@lan", 16384, "unmarked")[1]
+        ctx.check("a local session that sets neither mark reads today's text too, byte for byte", unmarked == today)
+        from types import SimpleNamespace
+        from halo_harness.agent import helpers_words as H
+        from halo_harness.agent.ollama_window_truth import many_turns
+        marks = [{}, {"many_turns": False}, {"many_turns": True}, {"interactive": True}, {"interactive": False},
+                 {"many_turns": False, "interactive": True}, {"many_turns": True, "interactive": False}]
+        ctx.check("a one-shot is exactly what the window ladder sizes by its prompt, however the session is marked",
+                  all(H.one_shot(SimpleNamespace(**m)) == (not many_turns(SimpleNamespace(**m))) for m in marks)
+                  and H.one_shot(SimpleNamespace()) and not H.one_shot(SimpleNamespace(interactive=True)))
+        for mode in ("terminal", "stream-json"):
             s, text, _k = real("ol:tiny:3b@lan", 16384, mode)
             ctx.check(f"a local session in {mode}: M1 and M2 in place of today's line",
                       (M1 + "\n" + M2_CLEAN) in text and TODAY_ON not in text)
@@ -254,16 +268,6 @@ def _frozen_part(text: str) -> str:
         if mark in text:
             text = text[:text.index(mark)]
     return text
-    # the join: ONE rule. A one-shot here is exactly a session the window ladder sizes by its prompt, whichever way
-    # it was marked or left unmarked (a session a script builds sets neither mark and is on the ladder too)
-    from types import SimpleNamespace
-    from halo_harness.agent import helpers_words as H
-    from halo_harness.agent.ollama_window_truth import many_turns
-    marks = [{}, {"many_turns": False}, {"many_turns": True}, {"interactive": True}, {"interactive": False},
-             {"many_turns": False, "interactive": True}, {"many_turns": True, "interactive": False}]
-    ctx.check("a one-shot is exactly what the window ladder sizes by its prompt, however the session is marked",
-              all(H.one_shot(SimpleNamespace(**m)) == (not many_turns(SimpleNamespace(**m))) for m in marks)
-              and H.one_shot(SimpleNamespace()) and not H.one_shot(SimpleNamespace(interactive=True)))
 
 
 @test

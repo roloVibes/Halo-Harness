@@ -55,24 +55,27 @@ this section.
 - **The builder's tools answered some wrong calls with nothing, or with the wrong words** (in a session and in
   Studio's builder box alike). `workflow_make` with steps that are not a list of steps made a workflow with no steps
   and said nothing; `step_add` with an index that is not a number put the step at the end and said nothing;
-  `workflow_change` with a field that is not a workflow's said "nothing would change". Each now says what it needs.
+  `workflow_change` with no `fields` (or `for` outside `fields`) said "nothing would change"; an unknown field is now
+  named as not a workflow's. Each now says what it needs.
 - **The cloud text said custom roles are off by default.** They are on. A cloud model now reads "With custom roles ON
   (the default) the model table (`roles.*`) picks a sub-agent's model (`role:`); with roles OFF it runs the session
   model unless the call passes `model:`."
 - **A helper shared main's Agent, Task and Workflow tools**, and a helper's start set their state again. Each helper
   now has its own copies.
 - **The measured prompt size counts what a real new session sends** (`halo local prompt`, `/status`, the model card in
-  Studio). On a cloud model the first turn now measures 55 tokens larger, because a line the session always sent is
-  counted; nothing more is sent. The bounds now also measure a new session that carries the Builder tool.
+  Studio). On a cloud model the first turn measures 55 tokens larger by this fix alone, because a line the session
+  always sent is counted; the fix itself sends nothing more. The bounds now also measure a new session that carries
+  the Builder tool.
 
 ### Known limits
 
-- **A one-shot (`halo -p`) is as it was.** There main keeps its one line about delegating and is not sent the Builder
-  tool. A one-shot's first window is sized by its prompt, and the new lines pushed a small one-shot on a local model
-  from a 16,384 window to 32,768: the whole suite found that before the release, and a one-shot's request is now
-  letter for letter what it was in 3.6.0.9.
+- **A one-shot (`halo -p`) on a local model is as it was.** There main keeps its one line about delegating and is not
+  sent the Builder tool. A one-shot's first window is sized by its prompt, and the new lines pushed a small one-shot
+  on a local model from a 16,384 window to 32,768: the whole suite found that before the release, and a local
+  one-shot's request is now letter for letter what it was in 3.6.0.9. (`halo -p --input-format stream-json` and a
+  remote session take more turns: they read the new lines, as the terminal app does.)
 - **At 8,192 and 16,384 the Builder tool does not fit**; main can still call it by name. With Copilot set up, its own
-  tool comes first and the Builder is not sent at 32,768 or 49,152 either.
+  tool ranks first, so the Builder may not be sent at 32,768 or 49,152 either (not measured).
 - **`halo local prompt` measures a session without the Builder tool**, so the figure it shows is the Builder's short
   words (about 400 tokens) lower than what a top session on Auto sends from 32,768.
 - **Nothing draws yet what main handed out.** A session now counts, for each of main's turns, the helpers it started
