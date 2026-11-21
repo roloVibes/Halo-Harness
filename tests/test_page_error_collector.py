@@ -85,8 +85,10 @@ def test_every_driver_adds_and_reads_through_the_one_pair(ctx: Ctx):
     want = sorted(["studio_session.py", "studio_controls.py", "studio_session_just_built.py", "studio_session_map_down.py",
                    "studio_session_map_down_draw.py", "studio_auto_groups_draw.py", "studio_session_run.py",
                    "studio_session_step_in.py", "studio_session_truth.py", "studio_run_parts.py",
-                   "studio_auto_room.py"])  # r/batch04: Session's room on Auto and a helper's card
-    ctx.check(f"the eleven drivers that collect page errors call collect_page_errors(c), got {users}", users == want)
+                   "studio_auto_room.py",  # r/batch04: Session's room on Auto and a helper's card
+                   # 3.6.0.6: the tab that can only look, a pack's workflow in the lists, Run it in every view
+                   "studio_owner_tab.py", "studio_flows_pack.py", "studio_run_flow.py"])
+    ctx.check(f"the fourteen drivers that collect page errors call collect_page_errors(c), got {users}", users == want)
 
 
 if __name__ == "__main__":
