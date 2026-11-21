@@ -33,11 +33,25 @@ def _read(path):
         return None
 
 
+def _session_alive(row: dict) -> bool:
+    """A session's row names a living session: its pid runs, and the process that has it did not begin after the row
+    was written (3.6.0.9). A session that was killed hard leaves its row, and the system gives its pid to the next
+    program (Windows at once): that program is not a Halo of this home, and the server would never be stopped while
+    it runs. The row's `started` is written by the session itself once it runs, so a process that began more than a
+    moment later cannot be it (children.newer_than_row: provable on Windows and macOS; on Linux, and for a row with
+    no time, the pid is taken at its word as before)."""
+    pid = row.get("pid")
+    if not _alive(pid):
+        return False
+    from halo_harness import children as C
+    return not C.newer_than_row({"pid": pid, "since": row.get("started")})
+
+
 def halos_alive(state: str, launcher: "tuple[int, str]") -> bool:
     if _alive(launcher[0], launcher[1] or None):
         return True
     rows = (_read(os.path.join(state, "run", "sessions.json")) or {}).get("sessions") or []
-    if isinstance(rows, list) and any(isinstance(r, dict) and _alive(r.get("pid")) for r in rows):
+    if isinstance(rows, list) and any(isinstance(r, dict) and _session_alive(r) for r in rows):
         return True
     studio = _read(os.path.join(state, "studio.json")) or {}
     if _alive(studio.get("pid"), studio.get("pstart")):

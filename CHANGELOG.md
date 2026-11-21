@@ -53,6 +53,11 @@ limits that remain are at the end of this section.
 - **A Builder card's write was read twice.** Studio's file watcher reports every write about a second and a half
   later, and the page then read again what the card had just brought. The page now compares the file's hash with what
   it holds and reads only what differs; a different write that lands right after is still read.
+- **A local model server could keep running after the last Halo on its home was killed.** A session that is killed
+  hard cannot take its row out of the list of sessions, and the watcher that stops the server took that row for a
+  living session for as long as any program had its process number; Windows gives a dead number to the next program at
+  once. The watcher now tells such a program from the session by when it began. That works on Windows and macOS; on
+  Linux a row carries nothing to tell by, and the number is taken at its word, as before.
 
 ### Known limits
 
@@ -80,9 +85,12 @@ limits that remain are at the end of this section.
   Chrome: the open workflow's form, the open map (also with a drag in hand), Session's drawing, one read per change,
   the head after a reload, and the line for a changed workflow (also on Auto). On the PC (Windows), one at a time with
   a real headless Chrome: the three Studio modules that hold these browser tests (the Workflows tab, the Map tab and
-  Session's drawing), and the plain and node modules the change touches. Not run: macOS at all (CI runs it at the
-  release gate), Agents, 4 Live, a real model asked to change a workflow, and a session started in another folder than
-  Studio's.
+  Session's drawing), and the plain and node modules the change touches. CI's first run on this release then failed
+  once in the real-use check on its Windows runner: of 28 ways out, a hard kill of a session with a model server
+  beside it left the server and its watcher running 5 s later. The model server fault under Fixed is what reading the
+  watcher found; it explains that run, which cannot be repeated on demand, and the test that now holds the rule was
+  red before. Not run: macOS at all (CI runs it at the release gate), Agents, 4 Live, a real model asked to change a
+  workflow, and a session started in another folder than Studio's.
 
 ## [3.6.0.8] - 2026-11-21
 

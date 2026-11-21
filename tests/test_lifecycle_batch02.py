@@ -150,6 +150,43 @@ def test_serve_json_records_the_hosts_start_time(ctx: Ctx):
 
 
 @test
+def test_a_dead_sessions_pid_given_to_another_program_is_no_living_halo(ctx: Ctx):
+    """3.6.0.9 (CI's Windows runner, the real-use check's closing step: after a hard kill of a session with a model
+    server beside it, the server and its home watch still ran 5 s later). A hard-killed session cannot take its row
+    out of run/sessions.json, and the home watch took the row for a living Halo while ANY process had its pid; Windows
+    hands a dead pid to the next program at once. A process that began after the row was written cannot be that
+    session (children.newer_than_row, the rule the ledger already has)."""
+    from halo_harness import closing_home_watch as W
+    from halo_harness.bg_run import no_proc
+    with _Home() as h:
+        proc, _start_text = _sleeper()
+        gone = (2 ** 22 + 7, "")  # the command that started the server returned long ago
+        run = h.state / "run"
+        run.mkdir(parents=True, exist_ok=True)
+
+        def row(started) -> None:
+            (run / "sessions.json").write_text(json.dumps({"version": 1, "sessions": [
+                {"session_id": "s1", "cwd": str(h.state), "pid": proc.pid, "started": started}]}), encoding="utf-8")
+        try:
+            row(time.time() + 1)
+            ctx.check("a session whose process began before its row was written is a living Halo",
+                      W.halos_alive(str(h.state), gone))
+            row(time.time() - 3600)  # the row is an hour old; the process with that pid began just now
+            provable = os.name == "nt" or no_proc()  # Windows and macOS keep a start as wall time; Linux /proc does not
+            if provable:
+                ctx.check("a row an hour older than the process that has its pid is another program's pid, not a "
+                          "living Halo", not W.halos_alive(str(h.state), gone))
+            else:
+                ctx.check("on Linux a row carries nothing to prove it by (the pid is taken at its word, as before)",
+                          W.halos_alive(str(h.state), gone))
+            row(None)
+            ctx.check("a row with no time (an older Halo wrote it) is taken at its word", W.halos_alive(str(h.state), gone))
+        finally:
+            _end(proc)
+        ctx.check("and with the process gone there is none", not W.halos_alive(str(h.state), gone))
+
+
+@test
 def test_halo_host_steward_off_never_signals_a_pid_its_record_cannot_prove(ctx: Ctx):
     from halo_harness import host_steward_cli
     from halo_harness.host import duty
