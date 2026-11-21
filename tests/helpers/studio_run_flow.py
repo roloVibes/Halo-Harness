@@ -67,6 +67,31 @@ def type_task(c, form: str, task: str) -> None:
     raise TimeoutError(f"the task did not go in: {c.js(STATE)}")
 
 
+TWO_FRAMES = "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))"
+# null when the control's middle is the top-most thing at its place; else where to wheel (the middle of its nearest
+# scroller) and by how much to bring it wholly inside that scroller
+SIGHT = """((b) => { const r = b.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  if (e === b || b.contains(e)) return null;
+  let s = b.parentElement;
+  while (s && !(s.scrollHeight > s.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(s).overflowY))) s = s.parentElement;
+  if (!s) return [0, 0, 0];
+  const q = s.getBoundingClientRect();
+  return [q.left + q.width / 2, q.top + q.height / 2, r.bottom > q.bottom - 12 ? r.bottom - q.bottom + 12 : (r.top < q.top + 12 ? r.top - q.top - 12 : 0)]; })"""
+
+
+def into_sight(c, sel: str) -> None:
+    """As a person does before pressing a control that is out of sight: the wheel, over the scroller that holds it. On the
+    Map an opened box with the Run it form can be taller than the drawing's room (on Windows, at 1280 x 800, the room was
+    250 px and the box 508: the Run button's middle lay under the line below the drawing, 4 runs of 7). A scroll made by
+    a script is not what a person does, and the Map did not keep it."""
+    for _ in range(8):
+        got = c.js(f"{SIGHT}({q(sel)})")
+        if got is None or not got[2]:
+            return
+        c.call("Input.dispatchMouseEvent", type="mouseWheel", x=got[0], y=got[1], deltaX=0, deltaY=got[2])
+        c.js(TWO_FRAMES)
+
+
 def run_in(c, where: str, form: str, task: str = "Review notes.md") -> dict:
     """Press Run it in `where` (a selector holding the button), type the task in `form`, press Run: what it saw."""
     btn = f"{where} [data-testid=run-flow-open]"
@@ -89,11 +114,22 @@ def run_in(c, where: str, form: str, task: str = "Review notes.md") -> dict:
            "task_height": c.js(f"{q(form + ' [data-testid=run-flow-task]')}.getBoundingClientRect().height")}
     type_task(c, form, task)
     h0 = c.js(f"{q(form)}.getBoundingClientRect().height")
+    into_sight(c, form + " [data-testid=run-flow-run]")
     c.click_on(q(form + " [data-testid=run-flow-run]"))
     try:
         c.wait(f"(window.__w || []).filter((w) => w.startsWith('POST crew/run ')).length > {n0}", 30)
     except TimeoutError:
-        raise TimeoutError(f"no POST crew/run after Run: {c.js(STATE)}") from None
+        run = q(form + " [data-testid=run-flow-run]")  # what the press met: the button's rect, the window, what lies on it
+        hit = c.js(f"(() => {{ const b = {run}; if (!b) return null; const r = b.getBoundingClientRect();"
+                   " const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
+                   " return [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom), innerWidth, innerHeight,"
+                   " b.disabled, e === b || b.contains(e), e ? e.outerHTML.slice(0, 200) : null,"
+                   " (window.__w || []).slice(-6), (() => { const sc = b.closest('.mp-scroll'); if (!sc) return 'no map scroller';"
+                   " const q = sc.getBoundingClientRect(), w = sc.querySelector('.mp-world-size').getBoundingClientRect(), bx = b.closest('[data-map-box]').getBoundingClientRect();"
+                   " return {scrollTop: sc.scrollTop, scrollHeight: sc.scrollHeight, clientHeight: sc.clientHeight, scrollerTop: Math.round(q.top), scrollerBottom: Math.round(q.bottom),"
+                   " worldSizeBottom: Math.round(w.bottom), boxTop: Math.round(bx.top), boxBottom: Math.round(bx.bottom), overflowY: getComputedStyle(sc).overflowY}; })()]; })()")
+        raise TimeoutError(f"no POST crew/run after Run: {c.js(STATE)}; the Run button [l, t, r, b, window w, h, disabled, "
+                           f"on top, what is on it, the last requests]: {hit}") from None
     out["posted"] = c.js("(window.__w || []).filter((w) => w.startsWith('POST crew/run ')).pop()")
     if out["posted"].endswith(" 202"):
         c.wait(f"!!{q('[data-testid=run-flow-receipt]')}", 20)
