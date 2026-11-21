@@ -76,7 +76,8 @@ def _child(session, spec, role, task: str) -> dict:
 # session's path; the platform's own shell tool, PowerShell on Windows, left out): main's tools, model and mode, and per
 # task the pool member it routed to, that child's model pick and mode, and the child's tools (every tool main had).
 RECORDED_MAIN_TOOLS = [
-    "Agent", "AskUserQuestion", "Bash", "BashOutput", "Edit", "EnterPlanMode", "ExitPlanMode", "Glob", "Grep",
+    "Agent", "AskUserQuestion", "Bash", "BashOutput", "Browser",  # 3.6.0.8: the built-in Browser tool, in every session
+    "Edit", "EnterPlanMode", "ExitPlanMode", "Glob", "Grep",
     "ListMcpResourcesTool", "Media", "NotebookEdit", "Read", "ReadMcpResourceTool", "Screenshot", "Skill", "Task",
     "TaskCreate", "TaskList", "TaskStop", "TaskUpdate", "TodoWrite", "ToolSearch", "WebFetch", "WebSearch",
     "Workflow", "Write", "knowledge_add", "knowledge_search"

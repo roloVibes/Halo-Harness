@@ -46,7 +46,8 @@ class _Page:
 
             def log_message(self, *a):
                 pass
-        self.srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        from halo_harness.http_bind import ThreadingHTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
+        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
         self.th = threading.Thread(target=self.srv.serve_forever, daemon=True, name="studio-browser-page")
         self.th.start()
         return f"http://127.0.0.1:{self.srv.server_address[1]}/page.html"
