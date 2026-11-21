@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.6] - unreleased
+## [3.6.0.6] - 2026-11-21
 
 A workflow can be run for real from Studio, from every view that shows one: yours, this project's and an enabled
 pack's. A Studio tab that can only look says so and says why, and one press makes it yours, in Firefox too. A pack's

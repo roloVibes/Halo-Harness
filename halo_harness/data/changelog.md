@@ -1,5 +1,89 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.6] - 2026-11-21
+
+A workflow can be run for real from Studio, from every view that shows one: yours, this project's and an enabled
+pack's. A Studio tab that can only look says so and says why, and one press makes it yours, in Firefox too. A pack's
+workflows and agents are named as the pack's. The limits that remain are at the end of this section.
+
+### Added
+
+- **Run it: a workflow runs for real from Studio.** Wherever Studio shows a workflow that a session runs by name (an
+  enabled pack's, yours, this project's) there is a **Run it**: in Agents -> 2 · Workflows beside **Try it** (Try it
+  is unchanged); in the Map's **Run a goal** drawer, under a head "Workflows"; in Packs -> Pack Manager under the
+  pack; in a pack's own section, in a row Studio draws above the pack's page; on the card of a workflow's box on the
+  Map; and in the palette as **Run a workflow** (picked before the workflows are read, its list says "Reading the
+  workflows..." and fills when they come). A press opens one form in place: the workflow's name, a box for the task,
+  the line "Starts a new session in {folder} that runs this workflow's steps on your models. It can change files
+  there. Cost and time depend on the models its steps use.", **Run** and **Cancel**. Run answers in the same place
+  with "Started: session {id}." and **Watch it in Live**, which opens Agents -> 4 · Live on that session when you
+  press it and shows the run as a group. Nothing under the form moves.
+- **How it runs.** Run starts a new session in Studio's folder that runs the workflow by its name, step by step,
+  through the same code as the Workflow tool. No model is asked to start it. The session is Studio's own and ends with
+  Studio. In a terminal the same is `halo --headless --run-workflow <name> --workflow-task="<task>"`.
+- **A tab that can only look says so, and one press makes it yours.** A Studio tab that a link or a script opened may
+  look but not change things (that rule is as before). It now says so in one line at the top, from its first draw,
+  with a button, **Make this tab yours**, that reloads the tab so that it can change things. The line gives the
+  reason: "because a link or a script opened it", "Studio could not tell this reload from a link", or "because Studio
+  was started again since it was opened". When a press is refused in such a tab, one toast carries the same line and
+  the same button, whatever view you pressed in. The status bar's VIEW ONLY and the glance say the same.
+
+### Changed
+
+- **A pack's workflows and agents are named as the pack's.** They carry the tag "pack {id}" in Agents ->
+  2 · Workflows (in a group of their own, "From packs"), in the Agents list, in a step's agent picker and in the
+  Map's "Agents and workflows" list. They are read-only like the ones that ship with Halo: the form says so, Save is
+  off, there is no Delete, and **Copy** makes one yours.
+- **The refusal's words.** A write from a page that may only look is answered with "this page can look but not change
+  things: only a Studio tab you opened yourself may. In Studio, press Make this tab yours (it reloads the tab), or run
+  `halo studio`."
+- **A workflow's form no longer jumps a moment after it opens.** Its "What it costs and writes" lines are read before
+  the form is first drawn, so **Try it** and the rows under it stay where they are.
+
+### Fixed
+
+- **A tab that looked yours and could change nothing.** When Studio was started again and its new address was entered
+  over an open Studio tab, the tab read as before, showed no VIEW ONLY, and every launch was refused. It now shows the
+  line with its reason and the button, and one press makes it work.
+- **A pack's workflow looked like yours.** It was listed under Yours with no tag, the Map's list called a pack's items
+  "ships with Halo", and the form offered Save, which wrote a file of yours under the pack's name, and Delete, which
+  failed.
+- **A group could stay undrawn in Live until the pointer moved.** When Live (in Agents, and Session's Live drawer)
+  opened with the pointer over the drawing and nothing drawn yet, the first group appeared only once the pointer left
+  the drawing.
+
+### Known limits
+
+- **A workflow that ships with Halo has no Run it**: Copy makes it yours, and yours has one. A workflow with a problem
+  has Run it off, and its hover says the first problem.
+- **On the Map, an opened workflow box with the Run it form can be taller than the drawing's room.** In a low window
+  the **Run** button is then below the drawing's edge: scroll the drawing to reach it. (Seen on Windows in a window
+  800 px high.)
+- **Live draws a second, small group ("Task 2") beside a run's own group**, for the run's own record. The Workflow
+  tool's runs do the same.
+- **A plain reload (F5, Ctrl+R) makes a tab yours in Chrome, not in Firefox.** Edge sends what Chrome sends and was
+  not run. In Firefox use the button (pressed in a real Firefox, in Studio), or Ctrl+Shift+R, or enter the address
+  again (both measured in a real Firefox on a stand-in page judged by Studio's own rule, not in Studio). Safari was
+  not measured.
+- **The Agents list tags a pack's agents but keeps them under Yours**; only the Workflows list has the group
+  "From packs".
+- **Every Known limit of 3.6.0.5 still holds.**
+- **Where it was checked.** On the Linux VM, with a browser: the whole test suite, its browser modules included (on a
+  copy with no git history: the few tests that need it run in CI; one YAML test also failed there, only because that
+  machine's Halo had been installed without the dependency lock and so with a newer YAML library than the lock names),
+  and the full real-use check, sixteen of sixteen steps. Make this tab yours was pressed in a real Firefox there (a
+  hidden display, a throwaway profile): a tab a program opened, a tab the glance's link opened, the press, and Ctrl+R.
+  On the PC (Windows), in a headless Chrome, one at a time: the three browser modules this release adds to (the tab
+  that can only look, a pack's workflows in the lists, Run it in every view), and the plain and node checks of the
+  join. The Run it module failed there in four runs of seven until the test scrolled the Map's drawing as a person
+  does (the Known limit above); after that it passed three of three, and twice on the VM. The release gate's first run
+  then showed two more things: on macOS the palette's list of workflows stayed empty when Run a workflow was picked
+  before the workflows had been read (fixed: the list is read again when they come; the test now holds Studio's
+  answers back to make that moment, red without the fix on the PC), and an older test of the Run a goal drawer
+  expected the pack picker to be the last thing in the form's box of fields, which the new Workflows list under it
+  ended. Not run: macOS locally (CI runs it at the release gate), Firefox on Windows or macOS, Safari, and a look-only
+  tab across a real restart of Studio by a person (the test starts a second Studio under the open tab).
+
 ## [3.6.0.5] - 2026-11-20
 
 The default is called Auto everywhere you read it, and the word "starter" leaves what Halo shows you. On Auto, the Live
@@ -2439,247 +2523,3 @@ fleet pack joined), each with its test; the fleet pack is 1.0.3 (`halo pack upda
 - The Python tests that run a UI `.ts` module (the cost agreement, the mode order, the model-name strip, the replay's
   time axis) run where node has no TypeScript support (Debian's v24, built without it) by transpiling with the UI's own
   `typescript` (tests/helpers/node_ts.py); with neither, the skip says what the box lacks.
-
-## [3.4.1.0] - 2026-11-12
-
-**Scrub a run back in time on the canvas, save it as one file, open it anywhere.** The living canvas, part 2 (the
-owner, 2026-11-10: "the best real-time visualization and clarity of what is going on with multi-model multi-workflow
-jobs"), section A of its plan: time on Agents -> Live, then a run's replay as one file and its clip.
-
-### R1: the scrubber and the replay file
-
-#### Added
-
-- **The scrubber under Live's canvas** (`routes/agents/live/Scrubber.tsx`, `timeline.ts`; docs/REPLAY.md): the session's
-  time axis with its phase bands (waiting on you, a tool, thinking, writing, idle) and one mark per spawn, hand-off,
-  ask, failure and finish (hover: what it was). Dragging redraws the canvas as it was at that moment -- who existed, in
-  which block, each state and what it ran, the plan's line labels, the sentence under the bar (an ask first), the cost
-  so far -- under a "replay -- <time>" banner in muted colours; **Play** at 1x / 4x / 16x; **Now** (or Esc) returns.
-  Over the session running now it shows the axis up to now and a drag rewinds it. It is the ONE replay control: a
-  session, a goal run (coarse: each lane's start and end), a mission and a saved file play on it.
-- **The replay file** (`live/replay_file.py`): **Save this run's replay** says what the file holds, costs and writes,
-  then writes `<state>/replays/<session>-<stamp>.halo-replay` (JSON, `format: halo-replay`, `version: 1`: the agents,
-  their states over time, the costs, the marks and bands, the lineup's blocks as they were), with no prompt, tool
-  input or output, thought or path, every string through the export redactor. History lists saved files and **Open a
-  file** takes one made on another machine; an older `GET fleet/replay` answer opens as version 1.
-- **Export a clip** (`live/replay_clip.py`, `live/clip_chrome.py`): the range From .. To at the scrubber's speed,
-  filmed on Live in headless Chrome and assembled by Pillow into one WebP (else GIF), 1200 px wide, 5 frames a second,
-  at most 30 s (played faster to fit, said), under `<state>/replays/clips/`; it says the frames, length, width and
-  path before it writes.
-- `halo replay list | save <session> | open <file> | clip <file> [--from --to --speed]` (`replay_verbs.py`);
-  `halo replay <session> --model <ref>` is unchanged. Studio routes `replays`, `replays/plan`, `replays/save`,
-  `replays/import`, `replays/<id>`, `replays/<id>/clip`, `replays/clips/<name>` (`studio/replays_api.py`);
-  `?mode=agents&view=live&replay=<id>[&at=<s>]` opens a saved file.
-- `GET fleet/replay` answers `marks`, `bands` and `agent_costs` too (`live/timeline.py`); `live/history.py` rebuilds
-  each question or plan review (its AskUserQuestion / ExitPlanMode call) and each permission card (the turn record's
-  `permission_waits`) as a wait on you.
-- From 3.4.1.0 a turn's record keeps a permission card's words (`debug_timeline.record_permission_wait(..., what)`), so
-  its mark says what it asked; an older session's mark says "a permission card (answered allow after 6 s)".
-
-#### Removed
-
-- Cast's replay bar (`routes/roles/Replay.tsx`, `routes/fleet/replay.ts`, the Roles store's `replay`, `live.ts
-  agentsAt`): its doors -- the agent inspector's Replay and history "replay", the Roles Live tab's "replay", the
-  palette's "Agents: replay this session on Live" -- open the session on Live's scrubber. Its testids `replay-bar`,
-  `replay-play`, `replay-scrub` and `replay-close` are the scrubber's.
-
-#### Docs
-
-- New docs/REPLAY.md; STUDIO-live.md "Time: the scrubber", STUDIO-agents.md, STUDIO.md, COMMANDS-sessions.md, the
-  glossary's "replay", the docs map.
-
-### R2: compare two runs, and a goal run saved as a replay file
-
-#### Added
-
-- **Compare two runs** (History on Agents -> Live; `routes/agents/live/Compare.tsx`, `compareStore.ts`; docs/REPLAY.md
-  "Compare two runs"): every History row has a tick; two ticked -- any two of a session, a goal run and a saved replay
-  file -- and **Compare** opens a page of the drawer, with Back (the ticks stay). "What differed" in three plain lines
-  derived from the rows; the two runs over one time axis, each one's agents as lanes in their blocks in the phase
-  colours; the rows -- how it ended, wall time, cost, tokens, the models (each one's share of cost and time), agents
-  spawned, asks to you, failures, retries -- with the better figure named by a word in its cell (cheaper, faster, fewer,
-  finished). One ticked: **Compare before / after**, split at its first steer (else halfway), **split at** moves it. No
-  model call; nothing written. A ticked mission says it is compared from its report (the fleet pack's).
-- Every figure is read from the run's own record (`live/replay_facts.py`): a session's transcripts, a goal run's report
-  and lanes, a file's new `facts`; never a live counter. A cost Halo cannot price is "unknown" (the priced part with a
-  "+", never $0) and the better cost is not marked on that row.
-- `halo replay compare <a> <b> [--split T] [--json]` (a, b: a session id, a goal run id, a `.halo-replay` path or saved
-  id); Studio's `GET replays/compare?a=&b=[&split=]` (`live/compare.py`, `live/compare_text.py`). The rows are plain
-  data (`{key, label, a: {value, text}, b, better, word}`) another page can read.
-- **A goal run saves and films like a session** (`live/replay_run.py`): Save this run's replay and Export a clip on the
-  scrubber, `halo replay save <run-id>`, `replays/plan?run=` and `replays/save {run}`. Its file holds the lead and its
-  lanes as agents, each lane's state changes from its record, the plan review as an ask, and its figures. The file
-  format keeps version 1 (`kind: run`, `run_id` and `facts` are keys a version-1 reader ignores; an R1 file still opens
-  and compares). The redaction test covers a goal run.
-
-#### Fixed
-
-- A session's replay counted a finished sub-agent's cost twice: its parent's transcript carries the sub-agent's
-  rolled-up total and its own transcript its calls. `live/history.py` now skips the rolled-up line when it reads the
-  sub-agent's own transcript (the scrubber's cost, the file's `cost_usd`).
-
-#### Docs
-
-- docs/REPLAY.md (Compare two runs, a goal run's file, the verb), STUDIO-live.md, STUDIO-agents.md,
-  COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "replay", the docs map.
-
-### R3: the run report card, and Session says its permission mode
-
-#### Added
-
-- **The run report card** (`live/report_card.py`, `report_card_sections.py`, `report_card_text.py`; docs/REPLAY.md "The
-  report card"): one card per finished session, goal run or saved `.halo-replay` file, rendered from its record --
-  never hand-written, no model call, nothing written. R2's nine figures for that one run (the same cells Compare
-  shows), then the story in about ten lines (who was asked what, what each handed back, each ask and failure, how it
-  ended), where the time went (by phase, by block), where the money went (by model, by block), what failed and what
-  happened next, what waited on you and for how long, which model did what, the files it wrote with their paths, and
-  what this record cannot show, in words. A cost Halo cannot price is "unknown" or the priced part with a "+", never $0.
-- Studio: each History row's own **Report** door (`ReportCard.tsx`): a session's or a file's card is a page of the
-  drawer (Back, Replay, Copy Markdown); with nothing running, Live's empty state ends with a row for the session that
-  ended last and its Report card (a row, never a pop-up). **One page per goal run**: the card is the first block of its
-  report page in History; the cost / time / models lines of the report's facts moved into the card's figures, every
-  door and testid kept. Missions are the fleet pack's: no card.
-- `halo report <session|run|file> [--json]` (`report_cli.py`) prints the card's Markdown (`--json`: its data); Studio's
-  `GET replays/report?ref=` answers the card and its Markdown. A file opened on another machine gives the same card.
-- A replay's `facts` carry `artefacts` (each file an Edit / Write call wrote, by its path inside the project; one
-  outside it by its name only; a goal run's: what merged and its workflow's saved outputs) and `answer` (the first line
-  of main's last text). The file format stays version 1; an older file's card says what it cannot show.
-- **Session's bar says the session's permission mode** (`session/ModeWord.tsx`): one small word (auto, default,
-  acceptEdits, plan, bypassPermissions, dontAsk) with the mode's one-line meaning on hover, from the session's row; a
-  status frame's `permission_mode` moves it, so Shift+Tab in the terminal changes the word.
-
-#### Docs
-
-- docs/REPLAY.md "The report card" (and what a replay file now names), STUDIO-live.md, STUDIO-agents.md,
-  STUDIO-session.md "The mode word", COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "report card" (+ twin),
-  the docs map.
-
-### R4: the glance, and the alert
-
-#### Added
-
-- **The glance** (`/?mode=glance`, `routes/glance/`; docs/STUDIO-live.md "The glance"): one phone-width page of this
-  Studio, no rail and no panels -- the sentence of what is going on now (Live's own grammar over the session Live
-  draws; what waits on you when there is no agent tree to read), what waits on you with its answers as large buttons
-  that each say what they do (a text box first for an answer that needs words), the spend against its cap (today's, as
-  the caps count it; "$x+" or "unknown" for what Halo cannot price, never $0; "no cap set"), the session's elapsed time
-  and the last three events. It says **live**, that the feed is reconnecting, or **stale: last heard N s ago** after 15
-  seconds without an answer, and reconnects by itself. Nothing opens on load; it calls no model.
-- Where it opens: **Open the glance** in the palette (View) and in Session's "..." menu (ELSEWHERE), a dialog with this
-  machine's address, Open it here (DOES / COSTS / WRITES first) and, for a phone, the steps and a code to scan when an
-  SSH server answers here, else plainly that the page is this-machine-only (`GET glance/door`,
-  `studio/glance_door.py`); `halo studio --mode glance` (a page word, not a section) prints the phone's line under the
-  URL. No new listener, no new port: a phone reaches it only through an SSH forward of Studio's port, the door Studio
-  already printed (docs/REMOTE.md "The glance from a phone").
-- **The alert** (`studio.alerts`, Settings -> Studio -> Alerts, `lib/alerts.ts`; docs/STUDIO-live.md "The alert"):
-  none (the default) or this browser's notification. Choosing the browser asks this browser for permission on that
-  click, once, never on load; then one notification when something starts waiting on you (what waits, on which
-  session; never one per feed event, never for what waited before the page opened), and a click on it opens the ask
-  (Session's Attention on that row; on the glance, the row). The channels are one table: a second is one entry. Nothing
-  for the Signal pack: the owner has not chosen a channel yet.
-
-#### Changed
-
-- **An answer from the attention queue needs the owner proof** (`studio/owner_proof.py`): `POST
-  fleet/attention/answer` -- Attention's keys and the glance's buttons -- joined the owner routes, so the launch token
-  alone (what a pack's page script could read) is a 403 "this needs the owner's own page" and the card still waits.
-  Studio's own page always sent the proof; nothing changes for it.
-- Studio's fleet store starts `lite` for the glance (the queue, not the capability catalogs or the missions).
-
-#### Docs
-
-- docs/STUDIO-live.md "The glance" and "The alert", docs/REMOTE.md "The glance from a phone", STUDIO-security.md,
-  STUDIO-shell.md, EXTENSION_API.md (the owner routes), COMMANDS-studio.md (`--mode glance`), CONFIG.md
-  (`studio.alerts`), ARCHITECTURE-modules.md, the glossary's "glance" (+ twin), the docs map.
-
-### R5: 3.4.0.1 merged in, and what the second two-machine check found
-
-The released 3.4.0.1 is merged into this line (History's rows keep both the tick boxes and Report doors of R2/R3 and
-3.4.0.1's "N sessions inside"; Studio's start lines keep the glance's phone line and print at once). A second check of
-3.4.0.1 on the PC and the Linux VM (numbering from the first check's 1-29):
-
-#### Fixed
-
-- **2** `halo pack inspect` lists what a pack adds to Halo under `offers:` (CLI verbs, slash commands, doctor rows,
-  Studio server modules), as `pack list` counts them; "nothing" when it offers nothing.
-- **12** `halo fleet status` on the machine serving the hub prints the firewall line too (and `serving.firewall`).
-- **22 / 35** History: a goal run's lead and worker sessions fold under their run whatever folder Studio started in
-  (each session's own record names its folder; a worker's is its run's worktree); a mission re-plan keeps every lead
-  session (plan.json `lead_sessions` appends), so the first lead is not a row of its own.
-- **30** An installed pack older than the one this Halo ships (installed from Halo's own shipped folder) is said in one
-  line with `halo pack update <id>` by `halo pack list` (and `--json` `ships`), `halo pack inspect`, `halo pack
-  doctor`, `halo doctor`, Studio's Packs ("1.0.2 available") and at the end of `halo update`. `halo pack install <id>`
-  of an installed pack: the same version says "already installed: nothing to do" and exits 0; another version says so
-  with the update command (exit 1). The fleet pack is 1.0.2.
-- **31** The firewall line resolved only the venv launcher: uv's `cpython-3.12-...` is a junction to
-  `cpython-3.12.13-...`, where Windows Firewall recorded the PC's two Block rules, so Halo said "no rule" and gave only
-  the allow command. Both the launcher and the interpreter are resolved, a rule's program is compared as written and
-  resolved; a Block rule is said first with the command that removes it, then the allow line.
-- **32** A mission part on a harness in permission mode `default` failed even when it only wrote its own output. Its
-  own outputs folder (`artifacts/<n>/` of the mission folder) needs no ask (checked against `..`, `\\?\` / `\\.\` /
-  UNC spellings, NTFS streams and links out); any other call the mode asks about waits as a card in that machine's
-  Attention (Studio, the TUI, the glance) instead of being refused, the hub shows the part "waiting on you (on
-  <machine>): <what>", and nobody answering within `fleet.mission.ask_wait_min` (default 30) ends it "not done: nobody
-  answered ...". The plan's note says so. Nothing else is allowed by Halo.
-- **33** Live's sentence on the fleet scope counted a member's session twice ($0.015 for a $0.0075 session): the spend
-  is the agents', not their session and machine boxes again.
-- **34** report.md's cost per harness reads "(1 part, #2; 0 done, 1 not)", not "(parts 2; ...)".
-- **36** Right after `halo fleet join`, before any session there, the plan and `halo fleet who` say "<member> joined
-  but has not sent its card yet (it goes with the first halo session there)" instead of "nobody in the fleet has gpu".
-- **37** A long hand-back reason is quoted whole when it fits, else cut at a word with "...".
-- Costs: a failed call (a 429, a 5xx) spent nothing and no longer marks the harness's today unknown (`$x+`) while the
-  report card called the same session whole; one finished session with a sub-agent tells one number in the report
-  card, Compare, the replay, History, the harness's today and the caps. Per-project caps count finished sessions too
-  (`cost_today_projects`, from each session's record by its project).
-- Tests: tests/helpers/studio_ollama.py reads config.json again for a moment when Windows denies the read while the
-  server replaces it (Windows run 43173639949).
-
-#### Docs
-
-- docs/FLEET.md (the recipe's step 1 on a used machine, a mission part in `default` mode, the firewall junction, `halo
-  fleet status`, Caps), PACKS.md (installing an installed pack, an older shipped pack), CONFIG.md
-  (`fleet.mission.ask_wait_min`), ARCHITECTURE-modules.md, plans/HANDOFF.md.
-
-### R6: what the CI runners found
-
-The candidate passed on the Windows PC and was red on both GitHub runners; each cause below, found and pinned.
-
-#### Fixed
-
-- **Export a clip without Pillow.** Saying what a clip will write (the dialog, `GET replays/<id>/clip`, `halo replay
-  clip --dry-run`) no longer needs Pillow: the plan answers with its frames, width, path and cap, plus `pillow` /
-  `needs`; without Pillow the dialog says in one line what to install and Export is off, the CLI prints the same line
-  and the clip itself exits 2, before anything is written (only the encode needs Pillow, `replay_clip.encoder()`). The
-  plan answered 422 where Pillow was missing. The dialog also keeps only the newest plan: the speed moving as the saved
-  file opened and a From typed just after sent two asks, and the older answering last left a plan (and an Export) of a
-  range the fields no longer said.
-- **A hover card no longer opens by itself on load.** A box drawn under a pointer that has not moved (Cast's lineup
-  opening under the "Open auto" button just clicked) got the browser's enter with no move, and its card opened; the
-  rest now starts on the pointer's first move on the box (`lib/hover/useHover.ts`). Seen on Linux, where the fonts put
-  a card under that pointer.
-- **Studio serves again on its own port right after it stopped (Linux).** A connection it closed sits in TIME_WAIT on
-  the port for a minute and the bind failed ("Address already in use"): Studio sets SO_REUSEADDR on POSIX, where it
-  never lets two listeners share a port, and keeps SO_EXCLUSIVEADDRUSE on Windows.
-- **A slow `tasklist` no longer deletes a live session (Windows).** The session registry's liveness check spawned
-  `tasklist` with a 5 s timeout; one slower answer read a live session as dead and `list_live` pruned its row for good,
-  so Studio lost the session (Session's mode word never moved again). It now asks the process itself
-  (OpenProcess + GetExitCodeProcess), and this process's own rows at once.
-- CI installs Pillow (`requirements-ci.in`, hash-locked in `requirements-ci.lock`), so both runners encode a clip; the
-  no-Pillow path is tested on every box by hiding Pillow (`tests/helpers/no_pillow.py`).
-- **Session's mode word follows the registry whatever order things land in.** GET fleet answered a snapshot from
-  before the registry moved (its 1 s cache was dropped only by a session frame, and the mode can move before the
-  session's feed reaches Studio): the registry file is part of the cache's key now (`peers/local_view.py`). On the page
-  (`routes/fleet/modeOrder.ts`), a status frame older than one already applied never puts its mode back, and an answer
-  asked before the newest status frame landed keeps that frame's mode; one asked after it wins.
-- `tools/studio_modes_banner.py --check` asks for the same size and the same pixels within 16 levels on at most 0.1 %
-  of them (`matches`): Pillow 13.0 draws the labels 42 pixels apart from 10.2 (4 levels at most), and the byte
-  comparison called the banner stale on CI once CI had Pillow; another capture or another tile order is still stale.
-- Tests: a node test that runs a `.ts` module skips on a node built without TypeScript (Debian's).
-- Tests: a "nothing opens on load" check names the card that opened, where the pointer rests and the box under it; the
-  mode word's driver says the page's word and the registry's rows when it times out; `tests/test_studio_rebind.py`,
-  `tests/test_replay_clip_pillow.py`, `tests/test_studio_mode_order.py`, `tests/test_studio_modes_banner_check.py`; the
-  registry's slow-`tasklist` pin; the report card's mode step holds the session's feed until the page has read its word.
-
-#### Docs
-
-- docs/REPLAY.md (a clip's plan needs no Pillow).
