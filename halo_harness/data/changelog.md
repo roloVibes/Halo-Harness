@@ -1,5 +1,79 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.7] - 2026-11-21
+
+Copying out of a session works. In the terminal app the words you drag over are the words you get, the moment you let
+go. In Studio a drag across Live rows copies the rows' own words, without the clock, labels, tags or buttons, and
+every reply has a Copy button, as does every code block of a Live text row and of the Prompt feed. The limits that
+remain are at the end of this section.
+
+### Added
+
+- **In the terminal app a drag copies the moment you let go.** No key is needed: the line "Copied the selection (N
+  characters)" shows, and the usual second line says which program took it. So pressing the terminal's own copy key
+  out of habit (it has nothing to copy while Halo owns the mouse) leaves the dragged words on the clipboard, and a
+  paste gives them. Every new drag copies again. A plain click copies nothing and says nothing.
+- **In Studio every reply has a Copy button**, in Session's Live column and in the Prompt panel's feed, and so does
+  every code block of a Live text row and of the Prompt feed. It shows when the row is hovered or the button has the
+  keyboard. It reads "Copy"; a press puts the text as the agent wrote it on the clipboard (a code block's button: the
+  code only, its indentation and line breaks kept) and reads "Copied" for two seconds in the same place. When the
+  browser refuses the clipboard it reads "Select and copy it yourself" and selects the text, so Ctrl+C copies it.
+  Nothing moves when a button shows or its word changes.
+
+### Changed
+
+- **Ctrl+C says what it copied.** With a selection: "Copied the selection (N characters)"; it copies the same words
+  again and never opens "Quit Halo?". With nothing selected: "Copied the last reply (N characters)"; a second press
+  within three seconds still asks "Quit Halo?".
+- **Code blocks in a reply are drawn as blocks in Live's text rows and in the Prompt feed**, in a fixed-width face
+  with a rule at their left, their fence lines kept as written.
+- **F1 help has a row "Drag"**: "Drag over text to copy it; Ctrl+C copies the selection again, or the last reply when
+  nothing is selected."
+
+### Fixed
+
+- **A drag over part of an answer copied the whole last answer.** In the terminal app, a drag over a few words of any
+  answer but the last, or of a code block, then Ctrl+C, gave the last answer; a drag over one word of a one-line row
+  gave the whole line. The words you drag over are now the words you get. A drag over a whole answer still copies its
+  source text.
+- **A click on a tool's card took the keyboard.** What you typed next went to the card: "/copy" after such a click
+  opened the card's pager and copied the card. It now goes to the chat box. Tab still reaches a card, and its keys
+  work once the keyboard is there.
+- **In Studio's Live column a drag across rows carried everything on the rows.** The paste held the clock, the kind
+  label, the agent's tag, "why?" and the Steer box's words. It now holds the rows' own words, one row a line.
+- **Selecting text in a Live row changed who you were steering.** A drag that selects words now leaves the steer
+  target where it was; a plain click on a row still chooses it.
+
+### Known limits
+
+- **A tool's output has no Copy button.** In Live a click on a tool row that shows "▸" opens the result under the row,
+  up to its first 4,000 characters, and it can be selected there; the Prompt feed shows its one-line preview only.
+- **In Live an agent's "DONE · ITS LAST WORDS" and "HANDS BACK" rows draw their code blocks as plain text**, with no
+  Copy of their own; the row's Copy copies the whole text.
+- **The Copy button shows on hover or keyboard focus**, so not on a touch screen.
+- **A drag in the terminal app does not set the Linux middle-click selection**; it sets the clipboard.
+- **A drag that starts on the blank cell before a word copies that leading space**: it copies what is highlighted.
+- **The once-a-session hint still says to hold Shift to select with the terminal itself**, which is not the key in
+  every terminal (iTerm2 uses Option).
+- **When the browser refuses the clipboard on a "DONE · ITS LAST WORDS" row**, the text selected for you is the
+  shortened one the row shows, not the whole.
+- **Every Known limit of 3.6.0.6 still holds.**
+- **Where it was checked.** On the Linux VM: the whole test suite, its browser modules included (on a copy with no git
+  history: the few tests that need it run in CI), and the full real-use check, seventeen of seventeen steps. Its new
+  step starts a real Halo in a terminal, drags over words of the first answer with the terminal's own mouse sequences
+  and reads what reached a stand-in clipboard program: those words on release, on a second drag and on Ctrl+C, then
+  the last answer when nothing is selected. A real drag in a real terminal window there (a private display) put the
+  dragged words on the real clipboard. The whole suite found the Copy button 6 px from "why?" where two controls are
+  never closer than 8; it stands 8 px away now. On the PC (Windows): the changed plain modules and the node checks;
+  the same real-use step in a real pseudoconsole, with a second clipboard program lying in the project folder that
+  must never be started (it was not); and, in a headless Chrome, the copy module (three of its six tests failed until
+  the test compared line ends alike: Windows' clipboard hands text back with its own; then six of six) and the module
+  of the room rules. The release gate's first run then showed, in the terminal app's own suite on all three systems,
+  that a reply selected as a whole widget (not by a drag) had been left out of the copy; it is copied again, and that
+  suite passes on the Linux VM. Not run: macOS locally (CI runs it at the release gate), Firefox and Safari, Wayland,
+  a copy over SSH into an outer terminal, the plain Windows console host, and a drag over a reply that is still being
+  written.
+
 ## [3.6.0.6] - 2026-11-21
 
 A workflow can be run for real from Studio, from every view that shows one: yours, this project's and an enabled
@@ -2462,64 +2536,3 @@ a member. The 2026-11-12 security review's findings, each with its test.
 - **Supported versions.** SECURITY.md says the newest release is the supported one and that versions before 3.4.1.2
   have known, fixed security problems (`halo update`). The review pages keep an open item's id, title and severity,
   without the detail of how it works, until it is fixed.
-
-## [3.4.1.1] - 2026-11-12
-
-What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops
-Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Linux VM, the
-fleet pack joined), each with its test; the fleet pack is 1.0.3 (`halo pack update fleet`).
-
-### Fixed (wrong)
-
-- 48: a session's quit stops only what that session started: a Studio started on its own (`halo studio`, above all
-  with `--fleet`, members joined to its hub) is never stopped by another session's `/quit`; the quit line says "left
-  running: Studio (started on its own; halo studio --stop)". A Studio a shell command opened (`halo replay open`,
-  `halo init`) has no owner and stays too (children_stop.py, children.py, studio/launch.py).
-- 56: a saved replay is safe to hand on: a path inside the project is written project-relative, any other under the
-  home as `~/...` (every spelling: either separator, any case, Git Bash's `/c/...`, WSL's `/mnt/c/...`), and the user
-  name and the machine name only where the owner typed them (the title, the lineup's names) or in a project path --
-  applied when the file is written, to every field; Save's "not included" line says so; `halo audit privacy
-  --replays` checks the replay folder (live/replay_private.py). The format is unchanged: an older file opens.
-- 63: the glance on a Studio that was restarted (a new per-launch key, never kept or reused) says "Studio was restarted
-  and has a new key: open the glance again from Studio (Session's ... menu -> Open the glance)" and stops asking; the
-  same Studio back (a blip, the SSH forward re-made) is live again by itself as before.
-- 50: a session's title is the owner's first words, in a session without a terminal as in the TUI (it was the prompt
-  hook's JSON verdict, `{"ok": false, ...}`); such a stored title reads as the first words.
-- 60: a goal run on the scrubber is drawn from its record's own times (`GET fleet/replay?run=`): each lane's states (it
-  ends when it merged), its costs at each end, and "unknown at this moment" where the record cannot say, never $0.
-- 42 (fleet): a need no card lists (the lead's `shell`) sends the lead's first answer back once; a harness the goal or
-  the part names wins, and such a word is dropped there (said in the plan's notes); "1 part" in Attention.
-- 51: a replay's WAITS rows count to the scrubber's moment, not to the present (and show on every box).
-- 52: a permission card answered from Studio (a session without a terminal) reads "waiting on you" for its whole span.
-- 57: `halo orchestra new` with no terminal on Windows (NUL answers isatty) says the no-terminal line, no traceback.
-- 58: an Orchestra worker's brief says its own test runs are not the gate, and STOP WHEN's gate is the run's to count.
-- 62: the report card's "In all ... waiting on you" is the sum of every listed wait (a card's own "after N s").
-- 65: the glance's SPEND TODAY is the harness's today as the caps count it (`GET fleet/costs`), not a drawn session's.
-- 66: a goal run's worker sessions count to their run's repo for the per-project cap, not to `worker-1`.
-
-### Fixed (confusing)
-
-- 40 (fleet): the plan's note reads this machine's permission mode and ask wait now, not a cached card.
-- 43 (fleet): a files part's brief says to write its outputs with Write, never a shell redirect (which asks).
-- 45: the update note no longer says "update available" for the same commit spelled 8 and 7 characters long.
-- 46: the TUI's status bar calls the `default` mode `default`, as its cards, Studio and the mission note do.
-- 49 (fleet): an away member the hub has not heard from since it restarted has an unknown today, never $0.0000.
-- 54: Export a clip on a session already saved films that file instead of saving it again.
-
-### Fixed (cosmetic)
-
-- 38: `halo pack doctor` says the update command once, as the fix. 39: the firewall line counts the UDP twin of each
-  Block rule. 41 (fleet): the status table keeps a command's `|`. 44: a spend under a cent keeps its figure
-  (`$0.0004`, never `$0.000`). 47: a new file's diff reads `@@ -0,0 +1 @@` / `+8`. 53: Save writes the name its dialog
-  showed. 55: no invalid escape sequence in Halo's source (`halo replay clip` printed a SyntaxWarning). 59: a goal run's
-  lead is named by its model, never its role word `main`. 61: Compare says "A asked you 2 times; B 3 times." 64:
-  Settings -> Studio has one Alerts control, saying what this browser will do.
-
-### Also
-
-- Every server a user restarts on the same port rebinds at once on Linux, as Studio does: `halo host serve`, the fleet
-  hub, `halo voice serve` (tests/test_server_rebind.py). A pid is alive on Windows by its own exit code; a `tasklist`
-  slower than its timeout is unknown, never dead (process_alive.py).
-- The Python tests that run a UI `.ts` module (the cost agreement, the mode order, the model-name strip, the replay's
-  time axis) run where node has no TypeScript support (Debian's v24, built without it) by transpiling with the UI's own
-  `typescript` (tests/helpers/node_ts.py); with neither, the skip says what the box lacks.

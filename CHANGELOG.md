@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.7] - unreleased
+## [3.6.0.7] - 2026-11-21
 
 Copying out of a session works. In the terminal app the words you drag over are the words you get, the moment you let
 go. In Studio a drag across Live rows copies the rows' own words, without the clock, labels, tags or buttons, and
