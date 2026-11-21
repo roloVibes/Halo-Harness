@@ -144,7 +144,8 @@
    words drawn invisible in the same cell), hidden until its row is hovered or it has the keyboard. */
 .slv-line .fac-ts, .slv-line .fac-kind, .slv-who, .slv-why, .slv-after, .slv-foot, .copy-btn { user-select: none; -webkit-user-select: none; }
 .slv-foot :is(textarea, input) { user-select: text; -webkit-user-select: text; }
-.copy-btn { display: inline-grid; justify-items: start; align-items: center; vertical-align: middle; margin-left: 6px; padding: 0; border: 0;
+/* 8 px from the control before it (why?): two controls are never closer (tests/test_studio_room.py R7) */
+.copy-btn { display: inline-grid; justify-items: start; align-items: center; vertical-align: middle; margin-left: 8px; padding: 0; border: 0;
   background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; opacity: 0; }
 .copy-word { grid-area: 1 / 1; display: inline-flex; align-items: center; min-height: 28px; padding: 0 8px; white-space: nowrap;
   border: 1px solid var(--line); border-radius: var(--radius-sm); }
