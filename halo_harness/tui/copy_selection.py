@@ -32,11 +32,14 @@ def _leaves(owner) -> list:
 
 def _covers_whole(owner, pieces: dict) -> bool:
     from textual.selection import SELECT_ALL
-    if owner in pieces and _leaves(owner) != [owner]:
-        # the transcript widget ITSELF is selected, not its leaves (a selection set on the widget: select all, a
-        # selection made by code): it draws no text of its own to cut a range from, so it is the whole of it, its
-        # source, as before 3.6.0.7 (the release gate: a reply selected this way was left out of the copy)
-        return True
+    own = pieces.get(owner)
+    if own is not None and _leaves(owner) != [owner]:
+        # the transcript widget ITSELF is selected (a selection set on the widget: select all, a selection made by
+        # code): it draws no text of its own to cut a range from. It is the whole of it, its source, as before
+        # 3.6.0.7 (the release gate: a reply selected this way was left out of the copy), when it is selected as a
+        # whole or when none of its leaves is selected with it; with a leaf's range beside it, the leaves decide below
+        if (own.start is None and own.end is None) or all(w is owner for w in pieces):
+            return True
     for leaf in _leaves(owner):
         full = _drawn(leaf, SELECT_ALL)
         if not full or not full[0].strip():
