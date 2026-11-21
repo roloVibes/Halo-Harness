@@ -93,8 +93,18 @@ export function truthLines(f: TruthFacts): Line[] {
   const c = f.changed;
   if (c) out.push({ text: c.problem ? `${A} changed at ${clock(c.t)} but has a problem, so this session keeps the last good version: ${c.problem}.`
                                    : `${A} changed at ${clock(c.t)}; this session takes it at its next hand-off.` });
-  for (const w of f.flowsChanged || []) out.push({ text: flowChangedLine(w.name, w.t) });
+  if (f.flowsChanged?.length) out.push({ text: flowsChangedLine(f.flowsChanged) });
   return out;
+}
+
+/** The join of 3.6.0.9: ONE line however many workflows changed (the room held for it from the first draw must not grow
+ *  with the map): one is named as before; more are named newest first, three at most, then how many more. */
+export function flowsChangedLine(ws: { name: string; t: number }[]): string {
+  const by = [...ws].sort((x, y) => y.t - x.t);
+  if (by.length === 1) return flowChangedLine(by[0].name, by[0].t);
+  const first = by.slice(0, 3).map((w) => w.name), more = by.length - first.length;
+  const names = more ? `${first.join(", ")} and ${more} more` : `${first.slice(0, -1).join(", ")} and ${first[first.length - 1]}`;
+  return `The workflows ${names} changed, the last at ${clock(by[0].t)}. A run already going keeps its steps; the next run takes the change.`;
 }
 
 /** 3.6.0.9 V batch 2 (the owner's point 34): a workflow on a box of the session's drawing (on Auto: one it ran) changed
@@ -120,12 +130,16 @@ export function reserve(f: TruthFacts, width: number): { lines: Line[]; est: num
   const after = (f.bSince && f.bSince > f.started ? f.bSince : f.started + 60) || 60;
   const bs: Partial<TruthFacts>[] = [{ b: f.a }];
   if (f.a && !onMap(f.a, nextMap(f.b))) bs.push({ b: f.b, bSince: after }, ...(f.b ? [{ b: f.b, bSince: null }] : []));
-  // batch 2 repair: the line of every workflow it can show, held from the first draw (a plain write adds it later)
-  const can = [...new Set([...(f.flowsCan || []), ...(f.flowsChanged || []).map((w) => w.name)])];
-  const flowsChanged = can.map((name) => ({ name, t: f.flowsChanged?.find((w) => w.name === name)?.t || f.started }));
+  // batch 2 repair + the join: the ONE line of the workflows it can show, held from the first draw (a plain write adds
+  // it later): its longest forms, one name (the longest) and all of them (the three longest are named); the same time
+  // for each, so the room never depends on which changed first
+  const can = [...new Set([...(f.flowsCan || []), ...(f.flowsChanged || []).map((w) => w.name)])].sort((x, y) => y.length - x.length);
+  const at = (name: string) => ({ name, t: f.started });
+  const flowSets = can.length ? [[at(can[0])], can.map(at)] : [[]];
   const cands: Line[][] = [];
   for (const b of bs) for (const workflow of f.workflow ? [f.workflow, null] : [null])
-    for (const changed of [{ t: f.changed?.t || f.started }, null]) cands.push(truthLines({ ...open, ...b, workflow, changed, flowsChanged }));
+    for (const changed of [{ t: f.changed?.t || f.started }, null])
+      for (const flowsChanged of flowSets) cands.push(truthLines({ ...open, ...b, workflow, changed, flowsChanged }));
   cands.push(truthLines({ ...open, ended: f.ended || f.started }), truthLines(f));
   const size = (ls: Line[]) => ls.reduce((n, l) => n + l.text.length + (l.label || "").length, 0);
   let best = cands[0], most = est(best, width);

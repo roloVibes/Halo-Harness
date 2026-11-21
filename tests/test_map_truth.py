@@ -421,15 +421,34 @@ def test_reserve_holds_the_workflow_lines_its_drawing_can_show(ctx: Ctx):
     f = dict(BASE, a="shop", plain=False, b="shop", bSince="@09:07")
     _, out = ts("""const f = D.f, s = f.started, can = ['review', D.w48];
       const all = can.map((name) => ({ name, t: s + 600 }));
-      out.over = []; out.held = T.reserve({ ...f, flowsCan: can }, 408).lines.filter((l) => l.text.startsWith('The workflow ')).length;
+      out.over = []; out.held = T.reserve({ ...f, flowsCan: can }, 408).lines.filter((l) => l.text.startsWith('The workflow')).length;
       for (const w of [408, 360]) for (const workflow of [null, 'review']) for (const changed of [null, { t: s }]) {
         const g = { ...f, workflow, flowsCan: can }, r = T.reserve(g, w).est;
         for (const flowsChanged of [[], all.slice(0, 1), all]) {
           const e = T.est(T.truthLines({ ...g, changed, flowsChanged }), w); if (e > r) out.over.push([w, workflow, !!changed, flowsChanged.length, e, r]); } }
-      out.none = [408, 360].map((w) => [T.reserve(f, w).est, T.reserve({ ...f, flowsCan: [] }, w).est]);""", dict(f=f, w48="mw" * 24))
+      out.none = [408, 360].map((w) => [T.reserve(f, w).est, T.reserve({ ...f, flowsCan: [] }, w).est]);
+      // the join: ONE line however many changed, so the room held from the first draw does not grow with the map
+      const many = ['a1', 'b2', 'c3', 'd4', 'e5', 'f6', 'g7'];
+      const said = (ws) => T.truthLines({ ...f, flowsChanged: ws }).map((l) => l.text).filter((t) => t.startsWith('The workflow'));
+      out.one = said([{ name: 'review', t: s + 600 }]);
+      out.two = said([{ name: 'review', t: s + 600 }, { name: 'build', t: s + 660 }]);
+      out.seven = said(many.map((name, i) => ({ name, t: s + 600 + 60 * i })));
+      const time = (t) => T.flowChangedLine('x', t).slice('The workflow x changed at '.length).split('. A run')[0];
+      out.t600 = time(s + 600); out.t660 = time(s + 660); out.t960 = time(s + 960);
+      out.cap = [408, 360].map((w) => [T.reserve({ ...f, flowsCan: many.slice(0, 4) }, w).est, T.reserve({ ...f, flowsCan: many }, w).est,
+                                       T.reserve({ ...f, flowsCan: many.slice(0, 1) }, w).est, T.reserve(f, w).est]);""", dict(f=f, w48="mw" * 24))
     ctx.check(f"every state with its workflow lines fits the reserve at 408 and 360, over: {out['over']}", out["over"] == [])
-    ctx.check(f"both workflow lines are in the reserve, got {out.get('held')}", out.get("held") == 2)
+    ctx.check(f"ONE workflow line is in the reserve, however many it can show, got {out.get('held')}", out.get("held") == 1)
     ctx.check(f"with no workflow the reserve is today's, got {out['none']}", all(a == b for a, b in out["none"]))
+    tail = ". A run already going keeps its steps; the next run takes the change."
+    ctx.check(f"one workflow: its line as it was, got {out['one']}",
+              out["one"] == [f"The workflow review changed at {out['t600']}{tail}"])
+    ctx.check(f"two: one line that names both, the newest first, with the last time, got {out['two']}",
+              out["two"] == [f"The workflows build and review changed, the last at {out['t660']}{tail}"])
+    ctx.check(f"seven: one line, the three newest and how many more, got {out['seven']}",
+              out["seven"] == [f"The workflows g7, f6, e5 and 4 more changed, the last at {out['t960']}{tail}"])
+    ctx.check(f"the room held for seven workflows is the room for four (names as long), and more than none, got {out['cap']}",
+              all(four == seven and one > none for four, seven, one, none in out["cap"]))
 
 
 @test
