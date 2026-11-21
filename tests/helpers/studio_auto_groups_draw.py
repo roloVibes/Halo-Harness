@@ -287,6 +287,20 @@ def focus(c, rig, rows: Rows, a: str, b: str) -> dict:
     out["live"] = c.wait("window.__focus.off != null && window.__focus", 12)
     out["live_view"] = c.js(VIEW)
     out["card"] = c.js(f"!!document.querySelector('{P} [data-testid=map-step-in]')")
+    # the release gate of 3.6.0.5 (the hosted Windows and macOS runners reduce motion): with reduced motion the cue stays
+    # its 2 s as a still outline; base.css ends every animation at once there, and the pulse's END takes data-pulse off
+    c.call("Emulation.setEmulatedMedia", features=[{"name": "prefers-reduced-motion", "value": "reduce"}])
+    try:
+        out["reduced_media"] = c.js("matchMedia('(prefers-reduced-motion: reduce)').matches")
+        c.js("document.querySelector('[data-part=live] [data-testid=live-scroll]').scrollTop = 0; 1")
+        time.sleep(0.5)
+        c.click_on(f"({LGROUP})(4).querySelector('[data-testid=map-group-name]')")
+        c.wait(f"document.querySelector('{P} [data-testid=map-step-in]')?.dataset.target === 'group:4'", 10)
+        c.js(f"{WATCH}(4)")
+        c.click_on(f"document.querySelector('{P} [data-testid=map-step-in-live]')")
+        out["reduced"] = c.wait("window.__focus.off != null && window.__focus", 12)
+    finally:
+        c.call("Emulation.setEmulatedMedia", features=[])
     return {"focus": out}
 
 

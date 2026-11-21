@@ -46,9 +46,10 @@ your own is drawn as before. The limits that remain are at the end of this secti
   room is there from the first draw, so nothing above it moves when a name appears. On a map of your own Session's slot
   is as before and Agents -> 4 · Live has no slot.
 - **The doors land on the group.** A group card's **Open in Agents -> Live** opens Agents -> 4 · Live on that session
-  with the group's head at the top and its border pulsing for two seconds. An attention alert's **Open**, or a row's
-  **O**, for a question a helper of a session on Auto asks opens that helper's group, selected, with the helper's card
-  open and the question's choices in it. Main's own questions land on main as before.
+  with the group's head at the top and its border pulsing for two seconds (with reduced motion: a still outline for
+  the same two seconds). An attention alert's **Open**, or a row's **O**, for a question a helper of a session on Auto
+  asks opens that helper's group, selected, with the helper's card open and the question's choices in it. Main's own
+  questions land on main as before.
 - **After a build on Auto, Halo says what is ready in this session now.** When a Builder card is applied in a session on
   Auto, its result (what main reads, and the terminal's card) ends with lines worked out from what the session really
   has: "Ready in this session now: the workflow review.", "Saved for your next session: the agent checker (this
@@ -193,15 +194,18 @@ your own is drawn as before. The limits that remain are at the end of this secti
   that session's build carries no answer about what is ready. Studio no longer says "It is on no map, so no session runs
   it yet", which is false on Auto. A session started by this release gets the lines.
 - **Where it was checked.** On the Linux VM, with a browser: the whole test suite, its browser modules included (on a
-  copy with no git history: the few tests that need it run in CI), and the full real-use check, sixteen of sixteen steps
-  passed, among them the two new ones that drive a real terminal session and a real Studio through Auto's groups and
-  through a build on Auto with its true lines, with nothing of the run left running. On the PC (Windows), without a
-  browser: the Python and node checks of each change, and, before the Attention change, the real-use check with its five
-  browser steps skipped by name (11 passed). With a browser on Windows, one real-use step was run on the PC, the build on
-  Auto: the release gate's first Windows run had failed in it (a workflow's start grew main's box; see Fixed), and it
-  passed on the PC after the fix. macOS was not run locally: CI runs it, and the other browser steps on Windows, at the
-  release gate. How the four group colours look to a person was judged by no check; the checks measure only
-  that they stay apart from the state colours and from each other, also for colour-blind eyes.
+  copy with no git history: the few tests that need it run in CI), and the full real-use check, sixteen of sixteen
+  steps passed, among them the two new ones that drive a real terminal session and a real Studio through Auto's groups
+  and through a build on Auto with its true lines, with nothing of the run left running. On the PC (Windows), without
+  a browser: the Python and node checks of each change, and, before the Attention change, the real-use check with its
+  five browser steps skipped by name (11 passed). With a browser on Windows, one real-use step was run on the PC, the
+  build on Auto: the release gate's first Windows run had failed in it (a workflow's start grew main's box; see
+  Fixed), and it passed on the PC after the fix. The release gate's hosted Windows and macOS runs also showed that
+  with reduced motion (those machines have it on) the group's two-second cue lasted one frame; it is a still outline
+  now, and the groups' browser test presses once with reduced motion on every system (run on the PC, with and without
+  the fix). macOS was not run locally: CI runs it, and the other browser steps on Windows, at the release gate. How
+  the four group colours look to a person was judged by no check; the checks measure only that they stay apart from
+  the state colours and from each other, also for colour-blind eyes.
 
 ## [3.6.0.4] - 2026-11-18
 

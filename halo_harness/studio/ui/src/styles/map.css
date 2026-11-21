@@ -136,3 +136,10 @@
    (LiveDraw.tsx removes data-pulse on this animation's end; no timer) */
 .mp-group[data-pulse] { animation: mp-group-pulse 2s ease-in-out 1; }
 @keyframes mp-group-pulse { 0%, 50%, 100% { box-shadow: 0 0 0 0 transparent; } 25%, 75% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--g) 55%, transparent); } }
+/* reduced motion: base.css ends every animation at once, and this animation's END is what takes data-pulse off, so the
+   cue lasted one frame (seen on the release gate of 3.6.0.5: the hosted Windows and macOS runners reduce motion). It
+   stays the same 2 s as a STILL outline in the group's colour: nothing moves, and the group asked for can be told */
+@media (prefers-reduced-motion: reduce) {
+  .mp-group[data-pulse] { animation-duration: 2s !important; }
+  @keyframes mp-group-pulse { 0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--g) 55%, transparent); } }
+}

@@ -201,6 +201,10 @@ def test_group_card_open_puts_its_head_at_the_top_within_1s(ctx: Ctx):
     ctx.check(f"Agents -> Live shows it (from Session and staying there), got {d.get('session_view')} {d.get('live_view')}",
               d.get("session_view") == "live" and d.get("live_view") == "live")
     ctx.check(f"the card closed, got {d.get('card')}", d.get("card") is False)
+    r = d.get("reduced") or {}
+    ctx.check(f"with reduced motion the cue stays its 2 s (+-0.5 s) as a still outline, got {r} (reduced: {d.get('reduced_media')})",
+              d.get("reduced_media") is True and r.get("on") is not None and r.get("off") is not None
+              and 1500 <= r["off"] - r["on"] <= 2500)
 
 
 @test
