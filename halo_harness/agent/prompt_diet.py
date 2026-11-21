@@ -14,7 +14,8 @@ The order the cap and the budget fill: the core tools (`ollama_fit.CORE_TOOL_NAM
 shell in Bash's place), then what the session's lineup needs (Workflow only when a square is enabled
 for this lineup and the model lacks something a square covers), then `AFTER_NEEDS` (copilot_ask, 3.3.17.0:
 registered only once Copilot is set up, so asked for), then the built-ins in the registry's
-order, then the rest (MCP tools) by relevance to the task. A tool left out stays callable by name and
+order, then the rest (MCP tools) by relevance to the task. `BY_NAME_UNDER` (3.6.0.6 W: Browser) names a tool
+offered by name only in a window of that size or less, whatever room is left. A tool left out stays callable by name and
 ToolSearch shows its schema, exactly as a deferred tool. The kept tools go out lean
 (`tools/lean_descriptions.py`) and in the catalog's own order (a stable prefix).
 """
@@ -28,6 +29,8 @@ ALIASES = {"Task": "Agent"}
 LEAN_TOOLS_BUDGET = ((16385, 2200), (65536, 4500))  # (below, tokens): 16,384 and under; under 65,536
 SHELLS = ("Bash", "PowerShell")
 AFTER_NEEDS = ("copilot_ask",)  # offered only once set up (tools/copilot_ask.py): right after the lineup's needs
+# 3.6.0.6 W: offered by name only in a window of this size or less (the smallest lean block never grows for it)
+BY_NAME_UNDER = {"Browser": 16384}
 
 
 def tools_budget(window: Optional[int]) -> Optional[int]:
@@ -160,13 +163,16 @@ def diet(session, tools: list, task: str = "", cap: Optional[int] = None, *,
         other = next(s for s in SHELLS if s != shell)
         dropped.append(other)
         tools = [t for t in tools if _name(t) != other]
+    window = call_window(session)
+    small = [n for n, at in BY_NAME_UNDER.items() if n in names and isinstance(window, int) and 0 < window <= at]
     rank = _bands(session, tools, task, shell)
-    budget = tools_budget(call_window(session))
+    budget = tools_budget(window)
     keep, used = set(), 0
     for t in sorted(tools, key=lambda t: rank[id(t)]):
         cost = wire_tokens(lean_definition(t))
         first = rank[id(t)][0] == 0
-        if (cap is not None and len(keep) >= cap) or (budget is not None and not first and used + cost > budget):
+        if (cap is not None and len(keep) >= cap) or (budget is not None and not first and used + cost > budget) \
+                or _name(t) in small:
             continue
         keep.add(id(t))
         used += cost

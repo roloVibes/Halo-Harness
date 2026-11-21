@@ -28,7 +28,7 @@ TABLE = {
     "read": ("Read", "Glob", "Grep"),
     "edit": ("Edit", "Write", "NotebookEdit", "OrchestraClaim", "OrchestraClaims", "OrchestraRelease", "OrchestraNote"),
     "bash": ("Bash", "BashOutput", "PowerShell", "TaskStop"),
-    "web": ("WebFetch", "WebSearch", "copilot_ask"),  # copilot_ask: 3.3.17.0 R2, your work's Copilot
+    "web": ("WebFetch", "WebSearch", "copilot_ask", "Browser"),  # copilot_ask: 3.3.17.0 R2; Browser: 3.6.0.6 W
     "agent": ("Agent", "Task", "TaskCreate", "TaskList", "TaskUpdate", "Workflow"),  # Workflow: 3.3.16.0 R3, a square
     "mcp": ("ToolSearch", "ListMcpResourcesTool", "ReadMcpResourceTool"),
     "media": ("Media", "Screenshot"),  # Screenshot: 3.3.6.0 R6

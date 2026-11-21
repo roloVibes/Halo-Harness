@@ -1165,9 +1165,9 @@ def parse_rule(raw: str, *, source: str = "", base_dir: Optional[Path] = None,
         value = content[1:] if negated else content
         return Rule(tool=tool, kind="path", value=value, negated=negated, raw=raw, source=source, base_dir=base_dir)
 
-    if tool == "WebFetch":
+    if tool in ("WebFetch", "Browser"):  # 3.6.0.6 W: Browser(domain:...) works as WebFetch(domain:...) does
         if not content.startswith("domain:"):
-            return Rule(tool=tool, kind="invalid", raw=raw, source=source, error="WebFetch rules must use domain:")
+            return Rule(tool=tool, kind="invalid", raw=raw, source=source, error=f"{tool} rules must use domain:")
         return Rule(tool=tool, kind="domain", value=content, raw=raw, source=source)
 
     if tool == "Agent":
@@ -1291,6 +1291,19 @@ UNGATED_TOOL_NAMES = frozenset({
 # The web reads: allowed in plan mode (research needs the web); every other
 # mode keeps what it decided before (default/acceptEdits ask, dontAsk refuses).
 WEB_READ_TOOL_NAMES = frozenset({"WebFetch", "WebSearch"})
+# 3.6.0.6 W: the Browser tool's actions decided as WebFetch is for the same address (the rest as a change)
+BROWSER_READS = frozenset({"open", "read", "screenshot", "close"})
+
+
+def browser_address(tool_input: dict, tool) -> str:
+    """The address a Browser call acts on: its `url` for open, else the page the session's browser has open."""
+    if _str_field(tool_input, "action") == "open":
+        return _str_field(tool_input, "url")
+    try:
+        from halo_harness.tools.browser import last_address
+        return (tool.page_url() if tool is not None and hasattr(tool, "page_url") else "") or last_address()
+    except Exception:
+        return ""
 
 
 def plan_mode_refusal(what: str) -> str:
@@ -1650,6 +1663,8 @@ class PermissionEngine:
             val = _str_field(tool_input, "skill")
             return tool_name == "Skill" and (val == rule.value or val.startswith(rule.value + " "))
         if rule.kind == "domain":
+            if tool_name == "Browser" and rule.tool == "Browser":
+                return domain_rule_matches(rule.value, browser_address(tool_input, tool))
             return tool_name == "WebFetch" and domain_rule_matches(rule.value, _str_field(tool_input, "url"))
         if rule.kind == "param":
             return tool_name == rule.tool and str(tool_input.get(rule.param_key)) == rule.param_value
@@ -2150,6 +2165,8 @@ class PermissionEngine:
             return "read_tool"
         if tool_name in WEB_READ_TOOL_NAMES:
             return "web_read"
+        if tool_name == "Browser":  # 3.6.0.6 W: a look is a web read; a press, a key, a script changes something
+            return "web_read" if _str_field(tool_input, "action") in BROWSER_READS else "other"
         if tool_name.startswith("mcp__") and bool(getattr(tool, "is_read_only", False)):
             return "read_tool"
         return "other"
@@ -2548,10 +2565,11 @@ class PermissionEngine:
                 return None
             rel_dir = Path(path).parent
             return f"Edit({_escape_rule_content(self._suggest_path_value(rel_dir))}/**)"
-        if tool_name == "WebFetch":
+        if tool_name in ("WebFetch", "Browser"):
             from urllib.parse import urlparse
-            host = urlparse(_str_field(tool_input, "url")).hostname
-            return f"WebFetch(domain:{host})" if host else None
+            url = _str_field(tool_input, "url") if tool_name == "WebFetch" else browser_address(tool_input, None)
+            host = urlparse(url).hostname
+            return f"{tool_name}(domain:{host})" if host else None
         if tool_name.startswith("mcp__"):
             # finding 9: server names carry no `__`, so the FIRST `__` after
             # `mcp__` ends the server and the REST is the tool (which may

@@ -73,6 +73,7 @@ TABLE = {
     "TodoWrite":        "aaaaaa",  # plans
     "ToolSearch":       "aaaaaa",  # reads the catalog
     "WebFetch":         "??aada",  # the network
+    "Browser":          "??aada",  # 3.6.0.6 W: open (read, screenshot, close) as WebFetch; a press as Bash (test_browser_tool)
     "WebSearch":        "??aada",  # the network
     "copilot_ask":      "??dada",  # the network, Copilot Credits
     "knowledge_add":    "aadaaa",  # notes (plan mode writes nothing)
@@ -144,7 +145,8 @@ def _session_tool_names() -> set:
 def _input(name: str, cwd: Path) -> dict:
     return {"Read": {"file_path": str(cwd / "a.txt")}, "Edit": {"file_path": str(cwd / "a.txt")},
             "Write": {"file_path": str(cwd / "a.txt")}, "NotebookEdit": {"notebook_path": str(cwd / "a.ipynb")},
-            "Bash": {"command": "make build"}, "PowerShell": {"command": "New-Item x"}}.get(name, {})
+            "Bash": {"command": "make build"}, "PowerShell": {"command": "New-Item x"},
+            "Browser": {"action": "open", "url": "https://example.com/"}}.get(name, {})
 
 
 def _row(engine_for, tool, cwd: Path) -> str:

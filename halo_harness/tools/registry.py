@@ -33,6 +33,7 @@ from halo_harness.tools.media import MediaTool
 from halo_harness.tools.notebook_edit import NotebookEditTool
 from halo_harness.tools.orchestra_claims import orchestra_tools
 from halo_harness.tools.read import ReadTool
+from halo_harness.tools.browser import BrowserTool
 from halo_harness.tools.screenshot import ScreenshotTool
 from halo_harness.tools.skill import SkillTool
 from halo_harness.tools.task_board import TaskCreateTool, TaskListTool, TaskUpdateTool
@@ -95,7 +96,9 @@ def default_tools(platform: Optional[str] = None) -> list:
         NotebookEditTool(), ReadTool(), SkillTool(),
         # Halo 2.0.2 round 3 (brief C item 3): the shared task board.
         TaskCreateTool(), TaskListTool(), TaskStopTool(), TaskTool(), TaskUpdateTool(), TodoWriteTool(),
-        ToolSearchTool(), WebFetchTool(), WorkflowTool(), WriteTool(),
+        ToolSearchTool(), WebFetchTool(),
+        BrowserTool(),  # 3.6.0.6 W: Halo's own browser (browser_cdp.py), nothing to install or switch on
+        WorkflowTool(), WriteTool(),
         KnowledgeAddTool(), KnowledgeSearchTool(),  # 3.1.8.0 R4: findings and decisions (knowledge/)
     ]
     tools.extend(orchestra_tools())  # 3.0.3.0: the Orchestra's claim tools, only inside a run ($HALO_ORCHESTRA_RUN)

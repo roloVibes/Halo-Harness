@@ -65,6 +65,9 @@ LEAN = {
     "Read": ("Read a file by absolute path: 2000 lines by default, `offset`/`limit` for a part; cat -n numbered. "
              "Reads png, jpg, gif and webp images for a model that sees.",
              {"offset": "first line (0-based)", "limit": "number of lines"}),
+    "Browser": ("Drive a real browser: open, read, click, type, key, scroll, back, js, screenshot, close. Answers "
+                "list the page's controls by number; target one by number, words or css:<selector>.",
+                {"text": "type: text; key: Enter, Control+a; scroll: up, down, top, bottom; js: script"}),
     "Screenshot": ("Capture the screen, a window (`title`) or a region (`rect`: x, y, w, h).", {}),
     "Skill": ("Run a packaged skill by name: returns its instructions (`args` filled in) and the files beside it.",
               {"args": "optional arguments"}),

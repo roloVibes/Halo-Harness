@@ -75,15 +75,21 @@ class ScreenshotTool(Tool):
             return ToolResult(got.get("say") or "the screenshot did not happen", is_error=True)
         path, w, h = got["path"], got.get("width"), got.get("height")
         head = f"Screenshot saved at {path} ({w} x {h}, {got.get('bytes', 0) // 1024} KiB, {got.get('tool')})"
-        if ctx.vision:
-            data = Path(path).read_bytes()
-            block = {"type": "image", "source": {"type": "base64", "media_type": "image/png",
-                                                 "data": base64.b64encode(data).decode("ascii")}}
-            return ToolResult([{"type": "text", "text": head}, block])
-        session = getattr(getattr(ctx, "agent_runtime", None), "parent", None)
-        lines = _note_lines(session, ctx.model_ref, path)
-        body = {"path": path, "width": w, "height": h, "note": lines[0]}
-        return ToolResult(json.dumps(body, ensure_ascii=False) + "\n" + "\n".join(lines[1:]))
+        return picture_result(path, w, h, head, ctx)
+
+
+def picture_result(path: str, w, h, head: str, ctx: ToolContext) -> ToolResult:
+    """A PNG given to the model: the image block (with `head`) for a model that sees, else the file's path and the
+    note naming the model that cannot (3.6.0.6 W: the Browser tool's screenshot takes this same path)."""
+    if ctx.vision:
+        data = Path(path).read_bytes()
+        block = {"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                                             "data": base64.b64encode(data).decode("ascii")}}
+        return ToolResult([{"type": "text", "text": head}, block])
+    session = getattr(getattr(ctx, "agent_runtime", None), "parent", None)
+    lines = _note_lines(session, ctx.model_ref, path)
+    body = {"path": path, "width": w, "height": h, "note": lines[0]}
+    return ToolResult(json.dumps(body, ensure_ascii=False) + "\n" + "\n".join(lines[1:]))
 
 
 def _note_lines(session, model_ref: Optional[str], path: str) -> list:

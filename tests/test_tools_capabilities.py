@@ -43,7 +43,7 @@ def test_the_one_table(ctx: Ctx):
     from halo_harness.isolation.capabilities import TABLE, capability_of
     from halo_harness.tools.registry import known_tool_names
     want = {"Read": "read", "Glob": "read", "Grep": "read", "Edit": "edit", "Write": "edit", "NotebookEdit": "edit",
-            "Bash": "bash", "BashOutput": "bash", "WebFetch": "web", "WebSearch": "web", "Agent": "agent",
+            "Bash": "bash", "BashOutput": "bash", "WebFetch": "web", "WebSearch": "web", "Browser": "web", "Agent": "agent",
             "Task": "agent", "Workflow": "agent", "Media": "media", "ToolSearch": "mcp", "Skill": "recall", "TodoWrite": "recall",
             "knowledge_add": "recall", "knowledge_search": "recall",
             "OrchestraClaim": "edit", "OrchestraRelease": "edit"}

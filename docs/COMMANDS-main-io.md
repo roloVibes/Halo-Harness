@@ -151,6 +151,19 @@ some model answered with no price).
 
 ### Browser flags
 
+Nothing needs a flag to use a browser: every session has the built-in **Browser** tool (3.6.0.6), which drives a
+Chrome, Chromium, Microsoft Edge or Brave already on the machine with nothing to install, over a pipe Halo owns.
+Example: `Browser {"action": "open", "url": "https://example.com"}`, then `{"action": "click", "target": "2"}`
+(a number from the answer's list of controls, the control's words, or `css:<selector>`). Its actions: open, read,
+click, type, key, scroll, back, js, screenshot, close. After each action that can change the page the answer ends
+with `Picture: <path>`, the page's picture in the session's attachments folder; `screenshot` gives the picture to
+the model. Open, read, screenshot and close are decided as WebFetch is for the same address (a rule
+`Browser(domain:example.com)` works as `WebFetch(domain:example.com)` does); click, type, key, scroll, back and js
+ask in the default mode. Halo looks for Google Chrome, Chromium, Microsoft Edge, then Brave, or the one
+`HALO_CHROME` names; with none it says "No browser found: install Google Chrome, Chromium, Microsoft Edge or Brave,
+or set HALO_CHROME to a browser's path. Halo downloads none." The setting `browser.profile` picks Halo's own kept
+profile (the default) or a clean one per session. The two flags below start other products' browser servers.
+
 #### `--chrome`, `--no-chrome`
 What: `--chrome` starts the claude-in-chrome extension's native-messaging
 bridge as a dynamic MCP server for this session (screenshots, page
