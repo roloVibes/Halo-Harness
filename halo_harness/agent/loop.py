@@ -1385,25 +1385,11 @@ class Session:
         # in-flight knobs. A child Session never builds its own (the control travels down through
         # `_build_child_session`).
         if agent_depth == 0 and not getattr(session_context, "bare", False):
-            if crew_map is not None:  # 3.6.0.0 R3: a session on a map holds it where a lineup was (crew/map_control.py)
-                from halo_harness.crew.map_control import control_for
-                self.team_control = control_for(crew_map, cwd=cwd, state_dir=state_dir, session=self)
-            else:
-                from halo_harness.crew.compile import in_use as _map_in_use
-                from halo_harness.crew.plain import load as _plain
-                self.team_control = _plain() if _map_in_use(None, cwd)[0] else None
-            from halo_harness.crew.compile import is_default as _default_map
-            # 3.6.0.0 R5 fix: on the default map the tools describe themselves as a plain session's did (no map tail)
-            _held = (self.team_control if getattr(self.team_control, "is_map", False)
-                     and not _default_map(getattr(self.team_control, "map", None)) else None)
-            # 3.1.9.0 R2: the Agent tool's description says when the lineup is `auto`
-            for _tool_name in ("Agent", "Task", "Workflow"):  # 3.3.16.0 R3: Workflow lists the lineup's squares
-                _tool = self.tool_registry.get(_tool_name) if self.tool_registry is not None else None
-                if _tool is not None:
-                    _tool.lineup = getattr(self.team_control, "name", None)
-                    _tool.map_control = _held
+            # 3.6.0.10 M1a: the control and the tools' state come from ONE place the measure uses too
+            from halo_harness.crew import session_start as _start
+            self.team_control = _start.start_control(crew_map, cwd=cwd, state_dir=state_dir, session=self)
+            _start.tool_state(self, self.team_control)
             if self.team_control is not None:
-                self.agent_runtime.team_control = self.team_control
                 delegation = self.team_control.delegation
                 # 3.1.9.0 R2: under the DEFAULT lineup a knob you set yourself
                 # (`agents.max_depth`, `agents.max_concurrent`) wins

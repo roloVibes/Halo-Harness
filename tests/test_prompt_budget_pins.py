@@ -26,12 +26,31 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 
+# 3.6.0.10 M1b (2026-11-21): every case measures a NEW top session in the folder (crew/session_start.py: its control,
+# the agents it finds, the Agent, Task and Workflow tools' lineup), as a real session starts. Each case's first turn
+# on the base 9624c426 (F_W, win32 / linux; the larger is F_W):
+#   an unknown remote model 8,014 / 7,975; 16,384 6,272 / 6,269; 49,152 8,012 / 7,973; 65,536 (lean) 8,012 / 7,973;
+#   a 200k cloud model 17,255 / 16,905 (17,310 / 16,961 measured so: the lineup line on the Agent and Task tools; the
+#   lean cases are byte-equal, the lean copies drop that line).
 # (label, model ref, window, prompt bound, tool block bound, sent window)
 CASES = (("an unknown remote model", "ol:room-model", 32768, 9000, 4500, 32768),
          ("a 16,384 window", "ol:tiny:3b@lan", 16384, 7000, 2200, 16384),
          ("a 49,152 window", "ol:qwen3-coder:30b@lan", 49152, 9000, 4500, 49152),
          ("a 65,536 window (lean)", "ol:qwen3-coder:30b@lan", 65536, 9000, None, 65536),
          ("a 200k cloud model", "ant:claude-opus-5-5", 200000, 18000, None, 200000))
+# A real new Auto session someone answers also carries the Builder (headless.py adds it); a request SENDS it only at
+# 65,536 and up. Its wire size on the base 9624c426: 1,024 tokens (2026-11-21). These cases pin that session: the
+# window's bound above plus the Builder's size, so the Builder cannot grow unseen either:
+#   65,536: 9,000 + 1,024 = 10,024 (measured 9,036 / 8,997); 200k cloud: 18,000 + 1,024 = 19,024 (18,593 / 18,244).
+BUILDER_WIRE = 1024
+# (label, model ref, window, prompt bound, sent window)
+REAL_CASES = (("a new Auto session at 65,536", "ol:qwen3-coder:30b@lan", 65536, 9000 + BUILDER_WIRE, 65536),
+              ("a new Auto session on a 200k cloud model", "ant:claude-opus-5-5", 200000, 18000 + BUILDER_WIRE, 200000))
+# Below 65,536 the Builder is not sent: the tools are the same; the system text only names it among the tools left out
+NO_BUILDER = (("an unknown remote model", "ol:room-model", 32768), ("a 16,384 window", "ol:tiny:3b@lan", 16384),
+              ("a 49,152 window", "ol:qwen3-coder:30b@lan", 49152))
+BY_NAME_MAX = 40  # "Other tools you can call by name (...): Builder." where no such line was (linux), else ", Builder"
+AUTO_SEVEN = ("planner", "researcher", "coder", "reviewer", "writer", "media-reader", "ops")
 UNKNOWN_TOTAL = 26000
 SYSTEM_LEAN = 4000
 _HOME: dict = {}
@@ -42,13 +61,17 @@ def why(what: str, bound: int) -> str:
             f"(tools/lean_descriptions.py), defer it, or raise this bound on purpose and say why in the CHANGELOG")
 
 
-def _measure(ref: str, window: int, platform: str) -> dict:
+def _home() -> dict:
     from tests.helpers.fake_home import build_fake_home
-    from halo_harness.agent.prompt_measure import first_turn
     if "fh" not in _HOME:
         _HOME["fh"] = build_fake_home()
         os.environ["BRIDGE_TEST_HOME"] = str(_HOME["fh"]["home"])
-    return first_turn(ref, window=window, platform=platform, cwd=_HOME["fh"]["proj"])
+    return _HOME["fh"]
+
+
+def _measure(ref: str, window: int, platform: str, **kw) -> dict:
+    from halo_harness.agent.prompt_measure import first_turn
+    return first_turn(ref, window=window, platform=platform, cwd=_home()["proj"], **kw)
 
 
 def _pins(ctx: Ctx, platform: str) -> None:
@@ -94,6 +117,71 @@ def test_the_cloud_case_is_not_lean_and_carries_every_tool(ctx: Ctx):
     ctx.check(f"a 200k cloud model is not lean, got {m['lean']}", m["lean"] is False)
     ctx.check(f"every tool offered, got {[r['name'] for r in m['tools'] if not r['offered']]}",
               all(r["offered"] for r in m["tools"]))
+
+
+@test
+def test_the_measured_session_is_a_new_auto_session(ctx: Ctx):
+    """3.6.0.10 M1b: the stub a pin measures has what a real new Auto session has: control "auto", the 15 names (Auto's
+    seven and the eight built-ins), the Agent, Task and Workflow tools' lineup, depth 0, no restriction."""
+    from halo_harness.agent.prompt_measure import new_session
+    from halo_harness.config.agents_md import BUILTIN_NAMES
+    for control in ("auto", None):  # None: the folder's own control, which is Auto in a home that set no map
+        s = new_session("ol:tiny:3b@lan", window=16384, platform="linux", cwd=_home()["proj"], control=control,
+                        builder=True)
+        names = list(s.agent_runtime.agents)
+        ctx.check(f"control {control!r}: the session's control is auto, got {getattr(s.team_control, 'name', None)!r}",
+                  getattr(s.team_control, "name", None) == "auto"
+                  and s.agent_runtime.team_control is s.team_control)
+        ctx.check(f"control {control!r}: the 15 names, got {names}",
+                  len(names) == 15 and set(names) == set(AUTO_SEVEN) | set(BUILTIN_NAMES))
+        ctx.check(f"control {control!r}: depth 0, no restriction",
+                  s.agent_runtime.depth == 0 and s.agent_type_restriction is None)
+        lineups = {n: getattr(s.tool_registry.get(n), "lineup", "-") for n in ("Agent", "Task", "Workflow")}
+        ctx.check(f"control {control!r}: the tools' lineup is auto, got {lineups}",
+                  all(v == "auto" for v in lineups.values()))
+        ctx.check("the Builder is registered", s.tool_registry.get("Builder") is not None)
+    s = new_session("ant:claude-opus-5-5", window=200000, platform="linux", cwd=_home()["proj"], control="auto")
+    ctx.check("the cloud Agent tool carries the lineup line a new session's has",
+              "The lineup is auto" in s.tool_registry.get("Agent").definition()["description"])
+    m = _measure("ant:claude-opus-5-5", 200000, "linux", control="auto", builder=True)
+    ctx.check("first_turn measures it: the Builder is sent on the cloud",
+              any(r["name"] == "Builder" and r["offered"] for r in m["tools"]))
+
+
+@test
+def test_a_real_new_auto_session_with_the_builder(ctx: Ctx):
+    """3.6.0.10 M1b: the real new Auto session, the Builder on the wire, at 65,536 and on the cloud."""
+    from halo_harness.agent.prompt_diet import wire_tokens
+    from halo_harness.tools.builder_tool import BuilderTool
+    size = wire_tokens(BuilderTool().definition())
+    ctx.check(f"the Builder's wire size is {size:,}, at most {BUILDER_WIRE:,} -- " + why("the Builder", BUILDER_WIRE),
+              size <= BUILDER_WIRE)
+    for platform in ("win32", "linux"):
+        for label, ref, window, prompt_max, sent in REAL_CASES:
+            m = _measure(ref, window, platform, control="auto", builder=True)
+            ctx.check(f"{platform}, {label}: the Builder is sent",
+                      any(r["name"] == "Builder" and r["offered"] for r in m["tools"]))
+            ctx.check(f"{platform}, {label}: the first turn is {m['prompt']:,} tokens -- "
+                      + why("the first turn", prompt_max), m["prompt"] <= prompt_max)
+            ctx.check(f"{platform}, {label}: sent at {m['sent_window']} (want {sent:,})", m["sent_window"] == sent)
+
+
+@test
+def test_below_65536_the_real_session_sends_no_builder(ctx: Ctx):
+    """3.6.0.10 M1b: at 16,384, 32,768 and 49,152 a real new Auto session sends the same tools as the pins measure;
+    the only difference is the Builder's name among the tools left out (the by-name line)."""
+    for platform in ("win32", "linux"):
+        for label, ref, window in NO_BUILDER:
+            old = _measure(ref, window, platform)
+            new = _measure(ref, window, platform, control="auto", builder=True)
+            sent_old = [(r["name"], r["tokens"]) for r in old["tools"] if r["offered"]]
+            sent_new = [(r["name"], r["tokens"]) for r in new["tools"] if r["offered"]]
+            ctx.check(f"{platform}, {label}: the same tools sent, got {len(sent_new)} vs {len(sent_old)}",
+                      sent_new == sent_old and "Builder" not in [n for n, _t in sent_new])
+            grew, sys_grew = new["prompt"] - old["prompt"], new["system_message"] - old["system_message"]
+            ctx.check(f"{platform}, {label}: only the by-name line grew ({grew} tokens, system {sys_grew})",
+                      0 <= grew <= BY_NAME_MAX and 0 <= sys_grew <= BY_NAME_MAX and "Builder" in new["left_out"]
+                      and new["sent_window"] == old["sent_window"])
 
 
 @test

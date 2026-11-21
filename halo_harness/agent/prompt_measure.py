@@ -2,7 +2,9 @@
 costs before anything is sent (`halo local prompt`, `/status`, `halo doctor`, Studio's model card, the
 steward's fit plan, tests/test_prompt_budget_pins.py).
 
-    first_turn(ref, *, window=None, platform=None, cwd=None, text="hi") -> Measure (a dict)
+    first_turn(ref, *, window=None, platform=None, cwd=None, text="hi", control=None, builder=False) -> Measure
+    new_session(ref, *, window=, platform=, cwd=, control=None, builder=False)  the stub it measures: a NEW top
+                                         session in `cwd` (crew/session_start.py; 3.6.0.10 M1b)
     first_turn_line(m) -> "Halo's own first turn: 9,150 tokens of 32,768 (28 %)"
     composition_text(session, first=)   `/cost`, `/status` (first: the line above on a local model)
     doctor_note(ref, cwd)                `halo doctor`'s default-model row
@@ -85,27 +87,46 @@ def _why_kept(session, sent: list) -> dict:
     return out
 
 
-def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-               text: str = "hi") -> dict:
-    from halo_harness.agent import prompt_lean as L
+def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
+                control: Optional[str] = None, builder: bool = False):
+    """The session a measure runs on: a NEW top session in `cwd` (3.6.0.10 M1b): the built-in tools of `platform`,
+    the Builder when `builder` (as headless.build_session adds it for a session someone answers), and the state a
+    start sets (crew/session_start.new_session_state: `control` is what `--map` would name, None the folder's own)."""
     from halo_harness.agent.assemble import SessionContext
-    from halo_harness.agent.derive import derive_request
-    from halo_harness.agent.prompt_composition import compose, composition_line, known_texts
-    from halo_harness.agent.prompt_wire import placement_for, shape
-    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted
     from halo_harness.config.paths import bridge_home
+    from halo_harness.crew.session_start import new_session_state
     from halo_harness.model import parse_model_ref
-    from halo_harness.providers.ollama_prompt import window_for
-    from halo_harness.providers.ollama_wire_estimate import wire_estimate
     from halo_harness.providers.profiles import model_family
     from halo_harness.tools.registry import ToolRegistry, default_tools
     ref = parse_model_ref(ref) if isinstance(ref, str) else ref
     plat = platform or sys.platform
     cwd = Path(cwd or Path.cwd())
     registry = ToolRegistry(default_tools(platform=plat))
+    if builder and registry.get("Builder") is None:
+        from halo_harness.tools.builder_tool import BuilderTool
+        registry.add_tool(BuilderTool())
     ctx = SessionContext(cwd=cwd, model_label=ref.raw, model_family=model_family(ref.model), tool_registry=registry)
     window = window or _window_for_ref(ref, getattr(ctx.settings, "effective_env", None))
-    log = _Nodes()
+    session = SimpleNamespace(model_ref=ref, model_profile=SimpleNamespace(context_tokens=window), log=_Nodes(),
+                              session_context=ctx, tool_registry=registry, state_dir=bridge_home(),
+                              settings=ctx.settings, route=None, role_name=None, _measure_window=window,
+                              _measure_platform=plat)
+    return new_session_state(session, cwd=cwd, control=control)
+
+
+def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
+               text: str = "hi", control: Optional[str] = None, builder: bool = False) -> dict:
+    from halo_harness.agent import prompt_lean as L
+    from halo_harness.agent.derive import derive_request
+    from halo_harness.agent.prompt_composition import compose, composition_line, known_texts
+    from halo_harness.agent.prompt_wire import placement_for, shape
+    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.providers.ollama_prompt import window_for
+    from halo_harness.providers.ollama_wire_estimate import wire_estimate
+    session = new_session(ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder)
+    ref, plat, window = session.model_ref, session._measure_platform, session._measure_window
+    ctx, registry, log = session.session_context, session.tool_registry, session.log
     log.add(type="meta", model=ref.raw, tools=registry.definitions())
     log.add(type="system", text=ctx.system_prompt)
     try:
@@ -118,10 +139,6 @@ def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = N
         if snap:
             log.add(type="snapshot", kind=kind, content=[{"type": "text", "text": snap}])
     log.add(type="user", content=[{"type": "text", "text": text}])
-    session = SimpleNamespace(model_ref=ref, model_profile=SimpleNamespace(context_tokens=window), log=log,
-                              session_context=ctx, tool_registry=registry, state_dir=bridge_home(),
-                              settings=ctx.settings, route=None, role_name=None, _measure_window=window,
-                              _measure_platform=plat)
     system_text, messages, tools = derive_request(log)
     full = list(tools or [])
     system_text, messages, sent = shape(session, system_text, messages, full, purpose="measure")

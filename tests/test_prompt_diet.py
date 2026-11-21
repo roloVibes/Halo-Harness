@@ -47,10 +47,19 @@ def _every_builtin() -> list:
                                               CopilotAskTool()]
 
 
+_FOLDER: dict = {}
+
+
 def _session(ref: str, window: int, **extra):
+    """3.6.0.10 M1b: a NEW Auto session's state (crew/session_start.py: the control, the agents, depth 0), as the
+    measure's stub has it, in a project folder of this module's own."""
+    from halo_harness.crew.session_start import new_session_state
     from halo_harness.model import parse_model_ref
-    return SimpleNamespace(model_ref=parse_model_ref(ref), model_profile=SimpleNamespace(context_tokens=window),
+    if "proj" not in _FOLDER:
+        _FOLDER["proj"] = tempfile.mkdtemp(prefix="pb_diet-proj-")
+    stub = SimpleNamespace(model_ref=parse_model_ref(ref), model_profile=SimpleNamespace(context_tokens=window),
                            _measure_window=window, **extra)
+    return new_session_state(stub, cwd=_FOLDER["proj"], control="auto")
 
 
 @test
