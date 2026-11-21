@@ -68,7 +68,7 @@ jobs:
       matrix:
         os: [linux, macos]
         shard: [0, 1, 2, 3]
-    timeout-minutes: 70
+    timeout-minutes: 80
     env:
       PYTHONPATH: ${{ github.workspace }}
       BRIDGE_TEST_NO_BACKGROUND_NET: "1"
@@ -143,7 +143,8 @@ jobs:
       - name: tests/run_all.py (shard ${{ matrix.shard }}/4)
         id: run_all
         continue-on-error: true
-        timeout-minutes: 30  # 3.3.8.1: a quarter of the 50-75-minute all-tiers run
+        timeout-minutes: 40  # 3.3.8.1: a quarter of the all-tiers run; 3.6.0.7: 40, not 30: a shard holds about 2,100 tests now, and on
+        # this release's gate a macOS runner twice reached only module 253 and 246 of 264 at 30 minutes (Linux: 23 minutes)
         run: set -o pipefail; python tests/run_all.py --shard ${{ matrix.shard }}/4 2>&1 | tee "$RUNNER_TEMP/run_all.log"
 
       - name: test_tui.py
