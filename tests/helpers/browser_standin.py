@@ -16,7 +16,8 @@ def main() -> None:
     from halo_harness import browser_cdp, closing
     b = browser_cdp.Browser(sys.argv[2], home=sys.argv[1]).start()
     b.open("data:text/html,<title>stand-in</title><p>held</p>")
-    print(json.dumps({"pid": __import__("os").getpid(), "browser": b.proc.pid, "profile": b.profile}), flush=True)
+    print(json.dumps({"pid": __import__("os").getpid(), "browser": b.proc.pid, "profile": b.profile,
+                      "tmp": str(getattr(b, "tmp", "") or "")}), flush=True)
     if len(sys.argv) > 3 and sys.argv[3] == "close":
         closing.close(say=lambda _l: None)
         print("closed", flush=True)

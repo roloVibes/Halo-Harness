@@ -203,6 +203,32 @@ def playwright_output_dir() -> Path:
     return bridge_home() / "playwright" / str(os.getpid())
 
 
+def sweep_playwright_dirs() -> None:
+    """Every `playwright/<pid>` folder whose halo is no longer alive (by the pid in its name, checked the way the
+    closing rule checks) is removed; never the folder of a live halo."""
+    from halo_harness.children import pid_running
+    root = playwright_output_dir().parent
+    try:
+        folders = [p for p in root.iterdir() if p.is_dir() and p.name.isdigit()]
+    except OSError:
+        return
+    for p in folders:
+        if int(p.name) != os.getpid() and not pid_running(int(p.name)):
+            shutil.rmtree(p, ignore_errors=True)
+
+
+def _remove_with(manager, folder: Path) -> None:
+    """The page files' folder goes when the manager that made it closes."""
+    close = manager.close_all
+
+    def close_all(*a, **k):
+        try:
+            return close(*a, **k)
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+    manager.close_all = close_all
+
+
 def playwright_server_config(*, cdp_endpoint: Optional[str] = None, headless: bool = False):
     """`(config_or_None, error_or_None)`. `{type: stdio, command: npx,
     args: ["-y", "@playwright/mcp@<PLAYWRIGHT_VERSION>", "--output-dir", <playwright_output_dir()>, ...]}`, named
@@ -268,6 +294,7 @@ def build_manager(
         if cfg is not None:
             dynamic["playwright"] = cfg
             notices.append(PLAYWRIGHT_NOTICE)  # said once, with this session's other notices, before it starts
+            sweep_playwright_dirs()  # what a halo that ended hard left
         elif err:
             notices.append(err)
 
@@ -306,6 +333,8 @@ def build_manager(
     lazy_names = {name for name, cfg in configs.items() if cfg.lazy}
     manager = McpManager(configs, tool_env=tool_child_env(base_env), cwd=cwd,
                           lazy_names=lazy_names, trusted=trusted)
+    if "playwright" in dynamic:
+        _remove_with(manager, playwright_output_dir())  # 3.6.0.6 W: --playwright leaves no folder behind
     if start:
         manager.start_all()
         if lazy_names:

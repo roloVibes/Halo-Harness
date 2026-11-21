@@ -2175,6 +2175,11 @@ def run_print_mode(
                 cwd, session_log.session_id,
                 cost_usd=_known_cost(session.cost_meter))
     finally:
+        try:  # 3.6.0.6 W: the session's browser ends the orderly way (3 s at most) before any other stop of its children
+            from halo_harness.browser_cdp import end_browsers
+            end_browsers()
+        except Exception:
+            pass
         # Halo 2.0.9 round 2: the control socket + registry entry go first.
         try:
             from halo_harness.remote.runtime import stop as _remote_stop

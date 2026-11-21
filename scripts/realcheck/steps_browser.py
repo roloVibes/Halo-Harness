@@ -5,7 +5,7 @@
 scripted to call Browser open on a page this step serves on 127.0.0.1, click its button, take a screenshot, close
 (fakes.py RC-BROWSER). It requires: the reply carries the page's text AFTER the click; a PNG in the session's
 attachments folder; no process of the browser's tree listening on any socket while it ran (it talks to Halo over a pipe
-on every system); after halo ended, no process and no profile folder left. First the same with halo ended HARD in the
+on every system); after halo ended, no process, no profile folder and nothing in the browser's own temp folder left. First the same with halo ended HARD in the
 middle (RC-BROWSERHOLD: open, then the model's next call held): the browser is gone 5 s later, and the next session's
 start removes the folder a hard end could not. With `--browser none`, or no browser installed, it is reported the way
 the other steps that need a browser are (core.browser)."""
@@ -78,9 +78,13 @@ def listening(pids) -> list:
         return [f"cannot look: {e}"]
 
 
-def judge(reply: str, pictures: list, listeners: list, left_hard: list, left: list, folders: list) -> list:
-    """The step's verdict on what it saw: the problems, in plain words ([] passes)."""
+def judge(reply: str, pictures: list, listeners: list, left_hard: list, left: list, folders: list,
+          temps: list = ()) -> list:
+    """The step's verdict on what it saw: the problems, in plain words ([] passes). `temps`: what is left in the
+    browser's own temp folder (`<home>/browser/tmp`) after both ends (3.6.0.6 W batch 3)."""
     bad = []
+    if temps:
+        bad.append(f"the browser's temp folder was left: {list(temps)[:2]}")
     if fakes.BROWSER_DONE not in reply or fakes.BROWSER_AFTER not in reply:
         bad.append(f"the reply does not carry the page's text after the click: {excerpt(reply, 160)!r}")
     if not pictures:
@@ -144,8 +148,9 @@ def browser(ctx):
     pictures = [q for q in (h.state / "attachments").glob("*/page-*.png") if q.read_bytes()[:8] == PNG]
     left = [q.short(90) for q in ctx.left_after(h, 5.0)]
     folders = [q.name for q in folder.glob("clean-*")] if folder.is_dir() else []
-    ev.update(pictures=len(pictures), listeners=listeners, left_hard=left_hard, left=left, folders=folders)
-    bad = judge(r.out, pictures, listeners, left_hard, left, folders)
+    temps = [q.name for q in (folder / "tmp").iterdir()] if (folder / "tmp").is_dir() else []
+    ev.update(pictures=len(pictures), listeners=listeners, left_hard=left_hard, left=left, folders=folders, temps=temps)
+    bad = judge(r.out, pictures, listeners, left_hard, left, folders, temps)
     if bad:
         if left:
             ev["ended"] = ctx.end_leftovers(h)

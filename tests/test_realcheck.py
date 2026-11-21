@@ -990,6 +990,9 @@ def test_the_browser_steps_judge_passes_only_a_whole_clean_run(ctx: Ctx):
                        ((reply, ["p"], [], [], [], ["clean-1-2-3"]), "profile folder")):
         got = judge(*args)
         ctx.check(f"{word}: one problem that says so, got {got}", len(got) == 1 and word in got[0])
+    got = judge(reply, ["p"], [], [], [], [], temps=["4242-1-1"])  # W batch 3 entry 1
+    ctx.check(f"the browser's temp folder left: one problem that says so, got {got}",
+              len(got) == 1 and "temp folder" in got[0])
 
 
 def _browser_steps(m) -> list:

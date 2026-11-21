@@ -112,7 +112,12 @@ SITE = {
     "/slow.html": "<!doctype html><title>Slow</title><body><p>the text that is there</p><img src='/never.png'>"
                   "</body>",
     "/dl.html": "<!doctype html><title>Files</title><body><a href='/report.txt'>Get the report</a></body>",
+    "/opens-box.html": "<!doctype html><title>Opens</title><body><a href='/box-first.html' target='_blank'>Box tab</a>"
+                       "</body>",
+    "/box-first.html": "<!doctype html><html><head><script>alert('Hello at once');</script><title>Box first</title>"
+                       "</head><body><p>after the first box</p></body></html>",
 }
+BROWSER_WORDS = ("chrome", "chromium", "edge", "msedge", "brave", "scoped_dir", "url_fetcher")
 REPORT = b"the report, " * 100
 
 
@@ -386,8 +391,108 @@ def test_real_pages_a_new_tab_a_box_an_endless_load_and_a_download(ctx: Ctx):
                       got.is_file() and got.read_bytes() == REPORT and [p.name for p in dl.iterdir()] == ["report.txt"])
             after = their_dl.stat().st_mtime if their_dl.exists() else None
             ctx.check("(d) nothing written to the person's own Downloads", after == before)
+            # W batch 3 entry 3: the folder a person reads holds a download only when it is whole
+            b.press("Get the report")
+            seen, end = set(), time.monotonic() + 8.0
+            while time.monotonic() < end:
+                seen |= {p.name for p in dl.iterdir()}
+                time.sleep(0.5)
+            half = sorted(n for n in seen if n.lower().endswith((".crdownload", ".tmp")) or len(n) == 36)
+            ctx.check(f"(d) never a half-written file in the session's folder, saw {sorted(seen)}", not half)
+            second = dl / "report (2).txt"
+            ctx.check(f"(d) a taken name gets ' (2)', whole, got {sorted(p.name for p in dl.iterdir())}",
+                      sorted(p.name for p in dl.iterdir()) == ["report (2).txt", "report.txt"]
+                      and second.read_bytes() == REPORT)
+            staging = getattr(b, "tmp", None)
+            ctx.check(f"(d) the staging folder is Halo's own, inside the browser's temp folder, got {staging}",
+                      staging is not None and (Path(staging) / "downloads").is_dir())
+            ctx.check("(d) and it is empty once the file moved",
+                      staging is not None and not any((Path(staging) / "downloads").iterdir()))
+            # W batch 3 entry 4: a box raised by the first line of a tab that has just opened is answered too
+            b.open(site + "/opens-box.html")
+            b.take_notes()
+            t = time.monotonic()
+            b.press("Box tab")
+            took, notes = time.monotonic() - t, b.take_notes()
+            ctx.check(f"(e) a box in a new tab's first moment: answered, said after the new tab, the page went on, "
+                      f"got {notes} {took:.1f}s {b.page()['text'][:60]!r}",
+                      notes == [B.NEW_TAB, "The page showed a box: 'Hello at once' (accepted)."]
+                      and "after the first box" in b.page()["text"] and took < B.LOAD_WAIT_S)
         finally:
             b.close()
+        ctx.check("the staging folder went with the browser", staging is None or not os.path.exists(staging))
+
+
+def _browser_entries(folder) -> "list[str]":
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return []
+    return sorted(n for n in names if any(w in n.lower() for w in BROWSER_WORDS))
+
+
+@test
+def test_a_temp_folder_a_hard_end_left_is_swept_and_a_live_ones_kept(ctx: Ctx):
+    """W batch 3 entry 1: the browser's own temp folder (`<halo home>/browser/tmp/<pid>-...`) that a hard end left is
+    removed by the next start: only one whose owner (the pid in its name) is no longer alive; never one in use."""
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    home = Path(_scratch("browser-tmp-sweep-"))
+    root = B.browser_home(home) / "tmp"
+    gone, live, mine = root / "999991-1", root / "999992-1", root / f"{os.getpid()}-1"
+    sys_gone = Path(tempfile.gettempdir()) / "halo-browser-999991-7"
+    for p in (gone, live, mine, sys_gone):
+        (p / "downloads").mkdir(parents=True)
+    _SCRATCH.append(str(sys_gone))
+    with mock.patch("halo_harness.children.pid_running", lambda pid: pid == 999992):
+        B.sweep_temps(home)
+    ctx.check("the gone session's temp folder is removed", not gone.exists())
+    ctx.check("and one it had in the system's temp (a home too deep for the browser's socket)", not sys_gone.exists())
+    ctx.check("a running session's temp folder stays", live.exists())
+    ctx.check("this process's own stays", mine.exists())
+    short = B.temp_folder(Path("/h/.halo/browser"))
+    ctx.check(f"a home that fits: under Halo's home, got {short}", short.parent == Path("/h/.halo/browser/tmp"))
+    deep = B.temp_folder(Path("/h/" + "d" * 80 + "/.halo/browser"))
+    ctx.check(f"a POSIX home too deep for the browser's socket: a folder of its own in the system's temp, got {deep}",
+              deep.parent == Path(tempfile.gettempdir()) and deep.name.startswith("halo-browser-")
+              if os.name != "nt" else deep.parent.name == "tmp")
+
+
+@test
+def test_after_the_browser_nothing_of_it_is_left_in_the_temp_folder(ctx: Ctx):
+    """W batch 3 entry 1 (the owner: everything Halo starts ends with it, nothing is left behind): a real browser on
+    Halo's kept profile, a page, 20 s for its background work, closed: the temp folder it was given (this run's own,
+    standing in for the system's, so another run on the machine never counts) holds nothing new, and the browser's own
+    temp folder under Halo's home is gone. What is left of the browser is the kept profile only."""
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    from halo_harness.browser_find import find_browser
+    if find_browser() is None:
+        ctx.check("a browser on this machine", False)
+        return
+    home, given = Path(_scratch("browser-cdp-temp-")), Path(_scratch("browser-cdp-given-"))
+    own = None
+    with _Locked(), mock.patch.dict(os.environ, {"TMP": str(given), "TEMP": str(given), "TMPDIR": str(given)}):
+        b = B.Browser("kept", home=home)
+        try:
+            b.start()
+            own = getattr(b, "tmp", None)
+            ctx.check(f"the browser's own temp folder is under Halo's home (or, for a home too deep for its socket, "
+                      f"its own in the system's temp), got {own}",
+                      own is not None and Path(own).is_dir() and (Path(own).parent == B.browser_home(home) / "tmp"
+                                                                  or Path(own).name.startswith("halo-browser-")))
+            b.open("data:text/html,<title>temp</title><p>a page</p>")
+            time.sleep(20)  # the browser's own background work (an updater) starts some seconds in
+        finally:
+            b.close()
+    left = sorted(os.listdir(given))
+    ctx.check(f"nothing of the browser in the temp folder it was given (a {sys.platform} browser wrote these: "
+              f"{_browser_entries(given) or left})", not left)
+    ctx.check(f"its own temp folder under Halo's home is gone, got {own}", own is not None and not os.path.exists(own))
+    bh = B.browser_home(home)
+    rest = [n for n in os.listdir(bh) if n not in ("profile", "profile.lock", "tmp")]
+    temps = os.listdir(bh / "tmp") if (bh / "tmp").is_dir() else []
+    ctx.check(f"what stays is the kept profile only, got {rest} {temps}", not rest and not temps)
 
 
 @test

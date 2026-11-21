@@ -287,6 +287,94 @@ def test_a_sign_in_on_the_kept_profile_outlives_a_session_that_ends_without_clos
     ctx.check(f"nothing of either session is left running, got {left}", not left)
 
 
+def _studio_session(rig, steps: list, how: str, server=None) -> "tuple[list, str]":
+    """One session with no terminal that calls Browser with `steps` and is then ended `how`: "end" is Studio's own
+    End session (the session's `shutdown`, what studio/sessions_api.py forwards); "stop" is Studio stopping (the
+    session Studio started gets sessions_new_api.end_started, then the closing procedure's hard end of what is left).
+    (the tool results, what happened)."""
+    from tests.helpers.session_rig import wait_for
+    rig.state_steps[:] = steps
+    rig.results[:] = []
+    if how == "stop":
+        status, row = rig.api(server, "POST", "sessions/new", {"model": "or:mock/headless", "cwd": str(rig.proj)})
+        if status != 202:
+            return [], f"Studio did not start a session: {status} {row}"
+        entry = rig.entry(row["session_id"])
+        rig.pids.append(row["pid"])
+    else:
+        rig.start("--permission-mode", "auto")
+        entry = wait_for(lambda: next((r for r in rig.rows() if r.get("pid") == rig.pids[-1]), None), 60, 0.1)
+    if not entry:
+        return [], f"the session never registered: {rig.child_log()[-600:]}"
+    c = rig.client(entry)
+    c.call("submit", text="open the page", when_busy="refuse")
+    wait_for(lambda: len(rig.results) >= len(steps) and rig.idle(c, 5.0), 120, 0.3)
+    got = list(rig.results)
+    pid = entry["pid"]
+    from halo_harness.bg_run import pid_alive
+    if how == "stop":
+        from halo_harness.studio.sessions_new_api import end_started
+        end_started()
+        said = "Studio's stop left the session running; the closing procedure ended it hard" if pid_alive(pid) else ""
+        if pid_alive(pid):
+            from halo_harness.children_stop import terminate
+            terminate(pid, timeout=5.0)
+    else:
+        c.call("shutdown", by="the test", via="studio", reason="End session")
+        said = "" if wait_for(lambda: not pid_alive(pid) or None, 30, 0.1) else "the session did not end in 30 s"
+    return got, said
+
+
+@test
+def test_a_sign_in_outlives_studio_ending_the_session_and_studio_stopping(ctx: Ctx):
+    """W batch 3 entry 2 (c) and (d): a session started the way Studio starts one signs in (a lasting cookie) and is
+    ended WITHOUT the tool's close, by Studio's End session, and once by Studio stopping; each time the next session
+    on the same home finds the cookie (Halo's kept profile) and nothing of the browser is left running."""
+    from halo_harness.browser_find import find_browser
+    from tests.helpers.headless_rig import HeadlessRig
+    from tests.helpers.mock_openai import SCENARIOS, _finish
+    if find_browser() is None:
+        ctx.check("a browser on this machine", False)
+        return
+    rig = HeadlessRig()
+    rig.state_steps, rig.results = [], []
+
+    def answer(h, body):
+        msgs = (body or {}).get("messages") or []
+        results = [m.get("content") for m in msgs if isinstance(m, dict) and m.get("role") == "tool"]
+        rig.results[:] = [r if isinstance(r, str) else json.dumps(r) for r in results]
+        if len(results) < len(rig.state_steps):
+            return _finish(h, tool_step(("Browser", rig.state_steps[len(results)], f"call_b_{len(results)}")))
+        return _finish(h, text_step(DONE))
+    SCENARIOS["headless"] = answer
+    set_cookie = "document.cookie = 'signedin=yes; max-age=86400; path=/'; document.cookie"
+    try:
+        with _Locked(), _CookiePage() as url:
+            server = rig.studio()
+            rig.spawn_env()
+            for how in ("end", "stop"):
+                res, said = _studio_session(rig, [{"action": "open", "url": url}, {"action": "js", "text": set_cookie}],
+                                            how, server)
+                ctx.check(f"({how}) the session signed in, got {res[-1:]!r} {said}",
+                          len(res) == 2 and "signedin=yes" in res[1])
+                ctx.check(f"({how}) ended, got {said!r}", "did not end" not in said and "never" not in said)
+                left = _gone(str(rig.state / "browser" / "profile"))
+                ctx.check(f"({how}) nothing carries the kept profile after, got {left}", not left)
+                res, said = _studio_session(rig, [{"action": "open", "url": url},
+                                                  {"action": "js", "text": "'cookie=[' + document.cookie + ']'"},
+                                                  {"action": "close"}], "end")
+                ctx.check(f"({how}) the next session is still signed in, got {res[1:2]!r}",
+                          len(res) > 1 and "cookie=[signedin=yes]" in res[1])
+                # signed out again, so the second way out proves its own cookie
+                _studio_session(rig, [{"action": "open", "url": url},
+                                      {"action": "js", "text": "document.cookie = 'signedin=; max-age=0; path=/'"},
+                                      {"action": "close"}], "end")
+    finally:
+        rig.close()
+        left = rig.survivors()
+        ctx.check(f"no session left running, got {left}", not left)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

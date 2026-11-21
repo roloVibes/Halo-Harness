@@ -14,10 +14,18 @@ first answer says so). `clean` is a throwaway folder `<halo home>/browser/clean-
 hard end left behind is removed by the next start.
 
 THE CLOSING RULE: started through Halo's own spawn (subprocess_safe.Popen: the owner marker and the reaper on POSIX,
-Halo's Job object on Windows), in the ledger as `browser` while it runs, and closed on every way out (closing.on_close):
-`Browser.close`, a wait, then every process that still carries the profile ended BY PID (POSIX) or every process of
-the browser's own Job (Windows, browser_pipe_win.end_job); then a clean profile is removed. A hard end of Halo closes
-the pipe, and the browser ends itself on its closed pipe (and the reaper / the Job end what is left).
+Halo's Job object on Windows), in the ledger as `browser` while it runs, and closed on every way out: `Browser.close`
+(THE one way a browser ends: asked to close, up to END_WAIT_S for it to be gone, then every process that still carries
+the profile ended BY PID (POSIX) or every process of the browser's own Job (Windows, browser_pipe_win.end_job)); then a
+clean profile and its temp folder are removed. Every orderly way out of a session calls `end_browsers()` BEFORE any
+other stop of its children (Controller.quit, the terminal app's force quit, the end of `halo -p`), and closing.on_close
+runs it again for any other exit. A hard end of Halo closes the pipe, and the browser ends itself on its closed pipe
+(and the reaper / the Job end what is left: a sign-in made in its last seconds may be lost).
+
+NOTHING ELSE IS LEFT (batch 3): the browser's TMP, TEMP and TMPDIR are a temp folder of its own, `<halo home>/browser/
+tmp/<pid>-<n>-<ms>`, removed when it ends (one a hard end left is swept by the next start: only when the pid in its
+name is no longer alive), and QUIET switches stop its own background work (an updater, pings, reports). A download is
+staged in that folder and moved into `download_dir` only when the browser says it is whole.
 
 WHAT REAL PAGES DO (batch 2): an action that opens a new tab goes on IN it (NEW_TAB begins its answer; a current tab
 that closes hands back to the one before it; there is always one current tab); a page's alert, confirm or prompt box
@@ -49,6 +57,7 @@ import subprocess
 import sys
 import threading
 import time
+import weakref
 from pathlib import Path
 from typing import Optional
 
@@ -56,6 +65,10 @@ LOAD_WAIT_S = 15.0
 CALL_WAIT_S = 30.0
 START_WAIT_S = 60.0  # a cold start on a slow Windows CI runner; a healthy start answers in well under a second
 CLOSE_WAIT_S = 5.0
+END_WAIT_S = 3.0  # the longest any way out waits for the browser to close itself before it is stopped hard
+# the browser's own background work, which nobody asked for and which writes temp files and goes to the network
+QUIET = ("--disable-component-update", "--disable-background-networking", "--disable-domain-reliability", "--no-pings",
+         "--disable-default-apps")
 CONTROLS_MAX = 80
 WIDTH, HEIGHT = 1280, 800
 HEADLESS = ("--headless=new", "--disable-gpu", "--hide-scrollbars")
@@ -64,6 +77,7 @@ FLAGS = ("--no-first-run", "--no-default-browser-check", "--password-store=basic
 PROFILES = ("kept", "clean")
 IN_USE = "Another session is using Halo's browser profile; this one starts clean (not signed in)."
 _SEQ = itertools.count(1)
+_LIVE: "weakref.WeakSet" = weakref.WeakSet()  # every Browser this process started (end_browsers)
 
 
 class BrowserError(RuntimeError):
@@ -209,6 +223,59 @@ def sweep_clean_profiles(home=None) -> None:
             shutil.rmtree(p, ignore_errors=True)
 
 
+SOCKET_MAX = 100  # a POSIX socket's address: 104 bytes on macOS, 108 on Linux (with its end)
+SOCKET_TAIL = len("/.org.chromium.Chromium.XXXXXX/SingletonSocket")  # what the browser puts in its temp folder
+
+
+def temp_folder(root: Path) -> Path:
+    """The browser's own temp folder: `<root>/tmp/<pid>-<n>`. On Linux and macOS the browser keeps a socket (a file,
+    never a network port) in it, whose whole path must fit a socket's address: a home too deep for it gets a folder of
+    its own in the system's temp instead, `halo-browser-<pid>-<n>`, by the same rules (removed with it, swept by pid)."""
+    name = f"{os.getpid()}-{next(_SEQ)}"
+    own = Path(root) / "tmp" / name
+    if os.name == "nt" or len(str(own)) + SOCKET_TAIL <= SOCKET_MAX:
+        return own
+    import tempfile
+    return Path(tempfile.gettempdir()) / f"halo-browser-{name}"
+
+
+def sweep_temps(home=None) -> None:
+    """A browser's temp folder whose session is gone (a hard end) is removed at the next start: only when the pid in its
+    name is no longer alive (never by a name alone, never one in use)."""
+    import tempfile
+    from halo_harness.children import pid_running
+    found = []
+    for root, pat in ((browser_home(home) / "tmp", r"(\d+)-\d+$"), (Path(tempfile.gettempdir()), r"halo-browser-(\d+)-\d+$")):
+        try:
+            found += [(p, re.match(pat, p.name)) for p in root.iterdir() if p.is_dir()]
+        except OSError:
+            continue
+    for p, m in found:
+        if m and int(m.group(1)) != os.getpid() and not pid_running(int(m.group(1))):
+            shutil.rmtree(p, ignore_errors=True)
+
+
+def _remove(folder) -> None:
+    for _ in range(20):  # Windows lets go of a folder a moment after its processes end
+        shutil.rmtree(folder, ignore_errors=True)
+        if not os.path.exists(folder):
+            return
+        time.sleep(0.1)
+
+
+def end_browsers() -> None:
+    """THE orderly end of this process's browsers, which every orderly way out of a session calls BEFORE any other stop
+    of its children: each one's Browser.close (asked to close, up to END_WAIT_S, then the hard stop by pid), all at
+    once. Idempotent; never raises; never waits much past END_WAIT_S."""
+    live = [b for b in list(_LIVE) if b.proc is not None]
+    threads = [threading.Thread(target=b.close, name="halo-browser-end", daemon=True) for b in live]
+    for th in threads:
+        th.start()
+    end = time.monotonic() + END_WAIT_S + 2.0  # the hard stop after the bound gets a moment
+    for th in threads:
+        th.join(max(0.0, end - time.monotonic()))
+
+
 # -- the pipe -----------------------------------------------------------------------------------------------------------
 
 class _Pipe:
@@ -321,7 +388,7 @@ _TRAMPOLINE = ("import fcntl, os, sys\n"
                "os.execv(sys.argv[3], sys.argv[3:])\n")
 
 
-def _posix_spawn(argv: list, popen):
+def _posix_spawn(argv: list, popen, env=None):
     """A tiny Python step puts the two pipe ends at descriptors 3 and 4 and execs the browser (its pid is the
     browser's); no code runs in the forked child before exec (no preexec_fn in a process with threads)."""
     import sys as _sys
@@ -331,7 +398,7 @@ def _posix_spawn(argv: list, popen):
         proc = popen([_sys.executable, "-I", "-S", "-c", _TRAMPOLINE, str(to_child_r), str(from_child_w), argv[0],
                       "--remote-debugging-pipe", *argv[1:]], pass_fds=(to_child_r, from_child_w),
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     start_new_session=True)  # a Ctrl+C at the terminal stops a turn, never the browser
+                     start_new_session=True, env=env)  # a Ctrl+C at the terminal stops a turn, never the browser
     except BaseException:
         os.close(from_child_r)
         os.close(to_child_w)
@@ -444,6 +511,9 @@ class Browser:
         self.sessions: dict = {}  # target id -> DevTools session id
         self._seen: set = set()  # every page target met so far
         self._downloads: dict = {}  # guid -> {"name", "state", "said"}
+        self._auto: dict = {}  # target id -> the session its automatic attach made (a new tab, held at its start)
+        self._first: dict = {}  # DevTools session id -> where in `notes` its first line is (NEW_TAB goes before it)
+        self.tmp: Optional[Path] = None  # the browser's own temp folder (its TMP, TEMP, TMPDIR; downloads staged)
         self._nmu = threading.Lock()  # the notes: the reader thread adds a box's line
         self.proc = None
         self.pipe: Optional[_Pipe] = None
@@ -481,9 +551,12 @@ class Browser:
             root = browser_home(self.home)
             root.mkdir(parents=True, exist_ok=True)
             sweep_clean_profiles(self.home)
+            sweep_temps(self.home)
             self._pick_profile(root)
             self._pick_window()
-            self.tabs, self.sessions, self._seen, self._downloads = [], {}, set(), {}
+            self.tabs, self.sessions, self._seen, self._downloads, self._auto = [], {}, set(), {}, {}
+            self.tmp = temp_folder(root)
+            (self.tmp / "downloads").mkdir(parents=True, exist_ok=True)
             try:
                 self._spawn()
                 self._attach()
@@ -520,17 +593,23 @@ class Browser:
 
     def argv(self) -> list:
         extra = ("--no-sandbox",) if getattr(os, "geteuid", lambda: -1)() == 0 else ()  # a root shell (Kali)
-        return [self.exe, *(() if self.show else HEADLESS), *FLAGS, *extra, f"--user-data-dir={self.profile}",
+        return [self.exe, *(() if self.show else HEADLESS), *FLAGS, *QUIET, *extra, f"--user-data-dir={self.profile}",
                 "about:blank"]
+
+    def env(self) -> dict:
+        """This process's environment with the temp folder the browser's own: what it writes as temporary is there."""
+        t = str(self.tmp)
+        return {**os.environ, "TMP": t, "TEMP": t, "TMPDIR": t}
 
     def _spawn(self) -> None:
         from halo_harness import subprocess_safe
         popen = self.popen or subprocess_safe.Popen
         if os.name == "nt":
             from halo_harness.browser_pipe_win import spawn
-            self.proc, rfd, wfd, self.job = spawn(self.argv(), popen, show=self.show)
+            self.proc, rfd, wfd, self.job = spawn(self.argv(), popen, show=self.show, env=self.env())
         else:
-            self.proc, rfd, wfd, self.job = _posix_spawn(self.argv(), popen)
+            self.proc, rfd, wfd, self.job = _posix_spawn(self.argv(), popen, env=self.env())
+        _LIVE.add(self)
         self.pipe = _Pipe(rfd, wfd)
         try:
             from halo_harness import children, closing
@@ -555,10 +634,15 @@ class Browser:
         if target is None:
             target = self._new_blank()
         self._take_tab(target)
+        # a new tab is taken over BEFORE its page runs: attached automatically and held at its start, its page events
+        # switched on, then let go (_on_event), so a box in its first moment is answered like any other
+        self.pipe.call("Target.setAutoAttach", {"autoAttach": True, "waitForDebuggerOnStart": True, "flatten": True},
+                       None, CALL_WAIT_S)
         if self.download_dir is not None:
             Path(self.download_dir).mkdir(parents=True, exist_ok=True)
             self.pipe.call("Browser.setDownloadBehavior", {"behavior": "allowAndName", "eventsEnabled": True,
-                                                           "downloadPath": str(self.download_dir)}, None, CALL_WAIT_S)
+                                                           "downloadPath": str(self.tmp / "downloads")}, None,
+                           CALL_WAIT_S)  # staged in Halo's own folder; moved into download_dir only when whole
 
     def _new_blank(self) -> str:
         tid = self.pipe.call("Target.createTarget", {"url": "about:blank"}, None, CALL_WAIT_S)["targetId"]
@@ -566,34 +650,60 @@ class Browser:
         return tid
 
     def _take_tab(self, target: str) -> None:
-        """Attach to `target`, make it the current tab (the last of `tabs`)."""
-        sid = self.pipe.call("Target.attachToTarget", {"targetId": target, "flatten": True}, None,
-                             CALL_WAIT_S)["sessionId"]
+        """Attach to `target` (the session its automatic attach made, when it has one), make it the current tab (the
+        last of `tabs`)."""
+        sid, end = self._auto.get(target), time.monotonic() + 0.5
+        while sid is None and self.sessions and time.monotonic() < end:  # its attach event is on its way
+            time.sleep(0.02)
+            sid = self._auto.get(target)
+        if sid is None:
+            sid = self.pipe.call("Target.attachToTarget", {"targetId": target, "flatten": True}, None,
+                                 CALL_WAIT_S)["sessionId"]
         self.sessions[target] = sid
         self.tabs = [t for t in self.tabs if t != target] + [target]
         self.session = sid
         self.call("Page.enable")
 
     # -- what the page and the browser say while an action runs (the reader thread) ------------------------------------
-    def _note(self, line: str) -> None:
+    def _note(self, line: str, sid: Optional[str] = None) -> None:
         with self._nmu:
+            if sid:
+                self._first.setdefault(sid, len(self.notes))
             self.notes.append(line)
+
+    def _note_new_tab(self, sid: str) -> None:
+        """NEW_TAB, said before anything the new tab itself said (a box in its first moment)."""
+        with self._nmu:
+            i = self._first.get(sid)
+            if i is None:
+                self.notes.append(NEW_TAB)
+                return
+            self.notes.insert(i, NEW_TAB)
+            self._first = {k: v + 1 if v >= i else v for k, v in self._first.items()}
 
     def take_notes(self) -> "list[str]":
         """The lines the next answer begins with, in the order they happened; emptied."""
         with self._nmu:
-            out, self.notes = list(self.notes), []
+            out, self.notes, self._first = list(self.notes), [], {}
         return out
 
     def _on_event(self, msg: dict) -> None:
         method, p = msg.get("method"), msg.get("params") or {}
-        if method == "Page.javascriptDialogOpening":
+        if method == "Target.attachedToTarget":
+            info, sid = p.get("targetInfo") or {}, p.get("sessionId")
+            tid = info.get("targetId")
+            if sid and tid and info.get("type") == "page" and tid not in self.sessions:
+                self._auto[tid] = sid
+                self.pipe.send("Page.enable", {}, sid)  # its boxes are seen from its first moment
+            if sid and p.get("waitingForDebugger"):
+                self.pipe.send("Runtime.runIfWaitingForDebugger", {}, sid)  # and only then it runs
+        elif method == "Page.javascriptDialogOpening":
             # answered AT ONCE so the page never freezes: alert and confirm accepted, prompt with its default text
             answer = {"accept": True}
             if p.get("type") == "prompt":
                 answer["promptText"] = str(p.get("defaultPrompt") or "")
             self.pipe.send("Page.handleJavaScriptDialog", answer, msg.get("sessionId"))
-            self._note(box_line(p.get("message")))
+            self._note(box_line(p.get("message")), msg.get("sessionId"))
         elif method == "Browser.downloadWillBegin" and p.get("guid"):
             with self._nmu:
                 self._downloads[p["guid"]] = {"name": str(p.get("suggestedFilename") or ""), "state": "inProgress",
@@ -618,7 +728,7 @@ class Browser:
                 self._take_tab(tid)
             except BrowserError:
                 continue
-            self._note(NEW_TAB)
+            self._note_new_tab(self.sessions[tid])
             end = time.monotonic() + 2.0  # a new tab is about:blank until its own address commits
             while time.monotonic() < end:
                 try:
@@ -658,19 +768,25 @@ class Browser:
             time.sleep(0.1)
 
     def _name_download(self, guid: str, name: str) -> Optional[Path]:
+        """A whole download moves from the staging folder into `download_dir` under its own name (a taken name gets
+        " (2)" before its ending, never an overwrite)."""
         folder = Path(self.download_dir)
-        got = folder / guid
+        got = (self.tmp / "downloads" / guid) if self.tmp else folder / guid
+        end = time.monotonic() + 2.0  # the browser renames its part file a moment after it says "completed"
+        while not got.is_file() and time.monotonic() < end:
+            time.sleep(0.05)
         if not got.is_file():
             return None
         safe = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", os.path.basename(name or "")).strip(" .") or "download"
         stem, ext = os.path.splitext(safe)
+        folder.mkdir(parents=True, exist_ok=True)
         path, n = folder / safe, 2
         while path.exists():
             path, n = folder / f"{stem} ({n}){ext}", n + 1
         try:
-            got.rename(path)
+            shutil.move(str(got), str(path))  # one rename: Halo's home is one folder tree
         except OSError:
-            return got
+            return None
         return path
 
     def _settle(self) -> bool:
@@ -848,14 +964,15 @@ class Browser:
                 return
             self._closed = True
             proc, pipe = self.proc, self.pipe
+            end = time.monotonic() + END_WAIT_S  # asked, up to END_WAIT_S to be gone, then the hard stop by pid
             if pipe is not None and not pipe.closed:
                 try:
-                    pipe.call("Browser.close", {}, None, 3.0)
+                    pipe.call("Browser.close", {}, None, END_WAIT_S)
                 except Exception:
                     pass
             if proc is not None:
                 try:
-                    proc.wait(timeout=CLOSE_WAIT_S)
+                    proc.wait(timeout=max(0.0, end - time.monotonic()))
                 except Exception:
                     try:
                         proc.kill()
@@ -868,7 +985,7 @@ class Browser:
                 from halo_harness.browser_pipe_win import end_job
                 end_job(self.job)
             if self.profile:
-                end_profile_pids(self.profile)
+                end_profile_pids(self.profile, wait_s=max(0.0, end - time.monotonic()))
             if proc is not None:
                 try:
                     from halo_harness import children
@@ -876,11 +993,9 @@ class Browser:
                 except Exception:
                     pass
             if self.kind == "clean" and self.profile:
-                for _ in range(20):  # Windows lets go of a folder a moment after its processes end
-                    shutil.rmtree(self.profile, ignore_errors=True)
-                    if not os.path.exists(self.profile):
-                        break
-                    time.sleep(0.1)
+                _remove(self.profile)
+            if self.tmp is not None:
+                _remove(self.tmp)  # its temp files and the download staging go with it
             if self._lock_fh is not None:
                 try:
                     self._lock_fh.close()  # the lock goes with the handle

@@ -44,6 +44,16 @@ QUIT_DEADLINE_S = 5.0
 QUIT_RESERVE_S = 1.0  # fx jb8: what a leaving halo keeps of closing.QUIT_BUDGET_S for the stops after the worker join
 
 
+def _end_browsers() -> None:
+    """The session's browsers end the orderly way (browser_cdp.end_browsers: asked to close, up to 3 s, then by pid)
+    BEFORE any other stop of the session's children: a hard stop first would lose what the browser had not written."""
+    try:
+        from halo_harness.browser_cdp import end_browsers
+        end_browsers()
+    except Exception:
+        pass
+
+
 def _stop_children_for_quit(state_dir) -> str:
     """children_stop.stop_for_quit's one line ("stopped: Studio (pid 4242),
     2 background runs") or ''; never raises."""
@@ -271,6 +281,7 @@ class Controller:
         closing.trace("quit: start", stacks=True)  # fx jb12: HALO_CLOSE_TRACE's phases (nothing when unset)
         if self.quit_stops_children:  # fx jb8: this halo is leaving -- one deadline for the whole way out
             closing.arm_close_deadline()
+        _end_browsers()  # 3.6.0.6 W: before any other stop, so the kept profile keeps what was signed in
         try:  # fx jb8: the background jobs stop now, never after a wait for a turn that has not read the abort
             self.session.job_registry.kill_all()
         except Exception:

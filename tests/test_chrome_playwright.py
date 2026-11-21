@@ -247,6 +247,35 @@ def test_build_manager_says_once_what_playwright_downloads_before_it_starts(ctx:
 
 
 @test
+def test_playwright_leaves_no_folder_behind(ctx: Ctx):
+    """W batch 3 entry 6: the page files' folder (`<halo home>/playwright/<pid>`) goes when the manager that made it
+    closes; at each start a folder whose pid is no longer alive is removed, never one of a live halo."""
+    from unittest import mock
+    home = Path(tempfile.mkdtemp(prefix="pw-home-"))
+    try:
+        with mock.patch.dict(os.environ, {"BRIDGE_STATE_DIR": str(home / "state")}):
+            mine = S.playwright_output_dir()
+            gone, live = mine.parent / "999991", mine.parent / "999992"
+            for p in (gone, live):
+                (p / "page.yml").parent.mkdir(parents=True)
+                (p / "page.yml").write_text("x")
+            with mock.patch.object(S.shutil, "which", lambda name, *a, **k: "/usr/bin/" + name.replace(".cmd", "")), \
+                    mock.patch("halo_harness.children.pid_running", lambda pid: pid in (999992, os.getpid())):
+                mgr, _n = S.build_manager(cwd=Path("."), claude_json={}, playwright=True, start=False)
+            if mgr is None:
+                raise SkipTest("mcp package not installed")
+            ctx.check("a gone halo's folder is removed at the start", not gone.exists())
+            ctx.check("a live halo's folder is left alone", live.exists())
+            mine.mkdir(parents=True, exist_ok=True)
+            (mine / "page-1.yml").write_text("a page")
+            mgr.close_all()
+            ctx.check(f"its own folder is gone once the manager closed, got {mine.exists()}", not mine.exists())
+            ctx.check("the live one still stays", live.exists())
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+
+
+@test
 def test_build_manager_unavailable_mcp_returns_none(ctx: Ctx):
     import halo_harness.mcp as mcp_pkg
     old_available = mcp_pkg.available

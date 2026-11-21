@@ -82,6 +82,66 @@ def test_a_quit_leaves_the_sessions_own_browser_to_its_own_close(ctx: Ctx):
 
 
 @test
+def test_every_orderly_way_out_ends_the_browser_first_and_within_3_s(ctx: Ctx):
+    """W batch 3 entry 2: ONE function ends a session's browsers in order (browser_cdp.end_browsers: Browser.close asks,
+    waits up to 3 s, then the hard stop by pid), and every orderly way out calls it BEFORE any other stop of the
+    session's children: the terminal app's quit and a Studio session's end (Controller.quit) and the terminal app's
+    force quit (Ctrl+C twice and Enter, Ctrl+Q). A `-p` run's is in its real test (tests.test_browser_tool_real)."""
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import browser_cdp as B
+    from halo_harness import controller as Cm
+    ctx.check("the bound is 3 s", getattr(B, "END_WAIT_S", None) == 3.0)
+    order: list = []
+    jobs = SimpleNamespace(kill_all=lambda: order.append("jobs"))
+    sess = SimpleNamespace(_stopping=mock.MagicMock(), abort=mock.MagicMock(), job_registry=jobs,
+                           _fire_session_end=lambda _w: None, close_runtimes=lambda: order.append("runtimes"))
+    fake = SimpleNamespace(quit_called=False, session=sess, quit_stops_children=True, commands=mock.MagicMock(),
+                           _worker=None, _stopped=mock.MagicMock(), state_dir=None, mcp_manager=None, exit_code=0)
+    with mock.patch.object(B, "end_browsers", lambda *a, **k: order.append("browser"), create=True), \
+            mock.patch.object(Cm, "_stop_children_for_quit", lambda _s: order.append("children") or ""), \
+            mock.patch("halo_harness.closing.arm_close_deadline", lambda *a, **k: None):
+        Cm.Controller.quit(fake)
+    ctx.check(f"the quit (the terminal app's, a Studio session's end): the browser first, got {order}",
+              order[:1] == ["browser"] and "jobs" in order and "children" in order)
+    from halo_harness.tui import app as A
+    order.clear()
+    me = SimpleNamespace(controller=SimpleNamespace(session=sess, state_dir=None, quit=lambda: 0, stopped_line=""),
+                         _exit_message=lambda: None, call_from_thread=lambda *a, **k: None, exit=lambda **k: None)
+    with mock.patch.object(B, "end_browsers", lambda *a, **k: order.append("browser"), create=True), \
+            mock.patch("halo_harness.children_stop.stop_for_quit", lambda *a, **k: order.append("children") or ""), \
+            mock.patch("threading.Timer", lambda *a, **k: SimpleNamespace(start=lambda: None, daemon=True)):
+        A.BridgeApp._force_quit_worker(me)
+    ctx.check(f"the force quit: the browser first, got {order}", order[:1] == ["browser"] and "children" in order)
+
+
+@test
+def test_a_close_that_is_not_answered_ends_the_browser_hard_within_3_s(ctx: Ctx):
+    """Browser.close asks, waits up to END_WAIT_S for the browser to be gone, and then stops it hard: never longer."""
+    from halo_harness import browser_cdp as B
+    from halo_harness.browser_find import find_browser
+    if find_browser() is None:
+        ctx.check("a browser on this machine", False)
+        return
+    home = Path(_scratch("browser-closing-bound-"))
+    with _Locked():
+        b = B.Browser("clean", home=home)
+        try:
+            b.start()
+            profile = b.profile
+            b.pipe.call = lambda _m, _p, _s, timeout: time.sleep(min(timeout, 30)) or {}  # never answers its close
+            t = time.monotonic()
+            b.close()
+            took = time.monotonic() - t
+        finally:
+            b.close()
+    ok, left = _gone_within(profile, 0.5)
+    ctx.check(f"the close returned within the bound, took {took:.1f} s", took < B.END_WAIT_S + 2.0)
+    ctx.check(f"and nothing of the browser is left, left {left}", ok)
+    _end_left(left)
+
+
+@test
 def test_a_hard_end_of_the_session_ends_its_browser_within_5_s(ctx: Ctx):
     from halo_harness import browser_cdp as B
     from halo_harness.browser_find import find_browser
@@ -99,10 +159,14 @@ def test_a_hard_end_of_the_session_ends_its_browser_within_5_s(ctx: Ctx):
             ok, left = _gone_within(info["profile"], GONE_S)
             ctx.check(f"every browser process gone within {GONE_S:.0f} s, left {left}", ok)
             ctx.check("the hard end left its clean profile folder", os.path.isdir(info["profile"]))
+            ctx.check(f"and its own temp folder, got {info.get('tmp')!r}", bool(info.get("tmp"))
+                      and os.path.isdir(info["tmp"]))
             b = B.Browser("clean", home=home)
             try:
                 b.start()
                 ctx.check("the next start removed the folder the hard end left", not os.path.isdir(info["profile"]))
+                ctx.check("and the temp folder of the dead session (W batch 3 entry 1)",
+                          bool(info.get("tmp")) and not os.path.isdir(info["tmp"]))
             finally:
                 b.close()
         finally:

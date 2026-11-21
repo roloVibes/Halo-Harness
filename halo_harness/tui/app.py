@@ -2832,6 +2832,8 @@ class BridgeApp(App):
 
     def _force_quit_worker(self) -> None:
         import threading
+        from halo_harness.controller import _end_browsers
+        _end_browsers()  # 3.6.0.6 W: the browser ends the orderly way (3 s at most) before any other stop
         # 1.0.1 part 2 (reviewer minor): killed HERE, unconditionally,
         # before the quit sequence below even starts -- `Controller.quit()`
         # already does this too, but only after its own worker-join

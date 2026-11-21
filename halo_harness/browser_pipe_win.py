@@ -28,7 +28,7 @@ def _resume(proc) -> None:
     ntdll.NtResumeProcess(ctypes.c_void_p(int(proc._handle)))
 
 
-def spawn(argv: list, popen=None, *, show: bool = False):
+def spawn(argv: list, popen=None, *, show: bool = False, env=None):
     """Start the browser with the pipe on two handles; returns (proc, fd to read from, fd to write to, job or None)."""
     import msvcrt
     from halo_harness import closing
@@ -44,7 +44,7 @@ def spawn(argv: list, popen=None, *, show: bool = False):
     full = [argv[0], "--remote-debugging-pipe", f"--remote-debugging-io-pipes={h_in},{h_out}", *argv[1:]]
     try:
         proc = popen(full, startupinfo=si, close_fds=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, creationflags=flags)
+                     stderr=subprocess.DEVNULL, creationflags=flags, env=env)
     except BaseException:
         for fd in (to_child_r, to_child_w, from_child_r, from_child_w):
             os.close(fd)
