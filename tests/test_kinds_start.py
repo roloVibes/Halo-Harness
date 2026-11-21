@@ -190,6 +190,40 @@ def test_an_agent_session_restricted_to_planner(ctx: Ctx):
         _every_name_starts(ctx, "--agent lead", h, agent="lead", want=["Judge"])
 
 
+@test
+def test_m8_a_helper_reads_the_agent_tools_words_as_before(ctx: Ctx):
+    """3.6.0.10 M8: the kinds end the Agent and Task tools' words for main only (a top Auto session). A helper's
+    registry holds the same tool objects (ToolRegistry.filtered), so it gets its own copies without them: a helper
+    that may delegate further reads those tools' words exactly as before."""
+    from halo_harness.agent import agent_hooks
+    from halo_harness.agent.helpers_words import KINDS_HEAD
+    seen = []
+    saved = agent_hooks.register_child
+
+    def spy(parent, child, **kw):
+        seen.append(child)
+        return saved(parent, child, **kw)
+    with _home() as h:
+        folder = h.home / ".claude" / "agents"  # a Claude Code agent with no `tools:` line gets every tool, Agent too
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "delegator.md").write_text("---\nname: delegator\ndescription: Splits a job.\n---\nSplit it.\n",
+                                             encoding="utf-8")
+        agents, compiled, restriction = _start(h)
+        session = _session(h, agents, compiled, restriction)
+        agent_hooks.register_child = spy
+        try:
+            result, started = _call(session, "delegator", 0)
+        finally:
+            agent_hooks.register_child = saved
+        main_words = {n: session.tool_registry.get(n).description for n in ("Agent", "Task")}
+        child_words = {n: getattr(seen[0].tool_registry.get(n), "description", None) for n in ("Agent", "Task")} if seen else {}
+    ctx.check(f"a helper started, got {len(seen)}", result is not None and len(seen) == 1)
+    ctx.check("main reads the kinds at the end of both", all(KINDS_HEAD in w for w in main_words.values()))
+    ctx.check(f"the helper may delegate and reads both tools' words as before, got {[str(w)[-120:] for w in child_words.values()]}",
+              child_words and all(w is not None and KINDS_HEAD not in w and w == main_words[n].split(KINDS_HEAD)[0]
+                                  for n, w in child_words.items()))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

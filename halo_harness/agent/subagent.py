@@ -49,6 +49,7 @@ itself.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 from halo_harness import subprocess_safe as subprocess
@@ -488,6 +489,14 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
                       else parent.tool_registry.names())
     tool_names = spec.resolved_tools(catalog_names)
     child_registry = parent.tool_registry.filtered(tool_names)
+    # 3.6.0.10 M8: the child's own Agent/Task/Workflow objects (filtered() shares them): its start (Session.__init__'s
+    # crew/session_start.tool_state) never rewrites main's lineup, map or kinds, and a helper reads no kinds of main's
+    for _name in ("Agent", "Task", "Workflow"):
+        _tool = child_registry.get(_name)
+        if _tool is not None:
+            _tool = copy.copy(_tool)
+            _tool.kinds_tail = ""
+            child_registry.add_tool(_tool)
     _opt_ins = None  # 3.6.0.0 R5b: a lineup member's tools.capabilities went with lineups (a map agent: its `uses`)
 
     ctx = SessionContext(
