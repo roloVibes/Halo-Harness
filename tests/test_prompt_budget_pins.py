@@ -47,6 +47,7 @@ CASES = (("an unknown remote model", "ol:room-model", 32768, 9000, 4500, 32768),
 # 65,536 8,579 / 8,540 (was 9,200 / 9,161); 200k cloud on Auto, the long words with the Auto sentence (1,041):
 # 18,858 / 18,509 (was 18,841 / 18,492). Today's long words (not Auto) stay 1,024.
 BUILDER_WIRE = 1024
+BUILDER_WIRE_AUTO = 1041  # measured 2026-11-21: the Auto form's one sentence is 17 tokens longer (batch 4)
 # (label, model ref, window, prompt bound, sent window)
 REAL_CASES = (("a new Auto session at 65,536", "ol:qwen3-coder:30b@lan", 65536, 9000 + BUILDER_WIRE, 65536),
               ("a new Auto session on a 200k cloud model", "ant:claude-opus-5-5", 200000, 18000 + BUILDER_WIRE, 200000))
@@ -164,6 +165,13 @@ def test_a_real_new_auto_session_with_the_builder(ctx: Ctx):
     size = wire_tokens(BuilderTool().definition())
     ctx.check(f"the Builder's wire size is {size:,}, at most {BUILDER_WIRE:,} -- " + why("the Builder", BUILDER_WIRE),
               size <= BUILDER_WIRE)
+    # the join of 3.6.0.10: its Auto form (on Auto main may also propose: one longer sentence) is pinned too, so that
+    # it cannot grow unseen; it goes to a cloud main on Auto, inside the real-session bounds below, which stay
+    auto = BuilderTool()
+    auto.on_auto = True
+    auto_size = wire_tokens(auto.definition())
+    ctx.check(f"the Builder's Auto form is {auto_size:,} on the wire, at most {BUILDER_WIRE_AUTO:,} -- "
+              + why("the Builder's Auto form", BUILDER_WIRE_AUTO), size < auto_size <= BUILDER_WIRE_AUTO)
     for platform in ("win32", "linux"):
         for label, ref, window, prompt_max, sent in REAL_CASES:
             m = _measure(ref, window, platform, control="auto", builder=True)
