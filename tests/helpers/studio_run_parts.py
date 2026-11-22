@@ -375,6 +375,10 @@ def jk(c, where: str) -> dict:
         key(c, ch)
         got.append(until(c, sel, want, 10))  # waited for: a slow runner only waits longer
     field = f"document.querySelector('{ROOT[where]} [data-testid=map-step-in] textarea, {ROOT[where]} [data-testid=map-step-in] input')"
+    try:  # 3.6.0.14 O1-5: the selected box's sheet is usable (`map-step-in`) once placed: up to 1 s while it reads what its agent last said
+        c.wait(f"!!{field}", 10)
+    except TimeoutError:
+        pass  # `field` below says it never came
     has = c.js(f"!!{field}")
     if has:
         c.js(f"{field}.focus(); 1")

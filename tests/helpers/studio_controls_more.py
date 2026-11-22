@@ -29,6 +29,7 @@ def live(c, rig, lv, rows) -> dict:
     out: dict = {}
     full, rig.full = rig.full, False  # a person's layout: the Feed opens by his hand
     t = lambda tid: vis(f"{LP} [data-testid={tid}]")  # noqa: E731
+    card = lambda tid: vis(f"{LP} [data-testid=map-step-in] [data-testid={tid}]")  # noqa: E731  (the usable sheet's own)
     live_root = vis(f"{LP} [data-testid=agents-live]")
     rows.reset()
     lv.refresh(map="shop", map_next="shop")
@@ -56,8 +57,10 @@ def live(c, rig, lv, rows) -> dict:
             recs = presses(c, [
                 ("Which session", t("live-pick"), start, ("choose", "two-0001")),
                 ("a box", vis(f"{LP} [data-testid=live-world] [data-map-box=code]"), mine, lambda: click_live_box(c, "code")),
-                ("the card: Pause", t("map-step-in-pause")),
-                ("the card: x", t("map-step-in-close")),
+                # 3.6.0.14 O1-5: the box's sheet is pressable once it is placed and unfolded (`map-step-in`, `data-open`;
+                # measured first, hidden, for up to 1 s while it reads what its agent last said): wait for that state
+                ("the card: Pause", card("map-step-in-pause"), lambda: c.wait(f"!!{t('map-step-in')}?.hasAttribute('data-open')", 15)),
+                ("the card: x", card("map-step-in-close")),
                 ("Feed", FEED_BTN),
                 ("the Feed's filter", feed("map-feed-filter"), None, ("choose", "")),
                 ("the Feed's Steer", feed("map-feed-steer"), to_code),
