@@ -24,6 +24,7 @@ it (an Ollama model whose catalog row says it thinks).
 from __future__ import annotations
 
 import fnmatch
+import os
 import re
 import shutil
 import time
@@ -68,6 +69,7 @@ class _Table:
 
     def __init__(self, folder: Path, session, state_dir, counts: dict):
         self.root = Path(folder).resolve()
+        self.given = Path(os.path.abspath(folder))  # the copy as it was named (a short or linked spelling of root)
         self.session = session
         self.state_dir = state_dir
         self.counts = counts
@@ -143,8 +145,17 @@ class _Table:
             if default:
                 return self.root
             raise ValueError("a path is required")
-        p = Path(str(raw)).expanduser()
-        p = (p if p.is_absolute() else self.root / p).resolve()
+        text = str(raw)
+        # Judged as text FIRST: a path that leaves the copy by its own letters (a network name, a root, `..` steps,
+        # `~`) is refused before the OS is asked anything about it. On Windows, resolving a network name opens a
+        # connection to the host it names, and the name comes from the model under test.
+        if text.startswith(_NET):
+            raise _Outside()
+        p = Path(text).expanduser()
+        lex = Path(os.path.normpath(p if p.is_absolute() else self.root / p))
+        if not any(lex == base or lex.is_relative_to(base) for base in (self.root, self.given)):
+            raise _Outside()
+        p = lex.resolve()  # a link inside the copy that points outside it is caught here
         if p != self.root and not p.is_relative_to(self.root):
             raise _Outside()
         return p
@@ -198,7 +209,10 @@ class _Table:
 
     def _glob(self, a: dict) -> "tuple[str, bool]":
         base = self._path(a.get("path"), default=True)
-        found = self._inside(base.glob(str(a.get("pattern") or "*")))
+        pattern = str(a.get("pattern") or "*")
+        if pattern.startswith(_NET + ("/", "\\", "~")) or Path(pattern).is_absolute() or ".." in Path(pattern).parts:
+            raise _Outside()  # a pattern that climbs out of the copy or starts at a root lists nothing outside it
+        found = self._inside(base.glob(pattern))
         return ("\n".join(self._rel(p) for p in found[:_MAX_LINES]) if found else "No files found"), False
 
     def _grep(self, a: dict) -> "tuple[str, bool]":
@@ -230,6 +244,9 @@ class _Table:
 
 class _Outside(Exception):
     pass
+
+
+_NET = ("\\\\", "//")  # a network name, in either spelling
 
 
 def trial(ref, arm: str, folder, *, host, route, profile, decision, state_dir, window: Optional[int] = None,
@@ -340,7 +357,9 @@ def run_model(ref_raw: str, *, trials: int = 3, state_dir) -> dict:
             if route.provider == "ollama":
                 try:
                     from halo_harness.providers.ollama_load import unload
-                    unload(r["host"], r["model"])
+                    got = unload(r["host"], r["model"])
+                    if isinstance(got, dict) and not got.get("ok"):  # still loaded: the card says so
+                        card["errors"].append(f"unload: {got.get('say') or 'the model was not unloaded'}")
                 except Exception as e:
                     card["errors"].append(f"unload: {type(e).__name__}: {e}")
     card["finished_at"] = time.time()

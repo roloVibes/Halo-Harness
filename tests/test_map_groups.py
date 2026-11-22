@@ -1335,7 +1335,8 @@ def test_rings_are_css_with_one_end_listener(ctx: Ctx):
               src.count('addEventListener("animationend"') >= 1 and "{ once: true }" in src and "data-ring" in src and "data-rang" in src)
     ctx.check("a ring cut off (animationcancel) is taken off too, and every ring when the drawing is not shown",
               'addEventListener("animationcancel"' in src and 'querySelectorAll<HTMLElement>("[data-ring]")' in src)
-    ctx.check("the first draw is said by useRings (main drawn alone counts as drawn)", "!seen.current)" in src and "[data-box=main]" in src)
+    ctx.check("the first draw is said by useRings (main drawn alone counts as drawn; boxes gone for a draw: a first draw again)",
+              "!seen.current)" in src and "[data-box=main]" in src and "else if (had.current) seen.current = false;" in src)
     ctx.check("no requestAnimationFrame(, setTimeout(, setInterval( in useRings.ts",
               not re.search(r"\b(?:requestAnimationFrame|setTimeout|setInterval)\(", src))
     ctx.check("useRings reads reduced motion and runs ringEvents with the cover", "prefers-reduced-motion: reduce" in src

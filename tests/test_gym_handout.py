@@ -306,6 +306,58 @@ def test_an_argument_of_a_wrong_type_is_answered_and_the_trial_goes_on(ctx: Ctx)
 
 
 @test
+def test_a_network_path_is_refused_before_the_os_is_asked(ctx: Ctx):
+    """The model under test names the paths. A network name (either spelling), a root, a climbing step and a climbing
+    Glob pattern are refused as text: no path that names the other host is ever handed to the OS to resolve (on Windows
+    that opens a connection to it). A path inside the copy, relative or whole, is still read."""
+    import pathlib
+    from halo_harness import gym_handout as G
+    from halo_harness import gym_handout_fixture as F
+    with _Home() as h:
+        h.copy.mkdir(parents=True, exist_ok=True)
+        F.write(h.copy)
+        table = G._Table(h.copy, None, h.state, G._counts())
+        asked, real = [], pathlib.Path.resolve
+
+        def spy(self, *a, **k):
+            asked.append(str(self))
+            return real(self, *a, **k)
+
+        calls = [("Read", {"file_path": "//gpu-box/share/notes.txt"}), ("Read", {"file_path": "\\\\gpu-box\\share\\notes.txt"}),
+                 ("Write", {"file_path": "//gpu-box/share/x.txt", "content": "x"}),
+                 ("Edit", {"file_path": "\\\\gpu-box\\share\\x.txt", "old_string": "a", "new_string": "b"}),
+                 ("Glob", {"pattern": "*", "path": "//gpu-box/share"}), ("Grep", {"pattern": "x", "path": "\\\\gpu-box\\share"}),
+                 ("Glob", {"pattern": "//gpu-box/share/*"}), ("Glob", {"pattern": "../*"}), ("Glob", {"pattern": "../../**/*"}),
+                 ("Read", {"file_path": "../outside.txt"}), ("Read", {"file_path": "~/outside.txt"})]
+        pathlib.Path.resolve = spy
+        try:
+            got = [table.answer(name, args) for name, args in calls]
+            inside = [table.answer("Read", {"file_path": "shop/cart.py"}),
+                      table.answer("Read", {"file_path": str(h.copy / "shop" / "cart.py")})]
+        finally:
+            pathlib.Path.resolve = real
+        ctx.check(f"every one refused as outside the copy, got {[g for g in got if g != (F.OUTSIDE, True)]}",
+                  all(g == (F.OUTSIDE, True) for g in got))
+        ctx.check(f"the OS was never asked about a path that names the other host, got {[p for p in asked if 'gpu-box' in p]}",
+                  not any("gpu-box" in p for p in asked))
+        ctx.check(f"a path inside the copy is read, by its relative and by its whole name, got {[g[1] for g in inside]}",
+                  all(not err and "def " in text for text, err in inside))
+
+
+@test
+def test_a_model_that_cannot_be_resolved_gets_no_card(ctx: Ctx):
+    """A local ref whose host is not configured: the cause is printed, no trial runs, no card is written (a card of
+    zeros would read as a measurement), and with nothing run the command exits 1."""
+    with _Home() as h, _Mock(h, []) as mock:
+        ref = f"ol:{MODEL}@nowhere"
+        rc, text, _err = _cmd(["handout", ref])
+        last = text.strip().splitlines()[-1] if text.strip() else ""
+        ctx.check(f"the cause on the model's line, exit 1, got {rc} {last!r}",
+                  rc == 1 and last.startswith(f"{ref}: not measured: ") and "nowhere" in last)
+        ctx.check(f"no card, no chat request, got {_cards(h)} {len(_chats(mock))}", _cards(h) == [] and _chats(mock) == [])
+
+
+@test
 def test_a_trial_talks_to_the_local_server_only(ctx: Ctx):
     import socket
     seen = []

@@ -27,10 +27,13 @@ A scratch copy of a small project, removed at the end, and one card per model un
   the tests and say which fail, write down what changed. The folder is removed at the end, also when a request fails.
 - **The two arms.** "now" is the first request a new Auto session sends today; "before" is the same request with the
   helpers words turned off. Each trial is at most 10 requests. No session runs: the gym answers every tool call
-  itself, inside the copy, and a helper is never started (each part gets a fixed answer).
+  itself, inside the copy, and a helper is never started (each part gets a fixed answer). A path or a pattern that
+  leaves the copy is refused before the system is asked anything about it.
 - **`--trials N`**: trials per arm (default 3; at least 1). The arms take turns: before 1, now 1, before 2, ...
 - **Local models only**: `ol:`, `hf:local/` and `hf:mlx/` refs. Any other ref prints
-  `{ref}: the gym runs local models only.` and sends nothing; with no local model left the command exits 1.
+  `{ref}: the gym runs local models only.` and sends nothing; with no local model left the command exits 1. A local
+  model whose host is not found prints `{ref}: not measured: {the cause}` and gets no card; when no model ran, the
+  command exits 1.
 - **What it counts, per model**: one line,
   `{model}: hands out {a} of 4 parts in {c} calls (before {b}) · bundled {u} · names right {r} of {n} · own steps {o} (before {p}) · finished {f} of 3 (before {g}) · 3 trials`.
   `a` and `b` are the mean parts handed out per trial (a call earns at most one part; a call that holds several

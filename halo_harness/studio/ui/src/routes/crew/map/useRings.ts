@@ -7,7 +7,8 @@
 // and so does the ring's animationcancel (its box hidden while it plays: a ring cut off never plays again): no timer,
 // no animation frame. While the drawing is not shown the last boxes are cleared and every ring is taken off, so coming
 // back rings nothing. The first draw rings nothing; once the session was drawn (its boxes, or main alone while it has
-// no helper), a new group rings HAND: the first hand-out of a session too. Under reduced motion nothing is set.
+// no helper yet), a new group rings HAND: the first hand-out of a session too. A draw whose boxes are gone (a frame
+// without the session's agents) makes the next draw a first draw again. Under reduced motion nothing is set.
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { coverOf, type Where } from "./cover";
 import { rawOf } from "./groupWords";
@@ -76,18 +77,21 @@ export function ring(el: HTMLElement, kind: RingKind): void {
 /** `geometry`: the drawing as drawn (held or fresh); `now`: the drawing's clock in seconds; `shown`: the view on screen. */
 export function useRings(where: Where, world: RefObject<HTMLElement | null>, scroll: RefObject<HTMLElement | null>,
                          geometry: { boxes: PlacedDown[] }, groups: AutoGroup[] | undefined, now: number, shown: boolean): void {
-  const prev = useRef<RingBox[]>([]), last = useRef<Record<string, number>>({}), seen = useRef(false);
+  const prev = useRef<RingBox[]>([]), last = useRef<Record<string, number>>({}), seen = useRef(false), had = useRef(false);
   useLayoutEffect(() => {
     const w = world.current, el = scroll.current;
     if (!shown || !w || !el || !groups) {
       w?.querySelectorAll<HTMLElement>("[data-ring]").forEach((b) => (off.get(b)?.(), b.removeAttribute("data-ring")));
-      return void (prev.current = [], seen.current = false);
+      return void (prev.current = [], seen.current = false, had.current = false);
     }
     const next = boxesOf(w, geometry.boxes, groups), ms = now * 1000;
     const rings = ringEvents(prev.current, next, { ...viewOf(el), pointer: pointerOf(w), now: ms }, coverOf(where), last.current, !seen.current);
     prev.current = next;
-    // drawn once: its boxes, or main alone while the session has no helper (a draw that has helpers and no box yet is not one)
-    seen.current = seen.current || next.length > 0 || (!groups.length && !!w.querySelector("[data-box=main]"));
+    // drawn once: its boxes, or main alone while the session has no helper yet (a draw that has helpers and no box yet
+    // is not one); boxes that were drawn and are gone for a draw are a gap in the data, never "main alone"
+    if (next.length) had.current = seen.current = true;
+    else if (had.current) seen.current = false;
+    else seen.current = seen.current || (!groups.length && !!w.querySelector("[data-box=main]"));
     if (!rings.length || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     for (const r of rings) {
       const box = r.id.startsWith("group:") ? w.querySelector<HTMLElement>(`[data-box="${CSS.escape(r.id)}"]`)

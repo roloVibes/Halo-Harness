@@ -217,15 +217,20 @@ def _cmd_handout(argv: list) -> int:
         print(fact)
     sys.stdout.flush()
     state_dir = bridge_home()
+    ran = 0
     for ref in local:
         card = gym_handout.run_model(ref, trials=args.trials, state_dir=state_dir)
         if card.get("same_words"):
             print(gym_handout.SAME_WORDS.format(model=card.get("model")))
+            ran += 1
+        elif not card.get("before") and not card.get("now"):  # no trial ran (the model or its host was not found):
+            print(f"{ref}: not measured: {'; '.join(card.get('errors') or ['no trial ran'])}")  # the cause, no card
         else:
             gym_handout.save_card(state_dir, card)
             print(gym_handout.line(card))
+            ran += 1
         sys.stdout.flush()
-    return 0
+    return 0 if ran else 1
 
 
 def cmd_gym(argv: list) -> int:
