@@ -120,6 +120,7 @@ def _answer(req, name: str, got: dict, cwd) -> dict:
            "in_use": store.row_in_use(name, got["_scope"], in_use(None, req.cwd)[0]),
            "next": _next(), "problems": c.problems, "boxes": boxes,
            "main": {"agent": c.main.get("agent"), "model": main.get("model"), "does": main.get("does")},
+           "start": _start(c, cwd, auto=got["_scope"] == "starter" and store.is_auto(raw.get("name"))),
            **_sigs(got["_path"], c.main.get("agent") or "main", boxes, cwd, req.state_dir)}
     if got["_scope"] == "starter" and store.is_auto(raw.get("name")):
         # 3.6.0.5 A22, 3.6.0.10 M9: the kinds a NEW session on Auto tells main it can start, every name (his first)
@@ -128,6 +129,15 @@ def _answer(req, name: str, got: dict, cwd) -> dict:
         from halo_harness.crew.session_start import start_agents
         out["hand_to"] = names(kinds(start_agents(cwd, compile_map(DEFAULT_MAP, cwd=cwd, state_dir=req.state_dir))))
     return out
+
+
+def _start(c, cwd, *, auto: bool) -> dict:
+    """3.6.0.11 SM: the model a new session on this map starts on, and why (start_model.py). The pin in the map's main
+    counts only off Auto and on a map with no problem (a session on a map with a problem runs on Auto)."""
+    from halo_harness.crew.map_session import model as map_model
+    from halo_harness.start_model import start_model
+    ref, origin = start_model(cwd, map_pin=None if auto or c.problems else map_model(c))
+    return {"model": ref, "origin": origin}
 
 
 def _one(req, name: str, scope: str = ""):
@@ -226,7 +236,7 @@ def put_map(req):
     project = bool(got and got[1] == "project")
     path = store.path_for("map", name, cwd=req.cwd, state_dir=req.state_dir, project=project)
     undo_id = changes.write_all({path: store.dump(raw)}, state_dir=req.state_dir)
-    return 200, {"undo_id": undo_id, **(_one(req, name) or {}), "problems": []}
+    return 200, {"undo_id": undo_id, "problems": [], **(_one(req, name) or {})}  # 3.6.0.11 SM: the compile's own lines
 
 
 def post_use(req):
@@ -251,7 +261,8 @@ def post_use(req):
     # 3.6.0.5 A21 (W18): off with none set is Auto; roles off (no map for new sessions) keeps the true words
     after, src = in_use(None, req.cwd)
     from halo_harness.crew.map_facts import BACK_TO_AUTO
-    said = (f"New sessions run on {name}; a running session keeps its own" if on
+    said = (BACK_TO_AUTO if on and store.is_auto(name)  # 3.6.0.11 SM: Agents -> Map's button on Auto
+            else f"New sessions run on {name}; a running session keeps its own" if on
             else f"{name} was not in use; new sessions still run on {after}"  # 3.6.0.5: off for a map not in use
             if src == "config" and after != name
             else BACK_TO_AUTO

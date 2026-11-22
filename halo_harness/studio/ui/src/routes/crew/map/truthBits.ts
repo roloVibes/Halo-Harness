@@ -3,7 +3,7 @@
 // off-map line's hover, R18 the step-in card, R24 Agents -> Map's picker, R28 a removed map, R29 the tag, R30 the pair, R31
 // the Just built heads, R43 the hover card, R45 the unreached band, R47 the Workflows head. Re-exported by truth.ts; the
 // Session and Agents builders read them from there. Every {t} through clock(), every word Live / Map through WORDS. Pure.
-import { clock, NEXT_NONE, nextName, WORDS, type Line } from "./truthWords";
+import { clock, isAuto, isOldDefault, NEXT_NONE, nextName, onMap, WORDS, type Line } from "./truthWords";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -53,6 +53,24 @@ export function pickerSuffix(running: string[], next = false): string {
   return run + (next ? " · new sessions" : "");
 }
 export const switchLabel = (): string => "New sessions run on this";
+/** 3.6.0.11 SM: the open map is not the one new sessions run (crew/map_facts.py USE_EDITED's first sentence), "" when
+ *  it is, when new sessions run with no map (NEXT_NONE says so) and on his old file (read-only, never in use). */
+export function notNextLine(open: string, scope: string, next: string | null, none = false): string {
+  if (!open || none || isOldDefault(open, scope) || onMap(next && !isAuto(next) ? next : "auto", open, scope)) return "";
+  return notNextWords(open, next);
+}
+export const notNextWords = (open: string, next: string | null): string =>
+  `New sessions do not run on ${nextName(open)}; they run on ${nextName(next)}.`;
+/** Its button: what the switch does, for the open map (on Auto: none set). */
+export const useThisLabel = (open: string): string => `Run new sessions on ${nextName(open)}`;
+/** 3.6.0.11 SM: main's box -- the model a new session on the open map starts on and why (crew_map_api `start`). */
+const WHY: Record<string, string> = { config: "your default model", remembered: "your last /model",
+  pin: "pinned in main's own file, outranks your default model", env: "from HALO_MODEL", routes: "from routes.json",
+  work: "from your work environment", "built-in": "Halo's built-in default" };
+export const startWords = (s?: { model?: string; origin?: string } | null): string =>
+  s?.model && WHY[s.origin || ""] ? `${s.model} · ${WHY[s.origin || ""]}` : "";
+/** On Auto a model pinned in his copy of main is not used: the muted second line of main's box. */
+export const pinNotOnAuto = (pin: string): string => `main's own file pins ${pin}: used on other maps, not on Auto`;
 /** R36's use-row words, and the hand switch's receipt with no session open (R55). */
 export const newSessionsRunOn = (b: string): string => `New sessions run on ${b}.`;
 /** R55 L3: the mark on the workflow's box on Agents -> Map. */

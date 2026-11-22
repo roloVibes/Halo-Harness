@@ -21,7 +21,12 @@ import type { BoxFacts, DrawBox } from "./mapTypes";
 import { HelperRows, LitRows, LitSteps, STATE_WORDS, useClock } from "./LitBits";
 import { useLitNow } from "./useLit";
 import { useMark } from "./mapQuiet";
-import { runningNowIn } from "./truth";
+import { pinNotOnAuto, runningNowIn, startWords } from "./truth";
+
+/** Main's facts (crew_map_api `main`), with the map's `start` and, from AutoPlan, `auto` (3.6.0.11 SM). */
+type MainFacts = { model?: string; does?: string; start?: { model: string; origin: string }; auto?: boolean };
+/** A model pinned in main's own file ("auto" pins none). */
+const pinOf = (m: MainFacts): string => (m.model && m.model !== "auto" ? m.model : "");
 
 const CAREFUL: Record<string, string> = { "ask-changes": "asks before it changes anything", "ask-commands": "asks before commands", own: "works on its own" };
 
@@ -58,7 +63,7 @@ function Detail({ b, facts }: { b: DrawBox; facts?: BoxFacts }) {
 }
 
 export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: DrawBox; style?: CSSProperties; inStrip?: boolean; facts?: BoxFacts;
-                                                                   mainFacts?: { model?: string; does?: string }; talking?: boolean }) {
+                                                                   mainFacts?: MainFacts; talking?: boolean }) {
   const open = useMap((s) => !!s.open[b.id]);
   const L = useLitNow();
   const mark = useMark(b.id); // R55 L3: a session is running this box's workflow right now
@@ -70,7 +75,8 @@ export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: Dr
   const f = facts?.facts || [];
   const steps = f[0]?.steps?.length || 0;
   const missing = f.some((x) => x.missing);
-  const meta = b.main ? `${!mainFacts?.model || mainFacts.model === "auto" ? "your session's model" : mainFacts.model} · the agent you talk to`
+  // 3.6.0.11 SM: main names the model a new session on this map starts on, and why (crew_map_api `start`)
+  const meta = b.main ? `${startWords(mainFacts?.start) || "your session's model"} · the agent you talk to`
     : b.kind === "workflow" ? `${steps} step${steps === 1 ? "" : "s"} · click to ${open ? "close" : "open"}`
     : b.names.length > 1 ? "main picks one per task" : modelWords(f[0]?.model);
   const summary = helper ? `made up for this task: ${helper.task || helper.name}` : b.main ? mainFacts?.does || "main" : b.kind === "workflow" ? f[0]?.for || b.name : f[0]?.does || b.name;
@@ -107,6 +113,7 @@ export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: Dr
       </span>
       <b className="mp-name">{b.name}</b>
       <span className="mp-meta">{helper ? helper.model || "main's tools and mode" : missing ? "missing: make it in Agents or Workflows" : meta}</span>
+      {b.main && mainFacts?.auto && pinOf(mainFacts) && <span className="mp-meta" data-testid="map-main-pin">{pinNotOnAuto(pinOf(mainFacts))}</span>}
       {mark && <span className="mp-running-in" data-testid="map-running-in">{runningNowIn(mark.title)}</span>}
       {ob && L.mode !== "off" && <LitRows ob={ob} now={L.now} />}
       {helper && <HelperRows h={helper} sid={L.session?.sid || ""} all={L.ov?.helpers || []} />}

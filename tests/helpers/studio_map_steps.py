@@ -402,3 +402,40 @@ def _held(c, rig, fpath, boxes, steps, taps, A, orig) -> dict:
         if tap in taps:
             taps.remove(tap)
     return out
+
+
+def _open(c, name: str) -> None:
+    c.js(f"(() => {{ const s = {t('map-switcher')}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
+         f" set.call(s, '{name}'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+
+
+def _crew(rig) -> dict:
+    import json
+    cfg = rig.state / "config.json"
+    return (json.loads(cfg.read_text(encoding="utf-8")) if cfg.is_file() else {}).get("crew") or {}
+
+
+def use_this(c, rig) -> dict:
+    """3.6.0.11 SM: the select only opens a map; the open map that new sessions do not run says so, with [Run new
+    sessions on {open}] (map-use-this), which writes crew.map; on Auto (no switch) the button takes crew.map out. Main's
+    box names the model a new session starts on and why. Runs last: none set before and after."""
+    c.js("document.activeElement?.blur(); 1")
+    key(c, "c")
+    c.wait(f"{VIEW} === 'map'", 20)
+    _open(c, "ship-it")
+    said = t("map-topline-said")
+    out = {"use_line": c.wait(f"{t('map-switcher')}?.value === 'ship-it' && !!{t('map-use-this')} && {said}.textContent", 20),
+           "use_label": c.js(f"{t('map-use-this')}?.textContent || ''"),
+           "use_acts_top": c.js(f"Math.round({t('map-topline-acts')}.getBoundingClientRect().top - {t('map-topline')}.getBoundingClientRect().top)")}
+    out["use_start"] = c.wait(f"{q('[data-map-box=main] .mp-meta')}?.textContent || ''", 20)
+    c.js(f"{t('map-use-this')}.click(); 1")
+    out["use_gone"] = c.wait(f"!{t('map-use-this')} && {t('map-uses')}?.getAttribute('aria-checked') === 'true' && {said}.textContent", 20)
+    out["use_acts_top_after"] = c.js(f"Math.round({t('map-topline-acts')}.getBoundingClientRect().top - {t('map-topline')}.getBoundingClientRect().top)")
+    out["use_crew_after"] = _crew(rig).get("map")
+    _open(c, "auto")
+    out["use_auto_line"] = c.wait(f"{t('map-switcher')}?.value === 'auto' && !!{t('map-use-this')} && {t('map-auto-next')}?.textContent", 20)
+    out["use_auto_start"] = c.wait(f"{q('[data-testid=map-auto-main] .mp-meta')}?.textContent || ''", 20)
+    c.js(f"{t('map-use-this')}.click(); 1")
+    out["use_auto_gone"] = c.wait(f"!{t('map-auto-next')} && !{t('map-use-this')}", 20)
+    out["use_crew_auto"] = _crew(rig).get("map", "")
+    return out

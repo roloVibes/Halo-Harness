@@ -335,6 +335,49 @@ def test_save_a_circle_a_new_map_and_undo(ctx: Ctx):
 
 
 @test
+def test_saving_a_map_with_a_problem_answers_its_problems(ctx: Ctx):
+    """3.6.0.11 SM: a map whose box names a missing workflow is saved, and new sessions on it run on Auto: the save's
+    answer lists the same problem lines the GET does (it answered `problems: []`, so the red banner stayed away)."""
+    with CrewRig() as rig:
+        rig.studio()
+        body = {"boxes": [{"id": "w", "workflow": "gone-flow"}], "lines": [{"from": "main", "to": "w", "when": "always"}]}
+        st, r = rig.api("PUT", "crew/map/mine", {"map": body})
+        _st, g = rig.api("GET", "crew/map/mine")
+        ctx.check(f"the GET names the problem, got {g.get('problems')}",
+                  any("gone-flow" in p for p in g.get("problems") or []))
+        ctx.check(f"the save answers the same lines, got {st} {r.get('problems')}",
+                  st == 200 and r.get("problems") == g.get("problems") and r.get("undo_id"))
+        st, r = rig.api("PUT", "crew/map/ship-it", {"map": rig.api("GET", "crew/map/ship-it")[1]["map"]})
+        ctx.check(f"a map with no problem still answers [], got {st} {r.get('problems')}", st == 200 and r.get("problems") == [])
+
+
+@test
+def test_a_map_names_the_model_a_new_session_on_it_starts_on(ctx: Ctx):
+    """3.6.0.11 SM: `start` {model, origin} names the model a new session on the open map starts on (start_model.py):
+    the default he picked, a pin in his copy of main (only off Auto), a /model remembered after the default."""
+    from halo_harness import launch_state
+    from halo_harness.theme import set_config_value
+    with CrewRig() as rig:
+        rig.studio()
+        set_config_value("model", "or:new/default-x")
+        got = {n: rig.api("GET", f"crew/map/{n}")[1].get("start") for n in ("auto", "ship-it")}
+        want = {"model": "or:new/default-x", "origin": "config"}
+        ctx.check(f"no pin: the default, origin config, on Auto and on ship-it, got {got}", got == {"auto": want, "ship-it": want})
+        _st, a = rig.api("GET", "crew/agent/main")
+        st, _r = rig.api("POST", "crew/agent/main", {"agent": {**a["agent"], "model": "or:old/pinned-p"}})
+        got = {n: rig.api("GET", f"crew/map/{n}")[1].get("start") for n in ("auto", "ship-it")}
+        ctx.check(f"a pin in his main: Auto keeps the default, ship-it names the pin, got {st} {got}", st == 200 and got == {
+            "auto": want, "ship-it": {"model": "or:old/pinned-p", "origin": "pin"}})
+        _st, m = rig.api("GET", "crew/map/auto")
+        ctx.check(f"on Auto the answer still carries main's own model (the page's second line), got {m.get('main')}",
+                  (m.get("main") or {}).get("model") == "or:old/pinned-p")
+        launch_state.record_last_model("or:mock/slash-y", cwd=rig.proj)
+        got = {n: rig.api("GET", f"crew/map/{n}")[1].get("start") for n in ("auto", "ship-it")}
+        ctx.check(f"a /model after the default: Auto names it, the pin still outranks it, got {got}", got == {
+            "auto": {"model": "or:mock/slash-y", "origin": "remembered"}, "ship-it": {"model": "or:old/pinned-p", "origin": "pin"}})
+
+
+@test
 def test_use_the_owner_and_the_cli(ctx: Ctx):
     with CrewRig() as rig:
         rig.studio()
@@ -373,6 +416,20 @@ def test_switch_off_reads_auto(ctx: Ctx):
         ctx.check(f"off: Auto's words, got {st} {r.get('said')!r}",
                   st == 200 and r.get("said") == "New sessions run on Auto (the default); a running session keeps its own."
                   and r.get("in_use") == "auto")
+
+
+@test
+def test_run_new_sessions_on_auto_from_the_map_tab(ctx: Ctx):
+    """3.6.0.11 SM: on Auto no switch is drawn; Agents -> Map's [Run new sessions on Auto (the default)] sends the
+    switch's own request for Auto: crew.map is taken out and the receipt reads Auto's words."""
+    with CrewRig() as rig:
+        rig.studio()
+        rig.api("POST", "crew/map/ship-it/use", {"on": True})
+        st, r = rig.api("POST", "crew/map/auto/use", {"on": True})
+        crew = json.loads((rig.state / "config.json").read_text(encoding="utf-8")).get("crew") or {}
+        ctx.check(f"Auto: crew.map out, in use auto, Auto's words, got {st} {r} {crew}",
+                  st == 200 and r.get("in_use") == "auto" and "map" not in crew
+                  and r.get("said") == "New sessions run on Auto (the default); a running session keeps its own.")
 
 
 @test

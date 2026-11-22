@@ -144,7 +144,7 @@ export function MapCanvas() {
               <span key={`tl${t.n}`} className="mp-talk-label mono" data-testid="map-talk-label" data-from={t.from} data-to={t.to}
                     style={{ left: (a.x + z.x) / 2 + BOX_W / 2, top: (a.y + a.h / 2 + z.y + z.h / 2) / 2 - 14, width: BOX_W }} title={t.text}>{t.text}</span>) : null; })}
             {g.boxes.map((b) => (
-              <MapBox key={b.id} b={b} facts={detail?.boxes[b.id]} mainFacts={detail?.main} talking={talking.has(b.id)}
+              <MapBox key={b.id} b={b} facts={detail?.boxes[b.id]} mainFacts={detail ? { ...detail.main, start: detail.start } : undefined} talking={talking.has(b.id)}
                       style={{ position: "absolute", left: b.x, top: b.y, width: BOX_W, minHeight: b.h }} />
             ))}
           </div>

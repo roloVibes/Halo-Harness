@@ -17,6 +17,7 @@ import type { MapDetail } from "./mapTypes";
 import { NoticeRow } from "./NoticeRow";
 import { view } from "./view";
 import { startOrchestra } from "../../orchestra/sync";
+import { UseThis, useNotNext } from "./useThis";
 
 const NONE: never[] = [];
 
@@ -46,6 +47,8 @@ export function AutoPlan() {
   const sid = autoWatch(useQuiet().on);
   const head = m1Head(names);
   const { box, twin, h } = useTwinRoom(head);
+  const not = useNotNext(); // 3.6.0.11 SM: Auto open while new sessions run another map: the line, its room from the first draw
+  const nx = useTwinRoom(not.room);
   useEffect(() => startOrchestra(), []); // the goal runs RunRow shows (MapCanvas starts them on every other map)
   const main = view(detail ? { ...detail.map, boxes: [], lines: [] } : null, [], []).boxes[0];
   return (
@@ -60,9 +63,15 @@ export function AutoPlan() {
           <p className="cw-line mp-topline">{head} {NOTHING_ON_AUTO} {M1_TAIL}</p>
         </div>
       </div>
+      <div className="mp-topline-room" ref={nx.box} style={nx.h ? { minHeight: nx.h } : undefined}>
+        {not.line && <p className="cw-line mp-topline" data-testid="map-auto-next">{not.line} <UseThis name={not.name} /></p>}
+        <div className="mp-notice-twin" ref={nx.twin} aria-hidden="true">
+          {not.room && <p className="cw-line mp-topline">{not.room} <UseThis name={not.name} twin /></p>}
+        </div>
+      </div>
       {main && (
         <div className="mp-auto-main" data-testid="map-auto-main" data-box="main">
-          <MapBox b={main} facts={detail?.boxes.main} mainFacts={detail?.main} style={{ width: BOX_W }} />
+          <MapBox b={main} facts={detail?.boxes.main} mainFacts={detail ? { ...detail.main, start: detail.start, auto: true } : undefined} style={{ width: BOX_W }} />
         </div>
       )}
       <RunRow />

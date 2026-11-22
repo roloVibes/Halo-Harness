@@ -527,6 +527,29 @@ def test_words_in_one_place(ctx: Ctx):
 
 
 @test
+def test_the_open_map_says_when_new_sessions_do_not_run_it(ctx: Ctx):
+    """3.6.0.11 SM: Agents -> Map's select only opens a map; a line says when the open map is not the one new sessions
+    run (map_facts.py USE_EDITED's first sentence), with its button's label, and nothing when it is. Main's box names
+    the model a new session starts on and why (crew_map_api `start`), and on Auto what a pin in main's file does."""
+    _, out = ts("""out.lines = [T.notNextLine('ship-it', 'starter', null), T.notNextLine('ship-it', 'yours', 'ship-it'),
+      T.notNextLine('auto', 'starter', 'ship-it'), T.notNextLine('auto', 'starter', null), T.notNextLine('auto', 'starter', 'starter'),
+      T.notNextLine('ship-it', 'starter', null, true), T.notNextLine('auto', 'yours', null), T.notNextLine('', '', null)];
+      out.labels = [T.useThisLabel('ship-it'), T.useThisLabel('auto')];
+      out.why = ['config', 'remembered', 'pin', 'env', 'routes', 'work', 'built-in', 'odd'].map((o) => T.startWords({ model: 'or:m/x', origin: o }));
+      out.none = T.startWords(undefined);
+      out.pin = T.pinNotOnAuto('or:old/p');""")
+    ctx.check(f"the lines, got {out['lines']}", out["lines"] == [
+        f"New sessions do not run on ship-it; they run on {DEF}.", "", f"New sessions do not run on {DEF}; they run on ship-it.",
+        "", "", "", "", ""])
+    ctx.check(f"the button's labels, got {out['labels']}", out["labels"] == ["Run new sessions on ship-it", f"Run new sessions on {DEF}"])
+    ctx.check(f"why a model, word for word, got {out['why']}", out["why"] == [
+        "or:m/x · your default model", "or:m/x · your last /model", "or:m/x · pinned in main's own file, outranks your default model",
+        "or:m/x · from HALO_MODEL", "or:m/x · from routes.json", "or:m/x · from your work environment", "or:m/x · Halo's built-in default", ""])
+    ctx.check(f"no start known: nothing, got {out['none']!r}", out["none"] == "")
+    ctx.check(f"the pin on Auto, got {out['pin']!r}", out["pin"] == "main's own file pins or:old/p: used on other maps, not on Auto")
+
+
+@test
 def test_p7_the_wait_words_have_one_mapping(ctx: Ctx):
     """P7 (the checker of P4 batch 13, the coordinator's ruling): the clock's words for a wait (runParts.tsx) were a second
     copy of the status line's mapping (truth.ts). ONE mapping, truth.ts `waitWhat`, read by both. Red on 4a150bf9."""

@@ -21,6 +21,8 @@ export type MapDetail = {
   problems: string[];
   boxes: Record<string, BoxFacts>;
   main: { agent: string; model?: string; does?: string };
+  /** 3.6.0.11 SM: the model a new session on this map starts on, and why (start_model.py's origin) */
+  start?: { model: string; origin: string };
   /** 3.6.0.9 V: the hash of the map's file as read, and of each `agent:<name>` / `workflow:<name>` file whose facts are
    *  in it (studio/files_live.py): the page reads the map again only when one of them differs on disk */
   sig?: string;

@@ -70,7 +70,9 @@ def test_a_drag_lights_the_drop_places_and_the_when_card(ctx: Ctx):
               got.get("lit") == ["drop: main hands work to it", "drop: add, connect later", True])
     ctx.check(f"dropped on main: the When card at the line, got {got.get('card')!r}", got.get("card") == "When does main hand work to tester?")
     ctx.check(f"the label and the receipt, got {got.get('label')!r} {got.get('receipt')!r}",
-              got.get("label") == "says test" and got.get("receipt") == "main hands work to tester: says test.")
+              got.get("label") == "says test" and got.get("receipt") == "main hands work to tester: says test."
+              # 3.6.0.11 SM (rewritten to the truth): a save on a map new sessions do not run ends saying so
+              " New sessions do not run on seven-boxes; they run on Auto (the default).")
     ctx.check(f"the file, got {got.get('file')}", got.get("file") == [{"from": "main", "to": "tester", "when": {"says": ["test"]}}])
 
 
@@ -106,6 +108,30 @@ def test_more_than_one_map_uses_and_lock(ctx: Ctx):
     ctx.check(f"New sessions run on this (ship-it): config crew.map, got {got.get('in_use')!r}", got.get("in_use") == "ship-it")
     ctx.check(f"... and ship-it is tagged new sessions, got {got.get('tagged')!r}", str(got.get("tagged")).endswith(" · new sessions"))
     ctx.check("Lock: no dot, no Add", got.get("locked") is True)
+
+
+@test
+def test_the_map_tab_says_which_map_new_sessions_run(ctx: Ctx):
+    """3.6.0.11 SM (the owner: "I change it in map, there's like no save"): the select only opens a map; the open map
+    that new sessions do not run says so, and [Run new sessions on {open}] makes it the one (crew.map), on Auto too.
+    Main's box names the model a new session starts on and why. Nothing below it in the top line moves when it goes (the switch's receipt above the canvas is the switch's own)."""
+    got = _got(ctx)
+    ctx.check(f"ship-it opened: the line in the sentence's place, got {got.get('use_line')!r} {got.get('use_label')!r}",
+              "New sessions do not run on ship-it; they run on Auto (the default)." in str(got.get("use_line"))
+              and "next hand-off" not in str(got.get("use_line")) and got.get("use_label") == "Run new sessions on ship-it")
+    ctx.check(f"main names the start model and why, got {got.get('use_start')!r}",
+              got.get("use_start") == "or:mock/crew-try · your default model · the agent you talk to")  # the rig's config.json model
+    ctx.check(f"pressed: config crew.map is ship-it, the line is gone, nothing below moved, got {got.get('use_crew_after')!r}"
+              f" {got.get('use_gone')!r} {got.get('use_acts_top')} {got.get('use_acts_top_after')}",
+              got.get("use_crew_after") == "ship-it" and "do not run" not in str(got.get("use_gone") or "do not run")
+              and got.get("use_acts_top") == got.get("use_acts_top_after"))
+    ctx.check(f"Auto opened: the line names ship-it, got {got.get('use_auto_line')!r}",
+              str(got.get("use_auto_line")).startswith("New sessions do not run on Auto (the default); they run on ship-it.")
+              and "Run new sessions on Auto (the default)" in str(got.get("use_auto_line")))
+    ctx.check(f"Auto's main box names the start model, got {got.get('use_auto_start')!r}",
+              got.get("use_auto_start") == "or:mock/crew-try · your default model · the agent you talk to")
+    ctx.check(f"pressed on Auto: crew.map out, the line gone, got {got.get('use_auto_gone')!r} {got.get('use_crew_auto')!r}",
+              got.get("use_auto_gone") is True and got.get("use_crew_auto") == "")
 
 
 @test

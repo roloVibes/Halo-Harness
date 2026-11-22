@@ -16,6 +16,7 @@ import { NEXT_NONE, newSessionsRunOn, nextMap, nextName, onMap, switchLabel } fr
 import { isAuto } from "./truthWords";
 import { oldWords, pickerRows, pickerValue, usesSlot } from "./pickerRows";
 import { copyName, copyOld } from "./oldCopy";
+import { UseThis, useNotNext } from "./useThis";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
 
@@ -78,8 +79,8 @@ function useRoom(key: string) {
     return () => ro.disconnect();
   }, []);
   useLayoutEffect(() => {
-    const said = twin.current?.firstElementChild as HTMLElement | null;
-    const h = said?.offsetHeight || 0;
+    const kids = [...(twin.current?.children || [])] as HTMLElement[]; // the tallest form (3.6.0.11 SM: the not-run line too)
+    const h = Math.max(0, ...kids.map((k) => k.offsetHeight));
     if (Math.abs(h - room.h) > 0.5) setRoom({ h });
   }, [key, width]); // eslint-disable-line react-hooks/exhaustive-deps
   return { box, twin, room };
@@ -98,14 +99,16 @@ export function TopLine({ fresh = 0 }: { fresh?: number }) {
   const quiet = useContext(QuietCtx);
   const runs = ["L1", "L3"].includes(quiet.facts?.kind || ""); // a session runs on it or from it now: L1/L3 says so
   const said = locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (one that ships with Halo: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`;
-  const { box, twin, room } = useRoom(said);
+  const not = useNotNext(); // 3.6.0.11 SM: on a map new sessions do not run, that line and its button in the sentence's place
+  const { box, twin, room } = useRoom(`${said}|${not.room}`);
   return (
     <div className="mp-topwrap" data-testid="map-topline">
       <NoticeRow />
       <div className="mp-topline-room" ref={box} style={room.h ? { minHeight: room.h } : undefined}>
-        <p className="cw-line mp-topline" data-testid="map-topline-said">{runs ? said : `${OFF_SAID} ${said}`}</p>
+        <p className="cw-line mp-topline" data-testid="map-topline-said">{runs ? "" : `${OFF_SAID} `}{not.line ? <>{not.line} <UseThis name={not.name} /></> : said}</p>
         <div className="mp-notice-twin" ref={twin} aria-hidden="true">
           <p className="cw-line mp-topline">{OFF_SAID} {said}</p>
+          {not.room && <p className="cw-line mp-topline">{OFF_SAID} {not.room} <UseThis name={not.name} twin /></p>}
         </div>
       </div>
       <div className="mp-topline-acts" data-testid="map-topline-acts">

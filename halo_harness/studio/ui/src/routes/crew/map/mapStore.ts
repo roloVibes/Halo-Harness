@@ -12,6 +12,7 @@ import { loadFlows } from "../flows/flowStore";
 import { onTab } from "../builderStore";
 import type { LineWhen, MapDetail, MapFile, MapLine, MapRow } from "./mapTypes";
 import { nameOfTheDefault, openName } from "./truthWords";
+import { notNextLine } from "./truthBits"; // 3.6.0.11 SM: a save's receipt ends saying when new sessions do not run the map
 import { readOnly } from "./autoWords";
 import { mapUrl } from "./pickerRows";
 
@@ -142,7 +143,7 @@ export async function save(next: MapFile, line: string): Promise<boolean> {
   if (s.locked || !s.name) return false;
   try {
     const r = await api.put<MapDetail & { undo_id: string }>(`crew/map/${s.name}`, { map: next });
-    maps.update(() => ({ detail: r, receipt: { line, undo: r.undo_id }, error: "" }));
+    maps.update(() => ({ detail: r, receipt: { line: [line, notNextLine(s.name, r.scope || s.scope, s.next, s.nextNone)].filter(Boolean).join(" "), undo: r.undo_id }, error: "" }));
     void loadMaps();
     return true;
   } catch (e) {

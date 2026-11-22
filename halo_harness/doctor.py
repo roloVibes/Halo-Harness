@@ -1124,26 +1124,12 @@ def _effective_default_model(cwd: Optional[Path], settings_flag: Optional[str]) 
     in `build_session`'s own order: the last-used model (`/model`), then
     HALO_MODEL > routes.json `default` > config.json `model` > the
     Databricks work-env shortcut. `(None, "")` when only the built-in
-    default would apply."""
-    from halo_harness import launch_state
-    from halo_harness.config.paths import bridge_home, env_compat
-    from halo_harness.model import DEFAULT_MODEL_REF, resolve_default_model_raw
-    from halo_harness.providers.config import listing_effective_env, load_routes
-    from halo_harness.theme import get_config_value
-    memory = get_config_value("model_memory", default="cwd")
-    last = launch_state.resolve_last_model(cwd or Path.cwd(), memory=memory if isinstance(memory, str) else "cwd")
-    if last:
-        return str(last), "last-used model"
-    routes = load_routes(bridge_home() / "routes.json")
-    if env_compat("MODEL"):
-        return str(env_compat("MODEL")), "HALO_MODEL"
-    if routes.get("default"):
-        return str(routes["default"]), "routes.json default"
-    configured = get_config_value("model", default=None)
-    if isinstance(configured, str) and configured:
-        return configured, "config.json's model"
-    raw = resolve_default_model_raw(routes, env=listing_effective_env(cwd, settings_flag))
-    return (raw, "work environment") if raw != DEFAULT_MODEL_REF else (None, "")
+    default would apply. 3.6.0.11: a call of start_model.py (no map pin)."""
+    from halo_harness.start_model import start_model
+    ref, origin = start_model(cwd, settings_flag=settings_flag)
+    words = {"remembered": "last-used model", "env": "HALO_MODEL", "routes": "routes.json default",
+             "config": "config.json's model", "work": "work environment"}
+    return (ref, words[origin]) if origin in words else (None, "")
 
 
 def _check_default_model(cwd: Optional[Path] = None, settings_flag: Optional[str] = None) -> str:

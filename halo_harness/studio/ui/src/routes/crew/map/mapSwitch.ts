@@ -20,7 +20,7 @@ import { agents, setAgentsView } from "../../agents/store";
 import { pickLive } from "../../agents/livePick";
 import { LAST, loadMaps, maps, msg, openMap, rereadDetail } from "./mapStore";
 import { openOn } from "./mapQuiet";
-import { mapName, newSessionsRunOn, s13For } from "./truth";
+import { mapName, newSessionsRunOn, nextName, s13For } from "./truth";
 import { onMap } from "./truthWords";
 
 export type Notice = { map: string; session: string; t: number };
@@ -38,7 +38,7 @@ export async function setUse(on: boolean): Promise<void> {
     const st = fleet.get();
     const keeps = on ? openOn(st, localId(st)).find((x) => !onMap(x.a, s.name, s.detail?.scope || "")) : undefined; // the newest open session on another map
     const line = !on ? r.said || "New sessions run on Auto (the default); a running session keeps its own."
-      : (keeps ? s13For(keeps.title, mapName(keeps.a, keeps.plain), s.name) : newSessionsRunOn(s.name)) + tail;
+      : (keeps ? s13For(keeps.title, mapName(keeps.a, keeps.plain), nextName(s.name)) : newSessionsRunOn(nextName(s.name))) + tail; // Auto by its words
     maps.update(() => ({ inUse: r.in_use, receipt: { line, undo: r.undo_id } }));
     await loadMaps();
   } catch (e) {

@@ -361,6 +361,45 @@ def test_a_default_model_picked_after_a_slash_model_is_what_a_session_starts_on(
 
 
 @test
+def test_start_model_names_the_model_each_new_session_got(ctx: Ctx):
+    """3.6.0.11 SM: start_model.py is the one answer to "which model does a new session start on, and why" (Agents ->
+    Map and doctor read it). For each origin a real session is built here and gets the model the function names."""
+    from halo_harness import launch_state
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.crew import store
+    from halo_harness.crew.changes_map import config_path, config_text
+    from halo_harness.crew.map_session import model as map_model, prepare
+    from halo_harness.model import DEFAULT_MODEL_REF
+    from halo_harness.start_model import start_model
+    from halo_harness.theme import set_config_value
+    with _Env(), tempfile.TemporaryDirectory() as cwd:
+        here = Path(cwd)
+        os.environ["OPENROUTER_API_KEY"] = "test-key-not-real"
+
+        def agree(want_origin: str, want_ref: str, pin=None, bare=True):
+            ref, origin = start_model(here, map_pin=pin)
+            got = _build(here, bare=bare).model_ref.raw
+            ctx.check(f"{want_origin}: start_model says {ref} ({origin}), the session got {got}",
+                      (ref, origin) == (want_ref, want_origin) and got == ref)
+        agree("built-in", DEFAULT_MODEL_REF)
+        set_config_value("model", "or:mock/default-x")
+        agree("config", "or:mock/default-x")
+        (bridge_home() / "routes.json").write_text(json.dumps({"default": "or:mock/routes-z"}), encoding="utf-8")
+        agree("routes", "or:mock/routes-z")
+        os.environ["HALO_MODEL"] = "or:mock/env-w"
+        agree("env", "or:mock/env-w")
+        launch_state.record_last_model("or:mock/slash-y", cwd=here)
+        agree("remembered", "or:mock/slash-y")
+        main = store.clean(store.load("agent", "main", state_dir=None) or {})
+        store.path_for("agent", "main").parent.mkdir(parents=True, exist_ok=True)
+        store.path_for("agent", "main").write_text(store.dump({**main, "model": "or:mock/pinned-p"}), encoding="utf-8")
+        config_path().write_text(config_text("ship-it"), encoding="utf-8")
+        pin = map_model(prepare(None, here)[0])
+        ctx.check(f"ship-it in use, his main pins P, got {pin}", pin == "or:mock/pinned-p")
+        agree("pin", "or:mock/pinned-p", pin=pin, bare=False)
+
+
+@test
 def test_picking_the_default_again_in_the_terminal_setup_is_a_pick_too(ctx: Ctx):
     """The terminal setup's picker writes nothing when the model picked is already the default. It is still the
     person's newest word; Enter (nothing picked) is not."""
