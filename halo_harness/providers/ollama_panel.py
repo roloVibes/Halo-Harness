@@ -140,7 +140,8 @@ def analyze_host(host, *, hw_runner=None, force: bool = False, state_dir=None) -
         reachable = isinstance(version_info, dict)
         version = (version_info or {}).get("version") if isinstance(version_info, dict) else None
     catalog = get_catalog(host, force=force) if reachable else {"models": []}
-    ps = fetch_ps(host) if reachable else None
+    # 3.6.0.14 GR-1: a gateway is never asked for `/api/ps` (it is not Ollama's own API: the answer was always a refusal)
+    ps = fetch_ps(host) if reachable and not host_is_openai_dialect(host) else None
     loaded = []
     for entry in ((ps or {}).get("models") or []):
         if not isinstance(entry, dict):

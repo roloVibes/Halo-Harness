@@ -789,10 +789,9 @@ def test_a_gateway_with_the_openai_dialect_is_spoken_to_in_it(ctx: Ctx):
         bodies = gw.chat_bodies()
         ctx.check(f"exit 0, four chat requests, got {rc} {len(bodies)} {err!r} {text[-400:]!r}",
                   rc == 0 and len(bodies) == 4)
-        # The one GET of /api/ps a background model listing may make (models_best_at -> ollama_panel.analyze_host,
-        # as in every session on such a host; it reads "nothing loaded" from the refusal) is not the gym's
-        ctx.check(f"no request of the gym's to Ollama's own API, got {gw.native()}",
-                  [p for p in gw.native() if p != "GET /api/ps"] == [])
+        # none at all: the background model listing (models_best_at -> ollama_panel.analyze_host) asks a gateway
+        # for no /api/ps either
+        ctx.check(f"no request to Ollama's own API, got {gw.native()}", gw.native() == [])
         ctx.check("every request carries the entry's key",
                   all(r["headers"].get("authorization") == f"Bearer {KEY}" for r in gw.requests))
         ctx.check("the model's own name, and no Ollama-only field (think) on the wire",
@@ -900,6 +899,15 @@ def test_one_line_per_trial_as_each_ends(ctx: Ctx):
         ctx.check(f"every trial and the card keep their seconds, got {card.get('seconds')}",
                   isinstance(card.get("seconds"), (int, float))
                   and all(isinstance(t.get("seconds"), (int, float)) for t in card["before"] + card["now"]))
+    from halo_harness import gym_handout as G
+    base = {**G._counts(), "seconds": 7.4}
+    ends = {"finished": {"finished": True, "requests": 3},
+            "not finished in 10 requests": {"requests": 10},
+            "no answer": {"requests": 1, "error": "UpstreamError: refused"},
+            "stopped by an error after 5 requests": {"requests": 5, "error": "UpstreamError: an internal error"}}
+    got = {end: G.trial_line("now", 1, 3, {**base, **t}) for end, t in ends.items()}
+    ctx.check(f"the four ways a trial ends, word for word, got {got}",
+              all(ln == f"  now 1 of 3: 0 of 4 parts in 0 calls · own steps 0 · {end} · 7 s" for end, ln in got.items()))
 
 
 def _t(parts=0, calls=0, typed=0, right=0, finished=True, requests=2, error=None) -> dict:

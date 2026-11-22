@@ -481,9 +481,8 @@ def test_the_battery_speaks_to_a_gateway_with_the_openai_dialect(ctx: Ctx):
             rc, out, err = _show(["--models", "ol:gym-pass@gpu-box", "--quick"])
             ctx.check(f"exit 0, got {rc} {err[-300:]!r}", rc == 0)
             ctx.check(f"replies came through /v1/chat/completions, got {len(gw.chat_bodies())}", len(gw.chat_bodies()) > 4)
-            # a background model listing's GET of /api/ps (as in every session on such a host) is not the battery's
-            ctx.check(f"no request of the battery's to Ollama's own API, got {gw.native()}",
-                      [p for p in gw.native() if p != "GET /api/ps"] == [])
+            # none at all: the background model listing asks a gateway for no /api/ps either
+            ctx.check(f"no request to Ollama's own API, got {gw.native()}", gw.native() == [])
             ctx.check("every request carries the entry's key",
                       all(r["headers"].get("authorization") == f"Bearer {KEY}" for r in gw.requests))
             results = iter_results(env.state_dir)

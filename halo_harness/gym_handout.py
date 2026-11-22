@@ -550,8 +550,10 @@ def trial_line(arm: str, i: int, n: int, trial: dict) -> str:
         end = "no answer"
     elif trial.get("finished"):
         end = "finished"
-    else:  # ten requests, or an error after answered ones: the requests it took
-        end = f"not finished in {int(trial.get('requests') or MAX_REQUESTS)} requests"
+    elif trial.get("error"):  # it got answers, then a request failed (the error itself is on the errors line)
+        end = f"stopped by an error after {int(trial.get('requests') or 0)} requests"
+    else:
+        end = f"not finished in {MAX_REQUESTS} requests"
     return (f"  {arm} {i} of {n}: {_parts(trial)} of 4 parts in {c} call{'' if c == 1 else 's'} · own steps "
             f"{int(trial.get('own') or 0)} · {end} · {round(float(trial.get('seconds') or 0))} s")
 

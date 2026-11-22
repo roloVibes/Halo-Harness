@@ -39,7 +39,8 @@ A scratch copy of a small project, removed at the end, and one card per model un
 - **A gateway in front of Ollama** (a host entry with `dialect: "openai"`): the gym speaks to it as a session does, with the entry's key. It cannot unload the model through a gateway, and says so on the errors line.
 - **One line per trial**, printed as each trial ends, before the model's line:
   `  now 2 of 3: 2 of 4 parts in 2 calls · own steps 1 · finished · 41 s`. A trial ends `finished`,
-  `not finished in 10 requests` or with `no answer` (its first request got no reply).
+  `not finished in 10 requests`, `stopped by an error after 5 requests` (it got answers, then a request failed) or
+  with `no answer` (its first request got no reply).
 - **What it counts, per model**: one line,
   `{model}: hands out {a} of 4 parts in {c} calls (before {b}) · bundled {u} · names right {r} of {n} · own steps {o} (before {p}) · finished {f} of 3 (before {g}) · 3 trials`.
   `a` and `b` are the mean parts handed out per trial (a call earns at most one part; a call that holds several
