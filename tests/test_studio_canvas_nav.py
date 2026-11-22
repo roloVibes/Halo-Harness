@@ -49,8 +49,15 @@ def test_one_module_wires_every_drawing(ctx: Ctx):
         ctx.check(f"{p.name} wires useCanvasNav", "useCanvasNav(scroll" in p.read_text(encoding="utf-8"))
     wheel = [str(p.relative_to(UI)) for p in UI.rglob("*.ts*") if re.search(r"addEventListener\(\"wheel\"|onWheel=", p.read_text(encoding="utf-8"))]
     wheel = sorted(w.replace("\\", "/") for w in wheel)
-    ctx.check(f"no other wheel listener (lib/hover/store.ts only closes the hover card on a scroll), got {wheel}",
-              wheel == ["lib/canvasNav.ts", "lib/hover/store.ts"])
+    # 3.6.0.14 OP1: routes/crew/map/useSheet.ts folds the box's open sheet on a wheel over the drawing; it listens
+    # passively (it never stops the wheel, so the drawing still scrolls and canvasNav still zooms)
+    ctx.check(f"no other wheel listener (lib/hover/store.ts only closes the hover card on a scroll, useSheet.ts only "
+              f"folds the open sheet), got {wheel}",
+              wheel == ["lib/canvasNav.ts", "lib/hover/store.ts", "routes/crew/map/useSheet.ts"])
+    sheet = (UI / "routes" / "crew" / "map" / "useSheet.ts").read_text(encoding="utf-8")
+    ctx.check("the sheet's one wheel listener is passive and is taken off",
+              sheet.count('addEventListener("wheel"') == 1 and 'addEventListener("wheel", wheel, { passive: true })' in sheet
+              and 'removeEventListener("wheel", wheel)' in sheet and "preventDefault" not in sheet)
     line = "Ctrl + wheel (Cmd on a Mac) or pinch to zoom, drag to pan, double-click to fit."
     ctx.check("the help line is in the module", line in nav)
     shown = [*(UI / "routes").glob("help-*.ts"), *(UI / "routes" / "crew" / "map").glob("*.tsx")]  # R5: the Map's own
