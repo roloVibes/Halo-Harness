@@ -6,7 +6,10 @@
 // - `workingBelow` (3.6.0.5 B26): on Auto, the working group out of sight that the slot names.
 // - r/batch04: on Auto the scroll box is the whole room (`drawingHeight`) and the slot names a working group not wholly in
 //   view below (`slotOf`); a map of his keeps `viewHeight` and its slot as before.
+// - 3.6.0.13 L4: first a group that waits on him out of sight (`waitSlot`), the other groups wholly below (`groupsBelow`),
+//   and what a press does while the step-in card is open (`slotPress`, R4: fold first, then scroll).
 // No React, no DOM: node runs it (tests/test_studio_session_map_down.py, tests/test_map_groups.py).
+import { rawOf } from "../crew/map/groupWords";
 import type { PlacedDown } from "../crew/map/layoutDown";
 import type { AutoGroup } from "../crew/map/overlayGroups";
 
@@ -62,7 +65,8 @@ export function scrollSize(auto: boolean, boxes: Placed[], k: number, h: number,
  *  whose view is the whole room, r/batch04 entry 1): a group not WHOLLY in view below it counts too -- its head in or
  *  below the view and its foot past the view's foot. */
 export function workingBelow(boxes: PlacedDown[], groups: AutoGroup[], k: number, top: number, viewH: number, cut = false): PlacedDown | null {
-  const working = new Set(groups.filter((g) => g.members.some((m) => m.state === "working")).map((g) => g.n));
+  // 3.6.0.13 L4: working from the raw state (running, paused); a group whose members are all queued is not working
+  const working = new Set(groups.filter((g) => g.members.some((m) => ["running", "paused"].includes(rawOf(m)))).map((g) => g.n));
   const out = (b: PlacedDown) => (cut ? b.y * k >= top - 0.5 && (b.y + b.h) * k > top + viewH + 0.5 : b.y * k >= top + viewH - 0.5);
   const below = boxes.filter((b) => b.group && working.has(b.group.n) && out(b));
   return below.sort((p, q) => p.group!.n - q.group!.n)[0] || null;
@@ -74,6 +78,40 @@ export function slotOf(boxes: PlacedDown[], groups: AutoGroup[], k: number, top:
   const box = workingBelow(boxes, groups, k, top, viewH, true);
   return box ? { box, more: belowCount(boxes.filter((b) => b !== box), k, top, viewH) } : null;
 }
+
+/** A rect on screen (client px). */
+export type Rect = { top: number; bottom: number; left: number; right: number };
+/** A waiting member's rect, its group's n and its agent id. */
+export type Seen = Rect & { n: number; aid: string };
+export type SlotArrow = "down" | "up" | "under";
+
+/** 3.6.0.13 L4: the group the slot names first -- one whose waiting member is out of sight (not wholly inside the view:
+ *  partly in view counts) with the arrow of the edge that cuts it (its top above the view's top: up, else down), or
+ *  wholly in view under the open card (`cover`): under; of several the lowest n; null when none. */
+export function waitSlot(seen: Seen[], view: Rect, cover: Rect | null): { n: number; aid: string; arrow: SlotArrow } | null {
+  const meets = (a: Rect, b: Rect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  const at = seen.flatMap((x) => {
+    const whole = x.top >= view.top - 0.5 && x.bottom <= view.bottom + 0.5;
+    const arrow: SlotArrow | null = !whole ? (x.top < view.top - 0.5 ? "up" : "down") : cover && meets(x, cover) ? "under" : null;
+    return arrow ? [{ n: x.n, aid: x.aid, arrow }] : [];
+  });
+  return at.sort((p, q) => p.n - q.n)[0] || null;
+}
+
+/** 3.6.0.13 L4: the group boxes wholly below a view `h` tall scrolled to `top`, group `n` (the one named) not counted. */
+export const groupsBelow = (boxes: PlacedDown[], k: number, top: number, h: number, n: number): number =>
+  boxes.filter((b) => b.group && b.group.n !== n && b.y * k >= top + h - 0.5).length;
+
+/** R4: a press's steps in order -- with the card open, fold it first, then scroll; the under form only folds. */
+export function slotPress(arrow: SlotArrow | "working", cardOpen: boolean): ("fold" | "scroll")[] {
+  if (arrow === "under") return cardOpen ? ["fold"] : [];
+  return cardOpen ? ["fold", "scroll"] : ["scroll"];
+}
+
+/** Where a press on a group's slot scrolls to (scroll px): its head at the top, or, when its waiting member's foot would
+ *  still be out of a view `h` tall, that member's top. */
+export const slotTop = (head: number, member: { top: number; bottom: number } | null, h: number): number =>
+  member && member.bottom > head + h + 0.5 ? member.top : head;
 
 /** The scrollTop that brings the next row's top to the scroll box's top (one row down), or null at the last row. */
 export function nextTop(rows: RowBand[], k: number, top: number): number | null {

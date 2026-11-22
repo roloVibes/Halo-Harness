@@ -18,6 +18,7 @@ Run: python -m tests.test_map_groups
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -34,6 +35,7 @@ MODS = {
     "gw": "routes/crew/map/groupWords.ts", "hops": "routes/crew/map/overlayHops.ts", "sit": "routes/crew/map/stepInTarget.ts",
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
     "slot": "routes/agents/liveSlot.ts", "now": "routes/crew/map/nowLine.ts", "room": "routes/crew/map/nowRoom.ts",
+    "turn": "routes/crew/map/turnWords.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -443,8 +445,9 @@ console.log(JSON.stringify(out));"""
                             "m1": _m("a", desc="read report A"), "m2": _m("b", "done", who="agent", model="")})
     ctx.check(f"3 working at $0.04, got {got['three']['line']!r}", got["three"]["line"] == "3 agents · 3 working · $0.04")
     ctx.check(f"every part in order, failed its own (--bad) part, got {got['each']}",
-              got["each"]["line"] == "4 agents · 1 working · 1 waiting · 1 done · 1 failed · $0.50"
-              and [p.get("bad", False) for p in got["each"]["parts"]] == [False, False, False, False, True, False])
+              got["each"]["line"] == "4 agents · 1 working · 1 waiting on you · 1 done · 1 failed · $0.50"
+              and [p.get("bad", False) for p in got["each"]["parts"]] == [False, False, False, False, True, False]
+              and [p.get("warn", False) for p in got["each"]["parts"]] == [False, False, True, False, False, False])
     ctx.check(f"one member: '1 agent', zero parts and a zero cost left out, got {got['one']['line']!r}",
               got["one"]["line"] == "1 agent · 1 working")
     ctx.check(f"all done over 125 s: the done form, got {got['done']['line']!r}", got["done"]["line"] == f"3 agents · all done · $0.09 · 2{NB}min")
@@ -566,6 +569,46 @@ def test_g5_lists_the_start_agents(ctx: Ctx):
               got.get("a") == ["main · glm-5", "Can hand work to: " + ", ".join(names[:12]) + " and 2 more"])
     ctx.check(f"none: the first line only, got {got.get('b')}", got.get("b") == ["main · glm-5"])
     ctx.check(f"two, got {got.get('c')}", got.get("c") == ["main · glm-5", "Can hand work to: a1, a2"])
+    # R8 (3.6.0.13 L3): before its first request main's hover is mainHover(..., null, null), the same G5 lines byte for byte
+    js = ("const h = (n) => M.turn.mainHover('glm-5', n, null, null);"
+          "console.log(JSON.stringify({a: h(D), b: h([]), c: h(D.slice(0, 2))}));")
+    hv = _run(["turn"], js, names)
+    ctx.check(f"main's hover before the first request is G5's, got {hv}",
+              hv.get("a") == got.get("a") and hv.get("b") == got.get("b") and hv.get("c") == got.get("c"))
+
+
+@test
+def test_turn_line_and_mains_hover(ctx: Ctx):
+    """L3 with R5, R8 and the coordinator's ruling: TURN's words (a zero part left out, "1 helper", "1 tool", both zero
+    or no turn: blank), its held rows (two at 224 px, three at 160 px), and main's hover once main was told its kinds."""
+    names = [f"k{i}" for i in range(1, 15)]
+    js = """const t = M.turn, out = {};
+out.lines = [t.turnLine({helpers: 5, tools: 4}), t.turnLine({helpers: 1, tools: 1}), t.turnLine({helpers: 3, tools: 0}),
+             t.turnLine({helpers: 0, tools: 2}), t.turnLine(null), t.turnLine(undefined), t.turnLine({helpers: 0, tools: 0})];
+out.sample = [t.TURN_SAMPLE, t.TURN_SAMPLE.length, t.turnRows(224), t.turnRows(160)];
+out.before = [t.mainHover('glm-5', D, null, null), M.gw.g5Lines('glm-5', D)];
+out.told = t.mainHover('glm-5', D, {names: D, more: 2}, {helpers: 12, tools: 30});
+out.few = t.mainHover('', [], {names: ['coder', 'writer'], more: 0}, {helpers: 1, tools: 0});
+out.zero = t.mainHover('glm-5', [], {names: ['coder'], more: 0}, {helpers: 0, tools: 0});
+out.cut = t.mainHover('glm-5', [], {names: ['coder'], more: 3}, null);
+console.log(JSON.stringify(out));"""
+    got = _run(["turn", "gw"], js, names)
+    ctx.check(f"TURN's words, letter for letter, got {got.get('lines')}", got.get("lines") == [
+        "This turn: started 5 helpers · used 4 tools itself", "This turn: started 1 helper · used 1 tool itself",
+        "This turn: started 3 helpers", "This turn: used 2 tools itself", "", "", ""])
+    ctx.check(f"R5: the longest usual words (52 characters) hold 2 rows at 224 px and 3 at 160 px, got {got.get('sample')}",
+              got.get("sample") == ["This turn: started 12 helpers · used 14 tools itself", 52, 2, 3])
+    before = got.get("before") or [[], None]
+    ctx.check(f"told null: g5Lines exactly, got {before}", before[0] == before[1])
+    ctx.check(f"told 14 names and 2 more: twelve, then ' and 4 more', got {got.get('told')}", got.get("told") == [
+        "main · glm-5", "This session: started 12 helpers · used 30 tools itself",
+        "Told it can start: " + ", ".join(names[:12]) + " and 4 more"])
+    ctx.check(f"no model: 'main'; a zero part left out, got {got.get('few')}", got.get("few") == [
+        "main", "This session: started 1 helper", "Told it can start: coder, writer"])
+    ctx.check(f"both session counts zero: no 'This session' line, got {got.get('zero')}",
+              got.get("zero") == ["main · glm-5", "Told it can start: coder"])
+    ctx.check(f"kinds_more alone counts in ' and {{n}} more', got {got.get('cut')}",
+              got.get("cut") == ["main · glm-5", "Told it can start: coder and 3 more"])
 
 
 # React, the feed, the stores, the pick and built.ts stood in for (as tests/test_map_overlay.py LIT_HOOK does)
@@ -673,7 +716,7 @@ console.log(JSON.stringify({
     ctx.check(f"a box whose top is at the view's foot (300 >= 10 + 290) is below, got {got.get('edge')}", got.get("edge") == "group:3")
     ctx.check(f"boxes with no group (a map of his): null, got {got.get('his')}", got.get("his") is None)
     ctx.check(f"the two section-3 forms letter for letter, got {got.get('words')}",
-              got.get("words") == ["↓ fix the login bug · working", "↓ fix the login bug · working and 2 more below"])
+              got.get("words") == ["↓ fix the login bug · working", "↓ fix the login bug · working · and 2 more groups below"])
 
 
 @test
@@ -731,15 +774,15 @@ def test_slot_twin_holds_a_long_name_of_ordinary_letters(ctx: Ctx):
     """b/batch08 entry 1: Session's slot on Auto is sized by a hidden twin whose text is the slot's own words function
     (groupWords.ts belowGroup) called with one exported 60-character sample of ordinary letters and a two-digit count."""
     sample = "compare the three reports and write the summary for the team"
-    js = """console.log(JSON.stringify({sample: M.gw.BELOW_SAMPLE ?? null, room: M.gw.belowGroup(M.gw.BELOW_SAMPLE ?? "", 99)}));"""
+    js = """console.log(JSON.stringify({sample: M.gw.BELOW_SAMPLE ?? null, room: M.gw.slotWords(M.gw.BELOW_SAMPLE ?? "", "under", 99)}));"""
     got = _run(["gw"], js, {})
     ctx.check(f"groupWords exports BELOW_SAMPLE, the 60-character sample, got {got.get('sample')!r}",
               got.get("sample") == sample and len(sample) == 60)
-    ctx.check(f"the twin's words: the slot's words with the sample and 99, got {got.get('room')!r}",
-              got.get("room") == f"↓ {sample} · working and 99 more below")
+    ctx.check(f"the twin's words: the slot's longest form (3.6.0.13 L4) with the sample and 99, got {got.get('room')!r}",
+              got.get("room") == f"{sample} · waits on you · under the open box · and 99 more groups below")
     src = (SRC / "routes/session/MapDown.tsx").read_text(encoding="utf-8")
-    ctx.check("MapDown: the twin's text is belowGroup(BELOW_SAMPLE, 99), no row of capital W's",
-              "belowGroup(BELOW_SAMPLE, 99)" in src and '"W".repeat(' not in src)
+    ctx.check("MapDown: the twin's text is slotWords(BELOW_SAMPLE, \"under\", 99), no row of capital W's",
+              'slotWords(BELOW_SAMPLE, "under", 99)' in src and '"W".repeat(' not in src)
 
 
 @test
@@ -1047,6 +1090,98 @@ console.log(JSON.stringify({held: [r.heldRows(204), r.heldRows(156), r.heldRows(
     member = (SRC / "routes/crew/map/GroupMember.tsx").read_text(encoding="utf-8")
     ctx.check("GroupMember holds map-member-state's rows from stateRows and NOW's from its kept rows",
               "minHeight: stateRows(m.model" in member and "minHeight: fit.rows * 17" in member)
+
+
+@test
+def test_counts_read_the_raw_state(ctx: Ctx):
+    """L4 with R1: a group's counts and its all-done form read each member's raw state: "{w} working" (running, paused),
+    "{q} queued", "{v} waiting on you" (warn), "{d} done", "{k} stopped", "{f} failed" (bad); a stopped member never
+    makes a group "all done"."""
+    stop1 = _grp(1, [_m("a", "done", raw="stopped", t=1, ended=5)], "one")
+    stop2 = _grp(2, [_m("a", "done", t=1, ended=5), _m("b", "done", raw="stopped", t=2, ended=6)], "two")
+    mix = _grp(3, [_m("a", "working", raw="paused"), _m("b", "working", raw="queued"), _m("c", "waiting")], "three")
+    done = _grp(4, [_m("a", "done", cost=0.03, t=1, ended=60), _m("b", "done", cost=0.03, t=5, ended=100)], "four")
+    bad = _grp(5, [_m("a", "failed"), _m("b", "done", raw="stopped")], "five")
+    js = """const g = M.gw, out = {};
+for (const [k, x] of Object.entries(D)) out[k] = {line: g.countsLine(x), all: g.isAllDone(x), parts: g.countParts(x)};
+console.log(JSON.stringify(out));"""
+    got = _run(["gw"], js, {"stop1": stop1, "stop2": stop2, "mix": mix, "done": done, "bad": bad})
+    one, two, mx, dn, bd = (got.get(k) or {} for k in ("stop1", "stop2", "mix", "done", "bad"))
+    ctx.check(f"one stopped member: its counts, never all done, got {one}", one.get("line") == "1 agent · 1 stopped" and one.get("all") is False)
+    ctx.check(f"one done and one stopped: the counts, got {two}", two.get("line") == "2 agents · 1 done · 1 stopped" and two.get("all") is False)
+    ctx.check(f"paused counts working, queued its own part, waiting on you marked warn, got {mx}",
+              mx.get("line") == "3 agents · 1 working · 1 queued · 1 waiting on you"
+              and [p.get("warn", False) for p in mx.get("parts") or []] == [False, False, False, True])
+    ctx.check(f"every member raw done: the all-done form, got {dn}", dn.get("all") is True and "all done" in str(dn.get("line")))
+    ctx.check(f"failed (bad) and stopped, got {bd}", bd.get("line") == "2 agents · 1 stopped · 1 failed"
+              and [p.get("bad", False) for p in bd.get("parts") or []] == [False, False, True])
+
+
+@test
+def test_slot_names_a_waiting_group_first(ctx: Ctx):
+    """L4: the slot names first a group whose waiting member is out of sight -- wholly below "↓", above "↑", partly in view
+    (cut at the foot) "↓", wholly in view under the open card "... under the open box"; of several the lowest n; else the
+    working form. The working form never names a group whose members are all raw queued (a raw paused one counts)."""
+    view = {"top": 100, "bottom": 400, "left": 0, "right": 500}
+    card = {"top": 150, "bottom": 350, "left": 280, "right": 500}
+    at = lambda n, top, bottom, left=10, right=200, aid="w": {"n": n, "aid": aid, "top": top, "bottom": bottom, "left": left, "right": right}  # noqa: E731
+    cases = {"below": [at(2, 450, 500)], "above": [at(2, 20, 80)], "under": [at(2, 200, 260, 300, 450)],
+             "inview": [at(2, 200, 260)], "cut": [at(2, 380, 430)], "lowest": [at(3, 450, 500, aid="x"), at(2, 20, 80)], "none": []}
+    boxes = [{"id": "main", "x": 12, "y": 12, "w": 384, "h": 80, "rank": 0, "row": 0},
+             _box(1, 100, ["a"]), _box(2, 300, ["b"]), _box(3, 500, ["c"]), _box(4, 700, ["d"])]
+    queued = [_grp(1, [_m("a")], "one"), _grp(3, [_m("c", raw="queued"), _m("c2", raw="queued")], "three"), _grp(4, [_m("d")], "four")]
+    paused = [_grp(1, [_m("a")], "one"), _grp(3, [_m("c", raw="paused"), _m("c2", raw="queued")], "three"), _grp(4, [_m("d")], "four")]
+    js = """const out = {};
+for (const [k, s] of Object.entries(D.cases)) out[k] = M.df.waitSlot(s, D.view, k === 'under' || k === 'inview' ? D.card : null);
+out.nocover = M.df.waitSlot(D.cases.under, D.view, null);
+out.words = [M.gw.slotWords("ask", "down", 0), M.gw.slotWords("ask", "up", 1), M.gw.slotWords("ask", "under", 3),
+             M.gw.slotWords("ask", "working", 0), M.gw.belowGroup("ask", 1), M.gw.slotWords("ask", undefined, 3)];
+out.queued = M.df.workingBelow(D.boxes, D.queued, 1, 0, 290)?.id ?? null;
+out.paused = M.df.workingBelow(D.boxes, D.paused, 1, 0, 290)?.id ?? null;
+out.groups = [M.df.groupsBelow(D.boxes, 1, 0, 290, 3), M.df.groupsBelow(D.boxes, 1, 0, 290, 9), M.df.groupsBelow(D.boxes, 1, 400, 290, 4)];
+console.log(JSON.stringify(out));"""
+    got = _run(["df", "gw"], js, {"cases": cases, "view": view, "card": card, "boxes": boxes, "queued": queued, "paused": paused})
+    ctx.check(f"wholly below: down, got {got.get('below')}", got.get("below") == {"n": 2, "aid": "w", "arrow": "down"})
+    ctx.check(f"above: up, got {got.get('above')}", got.get("above") == {"n": 2, "aid": "w", "arrow": "up"})
+    ctx.check(f"in view under the card: under, got {got.get('under')}", got.get("under") == {"n": 2, "aid": "w", "arrow": "under"})
+    ctx.check(f"in view, not under the card: none, got {got.get('inview')}", got.get("inview") is None)
+    ctx.check(f"no card: in view is none, got {got.get('nocover')}", got.get("nocover") is None)
+    ctx.check(f"partly in view, cut at the foot: down, got {got.get('cut')}", got.get("cut") == {"n": 2, "aid": "w", "arrow": "down"})
+    ctx.check(f"of several, the lowest n, got {got.get('lowest')}", got.get("lowest") == {"n": 2, "aid": "w", "arrow": "up"})
+    ctx.check(f"no waiting member: none, got {got.get('none')}", got.get("none") is None)
+    ctx.check(f"every form and its tail, letter for letter, got {got.get('words')}", got.get("words") == [
+        "↓ ask · waits on you", "↑ ask · waits on you · and 1 more group below",
+        "ask · waits on you · under the open box · and 3 more groups below", "↓ ask · working",
+        "↓ ask · working · and 1 more group below", "↓ ask · working · and 3 more groups below"])
+    ctx.check(f"a group of raw queued members is not working: group 4 is named, got {got.get('queued')}", got.get("queued") == "group:4")
+    ctx.check(f"a raw paused member works: group 3 is named, got {got.get('paused')}", got.get("paused") == "group:3")
+    ctx.check(f"groups wholly below (groups 2-4 at 300 px and lower), the named one not counted, got {got.get('groups')}", got.get("groups") == [2, 3, 0])
+
+
+@test
+def test_slot_press_folds_before_it_scrolls(ctx: Ctx):
+    """L4 with R4: a press on the slot while the step-in card is open first folds it (and clears `cover`), then scrolls;
+    the "under the open box" form only folds. Both drawings scroll from a layout effect that runs once the card is closed
+    (cover.ts useSlotGo), never while it is open, and LiveDraw's answer effect follows the card."""
+    js = """const p = M.df.slotPress;
+console.log(JSON.stringify([p("down", true), p("up", true), p("under", true), p("down", false), p("working", true), p("working", false), p("under", false)]));"""
+    got = _run(["df"], js, {})
+    ctx.check(f"fold then scroll, the under form only folds, got {got}", got == [
+        ["fold", "scroll"], ["fold", "scroll"], ["fold"], ["scroll"], ["fold", "scroll"], ["scroll"], []])
+    cover = (SRC / "routes/crew/map/cover.ts").read_text(encoding="utf-8") if (SRC / "routes/crew/map/cover.ts").exists() else ""
+    live = (SRC / "routes/agents/LiveDraw.tsx").read_text(encoding="utf-8")
+    down = (SRC / "routes/session/MapDown.tsx").read_text(encoding="utf-8")
+    ctx.check("cover.ts: the asked scroll waits in a layout effect on the card until it is closed; a fold clears cover",
+              "if (card || after.current == null) return;" in cover and "setCover(where, null)" in cover and "slotPress(" in cover)
+    ctx.check("both drawings press through useSlotGo; LiveDraw's slot sets no scrollTop in its click",
+              "useSlotGo(" in live and "useSlotGo(" in down and "scroll.current.scrollTop = wb.y * k" not in live)
+    deps = re.search(r"useLayoutEffect\(answer, \[([^\]]*)\]", live)
+    ctx.check(f"LiveDraw's answer effect lists `card`, got {deps and deps.group(1)}", bool(deps) and "card" in deps.group(1).split(", "))
+    ctx.check("useSlotGo is called before each drawing's answer (its cover is set first)",
+              live.find("useSlotGo(") >= 0 and live.find("useSlotGo(") < live.find("useLayoutEffect(answer")
+              and down.find("useSlotGo(") >= 0 and down.find("useSlotGo(") < down.find("waitAnswer("))
+    for name, src in (("LiveDraw.tsx", live), ("MapDown.tsx", down)):
+        ctx.check(f"{name} stays at or under 215 lines, got {src.count(chr(10))}", src.count("\n") <= 215)
 
 
 if __name__ == "__main__":

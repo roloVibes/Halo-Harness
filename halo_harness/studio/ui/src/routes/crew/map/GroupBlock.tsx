@@ -4,7 +4,8 @@
 // workflow run's R14 head while it runs), the counts line ("{f} failed" in --bad) or the all-done line, the why line
 // (`whyOf`, only when a member has a pick's reason). Then a workflow run's steps as R14's rows (only when its step runner
 // gave it steps), else its members in start order, up to 8, then "+{n} more" (its hover lists every one). Hover the head:
-// G3; a click on it: the group's card (a row per live member). `data-pad` tells useMeasure (runFrame.ts) its padding and
+// G3; a click on it: the group's card (a row per live member). 3.6.0.13 L4: the counts read the raw state, "{v} waiting
+// on you" in --warn, and "all done" only when every member is raw done (R1). `data-pad` tells useMeasure (runFrame.ts) its padding and
 // border. Nothing here fetches, times or calls the network (tests/test_map_groups.py guards it).
 import type { MouseEvent } from "react";
 import { useHover } from "../../../lib/hover/useHover";
@@ -34,7 +35,7 @@ function Head({ g, name }: { g: AutoGroup; name: string }) {
       <b className="mp-group-name" data-testid="map-group-name">{name}</b>
       <span className="mp-group-counts mono" data-testid="map-group-counts">
         {isAllDone(g) ? doneLine(g) : countParts(g).map((p, i) => (
-          <span key={i}>{i ? " · " : ""}{p.bad ? <span className="mp-bad">{p.text}</span> : p.text}</span>
+          <span key={i}>{i ? " · " : ""}{p.bad || p.warn ? <span className={p.bad ? "mp-bad" : "mp-warn"}>{p.text}</span> : p.text}</span>
         ))}
       </span>
       {why && <span className="mp-group-why" data-testid="map-group-why">{why}</span>}

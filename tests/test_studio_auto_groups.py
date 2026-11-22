@@ -16,7 +16,8 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
    (tests/helpers/studio_auto_groups_doors.py).
 7. (batch 7) Session's slot holds still for the longest name at any drawer width; Agents -> Live renders on a scroll only
    when the slot's words change, drops a focus its first full draw does not place, and restarts the pulse on a second press.
-8. (batch 8) Session's slot is sized for a long name of ordinary letters (under 70 px at the default width); Agents ->
+8. (batch 8) Session's slot is sized for a long name of ordinary letters (3.6.0.13 L4: its longest form, at most three of
+   its own lines at the default width); Agents ->
    Live's slot follows the window's height with no scroll.
 9. (k/batch02) On Auto main's box keeps one height whatever main does, so group 1 under it stands still.
 10. (r/batch04, tests/helpers/studio_auto_room.py) On Auto Session's drawing takes the whole room of its drawer from the
@@ -106,6 +107,9 @@ def test_mains_box_keeps_its_height_on_auto(ctx: Ctx):
               (says.get("thinking") or ("", ""))[0] == "main · working · thinking"
               and (says.get("thinking") or ("", ""))[1].startswith("waiting for a model reply")
               and (says.get("agent") or ("", ""))[0] == "main · working · Agent read report C")
+    turns = {s.get("state"): s.get("turn") for s in st}
+    ctx.check(f"3.6.0.13 L3: TURN blank before the first turn, then the turn's counts, got {turns}",
+              turns.get("done") == "" and turns.get("done again") == "This turn: started 12 helpers · used 14 tools itself")
     first = st[0] if st else {}
     moved = [(s.get("state"), s.get("main"), s.get("one")) for s in st if s.get("main") != first.get("main") or s.get("one") != first.get("one")]
     ctx.check(f"main's rect and group 1's rect have the same four numbers in every state (first {first.get('main')} "
@@ -129,7 +133,7 @@ def test_group_head_and_members_grow_never_clip(ctx: Ctx):
     ctx.check(f"no ellipsis, no text under 12 px, got {d.get('ell')} {d.get('small')}", d.get("ell") == 0 and d.get("small") == 0)
     ctx.check(f"the 60-character name whole, got {d.get('name')!r}", d.get("name") == "compare the three quarterly reports and write the summary now")
     ctx.check(f"five count parts, the failed one in --bad, got {d.get('counts')!r} {d.get('bad')!r}",
-              d.get("counts") == "5 agents · 2 working · 1 waiting · 1 done · 1 failed · $0.03" and d.get("bad") == "1 failed")
+              d.get("counts") == "5 agents · 2 working · 1 waiting on you · 1 done · 1 failed · $0.03" and d.get("bad") == "1 failed")
     ctx.check(f"the why line, got {d.get('why')!r}", bool(d.get("why")))
     ctx.check(f"the child of a child's third line, got {d.get('third')!r}",
               d.get("third") == "started by researcher: compare the three quarterly reports and write the summary now")
@@ -168,8 +172,11 @@ def test_hover_and_click_say_why_this_model(ctx: Ctx):
     grp = d.get("group") or {}
     ctx.check(f"a group's card: a row per live member, each with Pause and Stop, the group marked, got {grp}",
               grp.get("title") == "compare" and grp.get("rows") == [["h1", True, True], ["h2", True, True]] and grp.get("sel"))
-    ctx.check(f"main's hover on Auto: G5 from the row's map_agents, got {d.get('g5')}",
+    ctx.check(f"main's hover on Auto before its first request: G5 from the row's map_agents, got {d.get('g5')}",
               d.get("g5") == ["main · glm-5", "Can hand work to: coder, reviewer, writer"])
+    # 3.6.0.13 L3 (R8): once told, main's hover says the session's counts and the kinds main was told it can start
+    ctx.check(f"main's hover once told, got {d.get('told')}", d.get("told") == [
+        "main · glm-5", "This session: started 3 helpers · used 4 tools itself", "Told it can start: coder, reviewer, writer"])
 
 
 @test
@@ -179,7 +186,8 @@ def test_new_group_below_the_fold_is_named_in_the_slot(ctx: Ctx):
     name = "part 5 of the basket work"
     ctx.check(f"Session: the slot names the fifth group, got {after.get('text')!r}",
               str(after.get("text") or "").startswith(f"↓ {name} · working")
-              and after.get("text") in (f"↓ {name} · working", *(f"↓ {name} · working and {n} more below" for n in range(1, 5))))
+              and after.get("text") in (f"↓ {name} · working", *(f"↓ {name} · working · and {n} more {'group' if n == 1 else 'groups'} below"
+                                                                for n in range(1, 5))))
     ctx.check(f"the slot's rect is the same before and after the words change, got {before.get('rect')} -> {after.get('rect')}",
               bool(before.get("rect")) and before.get("rect") == after.get("rect"))
     press = d.get("press") or {}
@@ -237,7 +245,8 @@ def test_the_slot_holds_still_for_the_longest_group_name(ctx: Ctx):
     """b/batch07 entry 1, b/batch08 entry 1: on Auto Session's slot reserves, from the first draw, the room of its words
     for a long name of ordinary letters (the 60-character sample) with a two-digit count: the slot and the scroll box do
     not move when the sample's words or a 25-character name's appear, at the default drawer width and at its narrowest;
-    at the default width the slot is no taller than its twin needs, and that is under 70 px."""
+    at the default width the slot is no taller than its twin needs, and the twin (3.6.0.13 L4: the slot's longest form, the
+    under form with the sample and 99) needs at most three of the slot's own lines (its line-height read from the page)."""
     import re
     d = _ran(ctx, "longest")
     sample, short = "compare the three reports and write the summary for the team", "compare the three reports"
@@ -246,7 +255,7 @@ def test_the_slot_holds_still_for_the_longest_group_name(ctx: Ctx):
                        ("narrow_first", "narrow_named", sample), ("narrow_short_first", "narrow_short_named", short)):
         x, y = d.get(a) or {}, d.get(b) or {}
         ctx.check(f"{b}: the slot names the group with a two-digit count, got {y.get('text')!r}",
-                  re.fullmatch(rf"↓ {re.escape(name)} · working and \d\d more below", str(y.get("text") or "")) is not None)
+                  re.fullmatch(rf"↓ {re.escape(name)} · working · and \d\d more groups below", str(y.get("text") or "")) is not None)
         ctx.check(f"{a} -> {b}: the slot's rect and the scroll box's rect are equal, got {x} -> {y}",
                   bool(x.get("slot")) and x.get("slot") == y.get("slot") and x.get("scroll") == y.get("scroll"))
     dr = d.get("drawer") or [0, 1]
@@ -255,8 +264,10 @@ def test_the_slot_holds_still_for_the_longest_group_name(ctx: Ctx):
     slot_h, twin_h = (first.get("slot") or [0, 0, 0, 999])[3], (first.get("twin") or [0, 0, 0, 999])[3]
     wait_h = (first.get("wait") or [0, 0, 0, 0])[3]  # the wait link's own reserved lines (batch 6: 56 px), beside it
     need = max(32, twin_h, wait_h)
+    lh = float(first.get("lh") or 0)  # the slot's computed line-height, read from the page (never a constant of a machine)
     ctx.check(f"at the default width the slot ({slot_h} px) is no taller than its twin ({twin_h} px) or the wait link's "
-              f"room ({wait_h} px) needs, and under 70 px", slot_h <= need + 0.5 and twin_h < 70 and slot_h < 70)
+              f"room ({wait_h} px) needs, and the twin is at most three of the slot's lines ({lh} px each)",
+              lh > 0 and slot_h <= need + 0.5 and twin_h <= 3 * lh + 0.5)
 
 
 @test
@@ -268,7 +279,7 @@ def test_live_slot_follows_the_view_height(ctx: Ctx):
     import re
     d = _ran(ctx, "heights")
     first, tall, back = d.get("first") or {}, d.get("tall") or {}, d.get("back") or {}
-    more = lambda t: int(m.group(1)) if (m := re.search(r"and (\d+) more below", t or "")) else 0  # noqa: E731
+    more = lambda t: int(m.group(1)) if (m := re.search(r"and (\d+) more groups? below", t or "")) else 0  # noqa: E731
     ctx.check(f"the page's clock is held by the rig (only the view's size can change the slot), got {first.get('hooked')}",
               first.get("hooked") is True)
     ctx.check(f"at 800 the slot names group 12, got {first}", str(first.get("text") or "").startswith("↓ job number 12 · working"))

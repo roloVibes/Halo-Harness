@@ -9,7 +9,7 @@
 import { useContext, type MouseEvent } from "react";
 import { useHover } from "../../lib/hover/useHover";
 import { GroupBlock } from "../crew/map/GroupBlock";
-import { g5Lines } from "../crew/map/groupWords";
+import { mainHover } from "../crew/map/turnWords";
 import { STATE_WORDS } from "../crew/map/LitBits";
 import { LitFace, litState, type Lit } from "../crew/map/LitMini";
 import type { PlacedDown, RoutedDown } from "../crew/map/layoutDown";
@@ -28,9 +28,11 @@ const BLOCK_ST: Record<string, BoxState> = { running: "working", done: "done", f
 type Props = { b: PlacedDown; L: Lit; sid: string; lines: RoutedDown[]; built?: number | null; pick: (h: Hit) => void; live?: boolean; sel?: boolean;
   /** 3.6.0.5: the id of the card open now (a group marks the member it is on) */ card?: string };
 
-/** R43's lines for box `b`; 3.6.0.5 B30: main on Auto (the drawing has groups) says G5, the agents the session started with. */
+/** R43's lines for box `b`; main on Auto (the drawing has groups): 3.6.0.13 L3 `mainHover` -- "main · {model}", the
+ *  session's counts and what main was told it can start; before its first request G5 (3.6.0.5 B30), the agents it started with. */
 function lines(b: PlacedDown, L: Lit, feeding: RoutedDown[], built: number | null): string[] {
-  if (b.main && L.groups) return g5Lines(L.agents.find((a) => a.id === "main")?.model || "", L.mapAgents || []);
+  const me = b.main && L.groups ? L.agents.find((a) => a.id === "main") : undefined;
+  if (b.main && L.groups) return mainHover(me?.model || "", L.mapAgents || [], L.told, me?.row?.turn_total);
   const blk = b.block ? L.ov?.blocks[b.block.workflow] : undefined;
   const st = blk ? BLOCK_ST[blk.state] || "idle" : litState(b, L.ov).st; // a block: the workflow's own state
   const ob = L.ov?.boxes[b.id];

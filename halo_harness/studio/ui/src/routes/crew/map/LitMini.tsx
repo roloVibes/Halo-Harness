@@ -21,6 +21,7 @@ import { BlockFace, KidRows, NewTag } from "./RunRows";
 import { NO_NOW, nowWords } from "./nowLine";
 import { heldRows, nowFit, type Kept } from "./nowRoom";
 import { RunCtx, ToolClock, useNowOf } from "./runParts";
+import { turnLine, turnRows } from "./turnWords";
 import { view, type MapView } from "./view";
 
 const NO_AGENTS: RecordAgent[] = [];
@@ -32,7 +33,8 @@ export type Lit = { detail: MapDetail | null; ov: Overlay | null; v: MapView; to
   /** 3.6.0.2 R28: the read (removed / unreadable), and `unlit`: a map drawn calm (Just built, R30) */
   got?: Got | null; unlit?: boolean; /** the drawing's clock, seconds (P4 batch 13) */ now?: number;
   /** 3.6.0.5 B1: on Auto (the row says `map_plain`) the groups drawn, else undefined; B30 the row's `map_agents` */
-  groups?: AutoGroup[]; mapAgents?: string[] };
+  groups?: AutoGroup[]; mapAgents?: string[];
+  /** 3.6.0.13 L3: the kinds main was told it can start (null before its first request): main's hover */ told?: LitSession["told"] };
 
 /** R49: what the drawing's layout depends on -- the blocks (workflow, caller, step count) and which box holds which
  *  rows -- never a frame's state or time, so the layout is computed again only when that changes. */
@@ -74,7 +76,7 @@ export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }, s
   const shownTotals = useMemo(() => (groups ? groupTotals(groups) : totals), [groups, totals]);
   const live = useMemo(() => (groups ? groupLive(groups) : inFlight(totals, rows, !unlit && !!s.busy)), [groups, totals, rows, s.busy, unlit]);
   return { detail, ov, v, totals: shownTotals, live, agents: unlit ? NO_AGENTS : rec?.agents || NO_AGENTS, got, unlit, now, groups,
-           mapAgents: s.map_agents || [] };
+           mapAgents: s.map_agents || [], told: s.told ?? null };
 }
 
 /** A box's state and, for a made-up helper, its agent id. */
@@ -111,6 +113,7 @@ export function LitFace({ b, ov, sid, tag, bare, main, w = 248 }: { b: DrawBox; 
           </span>
         </span>
       ) : rows}
+      {held && <MainTurn main={main} width={w - 24} />}
       <KidRows kids={bare ? [] : ov?.kids[b.id] || []} sid={sid} sender={b.id} />
     </span>
   );
@@ -130,6 +133,17 @@ function MainNow({ main, on, width }: { main?: RecordAgent; on: boolean; width: 
     <span className="mp-main-now mono" data-testid="map-main-now" data-now={now.kind} title={now.text ? nowWords(now) : undefined}
           style={{ minHeight: fit.rows * 17 }}>
       {fit.text}{fit.secs && <span className="mp-clock-secs">{fit.secs}</span>}
+    </span>
+  );
+}
+
+/** 3.6.0.13 L3 with R5: TURN under main's NOW on Auto, from main's row `turn` (3.6.0.10 M10): blank before the first turn,
+ *  kept until his next message; 12/17 mono, the rows of its longest usual words held from the first draw; drawn under
+ *  the held rows (`mp-hold`), never inside them, so the twin keeps holding the rows that come and go. */
+function MainTurn({ main, width }: { main?: RecordAgent; width: number }) {
+  return (
+    <span className="mp-main-turn mono" data-testid="map-main-turn" style={{ minHeight: turnRows(width) * 17 }}>
+      {turnLine(main?.row?.turn)}
     </span>
   );
 }

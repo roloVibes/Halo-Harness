@@ -25,7 +25,9 @@ export type LitSession = { sid: string; title: string; map: string | null; start
   scope?: string | null; path?: string | null;
   /** 3.6.0.5 B1: the row says the session runs on the PlainMap (`map_plain`) AND names the default (isAuto): drawn as main
    *  and its groups; a row naming a map of his, or no map at all, keeps its drawing; B30: `map_agents`, the agents it had at its start (main's hover G5) */
-  auto?: boolean; map_agents?: string[] };
+  auto?: boolean; map_agents?: string[];
+  /** 3.6.0.13 L3: the kinds main was told it can start (`kinds_told`, `kinds_more`); null before its first request */
+  told?: { names: string[]; more: number } | null };
 type State = { events: Record<string, OvEvent[]>; totals: Record<string, Totals>; cards: Record<string, { id: string; changes: Change[] }>;
   pick: string; feed: string; feedFor: string;
   /** 3.6.0.5 B27: the group a card's [Open in Agents -> Live] asked for, taken once by that session's drawing */
@@ -86,7 +88,8 @@ export function toLit(s: SessionRow): LitSession {
   const map = typeof s.map === "string" && s.map ? s.map : null;
   return { sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), map, started: Number(s.started) || 0, live,
            plain: !map || !!s.map_plain, busy: !!s.busy, scope: s.map_scope ?? null, path: s.map_path ?? null,
-           auto: !!s.map_plain && isAuto(map), map_agents: Array.isArray(s.map_agents) ? s.map_agents.map(String) : [] };
+           auto: !!s.map_plain && isAuto(map), map_agents: Array.isArray(s.map_agents) ? s.map_agents.map(String) : [],
+           told: Array.isArray(s.kinds_told) ? { names: s.kinds_told.map(String), more: Number(s.kinds_more) || 0 } : null };
 }
 
 const here_ = (st: Pick<FleetState, "harnesses">, here: string): SessionRow[] =>

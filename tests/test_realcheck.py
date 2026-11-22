@@ -1292,7 +1292,7 @@ def test_auto_ready_lines_use_it_now_in_view_or_named_and_brought_up(ctx: Ctx):
     view = _use_read(s)
     ctx.check(f"in view: no failure, got {s.judge_use(view)}", s.judge_use(view) == [])
     below = dict(view, rect=[10, 700, 400, 820], visible=[0, 640, 1280, 780])
-    slot = {"text": "↓ workflow review · working and 1 more below", "group": "2"}
+    slot = {"text": "↓ workflow review · working · and 1 more group below", "group": "2"}
     pressed = dict(below, slot=slot, press={"top": 340.5, "d": 0.2}, pressed=dict(_STILL))
     ctx.check(f"below the fold, named by the slot, up in 340 ms, nothing moved: no failure, got {s.judge_use(pressed)}",
               s.judge_use(pressed) == [])

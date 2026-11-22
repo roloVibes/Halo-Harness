@@ -37,6 +37,10 @@ export type AgentRow = {
   /** 3.6.0.0 R4: the map box it runs for (crew/map_events.py tag); `made_up`: a helper main made up, under `box`.
    *  3.6.0.2 R13: the agent it runs, `saved` (a saved agent), a workflow step's `workflow` and `step` (under its caller's box). */
   crew?: { map?: string; box?: string; line?: string; agent?: string; saved?: boolean; workflow?: string; step?: number; made_up?: boolean } | null;
+  /** 3.6.0.10 M10 (agent/agent_registry.py), main's row: what this turn handed out and did itself (null before the first
+   *  turn; kept until his next message), and the session's totals (3.6.0.13 L3: main's TURN and hover). */
+  turn?: { n: number; helpers: number; tools: number; ended: boolean } | null;
+  turn_total?: { helpers: number; tools: number } | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;
@@ -85,6 +89,10 @@ export type SessionRow = {
   /** 3.6.0.5 A22 B30 (crew/map_facts.py row): on Auto, the agents this session had at its start (main's hover G5). */
   map_agents?: string[] | null;
   map_flows?: string[] | null; // 3.6.0.9 V batch 2 repair: the workflows on its map's boxes (crew/map_facts.py row)
+  /** 3.6.0.10 M9 (crew/map_facts.py row): the kinds main was told it can start, and how many more were cut (null before
+   *  its first request); 3.6.0.13 L3: main's hover "Told it can start: ...". */
+  kinds_told?: string[] | null;
+  kinds_more?: number | null;
   pending?: Pending;
   model?: string | null;
   /** 3.3.5.0 R0 (e): what the effort level does on its model (`think on`, `effort n/a`, or the level). */

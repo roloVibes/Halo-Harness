@@ -30,7 +30,10 @@ import { useLit } from "../crew/map/LitMini";
 import { RunLine } from "../crew/map/RunLine";
 import { drawnAll, selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
-import { BELOW_SAMPLE, belowGroup } from "../crew/map/groupWords";
+import { BELOW_SAMPLE, slotWords } from "../crew/map/groupWords";
+import { slotAim, useSlotGo, waitAnswer } from "../crew/map/cover";
+import { groupId } from "../crew/map/litView";
+import { sameAnswer, type SlotAnswer } from "../agents/liveSlot";
 import { StepIn } from "../crew/map/StepIn";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
@@ -49,7 +52,8 @@ const READ_PX = 12; // R9: the rows' size on screen at 100 %: fitted with it the
 const MIN = 0.75, MAX = 2; // a zoom by hand: down to 75 %, never on opening
 // b/batch07, b/batch08: on Auto the slot's room is, from the first draw, a hidden twin of its words for a long name of
 // ordinary letters (BELOW_SAMPLE, 60 characters) with a two-digit count; a name of wider letters may add a line, never cut
-const BELOW_ROOM = belowGroup(BELOW_SAMPLE, 99);
+// ordinary letters with a two-digit count; 3.6.0.13 L4: the slot's longest form (the under form)
+const BELOW_ROOM = slotWords(BELOW_SAMPLE, "under", 99);
 
 /** An element's clientWidth / clientHeight, read before the first paint and again on every resize. */
 function useSize(ref: RefObject<HTMLElement | null>, on: boolean): { w: number; h: number } {
@@ -146,9 +150,18 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     const t = scroll.current ? nextTop(rows, k, scroll.current.scrollTop) : null;
     if (t != null) go(t);
   };
-  // B26 on Auto: a working group not wholly in view below is named (r/batch04), and the press puts its head at the top
-  const sl = L.groups ? slotOf(g.boxes, L.groups, k, top, H) : null, wb = sl?.box;
-  const wbName = wb ? L.groups?.find((x) => x.n === wb.group?.n)?.name || "" : "";
+  // 3.6.0.13 L4 on Auto: first a group that waits on him out of sight (or under the open card), else B26's working group
+  // not wholly in view below (r/batch04); set only when it changes; a press with the card open folds it first (R4)
+  const press = useSlotGo("session", root, card, closeCard, go);
+  const [ans, setAns] = useState<SlotAnswer>(null);
+  useLayoutEffect(() => {
+    const el = scroll.current, gs = L.groups, sl = gs && el ? waitAnswer("session", world.current, el, gs, g.boxes, k, top, H) || slotOf(g.boxes, gs, k, top, H) : null;
+    const a = sl && "box" in sl ? { n: sl.box.group!.n, more: sl.more } : sl;
+    setAns((o) => (sameAnswer(o, a) ? o : a));
+  }, [g, top, k, L.groups, card, H]); // eslint-disable-line react-hooks/exhaustive-deps
+  const wb = ans ? g.boxes.find((b) => b.id === groupId(ans.n)) : undefined;
+  const wbName = ans ? L.groups?.find((x) => x.n === ans.n)?.name || "" : "";
+  const slot = () => ans && wb && scroll.current && press(ans.arrow, ans.arrow === "under" ? null : slotAim(world.current, scroll.current, ans, wb.y * k, H));
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
   const wait = useRunWait(s.sid, L.unlit ? null : ov, L.now || 0, on);
@@ -186,8 +199,9 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       </div>
       {card && <StepIn t={card} map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below" data-auto={s.auto ? "" : undefined}>
-        <div className="mp-down-more">{(n > 0 || !!sl) && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
-          onClick={wb ? () => go(wb.y * k) : down}>{sl ? belowGroup(wbName, sl.more) : moreBelow(n)}</button>}
+        <div className="mp-down-more">{(n > 0 || !!(ans && wb)) && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
+          data-wait={ans?.arrow ? "" : undefined} data-arrow={ans && wb ? ans.arrow || "down" : undefined}
+          onClick={ans && wb ? slot : down}>{ans && wb ? slotWords(wbName, ans.arrow, ans.more) : moreBelow(n)}</button>}
           {s.auto && <button type="button" className="mp-link mp-below-twin" tabIndex={-1} aria-hidden="true">{BELOW_ROOM}</button>}</div>
         <WaitRow world={world} />
       </div>

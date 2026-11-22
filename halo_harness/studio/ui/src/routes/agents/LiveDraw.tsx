@@ -26,7 +26,8 @@ import { estimateDown, type PlacedDown, type RoutedDown } from "../crew/map/layo
 import { useLit } from "../crew/map/LitMini";
 import { setFeedFor, takeFocus, useLitStore, type LitSession } from "../crew/map/litStore";
 import { groupId } from "../crew/map/litView";
-import { belowGroup } from "../crew/map/groupWords";
+import { slotWords } from "../crew/map/groupWords";
+import { slotAim, useSlotGo, waitAnswer } from "../crew/map/cover";
 import { whenWords } from "../crew/map/mapTypes";
 import { RunLine } from "../crew/map/RunLine";
 import { drawnAll, selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
@@ -129,11 +130,13 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   // change of the view's size
   const [ans, setAns] = useState<SlotAnswer>(null);
   const told = useRef<SlotAnswer>(null), raf = useRef(0);
-  const answer = () => {
-    const el = scroll.current, a = s.auto && el ? slotAnswer(g.boxes, L.groups, k, el.scrollTop, el.clientHeight) : null;
+  const press = useSlotGo("live", root, card, closeCard, (t) => { if (scroll.current) scroll.current.scrollTop = t; }); // L4 R4
+  const answer = () => { // 3.6.0.13 L4: first a group that waits on him out of sight (or under the open card), else B26's
+    const el = scroll.current, a = s.auto && el ? (L.groups && waitAnswer("live", world.current, el, L.groups, g.boxes, k, el.scrollTop,
+      el.clientHeight)) || slotAnswer(g.boxes, L.groups, k, el.scrollTop, el.clientHeight) : null;
     if (!sameAnswer(told.current, a)) setAns((told.current = a));
   };
-  useLayoutEffect(answer, [s.auto, g, k, L.groups, drawn, shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(answer, [s.auto, g, k, L.groups, drawn, shown, card]); // eslint-disable-line react-hooks/exhaustive-deps
   const onScroll = () => { if (!raf.current) raf.current = requestAnimationFrame(() => ((raf.current = 0), answer())); };
   useEffect(() => () => { cancelAnimationFrame(raf.current); raf.current = 0; }, [shown]); // the view leaves: no frame waits
   const wb = ans ? g.boxes.find((b) => b.id === groupId(ans.n)) : undefined;
@@ -180,8 +183,9 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
         )}
         {s.auto && <div className="ag-live-below" data-testid="live-below">
           {ans && wb && <button type="button" className="mp-link" data-testid="live-more-below" data-group={ans.n}
-                         onClick={() => { if (scroll.current) scroll.current.scrollTop = wb.y * k; }}>
-            {belowGroup(wbName, ans.more)}</button>}
+                         data-wait={ans.arrow ? "" : undefined} data-arrow={ans.arrow || "down"} onClick={() => press(ans.arrow,
+                           ans.arrow === "under" || !scroll.current ? null : slotAim(world.current, scroll.current, ans, wb.y * k, scroll.current.clientHeight))}>
+            {slotWords(wbName, ans.arrow, ans.more)}</button>}
         </div>}
         {card && <StepIn t={card} map={map} sid={s.sid} close={closeCard} onLive={closeCard} />}
       </div>

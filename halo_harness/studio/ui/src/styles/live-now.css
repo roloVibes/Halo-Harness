@@ -5,3 +5,8 @@
 .mp-member-now[data-now=think], .mp-main-now[data-now=think] { color: var(--think); }
 .mp-member-now[data-now=wait], .mp-main-now[data-now=wait] { color: var(--warn); }
 .mp-member[data-raw=queued], .mp-member[data-raw=stopped] { border-left-color: var(--line-strong); }
+/* 3.6.0.13 L3 with R5: main's TURN on Auto (LitMini.tsx MainTurn), under its NOW: 12/17 mono like NOW, --muted; the rows of its
+   longest usual words held from the first draw (turnWords.ts turnRows). */
+.mp-main-turn { display: block; font-size: 12px; line-height: 17px; overflow-wrap: anywhere; color: var(--muted); }
+/* 3.6.0.13 L4: a group's head counts from the raw state; "{v} waiting on you" in --warn (GroupBlock.tsx). */
+.mp-group-counts .mp-warn { color: var(--warn); }

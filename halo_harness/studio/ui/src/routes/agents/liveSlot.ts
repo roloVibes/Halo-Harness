@@ -3,10 +3,11 @@
 // LiveDraw.tsx sets its state only when the slot's answer changes, at most once per animation frame.
 import type { PlacedDown } from "../crew/map/layoutDown";
 import type { AutoGroup } from "../crew/map/overlayGroups";
-import { belowCount, workingBelow } from "../session/downFit";
+import { belowCount, workingBelow, type SlotArrow } from "../session/downFit";
 
-/** The slot's answer: the working group it names (its n) and how many boxes more wait below; null: it names none. */
-export type SlotAnswer = { n: number; more: number } | null;
+/** The slot's answer: the group it names (its n) and how many boxes more wait below; null: it names none. 3.6.0.13 L4:
+ *  `arrow` and `aid` when it names a group that waits on him (none on the working form). */
+export type SlotAnswer = { n: number; more: number; arrow?: SlotArrow; aid?: string } | null;
 
 /** The answer at scroll `top` of a view `h` tall at zoom `k` (null with no groups or no view). */
 export function slotAnswer(boxes: PlacedDown[], groups: AutoGroup[] | undefined, k: number, top: number, h: number): SlotAnswer {
@@ -15,8 +16,9 @@ export function slotAnswer(boxes: PlacedDown[], groups: AutoGroup[] | undefined,
   return n == null ? null : { n, more: belowCount(boxes, k, top, h) - 1 };
 }
 
-/** The same words on the slot: the same group and the same count (or both none). */
-export const sameAnswer = (a: SlotAnswer, b: SlotAnswer): boolean => (!a || !b ? a === b : a.n === b.n && a.more === b.more);
+/** The same words on the slot: the same group, form and count (or both none), and the same waiting member. */
+export const sameAnswer = (a: SlotAnswer, b: SlotAnswer): boolean =>
+  (!a || !b ? a === b : a.n === b.n && a.more === b.more && a.arrow === b.arrow && a.aid === b.aid);
 
 /** A stored focus at a draw of session `sid`: "take" when its group is placed; "drop" at a full draw (every box placed
  *  and measured) that has not placed it, so no later draw jumps; else "wait" (another session's focus, or none: "none"). */

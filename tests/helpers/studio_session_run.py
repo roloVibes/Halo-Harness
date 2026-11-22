@@ -168,9 +168,11 @@ OFF_READ = f"""(() => {{ const m = {M}; if (!m) return null;
                      text: r.querySelector('[data-testid=session-map-row-text]')?.textContent || ''}} : null,
     offs: m.querySelectorAll('[data-off="1"]').length, offMap: probe('--off-map'), warn: probe('--warn'), accent: probe('--accent'),
     status: document.querySelector('[data-testid=session-status]')?.textContent || '' }}; }})()"""
-# 3.6.0.5 on Auto: the made-up child is the one member of one group (B11), nothing off the map (R17 on Auto)
+# 3.6.0.5 on Auto: the made-up child is the one member of one group (B11), nothing off the map (R17 on Auto); the group
+# boxes are counted (3.6.0.13 L3: main's held TURN rows put the group's foot past the view, so the slot names it and its
+# button carries data-group too)
 AUTO_READ = f"""(() => {{ const m = {M}; if (!m) return null; const k = m.querySelector('[data-member=a1]');
-  return {{ groups: m.querySelectorAll('[data-group]').length, member: k ? [k.querySelector('[data-testid=map-member-line]')?.textContent || '',
+  return {{ groups: m.querySelectorAll('[data-testid=session-map-group]').length, member: k ? [k.querySelector('[data-testid=map-member-line]')?.textContent || '',
              k.querySelector('[data-testid=map-member-state]')?.textContent || ''] : null,
     offs: m.querySelectorAll('[data-off]').length, status: document.querySelector('[data-testid=session-status]')?.textContent || '' }}; }})()"""
 

@@ -99,6 +99,8 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
     told = data.get("kinds_told")  # 3.6.0.10 M9: the kinds main was told (crew/map_facts.py row)
     row["kinds_told"] = [str(n) for n in told if isinstance(n, str)] if isinstance(told, list) else None
     row["kinds_more"] = _num(data.get("kinds_more"))
+    agents_at_start = data.get("map_agents")  # 3.6.0.13 L3: the agents it had at its start (main's hover on Auto)
+    row["map_agents"] = [str(n) for n in agents_at_start if isinstance(n, str)] if isinstance(agents_at_start, list) else None
     return row
 
 

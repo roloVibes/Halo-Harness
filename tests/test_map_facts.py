@@ -553,6 +553,22 @@ def test_m9_status_row_names_the_kinds_main_was_told(ctx: Ctx):
 
 
 @test
+def test_session_row_forwards_map_agents(ctx: Ctx):
+    """3.6.0.13 L3: main's hover on Auto reads the agents the session had at its start ("Can hand work to: ...") from
+    Studio's session row; the status row carries `map_agents` (crew/map_facts.py), so session_row forwards it, typed."""
+    from halo_harness.peers.local_view import session_row
+    row = session_row({"session_id": "s-agents"}, {"map_agents": ["coder", "writer"]}, [])
+    ctx.check(f"session_row forwards them, got {row.get('map_agents')!r}", row.get("map_agents") == ["coder", "writer"])
+    mixed = session_row({"session_id": "s-mixed"}, {"map_agents": ["coder", 3, None, "writer"]}, [])
+    ctx.check(f"only names are kept, got {mixed.get('map_agents')!r}", mixed.get("map_agents") == ["coder", "writer"])
+    for bad_v in ("coder", {"coder": 1}, 3):
+        bad = session_row({"session_id": "s-x"}, {"map_agents": bad_v}, [])
+        ctx.check(f"a non-list ({bad_v!r}) -> None, got {bad.get('map_agents')!r}", bad.get("map_agents") is None)
+    none = session_row({"session_id": "s-none"}, None, [])
+    ctx.check(f"no status -> None, got {none.get('map_agents')!r}", none.get("map_agents") is None)
+
+
+@test
 def test_status_row_has_no_switch_field(ctx: Ctx):
     """R46 GUARD (green on the base too: no switch field exists; it must stay so)."""
     from tests.helpers.config_seed import ConfigHome

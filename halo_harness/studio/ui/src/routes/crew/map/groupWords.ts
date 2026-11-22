@@ -13,7 +13,7 @@ import { clock } from "./truthWords";
 export const STATE_WORDS: Record<BoxState, string> = { working: "working", waiting: "waiting on you", done: "done", failed: "failed", idle: "not used yet" };
 
 export const SHOWN_MEMBERS = 8; // B11: up to 8 members shown, then "+{n} more"
-const NAMES_SHOWN = 12; // G5: twelve names, then "and {n} more"
+export const NAMES_SHOWN = 12; // G5: twelve names, then "and {n} more"
 
 export const money = (x: number): string => `$${(Number(x) || 0).toFixed(2)}`;
 /** r/batch04 entry 3: a number and its unit are held by a no-break space, so a narrow box never tears "0" from "s". */
@@ -26,16 +26,23 @@ export const span = (s: number): string => {
 };
 const agents = (k: number): string => `${k} ${k === 1 ? "agent" : "agents"}`;
 const cost = (g: AutoGroup): number => g.members.reduce((s, m) => s + (Number(m.cost) || 0), 0);
-const allDone = (g: AutoGroup): boolean => g.members.length > 0 && g.members.every((m) => m.state === "done");
+/** 3.6.0.13 L4 with R1: a member's raw state (the row's), from its box state when a stand-in has none. */
+export const rawOf = (m: Member): string =>
+  m.raw || ({ working: "running", waiting: "waiting", done: "done", failed: "failed" } as Record<string, string>)[m.state] || "";
+const allDone = (g: AutoGroup): boolean => g.members.length > 0 && g.members.every((m) => rawOf(m) === "done");
 
-/** The counts line's parts, in order: agents, working, waiting, done, failed (`bad`), cost; a part that is zero is left out. */
-export function countParts(g: AutoGroup): { text: string; bad?: boolean }[] {
-  const n = (st: BoxState) => g.members.filter((m) => m.state === st).length;
-  const out: { text: string; bad?: boolean }[] = [{ text: agents(g.members.length) }];
-  const [w, v, d, f, c] = [n("working"), n("waiting"), n("done"), n("failed"), cost(g)];
+export type CountPart = { text: string; bad?: boolean; warn?: boolean };
+/** The counts line's parts, in order, from each member's RAW state (3.6.0.13 L4, R1): agents, working (running, paused),
+ *  queued, waiting on you (`warn`), done, stopped, failed (`bad`), cost; a part that is zero is left out. */
+export function countParts(g: AutoGroup): CountPart[] {
+  const n = (...raw: string[]) => g.members.filter((m) => raw.includes(rawOf(m))).length;
+  const out: CountPart[] = [{ text: agents(g.members.length) }];
+  const [w, q, v, d, k, f, c] = [n("running", "paused"), n("queued"), n("waiting"), n("done"), n("stopped"), n("failed"), cost(g)];
   if (w) out.push({ text: `${w} working` });
-  if (v) out.push({ text: `${v} waiting` });
+  if (q) out.push({ text: `${q} queued` });
+  if (v) out.push({ text: `${v} waiting on you`, warn: true });
   if (d) out.push({ text: `${d} done` });
+  if (k) out.push({ text: `${k} stopped` });
   if (f) out.push({ text: `${f} failed`, bad: true });
   if (c > 0) out.push({ text: money(c) });
   return out;
@@ -65,8 +72,16 @@ export const memberState = (m: Member): string => (m.model ? `${m.model} · ${me
 /** B2 a child of a child's third line: its parent member's who and description. */
 export const startedBy = (who: string, task: string): string => `started by ${who}: ${task}`;
 export const moreMembers = (n: number): string => `+${n} more`;
-/** B26 the slot at the drawing's foot: a working group wholly out of sight, and how many other boxes wait below. */
-export const belowGroup = (name: string, more: number): string => `↓ ${name} · working${more > 0 ? ` and ${more} more below` : ""}`;
+/** 3.6.0.13 L4: the slot at the drawing's foot, every form letter for letter -- a group that waits on him out of sight
+ *  below ("down"), above ("up") or under the open card ("under"), else a working group below (B26) -- and the tail, how
+ *  many other groups lie wholly below. No list, no count of members. */
+export function slotWords(name: string, arrow: "down" | "up" | "under" | "working" | undefined, more: number): string {
+  const head = arrow === "down" ? `↓ ${name} · waits on you` : arrow === "up" ? `↑ ${name} · waits on you`
+    : arrow === "under" ? `${name} · waits on you · under the open box` : `↓ ${name} · working`;
+  return more > 0 ? `${head} · and ${more} more ${more === 1 ? "group" : "groups"} below` : head;
+}
+/** B26 the working form: a working group out of sight, and how many other groups wait below. */
+export const belowGroup = (name: string, more: number): string => slotWords(name, "working", more);
 /** b/batch08: the name Session's slot on Auto keeps room for (its hidden twin): a long name of ordinary letters, 60 characters. */
 export const BELOW_SAMPLE = "compare the three reports and write the summary for the team";
 /** k/batch02 entry 1: main's box on Auto holds the room of its fullest state from the first draw -- a hidden twin of its

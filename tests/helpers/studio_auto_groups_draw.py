@@ -188,6 +188,20 @@ def hover(c, rig, rows: Rows, a: str, b: str) -> dict:
       sel: !!document.querySelector('[data-testid=session-map-group][data-selected]')})""")
     c.js("document.querySelector('[data-testid=map-step-in-close]')?.click(); 1")
     c.wait("!document.querySelector('[data-testid=map-step-in]')", 10)
+    # 3.6.0.13 L3 (R8): once main was told what it can start, its hover says the session's counts and the kinds it was told
+    c.mouse("mouseMoved", 1279, 799)
+    c.wait("!document.getElementById('halo-hover-card')", 5)
+    rows.set(a, agents=[{**main, "turn_total": {"helpers": 3, "tools": 4}}, *kids], kinds_told=["coder", "reviewer", "writer"],
+             kinds_more=0)
+    try:
+        c.wait(f"!!{M}.querySelector('[data-box=main]')", 10)
+        c.js(f"{M}.querySelector('.mp-mini-scroll').scrollTop = 0; 1")  # main at the drawer's top again (the member hover scrolled)
+        time.sleep(1.0)
+        _rest_on(c, f"{M}.querySelector('[data-box=main] .mp-name')")
+        c.wait("(document.getElementById('halo-hover-card')?.textContent || '').includes('Told it can start')", 10)
+    except TimeoutError:
+        pass  # the reading says what it showed
+    out["told"] = c.js(HOVER)
     return {"hover": out}
 
 
@@ -458,7 +472,8 @@ def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
     out: dict = {"len": len(SAMPLE), "short": len(SHORT)}
     main = _main(rows, a)
     read = (f"({{slot: ({RECT})({SLOT}), scroll: ({RECT})({SCROLLBOX}), twin: ({RECT})({TWIN}), "
-            f"wait: ({RECT})({SLOT}?.querySelector(':scope > .mp-wait-row')), text: {MORE}?.textContent || ''}})")
+            f"wait: ({RECT})({SLOT}?.querySelector(':scope > .mp-wait-row')), text: {MORE}?.textContent || '', "
+            f"lh: parseFloat(getComputedStyle({TWIN}).lineHeight) || 0}})")
     named = lambda name: f"({MORE})?.textContent.startsWith('↓ {name} · working')"  # noqa: E731
 
     def pair(tag: str, name: str) -> None:
@@ -496,9 +511,12 @@ def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
 
 # k/batch02 entry 1: main's states on Auto, each with what its box's rows then say (the fullest: a two-line row and the
 # model wait's clock)
-MAIN_STATES = [("done", {"state": "done", "current": ""}), ("tool", {"state": "running", "current": "Bash: pytest -q"}),
+# 3.6.0.13 L3: the first state has no turn yet (the rig's own row has one), the last ends a turn with its counts
+MAIN_STATES = [("done", {"state": "done", "current": "", "turn": None}), ("tool", {"state": "running", "current": "Bash: pytest -q"}),
                ("agent", {"state": "running", "current": "Agent: read report C"}), ("thinking", {"state": "running", "current": "thinking"}),
-               ("waiting", {"state": "waiting", "current": ""}), ("done again", {"state": "done", "current": ""})]
+               ("waiting", {"state": "waiting", "current": ""}),
+               # 3.6.0.13 L3: the turn ended with its counts: TURN under NOW, in the room held from the first draw
+               ("done again", {"state": "done", "current": "", "turn": {"n": 1, "helpers": 12, "tools": 14, "ended": True}})]
 MAIN_SAYS = {"done": "main · done", "tool": "main · working · Bash pytest -q", "agent": "main · working · Agent read report C",
              "thinking": "main · working · thinking", "waiting": "main · waiting on you", "done again": "main · done"}
 MAIN_BOX = f"{M}?.querySelector('[data-box=main]')"
@@ -515,7 +533,8 @@ def mainstill(c, rig, rows: Rows, a: str, b: str) -> dict:
     c.wait(f"({GROUP})(1)?.querySelectorAll('[data-member]').length === 3", 20)
     read = (f"({{main: ({RECT})({MAIN_BOX}), one: ({RECT})(({GROUP})(1)), "
             f"row: {MAIN_BOX}?.querySelector('.mp-lit-row[data-state]')?.textContent || '', "
-            f"clock: ({MAIN_BOX}?.querySelector('[data-testid=map-main-now]')?.textContent || '').trim()}})")
+            f"clock: ({MAIN_BOX}?.querySelector('[data-testid=map-main-now]')?.textContent || '').trim(), "
+            f"turn: {MAIN_BOX}?.querySelector('[data-testid=map-main-turn]')?.textContent ?? null}})")
     for name, over in MAIN_STATES:
         _set(rows, a, [_main(rows, a, since=since, started=since, **over), *scene2()])
         try:
