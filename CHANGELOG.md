@@ -18,19 +18,21 @@ this section.
 
 ### Added
 
-- **A `!command` typed in Studio's Prompt box runs in the session, as in the terminal.** A one-line `!command` with no
-  image runs that command at once: no model turn, no receipt marks, and the model sees its output on the next turn, as
-  before. It works while a turn is running too: a `!` line is never a steer and is never queued. Your line shows once,
-  and under it one answer line: `ran` and the command's output; `asks first: answer below` when the session's rules
-  ask first (the ask is the panel's own card, Allow there runs the command, and the terminal's card reads "Answered in
-  Studio: Allow"); `denied: {reason}` when a rule refuses it (the line stays in the box); or `still running: Stop is
-  on its row; its output shows in the Feed` when it has not ended after 3.5 seconds. Before, Studio sent such a line
-  to the model as a prompt.
+- **A `!command` typed in Studio's Prompt box runs in the session, as in the terminal.** A one-line `!command` runs
+  that command at once: no model turn, no receipt marks, and the model sees its output on the next turn, as before. An
+  image chip in the box stays for the next prompt, as in the terminal. It works while a turn is running too: a `!`
+  line is never a steer and is never queued. Your line shows once, and under it one answer line: `ran` and the
+  command's output; `asks first: answer below` when the session's rules ask first (the ask is the panel's own card,
+  Allow there runs the command, and the terminal's card reads "Answered in Studio: Allow"); `denied: {reason}` when a
+  rule refuses it (the line stays in the box); or `still running: Stop is on its row; its output shows in the Feed`
+  when it has not ended after 3.5 seconds. Before, Studio sent such a line to the model as a prompt.
 - **Stop on a `!` command that still runs.** In the Prompt panel the row of a `!` command that has not ended carries a
-  Stop button. It ends the command, and a running turn with it, as Esc does in the terminal.
+  Stop button. It ends the `!` commands running at that moment, and a running turn with them, as Esc does in the
+  terminal. A `!` command started right after it is its own command and runs.
 - **Esc ends a running `!` command in the terminal app.** Its card ends with `[command aborted]`, the words a stopped
-  Bash call already shows. With a turn running, one Esc ends both. Before, Esc did not reach a `!` command: it ran on
-  to its end or to the Bash tool's time limit.
+  Bash call already shows. With a turn running, one Esc ends both. With no turn running and text in the prompt box,
+  the first Esc clears the box, as before, and the next ends the command. Before, Esc did not reach a `!` command: it
+  ran on to its end or to the Bash tool's time limit.
 - **The Prompt panel's help and the docs say it:** "A line that starts with ! runs that command in the session at
   once, as in the terminal: no model turn; its output shows here and in the Feed." (docs/SLASH-COMMANDS-keys.md,
   docs/STUDIO-session.md).
@@ -43,6 +45,9 @@ this section.
 - **A `!` command that asks first can be answered from either side.** The terminal's card and Studio's card are one
   decision: an Allow from Studio runs the command. Before, an answer from Studio closed the terminal's card and
   nothing ran.
+- **Every interrupt sent to a session ends its running `!` commands too:** Session's Stop for a turn and an interrupt
+  from a phone, not only the new Stop on a `!` row. A Stop pressed in Studio for a turn therefore also ends a long `!`
+  command started in the terminal.
 - **Closing Halo ends a running `!` command and answers every waiting `!` ask "no",** on every way out, in the
   terminal app and in a session Studio started: no thread and no process of it is left.
 - **A one-shot on a local model is sent the tools of the window it asks.** `halo -p` on an Ollama model tries the
@@ -83,9 +88,15 @@ this section.
 
 - **A `!` line from the phone bridge or from voice is still a prompt to the model.** Only the terminal app and
   Studio's Prompt box run it as a command.
-- **A `!` line with a second line or an image is a prompt,** in Studio as in the terminal.
-- **`halo -p` runs no `!` command:** it has no session to run it in, and answers "a ! command needs a session in the
-  terminal app or one Studio started".
+- **A `!` line with a second line is a prompt,** in Studio as in the terminal.
+- **A `!` line that begins with a space is a prompt in Studio's Prompt box;** the terminal runs it as a command.
+- **A `/` line with an image chip is still a prompt in Studio's Prompt box;** in the terminal it runs as a command and
+  the image waits.
+- **A refused `!` line from Studio shows its refusal twice in the Prompt panel:** the answer line `denied: {reason}`
+  and the session's own error row, the one the terminal shows.
+- **`halo -p "!ls"` sends the line to the model as a prompt, as before.** A one-shot has no `!` handling. A `!` line
+  sent from Studio's Prompt box to a `halo -p` run that is still running is answered "a ! command needs a session in
+  the terminal app or one Studio started".
 - **Stop and Esc end a running turn together with the `!` command.** There is no way yet to end only the command while
   a turn runs.
 - **Stop for a `!` command is on its row in the Prompt panel only.** The Feed shows the row, but the steer box's Stop
@@ -99,7 +110,18 @@ this section.
 - **Session's workflow line, when the map new sessions use is not the session's own map,** still reads that other map
   by its name in Studio's folder.
 - **Every Known limit of 3.6.0.11 still holds,** but the first: a `!` line from Studio now runs.
-- **Where it was checked.** This bullet is written after the last gate run.
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
+  check, eighteen of eighteen steps; its prompt step now sends a `!` line from Studio to a real terminal session and
+  sees it run once, with no model request. On the PC (Windows), one at a time: the plain modules of this release, the
+  Prompt panel's browser module once, and the terminal app's `!` tests. The whole run on the VM found one test that
+  calls the quit on a stand-in object that lacked the new end of `!` work; the stand-in has it now. A package checker
+  found that Studio could not end a running `!` command; the Stop on the command's row was added after that and is
+  checked over the session's socket and in a browser. The reviewer found that a `!` command started right after a Stop
+  was ended with the one before; each command now has its own stop, and a test holds it. The modules changed after the
+  whole run were run again on the VM and the PC. Stop was not tried by hand with a real terminal session beside
+  Studio. No real Ollama and no real model was used for the one-shot changes. Browsers on macOS and Windows are CI's
+  part.
 
 ## [3.6.0.11] - 2026-11-22
 
