@@ -5,7 +5,8 @@
     aliases_once(tools)               the alias left out wherever its canonical is in the list
     lean_shell(platform)              the one shell a lean Windows session offers (`prompt.shell`)
     tools_budget(window)              the lean tool block's tokens: 2,200 to 16,384, 4,500 under 65,536
-    call_window(session)              the window the next call gets (an `ol:` model: its resolved num_ctx)
+    call_window(session)              the window the next call gets (a one-shot: the window it asks; an `ol:`
+                                      model: its resolved num_ctx)
     workflow_needed(session)          an enabled square covers something this model does not take
     diet(session, tools, task, cap)   (kept, dropped names): the order, the budget, the lean descriptions
     by_name_line(dropped)             the one system line naming what was left out (ToolSearch loads it)
@@ -76,11 +77,16 @@ def lean_shell(platform: Optional[str] = None) -> Optional[str]:
 
 
 def call_window(session) -> Optional[int]:
-    """The window the next call gets: a measure's own window, an `ol:` model's resolved num_ctx (what
+    """The window the next call gets: a one-shot's ask (3.6.0.12 OS: the window its request is shaped for,
+    agent/ollama_window_truth.start_window), a measure's own window, an `ol:` model's resolved num_ctx (what
     `_build_ollama_body_for_ref` starts from), else the model profile's context."""
-    w = getattr(session, "_measure_window", None)
-    if isinstance(w, int) and w > 0:
-        return w
+    model = getattr(getattr(session, "model_ref", None), "raw", None)
+    for attr in ("_shape_window", "_measure_window"):
+        w = getattr(session, attr, None)
+        if attr == "_shape_window" and getattr(session, "_shape_model", None) != model:
+            continue  # the block a one-shot started with is its model's (a switch starts over)
+        if isinstance(w, int) and w > 0:
+            return w
     ref = getattr(session, "model_ref", None)
     if getattr(getattr(session, "route", None), "dialect", None) == "ollama" and ref is not None:
         try:

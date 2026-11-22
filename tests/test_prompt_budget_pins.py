@@ -167,12 +167,17 @@ def test_the_measured_session_is_a_new_auto_session(ctx: Ctx):
 # module's fake home on the PC), the same figure on every machine. Measured at 65,536 (cap), win32 / linux shells:
 #   the base 9624c426 8,012 / 7,973; MW 8f1efb45 (the block in a one-shot) 8,176 / 8,137; this repair 8,012 / 7,973.
 #   Slack under 8,192: 180 / 219 tokens (about 77 characters of path). An empty home: 4,631 / 4,592 (slack 3,561).
+#   3.6.0.12 OS batch 2, measured at 16,384 (ONE_SHOT_BLOCK): 6,434 / 6,430 (slack 1,758 / 1,762).
 #   Not padded, and plainly: in this home the pin alone would NOT have caught batch 2 (8,176 is under 8,192), and
 #   tests/test_ollama_window_fixes.py's own home (a CLAUDE.md, a longer prompt) has only 7 tokens of slack on the PC
 #   (W2's measure, the base and this repair alike), moving with the temp folder's path: that test caught it.
+# 3.6.0.12 OS: a one-shot's first ask now carries the tool block of the window it asks (prompt_wire.one_shot_shaper),
+# so this pin measures the request at 16,384 (ONE_SHOT_BLOCK), no longer the cap's 28-tool block, and main reads the
+# helpers lines again (agent/helpers_words.py).
 ONE_SHOT = ("ol:qwen3-coder:30b@lan", 65536)
 ONE_SHOT_HALF = 8192
 ONE_SHOT_PATH = 60
+ONE_SHOT_BLOCK = 16384
 
 
 def _one_shot_prompt(platform: str) -> "tuple[int, int]":
@@ -181,7 +186,7 @@ def _one_shot_prompt(platform: str) -> "tuple[int, int]":
     import shutil
     from halo_harness.agent.prompt_measure import first_turn
     from tests.helpers.fake_home import build_fake_home
-    ref, window = ONE_SHOT
+    ref, window = ONE_SHOT[0], ONE_SHOT_BLOCK
     fh = _home()
     near = first_turn(ref, window=window, platform=platform, cwd=fh["proj"], one_shot=True)["prompt"]
     root = Path(tempfile.mkdtemp(prefix="halo-fakehome-"))
@@ -207,6 +212,7 @@ def test_a_one_shot_on_a_local_model_asks_16384_first(ctx: Ctx):
     from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted, room
     for platform in ("win32", "linux"):
         prompt, here = _one_shot_prompt(platform)
+        print(f"  {platform}: a one-shot's first prompt with the 16,384 block {prompt:,} ({here:,} here)")
         ctx.check(f"{platform}: a one-shot's first prompt is {prompt:,} tokens at a {ONE_SHOT_PATH}-character home path "
                   f"({here:,} here) -- " + why("a one-shot's first prompt (half of 16,384, the ladder's step)",
                                                 ONE_SHOT_HALF), prompt <= ONE_SHOT_HALF)
@@ -223,8 +229,10 @@ def test_a_one_shot_on_a_local_model_asks_16384_first(ctx: Ctx):
 # in the measured request (the wire's shape, not the temp folder's length). The first call's rule (Halo's own prompt
 # at most half the window) makes the slack 8,192 less the prompt. Measured 2026-11-22 on the base 07df6f3e (on the PC),
 # win32 / linux shells: prompt 7,858 / 7,819, slack 334 / 373 tokens. When it is spent the ask moves to 32,768.
+# OS batch 2 (the ask's own 16,384 tool block, 13 tools; the helpers lines back on Auto): prompt 6,280 / 6,277, slack
+# 1,912 / 1,915 tokens (measured on the PC).
 ONE_SHOT_ASK = 16384
-ONE_SHOT_SLACK_TODAY = {"win32": 334, "linux": 373}
+ONE_SHOT_SLACK_TODAY = {"win32": 1912, "linux": 1915}
 
 
 def _fixed_paths(fh: dict) -> dict:

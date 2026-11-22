@@ -4,7 +4,7 @@ view, diagnose on failure; no background watcher.
 
     prompt_estimate(state_dir, host_url, model, system, messages, tools) -> (raw, tokens)
         the prompt's tokens by chars / 3.5 (`raw`) and with this model's measured ratio applied (`tokens`)
-    start_window(session, *, host, ref, decision, cap, cap_source, request, requested) -> (window, source, hold)
+    start_window(session, *, host, ref, decision, cap, cap_source, request, requested, reshape) -> (window, source, hold)
         the window a call starts from (B): a loaded window that holds the request (`hold`), else the request's
         need on the ladder (8,192 / 16,384 / 32,768 / ...) up to `cap`; a steward profile's window wins
     resident_options(session, host, model, body, source) -> body   `num_gpu` the way the resident runner has it
@@ -191,7 +191,7 @@ def many_turns(session) -> bool:
 
 
 def start_window(session, *, host, ref, decision, cap: int, cap_source: str, request,
-                 requested=None) -> "tuple[int, str, bool]":
+                 requested=None, reshape=None) -> "tuple[int, str, bool]":
     """`(window, source, hold)`: (1) a steward profile's window (the user's) as it is; (2) the window the model is
     loaded at on that server when it holds this request with the ladder's own need (`hold`: the prompt with a 15 %
     margin for the estimate, plus the reply's room at that window -- fix pass M1), unless the recorded truth says
@@ -202,7 +202,10 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     it asked for, asks for `cap` at once (S4: one load, never a step at a time); a one-shot run's first call asks
     for the request's need on the ladder (8,192 / 16,384 / ...; Halo's own prompt at most half). Never above `cap`
     (the old `min()`: trained context, `max_ctx`, a measured cap, the memory estimate) nor above a window known to
-    spill. A prompt larger than all of that is the prompt floor's to raise (agent/ollama_window.prepare_window)."""
+    spill. A prompt larger than all of that is the prompt floor's to raise (agent/ollama_window.prepare_window).
+    3.6.0.12 OS, `reshape` (prompt_wire.one_shot_shaper, a one-shot's main call only): each window is measured with the
+    request's tool block shaped for THAT window, never smaller than an earlier call of the run sent; the window the
+    block is shaped for is kept on `session._shape_window` (prompt_diet.call_window reads it)."""
     st = _state(session)
     key = (host.url, ref.model)
     own = is_main_call(session, ref)  # fix pass F4: helper calls (small model, compaction, titles, hooks) never grow
@@ -239,9 +242,24 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         fits = _pos(t.get("fits"))
         cap, cap_source = max(_below(spill), fits if fits and fits < spill else 0), "known to spill"
     st.setdefault("cap", {})[key] = cap
-    _raw, prompt = prompt_estimate(state_dir, host.url, ref.model, *request)
+    _raw, prompt0 = prompt_estimate(state_dir, host.url, ref.model, *request)
     first = own and not getattr(session, "_reply_room_called", False)
     profile = getattr(decision, "profile", None) or {}
+    one = own and not many_turns(session)  # 3.6.0.12 OS: a one-shot run (a session of more turns is untouched)
+    reshape = reshape if one else None
+    shaped_for = _pos(getattr(session, "_shape_window", None)) \
+        if reshape and getattr(session, "_shape_model", None) == ref.raw else None  # an earlier call's block
+    sized: dict = {}
+
+    def _prompt(w) -> int:
+        """3.6.0.12 OS: a one-shot's prompt with the tool block of a window of `w` (prompt_wire.one_shot_shaper),
+        never a smaller block than an earlier call of it sent; else the request's own."""
+        if reshape is None or not _pos(w):
+            return prompt0
+        at = max(w, shaped_for or 0)
+        if at not in sized:
+            sized[at] = prompt_estimate(state_dir, host.url, ref.model, *reshape(at))[1]
+        return sized[at]
 
     def _room(w: int) -> int:
         if not own:
@@ -251,12 +269,10 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         return room(w, requested, profile_num_predict=profile.get("num_predict"), explicit=_explicit(session))[0]
 
     def _holds(w) -> bool:
-        return bool(_pos(w)) and int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + _room(w) <= w
+        return bool(_pos(w)) and int(math.ceil(_prompt(w) * (1 + RATIO_DEADBAND))) + _room(w) <= w
 
     def _ok(w) -> bool:
         return _holds(w) and not (spill and w >= spill)
-
-    one = own and not many_turns(session)  # 3.6.0.12 OS: a one-shot run (a session of more turns is untouched)
 
     def _choose() -> "tuple[int, str, bool]":
         if loaded and _holds(loaded):
@@ -271,7 +287,7 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
                                             "known to fit the card")
                 return loaded, "loaded", True
             _queue_line(session, head + f"reloaded at {fmt_window(cap)}, the largest known to fit the card")
-            if one and first and 2 * prompt > cap:  # the first call's "at most half" gives way to the spill cap
+            if one and first and 2 * _prompt(cap) > cap:  # the first call's "at most half" gives way to the spill cap
                 _queue_line(session, f"the prompt is more than half of it: the reply has {_room(cap):,} tokens")
             return cap, cap_source, False
         if not known:
@@ -281,9 +297,9 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         if own and (many_turns(session) or prev):
             return cap, cap_source, False
         for w in _ladder(_pos(cap) or LADDER_START):
-            need = int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + _room(w)
+            need = int(math.ceil(_prompt(w) * (1 + RATIO_DEADBAND))) + _room(w)
             if first:
-                need = max(need, 2 * prompt)
+                need = max(need, 2 * _prompt(w))
             if need <= w:
                 return w, ("request size" if w < cap else cap_source), False
         return cap, cap_source, False
@@ -297,6 +313,8 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     # window past it (agent/reply_room.for_call), so the model runs wholly on the card and a "reloaded at" line is true
     held = one and spill and source == "known to spill" and window == cap and _holds(cap)
     st.setdefault("spill_cap", {})[key] = cap if held else None
+    if reshape is not None:  # 3.6.0.12 OS: the block the call sends (reshape(None)) and every later call starts from
+        session._shape_window, session._shape_model = max(window, shaped_for or 0), ref.raw
     return _ask(window, source, hold)
 
 

@@ -177,7 +177,7 @@ def test_a_real_session_on_auto_reads_the_block_and_one_with_no_map_todays_line(
             s = Session(cwd=h.repo, model_ref=parse_model_ref(ref), model_profile=ModelProfile(context_tokens=16384),
                         creds=ProviderCreds(base_url="http://127.0.0.1:9", api_key="k"), state_dir=h.state,
                         model_label=ref, session_context=sc, max_turns=5, agents=agents, crew_map=crew_map)
-            s.interactive = True  # the terminal app's session (controller.py): a one-shot keeps today's line
+            s.interactive = True  # the terminal app's session (controller.py)
             msgs = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
             text, _m, _sent = shape(s, sc.system_prompt, msgs, reg.definitions(), purpose="turn")
             if crew_map is not None:
@@ -188,12 +188,13 @@ def test_a_real_session_on_auto_reads_the_block_and_one_with_no_map_todays_line(
 
 
 @test
-def test_a_one_shot_on_auto_reads_todays_line_and_the_terminal_and_studio_read_the_block(ctx: Ctx):
-    """MW repair after the whole suite (2026-11-21): in a one-shot (`halo -p` with one prompt: headless.run_print_mode
-    sets `many_turns` False) main reads today's line letter for letter: no M1, no M2, no M3, its whole system text the
-    one the same session reads with the block turned off, so a small one-shot asks the window it asked before. The same
-    session facts in the terminal app (`interactive`, controller.py) and in a Studio session (stream-json: `many_turns`
-    True) read the block. A local and a cloud model; the Agent tool's own kinds (M8) stay in every mode."""
+def test_a_one_shot_on_auto_reads_the_block_like_the_terminal_and_studio(ctx: Ctx):
+    """3.6.0.12 OS (rewritten from the MW repair of 2026-11-21, where a one-shot read today's line letter for letter):
+    a one-shot (`halo -p` with one prompt: headless.run_print_mode sets `many_turns` False) on Auto reads M1 and M2 like
+    the same session facts in the terminal app (`interactive`, controller.py) and in a Studio session (stream-json:
+    `many_turns` True), because its first ask now carries the tool block of the window it asks
+    (prompt_wire.one_shot_shaper). The block is frozen at its first shaping. A local and a cloud model; the Agent tool's
+    own kinds (M8) stay in every mode."""
     from halo_harness.agent.assemble import SessionContext
     from halo_harness.agent.helpers_words import told
     from halo_harness.agent.loop import Session
@@ -228,17 +229,20 @@ def test_a_one_shot_on_auto_reads_todays_line_and_the_terminal_and_studio_read_t
             return s, text, getattr(reg.get("Agent"), "kinds_tail", "")
 
         s, local, _k = real("ol:tiny:3b@lan", 16384, "one-shot")
-        _todays(ctx, "a local one-shot", local)
-        today = real("ol:tiny:3b@lan", 16384, "today")[1]
-        ctx.check("a local one-shot: its whole system text is today's, byte for byte", local == today)
+        ctx.check("a local one-shot: M1 and M2 in place of today's line",
+                  (M1 + "\n" + M2_CLEAN) in local and TODAY_ON not in local)
+        terminal = real("ol:tiny:3b@lan", 16384, "terminal")[1]
+        ctx.check("a local one-shot: its whole system text is the terminal app's, byte for byte", local == terminal)
         ctx.check("a local one-shot: the same text on its second request", shape(
             s, s.session_context.system_prompt, [{"role": "user", "content": [{"type": "text", "text": "again"}]}],
             s.tool_registry.definitions(), purpose="turn")[0] == local)
-        ctx.check(f"a local one-shot: the status row names no kinds told, got {told(s)!r}", told(s) is None)
+        ctx.check(f"a local one-shot: the status row names the kinds it read, got {told(s)!r}",
+                  bool((told(s) or {}).get("kinds_told")))
         # the join: ONE rule. A one-shot here is exactly a session the window ladder sizes by its prompt, however it
         # was marked or left unmarked: a session a script builds sets neither mark and is on the ladder too
         unmarked = real("ol:tiny:3b@lan", 16384, "unmarked")[1]
-        ctx.check("a local session that sets neither mark reads today's text too, byte for byte", unmarked == today)
+        ctx.check("a local session that sets neither mark reads the same text, byte for byte", unmarked == local)
+        _todays(ctx, "the same session with the block turned off", real("ol:tiny:3b@lan", 16384, "today")[1])
         from types import SimpleNamespace
         from halo_harness.agent import helpers_words as H
         from halo_harness.agent.ollama_window_truth import many_turns

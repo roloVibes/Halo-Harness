@@ -234,6 +234,9 @@ def shape(session, system_text: str, messages: list, tools, *, purpose: str = "t
 def _shape(session, system_text: str, messages: list, tools, purpose: str):
     from halo_harness.agent import prompt_lean as L
     from halo_harness.agent.prompt_composition import compose, dedupe, known_texts
+    raw = (system_text, messages, tools)
+    if purpose == "turn":
+        session._diet_line = None
     known = known_texts(session)
     messages, dups = dedupe(list(messages or []), known)
     lean = L.active(session)
@@ -262,9 +265,13 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
             system_text = (system_text or "").rstrip() + "\n\n" + _by_name_line(session, [])
         if dropped and purpose == "turn":
             model = getattr(getattr(session, "model_ref", None), "raw", "this model")
-            _queue_line(session, (f"{dropped} tool{'s' if dropped != 1 else ''} not offered to {model} "
-                                  f"(window {L.call_window(session) or 0:,}): the core tools first, the rest by ToolSearch"
-                                  if tools else f"no tools offered to {model}: its card says it takes none"))
+            line = (f"{dropped} tool{'s' if dropped != 1 else ''} not offered to {model} "
+                    f"(window {L.call_window(session) or 0:,}): the core tools first, the rest by ToolSearch"
+                    if tools else f"no tools offered to {model}: its card says it takes none")
+            said = getattr(session, "_prompt_lines_said", None)
+            new = not (isinstance(said, set) and line in said)
+            _queue_line(session, line)
+            session._diet_line = line if new else None  # 3.6.0.12 OS: a one-shot shaped again takes it back
     if purpose == "turn" and getattr(session, "_preflight_sent_now", False):
         messages = order_for_survival(messages, known)
     comp = compose(session, messages, tools, system_text, placement=placement, known=known, duplicates=dups)
@@ -273,4 +280,70 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
         session._prompt_composition = comp
         session._prompt_prefix = {"tokens": comp["prefix_tokens"],
                                   "hash": hashlib.sha1(prefix.encode("utf-8")).hexdigest()[:12]}
+        if lean:
+            session._turn_raw = (raw, tools)  # 3.6.0.12 OS: what `one_shot_shaper` shapes again for the window asked
     return system_text, messages, tools
+
+
+def one_shot_shaper(session, ref, request, *, raw=None, post=None, purpose: str = "turn"):
+    """3.6.0.12 OS: for a ONE-SHOT's main call on a lean request (helpers_words.one_shot; a session of more turns, a
+    helper call and a cloud model get None and are untouched), `reshape(w)`: this call's request shaped again with the
+    diet of a window of `w` (nothing queued, nothing kept; ollama_window_truth.start_window measures each ladder step
+    with it); `reshape(None)`: the request shaped for the window the ask chose (`session._shape_window`), the request
+    the call sends, its "not offered" line the one queued. `request` is `shape`'s output for this call (`raw`, its
+    input, defaults to the one `shape` kept); `post` is applied to each shaped request (a measure's fixed paths)."""
+    from halo_harness.agent import prompt_lean as L
+    from halo_harness.agent.helpers_words import one_shot
+    from halo_harness.agent.ollama_window_truth import is_main_call
+    try:
+        kept = getattr(session, "_turn_raw", None)
+        if raw is None and kept and kept[1] is request[2]:
+            raw = kept[0]
+        if raw is None or not request[2] or not is_main_call(session, ref) or not one_shot(session) \
+                or not L.active(session):
+            return None
+        before = L.call_window(session)  # the window `request` was shaped for
+    except Exception:
+        return None
+    shaped: dict = {}
+
+    def _at(window: int, how: str):
+        was = (getattr(session, "_shape_window", None), getattr(session, "_shape_model", None),
+               getattr(session, "_diet_dropped", None))
+        session._shape_window, session._shape_model = window, getattr(ref, "raw", None)
+        try:
+            out = _shape(session, *raw, how)
+        except Exception:
+            log.debug("prompt_wire: shaping a one-shot's request again failed; sent as shaped", exc_info=True)
+            return request
+        finally:
+            if how != "turn":
+                session._shape_window, session._shape_model, session._diet_dropped = was
+        return post(out) if post else out
+
+    def reshape(window=None):
+        if window is None:
+            window = getattr(session, "_shape_window", None)
+            if window == before or not isinstance(window, int):
+                return request
+            _take_back(session, getattr(session, "_diet_line", None))
+            return _at(window, purpose)
+        if window == before:
+            return request
+        if window not in shaped:
+            shaped[window] = _at(window, "measure")
+        return shaped[window]
+    return reshape
+
+
+def _take_back(session, line) -> None:
+    """A line `_shape` queued for this call and no one has read yet, taken back (the call is shaped again)."""
+    if not line:
+        return
+    from halo_harness.agent.ollama_window import _state
+    st = _state(session)
+    if line in (st.get("markers") or []):
+        st["markers"] = [m for m in st["markers"] if m != line]
+        said = getattr(session, "_prompt_lines_said", None)
+        if isinstance(said, set):
+            said.discard(line)

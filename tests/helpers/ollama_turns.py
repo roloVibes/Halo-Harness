@@ -133,9 +133,15 @@ def _no_room_trained() -> int:
     a smaller reply), so a trim there cannot be answered by a raise.
     3.3.16.1: the reply's room follows the window (agent/reply_room.py: 2,048
     for a window this small), so the context leaves the prompt 1,536 -- less
-    than that room, more than the 1,024 the squeeze keeps."""
+    than that room, more than the 1,024 the squeeze keeps. 3.6.0.12 OS: and
+    never less than the prompt over the share the steward compacts at before a
+    call (`ollama_steward.profiles.compact_at`, 80 %): with only 1,536 over it,
+    a prompt over 6,144 tokens is compacted before it is ever sent (a one-shot
+    on Auto reads the helpers lines now, and this home's prompt is 6.2k)."""
+    import math
+    from halo_harness.ollama_steward.profiles import compact_at
     _base_floor()
-    return _BASE["prompt"] + 1536
+    return max(_BASE["prompt"] + 1536, int(math.ceil(_BASE["prompt"] / compact_at(None))) + 64)
 
 
 _BASE: dict = {}

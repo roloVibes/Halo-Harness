@@ -148,6 +148,7 @@ def _first_request(ref, **kw) -> tuple:
     log.add(type="user", content=[{"type": "text", "text": text}])
     system_text, messages, tools = derive_request(log)
     full = list(tools or [])
+    session._measure_raw = (system_text, messages, full)  # what a one-shot's ask shapes again (one_shot_first_ask)
     system_text, messages, sent = shape(session, system_text, messages, full, purpose="measure")
     return session, full, system_text, messages, list(sent or [])
 
@@ -199,17 +200,21 @@ def one_shot_first_ask(ref, *, cap: int, platform: Optional[str] = None, cwd=Non
     product's own ladder: the request `first_turn` measures, its window from `ollama_window_truth.start_window` under
     `cap` (the host's max_ctx) and its reply's room from `reply_room.for_call`, called as agent/loop.py calls them.
     `rename`: strings replaced in the request first (a pin's fixed paths). Nothing is sent and nothing is kept: the
-    window the ask notes for this process is taken back. Returns {prompt, asked, source, reply_room, window,
-    sent_window, tools: [names sent]}."""
+    window the ask notes for this process is taken back. Each step is measured with its own tool block and the block of
+    the step asked is the one measured (prompt_wire.one_shot_shaper). Returns {prompt, asked, source, reply_room,
+    window, sent_window, tools: [names sent], tool_tokens, system: the system text sent}."""
     from types import SimpleNamespace as NS
     from halo_harness.agent import ollama_window_truth as T
     from halo_harness.agent.reply_room import PROVIDER_DEFAULT, for_call
     from halo_harness.providers.ollama_prompt import window_for
     session, _full, system_text, messages, sent = _first_request(ref, window=cap, platform=platform, cwd=cwd,
                                                                  control=control, one_shot=True, text=text)
-    request = (system_text, messages, sent)
-    if rename:
-        request = tuple(_renamed(list(part) if isinstance(part, tuple) else part, rename) for part in request)
+    from halo_harness.agent.prompt_wire import one_shot_shaper
+
+    def _fixed(req: tuple) -> tuple:
+        return tuple(_renamed(list(part) if isinstance(part, tuple) else part, rename) for part in req) \
+            if rename else tuple(req)
+    request = _fixed((system_text, messages, sent))
     ref = session.model_ref
     host = NS(name="measure", url=MEASURE_HOST, max_ctx=cap)
     decision = NS(profile={}, trained_context=None, fit_estimate=None)
@@ -217,8 +222,13 @@ def one_shot_first_ask(ref, *, cap: int, platform: Optional[str] = None, cwd=Non
     with T._ASKED_LOCK:
         was = T._ASKED.get(key)
     try:
+        # 3.6.0.12 OS: each step measured with its own tool block, and the block of the step asked is the one sent
+        reshape = one_shot_shaper(session, ref, request, raw=session._measure_raw, post=_fixed, purpose="measure")
         asked, source, hold = T.start_window(session, host=host, ref=ref, decision=decision, cap=cap,
-                                             cap_source="host max_ctx", request=request, requested=PROVIDER_DEFAULT)
+                                             cap_source="host max_ctx", request=request, requested=PROVIDER_DEFAULT,
+                                             reshape=reshape)
+        if reshape is not None:
+            request = reshape(None)
         reply, window = for_call(session, ref, asked, PROVIDER_DEFAULT, decision, request, host, hold=hold)
     finally:
         with T._ASKED_LOCK:
@@ -226,10 +236,12 @@ def one_shot_first_ask(ref, *, cap: int, platform: Optional[str] = None, cwd=Non
                 T._ASKED.pop(key, None)
             else:
                 T._ASKED[key] = was
+    from halo_harness.agent.prompt_diet import wire_tokens
     prompt = T.prompt_estimate(session.state_dir, host.url, ref.model, *request)[1]
     return {"prompt": prompt, "asked": asked, "source": source, "reply_room": reply, "window": window,
             "sent_window": window_for(prompt + reply, base=window, base_source="measure").num_ctx,
-            "tools": [t.get("name") for t in request[2] or []]}
+            "tools": [t.get("name") for t in request[2] or []],
+            "tool_tokens": sum(wire_tokens(t) for t in request[2] or []), "system": request[0]}
 
 
 def _local(ref) -> bool:

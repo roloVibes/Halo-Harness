@@ -239,7 +239,13 @@ prompt with a 15 % margin for the estimate, plus the reply's full room at
 that window) and is not known to spill to the CPU; otherwise a `halo -p`
 run asks for the window its request needs, and a session that takes more
 turns (the TUI, Studio, `--input-format stream-json`) asks for the largest
-window it may use, so it loads once. A session that has to grow goes
+window it may use, so it loads once. A `halo -p` run tries each window
+with the tool block a session of that window is sent (at 16,384: the core
+tools first, at most 2,200 tokens; the rest by ToolSearch) and asks the
+first that holds it, so a small one-shot asks 16,384 and, on Auto, reads
+the same lines about handing work out and the helpers it can start as
+every other session; its later calls keep that block until the window
+grows. A session that has to grow goes
 straight to that largest window, never a step at a time (helper calls --
 the small model, compaction, titles, hooks -- stay on the ladder, and two
 calls of one process never ask the same model for different windows at

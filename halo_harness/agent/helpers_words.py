@@ -3,9 +3,9 @@
     on_auto(session) -> bool        a top session on Auto that may hand work out (else today's line, byte for byte)
     frozen(session) -> str | None   M1 and M2: when to hand work out, the kinds THIS session can start (his own first),
                                     made at the session's first shaping and kept byte-equal; made again only when
-                                    main's model changes. None: not on Auto, a one-shot (`one_shot`), or the block
-                                    does not fit (today's line).
-    one_shot(session) -> bool       `halo -p` with one prompt: main reads today's line, letter for letter
+                                    main's model changes. None: not on Auto, or the block does not fit (today's line).
+    one_shot(session) -> bool       `halo -p` with one prompt: the window ladder sizes its first ask (3.6.0.12 OS:
+                                    with the tool block of the window it asks; it reads the block like any session)
     tail(session, tools) -> str     per request, after the tools are capped (agent/prompt_wire.py): M3 when the request
                                     sends the Workflow tool and it lists his workflows; nothing else
     kinds_tail(session) -> str      M8: the end of the Agent and Task tools' words on Auto (their cloud copy)
@@ -68,15 +68,14 @@ def one_shot(session) -> bool:
     (agent/ollama_window_truth.many_turns, the ladder's OWN rule, asked here so the two can never differ): `halo -p`
     with one prompt (headless.run_print_mode sets `many_turns` False), and any session that sets neither mark. The
     terminal app, and Studio's and remote sessions through the same Controller, mark the session `interactive`;
-    `-p --input-format stream-json` sets `many_turns` True. Such
-    a session's first window must hold twice its prompt, so its request is today's, byte for byte: no frozen block
-    and no tail. The Agent and Task tools' kinds (`kinds_tail`) stay."""
+    `-p --input-format stream-json` sets `many_turns` True. 3.6.0.12 OS: such a session's first ask carries the tool
+    block of the window it asks (prompt_wire.one_shot_shaper), so on Auto it reads the same block every session reads."""
     from halo_harness.agent.ollama_window_truth import many_turns
-    return not many_turns(session)  # the ladder's own rule: where it sizes the first window, the request is today's
+    return not many_turns(session)
 
 
 def _make(session) -> Optional[str]:
-    if one_shot(session) or not on_auto(session):
+    if not on_auto(session):
         return None
     from halo_harness.agent.prompt_composition import tokens_of
     from halo_harness.crew.kinds import CAP, block, kinds

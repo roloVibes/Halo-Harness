@@ -315,6 +315,105 @@ def test_the_estimate_that_picks_the_window_is_the_wire_bodys(ctx: Ctx):
         ctx.check(f"{label}: the window's estimate {chosen} == the sent body's {sent}", chosen == sent)
 
 
+# ---- 3.6.0.12 OS: a one-shot's first ask carries the tool block of the window it asks ------------------------------
+
+ONE_SHOT_REF, ONE_SHOT_CAP = "ol:tiny:1b", 65536
+SHORT = "Reply with exactly one word: ready"
+LONG = SHORT + ". Context follows. " + "word " * 1400  # about 2,000 tokens more: past half of 8,192 with any block
+
+
+def _first(one_shot: bool, platform: str = "linux", text: str = SHORT):
+    """(session, full tools, system, messages, the tools sent): a new Auto session's first request at the cap."""
+    from halo_harness.agent.prompt_measure import _first_request
+    if "proj" not in _FOLDER:
+        _FOLDER["proj"] = tempfile.mkdtemp(prefix="pb_diet-proj-")
+    return _first_request(ONE_SHOT_REF, window=ONE_SHOT_CAP, platform=platform, cwd=_FOLDER["proj"], control="auto",
+                          one_shot=one_shot, text=text)
+
+
+@test
+def test_a_one_shot_asked_at_16384_is_sent_the_tool_block_of_16384(ctx: Ctx):
+    from halo_harness.agent.prompt_measure import one_shot_first_ask
+    _first(True)
+    for platform, text, want in (("win32", LONG, 16384), ("linux", LONG, 16384), ("linux", SHORT, 8192)):
+        m = one_shot_first_ask(ONE_SHOT_REF, cap=ONE_SHOT_CAP, platform=platform, cwd=_FOLDER["proj"], text=text)
+        print(f"  {platform}, {len(text):,} characters: asked {m['asked']:,}, prompt {m['prompt']:,}, "
+              f"{len(m['tools'])} tools of {m['tool_tokens']:,} tokens")
+        ctx.check(f"{platform}: the first ask is the first step that holds it, {want:,}, got {m['asked']:,} (prompt "
+                  f"{m['prompt']:,})", m["asked"] == want and m["sent_window"] == want)
+        ctx.check(f"{platform}: its tool block is at most 2,200 tokens, got {m['tool_tokens']:,} ({len(m['tools'])} "
+                  f"tools)", m["tool_tokens"] <= 2200)
+        ctx.check(f"{platform}: ToolSearch is sent, got {m['tools']}", "ToolSearch" in m["tools"])
+        ctx.check(f"{platform}: the system text names what was left out (ToolSearch loads it)",
+                  "Other tools you can call by name" in m["system"])
+
+
+@test
+def test_a_session_of_more_turns_is_sent_the_tool_block_it_was_sent_before(ctx: Ctx):
+    """The same prompt: a session of more turns gets no reshaper, and its tools are byte-equal to the request shaped at
+    the cap, the block every session was sent before 3.6.0.12 (the one-shot's too, before it is shaped again)."""
+    import json
+    from halo_harness.agent.prompt_wire import one_shot_shaper
+    many = _first(False)
+    once = _first(True)
+    session, _full, system_text, messages, sent = many
+    ctx.check("a session of more turns is never shaped again",
+              one_shot_shaper(session, session.model_ref, (system_text, messages, sent),
+                              raw=session._measure_raw) is None)
+    ctx.check("its window is never a one-shot's", getattr(session, "_shape_window", None) is None)
+    ctx.check(f"its tools are byte-equal to the request shaped at the cap ({len(sent)} and {len(once[4])} tools)",
+              json.dumps(sent, sort_keys=True) == json.dumps(once[4], sort_keys=True))
+    cloud = one_shot_shaper(SimpleNamespace(model_ref=None), None, ("", [], [{"name": "Read"}]), raw=("", [], []))
+    ctx.check("a session with no local model is never shaped again", cloud is None)
+
+
+@test
+def test_a_one_shot_shaped_again_says_the_window_it_asks_once(ctx: Ctx):
+    """agent/loop.py's sequence: shaped for the turn (the cap), then start_window, then the request shaped for the
+    window asked: one "not offered" line, naming 16,384."""
+    from halo_harness.agent import ollama_window_truth as T
+    from halo_harness.agent.ollama_window import _state
+    from halo_harness.agent.prompt_measure import MEASURE_HOST
+    from halo_harness.agent.prompt_wire import one_shot_shaper, shape
+    from halo_harness.agent.reply_room import PROVIDER_DEFAULT
+    session, full, *_rest = _first(True, platform="win32", text=LONG)
+    raw = session._measure_raw
+    request = shape(session, *raw, purpose="turn")
+    host = SimpleNamespace(name="gpu-box", url=MEASURE_HOST, max_ctx=ONE_SHOT_CAP)
+    key = T._key(host.url, session.model_ref.model)
+    with T._ASKED_LOCK:
+        was = T._ASKED.get(key)
+    try:
+        reshape = one_shot_shaper(session, session.model_ref, request)
+        asked = T.start_window(session, host=host, ref=session.model_ref,
+                               decision=SimpleNamespace(profile={}, trained_context=None, fit_estimate=None),
+                               cap=ONE_SHOT_CAP, cap_source="host max_ctx", request=request,
+                               requested=PROVIDER_DEFAULT, reshape=reshape)[0]
+        sent = reshape(None)
+    finally:
+        with T._ASKED_LOCK:
+            if was is None:
+                T._ASKED.pop(key, None)
+            else:
+                T._ASKED[key] = was
+    lines = [m for m in _state(session).get("markers", []) if "not offered" in m]
+    ctx.check(f"asked 16,384, got {asked:,}", asked == 16384)
+    ctx.check(f"the request sent is shaped for it ({len(sent[2])} of {len(request[2])} tools)",
+              len(sent[2]) < len(request[2]) and getattr(session, "_shape_window", None) == 16384)
+    ctx.check(f"one line, naming 16,384, got {lines}", len(lines) == 1 and "(window 16,384)" in lines[0])
+    from halo_harness.agent.prompt_diet import call_window
+    from halo_harness.model import parse_model_ref
+    ctx.check(f"the run's later calls are shaped for 16,384, got {call_window(session)}", call_window(session) == 16384)
+    ref = session.model_ref
+    session.model_ref = parse_model_ref("ol:other:7b")
+    try:
+        ctx.check("a switch of model starts over (the block is the model's)", call_window(session) == ONE_SHOT_CAP)
+    finally:
+        session.model_ref = ref
+    ctx.check("the names left out are the request sent's (the by-name line reads them)",
+              "ToolSearch" not in (session._diet_dropped or []) and len(session._diet_dropped) > len(request[2]) // 3)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

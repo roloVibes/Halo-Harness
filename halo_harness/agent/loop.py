@@ -3118,9 +3118,13 @@ class Session:
         # on the ladder, or for the window the model is already loaded at when that holds it (nobody's model is
         # reloaded), a steward profile's window as it is (agent/ollama_window_truth.start_window)
         from halo_harness.agent.ollama_window_truth import resident_options, start_window
+        from halo_harness.agent.prompt_wire import one_shot_shaper  # 3.6.0.12 OS: a one-shot's block is its window's
+        _reshape = one_shot_shaper(self, ref, (system_text, messages, tools))
         base_num_ctx, base_source, _hold = start_window(
             self, host=host, ref=ref, decision=decision, cap=base_num_ctx, cap_source=base_source,
-            request=(system_text, messages, tools), requested=requested_max_tokens)
+            request=(system_text, messages, tools), requested=requested_max_tokens, reshape=_reshape)
+        if _reshape is not None:
+            system_text, messages, tools = _reshape(None)
         requested_max_tokens, base_num_ctx = _reply_room(self, ref, base_num_ctx, requested_max_tokens, decision,
                                                          (system_text, messages, tools), host, hold=_hold)
         prompt_tokens, window_factor = prepare_window(

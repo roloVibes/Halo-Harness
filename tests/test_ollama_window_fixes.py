@@ -269,6 +269,51 @@ def test_a_one_shot_with_a_small_prompt_asks_small(ctx: Ctx):
         fake.stop()
 
 
+def _tools_sent(body: dict) -> "tuple[list, int]":
+    """(the tool names a chat body sends, their tokens as the diet counts them: chars / 3.5 of each wire tool)."""
+    from halo_harness.agent.prompt_composition import tokens_of
+    tools = [t for t in body.get("tools") or [] if isinstance(t, dict)]
+    return [(t.get("function") or {}).get("name") or t.get("name") for t in tools], sum(tokens_of(t) for t in tools)
+
+
+@test
+def test_a_one_shot_asked_at_16384_sends_the_tool_block_of_that_window(ctx: Ctx):
+    """3.6.0.12 OS: the diet of a one-shot's first ask is shaped for the window it asks (prompt_diet.tools_budget:
+    2,200 tokens at 16,384), not for the cap; the tools left out are ToolSearch's, which is sent."""
+    fake = L._fake()
+    try:
+        fh = L._home(fake)
+        _ok(ctx, L._run(fh, fake), "a one-shot run")
+        first = (L._turn_chats(fake) or [{}])[0]
+        names, tokens = _tools_sent(first)
+        asked = (first.get("options") or {}).get("num_ctx")
+        ctx.check(f"the first ask is 16,384, got {asked}", asked == 16384)
+        ctx.check(f"its tool block is at most 2,200 tokens, got {tokens:,} ({len(names)} tools)", tokens <= 2200)
+        ctx.check(f"ToolSearch is among the tools sent, got {names}", "ToolSearch" in names)
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_one_shot_on_auto_reads_the_helpers_lines_and_asks_16384(ctx: Ctx):
+    """3.6.0.12 OS: `halo -p` on a local model on Auto reads the two lines every session on Auto reads (when to hand
+    work out, the helpers it can start), not the old single line, and its first ask is still 16,384."""
+    from halo_harness.agent.helpers_words import M1, M2_HEAD
+    fake = L._fake()
+    try:
+        fh = L._home(fake)
+        _ok(ctx, L._run(fh, fake), "a one-shot run on Auto")
+        first = (L._turn_chats(fake) or [{}])[0]
+        system = next((m.get("content") or "" for m in first.get("messages") or [] if m.get("role") == "system"), "")
+        asked = (first.get("options") or {}).get("num_ctx")
+        ctx.check("the system text holds when to hand work out (M1)", M1 in system)
+        ctx.check("the system text holds the helpers it can start (M2)", M2_HEAD in system)
+        ctx.check("not the old single line", "On a big job delegate surveys" not in system)
+        ctx.check(f"the first ask is 16,384, got {asked}", asked == 16384)
+    finally:
+        fake.stop()
+
+
 @test
 def test_a_one_shot_that_grows_reloads_once_to_the_largest_window(ctx: Ctx):
     fake = L._fake()
