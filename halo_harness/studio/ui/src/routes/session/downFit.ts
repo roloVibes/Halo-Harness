@@ -84,6 +84,16 @@ export type Rect = { top: number; bottom: number; left: number; right: number };
 /** A waiting member's rect, its group's n and its agent id. */
 export type Seen = Rect & { n: number; aid: string };
 export type SlotArrow = "down" | "up" | "under";
+/** An element's rect on screen now (read when asked, so a resize never leaves it stale); null when it left the page or
+ *  has no height. */
+export function rectNow(e: Element | null | undefined): Rect | null {
+  if (!e || !e.isConnected) return null;
+  const r = e.getBoundingClientRect();
+  return r.bottom - r.top > 0 ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
+}
+/** A member's place: its own row, or -- a member past the eight drawn (hidden) -- its group's "+n more" row. */
+export const placeOf = (e: Element | null | undefined): Rect | null =>
+  rectNow(e && (e as HTMLElement).hidden ? e.closest(".mp-group-members")?.querySelector("[data-testid=map-group-more]") : e);
 
 /** 3.6.0.13 L4: the group the slot names first -- one whose waiting member is out of sight (not wholly inside the view:
  *  partly in view counts) with the arrow of the edge that cuts it (its top above the view's top: up, else down), or

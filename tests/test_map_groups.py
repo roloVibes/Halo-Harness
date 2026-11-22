@@ -1184,6 +1184,45 @@ console.log(JSON.stringify([p("down", true), p("up", true), p("under", true), p(
         ctx.check(f"{name} stays at or under 215 lines, got {src.count(chr(10))}", src.count("\n") <= 215)
 
 
+@test
+def test_slot_reads_the_card_and_a_hidden_member_where_they_are_now(ctx: Ctx):
+    """L4 repair: the open card's rect is read when the slot's answer is worked out, never kept from when it opened (a
+    resize moves the card); a waiting member past the eight drawn (hidden) stands at its group's "+n more" row, so the
+    slot still names its group when that row is out of sight."""
+    view = {"top": 100, "bottom": 400, "left": 0, "right": 500}
+    js = """const el = (r, x = {}) => ({isConnected: true, getBoundingClientRect: () => r, ...x});
+let at = {top: 150, bottom: 350, left: 280, right: 500};
+const card = {isConnected: true, getBoundingClientRect: () => at};
+const out = {opened: M.df.rectNow(card)};
+at = {top: 150, bottom: 350, left: 0, right: 220}; // the drawer was narrowed: the card moved over the member
+out.moved = M.df.rectNow(card);
+out.gone = M.df.rectNow({...card, isConnected: false});
+const more = el({top: 600, bottom: 620, left: 10, right: 200});
+const grp = {querySelector: (s) => (s === "[data-testid=map-group-more]" ? more : null)};
+const hidden = el({top: 0, bottom: 0, left: 0, right: 0}, {hidden: true, closest: (s) => (s === ".mp-group-members" ? grp : null)});
+const shown = el({top: 200, bottom: 230, left: 10, right: 200});
+out.hidden = M.df.placeOf(hidden); out.shown = M.df.placeOf(shown); out.none = M.df.placeOf(null);
+out.flat = M.df.placeOf(el({top: 5, bottom: 5, left: 0, right: 0}));
+out.ninth = M.df.waitSlot([{...out.hidden, n: 2, aid: "w9"}], D.view, null);
+out.under = M.df.waitSlot([{...out.shown, n: 2, aid: "w"}], D.view, out.moved);
+console.log(JSON.stringify(out));"""
+    got = _run(["df"], js, {"view": view})
+    ctx.check(f"the card's rect is the one on screen now, got {got.get('opened')} -> {got.get('moved')}",
+              got.get("opened", {}).get("left") == 280 and got.get("moved", {}).get("left") == 0)
+    ctx.check(f"a card gone from the page covers nothing, got {got.get('gone')}", got.get("gone") is None)
+    ctx.check(f"a hidden member stands at its group's '+n more' row, got {got.get('hidden')}",
+              got.get("hidden") == {"top": 600, "bottom": 620, "left": 10, "right": 200})
+    ctx.check(f"a drawn member is its own row; none and a flat one are nothing, got {got.get('shown')} {got.get('none')} {got.get('flat')}",
+              got.get("shown") == {"top": 200, "bottom": 230, "left": 10, "right": 200} and got.get("none") is None and got.get("flat") is None)
+    ctx.check(f"a ninth waiting member below the view: its group is named, down, got {got.get('ninth')}",
+              got.get("ninth") == {"n": 2, "aid": "w9", "arrow": "down"})
+    ctx.check(f"a card moved over a waiting member in view: under, got {got.get('under')}",
+              got.get("under") == {"n": 2, "aid": "w", "arrow": "under"})
+    cover = (SRC / "routes/crew/map/cover.ts").read_text(encoding="utf-8")
+    ctx.check("cover.ts keeps the card itself (its rect read by rectNow when asked) and reads members by placeOf",
+              "rectNow(cover.get()[where])" in cover and "rectOf(el)" not in cover and cover.count("placeOf(") >= 2)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
