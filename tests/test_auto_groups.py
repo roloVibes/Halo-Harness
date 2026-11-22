@@ -820,6 +820,161 @@ console.log(JSON.stringify({g5: g.g5Lines("m", %s), m1: a.m1Head(%s)}));""" % (
               at >= 0 and ("checker" in m1 if at < 12 else m1.endswith(f" and {len(hand_to) - 12} more.")))
 
 
+# 3.6.0.14 K3: every line the two docs quote of the drawing on Auto and of the box opened in place, in the docs' own form
+# (placeholders in braces), with the made-up values that turn it into the product's output for the inputs below. A row:
+# (the doc, the fragments the doc quotes, the values, the key of the product's line the fragments joined must equal).
+_GROUPS, _LIVE = "docs/STUDIO-groups.md", "docs/STUDIO-live.md"
+_NAMES = [f"kind{i}" for i in range(1, 15)]
+_DOC_LINES = [
+    (_GROUPS, ["waiting for you · {s}"], {"s": "12 s"}, "now_wait"),
+    (_GROUPS, ["paused"], {}, "now_paused"),
+    (_GROUPS, ["queued · {s}"], {"s": "12 s"}, "now_queued"),
+    (_GROUPS, ["stopped after {span}"], {"span": "42 s"}, "now_stopped"),
+    (_GROUPS, ["done in {span}"], {"span": "42 s"}, "now_done"),
+    (_GROUPS, ["failed after {span}"], {"span": "42 s"}, "now_failed"),
+    (_GROUPS, ["{tool} · {s}"], {"tool": "Grep", "s": "12 s"}, "now_tool"),
+    (_GROUPS, ["thinking · {s}"], {"s": "12 s"}, "now_think"),
+    (_GROUPS, ["writing · {s}"], {"s": "12 s"}, "now_write"),
+    (_GROUPS, ["waiting for a model reply · {s}"], {"s": "12 s"}, "now_model"),
+    (_GROUPS, ["a tool · {s}"], {"s": "12 s"}, "now_held"),
+    (_LIVE, ["a tool · {s}"], {"s": "12 s"}, "now_held"),
+    (_GROUPS, ["{who}: {description}"], {"who": "reader", "description": "read the pdf"}, "member_line"),
+    (_GROUPS, ["{model} · {state}"], {"model": "kimi-x", "state": "queued"}, "member_state"),
+    (_GROUPS, ["Now: {whole words}"], {"whole words": "Grep · 12 s"}, "hover_now"),
+    (_GROUPS, ["Now: queued · {s}: it starts when a running helper ends."], {"s": "12 s"}, "hover_queued"),
+    (_GROUPS, ["This turn: started {h} helpers · used {t} tools itself"], {"h": "3", "t": "5"}, "turn_both"),
+    (_GROUPS, ["This turn: started {h} helpers"], {"h": "3"}, "turn_helpers"),
+    (_GROUPS, ["This turn: used {t} tools itself"], {"t": "5"}, "turn_tools"),
+    (_GROUPS, ["This turn: started ", "1 helper", " · used ", "1 tool", " itself"], {}, "turn_ones"),
+    (_GROUPS, ["main · {model}"], {"model": "qwen-x"}, "main_head"),
+    (_GROUPS, ["This session: started {H} helpers · used {T} tools itself"], {"H": "4", "T": "9"}, "main_session"),
+    (_GROUPS, ["Told it can start: {names}", " and {n} more"], {"names": ", ".join(_NAMES[:12]), "n": "2"}, "main_told"),
+    (_GROUPS, ["Can hand work to: {names}"], {"names": ", ".join(_NAMES[:3])}, "main_before"),
+    (_GROUPS, ["{n} agents · {w} working · {q} queued · {v} waiting on you · {d} done · {k} stopped · {f} failed · ${cost}"],
+     {"n": "7", "w": "2", "q": "1", "v": "1", "d": "1", "k": "1", "f": "1", "cost": "0.07"}, "head_all"),
+    (_GROUPS, ["{n} agents · all done · ${cost} · {time}"], {"n": "2", "cost": "0.03", "time": "42 s"}, "head_done"),
+    (_GROUPS, ["1 agent · 1 stopped"], {}, "head_stopped"),
+    (_GROUPS, ["2 agents · 1 done · 1 stopped"], {}, "head_done_stopped"),
+    (_GROUPS, ["↓ {name} · waits on you"], {"name": "review"}, "slot_down"),
+    (_GROUPS, ["↑ {name} · waits on you"], {"name": "review"}, "slot_up"),
+    (_GROUPS, ["{name} · waits on you · under the open box"], {"name": "review"}, "slot_under"),
+    (_GROUPS, ["↓ {name} · working"], {"name": "review"}, "slot_working"),
+    (_GROUPS, ["↓ {name} · working", " · and {n} more groups below"], {"name": "review", "n": "3"}, "slot_more3"),
+    (_GROUPS, ["↓ {name} · working", " · and 1 more group below"], {"name": "review"}, "slot_more1"),
+    (_LIVE, ["Last said at {hh:mm:ss}: {text}"], {"text": "All four files read."}, "said_at"),
+    (_LIVE, ["Last thought at {hh:mm:ss}: {text}"], {"text": "Which file first?"}, "thought_at"),
+    (_LIVE, ["Last said: {text}"], {"text": "All four files read."}, "said"),
+    (_LIVE, ["Last thought: {text}"], {"text": "Which file first?"}, "thought"),
+    (_LIVE, ["Nothing said yet."], {}, "said_none"),
+    (_LIVE, ["Reading what it said..."], {}, "said_reading"),
+    (_LIVE, ["Could not read what it said: {error}"], {"error": "timed out"}, "said_error"),
+    (_LIVE, ["The rest is in the session export: Export on Session's Feed, or halo session export {sid}."], {"sid": "s-k3"},
+     "said_rest"),
+    (_LIVE, ["Told it can start: {names}", " and {n} more"], {"names": "kind1, kind2", "n": "3"}, "sheet_told"),
+    (_LIVE, ["Open in Agents -> Live"], {}, "open_agents"),
+    (_GROUPS, ["Open in Agents -> Live"], {}, "open_agents"),
+]
+# The forms the docs held before 3.6.0.13 and OP1, gone.
+_DOC_GONE = [(_GROUPS, "· {v} waiting ·"), (_GROUPS, "working and {n} more below"), (_GROUPS, "A box's card"),
+             (_GROUPS, "the helper's card open"), (_LIVE, "its card open (the ask's choices")]
+
+
+def _fill(line: str, values: dict) -> str:
+    import re
+    return re.sub(r"\{([^{}]+)\}", lambda m: values.get(m.group(1), m.group(0)), line)
+
+
+@test
+def test_the_docs_say_what_the_drawing_and_the_sheet_say(ctx: Ctx):
+    """3.6.0.14 K3: docs/STUDIO-groups.md and docs/STUDIO-live.md quote the drawing on Auto (NOW, the member hover, TURN,
+    main's hover, the head's counts, the slot) and the box opened in place (Last said) letter for letter: each quoted
+    line is in its doc, and with its placeholders filled it is the product's output (nowLine.ts, nowRoom.ts,
+    groupWords.ts, turnWords.ts, truthBits.ts in node) for the same made-up inputs. Reads only; changes nothing."""
+    import re
+    from tests.helpers import node_ts
+    from halo_harness.agent import agent_transcript
+    repo = Path(__file__).resolve().parent.parent
+    ui = repo / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map"
+    url = lambda f: json.dumps((ui / f).resolve().as_uri())  # noqa: E731
+    js = """const N = await import(%s), R = await import(%s), G = await import(%s), T = await import(%s), B = await import(%s);
+const now = 100000, at = 88000, names = %s, nw = (x) => N.nowWords(N.nowOf(x, now));
+const m = (raw, state, o = {}) => ({ aid: raw, who: "reader", description: "read the pdf", model: "kimi-x", reason: "",
+  state, raw, cost: 0.01, started: 100, ended: 0, ...o });
+const counts = (ms) => G.countsLine({ members: ms });
+const held = R.nowFit({ text: "mcp__a_rather_long_server_name__slow_tool_with_a_long_name · ", secs: "12 s" }, 160, { rows: 2, grown: false }, true);
+const ts = 1700000000, said = (ev) => B.saidLines({ events: ev }, "s-k3");
+console.log(JSON.stringify({
+  now_wait: nw({ raw: "waiting", started: 1, ended: 0, wait: { kind: "you", since: at } }),
+  now_paused: nw({ raw: "paused", started: 1, ended: 0 }),
+  now_queued: nw({ raw: "queued", started: 88, ended: 0 }),
+  now_stopped: nw({ raw: "stopped", started: 100, ended: 142 }),
+  now_done: nw({ raw: "done", started: 100, ended: 142 }),
+  now_failed: nw({ raw: "failed", started: 100, ended: 142 }),
+  now_tool: nw({ raw: "running", started: 1, ended: 0, tool: { tool: "Grep", t0: at } }),
+  now_think: nw({ raw: "running", started: 1, ended: 0, last: { kind: "thinking", t0: at } }),
+  now_write: nw({ raw: "running", started: 1, ended: 0, last: { kind: "text", t0: at }, wait: { kind: "nothing", since: at } }),
+  now_model: nw({ raw: "running", started: 1, ended: 0, wait: { kind: "model", since: at } }),
+  now_held: held.text + held.secs,
+  member_line: G.memberLine(m("queued", "idle")), member_state: G.memberState(m("queued", "idle")),
+  words: ["running", "waiting", "queued", "done", "stopped", "failed"].map((r) =>
+    G.memberWord(m(r, { running: "working", waiting: "waiting", queued: "idle", done: "done", stopped: "idle", failed: "failed" }[r]))),
+  hover_now: G.g4Lines(m("running", "working"), 130, "Grep · 12 s").slice(-1)[0],
+  hover_queued: G.g4Lines(m("queued", "idle"), 130, "queued · 12 s").slice(-1)[0],
+  turn_both: T.turnLine({ helpers: 3, tools: 5 }), turn_helpers: T.turnLine({ helpers: 3 }), turn_tools: T.turnLine({ tools: 5 }),
+  turn_ones: T.turnLine({ helpers: 1, tools: 1 }), turn_blank: T.turnLine(null),
+  main_hover: T.mainHover("qwen-x", [], { names, more: 0 }, { helpers: 4, tools: 9 }),
+  main_before: T.mainHover("qwen-x", names.slice(0, 3), null, null),
+  head_all: counts([m("running", "working", { cost: 0.01 }), m("paused", "working"), m("queued", "idle"), m("waiting", "waiting"),
+    m("done", "done"), m("stopped", "idle"), m("failed", "failed")]),
+  head_done: counts([m("done", "done", { ended: 130, cost: 0.02 }), m("done", "done", { ended: 142 })]),
+  head_stopped: counts([m("stopped", "idle", { cost: 0 })]),
+  head_done_stopped: counts([m("done", "done", { cost: 0, ended: 120 }), m("stopped", "idle", { cost: 0 })]),
+  slot_down: G.slotWords("review", "down", 0), slot_up: G.slotWords("review", "up", 0),
+  slot_under: G.slotWords("review", "under", 0), slot_working: G.slotWords("review", "working", 0),
+  slot_more3: G.slotWords("review", "working", 3), slot_more1: G.slotWords("review", "working", 1),
+  clock: B.secsClock(ts),
+  said_at: said([{ kind: "text", text: "All four files read.", ts }])[0],
+  thought_at: said([{ kind: "thinking", text: "Which file first?", ts }])[0],
+  said: said([{ kind: "text", text: "All four files read." }])[0],
+  thought: said([{ kind: "thinking", text: "Which file first?" }])[0],
+  said_none: said([])[0], said_reading: B.saidLines("reading", "s-k3")[0],
+  said_error: B.saidLines({ error: "timed out" }, "s-k3")[0],
+  said_cut: said([{ kind: "text", text: "abc... (120 more characters)" }]),
+  sheet_told: T.toldEvery({ names: ["kind1", "kind2"], more: 3 }),
+  open_agents: B.openInAgents().label,
+}));""" % (url("nowLine.ts"), url("nowRoom.ts"), url("groupWords.ts"), url("turnWords.ts"), url("truthBits.ts"),
+           json.dumps(_NAMES))
+    got = node_ts.run(js)
+    hover = got.get("main_hover") or []
+    got.update(main_head=hover[0] if hover else None, main_session=hover[1] if len(hover) > 1 else None,
+               main_told=hover[2] if len(hover) > 2 else None)
+    got["main_before"] = (got.get("main_before") or [None, None])[-1]
+    got["said_rest"] = (got.get("said_cut") or [None, None])[-1]
+    docs = {d: re.sub(r"\s+", " ", (repo / d).read_text(encoding="utf-8")) for d in (_GROUPS, _LIVE)}
+    clock = got.get("clock") or ""
+    for doc, parts, values, key in _DOC_LINES:
+        values = {"hh:mm:ss": clock, **values}
+        missing = [p for p in parts if p not in docs[doc]]
+        whole = _fill("".join(parts), values)
+        ctx.check(f"{doc} quotes {parts!r} and, filled, it is the product's {key}: missing {missing}, "
+                  f"filled {whole!r}, product {got.get(key)!r}", not missing and whole == got.get(key))
+    ctx.check(f"main's hover before the first request is main · {{model}} over Can hand work to, got {got.get('main_before')!r}",
+              got.get("main_before") == "Can hand work to: kind1, kind2, kind3")
+    ctx.check(f"TURN is blank before the first turn, got {got.get('turn_blank')!r}", got.get("turn_blank") == "")
+    words = got.get("words") or []
+    ctx.check(f"each helper's state word is quoted in {_GROUPS}, got {words}",
+              words == ["working", "waiting on you", "queued", "done", "stopped", "failed"]
+              and all(f'"{w}"' in docs[_GROUPS] for w in words))
+    cut = agent_transcript._cap("x" * (agent_transcript.TEXT_CAP + 120))
+    tail = _fill("... ({n} more characters)", {"n": "120"})
+    ctx.check(f"{_LIVE} quotes the reader's cut '... ({{n}} more characters)' as the server writes it, got {cut[-30:]!r}",
+              "... ({n} more characters)" in docs[_LIVE] and cut.endswith(tail))
+    ctx.check("STUDIO-live.md links the docs' new anchor from STUDIO-groups.md",
+              "STUDIO-live.md#the-box-opens-in-place" in docs[_GROUPS] and "## The box opens in place" in docs[_LIVE])
+    for doc, gone in _DOC_GONE:
+        ctx.check(f"{doc} no longer says {gone!r}", gone not in docs[doc])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
