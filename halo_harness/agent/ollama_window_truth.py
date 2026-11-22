@@ -195,7 +195,8 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     """`(window, source, hold)`: (1) a steward profile's window (the user's) as it is; (2) the window the model is
     loaded at on that server when it holds this request with the ladder's own need (`hold`: the prompt with a 15 %
     margin for the estimate, plus the reply's room at that window -- fix pass M1), unless the recorded truth says
-    that window spills to the CPU (S1: reloaded under the spill, one line says why); a failed `/api/ps` read is
+    that window spills to the CPU (S1: reloaded under the spill, one line says why; 3.6.0.12 OS: a one-shot whose
+    request does not fit under the spill keeps the larger loaded window, the line says that); a failed `/api/ps` read is
     unknown (S2): the window this session or the last call used, when it holds the request, so nothing is reloaded
     on that reading; (3) a load: a session that takes more turns, or any session that has to grow past the window
     it asked for, asks for `cap` at once (S4: one load, never a step at a time); a one-shot run's first call asks
@@ -255,6 +256,8 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     def _ok(w) -> bool:
         return _holds(w) and not (spill and w >= spill)
 
+    one = own and not many_turns(session)  # 3.6.0.12 OS: a one-shot run (a session of more turns is untouched)
+
     def _choose() -> "tuple[int, str, bool]":
         if loaded and _holds(loaded):
             if not (spill and loaded >= spill):
@@ -262,8 +265,14 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
             from halo_harness.agent.prompt_wire import _queue_line
             from halo_harness.providers.ollama_prompt import fmt_window
             now = "runs partly on the CPU there now" if live is False else "ran partly on the CPU there"
-            _queue_line(session, f"{ref.model} on {host.name} is loaded at a {fmt_window(loaded)} window that {now}: "
-                                 f"reloaded at {fmt_window(cap)}, the largest known to fit the card")
+            head = f"{ref.model} on {host.name} is loaded at a {fmt_window(loaded)} window that {now}: "
+            if one and not _holds(cap):  # 3.6.0.12 OS: the request does not fit under the spill: the larger is sent
+                _queue_line(session, head + f"kept there, the request does not fit {fmt_window(cap)}, the largest "
+                                            "known to fit the card")
+                return loaded, "loaded", True
+            _queue_line(session, head + f"reloaded at {fmt_window(cap)}, the largest known to fit the card")
+            if one and first and 2 * prompt > cap:  # the first call's "at most half" gives way to the spill cap
+                _queue_line(session, f"the prompt is more than half of it: the reply has {_room(cap):,} tokens")
             return cap, cap_source, False
         if not known:
             for w in (prev, _pos(t.get("num_ctx"))):  # unknown: the window most likely resident, when it holds this
@@ -284,6 +293,10 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         # F5: another call of this process asked for a larger window a moment ago (it may still be loading): asking
         # for less would reload the model back and forth
         window, source, hold = recent, "asked here", True
+    # 3.6.0.12 OS: a one-shot sent the cap a spill lowered, which holds its request: the reply's room never raises the
+    # window past it (agent/reply_room.for_call), so the model runs wholly on the card and a "reloaded at" line is true
+    held = one and spill and source == "known to spill" and window == cap and _holds(cap)
+    st.setdefault("spill_cap", {})[key] = cap if held else None
     return _ask(window, source, hold)
 
 

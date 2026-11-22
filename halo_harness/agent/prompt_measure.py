@@ -7,6 +7,9 @@ steward's fit plan, tests/test_prompt_budget_pins.py).
     new_session(ref, *, window=, platform=, cwd=, control=None, builder=False, one_shot=False)  the stub it
                                          measures: a NEW top session in `cwd` (crew/session_start.py; 3.6.0.10
                                          M1b); `one_shot`: as `halo -p` with one prompt marks it (many_turns False)
+    one_shot_first_ask(ref, *, cap, platform=None, cwd=None, text="hi", control=None, rename=None) -> dict
+                                         a one-shot's first ask through the product's own ladder (3.6.0.12 OS:
+                                         start_window, then reply_room.for_call; tests/test_prompt_budget_pins.py)
     first_turn_line(m) -> "Halo's own first turn: 9,150 tokens of 32,768 (28 %)"
     composition_text(session, first=)   `/cost`, `/status` (first: the line above on a local model)
     doctor_note(ref, cwd)                `halo doctor`'s default-model row
@@ -121,19 +124,15 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
     return new_session_state(session, cwd=cwd, control=control)
 
 
-def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-               text: str = "hi", control: Optional[str] = None, builder: bool = False, one_shot: bool = False) -> dict:
-    from halo_harness.agent import prompt_lean as L
+def _first_request(ref, **kw) -> tuple:
+    """(session, the full tool list, system text, messages, the tools sent): a new session's first request, shaped
+    for the wire as the loop shapes it (`kw`: new_session's own, and `text`)."""
     from halo_harness.agent.derive import derive_request
-    from halo_harness.agent.prompt_composition import compose, composition_line, known_texts
-    from halo_harness.agent.prompt_wire import placement_for, shape
-    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted
+    from halo_harness.agent.prompt_wire import shape
     from halo_harness.config.paths import bridge_home
-    from halo_harness.providers.ollama_prompt import window_for
-    from halo_harness.providers.ollama_wire_estimate import wire_estimate
-    session = new_session(ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder,
-                          one_shot=one_shot)
-    ref, plat, window = session.model_ref, session._measure_platform, session._measure_window
+    text = kw.pop("text", "hi")
+    session = new_session(ref, **kw)
+    ref = session.model_ref
     ctx, registry, log = session.session_context, session.tool_registry, session.log
     log.add(type="meta", model=ref.raw, tools=registry.definitions())
     log.add(type="system", text=ctx.system_prompt)
@@ -150,7 +149,20 @@ def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = N
     system_text, messages, tools = derive_request(log)
     full = list(tools or [])
     system_text, messages, sent = shape(session, system_text, messages, full, purpose="measure")
-    sent = list(sent or [])
+    return session, full, system_text, messages, list(sent or [])
+
+
+def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
+               text: str = "hi", control: Optional[str] = None, builder: bool = False, one_shot: bool = False) -> dict:
+    from halo_harness.agent import prompt_lean as L
+    from halo_harness.agent.prompt_composition import compose, composition_line, known_texts
+    from halo_harness.agent.prompt_wire import placement_for
+    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted
+    from halo_harness.providers.ollama_prompt import window_for
+    from halo_harness.providers.ollama_wire_estimate import wire_estimate
+    session, full, system_text, messages, sent = _first_request(
+        ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder, one_shot=one_shot, text=text)
+    ref, plat, window = session.model_ref, session._measure_platform, session._measure_window
     comp = compose(session, messages, sent, system_text, placement=placement_for(session), known=known_texts(session))
     prompt = wire_estimate(system_text, messages, sent) - 1024  # the reply's room counted below, not here
     named = comp["system"]["tokens"] + comp["user"]["tokens"]  # the wire's total; its JSON framing in history
@@ -164,6 +176,60 @@ def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = N
             "share": round(100.0 * prompt / sent_window, 1) if sent_window else None, "composition": comp,
             "line": composition_line(comp), "tools": _rows(full, sent, dropped, _why_kept(session, sent)),
             "left_out": dropped}
+
+
+MEASURE_HOST = "http://measure.invalid"  # a name no call reaches: the one-shot's ask is measured, never sent
+
+
+def _renamed(value, rename: dict):
+    if isinstance(value, str):
+        for old, new in rename.items():
+            value = value.replace(old, new)
+        return value
+    if isinstance(value, list):
+        return [_renamed(v, rename) for v in value]
+    if isinstance(value, dict):
+        return {k: _renamed(v, rename) for k, v in value.items()}
+    return value
+
+
+def one_shot_first_ask(ref, *, cap: int, platform: Optional[str] = None, cwd=None, text: str = "hi",
+                       control: Optional[str] = None, rename: Optional[dict] = None) -> dict:
+    """3.6.0.12 OS: a one-shot's (`halo -p`, one prompt) first ask of a local model with nothing loaded, through the
+    product's own ladder: the request `first_turn` measures, its window from `ollama_window_truth.start_window` under
+    `cap` (the host's max_ctx) and its reply's room from `reply_room.for_call`, called as agent/loop.py calls them.
+    `rename`: strings replaced in the request first (a pin's fixed paths). Nothing is sent and nothing is kept: the
+    window the ask notes for this process is taken back. Returns {prompt, asked, source, reply_room, window,
+    sent_window, tools: [names sent]}."""
+    from types import SimpleNamespace as NS
+    from halo_harness.agent import ollama_window_truth as T
+    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, for_call
+    from halo_harness.providers.ollama_prompt import window_for
+    session, _full, system_text, messages, sent = _first_request(ref, window=cap, platform=platform, cwd=cwd,
+                                                                 control=control, one_shot=True, text=text)
+    request = (system_text, messages, sent)
+    if rename:
+        request = tuple(_renamed(list(part) if isinstance(part, tuple) else part, rename) for part in request)
+    ref = session.model_ref
+    host = NS(name="measure", url=MEASURE_HOST, max_ctx=cap)
+    decision = NS(profile={}, trained_context=None, fit_estimate=None)
+    key = T._key(host.url, ref.model)
+    with T._ASKED_LOCK:
+        was = T._ASKED.get(key)
+    try:
+        asked, source, hold = T.start_window(session, host=host, ref=ref, decision=decision, cap=cap,
+                                             cap_source="host max_ctx", request=request, requested=PROVIDER_DEFAULT)
+        reply, window = for_call(session, ref, asked, PROVIDER_DEFAULT, decision, request, host, hold=hold)
+    finally:
+        with T._ASKED_LOCK:
+            if was is None:
+                T._ASKED.pop(key, None)
+            else:
+                T._ASKED[key] = was
+    prompt = T.prompt_estimate(session.state_dir, host.url, ref.model, *request)[1]
+    return {"prompt": prompt, "asked": asked, "source": source, "reply_room": reply, "window": window,
+            "sent_window": window_for(prompt + reply, base=window, base_source="measure").num_ctx,
+            "tools": [t.get("name") for t in request[2] or []]}
 
 
 def _local(ref) -> bool:

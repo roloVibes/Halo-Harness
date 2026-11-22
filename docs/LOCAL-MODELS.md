@@ -243,7 +243,12 @@ window it may use, so it loads once. A session that has to grow goes
 straight to that largest window, never a step at a time (helper calls --
 the small model, compaction, titles, hooks -- stay on the ladder, and two
 calls of one process never ask the same model for different windows at
-once). Ollama cuts a prompt longer than the window and answers anyway:
+once). A `halo -p` run on a model loaded at a window that runs partly on
+the CPU is reloaded at the largest window known to fit the card when its
+request and the reply's room fit there, and that window is the one sent,
+even when the prompt is more than half of it (a second line then says how
+many tokens the reply has); when the request does not fit there, the
+larger window is kept and the line says so. Ollama cuts a prompt longer than the window and answers anyway:
 one long message to half the window (`prompt_eval_count` = `num_ctx / 2 +
 2`), a chat by dropping whole messages from the front. A count at that
 half, a count reaching into the room kept for the reply, a count smaller

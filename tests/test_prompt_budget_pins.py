@@ -216,6 +216,43 @@ def test_a_one_shot_on_a_local_model_asks_16384_first(ctx: Ctx):
                   ladder <= 16384 and sized == 16384)
 
 
+# 3.6.0.12 OS: the pin that would have caught 3.6.0.10's tip. The lean 65,536 case as a ONE-SHOT (`halo -p`, one
+# prompt, on Auto, nothing loaded), its window taken from the product's own ladder (agent/prompt_measure
+# .one_shot_first_ask: ollama_window_truth.start_window, then reply_room.for_call, as agent/loop.py calls them; no copy
+# of the ladder here). It asks 16,384. The home's, the project's and the memory folder's paths are FIXED short strings
+# in the measured request (the wire's shape, not the temp folder's length). The first call's rule (Halo's own prompt
+# at most half the window) makes the slack 8,192 less the prompt. Measured 2026-11-22 on the base 07df6f3e (on the PC),
+# win32 / linux shells: prompt 7,858 / 7,819, slack 334 / 373 tokens. When it is spent the ask moves to 32,768.
+ONE_SHOT_ASK = 16384
+ONE_SHOT_SLACK_TODAY = {"win32": 334, "linux": 373}
+
+
+def _fixed_paths(fh: dict) -> dict:
+    """Each of the fake home's paths (as written and resolved) -> a fixed short string, the longest first."""
+    pairs = {}
+    for key, short in (("memory_dir", "~/m"), ("home", "~/h"), ("proj", "~/p")):
+        for form in (str(fh[key]), str(Path(fh[key]).resolve())):
+            pairs[form] = short
+    return dict(sorted(pairs.items(), key=lambda kv: -len(kv[0])))
+
+
+@test
+def test_a_one_shot_first_ask_through_the_real_ladder_is_16384(ctx: Ctx):
+    from halo_harness.agent.prompt_measure import one_shot_first_ask
+    fh = _home()
+    ref, cap = ONE_SHOT
+    for platform in ("win32", "linux"):
+        m = one_shot_first_ask(ref, cap=cap, platform=platform, cwd=fh["proj"], rename=_fixed_paths(fh))
+        slack = ONE_SHOT_ASK // 2 - m["prompt"]
+        print(f"  {platform}: a one-shot's first ask {m['asked']:,} (sent {m['sent_window']:,}), prompt {m['prompt']:,}, "
+              f"slack {slack:,} tokens (today {ONE_SHOT_SLACK_TODAY[platform]:,})")
+        ctx.check(f"{platform}: a one-shot's first ask is {m['asked']:,}, sent at {m['sent_window']:,} (want "
+                  f"{ONE_SHOT_ASK:,}): its prompt is {m['prompt']:,} tokens, slack {slack:,} (today "
+                  f"{ONE_SHOT_SLACK_TODAY[platform]:,}) -- " + why("a one-shot's first prompt (half of 16,384)",
+                                                                  ONE_SHOT_ASK // 2),
+                  m["asked"] == ONE_SHOT_ASK and m["sent_window"] == ONE_SHOT_ASK and slack >= 0)
+
+
 @test
 def test_a_real_new_auto_session_with_the_builder(ctx: Ctx):
     """3.6.0.10 M1b: the real new Auto session, the Builder on the wire, at 65,536 and on the cloud."""

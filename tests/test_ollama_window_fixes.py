@@ -323,6 +323,61 @@ def test_a_loaded_window_that_spills_to_the_cpu_is_reloaded_under_it_once(ctx: C
         fake.stop()
 
 
+def _spilling_fake():
+    """The fake of the spill test: a window of 32,768 or more runs half on the CPU; preloaded there."""
+    fake = L._fake()
+
+    def vram(num_ctx):
+        size = GB + num_ctx * 64 * 1024
+        return size, (size if num_ctx < 32768 else size // 2)
+    fake.vram[MODEL] = vram
+    return fake
+
+
+@test
+def test_a_one_shot_over_half_of_the_spill_window_is_sent_the_window_the_line_names(ctx: Ctx):
+    # 3.6.0.12 OS: a prompt of about 8,400 tokens: twice it is past 16,384, but it and the reply's room fit 16,384.
+    # The line says "reloaded at 16k" and 16,384 is what is sent (it was 32,768, the window that spills).
+    prompt = _padded(8400)
+    fake = _spilling_fake()
+    try:
+        fh = L._home(fake)
+        fake.preload(MODEL, 32768)
+        result = _ask(fh, fake, prompt, "--verbose")
+        _ok(ctx, result, "a one-shot of about 8,400 tokens")
+        sent = [o.get("num_ctx") for o in _opts(fake)]
+        ctx.check(f"the window sent is 16,384, got {sent}", bool(sent) and sent[0] == 16384)
+        ctx.check(f"the reload is at 16,384, got {fake.loads}", [x["num_ctx"] for x in fake.loads] == [16384])
+        out = result.stdout
+        ctx.check(f"the line names 16k, got {out[-600:]!r}", "reloaded at 16k" in out)
+        ctx.check(f"one sentence says the prompt is more than half of it, got {out[-600:]!r}",
+                  "the prompt is more than half of it: the reply has 4,096 tokens" in out)
+        ctx.check(f"no line names the 32,768 window as the one sized, got {out[-600:]!r}", "32,768 window" not in out)
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_one_shot_too_large_for_the_spill_window_is_sent_the_larger_one_and_says_so(ctx: Ctx):
+    # 3.6.0.12 OS: a prompt of about 12,000 tokens does not fit 16,384 with the reply's room: the larger window is
+    # sent, and no line claims a reload at 16k
+    prompt = _padded(12000)
+    fake = _spilling_fake()
+    try:
+        fh = L._home(fake)
+        fake.preload(MODEL, 32768)
+        result = _ask(fh, fake, prompt, "--verbose")
+        _ok(ctx, result, "a one-shot of about 12,000 tokens")
+        sent = [o.get("num_ctx") for o in _opts(fake)]
+        ctx.check(f"the larger window is sent, got {sent}", bool(sent) and sent[0] > 16384)
+        out = result.stdout
+        ctx.check(f"no line claims 16k, got {out[-600:]!r}", "reloaded at 16k" not in out)
+        ctx.check(f"the line says the larger window is kept and why, got {out[-600:]!r}",
+                  "partly on the CPU" in out and "the request does not fit 16k" in out)
+    finally:
+        fake.stop()
+
+
 # ---- S2: a failed /api/ps read is unknown --------------------------------------------------------------------------
 
 def _break_ps(fake) -> None:

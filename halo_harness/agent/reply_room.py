@@ -76,6 +76,18 @@ def _ceiling(decision, host) -> Optional[int]:
         return None
 
 
+def _spill_cap(session, host, ref) -> Optional[int]:
+    """3.6.0.12 OS: the cap `ollama_window_truth.start_window` lowered for a spill, when this one-shot call was sent
+    it and the request (a 15 % margin) and the reply's room at it fit: the window is never raised past it."""
+    if host is None:
+        return None
+    try:
+        from halo_harness.agent.ollama_window import _state
+        return _pos((_state(session).get("spill_cap") or {}).get((host.url, getattr(ref, "model", None))))
+    except Exception:
+        return None
+
+
 def for_call(session, ref, window, requested, decision=None, request=None, host=None, *,
              hold: bool = False) -> "tuple[Optional[int], int]":
     """(the room, the window the call starts from) for a call to the session's own model (`decision`: the
@@ -109,7 +121,10 @@ def for_call(session, ref, window, requested, decision=None, request=None, host=
                                        getattr(ref, "model", None): window}
         return tokens, window
     ceiling = _ceiling(decision, host) if decision is not None else None
-    kept = (getattr(session, "_reply_room_windows", None) or {}).get(getattr(ref, "model", None))
+    spill_cap = _spill_cap(session, host, ref)
+    if spill_cap and window <= spill_cap:  # 3.6.0.12 OS: a one-shot's window under a spill holds the request: kept
+        ceiling = spill_cap
+    kept =(getattr(session, "_reply_room_windows", None) or {}).get(getattr(ref, "model", None))
     if _pos(kept):  # after a call the session's context is the window last sent (a re-send's larger one too)
         kept = max(kept, _pos(getattr(getattr(session, "model_profile", None), "context_tokens", None)) or 0)
     if _pos(kept) and not profile.get("num_ctx"):
