@@ -44,7 +44,10 @@ function Head({ g, name }: { g: AutoGroup; name: string }) {
 }
 
 export function GroupBlock({ b, L, sid, pick, live, sel, card }: Props) {
-  const g = L.groups?.find((x) => x.n === b.group?.n);
+  // 3.6.0.13 L7a (R12): the members the box was laid out with (its held geometry's), in their state now; one that joined
+  // while the drawing is held is drawn when it is laid out again, never over the box's held height
+  const fresh = L.groups?.find((x) => x.n === b.group?.n), drawn = b.group?.members;
+  const g = fresh && drawn ? { ...fresh, members: fresh.members.filter((m) => drawn.includes(m.aid)) } : fresh;
   const hv = useHover("map", `${sid}:${b.id}`, () => (
     <div className="mp-hover" data-testid="session-map-hover">
       {(g ? g3Lines(g) : []).map((x, i) => (
