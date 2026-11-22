@@ -169,7 +169,7 @@
    cut); the "{n} other sessions running" chip (its room kept while hidden) and Change session hold still at the right;
    the list hangs under the head. Cost's ended line holds the same button (.sco-change). */
 .slv-head { position: relative; }
-.slv-session { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: 26px; font-size: 12px; }
+.slv-session { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: 26px; margin-top: 4px; font-size: 12px; } /* 4px + the head's 6px row gap: Change session stays 8 px clear of Export above it */
 .slv-session-words { min-width: 0; overflow-wrap: anywhere; }
 .chg-doors { display: inline-flex; align-items: center; gap: 6px; }
 .slv-others { min-width: calc(25ch + 18px); text-align: center; padding: 2px 8px; border-radius: 99px; /* fits "99 other sessions running" */ font-size: 12px; cursor: pointer; color: var(--text); background: var(--accent-soft); border: 1px solid var(--line); }
