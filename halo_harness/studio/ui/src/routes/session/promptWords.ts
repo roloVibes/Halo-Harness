@@ -123,7 +123,11 @@ export const routeOf = (text: string, image: boolean): "slash" | "submit" =>
   (text.startsWith("/") || text.startsWith("!")) && !text.includes("\n") && !image ? "slash" : "submit";
 export const BANG_RAN = "ran";
 export const BANG_ASKS = "asks first: answer below";
-export const BANG_RUNNING = "still running: its output shows in the Feed";
+export const BANG_RUNNING = "still running: Stop is on its row; its output shows in the Feed";
+export const BANG_STOP = "Stop";
+export const BANG_STOP_TITLE = "Stop: ends this command now, and a running turn with it (Esc in the terminal does the same)";
+/** A `!` command's own tool row (the Controller names its call `inline_…`): while it runs, the row carries Stop. */
+export const isBang = (id: string | undefined): boolean => String(id || "").startsWith("inline_");
 export type BangAnswer = { state?: string; output?: string; lines?: string[]; reason?: string };
 /** The one answer line under a `!` row (its output's lines under `ran`, as a slash answer shows them). */
 export function bangLines(r: BangAnswer): string[] {

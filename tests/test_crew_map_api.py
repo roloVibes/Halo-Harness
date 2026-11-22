@@ -617,6 +617,12 @@ def test_from_live_reads_the_sessions_own_project(ctx: Ctx):
             got = r.get("agent") or {}
             ctx.check(f"main's uses are B's main's, got {st} {got.get('uses')}", st == 200 and got.get("uses") == ["read", "web"])
             ctx.check(f"a name B has is never reused, got {got.get('name')}", got.get("name") == "list-what-repo-2")
+            mine = store.path_for("agent", "list-what-repo-2", cwd=a, project=True)  # Studio's own folder has that one
+            store.write_text(mine, store.dump({"format": "agent/1", "name": "list-what-repo-2", "does": "x", "instructions": "y"}))
+            st, r2 = rig.api("POST", "crew/from-live", {"session": "s-b", "agent_id": "a7"})
+            ctx.check(f"nor a name Studio's own folder has (it would hide the saved agent there), got {(r2.get('agent') or {}).get('name')}",
+                      st == 200 and (r2.get("agent") or {}).get("name") == "list-what-repo-3")
+            mine.unlink()
             before_a, before_b = _tree(a / ".halo"), _tree(b / ".halo")
             st, w = rig.api("POST", f"crew/agent/{got.get('name')}", {"agent": got})
             ctx.check(f"Save writes a new agent of yours, got {st} {w.get('path')}",

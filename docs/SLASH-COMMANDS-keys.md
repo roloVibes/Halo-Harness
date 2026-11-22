@@ -23,7 +23,8 @@ on an otherwise-plain line (not inside a pasted multi-line block):
   The same one-line `!cmd` typed in Studio's Prompt panel runs through the
   same path in this session (it is never a steer and never queued), and
   Studio's Feed shows its tool row once. `Esc` ends a running `!` command
-  (its card ends with `[command aborted]`); closing Halo ends it too.
+  (its card ends with `[command aborted]`), and so does Stop on its row in
+  Studio's Prompt panel; closing Halo ends it too.
 - **`@path`** and **`@path#L10`** / **`@path#L10-20`** -- attaches a file
   (optionally one line, or an inclusive line range) as a log snapshot
   before the turn is sent, resolved the same way the Read tool itself

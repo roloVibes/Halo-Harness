@@ -124,7 +124,7 @@ def for_call(session, ref, window, requested, decision=None, request=None, host=
     spill_cap = _spill_cap(session, host, ref)
     if spill_cap and window <= spill_cap:  # 3.6.0.12 OS: a one-shot's window under a spill holds the request: kept
         ceiling = spill_cap
-    kept =(getattr(session, "_reply_room_windows", None) or {}).get(getattr(ref, "model", None))
+    kept = (getattr(session, "_reply_room_windows", None) or {}).get(getattr(ref, "model", None))
     if _pos(kept):  # after a call the session's context is the window last sent (a re-send's larger one too)
         kept = max(kept, _pos(getattr(getattr(session, "model_profile", None), "context_tokens", None)) or 0)
     if _pos(kept) and not profile.get("num_ctx"):

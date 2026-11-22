@@ -50,6 +50,10 @@
 .spp-tool[data-running] .spp-dot { color: var(--accent); }
 .spp-tool[data-error] .spp-dot { color: var(--bad); }
 .spp-dot { color: var(--ok); }
+/* 3.6.0.12 BS: a `!` command that still runs: its row, then its Stop (the row gives way, the button never does) */
+.spp-bang { display: flex; align-items: center; gap: 8px; padding-right: 8px; }
+.spp-bang .spp-tool { flex: 1 1 auto; min-width: 0; }
+.spp-bang .btn { flex: none; }
 .spp-policy { white-space: normal; color: var(--warn); padding-left: 16px; }
 .spp-steer { padding: 0 8px; color: var(--text); }
 .spp-state { padding: 0 8px; font-size: 12px; color: var(--faint); }

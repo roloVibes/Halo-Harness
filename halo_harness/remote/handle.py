@@ -149,6 +149,15 @@ class ControllerHandle(_BaseHandle):
             self.controller.submit(text, images=images)
         return {"steered": steered}
 
+    def interrupt(self, *, via: str = "") -> dict:
+        """3.6.0.12 BS: Studio's Stop (and a phone's) also ends a running `!` command, as the terminal's Esc does."""
+        out = super().interrupt(via=via)
+        try:
+            self.controller.stop_bang()
+        except Exception:
+            pass
+        return out
+
     def set_mode(self, mode: str) -> dict:
         self._check_mode(mode)
         self._note(f"mode {mode}")

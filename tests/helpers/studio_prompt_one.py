@@ -315,6 +315,17 @@ def bang(c, rig, gate) -> dict:
         out["ask_ran"] = bool(wait_for(lambda: (rig.cwd / "bang-asked.txt").exists(), 10))
         out["ask_done"] = c.wait(f"{ASKS}.map((a) => a.querySelector('[data-testid=\"prompt-ask-done\"]')?.textContent).filter(Boolean).pop()", 10)
         out["ask_turns"] = rig.session.turn_count - turns
+        # a `!` command that still runs: the answer line says so, its row carries Stop, and Stop ends it
+        stop = "document.querySelector('[data-testid=\"prompt-bang-stop\"]')"
+        n0 = c.js(f"{OUTS}.length")
+        typed(c, "!echo BANG-LONG; sleep 90")
+        enter(c)
+        out["running"] = c.wait(f"{OUTS}.length > {n0} && {last}", 30)
+        out["stop_label"] = c.wait(f"{stop} && {stop}.textContent.trim()", 15)
+        out["running_rows"] = c.js(f"{tools}.filter((t) => t.querySelector('[data-running]')).length")
+        c.click_on(stop)
+        out["stopped"] = bool(c.wait(f"!{stop} && {tools}.filter((t) => t.querySelector('[data-running]')).length === 0", 30))
+        out["stop_turns"] = rig.session.turn_count - turns
     finally:
         if had is None:
             eng.__dict__.pop("decide", None)

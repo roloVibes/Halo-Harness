@@ -205,6 +205,11 @@ def test_a_bang_line_runs_in_the_session_with_no_turn(ctx: Ctx):
     ctx.check(f"the panel's own ask card; its Allow runs the command, got {b.get('ask_buttons')} {b.get('ask_ran')} "
               f"{b.get('ask_done')!r} {b.get('ask_turns')}", "Allow" in (b.get("ask_buttons") or []) and b.get("ask_ran") is True
               and b.get("ask_done") == "Answered in Studio: Allow" and b.get("ask_turns") == 0)
+    ctx.check(f"a ! command that still runs says so and its row carries Stop, got {b.get('running')!r} {b.get('stop_label')!r} "
+              f"{b.get('running_rows')}", b.get("running") == "still running: Stop is on its row; its output shows in the Feed"
+              and b.get("stop_label") == "Stop" and b.get("running_rows") == 1)
+    ctx.check(f"Stop ends it (the command would have run 90 s) and starts no turn, got {b.get('stopped')} {b.get('stop_turns')}",
+              b.get("stopped") is True and b.get("stop_turns") == 0)
 
 
 # -- 3.6.0.2 P6 P27-P29, P31, P32: tests/helpers/studio_prompt_pick.py, which session the box types into -------------

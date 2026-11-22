@@ -59,6 +59,12 @@ export async function runSlash(sid: string, line: string): Promise<boolean> {
   return true;
 }
 
+/** 3.6.0.12 BS: Stop on a running `!` command's row: the session's `interrupt`, what Esc does in the terminal. */
+export async function stopBang(sid: string): Promise<void> {
+  const r = await post(sid, { cmd: "interrupt" });
+  if (r.status !== 200) toast(r.data.error || "the session did not take the Stop", "error", 6000);
+}
+
 /** Submit `text` with `when` (refuse first); the chip's image rides with it. True when the session took it. */
 export async function submit(sid: string, text: string, when: "refuse" | "queue" | "steer"): Promise<boolean> {
   const img = prompt.get().img;

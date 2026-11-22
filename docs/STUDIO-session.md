@@ -167,8 +167,9 @@ session at once, as in the terminal: no model turn; its output shows here and in
 with no image goes through the same `slash` door, also while a turn runs; with a second line or an image it is a
 prompt). Under your line one answer line says `ran` and the output's lines, `asks first: answer below` (the ask card
 is the panel's own; Allow runs it, and the terminal's card reads `Answered in Studio: Allow`), `denied: <reason>`, or
-`still running: its output shows in the Feed`. `Esc` in the terminal ends a running `!` command; closing Halo ends it
-too. Ctrl+V with an image, or an image file dropped on the
+`still running: Stop is on its row; its output shows in the Feed`. A `!` command that still runs carries a Stop on its
+row in the panel: it ends the command (and a running turn with it), as `Esc` does in the terminal; closing Halo ends
+it too. Ctrl+V with an image, or an image file dropped on the
 box, becomes the chip under it, as on the steer box; a dropped file path lands in the text.
 
 **While a turn runs**, a send asks first (`submit` with `when_busy: refuse`): the busy line keeps your text and offers

@@ -205,6 +205,25 @@ def test_a_bang_line_through_studios_route_runs_with_no_turn_and_no_receipt(ctx:
 
 
 @test
+def test_studios_stop_ends_a_running_bang_command(ctx: Ctx):
+    """3.6.0.12 BS: Studio's Stop (the socket's `interrupt`) ends a `!` command that runs, as the terminal's Esc does."""
+    with SessionRig() as rig:
+        session, controller, tapped, client = _bang_rig(rig)
+        try:
+            reply = client.call("slash", line="!echo started; sleep 60")
+            result = reply.get("result") or {}
+            ctx.check(f"a long ! answers running, got {reply}", result.get("state") == "running" and result.get("id"))
+            reply = client.call("interrupt", via="studio")
+            ctx.check(f"the Stop was taken, got {reply}", reply.get("ok") is True)
+            ctx.check("Stop ended the command: its tool_result came long before the sleep would end",
+                      wait_for(lambda: _pair(tapped)[1] == [result.get("id")], 20))
+            rows = [e.data for e in tapped if e.kind == "tool_result"]
+            ctx.check(f"its row says it was stopped, got {rows}", bool(rows) and "[command aborted]" in str(rows[0].get("content")))
+        finally:
+            client.close()
+
+
+@test
 def test_a_bang_line_on_a_print_run_says_it_needs_a_session(ctx: Ctx):
     from halo_harness.remote import protocol
     from halo_harness.remote.base import HandleError

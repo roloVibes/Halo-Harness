@@ -215,7 +215,11 @@ class _Feed:
             self.sock.shutdown(socket.SHUT_RDWR)
         except OSError:
             pass
-        self.sock.close()
+        for part in (self.fp, self.sock):  # the reader first: a socket with an open reader keeps its descriptor
+            try:
+                part.close()
+            except OSError:
+                pass
 
 
 def _bang(ctx, h, t, sid: str, ev: dict, bad: list) -> None:

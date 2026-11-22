@@ -15,8 +15,8 @@ import { keyOf } from "../fleet/store";
 import { useLive, type LiveLine } from "../shared/liveFeed";
 import { LADDER, STATE_WORDS, usePrompt, type Receipt } from "./promptStore";
 import { feedRows } from "./promptRows";
-import { answer } from "./promptSend";
-import { askLabel, STEERING } from "./promptWords";
+import { answer, stopBang } from "./promptSend";
+import { askLabel, BANG_STOP, BANG_STOP_TITLE, isBang, STEERING } from "./promptWords";
 import { REPLY_TITLE, ReplyText } from "./ReplyText";
 
 const MAX_ROWS = 240;
@@ -88,14 +88,24 @@ function Ask({ sid, l }: { sid: string; l: LiveLine }) {
 
 function LiveBody({ sid, l }: { sid: string; l: LiveLine }) {
   if (l.kind === "ask") return <Ask sid={sid} l={l} />;
-  if (l.kind === "tool")
-    return (
+  if (l.kind === "tool") {
+    const row = (
       <div className="spp-tool mono" data-testid="prompt-tool" data-error={l.error || undefined} data-running={!l.ended || undefined}>
         <span className="spp-dot">⏺</span> {l.tool}{l.target ? ` ${short(l.target, 70)}` : ""}
         {l.result !== undefined && <span className="muted"> {l.error ? "✕" : "→"} {short(l.result, 110)}</span>}
         {l.policy && <div className="spp-policy" data-testid="prompt-tool-policy">{l.policy}</div>}
       </div>
     );
+    if (l.ended || !isBang(l.id)) return row;
+    return ( // 3.6.0.12 BS: a `!` command that still runs carries its own Stop (the session's interrupt)
+      <div className="spp-bang">
+        {row}
+        <button type="button" className="btn btn-default btn-sm" data-testid="prompt-bang-stop" title={BANG_STOP_TITLE} onClick={() => void stopBang(sid)}>
+          <span className="btn-label">{BANG_STOP}</span>
+        </button>
+      </div>
+    );
+  }
   if (l.kind === "you") return <div className="spp-steer" data-testid="prompt-steer-row"><span className="mono muted">↳ steer: </span>{short(l.text, 300)}</div>;
   if (l.kind === "state" || l.kind === "error") return <div className="spp-state mono" data-state={l.state || (l.kind === "error" ? "failed" : "")}>{short(l.text, 200)}</div>;
   return <Reply l={l} />;

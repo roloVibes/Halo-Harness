@@ -242,7 +242,8 @@ turns (the TUI, Studio, `--input-format stream-json`) asks for the largest
 window it may use, so it loads once. A `halo -p` run tries each window
 with the tool block a session of that window is sent (at 16,384: the core
 tools first, at most 2,200 tokens; the rest by ToolSearch) and asks the
-first that holds it, so a small one-shot asks 16,384 and, on Auto, reads
+first that holds it (most one-shots ask 16,384, a very small one 8,192)
+and, on Auto, reads
 the same lines about handing work out and the helpers it can start as
 every other session; its later calls keep that block until the window
 grows. A session that has to grow goes

@@ -7,7 +7,8 @@ design's "from a live helper"; docs/STUDIO-map.md "While a session runs").
 never reused), `does` its task's first line, instructions that say what it was made up for, its model when it ran
 on a catalog model (else auto), and the `uses` and `careful` of the map's main -- what the helper could use, since a
 made-up helper runs on main's own tools and mode (crew/map_run.py `_made_up`). 3.6.0.12 SP: the names taken and
-main are read in the SESSION's project (its row's `cwd`), not in the folder Studio was started in. Nothing is written: the page opens the
+main are read in the SESSION's project (its row's `cwd`), not in the folder Studio was started in; a name either
+folder's agents have is taken (the saved agent is yours, and a project's agent of that name would hide it). Nothing is written: the page opens the
 Agents form with it, and only Save there writes. Owner-only like every write route, though it writes nothing (it
 reads a session's agent).
 """
@@ -56,11 +57,12 @@ def _main_of(map_name: str, cwd) -> dict:
     return store.load("agent", main, cwd=cwd) or {}
 
 
-def body_for(srow: dict, arow: dict, cwd=None) -> dict:
+def body_for(srow: dict, arow: dict, cwd=None, also=None) -> dict:
     task = str(arow.get("task") or "").strip()
     first = next((x.strip() for x in task.splitlines() if x.strip()), "") or "a task main handed it"
     main = _main_of(str((arow.get("crew") or {}).get("map") or srow.get("map") or ""), cwd)
-    taken = {r.get("name") for r in store.rows("agent", cwd=cwd)}
+    folders = [cwd] + ([also] if also is not None and str(also) != str(cwd) else [])  # the session's, then Studio's
+    taken = {r.get("name") for folder in folders for r in store.rows("agent", cwd=folder)}
     model = str(arow.get("model") or "")
     return {"format": AGENT, "name": name_for(first, taken), "does": first[:200],
             "instructions": (f"Main made you up in a session for this task: {first[:400]}\n"
@@ -79,7 +81,7 @@ def post_from_live(req):
         return 404, {"error": f"no live session {sid!r} on this harness"}
     if arow is None:
         return 404, {"error": f"no agent {aid!r} in session {sid!r}"}
-    agent = body_for(srow, arow, cwd=project_of(srow, req.cwd))
+    agent = body_for(srow, arow, cwd=project_of(srow, req.cwd), also=req.cwd)
     return 200, {"agent": agent, "problems": agent_problems(agent),
                  "from": {"session": sid, "agent_id": aid, "name": arow.get("name"), "task": arow.get("task")},
                  "line": "Not saved yet: built from the helper the session made up. Change what you like, then Save."}

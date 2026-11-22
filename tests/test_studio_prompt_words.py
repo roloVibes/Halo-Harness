@@ -352,7 +352,8 @@ console.log(JSON.stringify({ routes: %s.map(([t, img]) => m.routeOf(t, img)),
   ran: m.bangLines({state: 'ran', output: 'BANG-ONE\\nsecond'}), ran_lines: m.bangLines({state: 'ran', lines: ['x', '']}),
   ran_empty: m.bangLines({state: 'ran', output: ''}), asked: m.bangLines({state: 'asked', id: 'inline-1'}),
   denied: m.bangLines({state: 'denied', reason: 'a deny rule matches Bash(rm:*)'}),
-  running: m.bangLines({state: 'running', id: 'inline_2'}) }));
+  running: m.bangLines({state: 'running', id: 'inline_2'}),
+  stop: [m.isBang('inline_2'), m.isBang('toolu_2'), m.isBang(undefined), m.BANG_STOP] }));
 """
 HELP_TS = WORDS.parent.parent / "help-session.ts"
 BANG_HELP = ("A line that starts with ! runs that command in the session at once, as in the terminal: no model turn; "
@@ -373,7 +374,8 @@ def test_a_bang_line_goes_through_the_slash_door_and_its_answer_words(ctx: Ctx):
     ctx.check(f"asked, word for word, got {got.get('asked')}", got.get("asked") == ["asks first: answer below"])
     ctx.check(f"denied, word for word, got {got.get('denied')}", got.get("denied") == ["denied: a deny rule matches Bash(rm:*)"])
     ctx.check(f"still running, word for word, got {got.get('running')}",
-              got.get("running") == ["still running: its output shows in the Feed"])
+              got.get("running") == ["still running: Stop is on its row; its output shows in the Feed"])
+    ctx.check(f"Stop belongs on a ! command's own row only, got {got.get('stop')}", got.get("stop") == [True, False, False, "Stop"])
 
 
 @test
