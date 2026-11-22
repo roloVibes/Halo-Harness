@@ -145,6 +145,12 @@ def tag_steer(c, lv) -> dict:
     """The researcher's line: its tag shows "steer" on hover; the click pins it and puts the keyboard in the box."""
     out: dict = {}
     res = lv.key("researcher")
+    # 3.6.0.11: a row's steer is what OPENS the box, so the step starts with it closed, as a person meets it. (With the
+    # box still open from the step before, a window 805 px high left the Feed under one row high on Windows: the row's
+    # tag sat under the timeline and the click landed on a lane.)
+    if c.js(f"!!{BOX}"):
+        c.click_on(STEER_CLOSE)
+        c.wait(f"!{BOX} && 1", 10)
     lv.say("researcher", "BRAVO reads the pricing notes. ")
     line = f"{LINES}.filter((l) => l.dataset.key === '{res}').pop()"
     c.wait(f"!!{line}", 10)
