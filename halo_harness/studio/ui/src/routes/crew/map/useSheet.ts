@@ -1,6 +1,7 @@
 // The step-in sheet's place and its coming and going (3.6.0.14 OP1, rules O1-2 and O1-3); StepIn.tsx keeps its layout.
 // - At open (once its words are read, `ready`: O1-6's GET answered or 1 s passed) it is drawn at its width, hidden
-//   (`data-place="measure"`, no test id), and measured; then placed ONCE, never re-placed: Agents -> Live by
+//   (`data-place="measure"`, no test id), and measured; then placed ONCE (at its box as it stands then: the drawing
+//   may have scrolled while its words were read), never re-placed: Agents -> Live by
 //   sheetPlace.ts agentsPlace (`data-place="sheet"`), Session's drawer by drawerPlace (`data-place="drawer"`), with
 //   `data-side`. Every rect is downFit.ts's (rectNow, placeOf: a hidden member stands at its "+n more" row) taken to
 //   the frame's px (the sheet's offset parent, `.ag-run` / `.mp-down`).
@@ -80,8 +81,10 @@ export function useSheet(where: Where, t: Target, ready: boolean, close: () => v
     if (!el || place) return;
     if (!geo) return void setGeo(geoOf(el, where, t.id));
     if (!ready) return;
+    const now = geoOf(el, where, t.id), g = now?.anchor ? now : geo; // its box as it stands NOW: a scroll in the second its words were read
     words.current = el.offsetHeight;
-    setPlace(where === "live" ? agentsPlace(geo.anchor, geo.view, words.current) : drawerPlace(geo.anchor, geo.view, geo.size, words.current));
+    if (g !== geo) setGeo(g);
+    setPlace(where === "live" ? agentsPlace(g.anchor, g.view, words.current) : drawerPlace(g.anchor, g.view, g.size, words.current));
   });
   useLayoutEffect(() => { // placed: it covers its part of the drawing; Agents' unfolds from its box
     const el = ref.current;

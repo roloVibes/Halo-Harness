@@ -107,13 +107,14 @@ export function sheetHead(width: number, text: string, now: { text: string; secs
 /** O1-2: what an event does to an open sheet. `at`: where it lands -- the sheet, a `.scrim` (the Stop confirm), the
  *  drawing's slot, a pick target of this drawing (a box, a member, a line's label or hit path), the drawing's empty
  *  part (`pan`), anywhere else; `field`: a text field has the key. "pick": nothing here, the click's pick opens that
- *  box's sheet (or closes this one when it is the same). A pointer-down on the slot folds nothing: its own press folds
+ *  box's sheet (or closes this one when it is the same). Escape in the Stop confirm closes the confirm, not the sheet.
+ *  A pointer-down on the slot folds nothing: its own press folds
  *  the sheet first (R4). A wheel reaches the sheet only over the drawing; over the sheet it scrolls the body. */
 export type SheetEvent = { kind: "pointer" | "key" | "wheel" | "zoom"; at: "sheet" | "scrim" | "slot" | "pick" | "pan" | "else";
   key?: string; field?: boolean };
 export function sheetClose(e: SheetEvent): "none" | "pick" | "fold" {
   if (e.kind === "zoom") return "fold";
-  if (e.kind === "key") return e.key === "Escape" && !e.field ? "fold" : "none";
+  if (e.kind === "key") return e.key === "Escape" && !e.field && e.at !== "scrim" ? "fold" : "none";
   if (e.kind === "wheel") return e.at === "pan" || e.at === "pick" ? "fold" : "none";
   if (e.at === "sheet" || e.at === "scrim" || e.at === "slot") return "none";
   return e.at === "pick" ? "pick" : "fold";

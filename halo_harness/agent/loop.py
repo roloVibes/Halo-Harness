@@ -5723,7 +5723,8 @@ class Session:
                 yield from _bg_pickup.open_turn(self, turn_no)
             else:
                 _receipt_seams.mark_read(self, _rmeta, turn_no, self.log.append_user(blocks, **_receipt_seams.tag(_rmeta)))
-            _mode_notice.sync(self, turn_start=True)  # 3.2.2.0 R4: the mode in one line (and the plan-mode note)
+            # 3.2.2.0 R4: the mode in one line (and the plan-mode note); 3.6.0.14: the reminder only with a task
+            _mode_notice.sync(self, turn_start=True, task=not _bg)
             _map_facts.turn_note(self)  # 3.6.0.2 R38: the maps, when they changed since the agent was told
             turn_images = images if vision_ok else None
             if not _bg:

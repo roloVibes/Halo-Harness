@@ -474,7 +474,7 @@ class _Log:
         self.snapshots.append((kind, content[0]["text"]))
 
 
-def _turn(s, mode: str = "acceptEdits", *, turn_start: bool = True):
+def _turn(s, mode: str = "acceptEdits", *, turn_start: bool = True, **kw):
     """The snapshot agent/loop.py logs at a turn's start (mode_notice.sync), on session `s` (a stub log, an engine)."""
     from halo_harness.agent import mode_notice
     from halo_harness.permissions import PermissionEngine
@@ -483,7 +483,7 @@ def _turn(s, mode: str = "acceptEdits", *, turn_start: bool = True):
     if getattr(s, "permission_engine", None) is None:
         s.permission_engine = PermissionEngine(mode=mode, cwd=s.session_context.cwd)
     s.permission_engine.mode = mode
-    return mode_notice.sync(s, turn_start=turn_start)
+    return mode_notice.sync(s, turn_start=turn_start, **kw)
 
 
 def _measured(h, ref: str, **kw) -> str:
@@ -554,6 +554,12 @@ def test_every_turn_carries_the_same_reminder_and_only_at_a_turns_start(ctx: Ctx
         s = _session(h, ref=LOCAL)
         first, second = _turn(s), _turn(s)
         ctx.check("two turns: the same bytes", first == second == MODE_LINE + "\n" + M10)
+        # a turn that background results opened is no task: today's line, byte for byte (agent/loop.py passes it)
+        ctx.check("a turn opened by background results: no reminder", _turn(s, task=False) == MODE_LINE)
+        loop = (Path(__file__).resolve().parent.parent / "halo_harness" / "agent" / "loop.py").read_text(encoding="utf-8")
+        ctx.check("the loop asks for the reminder only when the turn is a task of the person's",
+                  loop.count("_mode_notice.sync(self, turn_start=True, task=not _bg)") == 1
+                  and "_mode_notice.sync(self, turn_start=True)" not in loop)
         text = _turn(s, "plan", turn_start=False)  # plan mode entered in the middle of a turn: today's words
         ctx.check(f"a change mid-turn: the note and the mode line, no reminder, got {text!r}",
                   text is not None and text.endswith("\n\n" + PLAN_LINE) and M10 not in text)

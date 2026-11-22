@@ -40,12 +40,13 @@ def mode_line(mode: str) -> str:
     return f"permission mode: {mode}" + (f" ({words})" if words else "")
 
 
-def turn_line(session, mode: str) -> str:
+def turn_line(session, mode: str, *, task: bool = True) -> str:
     """The snapshot's line at a turn's start: `mode_line`, and for a local main on Auto the reminder on the next line
     (agent/helpers_words.remind, 3.6.0.14 MW2). The loop (`sync`) and the measure's first request
-    (agent/prompt_measure._first_request, the gym's) both call this, so they cannot differ."""
+    (agent/prompt_measure._first_request, the gym's) both call this, so they cannot differ. `task` False: a turn
+    that background results opened, not a task of the person's: today's line alone."""
     from halo_harness.agent.helpers_words import remind
-    extra = remind(session)
+    extra = remind(session) if task else ""
     return mode_line(mode) + (f"\n{extra}" if extra else "")
 
 
@@ -67,7 +68,7 @@ def told_plan(session) -> None:
     session._mode_told = "plan"
 
 
-def sync(session, *, turn_start: bool = False) -> Optional[str]:
+def sync(session, *, turn_start: bool = False, task: bool = True) -> Optional[str]:
     """Before a model call: log the plan-mode note on entry, PLAN_OFF_NOTE on
     exit, and (at a turn's start, or with a change) the one-line mode.
     Returns the text logged, or None when nothing was."""
@@ -90,7 +91,7 @@ def sync(session, *, turn_start: bool = False) -> Optional[str]:
             blocks.append(PLAN_OFF_NOTE)
         session._mode_told = mode
     if turn_start:
-        blocks.append(turn_line(session, mode))
+        blocks.append(turn_line(session, mode, task=task))
     elif blocks:
         blocks.append(mode_line(mode))
     if not blocks:

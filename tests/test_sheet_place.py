@@ -206,6 +206,7 @@ def test_what_folds_the_sheet(ctx: Ctx):
         "esc": [{"kind": "key", "at": "else", "key": "Escape"}, "fold"],
         "escInSheet": [{"kind": "key", "at": "sheet", "key": "Escape"}, "fold"],
         "escField": [{"kind": "key", "at": "sheet", "key": "Escape", "field": True}, "none"],
+        "escConfirm": [{"kind": "key", "at": "scrim", "key": "Escape"}, "none"],  # it closes the Stop confirm only
         "otherKey": [{"kind": "key", "at": "else", "key": "a"}, "none"],
         "wheelPan": [{"kind": "wheel", "at": "pan"}, "fold"], "wheelBox": [{"kind": "wheel", "at": "pick"}, "fold"],
         "wheelSheet": [{"kind": "wheel", "at": "sheet"}, "none"], "zoom": [{"kind": "zoom", "at": "else"}, "fold"],

@@ -111,7 +111,8 @@ permission mode: "If this job has parts that can run on their own, hand each
 one to a helper with the Agent tool before you work on it yourself (one call
 per part; `subagent_type` names the helper). A small job you do yourself."
 (`agent/helpers_words.py` `remind`, written by `agent/mode_notice.py`; about
-60 tokens a task by Halo's own count). The line is the same every turn; it goes when main switches
+60 tokens a task by Halo's own count). The line is the same every turn; a turn that background results open,
+not a task of yours, does not carry it; it goes when main switches
 to a cloud model and comes back with a local one. A cloud main, a map of your
 own, a helper and a session whose helper list does not fit read exactly what
 they read before. What the gym measured: of the local models tried, two handed
