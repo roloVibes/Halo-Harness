@@ -61,11 +61,17 @@ def click_live_box(c, bid: str) -> None:
 
 
 def close_card(c) -> None:
-    """The step-in card a box click opened, closed (its ×), so it covers nothing a later click needs."""
-    x = f"document.querySelector('{LP}[data-testid=map-step-in-close]')"
-    if c.js(f"!!{x}"):
-        c.click_on(x)
-        c.wait(f"!document.querySelector('{LP}[data-testid=map-step-in]')", 10)
+    """The step-in card a box click opened, closed (its ×), so it covers nothing a later click needs and Agents' tab keys
+    work again (they rest while a dialog is open). 3.6.0.14 OP1: the card opens once its agent's last words are read (at
+    the latest 1 s after the click) and unfolds, so it is waited for, then closed, then gone from the page."""
+    card = f"document.querySelector('{LP}.mp-step-in')"
+    try:
+        c.wait(f"!!{card}", 2)
+    except TimeoutError:
+        return  # the click opened no card
+    c.wait(f"!!document.querySelector('{LP}[data-testid=map-step-in][data-open]')", 10)
+    c.click_on(f"document.querySelector('{LP}[data-testid=map-step-in-close]')")
+    c.wait(f"!{card}", 10)
 
 
 MP = "[data-part=map] "
