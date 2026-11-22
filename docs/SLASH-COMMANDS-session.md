@@ -38,8 +38,8 @@ the priced agents spent"); "n/a (no priced call yet)" only when nothing is
 priced and nothing was spent. `/status` and the status bar show the same
 figure with the same `+`. A second line (H15 part 2 addendum
 4) appears once a background fetch has ever succeeded -- the same cached
-figure the status bar's own "OR $12.40 left"/"OR $3.21 used" segment and
-`/providers` show, naming which of three kinds it is: "OpenRouter: $12.40
+figure the status bar's own "OR $12.40 left" segment (a balance only: a key's spend so far is not
+shown in the bar) and `/providers` show, naming which of three kinds it is: "OpenRouter: $12.40
 remaining (this key's own limit; key: <label>, as of HH:MM:SS)", "...
 (account credits, via the management key; ...)", or "OpenRouter: $3.21
 used so far (this key's spend so far -- no limit set, no management key

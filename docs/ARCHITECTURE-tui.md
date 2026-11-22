@@ -93,9 +93,11 @@ own 3-way preference order, checked in this exact sequence):
    `total_credits - total_usage` (OpenRouter's own spec requires the
    management key here -- the ordinary key is never sent to `/credits`, and
    the management key is never sent to `/key` or anywhere else).
-3. `"OR $3.21 used"` -- else, this key's own `/key` `usage` figure (a
-   SPEND, not a remaining balance -- the honest fallback for an unlimited
-   key with no management key, where no "remaining" number can be known).
+3. no segment -- else there is only this key's own `/key` `usage` figure (a
+   SPEND, everything the key ever spent in every app, not a remaining
+   balance). Since 3.6.0.11 the status bar does not show it (it stood
+   unlabelled beside the session's cost); `/cost` and `/providers` still
+   print it, with what it is.
 
 Both calls are best-effort and never raise; a failed refresh leaves
 whatever was cached before untouched rather than blanking the segment, and

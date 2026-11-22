@@ -252,11 +252,17 @@ _KIND_NOTE = {
 
 
 def format_status_bar_segment() -> Optional[str]:
-    """`"OR $12.40 left"` / `"OR $3.21 used"` -- the status bar's own
-    rendering of the cached balance. `None` (segment omitted entirely) when
-    no fetch has ever succeeded."""
+    """`"OR $12.40 left"` -- the status bar's own rendering of the cached
+    balance. `None` (segment omitted entirely) when no fetch has ever
+    succeeded, and when the reading is not a balance (the key's spend so far)."""
     entry = cached_openrouter_balance()
     if entry is None:
+        return None
+    if entry["kind"] == "usage":
+        # 3.6.0.11 (the owner: "Idk why there is like a running tally of all the money spent"): a key with no limit
+        # and no management key has no balance, only everything it ever spent, in every app. That stood unlabelled
+        # beside this session's cost ("$0.0251 | OR $3.21 used"). The bar shows a BALANCE or nothing; /cost and
+        # /providers still say the key's spend, with what it is (format_balance_line).
         return None
     verb = _KIND_VERB.get(entry["kind"], "left")
     return f"OR ${entry['amount']:.2f} {verb}"

@@ -252,8 +252,12 @@ def test_refresh_variant_this_keys_usage_no_management_key(ctx: Ctx):
         entry = refresh_cached_openrouter_balance(mock.base_url + "/api/v1", "sk-or-ordinary")
         ctx.check(f"kind=usage (no management key given at all), got {entry}",
                   entry is not None and entry["kind"] == "usage")
-        ctx.check(f"status bar text says 'used', got {format_status_bar_segment()!r}",
-                  format_status_bar_segment() == "OR $3.21 used")
+        # 3.6.0.11: a key's spend so far is no balance: the bar shows nothing for it; /cost says it, with what it is
+        from halo_harness.providers.openrouter_account import format_balance_line
+        ctx.check(f"the status bar has no segment for a key's spend so far, got {format_status_bar_segment()!r}",
+                  format_status_bar_segment() is None)
+        ctx.check(f"/cost's line says it and what it is, got {format_balance_line()!r}",
+                  "$3.21 used so far (this key's spend so far" in str(format_balance_line()))
     finally:
         mock.stop()
         _reset()
@@ -357,8 +361,11 @@ def test_or_balance_refresh_worker_uses_usage_variant_with_only_the_ordinary_key
             os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url + "/api/v1"
             app = _FakeAppForWorker()
             or_balance_refresh_worker(app, force=True)
-            ctx.check(f"status bar shows the 'used' variant, got {app.status_bar.or_balance_text!r}",
-                      app.status_bar.or_balance_text == "OR $3.21 used")
+            from halo_harness.providers.openrouter_account import cached_openrouter_balance
+            got = cached_openrouter_balance() or {}
+            ctx.check(f"the reading is the key's spend so far, kept for /cost, and the bar shows no segment for it "
+                      f"(3.6.0.11), got {got.get('kind')} {got.get('amount')} {app.status_bar.or_balance_text!r}",
+                      got.get("kind") == "usage" and got.get("amount") == 3.21 and app.status_bar.or_balance_text is None)
     finally:
         mock.stop()
 
@@ -413,8 +420,11 @@ def test_or_balance_refresh_worker_reads_the_controllers_effective_env_not_bare_
                 "BRIDGE_OPENROUTER_BASE_URL": mock.base_url + "/api/v1",
             })
             or_balance_refresh_worker(app, force=True)
-            ctx.check(f"resolved and fetched using the controller's own effective_env, got "
-                      f"{app.status_bar.or_balance_text!r}", app.status_bar.or_balance_text == "OR $3.21 used")
+            from halo_harness.providers.openrouter_account import cached_openrouter_balance
+            got = cached_openrouter_balance() or {}
+            ctx.check(f"resolved and fetched using the controller's own effective_env, got {got.get('kind')} "
+                      f"{got.get('amount')} {app.status_bar.or_balance_text!r}",
+                      got.get("kind") == "usage" and got.get("amount") == 3.21 and app.status_bar.or_balance_text is None)
             sent = [r for r in mock.requests if r["path"] == "/api/v1/key"]
             ctx.check(f"the key from effective_env was actually sent, got {sent}",
                       sent and sent[0]["headers"].get("Authorization") == "Bearer sk-or-from-effective-env")
