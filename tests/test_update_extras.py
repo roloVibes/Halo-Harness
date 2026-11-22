@@ -107,9 +107,16 @@ def test_the_printed_lines_come_from_the_install(ctx: Ctx):
     # looking like another install, the two differ (the release gate of 3.6.0.5, on Linux, Windows and macOS, the
     # day a new test module moved this one to another shard). The check is that voice's line IS the install's line:
     # both are made now.
+    kept = list(voice._LINE)
     voice._LINE.clear()
-    want = upd.extra_install_line("voice")
-    ctx.check(f"voice's line, got {voice.INSTALL_LINE!r}, the install's {want!r}", voice.INSTALL_LINE == want)
+    try:
+        want = upd.extra_install_line("voice")
+        ctx.check(f"voice's line, got {voice.INSTALL_LINE!r}, the install's {want!r}", voice.INSTALL_LINE == want)
+    finally:
+        # leave the process as it was found (3.6.0.10): the voice modules hold the line they read when they were
+        # imported; a line made again HERE, in a process an earlier module left looking like another install, then
+        # differed from theirs, and tests.test_voice_server, moved into this shard, compared the two
+        voice._LINE[:] = kept
     bare = re.compile(r"""halo-harness\[[\w,]+\]["'`]""")
     hits, unpinned = [], []
     # checker, batch 1: the steward's knowledge (*.md under halo_harness) too, and a line broken after `install`
