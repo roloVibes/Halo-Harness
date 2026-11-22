@@ -172,6 +172,6 @@
 .slv-session { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: 26px; font-size: 12px; }
 .slv-session-words { min-width: 0; overflow-wrap: anywhere; }
 .chg-doors { display: inline-flex; align-items: center; gap: 6px; }
-.slv-others { padding: 2px 8px; border-radius: 99px; font-size: 12px; cursor: pointer; color: var(--text); background: var(--accent-soft); border: 1px solid var(--line); }
+.slv-others { min-width: calc(25ch + 18px); text-align: center; padding: 2px 8px; border-radius: 99px; /* fits "99 other sessions running" */ font-size: 12px; cursor: pointer; color: var(--text); background: var(--accent-soft); border: 1px solid var(--line); }
 .slv-others:not([data-on]) { visibility: hidden; }
 .sco-change { position: relative; display: flex; justify-content: center; width: min(560px, 100%); margin: 0 auto; }

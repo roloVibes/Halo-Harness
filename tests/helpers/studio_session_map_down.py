@@ -298,7 +298,46 @@ def feed(c, rig, rows: Rows, a: str, b: str) -> dict:
         c.wait(f"{FEED}?.dataset.sid === '{b}' && !!{FEED}.querySelector('[data-line=moved]')", 20)
     except TimeoutError:
         pass
-    return {"feed_a": shown_a, "feed_b": shown_b, "feed_newer": _feed(c), "rig_sid": a}
+    out = {"feed_a": shown_a, "feed_b": shown_b, "feed_newer": _feed(c), "rig_sid": a}
+    # the chip's room fits "N other sessions running" too: the words column never narrows when a second one starts
+    out["chip_widths"] = c.js(f"""(() => {{ const b = {FEED}?.querySelector('[data-testid=\"session-feed-others\"]'); if (!b) return [];
+      const w = [b.getBoundingClientRect().width]; const was = b.textContent; b.textContent = '12 other sessions running';
+      w.push(b.getBoundingClientRect().width); b.textContent = was; return w; }})()""")
+    out.update(_held(c, rig, rows, a, b))
+    return out
+
+
+def _held(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """The check of batch 2: Session shows A by itself; he clicks a row of A (the Steer box's target), or types into the
+    open Steer box: a newer B does not take the page (the Feed's head and the Steer box speak of one session); the
+    Steer box emptied, the next read moves it to B."""
+    from tests.helpers.studio_session_steer import AREA, open_steer
+    out: dict = {}
+    for case in ("row", "typing"):
+        rows.reset()  # A at work, as the rig runs it; B older
+        rows.idle(b, started=time.time() - 600)
+        _page(c, rig, "mode=session")
+        c.wait(f"{FEED}?.dataset.sid === '{a}' && {FEED_LINES}.some((l) => (l.dataset.key || '').includes('|{a}|'))", 30)
+        if case == "row":
+            mine = f"{FEED_LINES}.filter((l) => (l.dataset.key || '').includes('|{a}|'))"
+            c.click_on(f"{mine}.pop().querySelector('[data-testid=\"session-live-time\"]')")
+            c.wait(f"{mine}.some((l) => l.dataset.target)", 10)  # the row is the Steer box's target now
+        else:
+            open_steer(c)
+            c.js(f"(() => {{ const t = {AREA}; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, "
+                 "'wait for the tests'); t.dispatchEvent(new Event('input', {bubbles: true})); return 1; })()")
+        rows.set(b, started=time.time() + 180)
+        _reload(c, rows, 2)
+        out[f"held_{case}"] = _feed(c)
+    c.js(f"(() => {{ const t = {AREA}; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, ''); "
+         "t.dispatchEvent(new Event('input', {bubbles: true})); return 1; })()")
+    rows.refresh()
+    try:
+        c.wait(f"{FEED}?.dataset.sid === '{b}'", 20)
+    except TimeoutError:
+        pass
+    out["held_freed"] = _feed(c)
+    return out
 
 
 class MapDownDriver(Driver):

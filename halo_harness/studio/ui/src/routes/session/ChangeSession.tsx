@@ -64,8 +64,7 @@ export function ChangeSession({ rows, pick, testid, chip }: { rows: SessionRow[]
       <span className="chg-doors" ref={doors}>
         {chip !== undefined && ( // its room is kept while no other session runs (hidden), so the button never moves
           <button type="button" className="slv-others mono" onClick={() => setOpen(!open)} aria-expanded={open} data-testid="session-feed-others"
-                  data-on={!!chip || undefined} aria-hidden={!chip || undefined} tabIndex={chip ? undefined : -1}
-                  title={`${CHANGE_SESSION}: every open session`}>{chip || othersLine(1)}</button>
+                  data-on={!!chip || undefined} aria-hidden={!chip || undefined} tabIndex={chip ? undefined : -1}>{chip || othersLine(1)}</button>
         )}
         <Button size="sm" variant="ghost" onClick={() => setOpen(!open)} disabled={!rows.length} aria-expanded={open} data-testid={testid}>
           {CHANGE_SESSION}

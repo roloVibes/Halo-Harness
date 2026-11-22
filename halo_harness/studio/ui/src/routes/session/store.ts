@@ -22,7 +22,7 @@ import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 import { onEvent } from "../../lib/events";
-import { autoPick, followerOf, livePick, noteAutoMove, noteBuild, noteRows, staleList } from "./pick";
+import { autoPick, followerOf, hisAgent, livePick, noteAutoMove, noteBuild, noteRows, staleList, steerText } from "./pick";
 import { prompt } from "./promptStore";
 import { keepOpen } from "../crew/map/built";
 import { startFlowFiles } from "./flowFiles";
@@ -127,7 +127,7 @@ let busy = false;
 let lastSection = "";
 let lastSel = "";
 let needPick = false;
-let byHand = false; // 3.6.0.11: the pick is his (Change session, a link, a focus frame, an agent of another session)
+let byHand = false; // 3.6.0.11: the pick is his (Change session, a link, a focus frame, an agent, a pin or a steer target he chose)
 let ownSel = ""; // the agent this store selected itself (not his selection)
 let autoSeen = -1; // the list read autoPick last looked at
 const own = (s: FleetState, key: AgentKey) => void (key && findAgent(s, key) && ((ownSel = key), select(key)));
@@ -186,13 +186,15 @@ function onChange(): void {
     if (sel !== lastSel) {
       lastSel = sel;
       const p = parseKey(sel);
-      if (sel && p.h === harness && sel !== ownSel && p.s !== session) byHand = true; // his pick of another session's agent
       if (sel && p.h === harness) session = p.s;
     }
     if (s.loaded && !session) session = livePick(localSessions(s), "")?.session_id || ""; // R1: once drawn, written down
-    if (s.loaded && !s.error && s.listReads !== autoSeen) { // 3.6.0.11: each fresh read of the list; the Prompt box's text holds it
+    if (s.loaded && !s.error && s.listReads !== autoSeen) { // 3.6.0.11: each fresh read of the list; text being typed holds it
       autoSeen = s.listReads;
-      const to = autoPick(localSessions(s), session, byHand, !!prompt.get().draft.trim());
+      const ss = sess.get();
+      if (hisAgent(harness, sel, ownSel, ss.pin, ss.target)) byHand = true; // an agent he chose, a pin, a steer target
+      const typing = !!prompt.get().draft.trim() || (ss.steer && !!steerText().trim()); // the Prompt box, the open Steer box
+      const to = autoPick(localSessions(s), session, byHand, typing);
       if (to !== session) (session = to, noteAutoMove(to), own(s, pickAgent(s, to)));
     }
     if (session && sess.get().chosen !== session) sess.update(() => ({ chosen: session }));

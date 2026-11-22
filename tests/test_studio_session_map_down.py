@@ -186,6 +186,10 @@ console.log(JSON.stringify({
   ended: m.autoPick([B], 'A', false, false), holds: m.autoPick([A, B], 'A', false, true),
   ended_hand: m.autoPick([B], 'A', true, false), none_open: m.autoPick([], 'A', false, false),
   no_pick: m.autoPick([A, B], '', false, false),
+  his_row: m.hisAgent('h', 'h|A|w1', 'h|A|main', '', ''), own_sel: m.hisAgent('h', 'h|A|main', 'h|A|main', '', ''),
+  other_h: m.hisAgent('h', 'x|A|main', '', '', ''), none: m.hisAgent('h', '', '', '', ''),
+  pin: m.hisAgent('h', 'h|A|main', 'h|A|main', 'h|A|main', ''), target: m.hisAgent('h', 'h|A|main', 'h|A|main', '', 'h|A|main'),
+  steer: (m.noteSteerDraft('wait'), m.steerText()),
   feed_a: lines.filter(m.feedOf('h', 'A')).map((l) => l.key), feed_none: lines.filter(m.feedOf('h', '')).map((l) => l.key),
 }));"""
 
@@ -204,6 +208,12 @@ def test_auto_pick_follows_the_newest_session_he_starts(ctx: Ctx):
     ctx.check(f"A picked by hand ended: it stays A (T8), got {p.get('ended_hand')!r}", p.get("ended_hand") == "A")
     ctx.check(f"nothing open: the pick stays, got {p.get('none_open')!r}", p.get("none_open") == "A")
     ctx.check(f"no pick: the newest open one, got {p.get('no_pick')!r}", p.get("no_pick") == "B")
+    # the check of batch 2: an agent he chose (a row of the shown session, a pin, a steer target) makes the pick his, so
+    # Session never moves under a Steer box that sends to the old session's agent; the store's own selection does not
+    ctx.check(f"his selection of an agent here, a pin or a steer target is his pick; the store's own selection, another "
+              f"harness's or none is not, got {p}",
+              [p.get(k) for k in ("his_row", "own_sel", "other_h", "none", "pin", "target")] == [True, False, False, False, True, True])
+    ctx.check(f"the Steer box's unsent text is kept where the store reads it, got {p.get('steer')!r}", p.get("steer") == "wait")
     ctx.check(f"the Feed of A: A's lines only (not B's, not another harness's, not a session 'AB'), got {p.get('feed_a')}",
               p.get("feed_a") == ["h|A|main", "h|A|w1"])
     ctx.check(f"no session shown: every line of this harness, got {p.get('feed_none')}",
@@ -225,6 +235,13 @@ def test_feed_names_its_session_and_shows_its_lines_only(ctx: Ctx):
     fn = _ran(ctx, got, "feed_newer")
     ctx.check(f"A shown by the page itself, a newer B starts: the Feed follows B and says 'Now typing into ...', got {fn}",
               fn.get("sid") == b and str(fn.get("words")).startswith("Now typing into ") and a not in (fn.get("sids") or []))
+    w = got.get("chip_widths") or []
+    ctx.check(f"the chip's room fits '12 other sessions running' as well as '1 other session running' (no re-wrap), got {w}",
+              len(w) == 2 and w[0] > 0 and abs(w[0] - w[1]) < 1)
+    hr, ht, hf = (_ran(ctx, got, k) for k in ("held_row", "held_typing", "held_freed"))
+    ctx.check(f"he clicked a row of A (the Steer box's target): a newer B does not take the page, got {hr}", hr.get("sid") == a)
+    ctx.check(f"he is typing into the open Steer box: a newer B does not take the page, got {ht}", ht.get("sid") == a)
+    ctx.check(f"the Steer box emptied: the next read follows B, got {hf}", hf.get("sid") == b)
 
 
 # -- 3.6.0.2 batch 7: the default pick selects an agent again; a stale pick is given up; the drawing's timer is cleared --

@@ -27,6 +27,7 @@ import { useFleet } from "../fleet/store";
 import { LiveImage } from "./LiveImage"; // 3.3.6.0 R6: the steer's image
 import { imageFile, sendWithImage, steerImage, takeFile } from "./steerImage";
 import { chosenSession } from "./store";
+import { noteSteerDraft, steerText } from "./pick";
 import { TargetLine } from "./LiveTarget";
 import { closeSteer, cycleTarget, setComposing, targetName, useSteerTarget } from "./steer";
 
@@ -43,8 +44,7 @@ const onBlur = (e: FocusEvent<HTMLDivElement>) => inField(e) && setComposing(fal
 
 const FINISHED = ["done", "failed", "stopped"];
 const CLOSE = "Close the steer box (Esc)";
-let draft = ""; // the text typed and not sent: it survives a close and is there on the next open; a send clears it
-const keep = (t: string) => void (draft = t);
+// the text typed and not sent (pick.ts steerText): it survives a close and is there on the next open; a send clears it
 
 export function LiveSteer() {
   const t = useSteerTarget();
@@ -102,7 +102,7 @@ export function LiveSteer() {
          onKeyDown={onKeys} onFocus={onFocus} onBlur={onBlur} onPaste={(e) => take(e, "paste")} onDrop={(e) => take(e, "drop")}
          onDragOver={over}>
       <TargetLine t={t} name={name} />
-      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} send={send} initial={draft} onText={keep} />
+      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} send={send} initial={steerText()} onText={noteSteerDraft} />
       <LiveImage />
     </div>
   );

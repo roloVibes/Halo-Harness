@@ -137,6 +137,16 @@ export function autoPick<R extends SessionRow>(rows: R[], pick: string, byHand: 
   return openOrder(rows)[0]?.session_id || pick;
 }
 
+/** 3.6.0.11: an agent he chose makes the pick his (the ruling: "a Map or agent selection"): one he selected on harness
+ *  `here` (`sel`, not the one the store selected itself: `own`), a pin or a steer target (their session stays shown,
+ *  so the Feed's head and the Steer box never speak of two sessions). */
+export const hisAgent = (here: string, sel: string, own: string, pin: string, target: string): boolean =>
+  !!pin || !!target || (!!sel && sel !== own && sel.startsWith(`${here}|`));
+
+let steerDraft = ""; // the Feed's Steer box's unsent text (LiveSteer.tsx): kept for the next open; while the box is open it holds a move
+export const noteSteerDraft = (t: string): void => void (steerDraft = t);
+export const steerText = (): string => steerDraft;
+
 let autoTo = ""; // the session autoPick last moved Session to (the Feed's head says the move: FeedSession.tsx)
 export const noteAutoMove = (sid: string): void => void (autoTo = sid);
 export const autoMovedTo = (sid: string): boolean => !!sid && autoTo === sid;
