@@ -336,6 +336,53 @@ def test_up_goes_to_the_start_of_the_prompt_before_it_walks_history(ctx: Ctx):
         ctx.check(f"{case[:5]} -> {case[5]!r}, got {move!r}", move == case[5])
 
 
+# -- 3.6.0.12 BS batch 2: a one-line `!command` from the Prompt box runs in the session, as in the terminal --
+BANG_ROUTES = [  # (text, an image rides along) -> the door
+    ("!echo hi", False, "slash"),
+    ("!ls -la", False, "slash"),
+    ("/cost", False, "slash"),
+    ("!echo hi", True, "submit"),         # with an image it stays a prompt, as in the terminal
+    ("!echo hi\nand more", False, "submit"),  # a second line: a prompt
+    ("echo hi", False, "submit"),
+    ("say !this", False, "submit"),
+]
+JS_BANG = """
+const m = await import(%s);
+console.log(JSON.stringify({ routes: %s.map(([t, img]) => m.routeOf(t, img)),
+  ran: m.bangLines({state: 'ran', output: 'BANG-ONE\\nsecond'}), ran_lines: m.bangLines({state: 'ran', lines: ['x', '']}),
+  ran_empty: m.bangLines({state: 'ran', output: ''}), asked: m.bangLines({state: 'asked', id: 'inline-1'}),
+  denied: m.bangLines({state: 'denied', reason: 'a deny rule matches Bash(rm:*)'}),
+  running: m.bangLines({state: 'running', id: 'inline_2'}) }));
+"""
+HELP_TS = WORDS.parent.parent / "help-session.ts"
+BANG_HELP = ("A line that starts with ! runs that command in the session at once, as in the terminal: no model turn; "
+             "its output shows here and in the Feed.")
+
+
+@test
+def test_a_bang_line_goes_through_the_slash_door_and_its_answer_words(ctx: Ctx):
+    """The owner: "can I run commands in the terminal like Claude code using the "!" ? If not that is a must have".
+    Studio's box sent a `!` line as a prompt (a model turn). The door does not depend on a running turn: `routeOf`
+    takes no busy state, and `send` asks nothing else before it (a `!` is never a steer and never queued)."""
+    from tests.helpers import node_ts
+    got = node_ts.run(JS_BANG % (json.dumps(WORDS.resolve().as_uri()), json.dumps([[t, i] for t, i, _ in BANG_ROUTES]))) or {}
+    ctx.check(f"the doors, got {got.get('routes')}", got.get("routes") == [d for _, _, d in BANG_ROUTES])
+    ctx.check(f"ran: `ran`, then the output's lines, got {got.get('ran')} {got.get('ran_lines')} {got.get('ran_empty')}",
+              got.get("ran") == ["ran", "BANG-ONE", "second"] and got.get("ran_lines") == ["ran", "x"]
+              and got.get("ran_empty") == ["ran"])
+    ctx.check(f"asked, word for word, got {got.get('asked')}", got.get("asked") == ["asks first: answer below"])
+    ctx.check(f"denied, word for word, got {got.get('denied')}", got.get("denied") == ["denied: a deny rule matches Bash(rm:*)"])
+    ctx.check(f"still running, word for word, got {got.get('running')}",
+              got.get("running") == ["still running: its output shows in the Feed"])
+
+
+@test
+def test_the_prompt_panels_help_says_what_a_bang_line_does(ctx: Ctx):
+    src = HELP_TS.read_text(encoding="utf-8")
+    block = src.split('"session-prompt"', 1)[-1].split('"session-conversations"', 1)[0]
+    ctx.check("the Prompt panel's help holds the sentence, word for word", BANG_HELP in block)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

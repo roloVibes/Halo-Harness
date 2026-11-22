@@ -6,7 +6,8 @@ Controller and its real control socket, an in-process Studio). tests/test_studio
 
 The answer to a send is held on Studio's server (`sessions_prompt_api.after`, after the session already took it) while
 keys are typed, then let go: P72 (the answer never wipes what was typed after Enter), P24 (no "from Studio" word), P22
-(a steer's one row), P69 (a bare `/model`), P20 (`Interrupted.`), P23 (an ask answered in the terminal or remotely).
+(a steer's one row), P69 (a bare `/model`), P20 (`Interrupted.`), P23 (an ask answered in the terminal or remotely),
+3.6.0.12 BS (a one-line `!command` runs in the session: its answer line, one tool row, no turn, its ask's Allow).
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called."""
 from __future__ import annotations
 
@@ -282,6 +283,46 @@ def answered_elsewhere(c, rig, gate) -> dict:
     return {"elsewhere": out}
 
 
+def bang(c, rig, gate) -> dict:
+    """3.6.0.12 BS: `!echo BANG-ONE` + Enter runs in the session through the slash door: the line once with its answer
+    line, one tool row on the session's stream (the Feed's and this panel's), no turn; an asking `!` shows the panel's
+    own ask card, and its Allow runs the command. The fake session's engine allows `echo` and asks for the rest."""
+    from halo_harness.permissions import Decision
+    eng, had = rig.session.permission_engine, rig.session.permission_engine.__dict__.get("decide")
+    eng.decide = lambda name, inp, tool=None: Decision(
+        "allow" if str((inp or {}).get("command", "")).startswith("echo") else "ask", "asks first")
+    sel = lambda q: f"[...document.querySelectorAll('{q}')]"  # noqa: E731
+    tools, feed = sel("[data-testid=prompt-line][data-kind=tool]"), sel("[data-testid=session-live-line][data-kind=tool]")
+    last = f"{OUTS}.at(-1)?.querySelector('[data-testid=\"prompt-slash-lines\"]')?.textContent"
+    out: dict = {}
+    try:
+        turns, outs, t0, f0 = rig.session.turn_count, c.js(f"{OUTS}.length"), c.js(f"{tools}.length"), c.js(f"{feed}.length")
+        typed(c, "!echo BANG-ONE")
+        enter(c)
+        out["lines"] = c.wait(f"{OUTS}.length > {outs} && ({last} || '').includes('BANG-ONE') && {last}.split('\\n')", 15)
+        out["tool_rows"] = c.wait(f"{tools}.length > {t0} && {tools}.length - {t0}", 10)
+        time.sleep(1.0)  # a second row or a turn would have landed by now
+        out.update(rows_once=c.js(f"{tools}.length - {t0}"), feed_rows=c.js(f"{feed}.length - {f0}"),
+                   line_rows=c.js(f"{OUTS}.filter((o) => o.querySelector('.spp-out-cmd').textContent === '!echo BANG-ONE').length"
+                                  f" + {TURNS}.filter((t) => t.textContent.includes('!echo BANG-ONE')).length"),
+                   tool_text=c.js(f"{tools}.at(-1).textContent"), turns=rig.session.turn_count - turns, box=settled(c))
+        typed(c, "!touch bang-asked.txt")
+        enter(c)
+        out["asked"] = c.wait(f"{OUTS}.length > {outs} + 1 && {last}", 15)
+        card = f"{ASKS}.filter((a) => !a.dataset.answered).pop()"
+        out["ask_buttons"] = c.wait(f"{card} && [...{card}.querySelectorAll('[data-testid=\"prompt-ask-btn\"]')].map((b) => b.dataset.label)", 15)
+        c.click_on(f"[...{card}.querySelectorAll('[data-testid=\"prompt-ask-btn\"]')].find((b) => b.dataset.label === 'Allow')")
+        out["ask_ran"] = bool(wait_for(lambda: (rig.cwd / "bang-asked.txt").exists(), 10))
+        out["ask_done"] = c.wait(f"{ASKS}.map((a) => a.querySelector('[data-testid=\"prompt-ask-done\"]')?.textContent).filter(Boolean).pop()", 10)
+        out["ask_turns"] = rig.session.turn_count - turns
+    finally:
+        if had is None:
+            eng.__dict__.pop("decide", None)
+        else:
+            eng.decide = had
+    return {"bang": out}
+
+
 class PromptOneDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -292,7 +333,7 @@ class PromptOneDriver(Driver):
             gate = Gate()
             try:
                 yield ((opened, (c, rig)), (p72, (c, rig, gate)), (steer, (c, rig, gate)), (bare_model, (c, rig, gate)),
-                       (interrupted, (c, rig, gate)), (answered_elsewhere, (c, rig, gate)))
+                       (interrupted, (c, rig, gate)), (answered_elsewhere, (c, rig, gate)), (bang, (c, rig, gate)))
             finally:
                 gate.close()
 

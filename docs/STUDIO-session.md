@@ -162,7 +162,13 @@ last line. `/` opens the **slash list** -- the same table the TUI completes from
 session's project and user commands and skills, each with its arguments and one line of help (`GET
 /api/sessions/<sid>/slash`) -- filtered as you type: `Up` / `Down` move in it, `Tab` (or `Enter` on a name not yet
 complete) completes, `Esc` closes it. A `/` line runs in the session through the control socket's `slash` and its
-output lands in the panel as the lines the terminal would print. Ctrl+V with an image, or an image file dropped on the
+output lands in the panel as the lines the terminal would print. A line that starts with ! runs that command in the
+session at once, as in the terminal: no model turn; its output shows here and in the Feed (3.6.0.12: a one-line `!`
+with no image goes through the same `slash` door, also while a turn runs; with a second line or an image it is a
+prompt). Under your line one answer line says `ran` and the output's lines, `asks first: answer below` (the ask card
+is the panel's own; Allow runs it, and the terminal's card reads `Answered in Studio: Allow`), `denied: <reason>`, or
+`still running: its output shows in the Feed`. `Esc` in the terminal ends a running `!` command; closing Halo ends it
+too. Ctrl+V with an image, or an image file dropped on the
 box, becomes the chip under it, as on the steer box; a dropped file path lands in the text.
 
 **While a turn runs**, a send asks first (`submit` with `when_busy: refuse`): the busy line keeps your text and offers

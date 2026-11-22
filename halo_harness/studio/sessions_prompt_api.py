@@ -7,7 +7,9 @@ receipts of what it sends, its slash list and the ladder's rows.
          409 {error: line, busy, held, receipt}        `queue` while one turn is already held
          200 {ok, duplicate: true, receipt}            a retry with a `client_id` already stored: nothing is sent
     POST ... {cmd: steer | answer, ..., client_id?}    the same receipt (`steer` and `answer` rows)
-    POST ... {cmd: slash, line | name + args}          200 {ok, result: {output, lines}}: what the TUI would print
+    POST ... {cmd: slash, line | name + args}          200 {ok, result: {output, lines}}: what the TUI would print;
+                                                       a one-line `!cmd` runs as in the terminal: {state: ran |
+                                                       running | asked | denied, id, output?, reason?, ran}, no receipt
     POST ... {cmd: tail, n?}                           200 {ok, result: {markdown}}
     GET  sessions/<sid>/slash                          [{name, group, help, args, source}]: the builtins table and
                                                        the session's project and user commands and skills
@@ -57,9 +59,11 @@ def fields_for(cmd: str, body: dict) -> "tuple[Optional[tuple], dict]":
     """The socket fields of a `slash` / `tail` (or the extra ones of a `submit` / `steer`); (422 answer, {}) when bad."""
     if cmd == "slash":
         line, name = str(body.get("line") or "").strip(), str(body.get("name") or "").strip()
-        if not (line.startswith("/") or name):
-            return (422, {"error": "a slash needs `line` (\"/cost\") or `name`", "problems": []}), {}
-        return None, ({"line": line} if line.startswith("/") else {"name": name.lstrip("/"), "args": str(body.get("args") or "")})
+        # 3.6.0.12 BS: a one-line `!command` takes this door too (the session runs it as its terminal does)
+        door = line.startswith("/") or (line.startswith("!") and "\n" not in line)
+        if not (door or name):
+            return (422, {"error": "a slash needs `line` (\"/cost\", \"!ls\") or `name`", "problems": []}), {}
+        return None, ({"line": line} if door else {"name": name.lstrip("/"), "args": str(body.get("args") or "")})
     if cmd == "tail":
         n = body.get("n", TAIL_DEFAULT)
         return None, {"n": n if isinstance(n, int) and not isinstance(n, bool) else TAIL_DEFAULT}

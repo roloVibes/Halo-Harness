@@ -36,6 +36,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "Enter sends, Shift+Enter is a new line; Up goes to the start of the prompt, Down to its end, and from there Up / Down walk this session's history, as in the terminal; Alt+Enter (or the palette) opens this panel with the keyboard in it.",
       "The box is three lines at the least, grows with what you type and takes the panel's free room while the conversation is short; past twelve lines it scrolls.",
       "/ opens the slash list, the terminal's own commands and the session's custom ones, filtered as you type: Tab completes, Esc closes; a / line runs in the session and its output lands here.",
+      "A line that starts with ! runs that command in the session at once, as in the terminal: no model turn; its output shows here and in the Feed.",
       "While a turn runs, a send asks first: Queue it starts it when that turn ends (one at a time), Steer puts it into the running turn. A pasted image or a dropped file rides along.",
       "Beside each of your turns, four marks: sent (Studio stored it), delivered (the session took it), read (it is in the model's input), replied (that turn ended); red when it failed, the reason in its title.",
       "The conversation reads like the terminal: replies, one line per tool call, the asks with their buttons. The ${WORDS.feed} stays the stream for steering.",

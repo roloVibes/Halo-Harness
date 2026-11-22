@@ -19,6 +19,10 @@ private studio.json: studio/launch.api_call). No browser. Each assert alone, as 
       a common word (the CI runners' `runner`) in running text is no finding
   (5) the session's row carries `first_words` after the first prompt, and after `/clear` in the terminal the new row's
       `follows` names the old id
+  (6) (3.6.0.12, run after (3)) `!echo REALCHECK-BANG` sent the way Studio's Prompt sends a `!` line runs in the
+      terminal's session: the answer is `ran` with the output, the terminal draws its Bash card, Studio's own feed
+      (`/api/events`) carries one tool row with it, and the model is not called (no turn). The card is not counted
+      on the screen (Textual repaints rows); the feed's frames are.
 Everything it starts ends in its own finally, by pid (the rig's scan finds nothing of the run left)."""
 from __future__ import annotations
 
@@ -164,6 +168,87 @@ def _ask(ctx, h, t, sid: str, ev: dict, bad: list) -> None:
         bad.append("(3) `RC-ASK next` typed after the card did not run as a turn: " + excerpt(_since(t, mark), 200))
 
 
+# -- (6) a `!` line from Studio ---------------------------------------------------------------------------------------
+BANG = "REALCHECK-BANG"
+
+
+class _Feed:
+    """Studio's own feed (`GET /api/events`, the stream its page reads) for one session: the frames it carried, read on
+    a thread until `close()` shuts the socket (the read then ends)."""
+
+    def __init__(self, h, sid: str) -> None:
+        import threading
+        from urllib.parse import quote
+        from halo_harness.studio.launch import read_info
+        from halo_harness.studio.owner_proof import cli_headers
+        info = read_info(h.state) or {}
+        self.frames: list = []
+        port = int(info.get("port") or 0)
+        heads = {**cli_headers(info), "Host": f"127.0.0.1:{port}", "Accept": "text/event-stream"}
+        self.sock = socket.create_connection(("127.0.0.1", port), timeout=10)
+        self.sock.sendall((f"GET /api/events?t={quote(str(info.get('token') or ''))}&sessions={quote(sid)} HTTP/1.1\r\n"
+                           + "".join(f"{k}: {v}\r\n" for k, v in heads.items()) + "\r\n").encode("utf-8"))
+        self.sock.settimeout(None)  # the read blocks until close() shuts the socket
+        self.fp = self.sock.makefile("rb")
+        threading.Thread(target=self._read, daemon=True, name="realcheck-feed").start()
+
+    def _read(self) -> None:
+        try:
+            for raw in self.fp:
+                line = raw.decode("utf-8", "replace").strip()
+                if line.startswith("data: "):
+                    try:
+                        self.frames.append(json.loads(line[6:]))
+                    except ValueError:
+                        pass
+        except (OSError, ValueError):
+            pass
+
+    def ids(self, kind: str, of: "set | None" = None) -> list:
+        """The tool ids of `kind` frames: those carrying BANG, or (with `of`) those of these ids."""
+        rows = [f.get("data") or {} for f in list(self.frames) if f.get("event") == kind]
+        return [str(d.get("id") or "") for d in rows
+                if (str(d.get("id") or "") in of if of is not None else BANG in json.dumps(d, default=str))]
+
+    def close(self) -> None:
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.sock.close()
+
+
+def _bang(ctx, h, t, sid: str, ev: dict, bad: list) -> None:
+    """3.6.0.12 BS: Studio's route sends `!echo REALCHECK-BANG` (the slash door, as its Prompt box does) to the session
+    in the terminal: it runs there once, the terminal draws its Bash card, Studio's feed carries its one tool row, and
+    the model is not called (no turn)."""
+    feed = _Feed(h, sid)
+    out: dict = {}
+    ev["bang"] = out
+    try:
+        mark, calls = len(t.plain()), len(ctx.provider.mock.requests)
+        status, ans = _send(h, sid, {"cmd": "slash", "line": f"!echo {BANG}"})
+        result = (ans.get("result") or {}) if isinstance(ans, dict) else {}
+        out.update(status=status, state=result.get("state"), output=str(result.get("output") or "")[:200])
+        out["card"] = t.wait_for(lambda s: "Bash" in s[mark:] and BANG in s[mark:], 15)
+        out["feed"] = bool(wait_until(lambda: feed.ids("tool_result"), 15, 0.2))
+        time.sleep(1.0)  # a second row would have come by now
+        results = feed.ids("tool_result")
+        out.update(starts=len(feed.ids("tool_use_start", set(results))), results=len(results),
+                   model_calls=len(ctx.provider.mock.requests) - calls)
+        if status != 200 or result.get("state") != "ran" or BANG not in out["output"]:
+            bad.append(f"(6) `!echo {BANG}` from Studio did not run in the session: {status} {str(ans)[:200]}")
+        elif not out["card"]:
+            bad.append("(6) the terminal drew no Bash card for the `!` line sent from Studio: " + excerpt(_since(t, mark), 200))
+        elif out["starts"] != 1 or out["results"] != 1:
+            bad.append(f"(6) Studio's feed did not show the `!` command once: {out['starts']} tool start(s), "
+                       f"{out['results']} result(s) with {BANG}")
+        elif out["model_calls"]:
+            bad.append(f"(6) the `!` line from Studio started a model turn ({out['model_calls']} model request(s))")
+    finally:
+        feed.close()
+
+
 # -- (4) no user or host name -----------------------------------------------------------------------------------------
 def _names() -> list:
     out = []
@@ -283,11 +368,11 @@ def prompt(ctx):
         if ev["session_up_s"]:
             sid = wait_until(lambda: next((r.get("session_id") for r in _rows(h) if r.get("kind") == "tui"), ""), 30, 0.25) or ""
         if not sid:
-            bad.append("(1)-(5) not run: the terminal session never showed its status line or never reached Studio's list: "
+            bad.append("(1)-(6) not run: the terminal session never showed its status line or never reached Studio's list: "
                        + excerpt(t.plain(), 200))
         else:
             ev["sid"] = sid[:8]
-            for n, fn in ((1, _once), (2, _model), (3, _ask), (4, _private), (5, _clear)):
+            for n, fn in ((1, _once), (2, _model), (3, _ask), (6, _bang), (4, _private), (5, _clear)):
                 _alone(n, bad, fn, ctx, h, t, sid, ev, bad)
     finally:
         for term in (t, ts):
@@ -302,4 +387,5 @@ def prompt(ctx):
         ctx.end_leftovers(h)
     if bad:
         raise Fail("; ".join(bad[:8]) + (f" (+{len(bad) - 8} more)" if len(bad) > 8 else ""), ev)
-    return "one row, /model from Studio, the ask answered in Studio, no user or host name, follows after /clear", ev
+    return ("one row, /model from Studio, the ask answered in Studio, a ! line from Studio ran once with no turn, "
+            "no user or host name, follows after /clear"), ev

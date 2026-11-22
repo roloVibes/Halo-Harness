@@ -132,6 +132,7 @@ def _bang_rig(rig):
         "allow" if str((inp or {}).get("command", "")).startswith("echo") else "ask", "asks first")
     tapped: list = []
     controller.add_event_tap(tapped.append)
+    rig.bang_sid = act.session_id  # Studio's route names the session by its id
     return session, controller, tapped, ControlClient(act.endpoint, act.server.token, timeout=10.0)
 
 
@@ -180,6 +181,27 @@ def test_a_bang_ask_over_the_socket_runs_after_an_allow(ctx: Ctx):
             ctx.check(f"no turn, got {session.turn_count}", session.turn_count == 0)
         finally:
             client.close()
+
+
+@test
+def test_a_bang_line_through_studios_route_runs_with_no_turn_and_no_receipt(ctx: Ctx):
+    """3.6.0.12 BS batch 2: Studio's Prompt box sends a one-line `!` through the slash door of ITS route."""
+    with SessionRig() as rig:
+        session, controller, tapped, client = _bang_rig(rig)
+        client.close()
+        sid = rig.bang_sid
+        status, body = _req(rig, "POST", f"sessions/{sid}/command", {"cmd": "slash", "line": "!echo hi-from-studio"})
+        result = (body or {}).get("result") or {}
+        ctx.check(f"200 with state ran and the output as lines, got {status} {body}", status == 200
+                  and result.get("state") == "ran" and any("hi-from-studio" in ln for ln in result.get("lines") or []))
+        ctx.check(f"no turn, got {session.turn_count}", session.turn_count == 0)
+        ctx.check(f"no receipt row, got {body.get('receipt') if isinstance(body, dict) else body}",
+                  isinstance(body, dict) and "receipt" not in body)
+        ctx.check("the tap carries one tool_use_start / tool_result pair", wait_for(lambda: len(_pair(tapped)[1]) == 1, 5))
+        status, body = _req(rig, "POST", f"sessions/{sid}/command", {"cmd": "slash", "line": "!touch asked-by-studio.txt"})
+        ctx.check(f"an asking ! answers asked, got {status} {body}", status == 200
+                  and ((body or {}).get("result") or {}).get("state") == "asked")
+        ctx.check("a bare word is still a 422", _req(rig, "POST", f"sessions/{sid}/command", {"cmd": "slash", "line": "echo"})[0] == 422)
 
 
 @test

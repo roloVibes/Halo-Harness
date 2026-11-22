@@ -161,7 +161,8 @@ def post_command(req):
     if answered is not None:
         return answered
     bridge = getattr(getattr(req, "server", None), "events", None)
-    if cmd in ("submit", "steer") and bridge is not None:  # fx studio batch 2: Studio listens before the turn can answer
+    bang = cmd == "slash" and str(fields.get("line") or "").startswith("!")  # 3.6.0.12 BS: its rows reach the Feed
+    if (cmd in ("submit", "steer") or bang) and bridge is not None:  # fx studio batch 2: Studio listens before the turn can answer
         try:
             bridge.ensure_attached(entry)
         except Exception:

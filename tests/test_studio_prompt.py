@@ -189,6 +189,24 @@ def test_ask_answered_in_terminal_closes_studio_card(ctx: Ctx):
               e.get("remote") == {"lines": ["Answered remotely: Allow"], "buttons": 0})
 
 
+@test
+def test_a_bang_line_runs_in_the_session_with_no_turn(ctx: Ctx):
+    """3.6.0.12 BS (the owner: "can I run commands in the terminal like Claude code using the "!" ? If not that is a must
+    have"): Studio's box sent `!echo ...` to the model as a prompt. Now it runs in the session as in the terminal."""
+    b = _one(ctx).get("bang") or {}
+    ctx.check(f"the answer line: `ran`, then the output, got {b.get('lines')}",
+              (b.get("lines") or [None])[0] == "ran" and "BANG-ONE" in (b.get("lines") or [])[1:])
+    ctx.check(f"your line once, got {b.get('line_rows')}", b.get("line_rows") == 1)
+    ctx.check(f"one tool row on the session's stream (Bash), got {b.get('tool_rows')} {b.get('rows_once')} {b.get('tool_text')!r}",
+              b.get("tool_rows") == 1 and b.get("rows_once") == 1 and "Bash" in str(b.get("tool_text")))
+    ctx.check(f"the Feed shows it once, got {b.get('feed_rows')}", b.get("feed_rows") == 1)
+    ctx.check(f"no model turn, the box emptied, got {b.get('turns')} {b.get('box')!r}", b.get("turns") == 0 and b.get("box") == "")
+    ctx.check(f"an asking ! says so, word for word, got {b.get('asked')!r}", b.get("asked") == "asks first: answer below")
+    ctx.check(f"the panel's own ask card; its Allow runs the command, got {b.get('ask_buttons')} {b.get('ask_ran')} "
+              f"{b.get('ask_done')!r} {b.get('ask_turns')}", "Allow" in (b.get("ask_buttons") or []) and b.get("ask_ran") is True
+              and b.get("ask_done") == "Answered in Studio: Allow" and b.get("ask_turns") == 0)
+
+
 # -- 3.6.0.2 P6 P27-P29, P31, P32: tests/helpers/studio_prompt_pick.py, which session the box types into -------------
 def _pick(ctx: Ctx) -> dict:
     return driver_got(ctx, "tests.helpers.studio_prompt_pick", why="the Prompt panel needs headless Chrome", cache=_RUN,

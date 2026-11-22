@@ -117,6 +117,24 @@ export const endedLine = (open: HeadRow | null | undefined): string => (open ? `
 /** P31: the pick followed the terminal to its new conversation. */
 export const followLine = (row: HeadRow): string => `Same terminal, new conversation: ${folderOf(row.cwd)}.`;
 
+// 3.6.0.12 BS: a one-line `/` or `!` with no image takes the slash door (the session runs it itself: no turn, no
+// receipt), busy or not: a `!` is never a steer and never queued, as in the terminal. Anything else is a prompt.
+export const routeOf = (text: string, image: boolean): "slash" | "submit" =>
+  (text.startsWith("/") || text.startsWith("!")) && !text.includes("\n") && !image ? "slash" : "submit";
+export const BANG_RAN = "ran";
+export const BANG_ASKS = "asks first: answer below";
+export const BANG_RUNNING = "still running: its output shows in the Feed";
+export type BangAnswer = { state?: string; output?: string; lines?: string[]; reason?: string };
+/** The one answer line under a `!` row (its output's lines under `ran`, as a slash answer shows them). */
+export function bangLines(r: BangAnswer): string[] {
+  if (r.state === "asked") return [BANG_ASKS];
+  if (r.state === "running") return [BANG_RUNNING];
+  if (r.state === "denied") return [`denied: ${String(r.reason || "").trim()}`];
+  const lines = Array.isArray(r.lines) ? r.lines.map(String) : String(r.output || "").split(/\r?\n/);
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  return [BANG_RAN, ...lines];
+}
+
 /** P72: the box once the answer to a send arrives while its record stands: `null` leaves the box as it is. */
 export function afterAnswer(box: string, sent: string): string | null {
   if (!box.startsWith(sent)) return null;

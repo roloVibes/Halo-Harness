@@ -18,6 +18,12 @@ on an otherwise-plain line (not inside a pasted multi-line block):
   model is never invoked for this turn at all. This is the TUI's own
   prompt-line prefix, distinct from a command/skill body's `` !`cmd` ``
   backtick form above (same permission gating, different trigger).
+  A line that starts with ! runs that command in the session at once, as
+  in the terminal: no model turn; its output shows here and in the Feed.
+  The same one-line `!cmd` typed in Studio's Prompt panel runs through the
+  same path in this session (it is never a steer and never queued), and
+  Studio's Feed shows its tool row once. `Esc` ends a running `!` command
+  (its card ends with `[command aborted]`); closing Halo ends it too.
 - **`@path`** and **`@path#L10`** / **`@path#L10-20`** -- attaches a file
   (optionally one line, or an inclusive line range) as a log snapshot
   before the turn is sent, resolved the same way the Read tool itself

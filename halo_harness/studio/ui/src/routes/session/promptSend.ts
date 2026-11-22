@@ -1,6 +1,8 @@
 // What the Prompt panel sends (3.3.11.0 R1), all to this harness's session over its control socket
 // (POST sessions/<sid>/command, studio/sessions_prompt_api.py):
 // * a line starting with `/` (one line) is `slash`: its output comes back as the lines the TUI would print;
+// * a one-line `!command` with no image is `slash` too (3.6.0.12 BS), busy or not: the session runs it as its
+//   terminal does (no turn, no receipt) and the panel's answer line says ran / asks first / denied / still running;
 // * anything else is `submit` with `when_busy: refuse` and a fresh `client_id` (the receipt's idempotency key: a
 //   retry of the same send returns the stored row, never a second turn). Told the session is busy, the panel
 //   keeps the text and offers Queue it (`when_busy: queue`: it starts when the running turn ends; one at a time,
@@ -14,7 +16,7 @@ import { imageFields } from "./steerImage";
 // `Answered in Studio: <label>` with the label from THE table (promptWords.ts askLabel).
 import { dropSent, pushHistory, recordSent, takeSent } from "./promptDraft";
 import { addOut, loadReceipts, noteReceipt, prompt, steerAnswered, steerSent, type Receipt } from "./promptStore";
-import { answeredLine, askLabel } from "./promptWords";
+import { answeredLine, askLabel, bangLines, routeOf, type BangAnswer } from "./promptWords";
 
 type Answer = { ok?: boolean; busy?: boolean; held?: boolean; line?: string; duplicate?: boolean; receipt?: Receipt;
   result?: Record<string, unknown>; error?: string };
@@ -43,9 +45,15 @@ export async function runSlash(sid: string, line: string): Promise<boolean> {
     addOut(sid, line, [r.data.error || "the session did not answer"], true);
     return false;
   }
+  pushHistory(sid, line);
+  if (line.startsWith("!")) { // 3.6.0.12 BS: the answer line; a denied one stays in the box, an ask runs on its Allow
+    addOut(sid, line, bangLines(result as BangAnswer));
+    if ((result as BangAnswer).state === "denied") dropSent();
+    else takeSent(line);
+    return true;
+  }
   const lines = Array.isArray(result.lines) ? result.lines : String(result.output || "").split(/\r?\n/);
   addOut(sid, line, lines.length && lines.some((l) => l.trim()) ? lines : ["(no output: the command ran, or became the next turn)"]);
-  pushHistory(sid, line);
   if (result.ran === false) dropSent(); // nothing ran: the line stays in the box
   else takeSent(line);
   return true;
@@ -83,7 +91,7 @@ export async function submit(sid: string, text: string, when: "refuse" | "queue"
 export async function send(sid: string, raw: string): Promise<boolean> {
   const text = raw.replace(/\s+$/, "");
   if (!sid || (!text.trim() && !prompt.get().img) || prompt.get().sending) return false;
-  if (text.startsWith("/") && !text.includes("\n") && !prompt.get().img) {
+  if (routeOf(text, !!prompt.get().img) === "slash") { // a `/` or `!` line, busy or not (promptWords.ts)
     recordSent(text, null);
     return runSlash(sid, text.trim());
   }
