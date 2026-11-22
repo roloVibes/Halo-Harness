@@ -176,6 +176,10 @@ def test_s3_at_most_four_rings_none_hidden(ctx: Ctx):
     ms = six.get("members") or {}
     ctx.check(f"six end at once: exactly four ring, the top-most in view, got {six.get('rang')} of {seen}",
               all(m.get("raw") == "done" for m in ms.values()) and sorted(six.get("rang") or []) == sorted(k for _, k in seen[:4]))
+    alone, handed = d.get("alone") or {}, d.get("handed") or {}
+    ctx.check(f"main drawn alone: nothing rings; its first group drawn: the group rings HAND, got {alone.get('rang')} then "
+              f"{handed.get('rang')} of {sorted(handed.get('groups') or {})}",
+              alone.get("rang") == [] and not alone.get("groups") and "group:1" in (handed.get("rang") or []))
     f = _ran(ctx, "fold")
     ctx.check(f"a member asking under the open card does not ring, got {f.get('under')} {f.get('under_rang')!r}",
               bool(f.get("under")) and f.get("under_rang") == "")

@@ -95,8 +95,8 @@ class _Table:
                 return files[name](args)
             except _Outside:
                 return F.OUTSIDE, True
-            except (OSError, ValueError, re.error, NotImplementedError) as e:
-                return f"{name} failed: {e}", True
+            except (OSError, ValueError, TypeError, AttributeError, KeyError, re.error, NotImplementedError) as e:
+                return f"{name} failed: {e}", True  # an argument of a wrong type too: an answer, never a lost trial
         return F.NOT_RUN.format(name=name), True
 
     # helpers: the name check of agent/subagent.py run_agent_call, then the part match
@@ -105,6 +105,7 @@ class _Table:
         c["calls"] += 1
         if name == "Workflow":
             flow = args.get("name")
+            flow = flow if isinstance(flow, str) or not flow else str(flow)  # a name of a wrong type is a wrong name
             if flow:
                 c["typed"] += 1
                 from halo_harness.crew import flow_door
@@ -113,6 +114,7 @@ class _Table:
             words, label = str(args.get("task") or ""), str(args.get("description") or flow or "")
         else:
             given = args.get("subagent_type")
+            given = given if isinstance(given, str) or not given else str(given)  # a wrong type: a wrong name, counted
             subagent_type = given or "general-purpose"
             if given:
                 c["typed"] += 1
@@ -420,8 +422,9 @@ def line(card: dict) -> str:
     n = int(card.get("trials") or 0)
     total = lambda trials, key: sum(int(t.get(key) or 0) for t in trials)  # noqa: E731
     done = lambda trials: sum(1 for t in trials if t.get("finished"))  # noqa: E731
+    calls = _mean(now, lambda t: int(t.get("calls") or 0))
     out = (f"{card.get('model')}: hands out {_mean(now, lambda t: len(t.get('parts') or []))} of 4 parts in "
-           f"{_mean(now, lambda t: int(t.get('calls') or 0))} calls (before "
+           f"{calls} call{'' if calls == '1' else 's'} (before "
            f"{_mean(before, lambda t: len(t.get('parts') or []))}) · bundled {total(now, 'bundled')} · names right "
            f"{total(now, 'named_right')} of {total(now, 'typed')} · own steps {_mean(now, lambda t: int(t.get('own') or 0))} "
            f"(before {_mean(before, lambda t: int(t.get('own') or 0))}) · finished {done(now)} of {n} (before "

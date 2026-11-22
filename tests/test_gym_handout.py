@@ -286,6 +286,26 @@ def test_a_path_outside_the_copy_is_refused(ctx: Ctx):
 
 
 @test
+def test_an_argument_of_a_wrong_type_is_answered_and_the_trial_goes_on(ctx: Ctx):
+    """A local model may send a list where a number or a name belongs: the gym's table answers the call (a failed tool,
+    a wrong name), keeps what the trial counted and goes on; the trial is never lost."""
+    calls = [("Agent", {"description": "find the readers", "prompt": "List every function that reads SHOP_MODE."}),
+             ("Read", {"file_path": "shop/cart.py", "offset": [1]}), ("Read", {"file_path": "shop/cart.py", "limit": {"n": 2}}),
+             ("Grep", {"pattern": "SHOP_MODE", "glob": ["*.py"]}), ("Glob", {"pattern": 7}),
+             ("Agent", {"subagent_type": ["coder"], "description": "docs", "prompt": "Add a docstring to every function."}),
+             ("Workflow", {"name": ["check"], "task": "Run the tests and say which fail."})]
+    with _Home() as h, _Mock(h, [_reply(calls), _reply(text="done")]) as mock:
+        got = _trial(h)
+        tool_texts = _tool_texts(_chats(mock)[1])
+        ctx.check(f"the trial finished with its counts kept, got {got}",
+                  got["error"] is None and got["finished"] and got["requests"] == 2 and 1 in got["parts"]
+                  and got["calls"] == 3 and got["own"] == 4)
+        ctx.check(f"every call got an answer (seven), got {len(tool_texts)}: {tool_texts}", len(tool_texts) == 7)
+        ctx.check(f"a name of a wrong type is a wrong name: typed 2, right 0, got {got}",
+                  got["typed"] == 2 and got["named_right"] == 0 and "Unknown subagent_type" in tool_texts[5])
+
+
+@test
 def test_a_trial_talks_to_the_local_server_only(ctx: Ctx):
     import socket
     seen = []
@@ -503,7 +523,7 @@ def test_the_card_is_written_apart_and_its_line_printed(ctx: Ctx):
         one = {**card, "trials": 1, "before": card["before"][:1], "now": card["now"][1:2],
                "errors": ["now 1: the fake failed", "unload: none"]}
         ctx.check(f"at --trials 1 the 3s follow, and the errors line follows the card's, got {G.line(one)!r}",
-                  G.line(one) == f"{MODEL}: hands out 1 of 4 parts in 1 calls (before 0) · bundled 0 · names right 1 "
+                  G.line(one) == f"{MODEL}: hands out 1 of 4 parts in 1 call (before 0) · bundled 0 · names right 1 "
                                  "of 1 · own steps 0 (before 1) · finished 1 of 1 (before 1) · 1 trial\n"
                                  "  errors during the run (non-fatal): now 1: the fake failed; unload: none")
 

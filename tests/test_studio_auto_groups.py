@@ -247,7 +247,7 @@ def test_the_slot_holds_still_for_the_longest_group_name(ctx: Ctx):
     not move when the sample's words or a 25-character name's appear, at the default drawer width and at its narrowest;
     at the default width the slot is no taller than its twin needs, and the twin (3.6.0.13 L4: the slot's longest form, the
     under form with the sample and 99) needs at most four of the slot's own lines (its line-height read from the page;
-    three were asked, four are what the longest form needs at the default drawer width, LV batch 2 repair)."""
+    four are what the longest form needs at the default drawer width: ruled at the join of 3.6.0.13)."""
     import re
     d = _ran(ctx, "longest")
     sample, short = "compare the three reports and write the summary for the team", "compare the three reports"

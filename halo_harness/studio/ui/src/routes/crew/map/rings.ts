@@ -2,7 +2,8 @@
 // DOM, no store, no clock of its own. A member rings ASK when its raw state turns `waiting`, DONE when it turns `done`
 // (never `stopped`), FAILED when it turns `failed`; a group rings HAND when its DRAWN members gain an id and lose none (the
 // held geometry's members: a member added while the drawing is held rings when it is laid out again; a group whose
-// members were replaced is another drawing, never a hand-out). Nothing on the first draw (`prev` empty) or a re-draw with
+// members were replaced is another drawing, never a hand-out). Nothing on the first draw (`first`: by default `prev` empty;
+// useRings.ts says when main was drawn alone before, so the FIRST group of a session rings HAND too) or a re-draw with
 // no change; nothing for a box not wholly in view, under the pointer (the box, or the group of the member under it) or
 // meeting `cover` (the open step-in card's rect, cover.ts; OP1's sheet is not in this release); a box once per 4 s
 // (`last`: when each id last rang, ms); at most four at once, the top-most first. Main's box never rings; no TALK ring.
@@ -28,8 +29,9 @@ const within = (b: RingBox, v: Rect) => b.top >= v.top && b.bottom <= v.bottom &
 const meets = (b: RingBox, c: Rect) => b.top < c.bottom && b.bottom > c.top && b.left < c.right && b.right > c.left;
 const pointed = (b: RingBox, pointer: string | null) => !!pointer && (b.id === pointer || !!b.members?.includes(pointer));
 
-export function ringEvents(prev: RingBox[], next: RingBox[], view: RingView, cover: Rect | null, last: Record<string, number>): Ring[] {
-  if (!prev.length) return [];
+export function ringEvents(prev: RingBox[], next: RingBox[], view: RingView, cover: Rect | null, last: Record<string, number>,
+                           first = !prev.length): Ring[] {
+  if (first) return [];
   const before = new Map(prev.map((b) => [b.id, b]));
   const out: (Ring & { top: number; left: number })[] = [];
   for (const b of next) {

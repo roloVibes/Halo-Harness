@@ -1258,7 +1258,7 @@ def test_ring_events_s3_second_and_limits(ctx: Ctx):
     """L5: S3's second -- the coder ends (DONE), researcher-2 fails (FAILED), main adds a fourth researcher to group 1 (HAND,
     once it is drawn), Tester-1 asks out of view (no ring): three rings, top-most first. The limits: nothing on the first
     draw, for a stopped member, out of view, under the pointer, meeting the open card, a box that rang under 4 s ago, a
-    re-draw with no change; at most four at once, the top-most."""
+    re-draw with no change; at most four at once, the top-most. Once main was drawn alone, the first group rings HAND."""
     before = {"r1": "running", "r2": "running", "r3": "queued", "coder": "running", "rev1": "queued", "rev2": "queued",
               "writer": "done", "t1": "running", "t2": "queued", "media": "queued", "p1": "queued", "p2": "queued"}
     after = {**before, "r2": "failed", "r3": "running", "coder": "done", "rev1": "running", "t1": "waiting"}
@@ -1277,6 +1277,7 @@ out.second = R(D.prev, D.second, D.view, null, {});
 out.held = R(D.prev, D.held, D.view, null, {});
 out.relaid = R(D.held, D.second, D.view, null, {});
 out.first = R([], D.second, D.view, null, {});
+out.firstGroup = R([], D.g0, D.V, null, {}, false);
 out.redraw = R(D.second, D.second, D.view, null, {});
 out.stopped = R(D.a, D.aStop, D.V, null, {});
 out.ask = R(D.a, D.aAsk, D.V, null, {}); out.fail = R(D.a, D.aFail, D.V, null, {});
@@ -1301,6 +1302,8 @@ console.log(JSON.stringify(out));"""
               got.get("relaid") == ring(("group:1", "hand")))
     ctx.check(f"first draw and a re-draw with no change: none, got {got.get('first')} {got.get('redraw')}",
               got.get("first") == [] and got.get("redraw") == [])
+    ctx.check(f"main was drawn alone before (not the first draw): the session's first group rings HAND, got "
+              f"{got.get('firstGroup')}", got.get("firstGroup") == ring(("group:1", "hand")))
     ctx.check(f"a stopped member: no DONE, got {got.get('stopped')}", got.get("stopped") == [])
     ctx.check(f"ASK and FAILED, got {got.get('ask')} {got.get('fail')}",
               got.get("ask") == ring(("a", "ask")) and got.get("fail") == ring(("a", "failed")))
@@ -1330,6 +1333,9 @@ def test_rings_are_css_with_one_end_listener(ctx: Ctx):
     ctx.check("useRings.ts exists", bool(src))
     ctx.check("one animationend listener { once: true }, data-ring and data-rang",
               src.count('addEventListener("animationend"') >= 1 and "{ once: true }" in src and "data-ring" in src and "data-rang" in src)
+    ctx.check("a ring cut off (animationcancel) is taken off too, and every ring when the drawing is not shown",
+              'addEventListener("animationcancel"' in src and 'querySelectorAll<HTMLElement>("[data-ring]")' in src)
+    ctx.check("the first draw is said by useRings (main drawn alone counts as drawn)", "!seen.current)" in src and "[data-box=main]" in src)
     ctx.check("no requestAnimationFrame(, setTimeout(, setInterval( in useRings.ts",
               not re.search(r"\b(?:requestAnimationFrame|setTimeout|setInterval)\(", src))
     ctx.check("useRings reads reduced motion and runs ringEvents with the cover", "prefers-reduced-motion: reduce" in src

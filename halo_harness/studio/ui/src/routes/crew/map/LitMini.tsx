@@ -129,9 +129,10 @@ function MainNow({ main, on, width }: { main?: RecordAgent; on: boolean; width: 
   const now = on ? nw : NO_NOW;
   const fit = nowFit(now, width, kept.current, held);
   kept.current = fit.kept;
+  const cut = fit.text !== now.text; // the held form stands in for the words: only then they are this row's own tooltip
   return (
-    <span className="mp-main-now mono" data-testid="map-main-now" data-now={now.kind} title={now.text ? nowWords(now) : undefined}
-          style={{ minHeight: fit.rows * 17 }}>
+    <span className="mp-main-now mono" data-testid="map-main-now" data-now={now.kind} title={cut ? nowWords(now) : undefined}
+          data-hover-skip={cut ? "" : undefined} style={{ minHeight: fit.rows * 17 }}>
       {fit.text}{fit.secs && <span className="mp-clock-secs">{fit.secs}</span>}
     </span>
   );

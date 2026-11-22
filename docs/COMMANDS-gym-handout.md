@@ -36,7 +36,8 @@ A scratch copy of a small project, removed at the end, and one card per model un
   `a` and `b` are the mean parts handed out per trial (a call earns at most one part; a call that holds several
   counts once as bundled), `c` the mean calls, `r of n` the calls that named a helper and named it right, `o` and `p`
   the mean steps main did itself, `f` and `g` the trials that finished (a reply with no tool call within 10
-  requests). Errors during the run follow on their own line.
+  requests). The two 3s are the trials per arm: they follow `--trials N`. Errors during the run follow on their own
+  line.
 - **A model sent the same words in both arms** (it takes no tools, or today's words do not fit its window) is not
   measured, gets no card and prints why.
 - **The cards** lie under `~/.halo/gym-handout/<host>/handout-<digest>.json`, one per model and host; a new run

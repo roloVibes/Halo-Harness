@@ -390,6 +390,15 @@ def s3rings(c, rig, rows: Rows, a: str, b: str) -> dict:
     frames(c, 4)
     out["six"] = read(c, "live")
     c.call("Emulation.setDeviceMetricsOverride", width=1440, height=900, deviceScaleFactor=1, mobile=False)
+    # the first hand-out of a session: main is drawn alone (nothing rings), then its first group is drawn: it rings HAND
+    go(c, rig, rows, a, b, [main])
+    to_live(c, 0)
+    frames(c, 6)
+    out["alone"] = read(c, "live")
+    put(rows, a, [main, mk("f1", "researcher", "read part 1", "survey the TODOs", 1, since=time.time())])
+    wait_or(c, f"!!{LW}.querySelector('[data-box=\"group:1\"][data-rang]')", 15)
+    frames(c, 2)
+    out["handed"] = read(c, "live")
     return {"s3rings": out}
 
 
