@@ -37,10 +37,11 @@ the end of this section.
 - **A group's head counts from the true state:** "{w} working" (running or paused), "{q} queued", "{v} waiting on you"
   (amber), "{d} done", "{k} stopped", "{f} failed"; a part that is zero is left out.
 - **The slot at the drawing's foot names the group that waits on you when it is out of sight:** "↓ {name} · waits on
-  you" when it lies below, "↑ {name} · waits on you" above (a press scrolls to the helper that asks), and "{name} ·
-  waits on you · under the open box" when the open card covers it (a press closes the card first, then scrolls). With
-  nobody waiting out of sight it names a working group below, as before. The tail " · and {n} more groups below" is
-  unchanged.
+  you" when it lies below and "↑ {name} · waits on you" above (a press brings the group's head to the top, or the
+  helper that asks when the head alone would leave it out of view), and "{name} · waits on you · under the open box"
+  when the open card covers it (a press closes the card). With nobody waiting out of sight it names a working group
+  below, as before. Its tail now reads " · and {n} more groups below" (" · and 1 more group below" at one); before it
+  read " and {n} more below".
 - **A box rings once when something happens to it.** A helper that starts waiting on you (amber) or fails (red) gets a
   ring that shakes for a third of a second; a helper that ends done (green) and a group main hands work to (the
   group's colour) get a ring that fades. Nothing rings on the first draw, out of view, under the pointer or under the
@@ -52,11 +53,14 @@ the end of this section.
   helper is started: the gym answers every tool call itself inside the copy, and each part handed out gets a fixed
   answer. It prints four facts before its first request (what it does, that it is free, how long it may take, what it
   writes), then one line per model: "{model}: hands out {a} of 4 parts in {c} calls (before {b}) · bundled {u} · names
-  right {r} of {n} · own steps {o} (before {p}) · finished {f} of 3 (before {g}) · 3 trials". A ref that is not a
-  local model prints "{ref}: the gym runs local models only." and sends nothing. A model that is sent the same words
-  in both arms prints "{model}: not measured: this model is sent the same words before and today (it takes no tools,
-  or today's words do not fit its window), so there is nothing to compare." and gets no card. The model is unloaded at
-  the end and the copy removed.
+  right {r} of {n} · own steps {o} (before {p}) · finished {f} of 3 (before {g}) · 3 trials" (the two 3s follow
+  `--trials N`; a mean of one call reads "in 1 call"). A ref that is not a local model prints "{ref}: the gym runs
+  local models only." and sends nothing. A local model whose host is not found prints "{ref}: not measured: {the
+  cause}" and gets no card. When no model ran the command exits 1. A model that is sent the same words in both arms
+  prints "{model}: not measured: this model is sent the same words before and today (it takes no tools, or today's
+  words do not fit its window), so there is nothing to compare." and gets no card. An Ollama model is unloaded at the
+  end (when it could not be, the card's errors line says so) and the copy is removed. The paths and patterns the model
+  names are held inside the copy: one that leaves it is refused before the system is asked anything about it.
 - **The cards of `halo gym handout` and `halo gym show`.** One card per model and host under
   `~/.halo/gym-handout/<host>/`, apart from the battery's cards (nothing that reads the battery's results reads them).
   `halo gym show` prints the battery as before, then "Main hands work out (halo gym handout):" with each card's line;
@@ -72,6 +76,10 @@ the end of this section.
   taller than before.
 - **Session's slot keeps the room of its longest words from the first draw:** four of its lines at the default drawer
   width.
+- **A press on the slot while a card is open closes the card first, then scrolls.** Before, it scrolled with the card
+  open.
+- **A group's head reads "{v} waiting on you" where it read "{v} waiting",** and a group with a stopped helper no
+  longer reads as all done: only helpers that ended done count.
 - **Studio's row of a session carries the agents the session had at its start,** which main's hover on Auto reads.
 
 ### Fixed
@@ -87,8 +95,11 @@ the end of this section.
 - **The command prints counts, not a verdict.** The bar the design sets (today's words hand out at least one part more
   than before, a helper is named right in at least 90 % of the calls that name one, and no fewer trials finish) is in
   the docs, not in the output.
-- **The `hf:local/` and `hf:mlx/` routes of the command are built and no test drives them.** A `local:` ref is refused
-  with the same line as a cloud ref, as the battery does.
+- **The `hf:local/` and `hf:mlx/` routes of the command are built and no test drives them.** Nothing is unloaded on
+  them: a server Halo starts for an `hf:mlx/` model is handled as the battery's (`halo gym`) is. A `local:` ref is
+  refused with the same line as a cloud ref, as the battery does.
+- **A trial has no time limit of its own.** It ends after 10 requests, but a model that sends a search pattern that
+  never ends holds it until Ctrl+C.
 - **No talk between agents is drawn.** No agent sends a message to another agent yet, so there is nothing true to
   draw.
 - **"The open box" is today's step-in card.** The box that opens in place is a later release.
@@ -96,12 +107,20 @@ the end of this section.
   pointer leaves.
 - **The slot's answer is worked out again on a scroll, a change of the view's height, a new layout and when the card
   opens or closes.** A window resized with the card open can keep "under the open box" until one of those.
+- **The slot judges "out of sight" up and down only.** A helper that waits on you and is out of view sideways (the
+  drawing zoomed in) is not named.
+- **A workflow's group that is drawn as its steps has no helper boxes:** a helper of it that waits on you is not named
+  by the slot and does not ring.
 - **Only Auto draws NOW, TURN and the rings.** A map of your own draws its boxes as before.
 - **Every Known limit of 3.6.0.12 still holds.**
 - **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
-  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the browser
-  modules of the drawing. On the PC (Windows), one at a time: the plain modules of this release. No real Ollama and no
-  real model was used. Browsers on macOS and Windows are CI's part.
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), then the modules
+  changed after that run once more, and the full real-use check, eighteen of eighteen steps. On the PC (Windows), one
+  at a time: the plain modules of this release and the two browser modules of the drawing, once each. The whole run on
+  the VM found one stylesheet imported in the wrong order; it is fixed. The reviewer found that a network path named
+  by the model under test was looked up before it was refused; it is now refused first, and a test holds it. The
+  package checks found that the first group of a session did not ring; it rings now. `halo gym handout` was never run
+  against a real Ollama or a real model: every check used the tests' stand-in. Browsers on macOS are CI's part.
 
 ## [3.6.0.12] - 2026-11-22
 
