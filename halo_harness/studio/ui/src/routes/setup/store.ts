@@ -45,7 +45,8 @@ export type SetupData = {
   theme_default: string;
   themes: ThemeRow[];
   permission_modes: ModeRow[];
-  team: { active: string; source: string; maps: MapRow[] };
+  /** 3.6.0.11 SM: `runs` the map a new session starts (`auto` when the saved one has a problem), `problems` its lines. */
+  team: { active: string; source: string; runs?: string; problems?: string[]; maps: MapRow[] };
   models: ModelRow[];
   providers: Record<string, ProviderInfo>;
   env_file: string;
@@ -235,4 +236,12 @@ export async function act(path: string, body: Record<string, unknown>, block: Bl
 export function save(b: BlockId): Promise<boolean> {
   const value = shownOf(setup.get(), b);
   return b === "team" ? act("setup/team", { map: value }, b) : act("setup/config", { key: b, value }, b);
+}
+
+/** 3.6.0.11 SM: every way out of a page saves the picks still standing, in the pages' order; false at the first refusal. */
+const PICKED: BlockId[] = ["model", "permission_mode", "theme", "team"];
+export const pending = (s: SetupState): boolean => PICKED.some((b) => changed(s, b));
+export async function savePending(): Promise<boolean> {
+  for (const b of PICKED) if (changed(setup.get(), b) && !(await save(b))) return false;
+  return true;
 }

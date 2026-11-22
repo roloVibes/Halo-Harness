@@ -150,6 +150,23 @@ def enter_saves(c, url, ctx) -> dict:
     return out
 
 
+def next_saves(c, url, ctx) -> dict:
+    """3.6.0.11 SM: a map picked and left by Next WITHOUT Apply is saved: config.json holds it, the Summary shows it."""
+    goto(c, "team")
+    row = "[data-testid=setup-map-input][data-name=ship-it]"
+    click(c, q(row), f"{q(row)}.checked")
+    word = f"({q('[data-testid=setup-word][data-block=team]')}?.textContent || '')"
+    out = {"next_word": c.wait(f"{word}.startsWith('1 changed') && {word}", 10)}
+    click(c, q("[data-testid=setup-next]"), f"{STEP} !== 'team'")
+    out["next_page"] = c.js(STEP)
+    p = ctx["state"] / "config.json"
+    out["next_config"] = (json.loads(p.read_text(encoding="utf-8")).get("crew") or {}).get("map") if p.is_file() else None
+    goto(c, "summary")
+    val = q("[data-testid=setup-summary-row][data-step=team] [data-testid=setup-summary-value]")
+    out["next_summary"] = c.wait(f"({val}?.textContent || '') === 'ship-it' && {val}.textContent", 15)
+    return out
+
+
 def block_and_summary(c, url, ctx) -> dict:
     _load(c, ctx, "mode=setup&block=team&tour=off")
     out = {"block_page": c.wait(f"{STEP} === 'team' && {STEP}", 15), "block_search": c.js("location.search")}
@@ -212,7 +229,7 @@ class PagesDriver(Driver):
         ctx = {"state": state, "srv": srv, "base": base, "frag": frag}
         try:
             from tests.helpers.studio_setup_done import done  # 3.3.3.0 R1: last, it leaves Setup and writes the marker
-            yield tuple((fn, (c, url, ctx)) for fn in (nothing_opens, rail, walk, enter_saves, block_and_summary, remembered, disclosure,
+            yield tuple((fn, (c, url, ctx)) for fn in (nothing_opens, rail, walk, enter_saves, next_saves, block_and_summary, remembered, disclosure,
                                                        done))
         finally:
             M.model_rows = real

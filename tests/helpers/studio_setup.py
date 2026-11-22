@@ -135,7 +135,7 @@ def permissions(c, url, ctx) -> dict:
     goto(c, "permissions")
     row = "[data-testid=setup-mode][data-id=plan]"
     out = {"mode_by": choose(c, row, f"{q(row + ' input')}.checked")}
-    out["mode_word"] = c.wait(f"{_text('[data-testid=setup-word][data-block=permission_mode]')} === '1 changed' && 'changed'", 10)
+    out["mode_word"] = c.wait(f"{_text('[data-testid=setup-word][data-block=permission_mode]')} === '1 changed · saved when you leave this page' && 'changed'", 10)  # 3.6.0.11 SM
     out["mode_save_by"] = save(c, "permission_mode")
     out["mode_lines"] = c.js(_text("[data-testid=setup-lines][data-block=permission_mode]"))
     out["mode_strip"] = c.wait(f"{_cell('permissions')} === 'plan' && {_cell('permissions')}", 10)

@@ -173,6 +173,44 @@ def test_the_map_step_writes_crew_map(ctx: Ctx):
         ctx.check(f"an unknown map's preview is a 404, got {status}", status == 404)
 
 
+def _own_map(e, name: str, text: str) -> None:
+    folder = e.state_dir / "crew" / "maps"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{name}.yaml").write_text(text, encoding="utf-8")
+
+
+@test
+def test_the_map_step_says_when_new_sessions_will_not_run_the_map(ctx: Ctx):
+    """3.6.0.11 SM: a map of his own that names a missing workflow is still saved, and Setup says new sessions run on
+    Auto until it is fixed (the answer's lines, `team.runs`, `team.problems`); a healthy map runs as picked."""
+    shipped = (Path(__file__).resolve().parent.parent / "halo_harness" / "templates" / "crew" / "maps" / "ship-it.yaml").read_text(encoding="utf-8")
+    with _Env() as e:
+        _own_map(e, "broken", shipped.replace("name: ship-it", "name: broken").replace("workflow: plan", "workflow: no-such-workflow"))
+        _own_map(e, "notyaml", "format: map/1\nboxes: [\n")
+        status, s = e.call("POST", "setup/team", {"map": "broken"})
+        team, lines = s.get("team") or {}, s.get("lines") or []
+        ctx.check(f"the broken map is saved (200, crew.map), got {status} {(e.config().get('crew') or {}).get('map')}",
+                  status == 200 and (e.config().get("crew") or {}).get("map") == "broken" and team.get("active") == "broken")
+        head = "broken has a problem: new sessions run on Auto until it is fixed"
+        tail = lines[lines.index(head) + 1:] if head in lines else []
+        ctx.check(f"its lines say new sessions run on Auto, then the compile's problems, got {lines}",
+                  any("no-such-workflow" in ln for ln in tail))
+        ctx.check(f"team.runs is auto and team.problems names it, got {team.get('runs')} {team.get('problems')}",
+                  team.get("runs") == "auto" and any("no-such-workflow" in p for p in team.get("problems") or []))
+        _, st = e.call("GET", "setup/state")
+        ctx.check(f"the state says the same, got {st['team'].get('runs')}", st["team"].get("runs") == "auto" and st["team"].get("problems"))
+        status, s = e.call("POST", "setup/team", {"map": "notyaml"})
+        ctx.check(f"a map that is not YAML: saved, a problem line, never a crash, got {status} {s.get('team', {}).get('problems')}",
+                  status == 200 and s["team"]["runs"] == "auto" and s["team"]["problems"])
+        status, s = e.call("POST", "setup/team", {"map": "ship-it"})
+        ctx.check(f"a healthy map: runs == active, no problems, no problem line, got {s['team'].get('runs')} {s['team'].get('problems')} {s['lines']}",
+                  s["team"].get("runs") == "ship-it" and s["team"].get("problems") == [] and len(s["lines"]) == 1)
+        for name, runs in (("auto", "auto"), ("one-model", "one-model")):
+            status, s = e.call("POST", "setup/team", {"map": name})
+            ctx.check(f"{name}: runs {runs}, no problems, got {s['team'].get('runs')} {s['team'].get('problems')}",
+                      s["team"].get("runs") == runs and s["team"].get("problems") == [])
+
+
 @test
 def test_methods_and_unknown_paths(ctx: Ctx):
     with _Env() as e:
@@ -550,6 +588,92 @@ def test_a_card_says_where_each_value_came_from(ctx: Ctx):
                   status == 200 and s["providers"]["anthropic"].get("field_sources") == {"key": "typed here"})
         ctx.check("no key in the answer", "testtesttesttest" not in json.dumps(s) and "fieldsource-0123456789abcdef" not in json.dumps(s))
     TYPED.clear()
+
+
+# 3.6.0.11 SM: Setup's store, pages and Done run in node (tests/helpers/node_ts.py) with lib/store, lib/api, lib/events and
+# lib/filesLive stood in for (found by what they export, so the strip-types and the transpile paths stub the same files)
+SETUP_UI = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "setup"
+_SETUP_STUBS = {
+    r"export function createStore\b": (
+        "export function createStore(s) { return { get: () => s, set: (n) => { s = n; }, update: (f) => { s = { ...s, ...f(s) }; } }; }\n"
+        "export const useStore = () => undefined, setSectionStatus = () => {}, goSection = () => {}, toast = () => {};\n"
+        "export const studio = createStore({ section: 'setup' });"),
+    r"export class ApiError\b": (
+        "export class ApiError extends Error { constructor(m, problems) { super(m); this.problems = problems || []; } }\n"
+        "export const api = { get: async (u) => globalThis.__get(u), post: async (p, b) => { const r = await globalThis.__post(p, b);"
+        " if (r && r.__refuse) throw new ApiError(r.__refuse, [r.__refuse]); return r; } };"),
+    r"export function onEvent\b": "export function onEvent() { return () => {}; }",
+    r"export function onFilesChanged\b": "export function onFilesChanged() { return () => {}; }",
+}
+_SETUP_HOOK = r"""import fs from 'node:fs'; import { fileURLToPath } from 'node:url';
+const STUBS = %s;
+export async function resolve(spec, ctx, next) {
+  const r = await next(spec, ctx);
+  if (!r.url.startsWith('file:')) return r;
+  let src = ''; try { src = fs.readFileSync(fileURLToPath(r.url), 'utf8'); } catch { return r; }
+  for (const [re, url] of STUBS) if (new RegExp(re).test(src)) return { url, shortCircuit: true };
+  return r; }"""
+_SETUP_JS = r"""import { register } from 'node:module';
+register('data:text/javascript,' + encodeURIComponent(__HOOK__));
+globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+const S = await import(__STORE__), P = await import(__PAGES__), D = await import(__DONE__);
+const D0 = { model: 'm-old', permission_mode: 'default', theme: 'paper', theme_default: 'instrument', packs: [], providers: {},
+  team: { active: 'auto', source: 'default', maps: [] }, linux_fixes: { needed: false, items: [] }, local_models: { model_dirs: [], runtime: '' } };
+let saved, posts, refuse = '';
+globalThis.__get = async () => structuredClone(saved);
+globalThis.__post = async (p, b) => {
+  posts.push([p, b, P.pages.get().page]);
+  if (refuse === p) return { __refuse: 'refused' };
+  if (p === 'setup/done') return { ok: true, done_at: 'now', line: 'halo is starting' };
+  if (p === 'setup/team') saved.team = { ...saved.team, active: b.map }; else saved[b.key] = b.value;
+  return { ...structuredClone(saved), lines: ['saved'] };
+};
+const fresh = (page) => { saved = structuredClone(D0); posts = []; refuse = ''; S.setup.update(() => ({ data: structuredClone(D0), loaded: true, picks: {}, last: {} })); P.pages.update(() => ({ page })); };
+const out = {};
+fresh('team'); S.pick('team', 'ship-it'); out.next = [await P.step(1), posts, P.pages.get().page, saved.team.active, S.setup.get().picks];
+fresh('theme'); S.pick('theme', 'holo'); out.back = [await P.step(-1), posts, P.pages.get().page];
+fresh('model'); S.pick('team', 'mine'); S.pick('theme', 'holo'); S.pick('permission_mode', 'plan'); S.pick('model', 'm-new');
+out.rail = [await P.goto('summary'), posts, P.pages.get().page];
+fresh('team'); S.pick('team', 'nope'); refuse = 'setup/team';
+out.refused = [await P.step(1), posts.map((x) => x[0]), P.pages.get().page, S.setup.get().picks.team];
+posts = []; out.doneRefused = [await D.pressDone(), posts.map((x) => x[0])];
+fresh('summary'); S.pick('team', 'ship-it'); out.done = [await D.pressDone(), posts.map((x) => x[0]), saved.team.active];
+fresh('team'); const p = P.goto('providers'); out.sync = [P.pages.get().page, await p, posts.length];
+console.log(JSON.stringify(out));"""
+
+
+@test
+def test_leaving_a_setup_page_saves_what_he_picked(ctx: Ctx):
+    """3.6.0.11 SM: a pick on the Map, Default model, Permissions or Theme page is saved when he leaves the page (Next,
+    Back, the rail, the Summary's Change, Done), each block through its own route, in the pages' order, before the page
+    changes; a refused save keeps the page and posts nothing more (no setup/done); with nothing picked the page changes
+    at once. The foot says so while a pick stands."""
+    import urllib.parse
+    from tests.helpers import node_ts
+    url = lambda src: "data:text/javascript," + urllib.parse.quote(src)  # noqa: E731
+    hook = _SETUP_HOOK % json.dumps([[k, url(v)] for k, v in _SETUP_STUBS.items()])
+    u = lambda n: json.dumps((SETUP_UI / n).resolve().as_uri())  # noqa: E731
+    js = (_SETUP_JS.replace("__HOOK__", json.dumps(hook)).replace("__STORE__", u("store.ts")).replace("__PAGES__", u("pages.ts"))
+          .replace("__DONE__", u("done.ts")))
+    got = node_ts.run(js)
+    ctx.check(f"Next on the Map page: setup/team {{map: ship-it}} posted on the Map page, then the next page, got {got.get('next')}",
+              got.get("next") == [True, [["setup/team", {"map": "ship-it"}, "team"]], "check", "ship-it", {}])
+    ctx.check(f"Back on the Theme page: setup/config theme posted first, got {got.get('back')}",
+              got.get("back") == [True, [["setup/config", {"key": "theme", "value": "holo"}, "theme"]], "permissions"])
+    ctx.check(f"the rail: model, mode, theme, map saved in the pages' order before the page changes, got {got.get('rail')}",
+              got.get("rail") == [True, [["setup/config", {"key": "model", "value": "m-new"}, "model"],
+                                         ["setup/config", {"key": "permission_mode", "value": "plan"}, "model"],
+                                         ["setup/config", {"key": "theme", "value": "holo"}, "model"],
+                                         ["setup/team", {"map": "mine"}, "model"]], "summary"])
+    ctx.check(f"a refused save keeps the page and the pick, got {got.get('refused')}",
+              got.get("refused") == [False, ["setup/team"], "team", "nope"])
+    ctx.check(f"Done with a refused save posts no setup/done, got {got.get('doneRefused')}",
+              got.get("doneRefused") == [False, ["setup/team"]])
+    ctx.check(f"Done saves the pick before setup/done, got {got.get('done')}", got.get("done") == [True, ["setup/team", "setup/done"], "ship-it"])
+    ctx.check(f"nothing picked: the page changes at once and nothing is posted, got {got.get('sync')}", got.get("sync") == ["providers", True, 0])
+    foot = (SETUP_UI / "BlockFoot.tsx").read_text(encoding="utf-8")
+    ctx.check("the foot's line while a pick stands ends with \" · saved when you leave this page\"",
+              '" · saved when you leave this page"' in foot)
 
 
 if __name__ == "__main__":

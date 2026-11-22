@@ -49,7 +49,7 @@ function OldRow({ r, names }: { r: MapRow; names: string[] }) {
   );
 }
 
-function Row({ r, on }: { r: MapRow; on: boolean }) {
+function Row({ r, on, problems }: { r: MapRow; on: boolean; problems: string[] }) {
   return (
     <label className="su-lineup" data-on={on || undefined} data-active={r.active || undefined} data-testid="setup-map" data-name={r.name}>
       <input type="radio" name="setup-map" checked={on} onChange={() => pick("team", r.name)} data-testid="setup-map-input" data-name={r.name} />
@@ -57,6 +57,7 @@ function Row({ r, on }: { r: MapRow; on: boolean }) {
       {CHIP[r.scope] && <span className="og-chip mono">{CHIP[r.scope]}</span>}
       {r.active && <span className="og-chip mono su-in-use" data-testid="setup-map-in-use">in use</span>}
       <span className="su-lineup-desc muted">{r.description || `${r.boxes} boxes, ${r.lines} lines`}</span>
+      {problems.length > 0 && <span className="su-lineup-problem mono" data-testid="setup-team-problem">{problems.join("\n")}</span>}
     </label>
   );
 }
@@ -66,6 +67,8 @@ export function TeamDetail() {
   const rows = useSetup((s) => s.data?.team.maps || NONE);
   const shown = useSetup((s) => shownOf(s, "team"));
   const preview = usePreview(ready ? shown : "");
+  // 3.6.0.11 SM: the saved map has a problem (new sessions run on Auto): its lines under the row in use, from the answer
+  const problems = useSetup((s) => (s.data?.team.runs && s.data.team.runs !== s.data.team.active && s.data.team.problems) || NONE);
   if (!ready) return <Waiting error={error} />;
   const names = rows.map((r) => r.name);
   const head = shown === ONE_MODEL ? "One model for everything" : isAuto(shown) ? DEFAULT_MAP : shown;
@@ -78,7 +81,7 @@ export function TeamDetail() {
       <div className="su-team-cols">
         <div className="su-lineups" role="radiogroup" aria-label="Map">
           {rows.map((r) => (r.old ? <OldRow key={`${r.scope}:${r.name}`} r={r} names={names} />
-            : <Row key={`${r.scope}:${r.name}`} r={r} on={shown === r.name} />))}
+            : <Row key={`${r.scope}:${r.name}`} r={r} on={shown === r.name} problems={r.active ? problems : NONE} />))}
         </div>
         <div className="su-preview">
           <div className="su-group-head mono">

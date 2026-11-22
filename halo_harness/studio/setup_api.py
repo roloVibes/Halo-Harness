@@ -120,7 +120,12 @@ def post_team(req):
     line = (ONE_MODEL_LINE if name == ONE_MODEL else
             "crew.map unset: new sessions run on Auto (the default)" if is_auto(name) else
             f"crew.map = {name}: new sessions run on the map {name}")
-    return 200, {**_state(req), "lines": [line]}
+    state = _state(req)
+    team = state.get("team") or {}
+    lines = [line]
+    if team.get("runs") and team.get("runs") != team.get("active"):  # 3.6.0.11 SM: saved, and said it will not run
+        lines += [f"{team['active']} has a problem: new sessions run on Auto until it is fixed", *(team.get("problems") or [])]
+    return 200, {**state, "lines": lines}
 
 
 ONE_MODEL_LINE = "One model for everything: roles.enabled = false, no map; main does every job on your model"

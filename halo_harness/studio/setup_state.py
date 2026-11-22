@@ -125,7 +125,27 @@ def team_block(cwd=None, state_dir=None) -> dict:
     """The Map step (its block id stays `team`: `halo setup team`, `?block=team`): the map in use and every map."""
     from halo_harness.crew.compile import in_use
     name, source = in_use(None, cwd)
-    return {"active": name or ONE_MODEL, "source": source, "maps": map_rows(cwd, state_dir)}
+    active = name or ONE_MODEL
+    runs, problems = _runs(name, active, cwd, state_dir)
+    return {"active": active, "source": source, "runs": runs, "problems": problems, "maps": map_rows(cwd, state_dir)}
+
+
+def _runs(name, active: str, cwd, state_dir) -> "tuple[str, list]":
+    """3.6.0.11 SM: the map a new session starts (`compile.for_session`, as headless does): `active`, or `auto` when the
+    map has a problem and the session falls back to Auto, with the compile's problem lines. Never raises."""
+    if not name:
+        return active, []
+    from halo_harness.crew import store
+    from halo_harness.crew.compile import for_session
+    try:
+        c, lines = for_session(None, cwd=cwd, state_dir=state_dir)
+    except Exception as e:  # a map that cannot be read is a problem line, never a broken Setup
+        return "auto", [f"the map {active} cannot be read: {e}"]
+    head = next((i for i, ln in enumerate(lines) if ln.startswith("halo: the map ")), None)
+    if head is None:
+        return active, []
+    fell = c is None or (store.is_auto(c.name) and not store.is_auto(name))
+    return ("auto" if fell else active), [ln.strip() for ln in lines[head + 1:] if ln.strip()]
 
 
 def setup_state(cwd=None, state_dir=None) -> dict:

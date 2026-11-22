@@ -12,7 +12,7 @@ import { api } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { createStore, goSection, studio, toast, useStore } from "../../lib/store";
 import { setupDoor } from "./door";
-import { setup } from "./store";
+import { savePending, setup } from "./store";
 
 export const done = createStore<{ busy: boolean; error: string }>({ busy: false, error: "" });
 
@@ -47,6 +47,7 @@ export function leaveSetup(at: string): void {
 
 /** POST setup/done, then leave Setup (the toast shows on Session); a refusal is the Done part's own line and the page stays. */
 export async function pressDone(): Promise<boolean> {
+  if (!(await savePending())) return false; // 3.6.0.11 SM: a pick still standing is saved first; refused, nothing else posts
   done.update(() => ({ busy: true, error: "" }));
   try {
     const r = await api.post<{ ok: boolean; done_at: string; starts?: string; line?: string }>("setup/done", {});

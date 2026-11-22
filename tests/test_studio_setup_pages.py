@@ -103,6 +103,17 @@ def test_enter_is_the_blocks_save(ctx: Ctx):
 
 
 @test
+def test_next_saves_the_picked_map(ctx: Ctx):
+    """3.6.0.11 SM: a map picked and left by Next with no Apply is saved; the foot said so while the pick stood."""
+    got = _got(ctx)
+    ctx.check(f"the foot while the pick stands, got {got.get('next_word')!r}",
+              got.get("next_word") == "1 changed · saved when you leave this page")
+    ctx.check(f"Next left the Map page and config.json holds ship-it, got {got.get('next_page')!r} {got.get('next_config')!r}",
+              got.get("next_page") == "check" and got.get("next_config") == "ship-it")
+    ctx.check(f"the Summary shows the picked map, got {got.get('next_summary')!r}", got.get("next_summary") == "ship-it")
+
+
+@test
 def test_block_door_and_the_summary(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"?block=team opens the Map step, the word leaves the address, got {got.get('block_page')!r} {got.get('block_search')!r}",

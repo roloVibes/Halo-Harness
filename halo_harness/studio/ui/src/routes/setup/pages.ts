@@ -13,7 +13,7 @@
 import { createStore, useStore } from "../../lib/store";
 import { lastCheckWord } from "./checkStore";
 import { blockDone, blockOf, blockWord, isPackStep, placeSteps } from "./packSetup";
-import { providersSet, setup, type SetupData } from "./store";
+import { pending, providersSet, savePending, setup, type SetupData } from "./store";
 import { mapWord, themeWord } from "./words";
 
 export type CoreStep = "providers" | "local" | "model" | "permissions" | "theme" | "team" | "linux" | "check" | "summary";
@@ -162,10 +162,16 @@ function remember(page: StepId): void {
   }
 }
 
-/** Open step `s`'s page (the rail, Back / Next, a Change jump, the door). */
-export function goto(s: StepId): void {
-  pages.update(() => ({ page: s, chosen: true }));
-  remember(s);
+/** Open step `s`'s page (the rail, Back / Next, a Change jump, the door). 3.6.0.11 SM: a pick still standing is saved
+ *  first (store.ts savePending); on a refusal the page stays (its foot says why) and the answer is false. */
+export function goto(s: StepId): Promise<boolean> {
+  const open = (): boolean => {
+    pages.update(() => ({ page: s, chosen: true }));
+    remember(s);
+    return true;
+  };
+  if (!pending(setup.get())) return Promise.resolve(open());
+  return savePending().then((ok) => ok && open());
 }
 
 /** The state arrived (its `home` with it): the page last open for this home, unless one was chosen already. */
@@ -182,9 +188,9 @@ export function adoptRemembered(home: string): void {
   if (s && (!isPackStep(s) || blockOf(setup.get().data, s))) pages.update(() => ({ page: s })); // a pack's block: while it is here
 }
 
-export function step(by: 1 | -1): void {
+export function step(by: 1 | -1): Promise<boolean> {
   const page = pages.get().page;
   const list = stepsOf(setup.get().data, page);
   const i = list.indexOf(page) + by;
-  if (i >= 0 && i < list.length) goto(list[i]);
+  return i >= 0 && i < list.length ? goto(list[i]) : Promise.resolve(false);
 }

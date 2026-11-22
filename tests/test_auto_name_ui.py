@@ -223,6 +223,20 @@ out.t = [S.themeWord({ theme: 'auto' }), S.themeWord({ theme: 'paper' }), S.them
 
 
 @test
+def test_setup_map_word_says_when_new_sessions_run_on_auto(ctx: Ctx):
+    """3.6.0.11 SM: when the map Setup saved has a problem (`team.runs` differs from `team.active`), mapWord says new
+    sessions run on Auto; a healthy map, Auto and a state with no `runs` read as before. The Map page shows the problem
+    lines under the row in use."""
+    out = node("""out.m = [S.mapWord({ team: { active: 'broken', runs: 'auto', problems: ['box plan: no workflow named x'] } }),
+  S.mapWord({ team: { active: 'shop', runs: 'shop', problems: [] } }), S.mapWord({ team: { active: 'auto', runs: 'auto', problems: [] } }),
+  S.mapWord({ team: { active: 'shop' } })];""", S=SETUP / "words.ts")
+    ctx.check(f"mapWord, got {out.get('m')}",
+              out.get("m") == ["broken: has a problem, new sessions run on Auto", "shop", "Auto (the default)", "shop"])
+    team = (SETUP / "Team.tsx").read_text(encoding="utf-8")
+    ctx.check("the row in use shows the problem lines (setup-team-problem)", 'data-testid="setup-team-problem"' in team)
+
+
+@test
 def test_his_starter_copy_has_no_use_control(ctx: Ctx):
     """A5: his own old file named starter (scope yours) is a picker row of its own, "starter · your copy from before",
     opened and copied by its scope; read-only, no switch, no sentence that a session runs on it; the copy is my-map
