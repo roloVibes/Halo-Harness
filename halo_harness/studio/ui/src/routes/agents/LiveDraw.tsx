@@ -32,6 +32,7 @@ import { whenWords } from "../crew/map/mapTypes";
 import { RunLine } from "../crew/map/RunLine";
 import { drawnAll, selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
+import { useRings } from "../crew/map/useRings";
 import { StepIn } from "../crew/map/StepIn";
 import type { Hit } from "../crew/map/stepInTarget";
 import { readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
@@ -142,6 +143,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const wb = ans ? g.boxes.find((b) => b.id === groupId(ans.n)) : undefined;
   const wbName = ans ? L.groups?.find((x) => x.n === ans.n)?.name || "" : "";
   useMeasure(world, heights, setHeights, true); // R10 (runFrame.ts): never while the view is hidden
+  useRings("live", world, scroll, g, L.groups, L.now || 0, shown); // 3.6.0.13 L5 L6: a box rings once when something happens to it
   useAskedBox("live", s.sid, L, world, setCard); // an ask's door: the asking agent's box selected, its card open
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;

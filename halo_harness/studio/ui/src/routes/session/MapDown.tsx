@@ -30,6 +30,7 @@ import { useLit } from "../crew/map/LitMini";
 import { RunLine } from "../crew/map/RunLine";
 import { drawnAll, selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
 import { useAskedBox } from "../crew/map/askBox";
+import { useRings } from "../crew/map/useRings";
 import { BELOW_SAMPLE, slotWords } from "../crew/map/groupWords";
 import { slotAim, useSlotGo, waitAnswer } from "../crew/map/cover";
 import { groupId } from "../crew/map/litView";
@@ -135,6 +136,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     if (Math.abs(el.scrollTop - p.t) <= 1 || ++p.tries > 3) pending.current = null;
   });
   useMeasure(world, heights, setHeights); // R10 (runFrame.ts)
+  useRings("session", world, scroll, g, L.groups, L.now || 0, on); // 3.6.0.13 L5 L6: a box rings once when something happens to it
   useAskedBox("session", s.sid, L, world, setCard); // an ask's door: the asking agent's box selected, its card open
   const onScroll = () => {
     const el = scroll.current;

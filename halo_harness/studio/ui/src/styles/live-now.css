@@ -10,3 +10,18 @@
 .mp-main-turn { display: block; font-size: 12px; line-height: 17px; overflow-wrap: anywhere; color: var(--muted); }
 /* 3.6.0.13 L4: a group's head counts from the raw state; "{v} waiting on you" in --warn (GroupBlock.tsx). */
 .mp-group-counts .mp-warn { color: var(--warn); }
+/* 3.6.0.13 L6: a box rings once when something happens to it (crew/map/useRings.ts sets data-ring and takes it off on this
+   animation's end; rings.ts says which): a 2 px ring 3 px out, radius 9, no pointer events. ASK (--warn) and FAILED (--bad):
+   the ring moves 0, -2, 2, -2, 2, 0 px in 360 ms; DONE (--ok) and HAND (the group's --g) fade in 600 ms; each runs once.
+   A member is always positioned (map-down.css gives it none; a position that came and went with each ring would change
+   it each time); a group's inline position holds its ring. Reduced motion: no ring at all. */
+.mp-member { position: relative; }
+[data-ring]::after { content: ""; position: absolute; inset: -3px; border: 2px solid; border-radius: 9px; pointer-events: none; }
+[data-ring=ask]::after { border-color: var(--warn); animation: mp-ring-shake 360ms linear 1; }
+[data-ring=failed]::after { border-color: var(--bad); animation: mp-ring-shake 360ms linear 1; }
+[data-ring=done]::after { border-color: var(--ok); animation: mp-ring-fade 600ms ease-out 1 forwards; }
+[data-ring=hand]::after { border-color: var(--g); animation: mp-ring-fade 600ms ease-out 1 forwards; }
+@keyframes mp-ring-shake { 0% { transform: translateX(0); } 20% { transform: translateX(-2px); } 40% { transform: translateX(2px); }
+  60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } 100% { transform: translateX(0); } }
+@keyframes mp-ring-fade { 0% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { [data-ring]::after { animation: none; display: none; } }

@@ -35,7 +35,7 @@ MODS = {
     "gw": "routes/crew/map/groupWords.ts", "hops": "routes/crew/map/overlayHops.ts", "sit": "routes/crew/map/stepInTarget.ts",
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
     "slot": "routes/agents/liveSlot.ts", "now": "routes/crew/map/nowLine.ts", "room": "routes/crew/map/nowRoom.ts",
-    "turn": "routes/crew/map/turnWords.ts",
+    "turn": "routes/crew/map/turnWords.ts", "rings": "routes/crew/map/rings.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -675,15 +675,21 @@ console.log(JSON.stringify([
 
 @test
 def test_no_fetch_or_timer_in_group_files(ctx: Ctx):
-    """B25: nothing in (b) adds a fetch, a timer or a network call (green before and after: a guard)."""
+    """B25: nothing in (b) adds a fetch, a timer or a network call (green before and after: a guard). 3.6.0.13 L6: the
+    files of NOW, TURN, the rings and the cover too, and no requestAnimationFrame( either; a listed file that is missing fails."""
     import re
-    bad = {}
-    for f in ("GroupBlock.tsx", "GroupMember.tsx", "groupWords.ts", "overlayGroups.ts", "litView.ts"):
+    bad, missing = {}, []
+    for f in ("GroupBlock.tsx", "GroupMember.tsx", "groupWords.ts", "overlayGroups.ts", "litView.ts", "nowLine.ts", "nowRoom.ts",
+              "turnWords.ts", "rings.ts", "useRings.ts", "cover.ts"):
         p = SRC / "routes/crew/map" / f
-        hits = re.findall(r"\b(?:fetch|setInterval|setTimeout|api)\(|\bapi\.", p.read_text(encoding="utf-8")) if p.is_file() else []
+        if not p.is_file():
+            missing.append(f)
+            continue
+        hits = re.findall(r"\b(?:fetch|setInterval|setTimeout|api|requestAnimationFrame)\(|\bapi\.", p.read_text(encoding="utf-8"))
         if hits:
             bad[f] = hits
-    ctx.check(f"no fetch(, setInterval(, setTimeout(, api( in the group files, got {bad}", not bad)
+    ctx.check(f"every listed file exists, missing {missing}", not missing)
+    ctx.check(f"no fetch(, setInterval(, setTimeout(, api(, requestAnimationFrame( in the group files, got {bad}", not bad)
 
 
 # ---------------------------------------------------------------------------------------------- 5. (batch 6) the slot, the doors
@@ -1221,6 +1227,134 @@ console.log(JSON.stringify(out));"""
     cover = (SRC / "routes/crew/map/cover.ts").read_text(encoding="utf-8")
     ctx.check("cover.ts keeps the card itself (its rect read by rectNow when asked) and reads members by placeOf",
               "rectNow(cover.get()[where])" in cover and "rectOf(el)" not in cover and cover.count("placeOf(") >= 2)
+
+
+# ---------------------------------------------------------------------------------------------- 3.6.0.13 L5 L6: the rings
+
+def _mb(aid: str, raw: str, top: float, h: float = 83, left: float = 24, right: float = 376) -> dict:
+    return {"id": aid, "kind": "member", "raw": raw, "top": top, "bottom": top + h, "left": left, "right": right}
+
+
+def _gb(n: int, members: list, top: float, bottom: float, left: float = 12, right: float = 388) -> dict:
+    return {"id": f"group:{n}", "kind": "group", "members": members, "top": top, "bottom": bottom, "left": left, "right": right}
+
+
+def _s3(raws: dict, relaid: bool) -> list:
+    """S3's drawing on screen: seven groups; `relaid`: group 1 drawn with the fourth researcher (91 px taller, 2-7 moved)."""
+    d = 91 if relaid else 0
+    out = [_gb(1, ["r1", "r2", "r3"] + (["r4"] if relaid else []), 24, 378 + d),
+           _mb("r1", raws["r1"], 66), _mb("r2", raws["r2"], 157), _mb("r3", raws["r3"], 248)]
+    if relaid:
+        out.append(_mb("r4", "queued", 339))
+    for n, top, bottom, ms in ((2, 406, 578, ["coder"]), (3, 606, 869, ["rev1", "rev2"]), (4, 897, 1069, ["writer"]),
+                               (5, 1097, 1360, ["t1", "t2"]), (6, 1388, 1588, ["media"]), (7, 1616, 1879, ["p1", "p2"])):
+        out.append(_gb(n, ms, top + d, bottom + d))
+        out += [_mb(m, raws[m], top + d + 42 + 91 * i) for i, m in enumerate(ms)]
+    return out
+
+
+@test
+def test_ring_events_s3_second_and_limits(ctx: Ctx):
+    """L5: S3's second -- the coder ends (DONE), researcher-2 fails (FAILED), main adds a fourth researcher to group 1 (HAND,
+    once it is drawn), Tester-1 asks out of view (no ring): three rings, top-most first. The limits: nothing on the first
+    draw, for a stopped member, out of view, under the pointer, meeting the open card, a box that rang under 4 s ago, a
+    re-draw with no change; at most four at once, the top-most."""
+    before = {"r1": "running", "r2": "running", "r3": "queued", "coder": "running", "rev1": "queued", "rev2": "queued",
+              "writer": "done", "t1": "running", "t2": "queued", "media": "queued", "p1": "queued", "p2": "queued"}
+    after = {**before, "r2": "failed", "r3": "running", "coder": "done", "rev1": "running", "t1": "waiting"}
+    view = {"top": 0, "bottom": 700, "left": 0, "right": 400, "pointer": None, "now": 100_000}
+    V = {"top": 0, "bottom": 1000, "left": 0, "right": 1000, "pointer": None, "now": 100_000}
+    D = {"prev": _s3(before, False), "held": _s3(after, False), "second": _s3(after, True), "view": view, "V": V,
+         "six0": [_mb(c, "running", 100 * (6 - i)) for i, c in enumerate("abcdef")],
+         "six1": [_mb(c, "done", 100 * (6 - i)) for i, c in enumerate("abcdef")],
+         "a": [_mb("a", "running", 100)], "aStop": [_mb("a", "stopped", 100)], "aDone": [_mb("a", "done", 100)],
+         "aAsk": [_mb("a", "waiting", 100)], "aFail": [_mb("a", "failed", 100)], "aCut": [_mb("a", "done", -10)],
+         "g0": [_gb(1, ["a"], 50, 300), _mb("a", "running", 100)], "g1": [_gb(1, ["a", "b"], 50, 400), _mb("a", "running", 100)],
+         "gOther": [_gb(1, ["x", "y"], 50, 400)], "gNew": [_gb(1, ["a"], 50, 300), _mb("a", "running", 100), _gb(2, ["b"], 420, 600)],
+         "meets": {"top": 150, "bottom": 400, "left": 300, "right": 600}, "apart": {"top": 400, "bottom": 600, "left": 0, "right": 600}}
+    js = """const R = M.rings.ringEvents, out = {};
+out.second = R(D.prev, D.second, D.view, null, {});
+out.held = R(D.prev, D.held, D.view, null, {});
+out.relaid = R(D.held, D.second, D.view, null, {});
+out.first = R([], D.second, D.view, null, {});
+out.redraw = R(D.second, D.second, D.view, null, {});
+out.stopped = R(D.a, D.aStop, D.V, null, {});
+out.ask = R(D.a, D.aAsk, D.V, null, {}); out.fail = R(D.a, D.aFail, D.V, null, {});
+out.cut = R(D.a, D.aCut, D.V, null, {});
+out.pointer = R(D.a, D.aDone, {...D.V, pointer: "a"}, null, {});
+out.pointerGroup = R(D.g0, D.g1, {...D.V, pointer: "a"}, null, {});
+out.hand = R(D.g0, D.g1, D.V, null, {});
+out.newGroup = R(D.g0, D.gNew, D.V, null, {});
+out.otherMembers = R(D.g0, D.gOther, D.V, null, {});
+out.meets = R(D.a, D.aDone, D.V, D.meets, {}); out.apart = R(D.a, D.aDone, D.V, D.apart, {});
+out.ago3 = R(D.a, D.aDone, D.V, null, {a: D.V.now - 3000}); out.ago5 = R(D.a, D.aDone, D.V, null, {a: D.V.now - 5000});
+out.six = R(D.six0, D.six1, D.V, null, {});
+console.log(JSON.stringify(out));"""
+    got = _run(["rings"], js, D)
+    ring = lambda *p: [{"id": i, "kind": k} for i, k in p]  # noqa: E731
+    ctx.check(f"S3's second: three rings, top-most first (group 1 HAND, researcher-2 FAILED, the coder DONE), none for "
+              f"Tester-1 out of view, got {got.get('second')}",
+              got.get("second") == ring(("group:1", "hand"), ("r2", "failed"), ("coder", "done")))
+    ctx.check(f"held (the fourth researcher not drawn yet): no HAND, got {got.get('held')}",
+              got.get("held") == ring(("r2", "failed"), ("coder", "done")))
+    ctx.check(f"re-laid with the fourth researcher drawn: group 1 HAND alone, got {got.get('relaid')}",
+              got.get("relaid") == ring(("group:1", "hand")))
+    ctx.check(f"first draw and a re-draw with no change: none, got {got.get('first')} {got.get('redraw')}",
+              got.get("first") == [] and got.get("redraw") == [])
+    ctx.check(f"a stopped member: no DONE, got {got.get('stopped')}", got.get("stopped") == [])
+    ctx.check(f"ASK and FAILED, got {got.get('ask')} {got.get('fail')}",
+              got.get("ask") == ring(("a", "ask")) and got.get("fail") == ring(("a", "failed")))
+    ctx.check(f"not wholly in view: none, got {got.get('cut')}", got.get("cut") == [])
+    ctx.check(f"under the pointer (the box, and the group of the member under it): none, got {got.get('pointer')} "
+              f"{got.get('pointerGroup')}", got.get("pointer") == [] and got.get("pointerGroup") == [])
+    ctx.check(f"a member joins a group: HAND; a new group drawn: HAND; a group whose members were replaced (another "
+              f"session's): none, got {got.get('hand')} {got.get('newGroup')} {got.get('otherMembers')}",
+              got.get("hand") == ring(("group:1", "hand")) and got.get("newGroup") == ring(("group:2", "hand"))
+              and got.get("otherMembers") == [])
+    ctx.check(f"meeting the open card: none; apart from it: rings, got {got.get('meets')} {got.get('apart')}",
+              got.get("meets") == [] and got.get("apart") == ring(("a", "done")))
+    ctx.check(f"once per 4 s: 3 s ago none, 5 s ago rings, got {got.get('ago3')} {got.get('ago5')}",
+              got.get("ago3") == [] and got.get("ago5") == ring(("a", "done")))
+    ctx.check(f"six at once: the four top-most, got {got.get('six')}",
+              got.get("six") == ring(("f", "done"), ("e", "done"), ("d", "done"), ("c", "done")))
+
+
+@test
+def test_rings_are_css_with_one_end_listener(ctx: Ctx):
+    """L6: useRings sets data-ring (and a kept data-rang counter), one animationend listener { once: true } per ringing box,
+    no timer, no animation frame; live-now.css draws the ring as ::after (2 px, 3 px out, radius 9, no pointer events), ASK
+    --warn and FAILED --bad shake, DONE --ok and HAND --g fade, never infinite, nothing under reduced motion; a member is
+    always positioned, a group keeps its inline position; both drawings call useRings."""
+    p = SRC / "routes/crew/map/useRings.ts"
+    src = p.read_text(encoding="utf-8") if p.is_file() else ""
+    ctx.check("useRings.ts exists", bool(src))
+    ctx.check("one animationend listener { once: true }, data-ring and data-rang",
+              src.count('addEventListener("animationend"') >= 1 and "{ once: true }" in src and "data-ring" in src and "data-rang" in src)
+    ctx.check("no requestAnimationFrame(, setTimeout(, setInterval( in useRings.ts",
+              not re.search(r"\b(?:requestAnimationFrame|setTimeout|setInterval)\(", src))
+    ctx.check("useRings reads reduced motion and runs ringEvents with the cover", "prefers-reduced-motion: reduce" in src
+              and "ringEvents(" in src and "coverOf(" in src)
+    css = (SRC / "styles/live-now.css").read_text(encoding="utf-8")
+    ctx.check("a member is always positioned; no position rule for a group",
+              re.search(r"\.mp-member\s*\{\s*position:\s*relative;\s*\}", css) is not None
+              and not re.search(r"\.mp-group[^{]*\{[^}]*position", css))
+    after = re.search(r"\[data-ring\]::after\s*\{([^}]*)\}", css)
+    body = after.group(1) if after else ""
+    ctx.check(f"[data-ring]::after: 2 px, 3 px out, radius 9, no pointer events, got {body!r}",
+              all(x in body for x in ("content: \"\"", "position: absolute", "inset: -3px", "border: 2px solid",
+                                      "border-radius: 9px", "pointer-events: none")))
+    for kind, colour in (("ask", "--warn"), ("failed", "--bad"), ("done", "--ok"), ("hand", "--g")):
+        rule = re.search(r"\[data-ring=" + kind + r"\]::after\s*\{([^}]*)\}", css)
+        ctx.check(f"{kind}: {colour}", bool(rule) and f"var({colour})" in rule.group(1))
+    ctx.check("ASK and FAILED shake 0,-2,2,-2,2,0 px in 360 ms; DONE and HAND fade in 600 ms; never infinite",
+              "360ms" in css and "600ms" in css and "infinite" not in css
+              and re.search(r"translateX\(0\).*translateX\(-2px\).*translateX\(2px\)", css, re.S) is not None)
+    rm = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{\s*\[data-ring\]::after\s*\{([^}]*)\}", css)
+    ctx.check("reduced motion: no ring drawn", bool(rm) and "animation: none" in rm.group(1) and "display: none" in rm.group(1))
+    ctx.check("no clip in live-now.css", "clip" not in css)
+    for name in ("routes/agents/LiveDraw.tsx", "routes/session/MapDown.tsx"):
+        s = (SRC / name).read_text(encoding="utf-8")
+        ctx.check(f"{name} calls useRings and stays at or under 215 lines", "useRings(" in s and s.count("\n") <= 215)
 
 
 if __name__ == "__main__":
