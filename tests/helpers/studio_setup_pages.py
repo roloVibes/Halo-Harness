@@ -157,6 +157,9 @@ def next_saves(c, url, ctx) -> dict:
     click(c, q(row), f"{q(row)}.checked")
     word = f"({q('[data-testid=setup-word][data-block=team]')}?.textContent || '')"
     out = {"next_word": c.wait(f"{word}.startsWith('1 changed') && {word}", 10)}
+    # the page after Map is this machine's: Linux fixes where they are needed (the CI runners), else Check
+    steps = c.js(f"{qa('[data-testid=setup-rail-step]')}.map((e) => e.dataset.step).join('|')").split("|")
+    out["next_after_map"] = steps[steps.index("team") + 1] if "team" in steps[:-1] else ""
     click(c, q("[data-testid=setup-next]"), f"{STEP} !== 'team'")
     out["next_page"] = c.js(STEP)
     p = ctx["state"] / "config.json"

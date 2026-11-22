@@ -108,8 +108,9 @@ def test_next_saves_the_picked_map(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the foot while the pick stands, got {got.get('next_word')!r}",
               got.get("next_word") == "1 changed · saved when you leave this page")
-    ctx.check(f"Next left the Map page and config.json holds ship-it, got {got.get('next_page')!r} {got.get('next_config')!r}",
-              got.get("next_page") == "check" and got.get("next_config") == "ship-it")
+    ctx.check(f"Next opened the page after Map and config.json holds ship-it, got {got.get('next_page')!r} "
+              f"(after Map: {got.get('next_after_map')!r}) {got.get('next_config')!r}",
+              bool(got.get("next_after_map")) and got.get("next_page") == got.get("next_after_map") and got.get("next_config") == "ship-it")
     ctx.check(f"the Summary shows the picked map, got {got.get('next_summary')!r}", got.get("next_summary") == "ship-it")
     ctx.check(f"a pick left by Studio's own rail (another section) is saved too, got {got.get('rail_pick')!r} "
               f"{got.get('rail_config')!r}", bool(got.get("rail_pick")) and "rail_config" in got
