@@ -505,8 +505,15 @@ def test_real_pages_a_new_tab_a_box_an_endless_load_and_a_download(ctx: Ctx):
             ctx.check(f"(d) the staging folder is Halo's own, under Halo's home (one rename away), got {staging}",
                       staging is not None and (Path(staging) / "downloads").is_dir()
                       and Path(staging).parent == B.browser_home(home) / "tmp")
-            ctx.check("(d) and it is empty once the file moved",
-                      staging is not None and not any((Path(staging) / "downloads").iterdir()))
+            # 3.6.0.11: wait for the state the check names, and say what was left. The macOS runner once read the
+            # folder a moment after the file was whole in the session's folder and found it not yet empty.
+            left, end = ["(not read)"], time.monotonic() + 10.0
+            while staging is not None and time.monotonic() < end:
+                left = sorted(p.name for p in (Path(staging) / "downloads").iterdir())
+                if not left:
+                    break
+                time.sleep(0.25)
+            ctx.check(f"(d) and it is empty once the file moved, left {left}", staging is not None and not left)
         finally:
             b.close()
         ctx.check("the staging folder went with the browser", staging is None or not os.path.exists(staging))

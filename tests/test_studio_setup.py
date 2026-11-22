@@ -187,6 +187,9 @@ def test_find_add_and_measure_ollama_servers(ctx: Ctx):
               len(lines) == 3 and all(" on " in ln and "32k fits" in ln for ln in lines))
     ctx.check(f"the summary, got {got.get('measure_summary')!r}", str(got.get("measure_summary")).startswith("3 models measured on 2 hosts in ")
               and "3 fit, 0 do not fit" in str(got.get("measure_summary")))
+    seen = got.get("measure_seen") or []  # 3.6.0.11: the POST's answer came 1 s after the job's own frames (a slow machine)
+    ctx.check(f"the summary, once on the page, never left it (the POST's late answer), got {seen}",
+              True in seen and False not in seen[seen.index(True):])
     ctx.check(f"the calibration ran per model (stubbed), recorded, got {got.get('measure_calls')} {got.get('fit_recorded')}",
               len(got.get("measure_calls") or []) == 3 and got.get("fit_recorded") is True)
 

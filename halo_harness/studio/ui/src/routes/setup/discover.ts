@@ -65,6 +65,12 @@ function merge(rows: FoundRow[]): void {
 
 export const running = (f: { state: JobState; running?: boolean } | null) => !!f && (f.state === "running" || !!f.running);
 
+/** 3.6.0.11: the answer of the POST that starts a job is an older snapshot than a frame the live feed already
+ *  brought. On a slow machine the job's last frame arrived first, and the answer turned the job back to "running":
+ *  the measure's summary went away until the next poll (up to a second). The answer never takes the end back. */
+const ended = (f: { job: string | null; state: JobState } | null, job: string | null) =>
+  !!f && !!job && f.job === job && (f.state === "done" || f.state === "stopped");
+
 function adoptScan(f: ScanFrame): void {
   discover.update(() => ({ scan: f }));
   if (f.state === "done" && f.rows) merge(f.rows);
@@ -146,7 +152,7 @@ export async function findServers(): Promise<void> {
 export async function scanNetwork(): Promise<void> {
   try {
     const r = await api.post<{ job: ScanFrame }>("setup/ollama/scan", {});
-    adoptScan({ ...r.job, state: "running", running: true });
+    if (!ended(discover.get().scan, r.job.job)) adoptScan({ ...r.job, state: "running", running: true });
     poll();
   } catch (e) {
     said(false, msg(e));
@@ -200,7 +206,7 @@ export async function measureTicked(): Promise<void> {
   discover.update(() => ({ busy: "measure" }));
   try {
     const r = await api.post<{ job: MeasureFrame }>("setup/ollama/measure", { hosts, models: refs });
-    adoptMeasure({ ...r.job, state: "running", running: true });
+    if (!ended(discover.get().measure, r.job.job)) adoptMeasure({ ...r.job, state: "running", running: true });
     poll();
   } catch (e) {
     said(false, msg(e));

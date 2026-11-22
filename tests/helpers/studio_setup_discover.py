@@ -15,11 +15,13 @@ GPU-memory estimate), so no model loads:
 3. the Models panel (Roles) lists `Ollama (<name>)` for each new host after
    the refresh Add runs;
 4. back in Setup, Measure the found models fills the log: one line per model
-   and the summary.
+   and the summary. The answer of the POST that starts the measure comes a second
+   late (3.6.0.11, as on a slow machine): the summary, once shown, stays.
 """
 from __future__ import annotations
 
 import time
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 from tests.helpers.studio_packs_steps import CUR, alt, q, qa
@@ -28,6 +30,37 @@ from tests.helpers.config_read import config_json
 OTHER = {"models": [{"name": "llama3.2:3b", "model": "llama3.2:3b", "size": 2000, "digest": "sha256:feed1",
                      "details": {"family": "llama"}}]}
 ROWS = qa("[data-testid=setup-found-row]")
+
+
+SUMMARY = q("[data-testid=setup-measure-summary]")
+# every change of "is the measure's summary on the page", in order (the first entry: before the measure)
+SUMMARY_SEEN = ("(() => { window.__measSeen = []; const rec = () => { const on = !!document.querySelector("
+                "'[data-testid=setup-measure-summary]'); if (window.__measSeen[window.__measSeen.length - 1] !== on) "
+                "window.__measSeen.push(on); }; new MutationObserver(rec).observe(document.body, {subtree: true, "
+                "childList: true, characterData: true}); rec(); return 1; })()")
+
+
+@contextmanager
+def late_answer(delay: float = 1.0):
+    """3.6.0.11: POST setup/ollama/measure answers `delay` s after its job started, as on a slow machine, while the
+    job's frames and its summary already reached the page on the live feed (the macOS runner, once: the answer turned
+    the finished measure back to "running", the summary left the page until the next poll, and this driver read it
+    in that second). Yields an Event set once the answer has gone."""
+    import threading
+
+    from halo_harness.studio import setup_discover_jobs as J
+    real, answered = J.start_measure, threading.Event()
+
+    def start(*a, **k):
+        job = real(*a, **k)
+        time.sleep(delay)
+        answered.set()
+        return job
+    J.start_measure = start
+    try:
+        yield answered
+    finally:
+        J.start_measure = real
 
 
 def click(c, expr: str, done: str, wait: float = 8) -> str:
@@ -113,10 +146,14 @@ def _steps(c, ctx, rig) -> dict:
     c.wait(f"{CUR}.startsWith('Setup') && !!{q('[data-testid=setup-measure]')}", 20)
     out["measure_models"] = c.js(f"{qa('[data-testid=setup-measure-model]')}.map((m) => [m.dataset.ref, m.querySelector('input').checked])")
     log = qa("[data-testid=setup-measure-line]")
-    out["measure_by"] = click(c, q("[data-testid=setup-ollama-measure]"),
-                              f"!!{q('[data-testid=setup-measure-summary]')} && {log}.length === 3", 30)
-    out["measure_lines"] = c.js(f"{log}.map((l) => l.textContent)")
-    out["measure_summary"] = c.js(f"{q('[data-testid=setup-measure-summary]')}.textContent")
+    c.js(SUMMARY_SEEN)
+    with late_answer() as answered:
+        out["measure_by"] = click(c, q("[data-testid=setup-ollama-measure]"), f"!!{SUMMARY} && {log}.length === 3", 30)
+        answered.wait(20)
+        time.sleep(0.5)  # the page has taken the POST's answer in
+    out["measure_seen"] = c.js("window.__measSeen")
+    out["measure_lines"] = c.wait(f"{log}.length === 3 && {log}.map((l) => l.textContent)", 15)
+    out["measure_summary"] = c.wait(f"{SUMMARY}?.textContent", 15)
     out["measure_calls"] = sorted([list(x) for x in rig.calls])
     out["fit_recorded"] = (ctx["state"] / "ollama-fit.json").is_file()
     return out
