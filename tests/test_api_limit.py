@@ -68,6 +68,38 @@ out.fast = await M.within(async () => 'ok', 60000);
 
 
 @test
+def test_a_read_its_caller_drops_ends_quietly(ctx: Ctx):
+    """3.6.0.14 O1-6: a read its caller drops (the step-in sheet closed before its one GET answered) is aborted at once and
+    fails with DROPPED's words, never "no answer in N s"; lib/api.ts throws for it before it marks Studio unreached, so
+    no "Studio server unreachable" and no mark that the server stopped. A read nobody drops is untouched."""
+    got = node("""
+let aborted = false;
+const never = (signal) => new Promise(() => { aborted = signal.aborted; signal.addEventListener('abort', () => { aborted = true; }); });
+const outer = new AbortController(); outer.abort();
+try { await M.within(never, 60000, outer.signal); out.got = 'answered'; } catch (e) { out.got = String(e.message); }
+out.aborted = aborted;
+out.dropped = M.DROPPED.message;
+const later = new AbortController(); let late = false;
+const p = M.within((signal) => new Promise(() => { signal.addEventListener('abort', () => { late = true; }); }), 60000, later.signal);
+later.abort();
+try { await p; } catch (e) { out.late = String(e.message); }
+out.lateAborted = late;
+out.kept = await M.within(async () => 'ok', 60000, new AbortController().signal);
+""")
+    ctx.check(f"dropped at once: DROPPED's words, got {got.get('got')!r}", got.get("got") == got.get("dropped") and bool(got.get("dropped"))
+              and not str(got.get("got")).startswith("no answer in"))
+    ctx.check(f"the request is aborted, got {got.get('aborted')}", got.get("aborted") is True)
+    ctx.check(f"dropped while it waits: the same, got {got.get('late')!r} {got.get('lateAborted')}",
+              got.get("late") == got.get("dropped") and got.get("lateAborted") is True)
+    ctx.check(f"a read nobody drops is untouched, got {got.get('kept')!r}", got.get("kept") == "ok")
+    src = API.read_text(encoding="utf-8")
+    catch = src[src.find("} catch (e) {", src.find("async function request")):]
+    quiet, mark = catch.find("DROPPED.message"), catch.find("noteReached(false)")
+    ctx.check("lib/api.ts request throws DROPPED's words for a dropped read before any noteReached(false)",
+              0 <= quiet < mark and "signal?: AbortSignal" in src)
+
+
+@test
 def test_the_report_card_reads_live_report_with_the_long_limit(ctx: Ctx):
     """3.6.0.3 B (R-B12, Z3): the card is read at `live/report` and keeps the long limit it had; no long line names a
     `replays/` route any more, and the card's reader (crew/live/cardData.ts) names none."""

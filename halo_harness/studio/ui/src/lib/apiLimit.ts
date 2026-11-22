@@ -39,12 +39,19 @@ export function limitFor(path: string): number {
 /** The error a request that hit its limit fails with (its message follows the page's "Studio server unreachable: "). */
 export const overLimit = (ms: number): Error => new Error(`no answer in ${Math.round(ms / 1000)} s`);
 
-/** `go(signal)` (a fetch), given up after `ms`: rejects with `overLimit(ms)` and aborts the request. */
-export function within<T>(go: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
+/** 3.6.0.14 O1-6: the error a read its caller dropped fails with (the step-in sheet closed first): quiet, never a stop. */
+export const DROPPED = new Error("dropped by its caller");
+
+/** `go(signal)` (a fetch), given up after `ms`: rejects with `overLimit(ms)` and aborts the request; `outer`, the caller's
+ *  own signal: when it aborts, the request is aborted at once and rejects with DROPPED. */
+export function within<T>(go: (signal: AbortSignal) => Promise<T>, ms: number, outer?: AbortSignal): Promise<T> {
   const ctl = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined, off = () => {};
   const late = new Promise<never>((_, no) => {
     timer = setTimeout(() => (ctl.abort(), no(overLimit(ms))), ms);
+    const drop = () => (ctl.abort(), no(DROPPED));
+    if (outer?.aborted) drop();
+    else if (outer) (outer.addEventListener("abort", drop, { once: true }), (off = () => outer.removeEventListener("abort", drop)));
   });
-  return Promise.race([go(ctl.signal), late]).finally(() => clearTimeout(timer));
+  return Promise.race([go(ctl.signal), late]).finally(() => (clearTimeout(timer), off()));
 }

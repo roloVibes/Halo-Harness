@@ -6,7 +6,7 @@
 // took at boot; `plainCall` is the same request without it (a pack's scoped client, packlib/scoped.ts). 3.4.1.2
 // (PACKS-2): the request's init and headers are objects with no prototype, so no getter a script put on
 // Object.prototype is asked for a field while fetch reads them.
-import { limitFor, overLimit, within } from "./apiLimit";
+import { DROPPED, limitFor, overLimit, within } from "./apiLimit";
 import { makeOwnerProof, ownerProof } from "./owner";
 import { isOwnerRefusal, ownerRefused } from "./ownerTab";
 
@@ -165,7 +165,7 @@ export function apiUrl(path: string, query?: Query): URL {
   return url;
 }
 
-async function request<T>(owner: boolean, method: string, path: string, body?: unknown, query?: Query): Promise<T> {
+async function request<T>(owner: boolean, method: string, path: string, body?: unknown, query?: Query, signal?: AbortSignal): Promise<T> {
   const url = apiUrl(path, query);
   if (revoked) throw new ApiError(401, "this page's key is no longer Studio's: open the page again from Studio");
   if (gone) throw new ApiError(0, "Studio has stopped");
@@ -184,12 +184,13 @@ async function request<T>(owner: boolean, method: string, path: string, body?: u
   const ms = limitFor(path); // P4 batch 9: a read that never ends fails at its limit like any failed read (apiLimit.ts)
   let res: Response, text: string;
   try {
-    [res, text] = await within(async (signal) => {
-      init.signal = signal;
+    [res, text] = await within(async (own) => {
+      init.signal = own;
       const r = await fetchOwn(url, init);
       return [r, await r.text()] as const;
-    }, ms);
+    }, ms, signal);
   } catch (e) {
+    if (e === DROPPED) throw new ApiError(0, DROPPED.message); // O1-6: its caller dropped it: quiet, Studio not marked unreached
     const slow = e instanceof Error && e.message === overLimit(ms).message;
     if (!slow) noteReached(false); // one slow answer is not a stopped server
     throw new ApiError(0, "Studio server unreachable: " + (e instanceof Error ? e.message : String(e)));
@@ -212,8 +213,8 @@ async function request<T>(owner: boolean, method: string, path: string, body?: u
 }
 
 /** The shell's own request: the token and the owner proof. */
-export function call<T = unknown>(method: string, path: string, body?: unknown, query?: Query): Promise<T> {
-  return request<T>(true, method, path, body, query);
+export function call<T = unknown>(method: string, path: string, body?: unknown, query?: Query, signal?: AbortSignal): Promise<T> {
+  return request<T>(true, method, path, body, query, signal);
 }
 
 /** The same request with the token alone (what a pack's scoped client sends). */
@@ -222,7 +223,7 @@ export function plainCall<T = unknown>(method: string, path: string, body?: unkn
 }
 
 export const api = {
-  get: <T = unknown>(path: string, query?: Query) => call<T>("GET", path, undefined, query),
+  get: <T = unknown>(path: string, query?: Query, signal?: AbortSignal) => call<T>("GET", path, undefined, query, signal),
   post: <T = unknown>(path: string, body?: unknown, query?: Query) => call<T>("POST", path, body ?? {}, query),
   put: <T = unknown>(path: string, body?: unknown, query?: Query) => call<T>("PUT", path, body ?? {}, query),
   del: <T = unknown>(path: string, query?: Query) => call<T>("DELETE", path, undefined, query),

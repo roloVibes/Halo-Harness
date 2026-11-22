@@ -40,9 +40,14 @@ function Ask({ row }: { row: AttnRow }) {
 /** The asks of the card's agents, in the sheet's body (3.6.0.14 O1-4: the body alone scrolls, so an ask arriving or
  *  answered moves nothing outside it). `part` "open": the asks present when the sheet opened (`seen`, their ids, taken at
  *  its first draw), at the body's top; "later": the asks that came after, at the body's END. A paused agent's row is not
- *  one: its answer, Resume, is the sheet's own Resume. */
-export function StepInAsks({ who, part, seen }: { who: Who[]; part: "open" | "later"; seen: Set<string> }) {
-  const keys = new Set(who.map((w) => w.key));
-  const rows = usePanels((s) => s.attention).filter((r) => r.kind !== "paused" && keys.has(keyOf(r)) && seen.has(r.id) === (part === "open"));
+ *  one: its answer, Resume, is the sheet's own Resume. O1-6: `from` / `to` cut the later rows around a late Last said. */
+export function StepInAsks({ who, part, seen, from = 0, to }: { who: Who[]; part: "open" | "later"; seen: Set<string>; from?: number; to?: number }) {
+  const rows = askRows(usePanels((s) => s.attention), who, part, seen).slice(from, to);
   return <div className="mp-step-in-asks" data-testid="map-step-in-asks" data-part={part}>{rows.map((r) => <Ask key={r.id} row={r} />)}</div>;
+}
+
+/** The asks of `part` among the attention rows `attn`. */
+export function askRows(attn: AttnRow[], who: Who[], part: "open" | "later", seen: Set<string>): AttnRow[] {
+  const keys = new Set(who.map((w) => w.key));
+  return attn.filter((r) => r.kind !== "paused" && keys.has(keyOf(r)) && seen.has(r.id) === (part === "open"));
 }

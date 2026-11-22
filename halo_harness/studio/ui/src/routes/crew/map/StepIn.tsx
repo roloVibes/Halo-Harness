@@ -10,9 +10,12 @@
 //   lines at the most, scrolling inside;
 // - ONE BODY, the only part that scrolls: the asks present at open, a row per live agent (a click on its words chooses it;
 //   an ended one reads "ended at {t}"), main's "Told it can start: {every name}", then the asks that came later, at its end.
-// A calm sheet (no agent) has the state only and the link. Escape, its x or a second click on the same thing closes it.
+// - LAST SAID (O1-6, StepInSaid.tsx): what the chosen agent last said, read once at the click; the sheet opens when it is
+//   read or at 1 s, and an answer that comes later goes to the body's end, "Reading what it said..." kept in its place.
+// A calm sheet (no agent) has the state only and the link. Where it stands, how it unfolds and what folds it (Escape, its
+// x, a pointer-down outside, a wheel or a zoom over the drawing; a second click on the same thing closes it): useSheet.ts.
 // Shared with Agents' Live view: no Session import.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { goSection } from "../../../lib/store";
 import { Button } from "../../../lib/ui";
 import { setAgentsView } from "../../agents/store";
@@ -22,6 +25,7 @@ import { Steer } from "../../fleet/Steer";
 import { findAgent, isLive, useFleet } from "../../fleet/store";
 import { memberLine, memberState } from "./groupWords";
 import { STATE_WORDS } from "./LitBits";
+import type { Where } from "./cover";
 import { focusGroup } from "./litStore";
 import { openMap, setHover } from "./mapStore";
 import { stateOf, type OvRow } from "./overlay";
@@ -29,9 +33,12 @@ import type { AutoGroup } from "./overlayGroups";
 import { useNowOf } from "./runParts";
 import { sheetHead } from "./sheetPlace";
 import type { Target, Who } from "./stepInTarget";
-import { StepInAsks } from "./StepInAsk";
+import { askRows, StepInAsks } from "./StepInAsk";
+import { saidAid, StepInSaid, useSaid } from "./StepInSaid";
 import { agentRow, endedAt, openInAgents, openMapAt } from "./truth";
+import { saidParts, type Said } from "./truthBits";
 import { toldEvery, type Told } from "./turnWords";
+import { useSheet } from "./useSheet";
 
 /** Agents -> Map on `map`, the sender's box marked (R18's off-map link). */
 function openMapOn(map: string, sender: string): void {
@@ -57,20 +64,16 @@ function WhoRow({ w, chosen, choose }: { w: Who; chosen: boolean; choose: () => 
   );
 }
 
-type Props = { t: Target; map: string; sid: string; close: () => void; onLive: () => void;
+type Props = { t: Target; where: Where; map: string; sid: string; close: () => void; onLive: () => void;
   /** what main was told it can start (main's sheet) */ told?: Told; /** the drawing's groups on Auto */ groups?: AutoGroup[] };
 
-/** `sid`: the session drawn (3.6.0.5 B27: a group card's Open in Agents -> Live stores its group for that session first). */
-export function StepIn({ t, map, sid, close, onLive, told, groups }: Props) {
+/** `sid`: the session drawn (3.6.0.5 B27: a group card's Open in Agents -> Live stores its group for that session first).
+ *  One sheet per target: the drawings key it by `t.id`, so another box's sheet is a new one. */
+export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Props) {
   const [pick, setPick] = useState(t.who[0]?.key || "");
   useEffect(() => setPick(t.who[0]?.key || ""), [t]);
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !(e.target as Element | null)?.closest?.("textarea, input")) close();
-    };
-    window.addEventListener("keydown", esc);
-    return () => window.removeEventListener("keydown", esc);
-  }, [close]);
+  const said = useSaid(sid, saidAid(t));
+  const sheet = useSheet(where, t, said.ready, close);
   const attn = usePanels((s) => s.attention);
   const seen = useRef<{ id: string; ids: Set<string> } | null>(null); // the asks present at open: later ones go to the end
   if (!seen.current || seen.current.id !== t.id) seen.current = { id: t.id, ids: new Set(attn.map((r) => r.id)) };
@@ -81,10 +84,12 @@ export function StepIn({ t, map, sid, close, onLive, told, groups }: Props) {
   const m = groups?.flatMap((g) => g.members).find((x) => x.aid === (own || chosen?.aid));
   const state = own && m ? [memberLine(m), memberState(m)].join(" · ") : t.text;
   const nw = useNowOf(m ? m.aid : chosen?.aid || "", m ? m.raw : String(a?.state || ""), m ? m.started : Number(a?.since) || 0, m ? m.ended : 0);
-  const box = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0); // read once at open, before the first paint: the head's rows are held from it
-  useLayoutEffect(() => setWidth(box.current?.offsetWidth || 0), [t.id]);
-  const head = width ? sheetHead(width, t.text, nw) : null;
+  const head = sheet.width ? sheetHead(sheet.width, t.text, nw) : null; // its width at open: the head's rows are held from it
+  const atOpen = useRef<Said | null>(null); // what Last said read when the sheet was placed
+  if (sheet.place && atOpen.current === null) atOpen.current = said.got;
+  const parts = said.got ? saidParts(atOpen.current ?? said.got, said.got, sid) : { here: [], end: [] };
+  const cut = useRef<number | null>(null); // the later asks drawn when a late answer came: it goes after them
+  if (parts.end.length && cut.current === null) cut.current = askRows(attn, t.who, "later", seen.current.ids).length;
   const live = openInAgents();
   const toLive = () => {
     if (t.id.startsWith("group:")) focusGroup(sid, Number(t.id.slice("group:".length)));
@@ -92,11 +97,11 @@ export function StepIn({ t, map, sid, close, onLive, told, groups }: Props) {
   };
   const toldLine = t.id === "box:main" ? toldEvery(told) : "";
   return (
-    <div ref={box} className="mp-step-in" data-testid="map-step-in" role="dialog" aria-label={t.title} data-target={t.id}>
+    <div ref={sheet.ref} className="mp-step-in" {...sheet.attrs} role="dialog" aria-label={t.title} data-target={t.id}>
       <div className="mp-step-in-head">
         <div className="mp-step-in-titlerow">
           <b className="mp-step-in-title" data-testid="map-step-in-title">{t.title}</b>
-          <button type="button" className="mp-step-in-x" data-testid="map-step-in-close" aria-label="Close" onClick={close}>×</button>
+          <button type="button" className="mp-step-in-x" data-testid="map-step-in-close" aria-label="Close" onClick={sheet.fold}>×</button>
         </div>
         <p className="mp-step-in-state mono" data-testid="map-step-in-state" style={head ? { minHeight: head.stateRows * 17 } : undefined}>{state}</p>
         {t.why && <p className="mp-step-in-state mono" data-testid="map-step-in-why">{t.why}</p>}
@@ -129,8 +134,13 @@ export function StepIn({ t, map, sid, close, onLive, told, groups }: Props) {
       <div className="mp-step-in-body" data-testid="map-step-in-body">
         <StepInAsks who={t.who} part="open" seen={seen.current.ids} />
         {t.who.map((w) => <WhoRow key={w.key} w={w} chosen={w.key === pick} choose={() => setPick(w.key)} />)}
+        <StepInSaid lines={parts.here} />
         {toldLine && <p className="mp-step-in-state mono" data-testid="map-step-in-told">{toldLine}</p>}
-        <StepInAsks who={t.who} part="later" seen={seen.current.ids} />
+        <StepInAsks who={t.who} part="later" seen={seen.current.ids} to={cut.current ?? undefined} />
+        {cut.current !== null && <>
+          <StepInSaid lines={parts.end} late />
+          <StepInAsks who={t.who} part="later" seen={seen.current.ids} from={cut.current} />
+        </>}
       </div>
     </div>
   );

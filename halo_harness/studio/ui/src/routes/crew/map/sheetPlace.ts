@@ -4,7 +4,7 @@
 //   as tall as its words at open but at most the view less 16, lifted till its bottom is 8 inside the view;
 // - Session's drawer: the drawer less 16 wide at left 8; 6 px under its box when 240 fit below (its bottom 8 inside),
 //   else 6 px over it when 240 fit above (its top 8 inside), else today's place (40 from the frame's foot, at most the
-//   view less 56).
+//   drawer less 56: the drawing's scroll box can be far lower than the drawer).
 // With no anchor at all (a line in the drawer that is not into a group, an element gone or flat) Agents puts it at the
 // view's top-right, 8 inside, and the drawer at today's place. An anchor partly out of view is clamped 8 inside. Every
 // rect is downFit.ts's `Rect`, in the px of the frame the sheet is absolute in. Called ONCE, at open: never re-placed.
@@ -55,7 +55,7 @@ export function drawerPlace(anchor: Rect | null, view: Rect, frame: { width: num
       return { left, top: foot - height, width, height, side: "above" };
     }
   }
-  const height = Math.max(0, Math.min(h, tall(view) - FIXED_LESS));
+  const height = Math.max(0, Math.min(h, frame.height - FIXED_LESS)); // today's place is the drawer's, its room too
   return { left, top: frame.height - FOOT - height, width, height, side: "fixed" };
 }
 
@@ -101,3 +101,31 @@ export function sheetHead(width: number, text: string, now: { text: string; secs
   const fit = nowFit(now, tw, { rows: 2, grown: false }, true);
   return { stateRows: stateHeld(text, tw), nowRows: fit.rows, text: fit.text, secs: fit.secs };
 }
+
+/** O1-2: what an event does to an open sheet. `at`: where it lands -- the sheet, a `.scrim` (the Stop confirm), the
+ *  drawing's slot, a pick target of this drawing (a box, a member, a line's label or hit path), the drawing's empty
+ *  part (`pan`), anywhere else; `field`: a text field has the key. "pick": nothing here, the click's pick opens that
+ *  box's sheet (or closes this one when it is the same). A pointer-down on the slot folds nothing: its own press folds
+ *  the sheet first (R4). A wheel reaches the sheet only over the drawing; over the sheet it scrolls the body. */
+export type SheetEvent = { kind: "pointer" | "key" | "wheel" | "zoom"; at: "sheet" | "scrim" | "slot" | "pick" | "pan" | "else";
+  key?: string; field?: boolean };
+export function sheetClose(e: SheetEvent): "none" | "pick" | "fold" {
+  if (e.kind === "zoom") return "fold";
+  if (e.kind === "key") return e.key === "Escape" && !e.field ? "fold" : "none";
+  if (e.kind === "wheel") return e.at === "pan" || e.at === "pick" ? "fold" : "none";
+  if (e.at === "sheet" || e.at === "scrim" || e.at === "slot") return "none";
+  return e.at === "pick" ? "pick" : "fold";
+}
+
+export type Inset = { top: number; right: number; bottom: number; left: number };
+const clamp = (v: number, hi: number): number => Math.max(0, Math.min(hi, v));
+/** O1-2: the insets that cut `sheet` down to its box's rectangle `anchor` (the unfold's start), each 0..the sheet's size. */
+export function fromInset(sheet: Place, anchor: Rect): Inset {
+  return { top: clamp(anchor.top - sheet.top, sheet.height), right: clamp(sheet.left + sheet.width - anchor.right, sheet.width),
+    bottom: clamp(sheet.top + sheet.height - anchor.bottom, sheet.height), left: clamp(anchor.left - sheet.left, sheet.width) };
+}
+export const insetOf = (i: Inset): string => `inset(${i.top}px ${i.right}px ${i.bottom}px ${i.left}px)`;
+
+/** O1-6: the sheet opens when the one GET of what its agent said answers, or at 1 s. */
+export const SAID_WAIT_MS = 1000;
+export const saidOpen = (answered: boolean, waitedMs: number): boolean => answered || waitedMs >= SAID_WAIT_MS;

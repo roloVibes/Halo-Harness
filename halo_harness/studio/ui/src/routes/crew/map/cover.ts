@@ -1,11 +1,11 @@
-// 3.6.0.13 L4 with R4: what the open step-in card (StepIn.tsx, `map-step-in`: "the open box" of the design; OP1's sheet is
-// not in this release) covers on each drawing, and the slot's waiting form. `cover`: each drawing's open card (null when
-// closed), set in a layout effect on its card before the slot's answer is worked out; its rect is read when the answer
-// is (rectNow), so a resize that moves the card never leaves a stale one. `waitingSeen`: every waiting member's place
-// (placeOf: a member past the eight drawn stands at its group's "+n more" row); `waitAnswer`: the group that waits on him
-// the slot names first (downFit.ts waitSlot), else null. `useSlotGo`: a press with the card open folds it first (and
-// clears `cover`); the scroll it asked for is made in a layout effect once the card is closed, never while it is open;
-// the under form only folds.
+// 3.6.0.13 L4 with R4: what the open step-in sheet (StepIn.tsx, `map-step-in`: "the open box" of the design, placed at
+// its box since 3.6.0.14 OP1) covers on each drawing, and the slot's waiting form. `cover`: each drawing's open sheet
+// (null when closed), set by the sheet itself once it is placed and cleared when its fold starts or it goes (useSheet.ts:
+// one writer, the open box); its rect is read when the slot's answer is (rectNow), so a resize that moves it never leaves
+// a stale one. `waitingSeen`: every waiting member's place (placeOf: a member past the eight drawn stands at its group's
+// "+n more" row); `waitAnswer`: the group that waits on him the slot names first (downFit.ts waitSlot), else null.
+// `useSlotGo`: a press with the sheet open folds it first (and clears `cover`); the scroll it asked for is made in a
+// layout effect once the sheet is closed, never while it is open; the under form only folds.
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { createStore } from "../../../lib/store";
 import type { SlotAnswer } from "../../agents/liveSlot";
@@ -50,12 +50,9 @@ export function slotAim(world: HTMLElement | null, el: HTMLElement, a: NonNullab
   return slotTop(head, { top: el.scrollTop + r.top - v.top, bottom: el.scrollTop + r.bottom - v.top }, h);
 }
 
-/** R4: sets `cover` from the open card, and returns the slot's press: `arrow` (undefined: the working form), `t` its target. */
-export function useSlotGo(where: Where, root: RefObject<HTMLElement | null>, card: unknown, closeCard: () => void, scrollTo: (t: number) => void) {
+/** R4: the slot's press: `arrow` (undefined: the working form), `t` its target; `cover` itself is set by the open sheet. */
+export function useSlotGo(where: Where, _root: RefObject<HTMLElement | null>, card: unknown, closeCard: () => void, scrollTo: (t: number) => void) {
   const after = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    setCover(where, card ? root.current?.querySelector("[data-testid=map-step-in]") || null : null);
-  }, [card]); // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => { // the scroll a press asked for while the card was open: made once it is closed
     if (card || after.current == null) return;
     const t = after.current;

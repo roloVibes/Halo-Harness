@@ -59,7 +59,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const f = got && "unreadable" in got ? { ...given, unreadable: s.path || map } : given; // R50: T12
   const drawn = !!detail;
   const root = useRef<HTMLDivElement>(null), scroll = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null);
-  const { card, setCard, pick: pickCard, pickLine, closeCard } = useStepCard(L); // R18 (runFrame.ts, as Session's drawer)
+  const { card, setCard, pick: pickCard, pickLine, closeCard, open } = useStepCard(L, "live"); // R18 (runFrame.ts, as Session's drawer)
   // R57: a click on a box (its face, a block's head or step) also sets the Feed to that box; the Feed opens only by his hand
   const pickIn = (id: string, loose: boolean) => (h: Hit) => ((loose ? undefined : setFeedFor(id)), pickCard(h));
   const { held } = useHold(root, !!card);
@@ -137,7 +137,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       el.clientHeight)) || slotAnswer(g.boxes, L.groups, k, el.scrollTop, el.clientHeight) : null;
     if (!sameAnswer(told.current, a)) setAns((told.current = a));
   };
-  useLayoutEffect(answer, [s.auto, g, k, L.groups, drawn, shown, card]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(answer, [s.auto, g, k, L.groups, drawn, shown, card, open]); // eslint-disable-line react-hooks/exhaustive-deps
   const onScroll = () => { if (!raf.current) raf.current = requestAnimationFrame(() => ((raf.current = 0), answer())); };
   useEffect(() => () => { cancelAnimationFrame(raf.current); raf.current = 0; }, [shown]); // the view leaves: no frame waits
   const wb = ans ? g.boxes.find((b) => b.id === groupId(ans.n)) : undefined;
@@ -189,7 +189,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
                            ans.arrow === "under" || !scroll.current ? null : slotAim(world.current, scroll.current, ans, wb.y * k, scroll.current.clientHeight))}>
             {slotWords(wbName, ans.arrow, ans.more)}</button>}
         </div>}
-        {card && <StepIn t={card} map={map} sid={s.sid} close={closeCard} onLive={closeCard} told={s.told} groups={L.groups} />}
+        {card && <StepIn key={card.id} t={card} where="live" map={map} sid={s.sid} close={closeCard} onLive={closeCard} told={s.told} groups={L.groups} />}
       </div>
       </RunCtx.Provider>
     </>

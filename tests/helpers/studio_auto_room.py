@@ -28,9 +28,10 @@ from tests.helpers.scratch_seven import NAME as SEVEN  # noqa: E402
 from tests.helpers.studio_auto_groups_draw import GROUP, MORE, RECT, SLOT, _set, member, scene2  # noqa: E402
 from tests.helpers.studio_session_map_down import MapDownDriver, Rows  # noqa: E402
 from tests.helpers.studio_session_run import M, _main, _seed, _size  # noqa: E402
+from tests.helpers.studio_session_step_in import SHEET_GEO  # noqa: E402
 
 SIZES = ((1280, 800), (1440, 900))
-CARD_SIZES = (*SIZES, (1280, 500))  # repair of batch 4: a window short enough that the card's own 264 px exceeds the room
+CARD_SIZES = (*SIZES, (1280, 500))  # repair of batch 4: a window short enough that the sheet's words exceed the room
 SCROLL = f"{M}?.querySelector('.mp-mini-scroll')"
 FILL = f"{M}?.querySelector('.mp-down-fill')"
 READ = f"""(() => {{ const s = {SCROLL}, f = {FILL}, g = ({GROUP})(1), r = {RECT};
@@ -50,7 +51,7 @@ SEND = f"{CARD}?.querySelector('[data-testid=fleet-steer-send]')"
 CARD_READ = f"""(() => {{ const c = {CARD}, r = {RECT}; if (!c) return null; const v = c.getBoundingClientRect();
   return {{card: r(c), vis: [v.left + c.clientLeft, v.top + c.clientTop, c.clientWidth, c.clientHeight], scroll: [c.scrollTop, c.scrollHeight, c.clientHeight],
     send: r({SEND}), down: r({M}), drawer: r({M}?.closest('[data-testid=stage-drawer]')), title: c.querySelector('[data-testid=map-step-in-title]')?.textContent || '',
-    steer: r(c.querySelector('[data-testid=fleet-steer]'))}}; }})()"""
+    steer: r(c.querySelector('[data-testid=fleet-steer]')), geo: {SHEET_GEO}(c)}}; }})()"""
 
 
 def four() -> list:

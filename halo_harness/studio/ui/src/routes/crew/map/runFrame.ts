@@ -1,16 +1,19 @@
 // The parts of a run's drawing that Session's Live drawer (session/MapDown.tsx, top to bottom) and Agents -> 4 · Live
 // (agents/LiveDraw.tsx, left to right) share, imported by both, never copied (3.6.0.2 R10 R12 R18):
 // - useStepCard: R18 a click on a box, a step row, a line or a label opens the step-in card for the agent the session's
-//   rows name at that moment (stepInTarget.ts); the same thing again closes it;
+//   rows name at that moment (stepInTarget.ts); the same thing again closes it; another box's replaces it;
 // - useHeld: R12 under the pointer (or with a card open) the last laid-out geometry stays, once every box is measured; a
 //   different map (or width) is drawn at once; the change is drawn when the pointer leaves;
 // - useMeasure: R10 each box as tall as its words, measured once drawn (as MapCanvas.tsx measures).
 import { useCallback, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useStore } from "../../../lib/store";
+import { cover, type Where } from "./cover";
 import type { Lit } from "./LitMini";
 import type { LinePick } from "./RunLine";
 import { stepIn, type Hit, type Target } from "./stepInTarget";
 
-export function useStepCard(L: Lit) {
+/** `open`: the drawing's sheet is placed (it set `cover`): the slot's answer is worked out again then. */
+export function useStepCard(L: Lit, where: Where) {
   const [card, setCard] = useState<Target | null>(null);
   const rowsNow = useRef(L);
   rowsNow.current = L;
@@ -20,7 +23,8 @@ export function useStepCard(L: Lit) {
   }), []);
   const pickLine: LinePick = useCallback((l, text) => pick({ kind: "line", from: l.from, to: l.to, text, off: !!l.off }), [pick]);
   const closeCard = useCallback(() => setCard(null), []);
-  return { card, setCard, pick, pickLine, closeCard };
+  const open = useStore(cover, (c) => !!c[where]);
+  return { card, setCard, pick, pickLine, closeCard, open };
 }
 
 /** The box a card is open on carries the selected mark (`data-selected`): its own card, or a block's head or step's;

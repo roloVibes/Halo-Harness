@@ -1045,8 +1045,10 @@ def test_step_in_card_pauses_and_steers_inline(ctx: Ctx):
     ctx.check(f"R18: Pause, Stop and the steer field there, aimed at tester ({key}), got {t.get('n')} steer at {t.get('steerKey')!r}",
               (t.get("n") or {}).get("pause") == 1 and (t.get("n") or {}).get("stop") == 1 and (t.get("n") or {}).get("steer") == 1
               and t.get("steerKey") == key and t.get("pauseText") == "Pause")
-    ctx.check(f"R18: the card sits in the drawer's fixed corner, the same rect from main's box, got {t.get('rect')} {m.get('rect')}",
-              _same(t.get("rect"), m.get("rect")) and m.get("inDrawer") is True)
+    from tests.helpers.studio_session_step_in import sheet_rule
+    for who, r in (("tester", t), ("main", m)):
+        ok, why = sheet_rule(r.get("rect"), r.get("geo"))
+        ctx.check(f"R18 with O1-3: {who}'s sheet sits by its own box in the drawer, by its side's rule: {why}", ok and r.get("inDrawer") is True)
     ctx.check(f"R18: Pause reached the session for tester, got {d.get('paused')}", len(d.get("paused") or []) == 1)
     ctx.check(f"R18: the button reads Resume once tester is paused, got {(d.get('resume') or {}).get('pauseText')!r}",
               (d.get("resume") or {}).get("pauseText") == "Resume")

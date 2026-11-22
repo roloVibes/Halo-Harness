@@ -98,12 +98,20 @@
 /* R18 R12 the step-in card, the box's sheet (3.6.0.14 O1-4): a HEAD and ONE ACTION row that hold still, and ONE BODY, the
    only part that scrolls; buttons of fixed widths, so neither a word changing nor an ask arriving moves anything outside
    the body. When the room is smaller than head + actions + 34 px of body, the body keeps its 34 px and the whole sheet
-   scrolls (its own overflow), so Send can always be reached. */
+   scrolls (its own overflow), so Send can always be reached. O1-2 O1-3: placed at its box once, its rect inline
+   (useSheet.ts); first drawn hidden at its width to be measured; Agents' sheet unfolds from its box's rectangle
+   (--sheet-from) in 160 ms and folds back in 120, the drawer's comes and goes at once; reduced motion: no transition. */
 .mp-down, .ag-run { position: relative; }
-.mp-step-in { position: absolute; left: var(--s-2); right: var(--s-2); bottom: 40px; height: 264px; z-index: 6; overflow-y: auto;
-  max-height: calc(100% - 40px - var(--s-2)); /* r/batch04 entry 2: never taller than the room it opens in; the rest scrolls inside */
+.mp-step-in { position: absolute; z-index: 6; overflow-y: auto; box-sizing: border-box;
   display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2); background: var(--surface);
-  border: 1px solid var(--line-strong); box-shadow: var(--glow); }
+  border: 1px solid var(--line-strong); box-shadow: var(--glow-strong); }
+.mp-step-in[data-place=measure] { visibility: hidden; pointer-events: none; height: auto; }
+.mp-step-in[data-place=sheet] { clip-path: inset(0); transition: clip-path var(--dur-fast) var(--ease); }
+.mp-step-in[data-place=sheet][data-unfold] { clip-path: var(--sheet-from); transition: none; }
+.mp-step-in[data-place=sheet][data-fold] { clip-path: var(--sheet-from); transition-duration: 120ms; }
+@media (prefers-reduced-motion: reduce) { .mp-step-in[data-place=sheet] { transition: none; } }
+.mp-step-in-said { flex: none; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.mp-step-in-said-text { margin: 0; font-size: 12px; line-height: 17px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
 .mp-step-in-head { flex: none; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .mp-step-in-titlerow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-width: 0; }
 .mp-step-in-title { font-size: 13.5px; line-height: 19px; overflow-wrap: anywhere; }

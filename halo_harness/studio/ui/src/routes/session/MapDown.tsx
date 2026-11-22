@@ -10,7 +10,7 @@
 //   draw (a group cut at its foot is reached by the scroll; the slot names a working one).
 // - R12: while the pointer is on it or a card is open the drawing keeps its geometry (hold.ts) and text changes in place;
 //   after a hand scroll the first box he sees keeps its place; Fit (100 %, top) only on the first draw and on a different map.
-// - R18: a click on a box, a step row or a line opens the step-in card (crew/map/StepIn.tsx) in the drawer's fixed corner,
+// - R18: a click on a box, a step row or a line opens the step-in card (crew/map/StepIn.tsx) 6 px under its box (O1-3),
 //   for the agent the session's rows name at that moment (stepInTarget.ts); R43: a box's hover (DownBox.tsx).
 // - R28: nothing waits on the network: the head (truth block, status line, the pair) is drawn from the row first; the map
 //   is read after it, softly, by version (mapFiles.ts); a map gone says "This map was removed at {t}.".
@@ -89,7 +89,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const [heights, setHeights] = useState<Record<string, number>>({});
   // the boxes no line reaches wait for R44's heading (a later batch): today, as before, the drawing is the reached map
   const live = useMemo(() => layoutDown({ ...v, strip: [] }, (b) => heights[b.id] ?? estimateDown(b), cw), [v, heights, cw]);
-  const { card, setCard, pick, pickLine, closeCard } = useStepCard(L); // R18 (runFrame.ts)
+  const { card, setCard, pick, pickLine, closeCard, open } = useStepCard(L, "session"); // R18 (runFrame.ts)
   const { held } = useHold(root, !!card);
   useEffect(() => holding(s.sid, held), [s.sid, held]); // R30: Just built is chosen only while this is not held
   useEffect(() => () => holding(s.sid, false), [s.sid]);
@@ -160,7 +160,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     const el = scroll.current, gs = L.groups, sl = gs && el ? waitAnswer("session", world.current, el, gs, g.boxes, k, top, H) || slotOf(g.boxes, gs, k, top, H) : null;
     const a = sl && "box" in sl ? { n: sl.box.group!.n, more: sl.more } : sl;
     setAns((o) => (sameAnswer(o, a) ? o : a));
-  }, [g, top, k, L.groups, card, H]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [g, top, k, L.groups, card, open, H]); // eslint-disable-line react-hooks/exhaustive-deps
   const wb = ans ? g.boxes.find((b) => b.id === groupId(ans.n)) : undefined;
   const wbName = ans ? L.groups?.find((x) => x.n === ans.n)?.name || "" : "";
   const slot = () => ans && wb && scroll.current && press(ans.arrow, ans.arrow === "under" ? null : slotAim(world.current, scroll.current, ans, wb.y * k, H));
@@ -199,7 +199,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
         </div>}
         </div>
       </div>
-      {card && <StepIn t={card} map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} told={s.told} groups={L.groups} />}
+      {card && <StepIn key={card.id} t={card} where="session" map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} told={s.told} groups={L.groups} />}
       <div className="mp-down-below" data-testid="session-map-below" data-auto={s.auto ? "" : undefined}>
         <div className="mp-down-more">{(n > 0 || !!(ans && wb)) && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
           data-wait={ans?.arrow ? "" : undefined} data-arrow={ans && wb ? ans.arrow || "down" : undefined}

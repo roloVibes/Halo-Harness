@@ -3,8 +3,8 @@ in headless Chrome at 1280 x 800 over tests/helpers/studio_session_rig.py (sessi
 `Rows`) and the map frames the runtime sends. The agent commands Studio posts are taken by a stand-in for the forward to
 the session's socket (`LOG`: what reached "the session"), so nothing runs and nothing is sent anywhere.
 
-    card     the case-2 rig: tester's step row opens the card in the drawer's fixed corner (the same rect as main's box
-             card), named tester, Pause / Stop / the steer field aimed at tester; Pause reaches the session and reads
+    card     the case-2 rig: tester's step row opens the card -- the sheet -- by its own box in the drawer (3.6.0.14
+             O1-3: 6 px under it, else over it, else today's place; `geo` of READ), main's by main's box, named tester, Pause / Stop / the steer field aimed at tester; Pause reaches the session and reads
              Resume once the row is paused; 20 frames of Pause <-> Resume move no button; a steer reaches the session
     recheck  `hops`: a box with two live children (a row each, no buttons in a row: ONE Pause and Stop in the action row,
              aimed at the chosen row; a click on c2's row words moves them and the steer field to c2); a line's card is the child carrying that
@@ -40,10 +40,46 @@ CARD = "document.querySelector('[data-testid=\"map-step-in\"]')"
 TAB = "(document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.textContent || '')"
 PANELS = "document.querySelectorAll('.section-view:not([hidden]) .panel-body:not([hidden])').length"
 SESSION_CMDS = "performance.getEntriesByType('resource').filter((e) => /\\/api\\/live\\/[^/]+\\/[^/]+\\/command(\\?|$)/.test(e.name)).length"
+# 3.6.0.14 O1-3: where the drawer's sheet `k` stands against its box: its `data-side`, its height at open (`data-words`), its
+# target's anchor (as sheetPlace.ts anchorSel), the frame's padding box (`down`) and the drawing's scroll box (`view`)
+SHEET_GEO = """((k) => { const R = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
+  const f = k.offsetParent, id = k.dataset.target || '', e = CSS.escape, cut = id.lastIndexOf(':'), fr = f && f.getBoundingClientRect();
+  const sel = id.startsWith('member:') ? `[data-member="${e(id.slice(7))}"]` : id.startsWith('box:') ? `[data-box="${e(id.slice(4))}"]`
+    : id.startsWith('group:') ? `[data-box="${e(id)}"]` : id.startsWith('head:') ? `[data-box][data-workflow="${e(id.slice(5))}"]`
+    : id.startsWith('step:') && cut > 5 ? `[data-box][data-workflow="${e(id.slice(5, cut))}"]` : null;
+  return { side: k.dataset.side || '', words: Number(k.dataset.words) || 0, anchor: sel && f ? R(f.querySelector(sel)) : null,
+    down: f ? [fr.left + f.clientLeft, fr.top + f.clientTop, f.clientWidth, f.clientHeight] : null, view: R(f && f.querySelector('[data-pan]')) }; })"""
+
+
+def sheet_rule(rect, geo) -> tuple:
+    """O1-3, every figure read from the page: the drawer's sheet is the frame less 16 wide at 8 from its left; "below": 6
+    under its box (its top kept 8 inside the view) and its foot 8 inside the view; "above": its foot 6 over its box;
+    "fixed": its foot 40 over the frame's (at most the frame less 56); its height the smaller of its words at open and the room its side gives."""
+    g = geo or {}
+    a, d, v, side, words = g.get("anchor"), g.get("down"), g.get("view"), g.get("side"), g.get("words") or 0
+    if not (rect and d and v and words):
+        return False, f"nothing to read: {rect} {g}"
+    near = lambda x, y: abs(x - y) <= 1.0  # noqa: E731
+    left, top, width, h = rect
+    vt, vb = v[1], v[1] + v[3]
+    if not (near(left, d[0] + 8) and near(width, d[2] - 16)):
+        return False, f"left {left} / width {width} against the frame {d}"
+    if side == "below" and a:
+        room, at = vb - 8 - top, near(top, max(a[1] + a[3] + 6, vt + 8)) and top + h <= vb - 8 + 1
+    elif side == "above" and a:
+        foot = min(a[1] - 6, vb - 8)
+        room, at = foot - (vt + 8), near(top + h, foot)
+    elif side == "fixed":
+        room, at = d[3] - 56, near(top + h, d[1] + d[3] - 40)
+    else:
+        return False, f"side {side!r} with anchor {a}"
+    return bool(at and near(h, min(words, room))), f"side {side}, rect {rect}, anchor {a}, view {v}, words {words}, room {room}"
+
+
 READ = f"""(() => {{ const k = {CARD}; if (!k) return null;
   const R = (e) => {{ if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }};
   const q = (t) => k.querySelector(`[data-testid=${{t}}]`), n = (t) => k.querySelectorAll(`[data-testid=${{t}}]`).length;
-  return {{ rect: R(k), inDrawer: !!{M}?.contains(k), title: q('map-step-in-title')?.textContent || '', state: q('map-step-in-state')?.textContent || '',
+  return {{ rect: R(k), inDrawer: !!{M}?.contains(k), geo: {SHEET_GEO}(k), title: q('map-step-in-title')?.textContent || '', state: q('map-step-in-state')?.textContent || '',
     rows: [...k.querySelectorAll('[data-testid=map-step-in-row]')].map((r) => ({{ key: r.dataset.key || '',
       text: r.querySelector('[data-testid=map-step-in-row-text]')?.textContent || '', pause: !!r.querySelector('[data-testid=map-step-in-pause]'),
       stop: !!r.querySelector('[data-testid=map-step-in-stop]'), ended: r.querySelector('[data-testid=map-step-in-ended]')?.textContent || '' }})),

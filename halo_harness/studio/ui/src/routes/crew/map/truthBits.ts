@@ -125,3 +125,29 @@ export const askEnded = (t: number): string =>
   `This session ${t ? `ended at ${clock(t)}` : "has ended"}. Nothing waits on you there now.`; // T8's first sentence (P4 batch 12)
 /** P4 batch 12 (the owner's point 24): an ask's door for an agent the drawing puts on no box (glance/openAsk.ts). */
 export const askOffMap = (agent: string): string => `${agent} is not on the map: its question is in the ${WORDS.feed}.`;
+
+/** 3.6.0.14 O1-6 the sheet's Last said (one GET of the agent's tail at the click): `ts` in seconds, read as hh:mm:ss,
+ *  two digits each, 24-hour, local. A done helper's last words come back as `handback`: they are what it said. */
+export type Said = "reading" | { events?: { kind?: string; text?: string; ts?: number }[] } | { error: string };
+const two = (n: number): string => String(n).padStart(2, "0");
+export const secsClock = (t: number): string => {
+  const d = new Date(t * 1000);
+  return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+};
+export const saidReading = "Reading what it said...";
+export function saidLines(got: Said, sid: string): string[] {
+  if (got === "reading") return [saidReading];
+  if ("error" in got) return [`Could not read what it said: ${got.error}`];
+  const ev = got.events || [], last = (kinds: string[]) => [...ev].reverse().find((e) => kinds.includes(e.kind || "") && e.text);
+  const said = last(["text", "handback"]), e = said || last(["thinking"]);
+  if (!e) return ["Nothing said yet."];
+  const head = `${said ? "Last said" : "Last thought"}${e.ts ? ` at ${secsClock(e.ts)}` : ""}: ${e.text}`;
+  return /\.\.\. \(\d+ more characters\)$/.test(e.text || "")
+    ? [head, `The rest is in the session export: Export on Session's Feed, or halo session export ${sid}.`] : [head];
+}
+/** Where the lines go: answered at open -> in its place; answered later -> "Reading what it said..." stays and the
+ *  answer goes to the body's end. */
+export function saidParts(atOpen: Said, now: Said, sid: string): { here: string[]; end: string[] } {
+  if (atOpen !== "reading") return { here: saidLines(now, sid), end: [] };
+  return { here: [saidReading], end: now === "reading" ? [] : saidLines(now, sid) };
+}
