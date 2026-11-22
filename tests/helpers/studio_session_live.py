@@ -136,7 +136,7 @@ def pin_and_hover(c, lv, res: str) -> dict:
     c.click_on(tag)
     out["pinned"] = c.wait(f"{COL}.dataset.pinned", 5)
     out["pinned_only"] = c.js(f"{LINES}.length > 0 && {LINES}.every((l) => l.dataset.key === '{res}')")
-    out["pinned_steer"] = c.js(f"!!{COL}.querySelector('[data-testid=\"fleet-steer\"]')")
+    out["pinned_steer"] = c.js(f"!!{COL}.querySelector('[data-testid=\"fleet-steer\"]')")  # 3.6.0.11: a pin opens no Steer box
     c.key("Escape")
     out["unpinned"] = c.wait(f"!{COL}.dataset.pinned && 'everyone'", 5) or False
     out["everyone_back"] = c.js(f"new Set({LINES}.map((l) => l.dataset.key)).size")

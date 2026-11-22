@@ -8,6 +8,7 @@
 // whether the column follows now (off while you compose in the Steer field),
 // and Export downloads the session's trace (TraceExport.tsx).
 // 3.3.16.2: think and talk in the kind pick; Thinking beside Follow (only thoughts and their acts).
+// 3.6.0.11: Steer beside Follow opens the Steer box (off on every load); pressed while it is open, a click closes it.
 // 3.3.7.0 R2: the offline-promise chip (OfflineChip.tsx) for a session of this harness. 3.4.1.0 R3: the mode word (ModeWord.tsx).
 // 3.3.6.0 R6: Screenshot captures the display of the machine the session's harness runs on and attaches it to the
 // next steer (steerImage.ts): from a Mac or Kali driving this Studio, it is this PC's screen.
@@ -17,7 +18,7 @@ import { fleet, findAgent, useFleet } from "../fleet/store";
 import type { LiveKind, LiveLine } from "../shared/liveFeed";
 import { OfflineChip } from "./OfflineChip";
 import { ModeWord } from "./ModeWord";
-import { pinTo, useStripAgents } from "./steer";
+import { closeSteer, openSteer, pinTo, targetName, useSteerTarget, useStripAgents } from "./steer";
 import { takeScreenshot, useSteerImage } from "./steerImage";
 import { chosenSession, sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
@@ -98,10 +99,26 @@ function ShotButton() {
   const busy = useSteerImage((s) => s.busy);
   return (
     <Button size="sm" variant="ghost" icon={<Icon name="eye" />} disabled={!ss || busy} data-testid="session-live-screenshot"
-            onClick={() => ss && void takeScreenshot(hid, ss.session_id, ss.model)}
+            onClick={() => {
+              if (!ss) return;
+              openSteer(); // 3.6.0.11: the capture is the open box's chip
+              void takeScreenshot(hid, ss.session_id, ss.model);
+            }}
             title={!ss ? "No session to attach a screenshot to" : "Capture the screen of the machine this session's harness runs on (a Mac " +
               "or Kali driving this Studio captures this PC's screen) and attach it to your next steer"}>
       {busy ? "Capturing..." : "Screenshot"}
+    </Button>
+  );
+}
+
+/** 3.6.0.11 (the owner: "Keep it off as default, open it with the steer button"): opens (again: closes) the Steer box. */
+function SteerToggle() {
+  const open = useSession((s) => s.steer);
+  const t = useSteerTarget();
+  return (
+    <Button size="sm" variant={open ? "primary" : "ghost"} icon={<Icon name="edit" />} aria-pressed={open} disabled={!t.key} data-testid="session-live-steer-open"
+            onClick={() => (open ? closeSteer() : openSteer())} title={`Steer ${targetName(t)}: the picked row's agent, else main`}>
+      Steer
     </Button>
   );
 }
@@ -138,6 +155,7 @@ export function LiveHead({ working, count, onFollow, following }: { working: num
                 onClick={onFollow} title="Keep the newest line in view; scrolling up pauses it">
           Follow
         </Button>
+        <SteerToggle />
         <ThinkToggle />
         <ShotButton />
         <TraceExport where="head" />

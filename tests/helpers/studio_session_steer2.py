@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import time
 
-from tests.helpers.studio_session_steer import AGENT_PICK, BOX, COL, KIND_PICK, LINES, box, pick
+from tests.helpers.studio_session_steer import AGENT_PICK, AREA, BOX, COL, KIND_PICK, LINES, STEER_CLOSE, STEER_OPEN, box, clear_field, pick
 
 LIVE = ("queued", "running", "waiting", "paused")
 STRIP = f"{COL}.querySelector('[data-testid=\"session-live-timeline\"]')"
+SCROLL = f"{COL}.querySelector('[data-testid=\"session-live-scroll\"]')"
+FOOT = f"{COL}.querySelector('.slv-foot')"
+DRAFT = "DRAFT not sent yet"
 
 
 def opened(c, rig) -> dict:
@@ -20,6 +23,40 @@ def opened(c, rig) -> dict:
     c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] :is([data-testid=\"session-lit-box\"], [data-testid=\"session-map-row\"])').length >= 3", 40)  # 3.6.0.2 R15: boxes and the rows in them
     time.sleep(0.8)
     return {"opened": True}
+
+
+def steer_off(c, lv) -> dict:
+    """3.6.0.11 (the owner: "Keep it off as default, open it with the steer button, and add the ability to close it"):
+    no box at load and the foot takes no room; the header's Steer opens it on main with the keyboard in it; x closes it
+    and the rows take the room; the text typed and not sent is there on the next open; Esc in the field closes it."""
+    out: dict = {"main_key": lv.key("main")}
+    c.wait(f"!!{STEER_OPEN} && !{STEER_OPEN}.disabled && 1", 30)
+    out["at_load"] = c.js(f"({{box: !!{BOX}, data_steer: {COL}.hasAttribute('data-steer'), foot_h: {FOOT}.getBoundingClientRect().height, "
+                          f"pressed: {STEER_OPEN}.getAttribute('aria-pressed'), label: {STEER_OPEN}.textContent.trim(), title: {STEER_OPEN}.title}})")
+    c.click_on(STEER_OPEN)
+    try:
+        c.wait(f"!!{AREA} && document.activeElement === {AREA} && 1", 10)
+    except TimeoutError:
+        pass  # the read below says what was there
+    out["opened"] = {**box(c), "data_steer": c.js(f"{COL}.dataset.steer || ''"), "pressed": c.js(f"{STEER_OPEN}.getAttribute('aria-pressed')")}
+    clear_field(c)
+    c.type_text(DRAFT)
+    c.wait(f"{AREA}.value === '{DRAFT}' && 1", 5)
+    h0 = c.js(f"{SCROLL}.clientHeight") or 0
+    out["close_words"] = c.js(f"[{STEER_CLOSE}.getAttribute('aria-label'), {STEER_CLOSE}.title]")
+    c.click_on(STEER_CLOSE)
+    out["closed"] = c.wait(f"!{BOX} && !{COL}.hasAttribute('data-steer') && {STEER_OPEN}.getAttribute('aria-pressed') === 'false' && 'closed'", 5) or False
+    try:  # the rows take the foot's room once the grid has laid out again
+        c.wait(f"{SCROLL}.clientHeight - {h0} >= 100 && 1", 5)
+    except TimeoutError:
+        pass
+    out["grew"] = (c.js(f"{SCROLL}.clientHeight") or 0) - h0
+    c.click_on(STEER_OPEN)
+    c.wait(f"!!{AREA} && document.activeElement === {AREA} && 1", 10)
+    out["draft_back"] = c.js(f"{AREA}.value")
+    c.key("Escape")
+    out["esc_closed"] = c.wait(f"!{BOX} && 'closed'", 5) or False
+    return out
 
 
 def strip(c, lv) -> dict:

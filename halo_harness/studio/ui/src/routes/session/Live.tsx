@@ -12,8 +12,10 @@
 // ability to jump in and steer"), top to bottom: the header with the agent
 // and kind picks beside Follow (LiveHead.tsx), Fleet's timeline strip for
 // this session (a lane click pins its agent), the lines with Fleet's time and
-// KIND columns, and the Steer box at the foot at all times (LiveSteer.tsx:
-// the pinned agent, else the session's main agent, with Pause and Stop).
+// KIND columns, and the Steer box at the foot (LiveSteer.tsx: the pinned agent,
+// else the session's main agent, with Pause and Stop). 3.6.0.11: the box is off
+// until asked for (the header's Steer, a row's steer, `s` on a row) and x or Esc
+// closes it; the session's own questions (LivePreflight, LiveEyes) stay in the foot.
 // 3.3.0.0 R6: the steer's target row is outlined (a click on a row, or `s` on
 // a focused row, chooses it); the column stops following while you compose
 // or have scrolled up (follow.ts: the "N new rows · follow" pill); Export
@@ -28,7 +30,6 @@ import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
 import { Timeline } from "../fleet/Timeline";
 import { allAgents, fleet, isLive, localId, useFleet } from "../fleet/store";
-import { focusSteer } from "../fleet/Steer";
 import { useLive, type LiveLine } from "../shared/liveFeed";
 import { linkThoughts, type Links } from "../shared/liveThink";
 import { pairOf } from "../shared/liveTalk";
@@ -39,8 +40,10 @@ import { startLiveTree } from "../shared/liveTree";
 import { kindIn, LiveHead } from "./LiveHead";
 import { answerAsk, LiveRow, type Who } from "./LiveRows";
 import { LiveSteer } from "./LiveSteer";
+import { LivePreflight } from "./LivePreflight";
+import { LiveEyes } from "./LiveImage";
 import { useFollow } from "./follow";
-import { chooseTarget, followAgain, pauseFollow, setPin, targetRow, useStripScope, useSteerTarget } from "./steer";
+import { chooseTarget, followAgain, openSteer, pauseFollow, setPin, targetRow, useStripScope, useSteerTarget } from "./steer";
 import { sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
 import { shortModel } from "../../lib/modelName";
@@ -89,6 +92,7 @@ export function LiveDetail() {
   const links = useMemo(() => linkThoughts(all), [all]);
   const phases = useMemo(() => phaseMap(all), [all]);
   const pair = useSession((s) => s.pair);
+  const open = useSession((s) => s.steer);
   const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : mine(here)).filter(kindIn(kind)).filter(think ? thinkIn(links) : () => true)
     .filter(pair ? (l) => !!l.talk && pairOf(l.talk) === pair : () => true), [all, pin, here, kind, think, links, pair]);
   const shown = useMemo(() => (lines.length > VIEW ? lines.slice(-VIEW) : lines), [lines]);
@@ -102,8 +106,8 @@ export function LiveDetail() {
     const row = (e.target as HTMLElement).closest<HTMLElement>(".slv-line");
     const ask = ["a", "r", "s", "o"].includes(k) ? [...shown].reverse().find((l) => l.kind === "ask") : undefined;
     if (k === "s" && row?.dataset.key) {
-      chooseTarget(row.dataset.key, Number(row.dataset.n) || 0); // `s` on a focused row: steer it
-      focusSteer("live");
+      chooseTarget(row.dataset.key, Number(row.dataset.n) || 0); // `s` on a focused row: steer it (the box opens on it)
+      openSteer();
     } else if (k === "Escape" && sess.get().pin) setPin(sess.get().pin);
     else if (!(ask && answerAsk(ask.key, k, true))) return; // A / R / S / O: the newest ask card in the column
     e.preventDefault();
@@ -114,7 +118,7 @@ export function LiveDetail() {
   const onFollow = () => (sess.get().follow ? pauseFollow() : followAgain());
   return (
     <div className="slv" data-testid="session-live-detail" data-follow={following || undefined} data-pinned={pin || undefined} data-kind={kind || undefined} data-target={target || undefined}
-         data-think={think || undefined} onKeyDown={onKey}>
+         data-think={think || undefined} data-steer={open || undefined} onKeyDown={onKey}>
       <LiveHead working={working} count={lines.length} onFollow={onFollow} following={following} />
       <div className="slv-strip">
         <Timeline scope={strip} onPick={onPin} marked={target} verb={`show only it in the ${WORDS.feed} (again: everyone)`} testid="session-live-timeline" extra={<TraceExport where="timeline" />}
@@ -147,7 +151,9 @@ export function LiveDetail() {
         )}
       </div>
       <footer className="slv-foot">
-        <LiveSteer />
+        <LivePreflight />
+        <LiveEyes />
+        {open && <LiveSteer />}
       </footer>
     </div>
   );

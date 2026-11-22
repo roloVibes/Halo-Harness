@@ -285,7 +285,10 @@ def doors(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.set(a, map="hops", map_plain=False, busy=True, status="busy", agents=[_main(rows, a), _kid("c1", "coder", "running", crew=on)])
     c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
     boot_go(c, url(rig, f"mode=session&session={a}&open=session-agent"))  # the Agent drawer (one drawer at a time at 1280)
+    steer = "document.querySelector('[data-testid=session-live-steer-open]')"  # 3.6.0.11: the Feed's Stop is in its Steer box, off until asked for
     try:
+        c.wait(f"!!{steer} && !{steer}.disabled", 30)
+        c.click_on(steer)
         c.wait(f"!!{AGENT_STOP} && !!{FEED_STOP}", 30)
     except TimeoutError:
         return {"doors": {"missing": c.js(f"""({{ agent: !!{AGENT_STOP}, feed: !!{FEED_STOP}, stops: [...document.querySelectorAll('[data-testid=fleet-stop]')].length,

@@ -34,10 +34,11 @@ type Want = { session: string; key: AgentKey };
  *  3.3.0.0 R6 (steer.ts): `target` the agent the Steer box talks to when you chose one ("" = the pin, else main),
  *  `held` the row you chose it on (0 = its newest row), `chosenAt` counts the choices (the row scrolls into view once),
  *  `hold` following never pushes that row out of view (until you follow again: the pill, Escape, Follow),
- *  `composing` the Steer field has the keyboard, `pausedAt` the newest line when the column stopped following. */
+ *  `composing` the Steer field has the keyboard, `pausedAt` the newest line when the column stopped following.
+ *  3.6.0.11: `steer` the Steer box is open (off on every load, never saved: steer.ts openSteer / closeSteer). */
 type SessionState = {
   view: SessionUiView; chosen: string; want: Want | null; pin: AgentKey; follow: boolean; kind: string;
-  target: AgentKey; held: number; chosenAt: number; hold: boolean; composing: boolean; pausedAt: number;
+  target: AgentKey; held: number; chosenAt: number; hold: boolean; composing: boolean; pausedAt: number; steer: boolean;
   /** 3.3.16.2: the Thinking view (LiveHead.tsx): only THINK rows and the rows they led to; `pair` only one pair's talk (Conversations). */
   think: boolean; pair: string;
 };
@@ -61,6 +62,7 @@ export const sess = createStore<SessionState>({
   hold: false,
   composing: false,
   pausedAt: 0,
+  steer: false,
   think: false,
   pair: "",
 });

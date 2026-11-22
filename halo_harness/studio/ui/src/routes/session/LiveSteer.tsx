@@ -1,5 +1,7 @@
-// The Live column's foot (3.1.7.0 R1, "the steer is always at hand"): the
-// Steer box, there at all times. It talks to the pinned agent, or, with none
+// The Live column's foot (3.1.7.0 R1): the Steer box. 3.6.0.11 (the owner:
+// "Keep it off as default, open it with the steer button, and add the ability
+// to close it"): it is there only while open (Live.tsx, steer.ts openSteer),
+// and x or Esc in the field closes it (closeSteer). It talks to the pinned agent, or, with none
 // pinned, to the chosen session's main agent; its header says who ("STEER
 // main", "STEER researcher") in that agent's colour, and Pause and Stop sit
 // beside it for that same agent (Stop asks first: the Fleet confirm dialog).
@@ -9,10 +11,10 @@
 // 3.3.0.0 R6: above the field the target line names the agent and what it
 // does now (LiveTarget.tsx); while the field has the keyboard the column does
 // not move (steer.ts setComposing); Tab / Shift+Tab in the field cycle the
-// target among the session's live agents; Escape leaves the field and follows
-// again. The field keeps its text when the target changes.
+// target among the session's live agents; Escape closes the box and follows
+// again (3.6.0.11). The field keeps its text when the target changes.
 // 3.3.5.0 R4: a request larger than its local window shows its preflight line
-// and three buttons above the target line (LivePreflight.tsx).
+// and three buttons (LivePreflight.tsx); 3.6.0.11: it and the eyes offer sit in the foot, open box or not.
 // 3.3.6.0 R6: Ctrl+V with an image, or a file dropped on the box, becomes the chip under it (LiveImage.tsx,
 // steerImage.ts); Send then posts the steer with its image to the session, the offer's choice with it.
 import { useEffect, type ClipboardEvent, type DragEvent, type FocusEvent, type KeyboardEvent } from "react";
@@ -21,13 +23,12 @@ import { askStop, togglePause } from "../fleet/actions";
 import { endedAt } from "../crew/map/truth";
 import { Steer } from "../fleet/Steer";
 import { hueOf } from "../shared/hues";
-import { LivePreflight } from "./LivePreflight"; // 3.3.5.0 R4: a request over the window, answered here
 import { useFleet } from "../fleet/store";
-import { LiveEyes, LiveImage } from "./LiveImage"; // 3.3.6.0 R6: the steer's image and the eyes offer
+import { LiveImage } from "./LiveImage"; // 3.3.6.0 R6: the steer's image
 import { imageFile, sendWithImage, steerImage, takeFile } from "./steerImage";
 import { chosenSession } from "./store";
 import { TargetLine } from "./LiveTarget";
-import { cycleTarget, followAgain, setComposing, useSteerTarget } from "./steer";
+import { closeSteer, cycleTarget, setComposing, targetName, useSteerTarget } from "./steer";
 
 const inField = (e: { target: EventTarget }) => (e.target as HTMLElement).dataset?.testid === "fleet-steer";
 
@@ -35,12 +36,15 @@ function onKeys(e: KeyboardEvent<HTMLDivElement>): void {
   if (!inField(e) || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === "Tab") {
     if (cycleTarget(e.shiftKey ? -1 : 1)) e.preventDefault(); // with no other live agent Tab moves the focus on, as usual
-  } else if (e.key === "Escape") followAgain();
+  } else if (e.key === "Escape") closeSteer(); // 3.6.0.11: Esc closes the box (and follows again); its text is kept
 }
 const onFocus = (e: FocusEvent<HTMLDivElement>) => inField(e) && setComposing(true);
 const onBlur = (e: FocusEvent<HTMLDivElement>) => inField(e) && setComposing(false);
 
 const FINISHED = ["done", "failed", "stopped"];
+const CLOSE = "Close the steer box (Esc)";
+let draft = ""; // the text typed and not sent: it survives a close and is there on the next open; a send clears it
+const keep = (t: string) => void (draft = t);
 
 export function LiveSteer() {
   const t = useSteerTarget();
@@ -62,7 +66,7 @@ export function LiveSteer() {
   if (!t.key)
     return <div className="slv-hint mono muted" data-testid="session-live-hint">No session here yet: start one in a terminal (halo) and steer it from here.</div>;
   const a = t.ref?.a;
-  const name = t.main ? "main" : a?.name || a?.role || a?.agent_id || t.key.split("|")[2] || "?";
+  const name = targetName(t);
   const noControl = t.ref?.h.allow_control === "none";
   const done = !a || FINISHED.includes(String(a.state));
   const why = !a
@@ -90,16 +94,15 @@ export function LiveSteer() {
         Stop
       </Button>
       {ended ? <span className="slv-ended mono muted" data-testid="session-live-stop-ended">{endedAt(ended)}</span> : null}
+      <Button size="sm" variant="ghost" icon={<Icon name="close" />} onClick={closeSteer} data-testid="session-live-steer-close" aria-label={CLOSE} title={CLOSE} />
     </>
   );
   return (
     <div className="slv-steer holo-frame" data-testid="session-live-steer" data-key={t.key} data-hc={hueOf(t.key)} data-main={t.main || undefined} data-disabled={!!why || undefined}
          onKeyDown={onKeys} onFocus={onFocus} onBlur={onBlur} onPaste={(e) => take(e, "paste")} onDrop={(e) => take(e, "drop")}
          onDragOver={over}>
-      <LivePreflight />
-      <LiveEyes />
       <TargetLine t={t} name={name} />
-      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} send={send} />
+      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} send={send} initial={draft} onText={keep} />
       <LiveImage />
     </div>
   );

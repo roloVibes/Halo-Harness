@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import time
 
-from tests.helpers.studio_session_steer import AGENT_PICK, AREA, COL, LINES
+from tests.helpers.studio_session_steer import AGENT_PICK, AREA, BOX, COL, LINES
 from tests.helpers.studio_session_target import PILL, press
 
 LIVE = ("queued", "running", "waiting", "paused")
@@ -43,7 +43,8 @@ def keys(c, lv) -> dict:
     out["shift_tab"] = c.wait(f"{TARGET_KEY} === {json.dumps(before)} && {TARGET_KEY}", 5)
     out["esc_paused"] = c.js(f"!{COL}.dataset.follow")
     press(c, "Escape", "Escape", 27)
-    out["esc_follows"] = c.wait(f"{COL}.dataset.follow === 'true' && !{PILL} && document.activeElement !== {AREA} && 'follows'", 5) or False
+    # 3.6.0.11: Escape in the field also closes the box (its text is kept for the next open)
+    out["esc_follows"] = c.wait(f"{COL}.dataset.follow === 'true' && !{PILL} && !{BOX} && 'follows'", 5) or False
     impl = lv.key("implementer")
     lv.say("implementer", "GOLF writes the change. ")
     row = f"{LINES}.filter((l) => l.dataset.key === '{impl}').pop()"
@@ -55,6 +56,7 @@ def keys(c, lv) -> dict:
                                      f"if (document.activeElement !== r) r.focus(); return document.activeElement === r; }})()", 5))
     press(c, "s", "KeyS", 83)
     out["s_key"] = c.wait(f"{TARGET_KEY} === '{impl}' && document.activeElement === {AREA} && {TARGET_KEY}", 5)
+    out["s_text"] = c.js(f"{AREA}?.value ?? null")  # `s` opened the box again: the text typed before Escape is there
     out["impl_key"] = impl
     press(c, "Escape", "Escape", 27)
     return out

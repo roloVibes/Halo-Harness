@@ -145,8 +145,8 @@ def test_follow_pauses_on_scroll_up_and_the_pill_resumes(ctx: Ctx):
 def test_a_tag_pins_esc_unpins_and_hover_lights_the_node(ctx: Ctx):
     r, got = _driver("live")
     _ran(ctx, r, got)
-    ctx.check(f"a tag click pins its agent: only its lines, the Steer box, got {got.get('pinned')} {got.get('pinned_only')} {got.get('pinned_steer')}",
-              got.get("pinned") == got.get("res_key") and got.get("pinned_only") is True and got.get("pinned_steer") is True)
+    ctx.check(f"a tag click pins its agent: only its lines, and opens no Steer box (3.6.0.11: Steer opens it), got {got.get('pinned')} {got.get('pinned_only')} {got.get('pinned_steer')}",
+              got.get("pinned") == got.get("res_key") and got.get("pinned_only") is True and got.get("pinned_steer") is False)
     ctx.check(f"Esc shows everyone again, got {got.get('unpinned')!r} ({got.get('everyone_back')} agents)",
               got.get("unpinned") == "everyone" and (got.get("everyone_back") or 0) >= 4)
 

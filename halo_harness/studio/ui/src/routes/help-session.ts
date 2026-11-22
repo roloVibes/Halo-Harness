@@ -4,7 +4,7 @@
 // harness and the session you chose; Live and Cost are Session's own
 // (3.1.5.0 R3: Live fills the right side, Agent, Activity and Attention
 // start as strips; 3.1.7.0 R1: Live has Fleet's columns, its timeline strip
-// and filters, and the Steer box at its foot at all times).
+// and filters, and the Steer box at its foot; 3.6.0.11: off until asked for).
 import type { Help } from "./help-orchestra";
 import { NAV_HELP } from "../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same on every drawing
 import { WAS, WORDS } from "./crew/map/truthWords";
@@ -23,7 +23,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "TALK is one agent's words to another: the speaker's tag, an arrow, the listener's, and why (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER). A hand-back is one row (the same words as the agent's last ones). Conversations (its button in the bar) shows them as threads.",
       "A tool call is one row: runs Bash, what it runs on, the time ticking while it runs, then the first line of its result; click the row for the whole result.",
       "On top, the timeline: a lane per live agent of this session over 5, 15 or 60 minutes, drawn by what it does: thinking (violet), running a tool (cyan), writing (green), waiting on you (amber), idle (a thin line). Hover a segment for its length; click a thinking one to scroll to that thought; click a lane to show only that agent. The agent and kind picks beside Follow narrow the lines.",
-      "Steer is always at the bottom; its line says who it reaches and what that agent does now (Steering: coder · Bash (pytest -q), 12 s). Click a row or a map node to make it the target (it stays outlined), Tab / Shift+Tab in the field cycle the live agents, s on a focused row steers it. Your steer lands under its target; the agent's next row says after your steer.",
+      "Steer (the header button, a row's steer, or s on a row) opens it at the bottom; x or Esc closes it; its line says who it reaches and what that agent does now (Steering: coder · Bash (pytest -q), 12 s). Click a row or a map node to make it the target (it stays outlined), Tab / Shift+Tab in the field cycle the live agents, s on a focused row steers it. Your steer lands under its target; the agent's next row says after your steer.",
       "Click a tag: only that agent; the tag again (or Esc) shows everyone. Follow keeps the newest line in view; while you type a steer or have scrolled up the view holds still and N new rows · follow (or Esc out of the field) brings you back. Export saves the session export: the session as one Markdown file.",
       "An ask lands as an amber card with its A / R / S / O answers; the newest 500 lines stay here, the full log is in Activity.",
       "The small word on the bar is the session's permission mode (auto, default, acceptEdits, plan...); hover it for what the mode lets run. Shift+Tab in the terminal or /plan changes it, and the word follows.",

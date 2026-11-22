@@ -29,7 +29,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_session_steer import AREA, BOX, COL, LINES  # noqa: E402
+from tests.helpers.studio_session_steer import AREA, BOX, COL, LINES, open_steer  # noqa: E402
 
 SCROLL = "document.querySelector('[data-testid=\"session-live-scroll\"]')"
 TARGET = f"{COL}.querySelector('[data-testid=\"live-target\"]')"
@@ -62,6 +62,7 @@ def opened(c, rig) -> dict:
     c.go(rig.url("session"))
     c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] :is([data-testid=\"session-lit-box\"], [data-testid=\"session-map-row\"])').length >= 3", 40)  # 3.6.0.2 R15: boxes and the rows in them
     time.sleep(0.8)
+    open_steer(c)  # 3.6.0.11: the box (and its target line) is off until the header's Steer opens it
     return {"opened": True}
 
 

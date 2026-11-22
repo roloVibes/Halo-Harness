@@ -8,7 +8,8 @@
    picks (the Activity log's .fac-pick), Fleet's timeline strip sits under it,
    a line is a Fleet log row (.fac-line, .fac-ts, .fac-kind from
    fleet-panels2.css, with its container query: .slv-scroll is a `fac-log`
-   container) and the Steer box holds the foot at all times, in HUD brackets. */
+   container) and the Steer box holds the foot while open (3.6.0.11: off until
+   asked for), in HUD brackets; an empty foot takes no room. */
 
 .panel-body.face-detail:has(> .slv) { overflow: hidden; } /* 3.3.16.0 R1b: the body keeps its 12 px (the density pass) */
 .slv { position: relative; height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
@@ -24,6 +25,7 @@
   /* 3.3.15.0 L1: no grid here (the dot grid is the map canvases' only) */ }
 .slv-older { justify-self: center; font-size: 12px; margin: 2px 0 6px; }
 .slv-foot { border-top: 1px solid var(--line); padding: 8px 10px; background: var(--surface-glass); }
+.slv-foot:empty { display: none; } /* 3.6.0.11: the box closed, no question pending: the rows take the room */
 .slv-hint { font-size: 12px; }
 
 /* -- one line: a Fleet log row (time, KIND, the tag, then what it says) ------------------ */
@@ -108,7 +110,7 @@
 .slv-new { justify-self: center; margin: 8px 0; min-height: 28px; padding: 4px 12px; /* 3.6.0.0 R7: under the lines, never over one */ border-radius: 99px; cursor: pointer;
   font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border: 0; box-shadow: var(--glow-strong); }
 
-/* -- the foot: the Steer box, always, to the pinned agent or the session's main agent ---- */
+/* -- the foot: the Steer box while open, to the pinned agent or the session's main agent ---- */
 .slv-steer { position: relative; padding: 6px 8px; border-radius: var(--radius-sm); }
 .slv-steer.holo-frame { --holo: var(--hc, var(--accent)); }
 .slv-foot .fa-steer { margin: 0; padding-top: 0; border-top: 0; }

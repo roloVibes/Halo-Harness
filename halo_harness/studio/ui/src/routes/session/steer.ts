@@ -2,7 +2,10 @@
 // owner: "more of insight and ability to jump in and steer"). `pin` (the
 // session store) is the one agent the column shows; with none, the Steer box
 // at the column's foot talks to the chosen session's main agent (the root of
-// its tree), so the steer is always at hand. A "steer" on a line's tag or a
+// its tree). 3.6.0.11 (the owner: "Keep it off as default, open it with the
+// steer button, and add the ability to close it"): the box is off until asked
+// for -- the header's Steer, a row's steer, `s` on a row (openSteer) -- and x
+// or Esc closes it (closeSteer). A "steer" on a line's tag or a
 // map node pins that agent and puts the keyboard in that box; outside Session
 // it opens the Agent panel's box instead (Fleet keeps its own Steer).
 // 3.3.0.0 R6 (the owner: "you can't really tell which call you are steering.
@@ -58,7 +61,20 @@ export function steerAgent(key: AgentKey): void {
   const feed = layoutStore("session").get().layout?.["session-live"];
   if (!feed || feed.collapsed) patchPanel("session", "session-live", { collapsed: false }, false); // kept until Session laid out
   pinTo(key);
+  openSteer();
+}
+
+/** Open the Feed's Steer box and put the keyboard in it (a request taken once the box has mounted). */
+export function openSteer(): void {
+  sess.update(() => ({ steer: true }));
   focusSteer("live");
+}
+
+/** x or Esc: the box goes (the unsent text is kept for the next open) and the column follows again; a field
+ *  that is taken away sends no blur, so `composing` ends here. */
+export function closeSteer(): void {
+  sess.update(() => ({ steer: false, composing: false }));
+  followAgain();
 }
 
 /** The session the column's strip, its agent pick and its Steer box speak of: the chosen one, else the newest here. */
@@ -101,6 +117,12 @@ export function steerTarget(s: FleetState, pin: AgentKey, target: AgentKey = "")
   const root = (ss.agents || []).find((a) => !a.parent) || (ss.agents || [])[0];
   const key = keyOf(localId(s), ss.session_id, root?.agent_id || "main");
   return { key, ref: findAgent(s, key), main: true };
+}
+
+/** The target's name as the box's head and the header's Steer say it ("main" for the session's main agent). */
+export function targetName(t: SteerTo): string {
+  const a = t.ref?.a;
+  return t.main ? "main" : a?.name || a?.role || a?.agent_id || t.key.split("|")[2] || "?";
 }
 
 export function useSteerTarget(): SteerTo {

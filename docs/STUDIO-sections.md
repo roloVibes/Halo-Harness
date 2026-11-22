@@ -107,7 +107,8 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    ![Live with the Thinking view on: the implementer's thoughts, each linked to the Edit or Read it led to, and its timeline lane in phases](media/studio-thinking.png)
 
    ![Live with TALK rows (main hands the researcher a task, the researcher hands back, a square hand-off) and the Conversations panel open on the main and researcher thread](media/studio-talk.png)
-3. **Steer from the column**: the Steer box is always at its foot. It talks
+3. **Steer from the column**: Steer (the header button, a row's steer, or `s` on a row) opens the Steer box at the
+   column's foot; x or `Esc` closes it (the text you typed and did not send is there the next time). It talks
    to the agent you pinned, or, with none pinned, to the chosen session's
    main agent; its header says who (**STEER main**) and its target line what that agent runs now (`Steering: coder · Bash (pytest -q), 12 s`), and Pause and Stop
    (which asks first) sit beside it for that agent. Click a row or a node, `s` on a row or `Tab` in the field to change the target (outlined);

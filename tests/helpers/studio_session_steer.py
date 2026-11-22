@@ -8,7 +8,9 @@ Studio's command route to a session is recorded (live_agents_api.forward wrapped
 so a steer is seen reaching the main agent's control socket and its answer.
 tests/test_studio_session_steer.py runs it as a subprocess:
 
-    python -m tests.helpers.studio_session_steer steer   the Steer box at the foot with nothing pinned, addressed to
+    python -m tests.helpers.studio_session_steer steer   no Steer box at load (3.6.0.11: the header's Steer opens it,
+                                                          x or Esc closes it, the unsent text kept); then the box at
+                                                          the foot with nothing pinned, addressed to
                                                           main; a steer sent there echoing as a YOU line at once and
                                                           reaching main's command route; the "steer" on a tag's hover
                                                           and on a map node's (pin + the box focused); the agent pick
@@ -38,7 +40,24 @@ BOX = f"{COL}.querySelector('[data-testid=\"session-live-steer\"]')"
 AREA = f"{BOX}.querySelector('[data-testid=\"fleet-steer\"]')"
 AGENT_PICK = f"{COL}.querySelector('[data-testid=\"session-live-agent\"]')"
 KIND_PICK = f"{COL}.querySelector('[data-testid=\"session-live-kind-pick\"]')"
+STEER_OPEN = f"{COL}.querySelector('[data-testid=\"session-live-steer-open\"]')"  # 3.6.0.11: the header's Steer
+STEER_CLOSE = f"{BOX}.querySelector('[data-testid=\"session-live-steer-close\"]')"
 SENT = "check the tax rule before the discount"
+
+
+def open_steer(c, timeout: float = 30) -> None:
+    """3.6.0.11: the box is off until asked for: the header's Steer opens it (once the session is there to steer)."""
+    if c.js(f"!!{BOX}"):
+        return
+    c.wait(f"!!{STEER_OPEN} && !{STEER_OPEN}.disabled && 1", timeout)
+    c.click_on(STEER_OPEN)
+    c.wait(f"!!{AREA} && 1", 10)
+
+
+def clear_field(c) -> None:
+    """Empty the Steer field the way typing does (the unsent text survives a close, so a step starts it empty)."""
+    c.js(f"(() => {{ const a = {AREA}; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(a, ''); "
+         "a.dispatchEvent(new Event('input', {bubbles: true})); return 1; })()")
 
 
 def box(c) -> dict:
@@ -100,8 +119,10 @@ def steer_main(c, rig, lv, sent: list) -> dict:
     """Nothing pinned: the box talks to main; a steer typed there echoes at once and reaches main's route."""
     from tests.helpers.session_rig import wait_for
     out: dict = {"main_key": lv.key("main"), "sid": rig.act.session_id}
+    open_steer(c)
     out["box_main"] = c.wait(f"!{COL}.dataset.pinned && {BOX} && {BOX}.dataset.key === '{lv.key('main')}' && 'ok'", 15) and box(c)
     c.click_on(AREA)
+    clear_field(c)
     c.type_text(SENT)
     t0 = time.time()
     c.key("Enter")
@@ -149,12 +170,12 @@ class SteerDriver(Driver):
     def session(self, c):
         from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_live_rig import Live
-        from tests.helpers.studio_session_steer2 import done_box, kinds, opened, pause, stop, strip
+        from tests.helpers.studio_session_steer2 import done_box, kinds, opened, pause, steer_off, stop, strip
         with StudioSessionRig() as rig:
             lv = Live(rig)
             sent = record_forward(rig)
             # 3.6.0.0 R5: node_steer and fleet_chip (the old tree's node chips) went with the tree
-            yield ((opened, (c, rig)), (steer_main, (c, rig, lv, sent)), (tag_steer, (c, lv)), (strip, (c, lv)),
+            yield ((opened, (c, rig)), (steer_off, (c, lv)), (steer_main, (c, rig, lv, sent)), (tag_steer, (c, lv)), (strip, (c, lv)),
                    (kinds, (c, lv)), (done_box, (c, lv)), (stop, (c, lv, sent)), (pause, (c, lv, sent)))
 
 

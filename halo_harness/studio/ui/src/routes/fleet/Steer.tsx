@@ -2,7 +2,8 @@
 // its next model call; a redirect replaces its task. It posts `steer` to the
 // agent's command route and the stream echoes it at once, marked "you".
 // Enter sends, Shift+Enter is a new line, Esc leaves the box.
-// 3.1.7.0 R1: Session's Live column keeps one at its foot at all times, so a
+// 3.1.7.0 R1: Session's Live column keeps one at its foot (3.6.0.11: while open; `initial` / `onText` keep the
+// text typed and not sent across a close), so a
 // box says who it talks to (`head`: "STEER main") and carries what sits beside
 // it (`extra`: Pause and Stop). `focusSteer(where)` moves the keyboard into
 // the box of `where` ("agent": the Agent panel's, "live": the Live column's);
@@ -27,10 +28,14 @@ export function focusSteer(where: SteerWhere = "agent"): void {
 // 3.3.6.0 R6: `send` takes the steer instead (Session's Live box with an image attached: session/steerImage.ts);
 // it answers null when it has nothing to add and the plain steer goes as before
 type Props = { k: string; disabled: boolean; why?: string; where?: SteerWhere; head?: ReactNode; extra?: ReactNode;
-  send?: (text: string, mode: "nudge" | "redirect") => Promise<boolean> | null };
+  send?: (text: string, mode: "nudge" | "redirect") => Promise<boolean> | null; initial?: string; onText?: (t: string) => void };
 
-export function Steer({ k, disabled, why, where = "agent", head, extra, send: sendVia }: Props) {
-  const [text, setText] = useState("");
+export function Steer({ k, disabled, why, where = "agent", head, extra, send: sendVia, initial, onText }: Props) {
+  const [text, setOwn] = useState(initial || "");
+  const setText = (t: string) => {
+    setOwn(t);
+    onText?.(t);
+  };
   const [mode, setMode] = useState<"nudge" | "redirect">("nudge");
   const [busy, setBusy] = useState(false);
   const focus = useFleet((s) => s.steerFocus);

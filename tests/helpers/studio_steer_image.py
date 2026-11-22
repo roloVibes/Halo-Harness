@@ -56,6 +56,9 @@ def screenshot(c, rig) -> dict:
     os.environ["HALO_SCREENSHOT_FIXTURE"] = str(FIXTURE)
     rig.closers.append(lambda: os.environ.pop("HALO_SCREENSHOT_FIXTURE", None))
     c.go(rig.url("session"))
+    steer = _q("session-live-steer-open")  # 3.6.0.11: the box is off until the header's Steer opens it
+    c.wait(f"!!{steer} && !{steer}.disabled", 40)
+    c.click_on(steer)
     c.wait(f"!!{AREA} && !{AREA}.disabled", 40)
     btn = _q("session-live-screenshot")
     out = {"button_title": c.js(f"{btn}?.title")}

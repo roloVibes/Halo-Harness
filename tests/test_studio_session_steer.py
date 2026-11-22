@@ -8,7 +8,12 @@ implementer and a researcher mid-work behind the real Controller) plus three
 extra agents and scripted feed frames (tests/helpers/studio_live_rig.py), with
 Studio's command route to the session recorded:
 
-1. with nothing pinned the Steer box sits at the column's foot addressed to
+0. 3.6.0.11 (the owner: "Keep it off as default, open it with the steer
+   button, and add the ability to close it"): at load there is no Steer box
+   and the foot takes no room; the header's Steer opens it on main with the
+   keyboard in it; x closes it and the rows grow by its room; the text typed
+   and not sent is there on the next open; Esc in the field closes it;
+1. opened, with nothing pinned the Steer box sits at the column's foot addressed to
    main ("STEER main"), Pause and Stop beside it; a steer typed there lands as
    a YOU line at once and reaches main's command route (delivered);
 2. a line's tag shows "steer" on hover and a map node shows its chip: the
@@ -62,6 +67,24 @@ def _driver() -> "tuple[subprocess.CompletedProcess, dict]":
 
 def _ran(ctx: Ctx, r, got) -> None:
     ctx.check(f"the driver ran, got {r.returncode} {got.get('failed')!r} {r.stderr[-600:]!r}", r.returncode == 0 and "failed" not in got)
+
+
+@test
+def test_the_steer_box_is_off_until_asked_for_and_x_or_esc_closes_it(ctx: Ctx):
+    r, got = _driver()
+    _ran(ctx, r, got)
+    a = got.get("at_load") or {}
+    ctx.check(f"at load: no box, no data-steer, the foot takes no room, got {a}", a.get("box") is False and a.get("data_steer") is False and a.get("foot_h") == 0)
+    ctx.check(f"the header's Steer button, not pressed, its title names main, got {a}",
+              a.get("label") == "Steer" and a.get("pressed") == "false" and a.get("title") == "Steer main: the picked row's agent, else main")
+    o = got.get("opened") or {}
+    ctx.check(f"Steer opens the box on main, the keyboard in it, got {o}",
+              o.get("key") == got.get("main_key") and o.get("focused") is True and o.get("data_steer") == "true" and o.get("pressed") == "true")
+    ctx.check(f"the close button says what it does, got {got.get('close_words')}", got.get("close_words") == ["Close the steer box (Esc)", "Close the steer box (Esc)"])
+    ctx.check(f"x closes it and the rows take its room, got {got.get('closed')!r}, grew {got.get('grew')} px",
+              got.get("closed") == "closed" and (got.get("grew") or 0) >= 100)
+    ctx.check(f"the text typed and not sent is there on the next open, got {got.get('draft_back')!r}", got.get("draft_back") == "DRAFT not sent yet")
+    ctx.check(f"Esc in the field closes it, got {got.get('esc_closed')!r}", got.get("esc_closed") == "closed")
 
 
 @test

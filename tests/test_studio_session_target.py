@@ -121,10 +121,11 @@ def test_tab_cycles_the_target_and_escape_follows_again(ctx: Ctx):
               got.get("tab_after") == got.get("tab_expected") and got.get("tab_line") == got.get("tab_after") and len(got.get("tab_live") or []) >= 3)
     ctx.check(f"the field keeps the keyboard and its text, got {got.get('tab_kept')}", got.get("tab_kept") == [True, "KEEP"])
     ctx.check(f"Shift+Tab goes back, got {got.get('shift_tab')}", got.get("shift_tab") == got.get("tab_before"))
-    ctx.check(f"Escape out of the field follows again, got {got.get('esc_paused')} -> {got.get('esc_follows')!r}",
+    ctx.check(f"Escape out of the field follows again and closes the box, got {got.get('esc_paused')} -> {got.get('esc_follows')!r}",
               got.get("esc_paused") is True and got.get("esc_follows") == "follows")
-    ctx.check(f"s on a focused row makes its agent the target, the field focused, got {got.get('row_focused')} {got.get('s_key')}",
+    ctx.check(f"s on a focused row opens the box on its agent, the field focused, got {got.get('row_focused')} {got.get('s_key')}",
               got.get("row_focused") is True and got.get("s_key") == got.get("impl_key"))
+    ctx.check(f"the text typed before Escape is there again, got {got.get('s_text')!r}", got.get("s_text") == "KEEP")
 
 
 @test
