@@ -96,7 +96,10 @@ def test_the_sheet_opens_at_its_members_corner_in_agents(ctx: Ctx):
 
 
 @test
-def test_the_sheet_opens_6_under_its_box_in_the_drawer(ctx: Ctx):
+def test_the_sheet_opens_at_its_boxs_side_in_the_drawer(ctx: Ctx):
+    """The drawer's rule against the page: 6 under its box when 240 fit below, else its side's place. In this scene
+    240 do not fit below the member, so the sheet sits over it: "6 under" itself is proven on numbers by
+    tests/test_sheet_place.py test_drawer_sheet_6_under_its_box_when_240_fit_below, not in a browser."""
     d = _ran(ctx, "place").get("session") or {}
     dr, o = d.get("drawer") or [0, 0], d.get("open") or {}
     ctx.check(f"the drawer at its narrowest, got {dr}", len(dr) == 2 and 0 < dr[0] <= dr[1])

@@ -82,8 +82,10 @@ export function anchorSel(id: string, esc: (s: string) => string = (s) => s): st
   return null;
 }
 
-/** The sheet's text width: its 1 px borders and 8 px padding. */
-export const textWidth = (width: number): number => width - 18;
+/** The sheet's text width for the rows its head HOLDS: its 1 px borders and 8 px padding, less the 16 px a classic
+ *  scrollbar takes when a low window makes the whole sheet scroll (Windows, Linux), so a line never takes a row more
+ *  than the head holds; without that scrollbar the head only holds a little more room than its words need. */
+export const textWidth = (width: number): number => width - 34;
 
 /** The state line's held rows: the words at the click, and the same words with their last part the longest state
  *  ("waiting on you"), so a state word that changes while the sheet is open never adds a row. */
