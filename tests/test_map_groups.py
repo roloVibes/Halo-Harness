@@ -1061,8 +1061,8 @@ console.log(JSON.stringify({q: g.memberState(D.q), s: g.memberState(D.s), g3: g.
               0 < by < now < save and "data-raw={m.raw}" in member)
     ctx.check("LitFace draws map-main-now for main on Auto, from the `main` prop OneBox passes",
               'data-testid="map-main-now"' in face and "main?: RecordAgent" in face and "main={" in box)
-    ctx.check("main.tsx imports live-now.css after textbox.css",
-              0 < main.find('"./styles/textbox.css"') < main.find('"./styles/live-now.css"'))
+    ctx.check("main.tsx imports live-now.css after map-down.css and before textbox.css (the text box's sheet stays last)",
+              0 < main.find('"./styles/map-down.css"') < main.find('"./styles/live-now.css"') < main.find('"./styles/textbox.css"'))
     ctx.check("live-now.css colours --think, --warn, --muted and the --line-strong edge",
               all(x in css for x in ("var(--think)", "var(--warn)", "var(--muted)", "var(--line-strong)", "[data-raw=queued]", "[data-raw=stopped]")))
 
