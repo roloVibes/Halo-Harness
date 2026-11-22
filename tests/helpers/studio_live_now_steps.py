@@ -450,7 +450,40 @@ def fold(c, rig, rows: Rows, a: str, b: str) -> dict:
         wait_or(c, f"!{LCARD}", 10)
         frames(c, 4)
         out["under_press"] = c.js(f"({{scrolls: window.__scrolls, card: !!{LCARD}, moved: {LSCROLL}.scrollTop !== window.__top0}})")
+    out["leave"] = leave(c)
     return {"fold": out}
+
+
+# every pointerdown on the document, keydown on the window and wheel on a drawing added from now on, until taken off
+HOOKS = """(() => { if (window.__hooks) { window.__hooks.length = 0; return 1; }
+  const hooks = window.__hooks = [], cap = (o) => o === true || !!(o && o.capture), proto = EventTarget.prototype;
+  const watch = (t, type) => (t === document && type === 'pointerdown') || (t === window && type === 'keydown')
+    || (type === 'wheel' && t instanceof Element && t.matches('[data-pan]'));
+  const add = proto.addEventListener, rm = proto.removeEventListener;
+  proto.addEventListener = function (type, fn, o) { if (watch(this, type)) hooks.push([this, type, fn, cap(o)]); return add.call(this, type, fn, o); };
+  proto.removeEventListener = function (type, fn, o) { const i = hooks.findIndex((h) => h[0] === this && h[1] === type && h[2] === fn && h[3] === cap(o));
+    if (i >= 0) hooks.splice(i, 1); return rm.call(this, type, fn, o); };
+  return 1; })()"""
+STAB = "document.querySelector('[data-testid=section-tab][data-tab-id=session]')"
+
+
+def leave(c) -> dict:
+    """O1-2 ruling (4): the card open in Agents -> Live, the section left by its key (Studio keeps it mounted: no unmount,
+    no pointer-down): the sheet closes and every listener it added is off."""
+    from tests.helpers.studio_agents import key
+    c.mouse("mouseMoved", 2, 400)
+    c.js(HOOKS)
+    c.click_on(f"{LW}.querySelector('[data-box=\"group:1\"] [data-testid=map-group-name]')")
+    c.wait(f"!!{LCARD}", 10)
+    c.js("(window.__opened = window.__hooks.slice()).length")
+    kbd = c.js(f"{STAB}?.dataset.kbd || ''") or ""
+    if kbd[-1:].isdigit():
+        key(c, kbd[-1], alt=True)
+    wait_or(c, f"{STAB}?.getAttribute('aria-selected') === 'true'", 10)
+    wait_or(c, f"!document.querySelector('{P} .mp-step-in')", 5)
+    frames(c, 4)
+    return c.js(f"""({{kbd: {json.dumps(kbd)}, opened: window.__opened.map((h) => h[1]), shown: {STAB}?.getAttribute('aria-selected') === 'true',
+      sheet: !!document.querySelector('{P} .mp-step-in'), left: window.__opened.filter((h) => window.__hooks.includes(h)).map((h) => h[1])}})""")
 
 
 # ---- the drawer at its narrowest --------------------------------------------------------------------------------------

@@ -40,21 +40,24 @@ CARD = "document.querySelector('[data-testid=\"map-step-in\"]')"
 TAB = "(document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.textContent || '')"
 PANELS = "document.querySelectorAll('.section-view:not([hidden]) .panel-body:not([hidden])').length"
 SESSION_CMDS = "performance.getEntriesByType('resource').filter((e) => /\\/api\\/live\\/[^/]+\\/[^/]+\\/command(\\?|$)/.test(e.name)).length"
-# 3.6.0.14 O1-3: where the drawer's sheet `k` stands against its box: its `data-side`, its height at open (`data-words`), its
-# target's anchor (as sheetPlace.ts anchorSel), the frame's padding box (`down`) and the drawing's scroll box (`view`)
+# 3.6.0.14 O1-3: where the drawer's sheet `k` stands against its box: its `data-side`, its height at open (`data-words`),
+# whether its body shows every word without a scroll (`whole`, read apart from `data-words`), its target's anchor (as sheetPlace.ts anchorSel), the frame's padding box (`down`) and the drawing's scroll box (`view`)
 SHEET_GEO = """((k) => { const R = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
   const f = k.offsetParent, id = k.dataset.target || '', e = CSS.escape, cut = id.lastIndexOf(':'), fr = f && f.getBoundingClientRect();
   const sel = id.startsWith('member:') ? `[data-member="${e(id.slice(7))}"]` : id.startsWith('box:') ? `[data-box="${e(id.slice(4))}"]`
     : id.startsWith('group:') ? `[data-box="${e(id)}"]` : id.startsWith('head:') ? `[data-box][data-workflow="${e(id.slice(5))}"]`
     : id.startsWith('step:') && cut > 5 ? `[data-box][data-workflow="${e(id.slice(5, cut))}"]` : null;
+  const b = k.querySelector('[data-testid=map-step-in-body]');
   return { side: k.dataset.side || '', words: Number(k.dataset.words) || 0, anchor: sel && f ? R(f.querySelector(sel)) : null,
+    whole: !!b && b.scrollHeight <= b.clientHeight + 1,
     down: f ? [fr.left + f.clientLeft, fr.top + f.clientTop, f.clientWidth, f.clientHeight] : null, view: R(f && f.querySelector('[data-pan]')) }; })"""
 
 
 def sheet_rule(rect, geo) -> tuple:
     """O1-3, every figure read from the page: the drawer's sheet is the frame less 16 wide at 8 from its left; "below": 6
     under its box (its top kept 8 inside the view) and its foot 8 inside the view; "above": its foot 6 over its box;
-    "fixed": its foot 40 over the frame's (at most the frame less 56); its height the smaller of its words at open and the room its side gives."""
+    "fixed": its foot 40 over the frame's (at most the frame less 56); its height the smaller of its words at open and the room its side gives.
+    Shorter than its room, its body shows every word without a scroll: a height at open read short is seen on the page."""
     g = geo or {}
     a, d, v, side, words = g.get("anchor"), g.get("down"), g.get("view"), g.get("side"), g.get("words") or 0
     if not (rect and d and v and words):
@@ -73,7 +76,8 @@ def sheet_rule(rect, geo) -> tuple:
         room, at = d[3] - 56, near(top + h, d[1] + d[3] - 40)
     else:
         return False, f"side {side!r} with anchor {a}"
-    return bool(at and near(h, min(words, room))), f"side {side}, rect {rect}, anchor {a}, view {v}, words {words}, room {room}"
+    whole = h >= room - 1 or g.get("whole") is True
+    return bool(at and near(h, min(words, room)) and whole), f"side {side}, rect {rect}, anchor {a}, view {v}, words {words}, room {room}, whole {whole}"
 
 
 READ = f"""(() => {{ const k = {CARD}; if (!k) return null;

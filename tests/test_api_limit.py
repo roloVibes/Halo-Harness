@@ -76,11 +76,11 @@ def test_a_read_its_caller_drops_ends_quietly(ctx: Ctx):
 let aborted = false;
 const never = (signal) => new Promise(() => { aborted = signal.aborted; signal.addEventListener('abort', () => { aborted = true; }); });
 const outer = new AbortController(); outer.abort();
-try { await M.within(never, 60000, outer.signal); out.got = 'answered'; } catch (e) { out.got = String(e.message); }
+try { await M.within(never, 5000, outer.signal); out.got = 'answered'; } catch (e) { out.got = String(e.message); }
 out.aborted = aborted;
-out.dropped = M.DROPPED.message;
+out.dropped = M.DROPPED?.message ?? null;
 const later = new AbortController(); let late = false;
-const p = M.within((signal) => new Promise(() => { signal.addEventListener('abort', () => { late = true; }); }), 60000, later.signal);
+const p = M.within((signal) => new Promise(() => { signal.addEventListener('abort', () => { late = true; }); }), 5000, later.signal);
 later.abort();
 try { await p; } catch (e) { out.late = String(e.message); }
 out.lateAborted = late;

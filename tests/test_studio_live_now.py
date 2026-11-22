@@ -21,6 +21,8 @@ L7b (S3, S5)
 7. R4: a slot press with the card open folds it before any scroll; the "under the open box" form only folds.
 8. S5: at the drawer's narrowest a 39-character tool reads "a tool · {s}" while held at the first height, grows once
    when the pointer leaves, keeps that height through done.
+3.6.0.14 O1-2 ruling (4)
+9. The card open in Agents -> Live, the section left by its key: the sheet closes and none of its listeners is left.
 Run: python -m tests.test_studio_live_now
 """
 from __future__ import annotations
@@ -198,6 +200,18 @@ def test_slot_press_with_the_card_open_folds_before_any_scroll(ctx: Ctx):
               bool(name) and (us.get("text") or "").startswith(f"{name} · waits on you · under the open box") and us.get("arrow") == "under")
     up = d.get("under_press") or {}
     ctx.check(f"its press folds the card and makes no scroll, got {up}", up.get("card") is False and up.get("scrolls") == [] and up.get("moved") is False)
+
+
+@test
+def test_leaving_the_section_by_its_key_closes_the_card(ctx: Ctx):
+    """3.6.0.14 O1-2 ruling (4): the card open in Agents -> Live, Alt+<n> to Session (the section stays mounted: no unmount
+    and no pointer-down come): the sheet closes, and no listener it added to the document, the window or the drawing is left."""
+    lv = _ran(ctx, "fold").get("leave") or {}
+    opened = lv.get("opened") or []
+    ctx.check(f"the card open: its pointer-down, key and wheel listeners are on, got {lv}",
+              bool(lv.get("kbd")) and {"pointerdown", "keydown", "wheel"} <= set(opened))
+    ctx.check(f"Session shown by its key: the sheet is gone and none of its listeners is left, got {lv}",
+              lv.get("shown") is True and lv.get("sheet") is False and lv.get("left") == [])
 
 
 @test

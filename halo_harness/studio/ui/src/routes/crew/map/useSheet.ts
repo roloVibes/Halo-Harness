@@ -11,8 +11,8 @@
 // - It sets `cover` (cover.ts) once placed and clears it when its fold starts or it goes.
 // - What folds it is sheetPlace.ts sheetClose: Escape, x, a pointer-down outside (a box of this drawing is the click's
 //   pick; the slot's own press folds it first, R4), a wheel over the drawing, a zoom since the open. A view that hid
-//   (Studio keeps a visited section mounted) closes it at once on the next pointer-down. No listener and no timer
-//   outlives it.
+//   (Studio keeps a visited section mounted: leaving it, by a click or a key, fires no unmount) closes it at once, seen
+//   by a ResizeObserver on the sheet (0 x 0 once hidden). No listener, no observer and no timer outlives it.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { placeOf, rectNow, type Rect } from "../../session/downFit";
 import { setCover, type Where } from "./cover";
@@ -109,13 +109,17 @@ export function useSheet(where: Where, t: Target, ready: boolean, close: () => v
       return "else";
     };
     const go = (e: SheetEvent) => sheetClose(e) === "fold" && fold();
-    const down = (e: PointerEvent) => (hidden(el) ? ((folding.current = true), setCover(where, null), shut.current()) : go({ kind: "pointer", at: at(e.target) }));
+    const gone = () => ((folding.current = true), setCover(where, null), shut.current()); // its view went: closed at once
+    const down = (e: PointerEvent) => (hidden(el) ? gone() : go({ kind: "pointer", at: at(e.target) }));
     const key = (e: KeyboardEvent) => hidden(el) || go({ kind: "key", at: at(e.target), key: e.key, field: !!(e.target as Element | null)?.closest?.("textarea, input") });
     const wheel = (e: WheelEvent) => go({ kind: "wheel", at: at(e.target) });
+    const seen = new ResizeObserver(() => hidden(el) && gone()); // a hidden view sizes it 0 x 0: a section left by its key
     document.addEventListener("pointerdown", down, true);
     window.addEventListener("keydown", key);
     pan?.addEventListener("wheel", wheel, { passive: true });
-    return () => (document.removeEventListener("pointerdown", down, true), window.removeEventListener("keydown", key), pan?.removeEventListener("wheel", wheel));
+    seen.observe(el);
+    return () => (document.removeEventListener("pointerdown", down, true), window.removeEventListener("keydown", key), pan?.removeEventListener("wheel", wheel),
+      seen.disconnect());
   }, [place, fold]); // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => () => (stop.current?.(), setCover(where, null)), []); // eslint-disable-line react-hooks/exhaustive-deps
   const style: CSSProperties = place ? { left: place.left, top: place.top, width: place.width, height: place.height, ...(from ? { ["--sheet-from" as string]: from } : {}) }
