@@ -316,6 +316,79 @@ def test_print_mode_also_reads_the_persisted_choice(ctx: Ctx):
         ctx.check(f"and the persisted effort, got {build.session.effort}", build.session.effort == "high")
 
 
+# ---------------------------------------------------------------------------
+# 3.6.0.11: a default model picked after a `/model` is the newest word. The owner's report: "After you select the
+# model in init, the check section shows a previous model not the model you chose just earlier as the default model".
+# A `/model` choice, even one made in another folder (the global one), outranked config.json's `model` for ever: the
+# check named it, and a new session started on it.
+# ---------------------------------------------------------------------------
+
+@test
+def test_a_default_model_picked_after_a_slash_model_is_what_a_session_starts_on(ctx: Ctx):
+    from halo_harness import doctor, launch_state
+    from halo_harness.theme import set_config_value
+    with _Env(), tempfile.TemporaryDirectory() as cwd, tempfile.TemporaryDirectory() as other:
+        os.environ["OPENROUTER_API_KEY"] = "test-key-not-real"
+        here, there = Path(cwd), Path(other)
+        launch_state.record_last_model("or:mock/switched-here", cwd=here)
+        launch_state.record_last_model("or:mock/switched-elsewhere", cwd=there)
+        launch_state.record_last_effort("high", cwd=here)
+        set_config_value("effort", "low")
+        set_config_value("improve.model", "or:mock/not-the-default")
+        ctx.check("another key saved, or a nested `model`: the /model choices stay",
+                  launch_state.resolve_last_model(here) == "or:mock/switched-here"
+                  and launch_state.resolve_last_model(there) == "or:mock/switched-elsewhere")
+        set_config_value("model", "or:mock/picked-in-init")  # init, Setup, Settings, `halo config set model`
+        ctx.check("the /model choice of this folder no longer applies", launch_state.resolve_last_model(here) is None)
+        ctx.check("nor the one made in another folder, the global one",
+                  launch_state.resolve_last_model(there) is None
+                  and launch_state.resolve_last_model(here, memory="global") is None)
+        line = doctor._check_default_model(here)
+        ctx.check(f"the check names the model picked, got {line!r}",
+                  "or:mock/picked-in-init" in line and "switched" not in line and "last-used" not in line)
+        build = _build(here)
+        ctx.check(f"a new session starts on it, got {build.model_ref.raw}",
+                  build.model_ref.model == "mock/picked-in-init")
+        ctx.check(f"the remembered effort is not touched, got {build.session.effort}", build.session.effort == "high")
+        launch_state.record_last_model("or:mock/switched-after", cwd=here)
+        ctx.check("a /model made after the pick is remembered as before",
+                  launch_state.resolve_last_model(here) == "or:mock/switched-after"
+                  and _build(here).model_ref.model == "mock/switched-after")
+        line = doctor._check_default_model(here)
+        ctx.check(f"and the check then names both, the one a session starts on first, got {line!r}",
+                  "Default model: or:mock/switched-after" in line and "last-used" in line
+                  and "config.json's model is or:mock/picked-in-init" in line)
+
+
+@test
+def test_picking_the_default_again_in_the_terminal_setup_is_a_pick_too(ctx: Ctx):
+    """The terminal setup's picker writes nothing when the model picked is already the default. It is still the
+    person's newest word; Enter (nothing picked) is not."""
+    import argparse
+    import io
+    from rich.console import Console
+    from halo_harness import init_cli, launch_state
+    from halo_harness.theme import set_config_value
+    with _Env(), tempfile.TemporaryDirectory() as cwd:
+        here = Path(cwd)
+        set_config_value("model", "or:mock/the-default")
+        launch_state.record_last_model("or:mock/switched-later", cwd=here)
+        args, console = argparse.Namespace(yes=False, model=None), Console(file=io.StringIO())
+        real_entries, real_picker = init_cli.model_entries_for_provider, init_cli._run_entry_picker
+        init_cli.model_entries_for_provider = lambda provider, state_dir: [{"ref": "or:mock/the-default"}]
+        try:
+            init_cli._run_entry_picker = lambda a, c, entries: None  # Enter: keep the current default
+            got = init_cli._step_pick_model(args, console, "openrouter", "or:mock/the-default")
+            ctx.check("Enter picks nothing: the /model choice stays", got == "or:mock/the-default"
+                      and launch_state.resolve_last_model(here) == "or:mock/switched-later")
+            init_cli._run_entry_picker = lambda a, c, entries: "or:mock/the-default"
+            got = init_cli._step_pick_model(args, console, "openrouter", "or:mock/the-default")
+            ctx.check("the default picked again: the older /model choice no longer applies",
+                      got == "or:mock/the-default" and launch_state.resolve_last_model(here) is None)
+        finally:
+            init_cli.model_entries_for_provider, init_cli._run_entry_picker = real_entries, real_picker
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

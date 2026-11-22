@@ -689,6 +689,9 @@ def _step_pick_model(args, console: Console, provider: str, model_ref_raw: str, 
     if not entries:
         return model_ref_raw
     chosen = _run_entry_picker(args, console, entries)
+    if chosen and chosen == model_ref_raw:  # 3.6.0.11: the default picked again is a pick too (nothing to write)
+        from halo_harness.launch_state import forget_last_model
+        forget_last_model()
     if not chosen or chosen == model_ref_raw:
         return model_ref_raw
     if write:

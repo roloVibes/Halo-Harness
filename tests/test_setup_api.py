@@ -117,6 +117,9 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
 @test
 def test_config_takes_three_keys_and_checks_each_value(ctx: Ctx):
     with _Env(MOCK_ROWS) as e:
+        from halo_harness import launch_state  # 3.6.0.11: a default model picked here is newer than an older /model
+        elsewhere = Path(tempfile.mkdtemp(prefix="setup-api-switched-"))
+        launch_state.record_last_model("or:mock/alpha", cwd=elsewhere)
         status, body = e.call("POST", "setup/config", {"key": "team", "value": "balanced"})
         ctx.check(f"a key outside the list is a 422, got {status} {body}", status == 422 and body["problems"] and "team" in body["error"])
         for key, value in (("permission_mode", "yolo"), ("theme", "doom"), ("model", "or:mock/gamma"), ("theme", "")):
@@ -129,8 +132,12 @@ def test_config_takes_three_keys_and_checks_each_value(ctx: Ctx):
                   and s["permission_mode"] == "acceptEdits" and s["lines"][0].startswith("permission_mode = acceptEdits (saved to "))
         status, s = e.call("POST", "setup/config", {"key": "theme", "value": "claude-light-ansi"})
         ctx.check("a good theme saves", status == 200 and e.config().get("theme") == "claude-light-ansi" and s["theme"] == "claude-light-ansi")
+        ctx.check("a refused model and the other two keys leave the /model choice remembered",
+                  launch_state.resolve_last_model(elsewhere) == "or:mock/alpha")
         status, s = e.call("POST", "setup/config", {"key": "model", "value": "or:mock/beta"})
         ctx.check("a model the catalog lists saves", status == 200 and e.config().get("model") == "or:mock/beta" and s["model"] == "or:mock/beta")
+        ctx.check("and the older /model choice, made in another folder, no longer outranks it",
+                  launch_state.resolve_last_model(elsewhere) is None and launch_state.resolve_last_model(Path.cwd()) is None)
         ctx.check(f"the state lists the catalog's rows, got {s['models'][0]}", s["models"][0] == {
             "ref": "or:mock/alpha", "provider": "openrouter", "label": "Mock Alpha", "best_at": "code, review", "price": "$1.00", "context": "128k",
             "takes": ["?"]})  # 3.3.15.0 R2: the mock row states no takes

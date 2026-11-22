@@ -221,7 +221,7 @@ they replace are ignored (`halo doctor --config` says so once, `halo config set`
 
 | Key | Default | Set by | Studio |
 |---|---|---|---|
-| `model` | unset (built-in default applies) | `halo init`, `halo config set model ...` | Settings -> General |
+| `model` | unset (built-in default applies) | `halo init`, `halo config set model ...`; the model a new session starts on. Picking it (init, Studio's Setup or Settings, `halo config set model`) forgets the model `/model` remembered, in every folder, so the pick is what a session starts on; a `/model` made after it is remembered again and outranks it | Settings -> General |
 | `team` | unset | not read since 3.6.0.0 (lineups are gone): a session runs on the map in use (`crew.map`, `halo maps use <name>`); a configured `team:` is named once in the old-files line ([MOVING-from-3.5.md](MOVING-from-3.5.md)) | Settings -> General |
 | `agents.max_concurrent` | `4` | hand-edited; how many sub-agents may run at the same time | Settings -> Agents and roles |
 | `workflows.enabled` | `["media"]` | `halo config set workflows.enabled ...`; the squares a session may hand work to through the `Workflow` tool (Halo 3.3.16.0 R3; 3.6.0.0: config is the one place) ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)) | Settings -> Agents and roles |
@@ -239,7 +239,7 @@ they replace are ignored (`halo doctor --config` says so once, `halo config set`
 | `tips` | `true` | `halo config set tips false` turns the rotating tips in the input line off (`/tips` still lists them) | Settings -> General |
 | `permission_mode` | unset (Claude Code's own settings chain, else `default`) | `halo init`'s Permissions step, Studio's Setup, `halo config set permission_mode auto`; one of `auto`, `acceptEdits`, `default`, `plan` -- the mode every new session starts in (`--permission-mode` overrides it per run) | Settings -> General |
 | `effort` | unset (the last-used effort, else the settings chain) | `halo config set effort high`; the reasoning effort a session starts with when no `--effort` flag and no last-used effort says otherwise (`low`, `medium`, `high`, `xhigh`, `max`) | Settings -> General |
-| `model_memory` | `cwd` | `halo config set model_memory global`; whether `/model`'s last-used model and effort are remembered per folder (`cwd`) or once for every folder (`global`) | Settings -> General |
+| `model_memory` | `cwd` | `halo config set model_memory global`; whether `/model`'s last-used model and effort are remembered per folder (`cwd`) or once for every folder (`global`); a default model picked later (`model`) forgets the remembered model, not the effort | Settings -> General |
 | `mcpPreload` | unset | hand-edited: a list of wire tool names to preload regardless of the catalog's own `alwaysLoad` rule | Settings -> General |
 | `compactionModel` | unset (uses the session model) | hand-edited; its summary calls are billed at its own rates | Settings -> General |
 | `studio.hover_cards` | `true` | Halo 3.3.16.1: resting the pointer on a box in Studio's Agents section (3.6.0.0: a box on the Map) for about 350 ms, or focusing it with the keyboard, shows one card of what the box is and does; a click still opens its detail. `false`: no card, the boxes keep their plain tooltips. Studio reads it at once | Settings -> Studio |

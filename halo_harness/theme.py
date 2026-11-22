@@ -254,6 +254,9 @@ def set_config_value(key: str, value) -> Path:
             os.chmod(path, 0o600)
         except OSError:
             pass
+    if key == "model":  # 3.6.0.11: a default model picked is newer than every /model choice remembered before it
+        from halo_harness.launch_state import forget_last_model
+        forget_last_model()
     return path
 
 

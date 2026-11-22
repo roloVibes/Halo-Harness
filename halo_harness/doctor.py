@@ -1163,6 +1163,11 @@ def _check_default_model(cwd: Optional[Path] = None, settings_flag: Optional[str
         return (f"{OK} Default model: not set in config.json -- built-in default {DEFAULT_MODEL_REF!r} "
                 f"applies (HALO_MODEL/routes.json still win when set)")
     from_note = "" if origin == "config.json's model" else f" [from {origin}]"
+    if origin == "last-used model":  # 3.6.0.11: a /model made after the default was picked: the line names both
+        from halo_harness.theme import get_config_value
+        picked = get_config_value("model", default=None)
+        if isinstance(picked, str) and picked and picked != configured:
+            from_note = f" [from last-used model (/model); config.json's model is {picked}]"
     try:
         from halo_harness.config.paths import bridge_home
         from halo_harness.providers.config import load_routes

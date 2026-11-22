@@ -94,6 +94,23 @@ def record_last_model(ref: str, *, cwd: "str | Path") -> None:
     _record("last_model", {"ref": ref, "time": time.time(), "cwd": _cwd_key(cwd)}, cwd=cwd)
 
 
+def forget_last_model() -> None:
+    """A default model was picked (halo init, Studio's Setup or Settings, `halo config set model`): that is the
+    person's newest word on the model a session starts on, so every `/model` choice remembered before it, in this
+    folder and in any other, no longer applies. A `/model` made after it is remembered as before; the remembered
+    effort is not touched. (3.6.0.11: the check after init named the older model, and a new session started on it;
+    one `/model` anywhere outranked config.json's `model` in every folder for ever.) Best-effort, as every write
+    of this file is."""
+    try:
+        with file_lock(state_path()):
+            data = _load()
+            if "last_model" in data:
+                del data["last_model"]
+                _write(data)
+    except Exception:
+        pass
+
+
 def record_last_effort(level: "Optional[str]", *, cwd: "str | Path") -> None:
     # A model with no adjustable effort at all clears to None -- still
     # worth recording (the NEXT model switched to in this cwd/globally
