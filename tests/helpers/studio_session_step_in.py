@@ -6,7 +6,8 @@ the session's socket (`LOG`: what reached "the session"), so nothing runs and no
     card     the case-2 rig: tester's step row opens the card in the drawer's fixed corner (the same rect as main's box
              card), named tester, Pause / Stop / the steer field aimed at tester; Pause reaches the session and reads
              Resume once the row is paused; 20 frames of Pause <-> Resume move no button; a steer reaches the session
-    recheck  `hops`: a box with two live children (a row each, its own buttons); a line's card is the child carrying that
+    recheck  `hops`: a box with two live children (a row each, no buttons in a row: ONE Pause and Stop in the action row,
+             aimed at the chosen row; a click on c2's row words moves them and the steer field to c2); a line's card is the child carrying that
              line; Stop confirmed after the child ended sends nothing and says "ended at {t}"; confirmed while it runs
              sends one agent stop and no session command; [Open in Agents -> Live] goes to Agents, the session kept;
              an off-map line's card offers "Open the map at main"
@@ -46,6 +47,8 @@ READ = f"""(() => {{ const k = {CARD}; if (!k) return null;
     rows: [...k.querySelectorAll('[data-testid=map-step-in-row]')].map((r) => ({{ key: r.dataset.key || '',
       text: r.querySelector('[data-testid=map-step-in-row-text]')?.textContent || '', pause: !!r.querySelector('[data-testid=map-step-in-pause]'),
       stop: !!r.querySelector('[data-testid=map-step-in-stop]'), ended: r.querySelector('[data-testid=map-step-in-ended]')?.textContent || '' }})),
+    actions: (() => {{ const a = q('map-step-in-actions'); return a ? {{ key: a.dataset.key || '', pause: a.querySelectorAll('[data-testid=map-step-in-pause]').length,
+      stop: a.querySelectorAll('[data-testid=map-step-in-stop]').length }} : null; }})(),
     pause: R(q('map-step-in-pause')), pauseText: q('map-step-in-pause')?.textContent || '', stop: R(q('map-step-in-stop')),
     steer: R(q('fleet-steer')), steerKey: k.querySelector('[data-steer-key]')?.dataset.steerKey || '', live: R(q('map-step-in-live')),
     liveText: q('map-step-in-live')?.textContent || '', map: q('map-step-in-map')?.textContent || '',
@@ -152,6 +155,9 @@ def recheck(c, rig, rows: Rows, a: str, b: str) -> dict:
     c.click_on(f"{M}.querySelector('[data-box=code] .mp-name')")
     c.wait(f"!!{CARD}", 10)
     out["two"] = c.js(READ)
+    c.click_on(f"{CARD}.querySelector('[data-testid=map-step-in-row][data-key=\"{out['keys']['c2']}\"] [data-testid=map-step-in-row-text]')")
+    c.wait(f"{CARD}?.querySelector('[data-testid=map-step-in-actions]')?.dataset.key === '{out['keys']['c2']}'", 10)
+    out["twoC2"] = c.js(READ)
     # (b) a line's card is the live child carrying it; confirmed after it ended: nothing is sent
     _open(c, rig, rows, a, b, "hops", False, [_main(rows, a), _kid("c1", "coder", "running", crew=on)])
     c.wait(f"!!{M}.querySelector('path[data-hit=\"main>code\"]')", 20)

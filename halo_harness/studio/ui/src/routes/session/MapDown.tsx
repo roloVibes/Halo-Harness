@@ -199,7 +199,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
         </div>}
         </div>
       </div>
-      {card && <StepIn t={card} map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} />}
+      {card && <StepIn t={card} map={shown} sid={s.sid} close={closeCard} onLive={() => openInLive(s.sid)} told={s.told} groups={L.groups} />}
       <div className="mp-down-below" data-testid="session-map-below" data-auto={s.auto ? "" : undefined}>
         <div className="mp-down-more">{(n > 0 || !!(ans && wb)) && <button type="button" className="mp-link" data-testid="map-more-below" data-group={wb?.group?.n}
           data-wait={ans?.arrow ? "" : undefined} data-arrow={ans && wb ? ans.arrow || "down" : undefined}

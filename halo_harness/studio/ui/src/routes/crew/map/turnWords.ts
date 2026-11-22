@@ -27,6 +27,14 @@ export const TURN_SAMPLE = turnLine({ helpers: 12, tools: 14 });
 /** TURN's held rows in a text `width`: two at 224 px (Agents), three at 160 px (Session's 184 px box). */
 export const turnRows = (width: number): number => rowsOf(TURN_SAMPLE, "", width);
 
+/** 3.6.0.14 O1-4, main's sheet: "Told it can start: {every name}" (+ " and {n} more", n what main read as more); "" before
+ *  the first request or with no names. */
+export function toldEvery(told: Told): string {
+  if (!told || !told.names.length) return "";
+  const more = Math.max(0, Math.floor(Number(told.more) || 0));
+  return `Told it can start: ${told.names.join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
+}
+
 /** Main hovered on Auto. `told` null (a session before its first request): G5, "Can hand work to: {names}". */
 export function mainHover(model: string, names: string[], told: Told, total: TurnCounts): string[] {
   if (!told) return g5Lines(model, names);

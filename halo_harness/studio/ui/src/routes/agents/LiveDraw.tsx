@@ -189,7 +189,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
                            ans.arrow === "under" || !scroll.current ? null : slotAim(world.current, scroll.current, ans, wb.y * k, scroll.current.clientHeight))}>
             {slotWords(wbName, ans.arrow, ans.more)}</button>}
         </div>}
-        {card && <StepIn t={card} map={map} sid={s.sid} close={closeCard} onLive={closeCard} />}
+        {card && <StepIn t={card} map={map} sid={s.sid} close={closeCard} onLive={closeCard} told={s.told} groups={L.groups} />}
       </div>
       </RunCtx.Provider>
     </>

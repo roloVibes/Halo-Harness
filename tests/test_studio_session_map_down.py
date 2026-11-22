@@ -1063,8 +1063,15 @@ def test_step_in_target_from_rows_rechecked_at_confirm(ctx: Ctx):
     d = _stepin(ctx, "recheck")
     k = d.get("keys") or {}
     two = (d.get("two") or {}).get("rows") or []
-    ctx.check(f"R18 (a): a box with two live children lists two rows, each its own Pause and Stop, got {two}",
-              sorted(r.get("key") for r in two) == sorted([k.get("c1"), k.get("c2")]) and all(r.get("pause") and r.get("stop") for r in two))
+    ctx.check(f"R18 (a), O1-4: a box with two live children lists two rows, no button in a row, got {two}",
+              [r.get("key") for r in two] == [k.get("c1"), k.get("c2")] and not any(r.get("pause") or r.get("stop") for r in two))
+    acts, steer = (d.get("two") or {}).get("actions") or {}, (d.get("two") or {}).get("steerKey")
+    ctx.check(f"O1-4: ONE Pause and ONE Stop in the action row, aimed at c1 with the steer field, got {acts} steer {steer!r}",
+              acts == {"key": k.get("c1"), "pause": 1, "stop": 1} and steer == k.get("c1"))
+    c2 = d.get("twoC2") or {}
+    ctx.check(f"O1-4: a click on c2's row words aims the action row and the steer field at c2, got {c2.get('actions')} "
+              f"steer {c2.get('steerKey')!r}", c2.get("actions") == {"key": k.get("c2"), "pause": 1, "stop": 1}
+              and c2.get("steerKey") == k.get("c2") and (c2.get("n") or {}).get("pause") == 1)
     ctx.check(f"R18: a line's hit area is at least 10 px, got {d.get('hitWidth')}", (d.get("hitWidth") or 0) >= 10)
     ctx.check(f"R18 (b): the line main -> code opens c1's card, got {(d.get('line') or {}).get('rows')}",
               [r.get("key") for r in (d.get("line") or {}).get("rows") or []] == [k.get("c1")])

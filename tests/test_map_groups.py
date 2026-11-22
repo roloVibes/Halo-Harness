@@ -578,6 +578,21 @@ def test_g5_lists_the_start_agents(ctx: Ctx):
 
 
 @test
+def test_main_sheet_names_every_kind_it_was_told(ctx: Ctx):
+    """3.6.0.14 O1-4: main's sheet says "Told it can start: {every name}" (+ " and {n} more", n what main itself read as
+    more), never the hover's first twelve; nothing told (null, or no names): no line."""
+    names = [f"k{i}" for i in range(1, 15)]
+    js = """const t = M.turn;
+console.log(JSON.stringify({all: t.toldEvery({names: D, more: 2}), none: t.toldEvery({names: D.slice(0, 2), more: 0}),
+  nul: t.toldEvery(null), empty: t.toldEvery({names: [], more: 3})}));"""
+    got = _run(["turn"], js, names)
+    ctx.check(f"fourteen names and 2 more: every name, then ' and 2 more', got {got.get('all')!r}",
+              got.get("all") == "Told it can start: " + ", ".join(names) + " and 2 more")
+    ctx.check(f"no more: no tail, got {got.get('none')!r}", got.get("none") == "Told it can start: k1, k2")
+    ctx.check(f"null told or no names: '', got {got.get('nul')!r} {got.get('empty')!r}", got.get("nul") == "" == got.get("empty"))
+
+
+@test
 def test_turn_line_and_mains_hover(ctx: Ctx):
     """L3 with R5, R8 and the coordinator's ruling: TURN's words (a zero part left out, "1 helper", "1 tool", both zero
     or no turn: blank), its held rows (two at 224 px, three at 160 px), and main's hover once main was told its kinds."""

@@ -37,10 +37,12 @@ function Ask({ row }: { row: AttnRow }) {
   );
 }
 
-/** The asks of the card's agents, in a slot of the card reserved from its first draw (R12: an ask arriving or answered
- *  moves no button of the card). A paused agent's row is not one: its answer, Resume, is the agent's own row's button. */
-export function StepInAsks({ who }: { who: Who[] }) {
+/** The asks of the card's agents, in the sheet's body (3.6.0.14 O1-4: the body alone scrolls, so an ask arriving or
+ *  answered moves nothing outside it). `part` "open": the asks present when the sheet opened (`seen`, their ids, taken at
+ *  its first draw), at the body's top; "later": the asks that came after, at the body's END. A paused agent's row is not
+ *  one: its answer, Resume, is the sheet's own Resume. */
+export function StepInAsks({ who, part, seen }: { who: Who[]; part: "open" | "later"; seen: Set<string> }) {
   const keys = new Set(who.map((w) => w.key));
-  const rows = usePanels((s) => s.attention).filter((r) => r.kind !== "paused" && keys.has(keyOf(r)));
-  return <div className="mp-step-in-asks" data-testid="map-step-in-asks">{rows.map((r) => <Ask key={r.id} row={r} />)}</div>;
+  const rows = usePanels((s) => s.attention).filter((r) => r.kind !== "paused" && keys.has(keyOf(r)) && seen.has(r.id) === (part === "open"));
+  return <div className="mp-step-in-asks" data-testid="map-step-in-asks" data-part={part}>{rows.map((r) => <Ask key={r.id} row={r} />)}</div>;
 }

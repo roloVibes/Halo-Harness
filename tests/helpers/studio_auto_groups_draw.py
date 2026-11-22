@@ -185,6 +185,8 @@ def hover(c, rig, rows: Rows, a: str, b: str) -> dict:
     out["group"] = c.js("""({title: document.querySelector('[data-testid=map-step-in-title]')?.textContent || '',
       rows: [...document.querySelectorAll('[data-testid=map-step-in-row]')].map((r) => [r.dataset.key.split('|').pop(),
         !!r.querySelector('[data-testid=map-step-in-pause]'), !!r.querySelector('[data-testid=map-step-in-stop]')]),
+      actions: ((a) => a ? [(a.dataset.key || '').split('|').pop(), a.querySelectorAll('[data-testid=map-step-in-pause]').length,
+        a.querySelectorAll('[data-testid=map-step-in-stop]').length] : null)(document.querySelector('[data-testid=map-step-in-actions]')),
       sel: !!document.querySelector('[data-testid=session-map-group][data-selected]')})""")
     c.js("document.querySelector('[data-testid=map-step-in-close]')?.click(); 1")
     c.wait("!document.querySelector('[data-testid=map-step-in]')", 10)

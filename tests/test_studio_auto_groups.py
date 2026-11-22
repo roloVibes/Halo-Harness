@@ -8,8 +8,8 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
    lights nothing on Auto (B12a).
 3. A group's head and members grow, never clip: no ellipsis, nothing under 12 px; the block takes the drawer's row.
 4. Five groups: colour five is colour one; the names differ.
-5. Hover a member: G4 ("Why this model: ..."); its card the same line; a group's card a row per live member with Pause and
-   Stop; main's hover on Auto: G5 from the row's map_agents.
+5. Hover a member: G4 ("Why this model: ..."); its card the same line; a group's card a row per live member and ONE Pause
+   and Stop in its action row, aimed at the first (3.6.0.14 O1-4); main's hover on Auto: G5 from the row's map_agents.
 6. (batch 6) The slot names a working group out of sight ("↓ {name} · working ...") in Session and in Agents -> Live, holds
    still, and its press brings the head into view; on his map Agents -> Live has no slot. A group card's [Open in Agents
    -> Live] puts the head at the top within 1 s with its border pulsing 2 s. An ask's Open lands on the asker's group
@@ -170,8 +170,9 @@ def test_hover_and_click_say_why_this_model(ctx: Ctx):
     ctx.check(f"its card: the same why line, the member marked, got {card}",
               card.get("why") == "Why this model: code work; tools; mid budget" and card.get("title") == "researcher" and card.get("sel"))
     grp = d.get("group") or {}
-    ctx.check(f"a group's card: a row per live member, each with Pause and Stop, the group marked, got {grp}",
-              grp.get("title") == "compare" and grp.get("rows") == [["h1", True, True], ["h2", True, True]] and grp.get("sel"))
+    ctx.check(f"a group's card: a row per live member (no button in a row), ONE Pause and Stop in the action row aimed at h1, "
+              f"the group marked, got {grp}", grp.get("title") == "compare" and grp.get("rows") == [["h1", False, False], ["h2", False, False]]
+              and grp.get("actions") == ["h1", 1, 1] and grp.get("sel"))
     ctx.check(f"main's hover on Auto before its first request: G5 from the row's map_agents, got {d.get('g5')}",
               d.get("g5") == ["main · glm-5", "Can hand work to: coder, reviewer, writer"])
     # 3.6.0.13 L3 (R8): once told, main's hover says the session's counts and the kinds main was told it can start

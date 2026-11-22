@@ -28,9 +28,10 @@ export function focusSteer(where: SteerWhere = "agent"): void {
 // 3.3.6.0 R6: `send` takes the steer instead (Session's Live box with an image attached: session/steerImage.ts);
 // it answers null when it has nothing to add and the plain steer goes as before
 type Props = { k: string; disabled: boolean; why?: string; where?: SteerWhere; head?: ReactNode; extra?: ReactNode;
-  send?: (text: string, mode: "nudge" | "redirect") => Promise<boolean> | null; initial?: string; onText?: (t: string) => void };
+  send?: (text: string, mode: "nudge" | "redirect") => Promise<boolean> | null; initial?: string; onText?: (t: string) => void;
+  /** 3.6.0.14 O1-4: the most lines the box grows to (the box's sheet holds three; scrolling inside) */ maxRows?: number };
 
-export function Steer({ k, disabled, why, where = "agent", head, extra, send: sendVia, initial, onText }: Props) {
+export function Steer({ k, disabled, why, where = "agent", head, extra, send: sendVia, initial, onText, maxRows = 12 }: Props) {
   const [text, setOwn] = useState(initial || "");
   const setText = (t: string) => {
     setOwn(t);
@@ -76,6 +77,7 @@ export function Steer({ k, disabled, why, where = "agent", head, extra, send: se
       <div className="fa-steer-row">
         <TextBox
           ref={box}
+          maxRows={maxRows}
           mono
           className="fa-steer-text"
           value={text}
