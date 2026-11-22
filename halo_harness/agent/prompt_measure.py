@@ -4,9 +4,10 @@ steward's fit plan, tests/test_prompt_budget_pins.py).
 
     first_turn(ref, *, window=None, platform=None, cwd=None, text="hi", control=None, builder=False,
                one_shot=False) -> Measure
-    new_session(ref, *, window=, platform=, cwd=, control=None, builder=False, one_shot=False)  the stub it
-                                         measures: a NEW top session in `cwd` (crew/session_start.py; 3.6.0.10
-                                         M1b); `one_shot`: as `halo -p` with one prompt marks it (many_turns False)
+    new_session(ref, *, window=, platform=, cwd=, control=None, builder=False, one_shot=False, helpers_off=False)
+                                         the stub it measures: a NEW top session in `cwd` (crew/session_start.py;
+                                         3.6.0.10 M1b); `one_shot`: as `halo -p` with one prompt marks it (many_turns
+                                         False); `helpers_off`: the gym's "before" (halo_harness/gym_handout.py)
     one_shot_first_ask(ref, *, cap, platform=None, cwd=None, text="hi", control=None, rename=None) -> dict
                                          a one-shot's first ask through the product's own ladder (3.6.0.12 OS:
                                          start_window, then reply_room.for_call; tests/test_prompt_budget_pins.py)
@@ -93,10 +94,13 @@ def _why_kept(session, sent: list) -> dict:
 
 
 def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-                control: Optional[str] = None, builder: bool = False, one_shot: bool = False):
+                control: Optional[str] = None, builder: bool = False, one_shot: bool = False,
+                helpers_off: bool = False):
     """The session a measure runs on: a NEW top session in `cwd` (3.6.0.10 M1b): the built-in tools of `platform`,
     the Builder when `builder` (as headless.build_session adds it for a session someone answers), and the state a
-    start sets (crew/session_start.new_session_state: `control` is what `--map` would name, None the folder's own)."""
+    start sets (crew/session_start.new_session_state: `control` is what `--map` would name, None the folder's own).
+    `helpers_off` (3.6.0.13 GM, the gym's "before"): the helpers words turned off BEFORE the start, so the tools'
+    words and the Builder's sentence are today's line's (agent/helpers_words.on_auto)."""
     from halo_harness.agent.assemble import SessionContext
     from halo_harness.config.paths import bridge_home
     from halo_harness.crew.session_start import new_session_state
@@ -121,16 +125,20 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
     session.interactive = not one_shot
     if one_shot:
         session.many_turns = False
+    if helpers_off:
+        session._helpers_off = True
     return new_session_state(session, cwd=cwd, control=control)
 
 
 def _first_request(ref, **kw) -> tuple:
     """(session, the full tool list, system text, messages, the tools sent): a new session's first request, shaped
-    for the wire as the loop shapes it (`kw`: new_session's own, and `text`)."""
+    for the wire as the loop shapes it (`kw`: new_session's own, `text`, and `mode`: the permission mode line a
+    turn's start logs after the user node, agent/mode_notice.sync; None logs none)."""
     from halo_harness.agent.derive import derive_request
     from halo_harness.agent.prompt_wire import shape
     from halo_harness.config.paths import bridge_home
     text = kw.pop("text", "hi")
+    mode = kw.pop("mode", None)
     session = new_session(ref, **kw)
     ref = session.model_ref
     ctx, registry, log = session.session_context, session.tool_registry, session.log
@@ -146,6 +154,9 @@ def _first_request(ref, **kw) -> tuple:
         if snap:
             log.add(type="snapshot", kind=kind, content=[{"type": "text", "text": snap}])
     log.add(type="user", content=[{"type": "text", "text": text}])
+    if mode:
+        from halo_harness.agent.mode_notice import mode_line
+        log.add(type="snapshot", kind="permission_mode", content=[{"type": "text", "text": mode_line(mode)}])
     system_text, messages, tools = derive_request(log)
     full = list(tools or [])
     session._measure_raw = (system_text, messages, full)  # what a one-shot's ask shapes again (one_shot_first_ask)
