@@ -351,7 +351,8 @@ def _idle_page(ctx, h, c, url: str, counts: dict, ev: dict):
     _say(s, "RC-PACK agent=researcher")  # one Agent spawn: on Auto one group, then PACK_DONE
     if not s.wait_for(lambda x: fakes.PACK_DONE in x, IDLE_WAIT_S):
         raise Fail(f"the session's turn never ended in {IDLE_WAIT_S:.0f} s: " + excerpt(s.plain(), 200), ev)
-    wait(ROW)
+    if not wait(ROW):  # count A is read off Session with the session's row drawn, never off another page state
+        raise Fail(f"Session never drew the session's row in {IDLE_WAIT_S:.0f} s (count A not read)", ev)
     counts["A"] = c.js(COUNT)
     alt(c, 2)  # Agents opens on 4 · Live while a session runs
     if not wait(f"!!document.querySelector('{LIVE_DONE}')"):

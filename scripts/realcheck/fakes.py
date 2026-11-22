@@ -32,8 +32,9 @@ never by model name, so a sub-agent or a workflow step on another model is answe
   RC-LIVETEST            the first to ask: SUB_DONE once `release()` opened the gate; the later ones once `release_late()`
                          opened the second gate (`release()` alone leaves them held)
   RC-LIVEASK             a Bash call `LIVE_ASK_CMD` (a write: the default mode asks him), then SUB_DONE
-  RC-LIVELONG            held until `release()`, then ToolSearch select:`LIVE_TOOL` (deferred), then one call of `LIVE_TOOL` (the suite's fake MCP
-                         server's slow_tool, 30 s), then SUB_DONE once
+  RC-LIVELONG            held until `release()`, then one call of `LIVE_TOOL` (the suite's fake MCP server's slow_tool,
+                         30 s; the server is `alwaysLoad`, so main's catalog holds the tool and the
+                         general-purpose helper is given it), then SUB_DONE once
                          `release_last()` opened the third gate
   RC-SUBWAIT             SUB_DONE after SUBWAIT_S seconds (a fresh wait: `release()` never shortens it)
   RC-SUB / anything else  SUB_DONE / ANSWER
@@ -143,8 +144,7 @@ LIVE_REPLY = [("Agent", _live_call(*call), f"call_rc_live{i}") for i, call in en
 # the tool error itself tells a model)
 _LIVE_CALLS = {"RC-LIVETOOL": [("Bash", {"command": LIVE_SLEEP, "description": "rc live tool"})],
                "RC-LIVEASK": [("Bash", {"command": LIVE_ASK_CMD, "description": "rc live ask"})],
-               "RC-LIVELONG": [("ToolSearch", {"query": f"select:{LIVE_TOOL}", "max_results": 1}),
-                               (LIVE_TOOL, {"seconds": LIVE_LONG_S})]}
+               "RC-LIVELONG": [(LIVE_TOOL, {"seconds": LIVE_LONG_S})]}
 
 
 def _text(content) -> str:

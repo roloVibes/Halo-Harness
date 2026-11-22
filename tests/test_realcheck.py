@@ -1191,8 +1191,9 @@ def _live_ask(p, msgs: list, out: list) -> "threading.Thread":
 def test_the_fake_provider_plays_the_live_scene(ctx: Ctx):
     """3.6.0.14 K1: RC-LIVESCENE is ONE message of four lone Agent calls and a batch of three (task, child markers,
     start order: seven helpers); its children: RC-LIVETOOL a Bash `sleep 6013`, RC-LIVEASK a Bash `mkdir rc-live-ask`,
-    each SUB_DONE after its result; RC-LIVEDONE at once; RC-LIVELONG held until `release()`, then ToolSearch (the MCP
-    tool is deferred), then one call of the long MCP tool with 30 s, then held until `release_last()`; the first
+    each SUB_DONE after its result; RC-LIVEDONE at once; RC-LIVELONG held until `release()`, then one call of the long
+    MCP tool with 30 s (the server is `alwaysLoad`: main's catalog holds it, so the helper is given it), then held until
+    `release_last()`; the first
     RC-LIVETEST held until `release()`, the later ones until `release_late()` (a `release()` alone leaves them held);
     `rearm()` re-arms every gate; main after five results LIVESCENE_DONE."""
     from tests.helpers.mock_openai import SCENARIOS
@@ -1230,41 +1231,45 @@ def test_the_fake_provider_plays_the_live_scene(ctx: Ctx):
         ctx.check(f"RC-LIVEDONE answers SUB_DONE at once, got {said!r}", not calls and said == fakes.SUB_DONE)
         out: list = []
         long_out: list = []
+
+        def held(*want) -> bool:  # the provider's own record of the calls held at a gate (no wall-clock margin)
+            end = time.monotonic() + 30
+            while time.monotonic() < end:
+                with p._lock:
+                    if sorted(p.hung) == sorted(want):
+                        return True
+                time.sleep(0.05)
+            return False
         first = _live_ask(p, [{"role": "user", "content": "RC-LIVETEST: run the unit tests"}], out)
-        first.join(0.5)
+        ctx.check(f"the first RC-LIVETEST is held at the gate, got {p.hung}", held("RC-LIVEHOLD"))
         later = _live_ask(p, [{"role": "user", "content": "RC-LIVETEST: run the lint"}], out)
+        ctx.check(f"a later RC-LIVETEST is held at the late gate, got {p.hung}", held("RC-LIVEHOLD", "RC-LIVELATE"))
         long_child = [{"role": "user", "content": "RC-LIVELONG: draw the chart"}]
         long_first = _live_ask(p, long_child, long_out)
-        long_first.join(0.5)
-        ctx.check("the first RC-LIVETEST and RC-LIVELONG's first call are held before release()",
-                  first.is_alive() and long_first.is_alive())
+        ctx.check(f"RC-LIVELONG's first call is held at the gate, got {p.hung}",
+                  held("RC-LIVEHOLD", "RC-LIVELATE", "RC-LIVEHOLD"))
         p.release()
         for th in (first, long_first):
-            th.join(10)
-        later.join(0.5)
+            th.join(30)
         calls = long_out[0][1] if long_out else []
-        ctx.check(f"release(): the first tester answered SUB_DONE, a later one still held; RC-LIVELONG asks ToolSearch for "
-                  f"the deferred MCP tool, got {out} {calls}", not first.is_alive() and later.is_alive()
-                  and out and out[0][0] == fakes.SUB_DONE
-                  and calls == [("ToolSearch", {"query": "select:" + fakes.LIVE_TOOL, "max_results": 1})])
-        long_child = _called(long_child, calls, 1)
-        said, calls = _ask(p, long_child)
-        ctx.check(f"RC-LIVELONG: then one call of the long tool with 30 s, got {calls}",
-                  calls == [(fakes.LIVE_TOOL, {"seconds": 30})])
+        ctx.check(f"release(): the first tester answered SUB_DONE, the later one still held (its gate shut); RC-LIVELONG "
+                  f"calls the long tool at once with 30 s (alwaysLoad: no ToolSearch), got {out} {calls}",
+                  not first.is_alive() and later.is_alive() and not p.late_gate.is_set()
+                  and out and out[0][0] == fakes.SUB_DONE and calls == [(fakes.LIVE_TOOL, {"seconds": 30})])
         last = _live_ask(p, _called(long_child, calls, 1), out)
+        ctx.check(f"RC-LIVELONG's answer after its result is held at the last gate, got {p.hung}",
+                  held("RC-LIVEHOLD", "RC-LIVELATE", "RC-LIVEHOLD", "RC-LIVELONG"))
         p.release_late()
-        later.join(10)
-        last.join(0.5)
+        later.join(30)
         ctx.check("release_late(): the later tester answered; RC-LIVELONG's answer after its result still held",
-                  not later.is_alive() and last.is_alive())
+                  not later.is_alive() and last.is_alive() and not p.last_gate.is_set())
         p.release_last()
-        last.join(10)
+        last.join(30)
         ctx.check(f"release_last(): RC-LIVELONG answered SUB_DONE, got {out}", not last.is_alive()
                   and len(out) == 3 and all(s == fakes.SUB_DONE for s, _c in out))
         p.rearm()
         again = _live_ask(p, [{"role": "user", "content": "RC-LIVETEST: run the unit tests"}], out)
-        again.join(0.5)
-        ctx.check("rearm(): the first tester holds again at the gate", again.is_alive())
+        ctx.check(f"rearm(): the first tester holds again at the gate, got {p.hung}", held("RC-LIVEHOLD") and again.is_alive())
         p.release()
         again.join(10)
     finally:
@@ -1322,6 +1327,12 @@ def test_live_scene_judges_what_the_page_drew(ctx: Ctx):
         "and 2 more groups below")
     one(s.judge_live_slot, lambda r: r["slot"].update(text="↓ review the money module · waits on you and 2 more below"),
         "(3) the slot reads")
+    high = copy.deepcopy(ok)  # the asking group drawn high (the start order): the entry's named failure, never the up form
+    high["groups"]["group:4"]["rect"] = [300, -200, 200, 80]
+    high["slot"] = {"text": "↑ review the money module · waits on you · and 2 more groups below", "arrow": "up"}
+    got = s.judge_live_slot(high, {"seen": True, "sheet": False})
+    ctx.check(f"(3) the asking group above the view: exactly the not-judged line, got {got}", len(got) == 1
+              and got[0].startswith("(3) not judged: the group 'review the money module' does not lie wholly below the view"))
     got = s.judge_live_now(ok, {"x": 2, "y": 400, "over": True})
     ctx.check(f"a pointer over the drawing: exactly the not-judged line, got {got}",
               got == ["(1) not judged: the pointer at (2, 400) is over the drawing"])
@@ -1404,6 +1415,8 @@ def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
         raise SkipTest("no node on this box")
     s = _steps_live()
     exprs = s.waits()
+    ctx.check(f"(1) waits for the done member's NOW as drawn (the done time may reach the page after the done state), "
+              f"got {sorted(exprs)}", "done_now" in exprs)
     js = ("const el = (o = {}) => ({dataset: o.dataset || {}, textContent: o.text ?? '', clientTop: 0, clientLeft: 0,"
           " clientHeight: 100, clientWidth: 100, getBoundingClientRect: () => { const [l, t, w, h] = o.rect || [0, 0, 100, 100];"
           " return {left: l, top: t, width: w, height: h, right: l + w, bottom: t + h}; },"
@@ -1417,6 +1430,8 @@ def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
           f"const SCENE = {json.dumps(s.SCENE_RAWS)}, TOOL = {json.dumps(fakes.LIVE_TOOL)}, K = '[data-testid=map-step-in][data-open]';"
           "const pages = {drawn: [doc({'#root': root(null, raws(SCENE))}), doc({'#root': root(null, raws(SCENE.slice(1)))})],"
           " live: [doc({'#root': root(mem())}), doc({'#root': root(null)})],"
+          " done_now: [doc({'#root': root(null, [mem({raw: 'done', now: 'done in 2\\u00a0s'}), mem()])}),"
+          "  doc({'#root': root(null, [mem({raw: 'done', now: ''}), mem()])})],"
           " drawer: [doc({'[data-testid=session-lit-map]': el()}), doc({})], open: [doc({[K]: el()}), doc({})],"
           " gone: [doc({}), doc({'.mp-step-in': el()})],"
           " held: [doc({'#root': root(mem({now: 'a tool · 3 s'}))}), doc({'#root': root(mem({now: 'Bash · 3 s'}))})],"
@@ -1464,6 +1479,46 @@ def test_idle_cpu_judges_the_share_and_the_timers(ctx: Ctx):
                       f"it added {live}"])
     got = z.judge_idle(0.01, dict(ok, C=None), live)
     ctx.check(f"a count missing: exactly the hook's line, got {got}", got == ["the page's timers could not be counted"])
+
+
+@test
+def test_idle_cpu_reads_count_a_only_once_the_session_row_is_drawn(ctx: Ctx):
+    """3.6.0.14 K2 (the checker): Session's row of the session not drawn within the wait is a FAIL that says so; count A
+    is never read off a page in another state (stand-ins for the terminal, the page and steps_map's helpers, each put
+    back in a `finally`)."""
+    from types import SimpleNamespace
+    from realcheck import steps_close as z, steps_map
+    from realcheck.core import Fail
+    read: list = []
+
+    class Page:
+        def go(self, url): pass
+
+        def wait(self, expr, timeout):
+            raise TimeoutError(expr)
+
+        def js(self, expr):
+            read.append(expr)
+            return []
+
+        def call(self, *a, **k):
+            return {}
+    term =SimpleNamespace(wait_for=lambda f, t: True, plain=lambda: "")
+    sctx = SimpleNamespace(terminal=lambda h, cols=0, rows=0: term)
+    saved = (screen.tui_ready, steps_map._followed, steps_map._started, steps_map._say)
+    screen.tui_ready = lambda s, t: True
+    steps_map._followed = lambda c, ev, bad, sid: True
+    steps_map._started = lambda h: "s1"
+    steps_map._say = lambda t, text: None
+    got = ""
+    try:
+        z._idle_page(sctx, None, Page(), "http://127.0.0.1:1/#t=abc", {}, {})
+    except Fail as e:
+        got = str(e)
+    finally:
+        screen.tui_ready, steps_map._followed, steps_map._started, steps_map._say = saved
+    ctx.check(f"no row drawn: a FAIL naming the session's row, count A never read, got {got!r} {read}",
+              "session's row" in got and z.COUNT not in read)
 
 
 @test
