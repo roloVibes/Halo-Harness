@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.13] - unreleased
+## [3.6.0.13] - 2026-11-22
 
 Live you can read, and a measure. On the drawing of a running session (Agents -> Live and Session's map, on Auto)
 every helper's box now says in words what it does at this moment, a box keeps its height, main's box says what this
