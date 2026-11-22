@@ -5,7 +5,7 @@
 // members were replaced is another drawing, never a hand-out). Nothing on the first draw (`first`: by default `prev` empty;
 // useRings.ts says when main was drawn alone before, so the FIRST group of a session rings HAND too) or a re-draw with
 // no change; nothing for a box not wholly in view, under the pointer (the box, or the group of the member under it) or
-// meeting `cover` (the open step-in card's rect, cover.ts; OP1's sheet is not in this release); a box once per 4 s
+// meeting `cover` (the rect of the box's open sheet, cover.ts); a box once per 4 s
 // (`last`: when each id last rang, ms); at most four at once, the top-most first. Main's box never rings; no TALK ring.
 import type { Rect } from "../../session/downFit";
 

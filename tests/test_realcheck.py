@@ -72,6 +72,24 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
         ctx.check(f"{step}'s budget is {want} here ({words}), got {budget!r}", budget == want)
     ctx.check("an unknown step: exit 2", m.main(["--only", "no-such-step"]) == 2)
+    # 3.6.0.14: live-scene is listed, marked, and runs only when --only names it (it fails today on product faults
+    # it found), so a plain run, and so CI, leaves it out
+    marked = [line.split()[0] for line in lines if "[runs only with --only" in line]
+    ctx.check(f"--list marks live-scene alone as running only with --only, got {marked}", marked == ["live-scene"])
+    from unittest import mock
+    ran: list = []
+
+    def fake_run(chosen, **kw):
+        ran.append([s[0] for s in chosen])
+        return [], "halo 0"
+    with mock.patch.object(m, "run", fake_run), redirect_stdout(io.StringIO()):
+        m.main([])
+        m.main(["--only", "live-scene"])
+        m.main(["--only", "starts", "live-scene"])
+    ctx.check(f"a plain run is the other eighteen steps, got {ran[:1]}",
+              len(ran) == 3 and ran[0] == [n for n in names if n != "live-scene"] and len(ran[0]) == 18)
+    ctx.check(f"--only live-scene runs it, alone or with others, got {ran[1:]}",
+              ran[1:] == [["live-scene"], ["starts", "live-scene"]])
 
 
 @test

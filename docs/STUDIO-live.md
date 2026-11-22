@@ -23,9 +23,9 @@ A click on a box of a running session's drawing (Agents -> 4 · Live and Session
 - **Where.** In Agents -> 4 · Live a sheet 440 px wide unfolds from the box's own corner in 160 ms (its top-left at the
   box's top-left, its top-right when it would pass the view's right) and folds back into the box in 120 ms; in a view
   under 456 px it is the view less 16 wide; it is kept 8 px inside the view. In Session's drawer it sits 6 px under its
-  box (6 px over it when there is no room under it), as wide as the drawer less 16, and opens and closes at once. It
-  stays where it opened and is not scaled by the zoom; while it is open the drawing holds still and no box under it
-  rings. With reduced motion it comes and goes at once.
+  box (6 px over it when there is no room under it; with room on neither side, at the drawer's lower end), as wide as
+  the drawer less 16, and opens and closes at once. It stays where it opened and is not scaled by the zoom; while it
+  is open the drawing holds still and no box under it rings. With reduced motion it comes and goes at once.
 - **The head** holds still: the title and x; the state line, what its box reads at that moment; "Why this model: ...";
   what it does now, in two rows ("a tool · {s}" when the words need more).
 - **One row of actions**: Pause or Resume, Stop, [Open in Agents -> Live] ("Open the map at {sender}" too on a line of an
