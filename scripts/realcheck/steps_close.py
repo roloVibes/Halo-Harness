@@ -348,6 +348,10 @@ def _idle_page(ctx, h, c, url: str, counts: dict, ev: dict):
     bad: list = []
     if not _followed(c, ev, bad, _started(h)):
         raise Fail(bad[0], ev)
+    # the session's row on the page first, as session-map does: a line typed a tenth of a second after the status line
+    # first showed was not taken once on Windows (it stayed in the box and the turn never began)
+    if not wait(ROW):
+        raise Fail(f"Session never drew the session's row in {IDLE_WAIT_S:.0f} s (the session was not asked)", ev)
     _say(s, "RC-PACK agent=researcher")  # one Agent spawn: on Auto one group, then PACK_DONE
     if not s.wait_for(lambda x: fakes.PACK_DONE in x, IDLE_WAIT_S):
         raise Fail(f"the session's turn never ended in {IDLE_WAIT_S:.0f} s: " + excerpt(s.plain(), 200), ev)
