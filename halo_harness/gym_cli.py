@@ -1,7 +1,8 @@
 """halo_harness.gym_cli -- Halo 2.0.3 round 5d: `halo gym [--models ...]
 [--roles ...] [--quick]`, `halo gym show [model]`, `halo gym propose
-[--apply] [--roles ...] [--main REF] [--name NAME]`. Argparse + printing
-only -- `gym_run.py`/`gym_propose.py`/`gym.py` do the actual work, same
+[--apply] [--roles ...] [--main REF] [--name NAME]`, `halo gym handout
+<model> [<model> ...] [--trials N]` (3.6.0.13). Argparse + printing
+only -- `gym_run.py`/`gym_propose.py`/`gym.py`/`gym_handout.py` do the actual work, same
 module split as `roles_cli.py` over `roles.py`.
 """
 
@@ -91,9 +92,13 @@ def _cmd_show(argv: list) -> int:
     parser.add_argument("--show-replies", action="store_true",
                          help="also print each reply-only task's saved reply excerpts")
     args = parser.parse_args(argv)
+    from halo_harness import gym_handout
     state_dir = bridge_home()
     rows = find_results_for_model(state_dir, args.model) if args.model else iter_results(state_dir)
-    if not rows:
+    cards = gym_handout.iter_cards(state_dir)  # 3.6.0.13 GM G6: `halo gym handout`'s cards, kept apart
+    if args.model and cards:
+        cards = find_results_for_model(state_dir, args.model, results=cards)
+    if not rows and not cards:
         which = f" for {args.model!r}" if args.model else ""
         print(f"halo gym show: no saved gym results{which} -- run `halo gym` first.", file=sys.stderr)
         return 1
@@ -101,6 +106,12 @@ def _cmd_show(argv: list) -> int:
         if i:
             print()
         print(format_card(row, show_replies=args.show_replies))
+    if cards:
+        if rows:
+            print()
+        print(gym_handout.HEAD)
+        for card in cards:
+            print(gym_handout.line(card))
     return 0
 
 
@@ -169,14 +180,65 @@ def _cmd_propose(argv: list) -> int:
     return 0
 
 
+def _trials(raw: str) -> int:
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 0
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"{raw!r} is not a whole number of 1 or more")
+    return n
+
+
+def _cmd_handout(argv: list) -> int:
+    """3.6.0.13 GM G3: does main hand work out more with the helpers words ("now") than without them ("before")?
+    The work is gym_handout.py's; this is argparse and printing."""
+    from halo_harness import gym_handout
+    from halo_harness.checks.run import is_local
+    from halo_harness.config.paths import bridge_home
+
+    parser = argparse.ArgumentParser(prog="halo gym handout", add_help=True,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="\n".join(gym_handout.facts()))
+    parser.add_argument("model", nargs="+", help="a local model (ol:, hf:local/, hf:mlx/); any other ref is "
+                                                 "refused and sends nothing")
+    parser.add_argument("--trials", type=_trials, default=3, metavar="N",
+                        help="trials per arm (default: 3)")
+    args = parser.parse_args(argv)
+    local = []
+    for ref in args.model:
+        if is_local(ref):
+            local.append(ref)
+        else:
+            print(f"{ref}: the gym runs local models only.")
+    if not local:
+        return 1
+    for fact in gym_handout.facts(args.trials):
+        print(fact)
+    sys.stdout.flush()
+    state_dir = bridge_home()
+    for ref in local:
+        card = gym_handout.run_model(ref, trials=args.trials, state_dir=state_dir)
+        if card.get("same_words"):
+            print(gym_handout.SAME_WORDS.format(model=card.get("model")))
+        else:
+            gym_handout.save_card(state_dir, card)
+            print(gym_handout.line(card))
+        sys.stdout.flush()
+    return 0
+
+
 def cmd_gym(argv: list) -> int:
     if argv and argv[0] == "show":
         return _cmd_show(argv[1:])
     if argv and argv[0] == "propose":
         return _cmd_propose(argv[1:])
+    if argv and argv[0] == "handout":
+        return _cmd_handout(argv[1:])
     if argv and argv[0] in ("-h", "--help"):
         print("usage: halo gym [--models REF,REF,...] [--roles ROLE,...] [--quick]", file=sys.stderr)
         print("       halo gym show [model]", file=sys.stderr)
         print("       halo gym propose [--apply] [--name NAME] [--roles ROLE,...] [--main REF]", file=sys.stderr)
+        print("       halo gym handout <model> [<model> ...] [--trials N]", file=sys.stderr)
         return 0
     return _cmd_run(argv)

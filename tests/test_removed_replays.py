@@ -161,10 +161,13 @@ SKIP += [
      r"--history|^history$|history: the owner's call|its history for private data",
      "git history: `halo audit privacy --history` scans every commit"),
     (PY + "doctor.py", r"no connect-time history recorded yet", "an MCP server's connect-time history (the doctor's timing)"),
-    ((PY + "permissions.py", PY + "review/*", PY + "update.py", PY + "update_artifact.py", PY + "templates/packs/coach/*"),
+    ((PY + "permissions.py", PY + "review/*", PY + "update.py", PY + "update_artifact.py", PY + "templates/packs/coach/*",
+      PY + "gym_handout.py"),
      r"^Compare-Object$|default branch (was )?found to compare|overlays, compare, compose|^You compare finished work|"
-     r"^compare$|^/compare/$|nothing to compare with checksums|harness and compare what each",
-     "compare in other senses (PowerShell's Compare-Object, a review's base branch, a release's diff, checksums, the coach)"),
+     r"^compare$|^/compare/$|nothing to compare with checksums|harness and compare what each|"
+     r"same words before and today .*so there is nothing to compare\.",
+     "compare in other senses (PowerShell's Compare-Object, a review's base branch, a release's diff, checksums, the coach, "
+     "`halo gym handout`'s two arms sent the same words)"),
     ((PY + "media/*", PY + "providers/media_models.py"), r"/history/|^CLIP$|^clip$",
      "ComfyUI: its /history/ route and its CLIP text encoders"),
     (PY + "templates/packs/design/*", r"^history(\.jsonl)?$|render\.mp4 \(a clip\)",

@@ -361,6 +361,169 @@ def test_identical_arms_run_no_trial(ctx: Ctx):
                   "same_words" not in card and len(_chats(mock)) == 2 and len(card["before"]) == 1)
 
 
+# ---- G3 -----------------------------------------------------------------------------------------------------------
+# The design's section 3, letter for letter (the release corrected to 3.6.0.10, the coordinator's ruling)
+FACTS = ["Runs one fixed four-part job with each local model you name as main, three times with the words main had "
+         "before 3.6.0.10 and three times with today's, and counts the parts it hands to helpers, not whether the work "
+         "is better. Helpers are not run: each gets a fixed answer.",
+         "Free: local models only; nothing is sent to a cloud.",
+         "About 20 to 40 minutes per model with three trials (not measured yet: the first run sets this line).",
+         "A scratch copy of a small project, removed at the end, and one card per model under "
+         "~/.halo/gym-handout/<host>/."]
+CLOUD = "or:example/model"
+SAME = (f"{MODEL}: not measured: this model is sent the same words before and today (it takes no tools, or today's "
+        "words do not fit its window), so there is nothing to compare.")
+
+
+def _cmd(argv, out=None) -> tuple:
+    """`halo gym <argv>` in process: (exit code, stdout, stderr); an argparse exit gives its code."""
+    import contextlib
+    import io
+    from halo_harness.gym_cli import cmd_gym
+    out = out if out is not None else io.StringIO()
+    err = io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            rc = cmd_gym(list(argv))
+        except SystemExit as e:
+            rc = e.code
+    return rc, out.getvalue(), err.getvalue()
+
+
+def _cards(h) -> list:
+    return sorted(p.relative_to(h.state).as_posix() for p in (h.state / "gym-handout").glob("**/*") if p.is_file())
+
+
+@test
+def test_the_four_facts_print_before_the_first_request(ctx: Ctx):
+    import io
+    from tests.helpers.mock_ollama import _finish_chat
+    out = io.StringIO()
+    seen = []
+
+    def first(handler, body):
+        seen.append(out.getvalue())
+        _finish_chat(handler, _reply(text="ok"))
+
+    rc, text, _err = _cmd(["handout", "--help"])
+    ctx.check(f"--help prints the four facts, one per line, got {text!r}",
+              rc == 0 and "\n".join(FACTS) in text and "--trials" in text)
+    with _Home() as h, _Mock(h, [first, _reply(text="ok")]) as mock:
+        rc, _text, _err = _cmd(["handout", MOCK_REF, "--trials", "0"])
+        ctx.check(f"--trials 0 is refused by the parser with no request, got {rc} {_err!r}",
+                  rc == 2 and "--trials" in _err and mock.requests == [])
+        rc, text, err = _cmd(["handout", MOCK_REF], out)
+        ctx.check(f"the run ended 0, got {rc} {err!r}", rc == 0)
+        ctx.check(f"the four facts were on stdout at the first chat request, got {seen[:1]!r}",
+                  len(seen) == 1 and seen[0] == "\n".join(FACTS) + "\n")
+        ctx.check(f"three trials per arm by default: 6 chat requests, got {len(_chats(mock))}", len(_chats(mock)) == 6)
+
+
+@test
+def test_a_cloud_ref_is_refused_with_no_request(ctx: Ctx):
+    with _Home() as h, _Mock(h, [_reply(text="ok")]) as mock:
+        rc, text, _err = _cmd(["handout", CLOUD])
+        ctx.check(f"refused, exit 1, got {rc} {text!r}", rc == 1 and text == f"{CLOUD}: the gym runs local models only.\n")
+        ctx.check(f"no request of any kind, got {mock.requests}", mock.requests == [])
+        ctx.check("no card", _cards(h) == [])
+        rc, text, _err = _cmd(["handout", CLOUD, MOCK_REF, "--trials", "1"])
+        ctx.check(f"beside a local ref: the cloud line, then the local run, got {rc} {text!r}",
+                  rc == 0 and text.startswith(f"{CLOUD}: the gym runs local models only.\n")
+                  and len(_chats(mock)) == 2 and len(_cards(h)) == 1)
+
+
+def _watched_run(ctx, h, argv) -> tuple:
+    """Run `halo gym <argv>` with subprocess.Popen and tempfile.mkdtemp watched (both put back in a `finally`)."""
+    import subprocess
+    import tempfile
+    started, made = [], []
+    real_popen, real_mkdtemp = subprocess.Popen, tempfile.mkdtemp
+
+    class Watched(real_popen):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            started.append(self)
+
+    def mkdtemp(*a, **kw):
+        path = real_mkdtemp(*a, **kw)
+        made.append(path)
+        return path
+
+    subprocess.Popen, tempfile.mkdtemp = Watched, mkdtemp
+    try:
+        rc, text, err = _cmd(argv)
+    finally:
+        subprocess.Popen, tempfile.mkdtemp = real_popen, real_mkdtemp
+    copies = [p for p in made if Path(p).name.startswith("halo-gym-")]
+    return rc, text, err, started, copies
+
+
+@test
+def test_no_child_is_left_and_the_copy_is_gone(ctx: Ctx):
+    from tests.helpers.mock_ollama import send_json
+
+    def fails(handler, body):
+        send_json(handler, 500, {"error": "the fake fails this request"})
+
+    for name, steps in (("a run", [_reply([("Read", {"file_path": "NOTES.md"})]), _reply(text="ok")]),
+                        ("a run whose chat request fails", [fails])):
+        with _Home() as h, _Mock(h, steps) as mock:
+            rc, text, err, started, copies = _watched_run(ctx, h, ["handout", MOCK_REF, "--trials", "1"])
+            ctx.check(f"{name}: exit 0 and a chat request, got {rc} {err!r}", rc == 0 and _chats(mock))
+            ctx.check(f"{name}: one scratch copy made, got {copies}", len(copies) == 1)
+            ctx.check(f"{name}: the copy is gone, got {copies}", not any(Path(p).exists() for p in copies))
+            ctx.check(f"{name}: every process the command started has ended, got {started}",
+                      all(p.poll() is not None for p in started))
+            if name != "a run":
+                ctx.check(f"{name}: the card says so, got {text!r}", "  errors during the run (non-fatal): " in text)
+
+
+@test
+def test_the_card_is_written_apart_and_its_line_printed(ctx: Ctx):
+    from halo_harness import gym_handout as G
+    readers = ("Agent", {"subagent_type": "researcher", "description": "find the readers",
+                         "prompt": "List every function that reads SHOP_MODE."})
+    docs = ("Agent", {"description": "add docs", "prompt": "Add a one-line docstring to every function."})
+    tests_ = ("Agent", {"subagent_type": "coder", "description": "check", "prompt": "Run the tests and say which fail."})
+    before = [_reply([("Read", {"file_path": "NOTES.md"})]), _reply(text="done")]
+    steps = (before + [_reply([readers, docs]), _reply(text="done")]
+             + before + [_reply([tests_]), _reply(text="done")]
+             + before + [_reply([readers, docs]), _reply(text="done")])
+    with _Home() as h, _Mock(h, steps) as mock:
+        rc, text, err = _cmd(["handout", MOCK_REF])
+        ctx.check(f"exit 0, 12 chat requests, got {rc} {len(_chats(mock))} {err!r}", rc == 0 and len(_chats(mock)) == 12)
+        ctx.check(f"one card, under gym-handout/<host>/, named by the digest, got {_cards(h)}",
+                  _cards(h) == ["gym-handout/gpu-box/handout-feed01.json"])
+        ctx.check("nothing under the battery's folder", not (h.state / "gym").exists())
+        card = json.loads((h.state / "gym-handout" / "gpu-box" / "handout-feed01.json").read_text(encoding="utf-8"))
+        expected = (f"{MODEL}: hands out 1.7 of 4 parts in 1.7 calls (before 0) · bundled 0 · names right 3 of 3 · "
+                    "own steps 0 (before 1) · finished 3 of 3 (before 3) · 3 trials")
+        ctx.check(f"the line, letter for letter, got {G.line(card)!r}", G.line(card) == expected)
+        ctx.check(f"printed after the facts, got {text!r}", text == "\n".join(FACTS) + "\n" + expected + "\n")
+        one = {**card, "trials": 1, "before": card["before"][:1], "now": card["now"][1:2],
+               "errors": ["now 1: the fake failed", "unload: none"]}
+        ctx.check(f"at --trials 1 the 3s follow, and the errors line follows the card's, got {G.line(one)!r}",
+                  G.line(one) == f"{MODEL}: hands out 1 of 4 parts in 1 calls (before 0) · bundled 0 · names right 1 "
+                                 "of 1 · own steps 0 (before 1) · finished 1 of 1 (before 1) · 1 trial\n"
+                                 "  errors during the run (non-fatal): now 1: the fake failed; unload: none")
+
+
+@test
+def test_a_model_sent_the_same_words_is_not_measured(ctx: Ctx):
+    from halo_harness.agent import prompt_wire
+    real = prompt_wire._probed_card
+    with _Home() as h, _Mock(h, [_reply(text="ok")]) as mock:
+        prompt_wire._probed_card = lambda session: {"tools": "none"}
+        try:
+            rc, text, err = _cmd(["handout", MOCK_REF])
+        finally:
+            prompt_wire._probed_card = real
+        ctx.check(f"exit 0, got {rc} {err!r}", rc == 0)
+        ctx.check(f"the not-measured line after the facts, got {text!r}", text == "\n".join(FACTS) + "\n" + SAME + "\n")
+        ctx.check(f"no card, got {_cards(h)}", _cards(h) == [])
+        ctx.check("no chat request", _chats(mock) == [])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

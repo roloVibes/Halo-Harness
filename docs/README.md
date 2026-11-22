@@ -83,6 +83,7 @@ Work in the TUI and on the command line, and make agents, workflows and maps.
   - [COMMANDS-mcp.md](COMMANDS-mcp.md) (Commands: MCP servers and connectors): read this when you add, list, repair or log in to MCP servers and claude.ai connectors.
   - [COMMANDS-ollama.md](COMMANDS-ollama.md) (Commands: Ollama): read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events, steward, explain).
   - [COMMANDS-local.md](COMMANDS-local.md) (Commands: the gym and local models): read this when you run local models: `halo gym`, `halo local`.
+  - [COMMANDS-gym-handout.md](COMMANDS-gym-handout.md) (Commands: halo gym handout): read this when you want to know whether main hands work out more on your local model: `halo gym handout`.
   - [COMMANDS-sessions.md](COMMANDS-sessions.md) (Commands: config, sessions, stats and reports): read this when you read or set config (`halo settings` opens Studio's Settings), export a session, read a run's report card, read stats, or file a bug report.
   - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: agents, maps and review): read this when you manage your agents and maps, or run a review, from the command line.
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.

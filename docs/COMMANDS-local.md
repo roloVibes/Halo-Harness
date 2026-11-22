@@ -39,6 +39,7 @@ Prints the saved per-model card(s) from `~/.halo/gym/` -- a bare name or
 full `ol:` ref both match (tag-aware, same as the Ollama catalog's own
 matching); omit it to print every saved card, newest-measured first. Never
 runs a fresh probe -- `halo gym` is what measures.
+Cards of `halo gym handout` print after the battery's: see [Commands: halo gym handout](COMMANDS-gym-handout.md).
 
 ## `halo gym propose`
 

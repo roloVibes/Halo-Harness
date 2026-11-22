@@ -114,6 +114,7 @@ def _gather_real_flags() -> "dict[str, set]":
     # 2.0.6 rounds: the new surfaces join the table
     from halo_harness import gym_cli, report_cli  # report_cli: 3.4.1.0 R3, the run report card (3.6.0.0 R5: teams went;
     out["halo gym"] = _flags_in(_capture(gym_cli.cmd_gym, ["--help"]))  # 3.6.0.3 B: `halo replay` left)
+    out["halo gym handout"] = _flags_in(_capture(gym_cli.cmd_gym, ["handout", "--help"]))  # 3.6.0.13 GM G3
     out["halo report"] = _flags_in(_capture(report_cli.cmd_report, ["--help"]))
     # 2.0.10 round 1: `halo review`
     from halo_harness.review import cli as review_cli

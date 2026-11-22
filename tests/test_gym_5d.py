@@ -418,6 +418,88 @@ def test_samples_are_stored_and_show_replies_prints_them(ctx: Ctx):
             mock.stop()
 
 
+# ---- 3.6.0.13 GM G6: the cards of `halo gym handout` stay apart from the battery's readers -------------------------
+
+_HANDOUT_HEAD = "Main hands work out (halo gym handout):"
+
+
+def _battery_card() -> dict:
+    return {"model": "tiny:3b", "model_ref": "ol:tiny:3b@gpu-box", "host_name": "gpu-box", "host_url": "http://x",
+            "digest": "sha256:feed01", "finished_at": 2.0, "tool_call_accuracy": {"score": 1.0},
+            "edit_success": {"score": 0.5}, "context_recall": {"score": 1.0}, "instruction_adherence": {"score": 1.0},
+            "tokens_per_second": 21.0}
+
+
+def _handout_card(model: str = "tiny:3b", finished_at: float = 3.0) -> dict:
+    trial = {"parts": [1, 2], "calls": 2, "bundled": 0, "typed": 1, "named_right": 1, "own": 0, "proposals": 0,
+             "finished": True, "requests": 2, "error": None}
+    own = {**trial, "parts": [], "calls": 0, "typed": 0, "named_right": 0, "own": 1}
+    return {"model": model, "model_ref": f"ol:{model}@gpu-box", "host_name": "gpu-box", "digest": "sha256:feed01",
+            "trials": 1, "window": 32768, "finished_at": finished_at, "before": [own], "now": [trial], "errors": []}
+
+
+def _show(argv) -> tuple:
+    import contextlib
+    import io
+    from halo_harness.gym_cli import cmd_gym
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = cmd_gym(argv)
+    return rc, out.getvalue(), err.getvalue()
+
+
+@test
+def test_a_handout_card_changes_no_battery_reader(ctx: Ctx):
+    from halo_harness import gym_handout
+    from halo_harness.gym import find_results_for_model, iter_results, picker_score_suffix, save_result
+    from halo_harness.models_best_at import source_mtimes
+    with _Env() as env:
+        d = env.state_dir
+        save_result(d, _battery_card())
+
+        def readers() -> tuple:
+            return (iter_results(d), find_results_for_model(d, "tiny:3b"), find_results_for_model(d, "ol:tiny:3b"),
+                    picker_score_suffix("ol:tiny:3b", state_dir=d), source_mtimes(d).get("gym"))
+
+        alone = readers()
+        path = gym_handout.save_card(d, _handout_card())
+        ctx.check(f"the card lies under gym-handout/<host>/, got {path}",
+                  path == d / "gym-handout" / "gpu-box" / "handout-feed01.json" and path.exists())
+        ctx.check(f"the battery's reader sees one battery card, got {alone[0]}", alone[0] == [_battery_card()])
+        ctx.check("every battery reader gives the same answer with the handout card beside it", readers() == alone)
+        ctx.check(f"the handout reader reads it, got {gym_handout.iter_cards(d)}",
+                  gym_handout.iter_cards(d) == [_handout_card()])
+
+
+@test
+def test_gym_show_prints_the_handout_cards_after_the_battery(ctx: Ctx):
+    from halo_harness import gym_handout
+    from halo_harness.gym import format_card, save_result
+    with _Env() as env:
+        d = env.state_dir
+        save_result(d, _battery_card())
+        gym_handout.save_card(d, _handout_card())
+        line = gym_handout.line(_handout_card())
+        rc, out, _err = _show(["show"])
+        ctx.check(f"the battery as today, then the head and the card's line, got {out!r}",
+                  rc == 0 and out == format_card(_battery_card()) + "\n\n" + _HANDOUT_HEAD + "\n" + line + "\n")
+        rc, out, _err = _show(["show", "tiny:3b"])
+        ctx.check(f"a named model: both, got {out!r}", rc == 0 and out.endswith(_HANDOUT_HEAD + "\n" + line + "\n"))
+        rc, out, err = _show(["show", "other:1b"])
+        ctx.check(f"another model: no line of this card, today's words, got {rc} {out!r} {err!r}",
+                  rc == 1 and out == "" and line not in err
+                  and err == "halo gym show: no saved gym results for 'other:1b' -- run `halo gym` first.\n")
+    with _Env() as env:
+        gym_handout.save_card(env.state_dir, _handout_card())
+        rc, out, _err = _show(["show"])
+        ctx.check(f"only a handout card: its section alone, exit 0, got {rc} {out!r}",
+                  rc == 0 and out == _HANDOUT_HEAD + "\n" + line + "\n")
+        newer = _handout_card("small:1b", finished_at=9.0)
+        gym_handout.save_card(env.state_dir, {**newer, "digest": "sha256:beef02"})
+        rc, out, _err = _show(["show"])
+        ctx.check(f"newest card first, got {out!r}", rc == 0 and out.index("small:1b:") < out.index("tiny:3b:"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -345,4 +345,91 @@ def run_model(ref_raw: str, *, trials: int = 3, state_dir) -> dict:
     return card
 
 
-__all__ = ["ARMS", "MAX_REQUESTS", "MODE", "REPLY_TOKENS", "resolve", "run_model", "start", "trial"]
+# ---- G3, G6: what a person reads, and the cards apart from the battery's ------------------------------------------
+HANDOUT_DIR_NAME = "gym-handout"  # never under gym/: gym.iter_results and models_best_at read gym/*/*.json
+HEAD = "Main hands work out (halo gym handout):"
+SAME_WORDS = ("{model}: not measured: this model is sent the same words before and today (it takes no tools, or "
+              "today's words do not fit its window), so there is nothing to compare.")
+
+
+def _times(n: int) -> str:
+    return "three times" if n == 3 else f"{n} time{'' if n == 1 else 's'}"
+
+
+def facts(trials: int = 3) -> list:
+    """The four facts (what, cost, time, writes), one sentence each, printed before the first request."""
+    return [f"Runs one fixed four-part job with each local model you name as main, {_times(trials)} with the words main "
+            f"had before 3.6.0.10 and {_times(trials)} with today's, and counts the parts it hands to helpers, not "
+            "whether the work is better. Helpers are not run: each gets a fixed answer.",
+            "Free: local models only; nothing is sent to a cloud.",
+            "About 20 to 40 minutes per model with three trials (not measured yet: the first run sets this line).",
+            "A scratch copy of a small project, removed at the end, and one card per model under "
+            "~/.halo/gym-handout/<host>/."]
+
+
+def card_path(state_dir, host_name, digest, model=None) -> Path:
+    """<state>/gym-handout/<host>/handout-<the name gym.result_path gives the digest>.json: one card per model and
+    host; a new run replaces it."""
+    from halo_harness import gym
+    name = gym.result_path(state_dir, host_name, digest, model).stem
+    return Path(state_dir) / HANDOUT_DIR_NAME / gym.host_slug(host_name) / f"handout-{name}.json"
+
+
+def save_card(state_dir, card: dict) -> Path:
+    """tmp + os.replace, as gym.save_result."""
+    import json
+    import os
+    import threading
+    path = card_path(state_dir, card.get("host_name"), card.get("digest"), card.get("model"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}-{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+    return path
+
+
+def iter_cards(state_dir) -> list:
+    """Every saved handout card, newest `finished_at` first; [] on any OSError (gym.iter_results' contract)."""
+    from halo_harness.gym import load_result
+    out = []
+    try:
+        for p in (Path(state_dir) / HANDOUT_DIR_NAME).glob("*/handout-*.json"):
+            data = load_result(p)
+            if data is not None:
+                out.append(data)
+    except OSError:
+        return []
+    out.sort(key=lambda c: c.get("finished_at") or 0, reverse=True)
+    return out
+
+
+def _num(x) -> str:
+    """At most one decimal and no ".0"."""
+    s = f"{x:.1f}"
+    return s[:-2] if s.endswith(".0") else s
+
+
+def _mean(trials: list, key) -> str:
+    vals = [key(t) for t in trials]
+    return _num(sum(vals) / len(vals) if vals else 0)
+
+
+def line(card: dict) -> str:
+    """The card's line (section 3), with the card's own `trials` where the line writes 3, and its errors line."""
+    now, before = list(card.get("now") or []), list(card.get("before") or [])
+    n = int(card.get("trials") or 0)
+    total = lambda trials, key: sum(int(t.get(key) or 0) for t in trials)  # noqa: E731
+    done = lambda trials: sum(1 for t in trials if t.get("finished"))  # noqa: E731
+    out = (f"{card.get('model')}: hands out {_mean(now, lambda t: len(t.get('parts') or []))} of 4 parts in "
+           f"{_mean(now, lambda t: int(t.get('calls') or 0))} calls (before "
+           f"{_mean(before, lambda t: len(t.get('parts') or []))}) · bundled {total(now, 'bundled')} · names right "
+           f"{total(now, 'named_right')} of {total(now, 'typed')} · own steps {_mean(now, lambda t: int(t.get('own') or 0))} "
+           f"(before {_mean(before, lambda t: int(t.get('own') or 0))}) · finished {done(now)} of {n} (before "
+           f"{done(before)}) · {n} trial{'' if n == 1 else 's'}")
+    if card.get("errors"):
+        out += f"\n  errors during the run (non-fatal): {'; '.join(card['errors'])}"
+    return out
+
+
+__all__ = ["ARMS", "HANDOUT_DIR_NAME", "HEAD", "MAX_REQUESTS", "MODE", "REPLY_TOKENS", "SAME_WORDS", "card_path",
+           "facts", "iter_cards", "line", "resolve", "run_model", "save_card", "start", "trial"]

@@ -375,6 +375,16 @@ score for that role yet. `--apply` writes the proposal into your role table (`ro
 (and tok/s) beside it, read straight from the saved file, whenever one
 exists.
 
+**Does main hand work out (`halo gym handout`, 3.6.0.13)**: a second
+measure, apart from the battery. It runs one fixed four-part job with a
+local model as main in two arms: "now" is what a new Auto session sends
+today, "before" is the same request without the helpers words of
+3.6.0.10. It counts the parts main hands to helpers (helpers are not run),
+not whether the work is better. A model passes when "now" hands out at
+least one part more than "before" (the mean of three trials), names a
+helper right in at least 90 % of the calls that name one, and finishes no
+fewer trials. See [Commands: halo gym handout](COMMANDS-gym-handout.md).
+
 **The 60-second acceptance check (`halo doctor --local [--model ol:x]`)**:
 the "works out of the box" proof per machine, and the first thing the docs
 below point a new local-model user at. Four steps, always run in this
