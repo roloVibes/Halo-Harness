@@ -1364,7 +1364,7 @@ class Controller:
     def _bang_init(self) -> None:
         if getattr(self, "_bang_lock", None) is None:
             self._bang_lock = threading.Lock()
-            self._bang_abort = threading.Event()  # the ONE abort every inline command's ToolContext carries
+            self._bang_abort = threading.Event()  # set by quit only: every `!` ask and command ends
             self._bang_active = 0
             self._bang_threads: list = []
             self._bang_asks: set = set()
@@ -1432,10 +1432,10 @@ class Controller:
 
     def _bang_start(self, command: str) -> str:
         tool_use_id = f"inline_{uuid.uuid4().hex[:12]}"
-        run = {"done": threading.Event(), "output": None}
-        with self._bang_lock:
-            if self._bang_active == 0 and not self.quit_called:
-                self._bang_abort.clear()  # a past Esc ended the ones before; this one starts fresh
+        run = {"done": threading.Event(), "output": None, "abort": threading.Event()}  # its OWN abort: an Esc
+        with self._bang_lock:  # ends the commands running then, never one started while they are still ending
+            if self.quit_called or self._bang_abort.is_set():
+                run["abort"].set()  # Halo is closing: it ends at once
             self._bang_active += 1
             self._bang_runs[tool_use_id] = run
             for old in list(self._bang_runs)[:-32]:
@@ -1447,7 +1447,7 @@ class Controller:
         def _run() -> None:
             try:
                 try:
-                    _, result = self.run_inline_shell(command, tool_use_id=tool_use_id, abort=self._bang_abort)
+                    _, result = self.run_inline_shell(command, tool_use_id=tool_use_id, abort=run["abort"])
                     content = result.content if isinstance(result.content, str) else str(result.content)
                     ok = not result.is_error
                 except Exception as e:
@@ -1472,14 +1472,18 @@ class Controller:
         return run["output"]
 
     def stop_bang(self) -> None:
-        """Esc: every running `!` command ends (its card reads as a stopped Bash call)."""
+        """Esc, Studio's Stop: every `!` command running NOW ends (its card reads as a stopped Bash call)."""
         self._bang_init()
-        self._bang_abort.set()
+        with self._bang_lock:
+            for run in self._bang_runs.values():
+                if not run["done"].is_set():
+                    run["abort"].set()
 
     def _end_bang_work(self, timeout: float = 3.0) -> None:
         """quit: the running `!` commands end, every waiting `!` ask is answered no, and their threads are joined."""
         self._bang_init()
         self._bang_abort.set()
+        self.stop_bang()
         with self._bang_lock:
             asks, threads = list(self._bang_asks), list(self._bang_threads)
         for request_id in asks:
@@ -1487,7 +1491,8 @@ class Controller:
                 self.session.resolve_permission(request_id, Decision(action="deny", reason="Halo is closing"))
             except Exception:
                 pass
-        deadline = time.monotonic() + timeout
+        from halo_harness import closing
+        deadline = time.monotonic() + closing.time_left(timeout)  # inside the one deadline of the way out
         for t in threads:
             t.join(max(0.0, deadline - time.monotonic()))
 

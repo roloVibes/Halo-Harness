@@ -1,7 +1,8 @@
 // What the Prompt panel sends (3.3.11.0 R1), all to this harness's session over its control socket
 // (POST sessions/<sid>/command, studio/sessions_prompt_api.py):
 // * a line starting with `/` (one line) is `slash`: its output comes back as the lines the TUI would print;
-// * a one-line `!command` with no image is `slash` too (3.6.0.12 BS), busy or not: the session runs it as its
+// * a one-line `!command` is `slash` too (3.6.0.12 BS), busy or not, an image chip or not (the chip waits for the
+//   next prompt, as the terminal's does): the session runs it as its
 //   terminal does (no turn, no receipt) and the panel's answer line says ran / asks first / denied / still running;
 // * anything else is `submit` with `when_busy: refuse` and a fresh `client_id` (the receipt's idempotency key: a
 //   retry of the same send returns the stored row, never a second turn). Told the session is busy, the panel

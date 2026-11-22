@@ -341,7 +341,8 @@ BANG_ROUTES = [  # (text, an image rides along) -> the door
     ("!echo hi", False, "slash"),
     ("!ls -la", False, "slash"),
     ("/cost", False, "slash"),
-    ("!echo hi", True, "submit"),         # with an image it stays a prompt, as in the terminal
+    ("!echo hi", True, "slash"),          # an image chip beside it waits for the next prompt, as in the terminal
+    ("/cost", True, "submit"),            # a `/` line with an image is a prompt here, as before
     ("!echo hi\nand more", False, "submit"),  # a second line: a prompt
     ("echo hi", False, "submit"),
     ("say !this", False, "submit"),

@@ -164,8 +164,8 @@ session's project and user commands and skills, each with its arguments and one 
 complete) completes, `Esc` closes it. A `/` line runs in the session through the control socket's `slash` and its
 output lands in the panel as the lines the terminal would print. A line that starts with ! runs that command in the
 session at once, as in the terminal: no model turn; its output shows here and in the Feed (3.6.0.12: a one-line `!`
-with no image goes through the same `slash` door, also while a turn runs; with a second line or an image it is a
-prompt). Under your line one answer line says `ran` and the output's lines, `asks first: answer below` (the ask card
+goes through the same `slash` door, also while a turn runs, and an image chip beside it waits for the next prompt,
+as in the terminal; with a second line it is a prompt). Under your line one answer line says `ran` and the output's lines, `asks first: answer below` (the ask card
 is the panel's own; Allow runs it, and the terminal's card reads `Answered in Studio: Allow`), `denied: <reason>`, or
 `still running: Stop is on its row; its output shows in the Feed`. A `!` command that still runs carries a Stop on its
 row in the panel: it ends the command (and a running turn with it), as `Esc` does in the terminal; closing Halo ends

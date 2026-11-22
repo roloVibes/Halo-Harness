@@ -219,6 +219,13 @@ def test_studios_stop_ends_a_running_bang_command(ctx: Ctx):
                       wait_for(lambda: _pair(tapped)[1] == [result.get("id")], 20))
             rows = [e.data for e in tapped if e.kind == "tool_result"]
             ctx.check(f"its row says it was stopped, got {rows}", bool(rows) and "[command aborted]" in str(rows[0].get("content")))
+            # a Stop ends the commands running then: one started while the stopped one is still ending runs to its end
+            first = (client.call("slash", line="!echo again; sleep 60").get("result") or {})
+            client.call("interrupt", via="studio")
+            after = (client.call("slash", line="!echo after-the-stop").get("result") or {})
+            ctx.check(f"a ! right after a Stop is its own command: it ran, got {first.get('state')} then {after}",
+                      after.get("state") == "ran" and "after-the-stop" in str(after.get("output"))
+                      and "[command aborted]" not in str(after.get("output")))
         finally:
             client.close()
 

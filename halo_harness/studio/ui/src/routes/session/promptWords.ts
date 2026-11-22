@@ -117,10 +117,11 @@ export const endedLine = (open: HeadRow | null | undefined): string => (open ? `
 /** P31: the pick followed the terminal to its new conversation. */
 export const followLine = (row: HeadRow): string => `Same terminal, new conversation: ${folderOf(row.cwd)}.`;
 
-// 3.6.0.12 BS: a one-line `/` or `!` with no image takes the slash door (the session runs it itself: no turn, no
-// receipt), busy or not: a `!` is never a steer and never queued, as in the terminal. Anything else is a prompt.
+// 3.6.0.12 BS: a one-line `!`, or a one-line `/` with no image, takes the slash door (the session runs it itself: no
+// turn, no receipt), busy or not: a `!` is never a steer and never queued, as in the terminal, and an image chip
+// beside it waits for the next prompt, as the terminal's does. Anything else is a prompt.
 export const routeOf = (text: string, image: boolean): "slash" | "submit" =>
-  (text.startsWith("/") || text.startsWith("!")) && !text.includes("\n") && !image ? "slash" : "submit";
+  !text.includes("\n") && (text.startsWith("!") || (text.startsWith("/") && !image)) ? "slash" : "submit";
 export const BANG_RAN = "ran";
 export const BANG_ASKS = "asks first: answer below";
 export const BANG_RUNNING = "still running: Stop is on its row; its output shows in the Feed";
