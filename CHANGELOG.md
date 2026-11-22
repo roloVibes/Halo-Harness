@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.10] - unreleased
+## [3.6.0.10] - 2026-11-21
 
 Main knows what it can do. On Auto, main is told when to hand work out and which helpers this session can start, by
 name, your own agents first; a local model as main is sent the Builder tool from a 32,768 window and may propose an
