@@ -185,6 +185,8 @@ def test_a_real_session_on_auto_reads_the_block_and_one_with_no_map_todays_line(
                           (M1 + "\n" + M2_CLEAN) in text and TODAY_ON not in text)
             else:
                 _todays(ctx, label, text)
+            want = MODE_LINE + ("\n" + M10 if crew_map is not None else "")  # 3.6.0.14 MW2: a local main's turn
+            ctx.check(f"{label}: the turn's mode snapshot", _turn(s) == want)
 
 
 @test
@@ -452,6 +454,120 @@ def test_the_workflow_tail_names_his_workflows_only_when_sent(ctx: Ctx):
         s2 = _session(h, control="auto")
         s2._helpers_off = True
         ctx.check("today's line: no tail either", tail(s2, defs + [{"name": "Workflow"}, {"name": "Builder"}]) == "")
+
+
+# ---- 3.6.0.14 MW2: a LOCAL main on Auto is reminded at every task, after the permission mode line ------------------
+
+LOCAL = "ol:qwen3:8b"
+CLOUD = "ant:claude-opus-5-5"
+M10 = ("If this job has parts that can run on their own, hand each one to a helper with the Agent tool before you work "
+       "on it yourself (one call per part; `subagent_type` names the helper). A small job you do yourself.")
+MODE_LINE = "permission mode: acceptEdits (edits in the working directory run without asking; commands ask first)"
+PLAN_LINE = "permission mode: plan (read-only; call ExitPlanMode with the plan)"
+
+
+class _Log:
+    def __init__(self):
+        self.snapshots = []
+
+    def append_snapshot(self, content, *, kind):
+        self.snapshots.append((kind, content[0]["text"]))
+
+
+def _turn(s, mode: str = "acceptEdits", *, turn_start: bool = True):
+    """The snapshot agent/loop.py logs at a turn's start (mode_notice.sync), on session `s` (a stub log, an engine)."""
+    from halo_harness.agent import mode_notice
+    from halo_harness.permissions import PermissionEngine
+    if not isinstance(getattr(s, "log", None), _Log):
+        s.log = _Log()
+    if getattr(s, "permission_engine", None) is None:
+        s.permission_engine = PermissionEngine(mode=mode, cwd=s.session_context.cwd)
+    s.permission_engine.mode = mode
+    return mode_notice.sync(s, turn_start=turn_start)
+
+
+def _measured(h, ref: str, **kw) -> str:
+    """The permission-mode snapshot a first request built by the measure's stub carries (prompt_measure._first_request,
+    the gym's and the measure's)."""
+    from halo_harness.agent.prompt_measure import _first_request
+    kw.setdefault("control", "auto")
+    _s, _f, _sys, messages, _sent = _first_request(ref, window=16384, platform="linux", cwd=h.repo,
+                                                   mode="acceptEdits", text="tidy the notes", **kw)
+    found = [b.get("text") for m in messages for b in (m.get("content") if isinstance(m.get("content"), list) else [])
+             if isinstance(b, dict) and str(b.get("text", "")).startswith("permission mode:")]
+    return found[0] if len(found) == 1 else f"<{len(found)} mode snapshots>"
+
+
+@test
+def test_a_local_main_on_auto_is_reminded_after_the_mode_line(ctx: Ctx):
+    from halo_harness.agent import helpers_words
+    with _Home() as h:
+        ctx.check("M10, word for word", helpers_words.M10 == M10)
+        got = _measured(h, LOCAL)
+        ctx.check(f"the first request: the mode line, then the reminder on the next line, got {got!r}",
+                  got == MODE_LINE + "\n" + M10)
+        s = _session(h, ref=LOCAL)
+        ctx.check("remind() gives the line", helpers_words.remind(s) == M10)
+        ctx.check("the loop's turn snapshot is the measure's, byte for byte", _turn(s) == got)
+
+
+@test
+def test_a_cloud_main_and_every_other_session_read_todays_mode_line(ctx: Ctx):
+    from halo_harness.agent import helpers_words
+    from halo_harness.crew.session_start import start_control, tool_state
+    with _Home() as h:
+        maps = h.state / "crew" / "maps"
+        maps.mkdir(parents=True)
+        (maps / "mine.yaml").write_text("format: map/1\nname: mine\nboxes:\n- {id: coder, agent: coder}\nlines:\n"
+                                        "- {from: main, to: coder}\n", encoding="utf-8")
+        for label, kw in (("a cloud main", {"ref": CLOUD}), ("his map", {"ref": LOCAL, "control": "mine"}),
+                          ("the block turned off (the gym's before)", {"ref": LOCAL, "helpers_off": True})):
+            ref = kw.pop("ref")
+            got = _measured(h, ref, **kw)
+            ctx.check(f"{label}: the first request carries today's line, byte for byte, got {got!r}", got == MODE_LINE)
+        cloud = _session(h, ref=CLOUD)
+        ctx.check("a cloud main: no reminder", helpers_words.remind(cloud) == "")
+        ctx.check("a cloud main's turn: today's line", _turn(cloud) == MODE_LINE)
+        cases = []
+        s = _session(h, ref=LOCAL)
+        s.team_control = start_control(None, cwd=h.repo)  # an `--agent` session: no map
+        tool_state(s, s.team_control)
+        cases.append(("an --agent session", s))
+        s = _session(h, ref=LOCAL)
+        s._helpers_block = (s.model_ref.raw, None)  # the block was made and did not fit: frozen() is None
+        cases.append(("a block that does not fit", s))
+        s = _session(h, ref=LOCAL)
+        s.agent_runtime.depth = 1
+        cases.append(("a helper", s))
+        s = _session(h, ref=LOCAL)
+        s._helpers_off = True
+        cases.append(("the block turned off", s))
+        for label, s in cases:
+            ctx.check(f"{label}: remind() is empty", helpers_words.remind(s) == "")
+            ctx.check(f"{label}: the turn's snapshot is today's, byte for byte", _turn(s) == MODE_LINE)
+
+
+@test
+def test_every_turn_carries_the_same_reminder_and_only_at_a_turns_start(ctx: Ctx):
+    from halo_harness.model import parse_model_ref
+    with _Home() as h:
+        s = _session(h, ref=LOCAL)
+        first, second = _turn(s), _turn(s)
+        ctx.check("two turns: the same bytes", first == second == MODE_LINE + "\n" + M10)
+        text = _turn(s, "plan", turn_start=False)  # plan mode entered in the middle of a turn: today's words
+        ctx.check(f"a change mid-turn: the note and the mode line, no reminder, got {text!r}",
+                  text is not None and text.endswith("\n\n" + PLAN_LINE) and M10 not in text)
+        text = _turn(s)  # a turn that changes the mode: the note, the new mode line, the reminder after it
+        ctx.check(f"a turn that leaves plan mode: the reminder follows the new mode line, got {text!r}",
+                  text is not None and text.endswith("\n\n" + MODE_LINE + "\n" + M10) and text.count(M10) == 1)
+        text = _turn(s, "plan")  # a turn that enters plan mode
+        ctx.check(f"a turn that enters plan mode: the reminder after the plan mode line, got {text!r}",
+                  text is not None and text.endswith("\n\n" + PLAN_LINE + "\n" + M10))
+        _turn(s)  # out of plan mode again
+        s.model_ref = parse_model_ref(CLOUD)  # main's model switches to a cloud one: the line goes
+        ctx.check("after a switch to a cloud model: today's line", _turn(s) == MODE_LINE)
+        s.model_ref = parse_model_ref(LOCAL)  # and back to a local one: it comes back
+        ctx.check("after a switch back to a local model: the reminder again", _turn(s) == MODE_LINE + "\n" + M10)
 
 
 if __name__ == "__main__":

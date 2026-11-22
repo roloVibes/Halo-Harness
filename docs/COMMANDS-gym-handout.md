@@ -26,7 +26,7 @@ A scratch copy of a small project, removed at the end, and one card per model un
   Main is asked for four parts: find the functions that read one setting, add a docstring to every function, run
   the tests and say which fail, write down what changed. The folder is removed at the end, also when a request fails.
 - **The two arms.** "now" is the first request a new Auto session sends today; "before" is the same request with the
-  helpers words turned off. Each trial is at most 10 requests. No session runs: the gym answers every tool call
+  helpers words turned off. For a local main today's request also carries one reminder line after the task; "before" has neither. Each trial is at most 10 requests. No session runs: the gym answers every tool call
   itself, inside the copy, and a helper is never started (each part gets a fixed answer). A path or a pattern that
   leaves the copy is refused before the system is asked anything about it.
 - **`--trials N`**: trials per arm (default 3; at least 1). The arms take turns: before 1, now 1, before 2, ...

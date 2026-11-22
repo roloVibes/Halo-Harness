@@ -40,6 +40,9 @@ M2_CLEAN = ("- Helpers you can start now (`subagent_type`): planner (plan, outli
 M2_HEAD = "- Helpers you can start now (`subagent_type`): "
 M3 = "- The Workflow tool lists workflows you can run by `name`: run one when it fits the whole job."
 MODE_LINE = "permission mode: acceptEdits (edits in the working directory run without asking; commands ask first)"
+M10 = ("If this job has parts that can run on their own, hand each one to a helper with the Agent tool before you work "
+       "on it yourself (one call per part; `subagent_type` names the helper). A small job you do yourself.")
+NOW_MODE = MODE_LINE + "\n" + M10  # 3.6.0.14 MW2: a local main on Auto reads the reminder after the mode line
 REF = "ol:tiny:3b@lan"
 MODEL = "tiny:3b"
 MOCK_REF = f"ol:{MODEL}@gpu-box"
@@ -193,7 +196,8 @@ def _without_mode(messages) -> list:
     out = copy.deepcopy(messages)
     for m in out:
         if isinstance(m.get("content"), list):
-            m["content"] = [b for b in m["content"] if not (isinstance(b, dict) and b.get("text") == MODE_LINE)]
+            m["content"] = [b for b in m["content"]
+                            if not (isinstance(b, dict) and str(b.get("text", "")).startswith(MODE_LINE))]
     return out
 
 
@@ -261,9 +265,9 @@ def test_now_is_the_measures_own_request_on_auto(ctx: Ctx):
             ctx.check(f"{window}: the system text is the measure's", system == r_system)
             ctx.check(f"{window}: the same tools sent, in the same order",
                       [t.get("name") for t in sent] == [t.get("name") for t in r_sent])
-            ctx.check(f"{window}: the messages are the measure's plus the mode line",
-                      _without_mode(messages) == r_messages and MODE_LINE in _texts(messages)
-                      and MODE_LINE not in _texts(r_messages))
+            ctx.check(f"{window}: the messages are the measure's plus the mode line and the reminder after it",
+                      _without_mode(messages) == r_messages and NOW_MODE in _texts(messages)
+                      and not any(str(t).startswith(MODE_LINE) for t in _texts(r_messages)))
             ctx.check(f"{window}: M1 and M2, letter for letter", (M1 + "\n" + M2_CLEAN) in system)
             ctx.check(f"{window}: not today's line", TODAY_ON not in system)
 
@@ -281,6 +285,11 @@ def test_before_is_todays_line_with_the_same_tools(ctx: Ctx):
             ctx.check(f"{window}: today's line, letter for letter", TODAY_ON in before[2])
             ctx.check(f"{window}: none of M1, M2, M3", M1 not in before[2] and M2_HEAD not in before[2]
                       and M3 not in before[2])
+            ctx.check(f"{window}: before: today's mode line alone, no reminder",
+                      MODE_LINE in _texts(before[3]) and not any(M10 in str(t) for t in _texts(before[3])))
+            ctx.check(f"{window}: now: the reminder after the mode line", NOW_MODE in _texts(now[3]))
+            ctx.check(f"{window}: the messages differ only by that line",
+                      _without_mode(before[3]) == _without_mode(now[3]))
             names = [t.get("name") for t in before[4]]
             ctx.check(f"{window}: the same tool names as now, got {names}", names == [t.get("name") for t in now[4]])
             if window == 32768:
@@ -302,8 +311,8 @@ def test_the_task_turn_names_accept_edits(ctx: Ctx):
         for arm in G.ARMS:
             texts = _texts(G.start(REF, arm, h.copy, window=16384, platform="linux")[3])
             ctx.check(f"{arm}: the user's turn is the task", F.TASK in texts)
-            ctx.check(f"{arm}: the mode line follows it",
-                      F.TASK in texts and MODE_LINE in texts[texts.index(F.TASK) + 1:])
+            ctx.check(f"{arm}: the mode line follows it ({'with' if arm == 'now' else 'without'} the reminder)",
+                      F.TASK in texts and (NOW_MODE if arm == "now" else MODE_LINE) in texts[texts.index(F.TASK) + 1:])
 
 
 # ---- G2 -----------------------------------------------------------------------------------------------------------

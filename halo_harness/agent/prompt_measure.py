@@ -133,7 +133,8 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
 def _first_request(ref, **kw) -> tuple:
     """(session, the full tool list, system text, messages, the tools sent): a new session's first request, shaped
     for the wire as the loop shapes it (`kw`: new_session's own, `text`, and `mode`: the permission mode line a
-    turn's start logs after the user node, agent/mode_notice.sync; None logs none)."""
+    turn's start logs after the user node, with a local main's reminder on Auto, agent/mode_notice.turn_line, as
+    agent/mode_notice.sync logs it; None logs none)."""
     from halo_harness.agent.derive import derive_request
     from halo_harness.agent.prompt_wire import shape
     from halo_harness.config.paths import bridge_home
@@ -155,8 +156,8 @@ def _first_request(ref, **kw) -> tuple:
             log.add(type="snapshot", kind=kind, content=[{"type": "text", "text": snap}])
     log.add(type="user", content=[{"type": "text", "text": text}])
     if mode:
-        from halo_harness.agent.mode_notice import mode_line
-        log.add(type="snapshot", kind="permission_mode", content=[{"type": "text", "text": mode_line(mode)}])
+        from halo_harness.agent.mode_notice import turn_line
+        log.add(type="snapshot", kind="permission_mode", content=[{"type": "text", "text": turn_line(session, mode)}])
     system_text, messages, tools = derive_request(log)
     full = list(tools or [])
     session._measure_raw = (system_text, messages, full)  # what a one-shot's ask shapes again (one_shot_first_ask)

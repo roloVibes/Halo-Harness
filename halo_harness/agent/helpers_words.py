@@ -4,6 +4,7 @@
     frozen(session) -> str | None   M1 and M2: when to hand work out, the kinds THIS session can start (his own first),
                                     made at the session's first shaping and kept byte-equal; made again only when
                                     main's model changes. None: not on Auto, or the block does not fit (today's line).
+    remind(session) -> str          M10: the line a LOCAL main on Auto reads after the mode line at each task, or ""
     one_shot(session) -> bool       `halo -p` with one prompt: the window ladder sizes its first ask (3.6.0.12 OS:
                                     with the tool block of the window it asks; it reads the block like any session)
     tail(session, tools) -> str     per request, after the tools are capped (agent/prompt_wire.py): M3 when the request
@@ -30,6 +31,8 @@ M2_END = ". With no `subagent_type` Halo picks a kind from your words."
 M2_MORE = " and {n} more (a wrong name lists them all)"
 KINDS_HEAD = " Helpers you can start (`subagent_type`): "  # M8: the Agent and Task tools' words on Auto (cloud copy)
 M3 = "- The Workflow tool lists workflows you can run by `name`: run one when it fits the whole job."
+M10 = ("If this job has parts that can run on their own, hand each one to a helper with the Agent tool before you work "
+       "on it yourself (one call per part; `subagent_type` names the helper). A small job you do yourself.")
 _KEPT = "_helpers_block"  # the session's frozen block: (main's model, the text or None)
 
 
@@ -97,6 +100,19 @@ def frozen(session) -> Optional[str]:
     except Exception:
         pass
     return text
+
+
+def remind(session) -> str:
+    """M10 (3.6.0.14 MW2): the line a LOCAL main on Auto reads at every task, after the permission mode line
+    (agent/mode_notice.turn_line); "" for everyone else (a cloud main, his map, a helper, the block off or not
+    fitting). It follows `frozen`, so it is the same bytes every turn and changes only with main's model."""
+    try:
+        from halo_harness.model import is_local_ref_string
+        if not is_local_ref_string(getattr(getattr(session, "model_ref", None), "raw", None)):
+            return ""
+        return M10 if on_auto(session) and frozen(session) is not None else ""
+    except Exception:
+        return ""
 
 
 def kinds_tail(session) -> str:

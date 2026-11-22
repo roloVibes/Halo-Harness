@@ -104,6 +104,22 @@ and Task tools' words. Studio's Map tab ("Main can hand work to") lists every
 name of the same list, and the session's status row says what main read
 (`kinds_told`, `kinds_more`); those fields never reach a model.
 
+**On a local model main is also reminded at each task (3.6.0.14).** When main
+runs on a local model on Auto and has been told the helpers above, every task
+it is given carries one more line, right after the line that names the
+permission mode: "If this job has parts that can run on their own, hand each
+one to a helper with the Agent tool before you work on it yourself (one call
+per part; `subagent_type` names the helper). A small job you do yourself."
+(`agent/helpers_words.py` `remind`, written by `agent/mode_notice.py`; about
+60 tokens a task by Halo's own count). The line is the same every turn; it goes when main switches
+to a cloud model and comes back with a local one. A cloud main, a map of your
+own, a helper and a session whose helper list does not fit read exactly what
+they read before. What the gym measured: of the local models tried, two handed
+out about two parts more of four with this line, and two did not change; a job
+with one small part was never handed out. `halo gym handout <model>`
+([COMMANDS-gym-handout.md](COMMANDS-gym-handout.md)) tells you which kind
+yours is.
+
 **The estimate is the wire's** (`providers/ollama_wire_estimate.py`). The
 window used to be picked from an estimate over the Anthropic-shaped request
 while the body sent is Ollama-shaped, about 0.5 % apart. It is now the

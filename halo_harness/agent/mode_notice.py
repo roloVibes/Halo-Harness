@@ -12,7 +12,8 @@ thread or any surface is caught at the next call without each surface
 having to say so itself.
 
 Each turn also carries one line naming the current mode (`mode_line`), in
-the same user-role snapshot as the turn's prompt.
+the same user-role snapshot as the turn's prompt; for a local main on Auto
+the reminder to hand parts out follows it on the next line (`turn_line`).
 """
 
 from __future__ import annotations
@@ -37,6 +38,15 @@ def mode_line(mode: str) -> str:
     """One line: `permission mode: plan (read-only; call ExitPlanMode with the plan)`."""
     words = _MODE_WORDS.get(mode)
     return f"permission mode: {mode}" + (f" ({words})" if words else "")
+
+
+def turn_line(session, mode: str) -> str:
+    """The snapshot's line at a turn's start: `mode_line`, and for a local main on Auto the reminder on the next line
+    (agent/helpers_words.remind, 3.6.0.14 MW2). The loop (`sync`) and the measure's first request
+    (agent/prompt_measure._first_request, the gym's) both call this, so they cannot differ."""
+    from halo_harness.agent.helpers_words import remind
+    extra = remind(session)
+    return mode_line(mode) + (f"\n{extra}" if extra else "")
 
 
 def plan_mode_note(plan_path) -> str:
@@ -79,7 +89,9 @@ def sync(session, *, turn_start: bool = False) -> Optional[str]:
         elif told == "plan":
             blocks.append(PLAN_OFF_NOTE)
         session._mode_told = mode
-    if blocks or turn_start:
+    if turn_start:
+        blocks.append(turn_line(session, mode))
+    elif blocks:
         blocks.append(mode_line(mode))
     if not blocks:
         return None
