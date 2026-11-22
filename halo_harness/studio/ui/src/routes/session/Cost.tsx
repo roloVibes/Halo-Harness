@@ -17,6 +17,8 @@
 // names the model, and main's line says "no price" when its own model is one.
 // 3.3.5.0 R4: under the context bar, the last request's parts as one stacked bar (CostComposition.tsx).
 // 3.3.7.0 R3: LOADING, the loading tax -- the session's loads and their seconds (LoadingTax.tsx).
+// 3.6.0.11: the watched session ended while another runs: "The session you watched ended; <folder> is running." with
+// Change session, in place of "No session here yet" (ChangeSession.tsx useWatched).
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -28,6 +30,7 @@ import type { SessionRow } from "../fleet/types";
 import { hueOf } from "../shared/hues";
 import { AgentLine, ContextBar, ShareBar, Spark, tok, type Share } from "./CostParts";
 import { lastTurnCost, startSpend, useSpend } from "./spend";
+import { ChangeSession, useWatched } from "./ChangeSession";
 import { copilotLine, ownCosts, partialTitle, unpricedMain } from "./shares";
 import { chosenSession } from "./store";
 import { EffortMenu } from "./EffortMenu"; // 3.3.5.0 R0b (c): the effort control
@@ -78,6 +81,10 @@ export function CostDetail() {
   const hid = useFleet((s) => s.scope.harness || "");
   const now = useNow(!!ss, 1000);
   const series = useSpend(ss?.session_id || "");
+  const w = useWatched();
+  if (!ss && w.ended)
+    return <Empty title={w.ended} testid="session-cost-ended"
+                  action={<div className="sco-change"><ChangeSession rows={w.rows} pick={w.pick} testid="session-cost-change" /></div>} />;
   if (!ss) return <Empty title="No session here yet" body="Start one in a terminal (halo): what it spends, its tokens and its turns show here as it works." testid="session-cost-empty" />;
   const usd = Number(ss.cost_usd) || 0;
   const own = ownCosts(ss);
@@ -141,6 +148,8 @@ export function CostDetail() {
 
 export function CostGlance() {
   const ss = useFleet(chosenSession);
+  const ended = useWatched().ended;
+  if (!ss && ended) return <div className="glance" data-testid="session-cost-ended"><div className="glance-text">{ended}</div></div>;
   if (!ss) return <div className="glance"><div className="glance-text">No session here yet</div><div className="glance-hint">Run halo in a terminal.</div></div>;
   return (
     <div className="glance" data-testid="session-cost-glance">

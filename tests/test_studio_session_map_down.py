@@ -135,12 +135,17 @@ def test_studio_unasked_session_named_never_chosen(ctx: Ctx):
         got = _driver()
     except SkipTest as e:
         raise SkipTest(f"(a) {'passed' if not node_skip else node_skip}; (b) {e}")
-    first, ended, alone = (_ran(ctx, got, k) for k in ("studio_first", "studio_ended", "studio_alone"))
+    first, moved, ended, alone = (_ran(ctx, got, k) for k in ("studio_first", "studio_auto_ended", "studio_ended", "studio_alone"))
     b = _b()
     ctx.check(f"R5 (b): with a terminal session open the Studio one is not drawn, got {first}", first.get("sid") and first.get("sid") != b)
-    ctx.check(f"R4: the session drawn ended: T8 until another is picked, not a move to another, got {ended}",
+    ctx.check(f"3.6.0.11: the session the page drew by itself ended: Session moves to the open one (T10), got {moved}",
+              moved.get("sid") == b and moved.get("state") == "T10")
+    ctx.check(f"R4: the session picked by hand (a link) ended: T8 until another is picked, not a move to another, got {ended}",
               ended.get("state") == "T8" and ended.get("sid") == first.get("sid") and str(ended.get("line")).startswith("This session ended at ")
               and not ended.get("boxes"))
+    cost = got.get("studio_ended_cost") or ""
+    ctx.check(f"3.6.0.11: Cost says 'The session you watched ended; <folder> is running.' in place of 'No session here yet', got {cost!r}",
+              cost.startswith("The session you watched ended; ") and cost.endswith(" is running."))
     from tests.helpers.studio_session_map_down import T10_SHOP
     ctx.check(f"R5 (b): alone, the Studio one reads T10 with {{B}} filled, no box, got {alone}",
               alone.get("sid") == b and alone.get("state") == "T10" and alone.get("line") == T10_SHOP and not alone.get("boxes"))
@@ -168,6 +173,58 @@ def test_a_pick_not_listed_yet_is_never_another_session(ctx: Ctx):
     ctx.check(f"R1: once it registers it is the one, got {p.get('listed')!r}", p.get("listed") == "NEW")
     ctx.check(f"R1: a pick this page never saw is still never another session, got {p.get('stale')!r}", p.get("stale") is None)
     ctx.check(f"R1: with no pick the newest open one is the default, got {p.get('unpicked')!r}", p.get("unpicked") == "TERM")
+
+
+# -- 3.6.0.11 SS batch 2: Session follows the newest session he starts; the Feed draws the shown session's lines only --
+AUTO_JS = """const m = await import(%s);
+const A = {session_id: 'A', parent: null, turns: 1, started: 100, cwd: '/w/root'};
+const B = {session_id: 'B', parent: null, turns: 0, started: 200, cwd: '/w/home'};
+const L = (key) => ({key, kind: 'text', text: 'x', ts: 1, n: 1, t0: 1});
+const lines = [L('h|A|main'), L('h|B|main'), L('h|A|w1'), L('hh|A|main'), L('h|AB|main')];
+console.log(JSON.stringify({
+  starts: m.autoPick([A, B], 'A', false, false), hand: m.autoPick([A, B], 'A', true, false),
+  ended: m.autoPick([B], 'A', false, false), holds: m.autoPick([A, B], 'A', false, true),
+  ended_hand: m.autoPick([B], 'A', true, false), none_open: m.autoPick([], 'A', false, false),
+  no_pick: m.autoPick([A, B], '', false, false),
+  feed_a: lines.filter(m.feedOf('h', 'A')).map((l) => l.key), feed_none: lines.filter(m.feedOf('h', '')).map((l) => l.key),
+}));"""
+
+
+@test
+def test_auto_pick_follows_the_newest_session_he_starts(ctx: Ctx):
+    # The owner (2026-11-22): "The session gui view doesn't synch with the terminal": Session kept the first session it
+    # drew (store.ts R1) when he started a newer one in another folder. A pick he did not make by hand follows the newest
+    # open session; one that ended moves to the newest open one; neither moves while the Prompt box holds text.
+    from tests.helpers import node_ts
+    p = node_ts.run(AUTO_JS % json.dumps(PICK.resolve().as_uri()))
+    ctx.check(f"A shown by the page itself, B starts: Session moves to B, got {p.get('starts')!r}", p.get("starts") == "B")
+    ctx.check(f"A picked by hand: it stays A, got {p.get('hand')!r}", p.get("hand") == "A")
+    ctx.check(f"A (not his) ended, B open: Session moves to B, got {p.get('ended')!r}", p.get("ended") == "B")
+    ctx.check(f"A shown, B starts while the Prompt box holds text: it stays A, got {p.get('holds')!r}", p.get("holds") == "A")
+    ctx.check(f"A picked by hand ended: it stays A (T8), got {p.get('ended_hand')!r}", p.get("ended_hand") == "A")
+    ctx.check(f"nothing open: the pick stays, got {p.get('none_open')!r}", p.get("none_open") == "A")
+    ctx.check(f"no pick: the newest open one, got {p.get('no_pick')!r}", p.get("no_pick") == "B")
+    ctx.check(f"the Feed of A: A's lines only (not B's, not another harness's, not a session 'AB'), got {p.get('feed_a')}",
+              p.get("feed_a") == ["h|A|main", "h|A|w1"])
+    ctx.check(f"no session shown: every line of this harness, got {p.get('feed_none')}",
+              p.get("feed_none") == ["h|A|main", "h|B|main", "h|A|w1", "h|AB|main"])
+
+
+@test
+def test_feed_names_its_session_and_shows_its_lines_only(ctx: Ctx):
+    # Reader E (d) (d'): the Feed mixed every session's lines while its Steer box and the Prompt box sent to the picked one,
+    # and nothing on the page but the closed Prompt drawer named that one.
+    got = _driver()
+    fa, fb = _ran(ctx, got, "feed_a"), _ran(ctx, got, "feed_b")
+    a, b = got.get("rig_sid"), _b()
+    ctx.check(f"A shown: the head names A and the Feed holds A's lines only, got {fa}", fa.get("sid") == a and fa.get("sids") == [a])
+    ctx.check(f"B shown: the head names B in the header's words with Change session, got {fb}",
+              fb.get("sid") == b and " · " in (fb.get("words") or "") and fb.get("change") is True)
+    ctx.check(f"B shown: no line of A in the Feed, got {fb.get('sids')}", a not in (fb.get("sids") or []))
+    ctx.check(f"B shown, A open: the chip says '1 other session running', got {fb.get('others')!r}", fb.get("others") == "1 other session running")
+    fn = _ran(ctx, got, "feed_newer")
+    ctx.check(f"A shown by the page itself, a newer B starts: the Feed follows B and says 'Now typing into ...', got {fn}",
+              fn.get("sid") == b and str(fn.get("words")).startswith("Now typing into ") and a not in (fn.get("sids") or []))
 
 
 # -- 3.6.0.2 batch 7: the default pick selects an agent again; a stale pick is given up; the drawing's timer is cleared --

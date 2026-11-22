@@ -8,10 +8,12 @@ started, parent, turns, its agents' states, or hidden as if it ended). No model 
     kept      the drawn session stays drawn while the other gets a turn and ends it (R1)
     turns     three turns of A: the map, its boxes, the head line and its top never change; main lit only in a turn (R2)
     noturn    a terminal session with no turn yet is drawn (R2)
-    studio    an idle Studio-started session is never picked while another is open; once A ends A reads T8; alone the
-              Studio one reads T10, draws no box and fetches no map (R4, R5)
+    studio    an idle Studio-started session is never picked while another is open; once A ends, a pick the page made
+              moves to the open one (3.6.0.11) and a pick by hand (a link) reads T8; alone the Studio one reads T10, draws
+              no box and fetches no map (R4, R5)
     default   no pick: the Agent panel shows the newest working agent of the session shown (batch 7)
     stale     `&session=` of a session never listed: given up after two reads, Session as with no pick (batch 7)
+    feed      3.6.0.11: the Feed's head names the session shown, the Feed has that session's lines only, the chip counts the other
 
     python -m tests.helpers.studio_session_map_down
 The last stdout line is a JSON object of what it saw.
@@ -194,12 +196,27 @@ def studio(c, rig, rows: Rows, a: str, b: str) -> dict:
     _page(c, rig, "mode=session")
     c.wait(f"!!({DRAWN} || ({LINE} && !{WAIT})) && !!{COST}?.dataset.session", 30)
     out["studio_first"] = _read(c)
+    rows.hide(a)  # 3.6.0.11: the page's own pick follows the newest open session: the Studio one (T10)
+    try:
+        c.wait(f"{LINE}?.dataset.state === 'T10'", 15)
+    except TimeoutError:
+        pass
+    out["studio_auto_ended"] = _read(c)
+    rows.hidden.discard(a)
+    rows.refresh()
+    _page(c, rig, f"mode=session&session={a}")  # a pick by hand (a link) that ends is kept: T8 until another is picked
+    c.wait(f"({DRAWN}?.dataset.sid || {LINE}?.dataset.sid) === '{a}' && !{WAIT}", 30)
     rows.hide(a)
     try:
         c.wait(f"{LINE}?.dataset.state === 'T8'", 15)
     except TimeoutError:
         pass
     out["studio_ended"] = _read(c)
+    try:  # 3.6.0.11: Cost says the watched one ended and which one runs, with Change session
+        c.wait("!!document.querySelector('[data-testid=\"session-cost-change\"]')", 15)
+    except TimeoutError:
+        pass
+    out["studio_ended_cost"] = c.js("document.querySelector('[data-testid=\"session-cost-ended\"] .empty-title')?.textContent || ''")
     _page(c, rig, "mode=session")
     try:
         c.wait(f"{LINE}?.dataset.state === 'T10'", 30)
@@ -243,6 +260,47 @@ def stale(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"stale": _read(c), "rig_sid": a}
 
 
+FEED = "document.querySelector('[data-testid=\"session-feed-session\"]')"
+FEED_LINES = "[...document.querySelectorAll('[data-testid=\"session-live-line\"]')]"
+
+
+def _feed(c) -> dict:
+    return c.js(f"""(() => {{ const f = {FEED};
+      return {{ sid: f?.dataset.sid || '', words: f?.querySelector('[data-testid=\"session-feed-words\"]')?.textContent || '',
+               others: f?.querySelector('[data-testid=\"session-feed-others\"][data-on]')?.textContent || '',
+               change: !!f?.querySelector('[data-testid=\"session-feed-change\"]'),
+               sids: [...new Set({FEED_LINES}.map((l) => (l.dataset.key || '').split('|')[1] || ''))] }}; }})()""") or {}
+
+
+def feed(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """3.6.0.11 (reader E (d)): two sessions open; the Feed shows A's lines, then, B shown, none of A's; its head names
+    the session shown and says "1 other session running"."""
+    rows.reset()  # A at work, as the rig runs it
+    rows.idle(b)
+    _page(c, rig, f"mode=session&session={a}")
+    try:
+        c.wait(f"{FEED}?.dataset.sid === '{a}' && {FEED_LINES}.some((l) => (l.dataset.key || '').includes('|{a}|'))", 30)
+    except TimeoutError:
+        pass
+    shown_a = _feed(c)
+    _page(c, rig, f"mode=session&session={b}")
+    try:
+        c.wait(f"{FEED}?.dataset.sid === '{b}' && !!{FEED}?.querySelector('[data-on]')", 30)
+    except TimeoutError:
+        pass
+    _reload(c, rows)
+    shown_b = _feed(c)
+    # the owner's case: Session shows A by itself, then he starts a newer session (B): Session follows it and says so
+    _page(c, rig, "mode=session")
+    c.wait(f"{FEED}?.dataset.sid === '{a}'", 30)
+    rows.set(b, started=time.time() + 120)
+    try:
+        c.wait(f"{FEED}?.dataset.sid === '{b}' && !!{FEED}.querySelector('[data-line=moved]')", 20)
+    except TimeoutError:
+        pass
+    return {"feed_a": shown_a, "feed_b": shown_b, "feed_newer": _feed(c), "rig_sid": a}
+
+
 class MapDownDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1440, 900
@@ -273,7 +331,7 @@ class MapDownDriver(Driver):
             from tests.helpers.studio_session import FAKE_SID
             collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            yield tuple((fn, args) for fn in (follows, kept, turns, noturn, studio, default, stale))
+            yield tuple((fn, args) for fn in (follows, kept, turns, noturn, studio, default, stale, feed))
 
 
 if __name__ == "__main__":

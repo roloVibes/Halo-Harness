@@ -10,8 +10,9 @@
 // selected selects the newest working agent of the chosen (else any) session.
 // 3.6.0.2 R1: the chosen session is ONE function (`chosenSession`, routes/session/pick.ts) that Cost, Prompt, the Feed
 // and the Live drawer read; with no pick it is the newest open session (never a Studio one with no message yet while
-// another is open), written into the scope at once and kept until he picks another; one that ends stays picked (T8). A
-// pick this page never saw listed is given up after two reads without it (a stale link), unless this page started it.
+// another is open), written into the scope at once; one that ends stays picked (T8). A pick this page never saw listed
+// is given up after two reads without it (a stale link), unless this page started it. 3.6.0.11: only a pick he made
+// by hand is kept; the page's own follows the newest open session on each fresh list read (pick.ts autoPick).
 // 3.2.2.0 R6: config.json moving on disk (`halo teams apply`, `halo config set
 // model`: `files_changed`) reads GET fleet again: the sessions' lineup and model.
 import { createStore, goSection, studio, useStore } from "../../lib/store";
@@ -21,7 +22,8 @@ import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 import { onEvent } from "../../lib/events";
-import { followerOf, livePick, noteBuild, noteRows, staleList } from "./pick";
+import { autoPick, followerOf, livePick, noteAutoMove, noteBuild, noteRows, staleList } from "./pick";
+import { prompt } from "./promptStore";
 import { keepOpen } from "../crew/map/built";
 import { startFlowFiles } from "./flowFiles";
 import { startLit } from "../crew/map/litStore";
@@ -125,6 +127,10 @@ let busy = false;
 let lastSection = "";
 let lastSel = "";
 let needPick = false;
+let byHand = false; // 3.6.0.11: the pick is his (Change session, a link, a focus frame, an agent of another session)
+let ownSel = ""; // the agent this store selected itself (not his selection)
+let autoSeen = -1; // the list read autoPick last looked at
+const own = (s: FleetState, key: AgentKey) => void (key && findAgent(s, key) && ((ownSel = key), select(key)));
 
 /** Every studio or fleet change: the scope in and out of the section, the pick on enter, the session following the selection. */
 function onChange(): void {
@@ -151,20 +157,20 @@ function onChange(): void {
     const want = sess.get().want;
     // the session LIST read again (GET live, a sessions frame: listReads), never an agent frame of another session
     const gaveUp = s.loaded && !s.error && staleList(s.listReads, localSessions(s), want ? "" : session);
-    if (gaveUp) (session = "", (needPick = true)); // R1: a pick never listed in two reads: Session as with no pick
+    if (gaveUp) (session = "", (needPick = true), (byHand = false)); // R1: a pick never listed in two reads: Session as with no pick
     // 3.6.0.2 P31: a pick that left the list moves to the row that follows it (/clear, a fork, /resume in its terminal)
     const heir = s.loaded && !s.error && !want ? followerOf(localSessions(s), session) : null;
     if (heir) {
       session = heir.session_id;
       const key = pickAgent(s, session); // its main agent, as a pick on entering selects one
-      if (key && findAgent(s, key)) select(key);
+      own(s, key);
     }
     if (s.loaded && want) {
       sess.update(() => ({ want: null }));
-      needPick = false;
+      (needPick = false), (byHand = true);
       session = want.session || parseKey(want.key).s;
       const key = want.key && findAgent(s, want.key) ? want.key : pickAgent(s, session);
-      if (key && findAgent(s, key)) select(key);
+      own(s, key);
     } else if (s.loaded && needPick) {
       needPick = false;
       // R1: the kept pick stays the pick (open, ended: T8, or not listed yet); with none, the newest open session, whose
@@ -173,16 +179,22 @@ function onChange(): void {
       const p = parseKey(s.selected);
       if (session && (gaveUp || !s.selected || p.h !== harness || !findAgent(s, s.selected))) {
         const key = pickAgent(s, session); // an agent OF the kept session only
-        if (key && findAgent(s, key)) select(key);
+        own(s, key);
       }
     }
     const sel = fleet.get().selected;
     if (sel !== lastSel) {
       lastSel = sel;
       const p = parseKey(sel);
+      if (sel && p.h === harness && sel !== ownSel && p.s !== session) byHand = true; // his pick of another session's agent
       if (sel && p.h === harness) session = p.s;
     }
     if (s.loaded && !session) session = livePick(localSessions(s), "")?.session_id || ""; // R1: once drawn, written down
+    if (s.loaded && !s.error && s.listReads !== autoSeen) { // 3.6.0.11: each fresh read of the list; the Prompt box's text holds it
+      autoSeen = s.listReads;
+      const to = autoPick(localSessions(s), session, byHand, !!prompt.get().draft.trim());
+      if (to !== session) (session = to, noteAutoMove(to), own(s, pickAgent(s, to)));
+    }
     if (session && sess.get().chosen !== session) sess.update(() => ({ chosen: session }));
     setScope({ harness: harness || "?", session });
   } finally {

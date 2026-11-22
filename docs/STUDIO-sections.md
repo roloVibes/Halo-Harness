@@ -156,7 +156,8 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    or on a phone through an SSH forward of Studio's port; Settings -> Studio -> Alerts can add one browser notification
    when something starts waiting on you ([STUDIO-live.md](STUDIO-live.md#the-glance)).
 
-**Panels.** Live (`session-live`): every agent here at once, what it types,
+**Panels.** Live (`session-live`): every agent of the session its header names at once (3.6.0.11: with Change session;
+Session follows the newest session you start unless you picked one, never while the Prompt box holds text), what it types,
 runs, hands back and asks, in the live log's columns under this session's
 timeline strip, with the Steer box at its foot. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree -- since 3.3.11.0 R2 the thumbnail of the tree Roles Live draws full size (**Open in Roles Live** on its bar). Cost

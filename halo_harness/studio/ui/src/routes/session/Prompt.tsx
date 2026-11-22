@@ -20,7 +20,8 @@ import { NewSession } from "./NewSession";
 import { PromptComposer } from "./PromptComposer";
 import { PromptFeed } from "./PromptFeed";
 import { PromptHead } from "./PromptHead";
-import { lastRow } from "./pick";
+import { lastRow, openOrder } from "./pick";
+import { endedLine } from "./promptWords";
 import type { SessionRow } from "../fleet/types";
 import { chosenSession, localSessions, useSession } from "./store";
 
@@ -46,7 +47,8 @@ export function PromptDetail() {
   const ended = !!gone && !!draft.trim();
   const busy = !!ss && (ss.busy || ss.status === "busy" || ss.status === "waiting");
   const state = !ss ? "" : busy ? (ss.status === "waiting" ? "waits on you" : "a turn is running") : "idle";
-  const off = !ss && !ended ? "No session here yet: New session above, or run halo in a terminal." : "";
+  const watched = gone ? endedLine(openOrder(rows)[0]) : ""; // 3.6.0.11: the watched one ended, another runs
+  const off = !ss && !ended ? watched || "No session here yet: New session above, or run halo in a terminal." : "";
   const feed = sid || gone?.session_id || "";
   return (
     <div className="spp" data-testid="prompt-detail" data-session={sid || undefined} data-busy={busy || undefined} data-ended={ended || undefined}>

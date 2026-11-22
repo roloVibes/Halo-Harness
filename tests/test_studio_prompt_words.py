@@ -259,6 +259,52 @@ def test_choosing_the_current_session_leaves_no_mark(ctx: Ctx):
               got.get("other_change_first") is False and got.get("then_C") is False)
 
 
+# -- 3.6.0.11 SS batch 2: the Feed's head says which session it shows; the words for an ended watched session; the
+# prompts typed before Studio attached show as turns --
+ROWS_TS = WORDS.with_name("promptRows.ts")
+JS_FEED_HEAD = """
+const m = await import(%s);
+console.log(JSON.stringify({ others: [0, 1, 2, 5].map(m.othersLine),
+  ended: m.endedLine({cwd: '/w/home', title: 'fix the tests'}), ended_win: m.endedLine({cwd: 'C:\\\\w\\\\app\\\\'}),
+  none: m.endedLine(null) }));
+"""
+JS_ROWS = """
+const r = await import(%s);
+const key = 'h|S|main';
+const lines = [{key, kind: 'asked', text: 'old question', ts: 10, n: 1}, {key, kind: 'text', text: 'old answer', ts: 11, n: 2},
+  {key: 'h|S|w1', kind: 'asked', text: 'helper task', ts: 12, n: 3}, {key, kind: 'asked', text: 'heard live', ts: 20, n: 4},
+  {key: 'h|T|main', kind: 'asked', text: 'other session', ts: 21, n: 6}, {key, kind: 'asked', text: 'heard live', ts: 30, n: 7}];
+const turns = [{n: 5, sid: 'S', ts: 20, text: 'heard live', via: 'terminal', receipt: '', turn: 2}];
+const said = (x) => x.turn ? 'you:' + x.turn.text : x.line ? x.line.kind + ':' + x.line.text : 'out';
+console.log(JSON.stringify({ rows: r.feedRows(turns, lines, [], 'S', key, 240).map(said) }));
+"""
+
+
+@test
+def test_feed_head_words_for_other_sessions_and_an_ended_one(ctx: Ctx):
+    from tests.helpers import node_ts
+    got = node_ts.run(JS_FEED_HEAD % json.dumps(WORDS.resolve().as_uri())) or {}
+    ctx.check(f"the chip: nothing for 0, then '1 other session running' / 'n other sessions running', got {got.get('others')}",
+              got.get("others") == ["", "1 other session running", "2 other sessions running", "5 other sessions running"])
+    ctx.check(f"the watched session ended: the open one's folder, word for word, got {got.get('ended')!r} {got.get('ended_win')!r}",
+              got.get("ended") == "The session you watched ended; home is running."
+              and got.get("ended_win") == "The session you watched ended; app is running.")
+    ctx.check(f"nothing open: no such line, got {got.get('none')!r}", got.get("none") == "")
+
+
+@test
+def test_prompts_typed_before_studio_attached_show_as_turns(ctx: Ctx):
+    # Reader E (e): the backlog's prompts are `asked` lines, which the Prompt panel did not show: answers without their
+    # questions. Main's `asked` lines are turns; one heard live as a turn (the same text, about the same time) is not drawn twice.
+    from tests.helpers import node_ts
+    ctx.check(f"routes/session/promptRows.ts exists, got {ROWS_TS.exists()}", ROWS_TS.exists())
+    if not ROWS_TS.exists():
+        return
+    got = node_ts.run(JS_ROWS % json.dumps(ROWS_TS.resolve().as_uri())) or {}
+    ctx.check(f"the prompt, its answer, the live turn once, a repeat later as its own turn; no helper's or other session's, got {got.get('rows')}",
+              got.get("rows") == ["you:old question", "text:old answer", "you:heard live", "you:heard live"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -9,6 +9,7 @@
 // and Export downloads the session's trace (TraceExport.tsx).
 // 3.3.16.2: think and talk in the kind pick; Thinking beside Follow (only thoughts and their acts).
 // 3.6.0.11: Steer beside Follow opens the Steer box (off on every load); pressed while it is open, a click closes it.
+// 3.6.0.11: the last row names the session the Feed shows, with Change session (FeedSession.tsx).
 // 3.3.7.0 R2: the offline-promise chip (OfflineChip.tsx) for a session of this harness. 3.4.1.0 R3: the mode word (ModeWord.tsx).
 // 3.3.6.0 R6: Screenshot captures the display of the machine the session's harness runs on and attaches it to the
 // next steer (steerImage.ts): from a Mac or Kali driving this Studio, it is this PC's screen.
@@ -22,6 +23,7 @@ import { closeSteer, openSteer, pinTo, targetName, useSteerTarget, useStripAgent
 import { takeScreenshot, useSteerImage } from "./steerImage";
 import { chosenSession, sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
+import { FeedSession } from "./FeedSession";
 
 /** The kind pick's choices: value, label, the line kinds it keeps. */
 export const KIND_PICKS: [string, string, LiveKind[]][] = [
@@ -160,6 +162,7 @@ export function LiveHead({ working, count, onFollow, following }: { working: num
         <ShotButton />
         <TraceExport where="head" />
       </div>
+      <FeedSession />
     </header>
   );
 }

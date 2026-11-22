@@ -18,6 +18,7 @@ export const SESSION_HELP: Record<string, Help> = {
   "session-live": {
     about: `Every agent here at once, line by line: what it types, each tool call and its result, what it hands back, what it asks you. ${WAS.feed}`,
     help: lines(
+      "The header's last line names the session the lines are of (its folder, title, start and terminal), with Change session; N other sessions running opens the same list. Session follows the newest session you start unless you picked one yourself (Change session, the Map, a link), never while the Prompt box holds text, and says Now typing into ... when it moves.",
       "Lines land in the order they happen, in Fleet's columns: the time, the kind (TOOL, TEXT, THINK, TALK, STATE, ASK, YOU...) and the agent's tag (its colour, its name and its state: cyan works, amber waits, green done, red failed).",
       "THINK is a model's reasoning as it comes, one row per thought: four lines, show all for the rest, then how long it thought (and its tokens when the provider says). Its chip says what it led to; why? on that row opens the thought under it. Thinking beside Follow shows only the thoughts and what each led to. A model with no thinking shows none.",
       "TALK is one agent's words to another: the speaker's tag, an arrow, the listener's, and why (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER). A hand-back is one row (the same words as the agent's last ones). Conversations (its button in the bar) shows them as threads.",

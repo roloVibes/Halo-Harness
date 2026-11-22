@@ -2,6 +2,7 @@
 // runs it (tests/test_studio_session_map_down.py). The pick (the scope's session) wins while it is open; with no pick, the
 // newest OPEN session (a terminal one with no turn included), never a Studio-started one with no message yet (T10) while
 // another is open. A picked session that ends is kept (its last row, and when it went: T8) until another is picked.
+// 3.6.0.11: only a pick he made by hand is kept; one the page made follows the newest open session (`autoPick`).
 import type { SessionRow } from "../fleet/types";
 import type { TruthFacts } from "../crew/map/truth";
 
@@ -127,6 +128,21 @@ export function livePick<R extends SessionRow>(rows: R[], pick: string): R | nul
   if (pick) return rows.find((x) => x.session_id === pick) || null;
   return openOrder(rows)[0] || null;
 }
+
+/** 3.6.0.11 (the owner: "The session gui view doesn't synch with the terminal"): the pick after a fresh read of the
+ *  list. A pick he did not make by hand follows the newest open session (`openOrder`), so one that ended moves to it
+ *  too; a hand pick never moves by itself, and nothing moves while the Prompt box holds text. Nothing open: it stays. */
+export function autoPick<R extends SessionRow>(rows: R[], pick: string, byHand: boolean, holdsText: boolean): string {
+  if (byHand || holdsText) return pick;
+  return openOrder(rows)[0]?.session_id || pick;
+}
+
+let autoTo = ""; // the session autoPick last moved Session to (the Feed's head says the move: FeedSession.tsx)
+export const noteAutoMove = (sid: string): void => void (autoTo = sid);
+export const autoMovedTo = (sid: string): boolean => !!sid && autoTo === sid;
+
+/** 3.6.0.11: the Feed's lines: the shown session's only (its key prefix); with none shown, every line of harness `here`. */
+export const feedOf = (here: string, sid: string) => (l: { key: string }): boolean => l.key.startsWith(sid ? `${here}|${sid}|` : `${here}|`);
 
 const heirs = new Map<string, string>(); // 3.6.0.2 P31: a pick moved by `follows`: the new id -> the old pick
 

@@ -5,6 +5,7 @@
 // anywhere shows one line in their place), a steer's one row with the muted steering line (P22), `Interrupted.`
 // under a turn stopped from anywhere (P20) and a slash command's output lines. It reads the stream the Live panel
 // already keeps (shared/liveFeed.ts, the session's main agent) plus the turns and outputs of promptStore.ts.
+// 3.6.0.11: a prompt typed before Studio attached (the backlog's `asked` line of main) is a turn too (promptRows.ts).
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useBorn } from "../../lib/motion/born";
 import { CopyButton, Empty } from "../../lib/ui";
@@ -12,13 +13,12 @@ import { replySource } from "../../lib/copyText";
 import { short } from "../orchestra/format";
 import { keyOf } from "../fleet/store";
 import { useLive, type LiveLine } from "../shared/liveFeed";
-import { LADDER, STATE_WORDS, usePrompt, type Out, type Receipt, type Turn } from "./promptStore";
+import { LADDER, STATE_WORDS, usePrompt, type Receipt } from "./promptStore";
+import { feedRows } from "./promptRows";
 import { answer } from "./promptSend";
 import { askLabel, STEERING } from "./promptWords";
 import { REPLY_TITLE, ReplyText } from "./ReplyText";
 
-type Row = { ts: number; n: number; turn?: Turn; line?: LiveLine; out?: Out };
-const SHOWN: LiveLine["kind"][] = ["text", "tool", "ask", "state", "error", "output", "you"];
 const MAX_ROWS = 240;
 
 /** The receipt's four marks beside your turn; the state's word (and a failure's reason) in the title. 3.3.15.0 L1:
@@ -121,15 +121,7 @@ export function PromptFeed({ sid, hid }: { sid: string; hid: string }) {
   const outs = usePrompt((s) => s.outs);
   const receipts = usePrompt((s) => s.receipts);
   const box = useRef<HTMLDivElement>(null);
-  const rows = useMemo(() => {
-    const out: Row[] = [
-      ...turns.filter((t) => t.sid === sid).map((t) => ({ ts: t.ts, n: t.n, turn: t })),
-      ...lines.filter((l) => l.key === key && SHOWN.includes(l.kind)).map((l) => ({ ts: l.ts, n: l.n, line: l })),
-      ...outs.filter((o) => o.sid === sid).map((o) => ({ ts: o.ts, n: o.n, out: o })),
-    ];
-    out.sort((a, b) => a.ts - b.ts || a.n - b.n);
-    return out.slice(-MAX_ROWS);
-  }, [turns, lines, outs, sid, key]);
+  const rows = useMemo(() => feedRows(turns, lines, outs, sid, key, MAX_ROWS), [turns, lines, outs, sid, key]); // promptRows.ts
   useEffect(() => {
     const el = box.current;
     if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 120) el.scrollTop = el.scrollHeight;

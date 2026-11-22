@@ -16,6 +16,8 @@
 // else the session's main agent, with Pause and Stop). 3.6.0.11: the box is off
 // until asked for (the header's Steer, a row's steer, `s` on a row) and x or Esc
 // closes it; the session's own questions (LivePreflight, LiveEyes) stay in the foot.
+// 3.6.0.11 (reader E (d')): the Feed draws the lines of the session it shows only (pick.ts feedOf), the one its Steer
+// box and the Prompt box send to; the head's last row names it (FeedSession.tsx).
 // 3.3.0.0 R6: the steer's target row is outlined (a click on a row, or `s` on
 // a focused row, chooses it); the column stops following while you compose
 // or have scrolled up (follow.ts: the "N new rows · follow" pill); Export
@@ -44,7 +46,8 @@ import { LivePreflight } from "./LivePreflight";
 import { LiveEyes } from "./LiveImage";
 import { useFollow } from "./follow";
 import { chooseTarget, followAgain, openSteer, pauseFollow, setPin, targetRow, useStripScope, useSteerTarget } from "./steer";
-import { sess, useSession } from "./store";
+import { chosenSession, sess, useSession } from "./store";
+import { feedOf } from "./pick";
 import { TraceExport } from "./TraceExport";
 import { shortModel } from "../../lib/modelName";
 import { WORDS } from "../crew/map/truthWords";
@@ -68,7 +71,6 @@ function useWho(): Map<string, Who> {
   }, [harnesses]);
 }
 
-const mine = (here: string) => (l: LiveLine) => l.key.startsWith(here + "|");
 /** The Thinking view: the thoughts, what each led to, and your own steers. */
 const thinkIn = (links: Links) => (l: LiveLine) => l.kind === "thinking" || l.kind === "you" || links.thoughtOf.has(l.n);
 const toThought = (p: PhaseSeg) => {
@@ -80,6 +82,7 @@ const setHover = (key: string) => fleet.get().hover !== key && fleet.update(() =
 export function LiveDetail() {
   useEffect(() => startLiveTree(true), []);
   const here = useFleet((s) => localId(s));
+  const sid = useFleet((s) => chosenSession(s)?.session_id || s.scope.session || ""); // an ended pick: its lines
   const all = useLive((s) => s.lines);
   const pin = useSession((s) => s.pin);
   const kind = useSession((s) => s.kind);
@@ -93,8 +96,8 @@ export function LiveDetail() {
   const phases = useMemo(() => phaseMap(all), [all]);
   const pair = useSession((s) => s.pair);
   const open = useSession((s) => s.steer);
-  const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : mine(here)).filter(kindIn(kind)).filter(think ? thinkIn(links) : () => true)
-    .filter(pair ? (l) => !!l.talk && pairOf(l.talk) === pair : () => true), [all, pin, here, kind, think, links, pair]);
+  const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : feedOf(here, sid)).filter(kindIn(kind)).filter(think ? thinkIn(links) : () => true)
+    .filter(pair ? (l) => !!l.talk && pairOf(l.talk) === pair : () => true), [all, pin, here, sid, kind, think, links, pair]);
   const shown = useMemo(() => (lines.length > VIEW ? lines.slice(-VIEW) : lines), [lines]);
   const targetN = useMemo(() => targetRow(shown, target, held), [shown, target, held]);
   const { following, fresh, onScroll } = useFollow(scroller, shown);
@@ -113,7 +116,7 @@ export function LiveDetail() {
     e.preventDefault();
     e.stopPropagation();
   };
-  const working = [...who.entries()].filter(([k, w]) => k.startsWith(here + "|") && w.state === "running").length;
+  const working = [...who.entries()].filter(([key, w]) => feedOf(here, sid)({ key }) && w.state === "running").length;
   const lastN = shown[shown.length - 1]?.n;
   const onFollow = () => (sess.get().follow ? pauseFollow() : followAgain());
   return (

@@ -110,6 +110,10 @@ export const headLine = (row: HeadRow, now: number): string => Object.values(hea
 /** P29: the pick changed by anything but the list; `short` when the title would not fit the header's height. */
 export const movedLine = (row: HeadRow, short: boolean): string =>
   short ? `Now typing into ${folderOf(row.cwd)}.` : `Now typing into ${folderOf(row.cwd)} · ${titleOf(row)}.`;
+/** 3.6.0.11: the Feed's head chip while other sessions are open ("" with none). */
+export const othersLine = (n: number): string => (n > 0 ? `${n} other session${n === 1 ? "" : "s"} running` : "");
+/** 3.6.0.11: the watched session ended and `open` (the newest open one) runs: Cost and Prompt say so ("" with none open). */
+export const endedLine = (open: HeadRow | null | undefined): string => (open ? `The session you watched ended; ${folderOf(open.cwd)} is running.` : "");
 /** P31: the pick followed the terminal to its new conversation. */
 export const followLine = (row: HeadRow): string => `Same terminal, new conversation: ${folderOf(row.cwd)}.`;
 

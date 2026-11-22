@@ -116,6 +116,12 @@ def change(c, rig) -> dict:
     sid2 = uuid.uuid4().hex
     other = rig.cwd.parent / (rig.cwd.name + "-other")
     other.mkdir(exist_ok=True)
+    # 3.6.0.11: a pick the page made follows the newest session he starts; one he made by hand stays. Pick the rig's
+    # session in the list first, so the newer second session below does not take the pick before the list is read.
+    c.click_on("document.querySelector('[data-testid=\"prompt-change\"]')")
+    c.wait(f"{ITEMS}.length === 1 && 'ok'", 10)
+    c.click_on(f"{ITEMS}.find((i) => i.dataset.session === {rig.sid!r})")
+    c.wait(f"{ITEMS}.length === 0 && 'ok'", 10)
     _row(rig, sid2, cwd=str(other), title="Second session", started=time.time() + 60)
     rig.extra = [sid2]
     c.wait(f"!document.querySelector('[data-testid=\"prompt-change\"]').disabled && 'ok'", 10)
