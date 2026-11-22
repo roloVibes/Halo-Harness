@@ -43,22 +43,140 @@ MODE_LINE = "permission mode: acceptEdits (edits in the working directory run wi
 REF = "ol:tiny:3b@lan"
 MODEL = "tiny:3b"
 MOCK_REF = f"ol:{MODEL}@gpu-box"
+KEY_NAME = "GPU_BOX_KEY"  # an invented variable and value: the key lives in the scratch home's env file only
+KEY = "gym-test-key-0001"
+GATEWAY_UNLOAD = (f"unload: gpu-box is a gateway that speaks the OpenAI dialect: the gym cannot unload {MODEL} through "
+                  "it; it stays loaded until that host's keep-alive ends.")
+
+
+def _refuse(handler, body=None) -> None:
+    """401 with `WWW-Authenticate: Bearer`, as a host that asks for a key answers a request without it."""
+    raw = json.dumps({"error": "unauthorized"}).encode("utf-8")
+    handler.send_response(401)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(raw)))
+    handler.send_header("WWW-Authenticate", "Bearer")
+    handler.end_headers()
+    handler.wfile.write(raw)
+
+
+def _oai(calls=None, text: str = "") -> list:
+    """One OpenAI-dialect streamed reply (chunks), tool calls included."""
+    chunks = [{"choices": [{"index": 0, "delta": {"role": "assistant"}}]}]
+    if text:
+        chunks.append({"choices": [{"index": 0, "delta": {"content": text}}]})
+    for i, (name, args) in enumerate(calls or []):
+        chunks.append({"choices": [{"index": 0, "delta": {"tool_calls": [
+            {"index": i, "id": f"call_{i}", "type": "function",
+             "function": {"name": name, "arguments": json.dumps(args)}}]}}]})
+    chunks.append({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls" if calls else "stop"}]})
+    return chunks
+
+
+class Gateway:
+    """A gateway in front of Ollama that speaks the OpenAI dialect, on loopback: GET /v1/models and POST
+    /v1/chat/completions only, with `Authorization: Bearer <key>`; 401 (`WWW-Authenticate: Bearer`) without it, 404 for
+    every other path (Ollama's own `/api/...` included). Every request is recorded. A step is a list of chunks or a
+    callable(handler, body); steps go by call count, the last repeating. Stopped in `__exit__`."""
+
+    def __init__(self, model: str, steps: list, key: str = KEY):
+        import threading
+        self.model, self.steps, self.key = model, list(steps), key
+        self.requests: list = []
+        self.chats = 0
+        self._lock = threading.Lock()
+        self._server = None
+
+    def __enter__(self):
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from tests.helpers.mock_openai import _finish, send_json_response
+        gw = self
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *a):
+                pass
+
+            def _go(self, method: str) -> None:
+                n = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(n) if n else b""
+                try:
+                    body = json.loads(raw) if raw else None
+                except ValueError:
+                    body = None
+                with gw._lock:
+                    gw.requests.append({"method": method, "path": self.path, "body": body,
+                                        "headers": {k.lower(): v for k, v in self.headers.items()}})
+                if self.headers.get("Authorization") != f"Bearer {gw.key}":
+                    _refuse(self)
+                    return
+                path = self.path.split("?")[0].rstrip("/")
+                if method == "GET" and path == "/v1/models":
+                    send_json_response(self, 200, {"object": "list", "data": [{"id": gw.model, "object": "model"}]})
+                elif method == "POST" and path == "/v1/chat/completions":
+                    with gw._lock:
+                        step = gw.steps[min(gw.chats, len(gw.steps) - 1)]
+                        gw.chats += 1
+                    step(self, body) if callable(step) else _finish(self, step)
+                else:
+                    send_json_response(self, 404, {"error": "404 page not found"})
+
+            def do_GET(self):
+                self._go("GET")
+
+            def do_POST(self):
+                self._go("POST")
+
+            def do_DELETE(self):
+                self._go("DELETE")
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        return self
+
+    def __exit__(self, *exc):
+        self._server.shutdown()
+        self._server.server_close()
+
+    @property
+    def base_url(self) -> str:
+        return f"http://127.0.0.1:{self._server.server_address[1]}"
+
+    def host_entry(self) -> dict:
+        return {"name": "gpu-box", "url": self.base_url, "dialect": "openai", "api_key_env": KEY_NAME}
+
+    def chat_bodies(self) -> list:
+        return [r["body"] for r in self.requests if r["path"] == "/v1/chat/completions"]
+
+    def native(self) -> list:
+        """Every request that went to Ollama's own API."""
+        return [f"{r['method']} {r['path']}" for r in self.requests if r["path"].startswith("/api")]
 
 
 class _Home(ConfigHome):
+    """A scratch home whose provider env file is its own (`halo gym` loads it as a session does): the whole process
+    environment is put back on the way out, the values that load added included."""
+
     def __enter__(self):
+        self._environ = dict(os.environ)
         super().__enter__()
-        self._ollama = os.environ.get("OLLAMA_HOST")
         os.environ["OLLAMA_HOST"] = "http://127.0.0.1:9"
+        self.env_file = self.home / "env"
+        os.environ["HALO_ENV_FILE"] = str(self.env_file)
         self.copy = self.home / "copy"
         return self
 
     def __exit__(self, *exc):
-        if self._ollama is None:
-            os.environ.pop("OLLAMA_HOST", None)
-        else:
-            os.environ["OLLAMA_HOST"] = self._ollama
-        return super().__exit__(*exc)
+        try:
+            return super().__exit__(*exc)
+        finally:
+            for k in [k for k in os.environ if k not in self._environ]:
+                os.environ.pop(k, None)
+            for k, v in self._environ.items():
+                if os.environ.get(k) != v:
+                    os.environ[k] = v
 
 
 def _texts(messages) -> list:
@@ -200,20 +318,38 @@ def _reply(calls=None, text: str = "") -> list:
 class _Mock:
     """The module's fake Ollama on loopback as the host `gpu-box` of the scratch home's config; stopped in `__exit__`."""
 
-    def __init__(self, h, steps, *, thinks: bool = False):
+    def __init__(self, h, steps, *, thinks: bool = False, more: "dict | None" = None, key: "str | None" = None):
         caps = ["tools", "thinking"] if thinks else ["tools"]
-        self.h = h
+        self.h, self.key = h, key
+        models = {MODEL: steps, **(more or {})}
         self.mock = MockUpstream(
-            scenarios={MODEL: ScriptedByCallCount(steps)},
-            tags_response={"models": [{"name": MODEL, "model": MODEL, "digest": "sha256:feed01",
-                                       "details": {"family": "tiny", "quantization_level": "Q4_0"}}]},
-            show_responses={MODEL: {"capabilities": caps, "details": {"family": "tiny"},
-                                    "model_info": {"tiny.context_length": 32768}}})
+            scenarios={m: self._keyed(ScriptedByCallCount(s)) for m, s in models.items()},
+            tags_response={"models": [{"name": m, "model": m, "digest": f"sha256:feed0{i + 1}",
+                                       "details": {"family": "tiny", "quantization_level": "Q4_0"}}
+                                      for i, m in enumerate(models)]},
+            show_responses={m: {"capabilities": caps, "details": {"family": "tiny"},
+                                "model_info": {"tiny.context_length": 32768}} for m in models})
+
+    def _keyed(self, scripted):
+        """With a key: a chat request without `Authorization: Bearer <key>` is answered 401, as a host that asks for a
+        key answers it."""
+        if self.key is None:
+            return scripted
+
+        def answer(handler, body):
+            if handler.headers.get("Authorization") != f"Bearer {self.key}":
+                _refuse(handler, body)
+                return
+            scripted(handler, body)
+        return answer
 
     def __enter__(self):
         self.mock.start()
-        (self.h.state / "config.json").write_text(json.dumps(
-            {"ollama": {"hosts": [{"name": "gpu-box", "url": self.mock.base_url}]}}), encoding="utf-8")
+        host = {"name": "gpu-box", "url": self.mock.base_url}
+        if self.key is not None:
+            host["api_key_env"] = KEY_NAME
+            self.h.env_file.write_text(f"{KEY_NAME}={self.key}\n", encoding="utf-8")
+        (self.h.state / "config.json").write_text(json.dumps({"ollama": {"hosts": [host]}}), encoding="utf-8")
         return self.mock
 
     def __exit__(self, *exc):
@@ -439,7 +575,8 @@ FACTS = ["Runs one fixed four-part job with each local model you name as main, t
          "before 3.6.0.10 and three times with today's, and counts the parts it hands to helpers, not whether the work "
          "is better. Helpers are not run: each gets a fixed answer.",
          "Free: local models only; nothing is sent to a cloud.",
-         "About 20 to 40 minutes per model with three trials (not measured yet: the first run sets this line).",
+         "About 2 minutes per model with three trials when the model runs on a GPU (five real runs took 9 minutes "
+         "together); a model that runs on the CPU takes much longer.",
          "A scratch copy of a small project, removed at the end, and one card per model under "
          "~/.halo/gym-handout/<host>/."]
 CLOUD = "or:example/model"
@@ -480,6 +617,8 @@ def test_the_four_facts_print_before_the_first_request(ctx: Ctx):
     rc, text, _err = _cmd(["handout", "--help"])
     ctx.check(f"--help prints the four facts, one per line, got {text!r}",
               rc == 0 and "\n".join(FACTS) in text and "--trials" in text)
+    doc = (Path(__file__).resolve().parent.parent / "docs" / "COMMANDS-gym-handout.md").read_text(encoding="utf-8")
+    ctx.check("the docs' quoted block holds the four facts, one per line", "\n".join(FACTS) in doc)
     with _Home() as h, _Mock(h, [first, _reply(text="ok")]) as mock:
         rc, _text, _err = _cmd(["handout", MOCK_REF, "--trials", "0"])
         ctx.check(f"--trials 0 is refused by the parser with no request, got {rc} {_err!r}",
@@ -541,13 +680,16 @@ def test_no_child_is_left_and_the_copy_is_gone(ctx: Ctx):
                         ("a run whose chat request fails", [fails])):
         with _Home() as h, _Mock(h, steps) as mock:
             rc, text, err, started, copies = _watched_run(ctx, h, ["handout", MOCK_REF, "--trials", "1"])
-            ctx.check(f"{name}: exit 0 and a chat request, got {rc} {err!r}", rc == 0 and _chats(mock))
+            # 3.6.0.14 GR-2: a run no request of which was answered is not measured: exit 1, no card
+            ctx.check(f"{name}: exit {0 if name == 'a run' else 1} and a chat request, got {rc} {err!r}",
+                      rc == (0 if name == "a run" else 1) and _chats(mock))
             ctx.check(f"{name}: one scratch copy made, got {copies}", len(copies) == 1)
             ctx.check(f"{name}: the copy is gone, got {copies}", not any(Path(p).exists() for p in copies))
             ctx.check(f"{name}: every process the command started has ended, got {started}",
                       all(p.poll() is not None for p in started))
             if name != "a run":
-                ctx.check(f"{name}: the card says so, got {text!r}", "  errors during the run (non-fatal): " in text)
+                ctx.check(f"{name}: it says so and keeps no card, got {text!r}",
+                          f"\n{MOCK_REF}: not measured: " in text and _cards(h) == [])
 
 
 @test
@@ -571,7 +713,17 @@ def test_the_card_is_written_apart_and_its_line_printed(ctx: Ctx):
         expected = (f"{MODEL}: hands out 1.7 of 4 parts in 1.7 calls (before 0) · bundled 0 · names right 3 of 3 · "
                     "own steps 0 (before 1) · finished 3 of 3 (before 3) · 3 trials")
         ctx.check(f"the line, letter for letter, got {G.line(card)!r}", G.line(card) == expected)
-        ctx.check(f"printed after the facts, got {text!r}", text == "\n".join(FACTS) + "\n" + expected + "\n")
+        # 3.6.0.14 GR-2: a line per trial before it, the verdict under it
+        import re
+        trials = "".join(f"  {arm} {i} of 3: {got} · \\d+ s\n" for i, (b, n) in enumerate(
+            [("0 of 4 parts in 0 calls · own steps 1 · finished", "2 of 4 parts in 2 calls · own steps 0 · finished"),
+             ("0 of 4 parts in 0 calls · own steps 1 · finished", "1 of 4 parts in 1 call · own steps 0 · finished"),
+             ("0 of 4 parts in 0 calls · own steps 1 · finished", "2 of 4 parts in 2 calls · own steps 0 · finished")],
+            1) for arm, got in (("before", b), ("now", n)))
+        verdict = "  Verdict: passes. Today's words make it hand out 1.7 more of 4 parts."
+        ctx.check(f"printed after the facts, a line per trial, then the line and the verdict, got {text!r}",
+                  re.fullmatch(re.escape("\n".join(FACTS) + "\n") + trials + re.escape(f"{expected}\n{verdict}\n"),
+                               text) is not None)
         one = {**card, "trials": 1, "before": card["before"][:1], "now": card["now"][1:2],
                "errors": ["now 1: the fake failed", "unload: none"]}
         ctx.check(f"at --trials 1 the 3s follow, and the errors line follows the card's, got {G.line(one)!r}",
@@ -594,6 +746,194 @@ def test_a_model_sent_the_same_words_is_not_measured(ctx: Ctx):
         ctx.check(f"the not-measured line after the facts, got {text!r}", text == "\n".join(FACTS) + "\n" + SAME + "\n")
         ctx.check(f"no card, got {_cards(h)}", _cards(h) == [])
         ctx.check("no chat request", _chats(mock) == [])
+
+
+# ---- 3.6.0.14 GR-1: the gym reaches a host the way a session does -------------------------------------------------
+FOUR = [("Agent", {"description": "find the readers", "prompt": "List every function that reads SHOP_MODE."}),
+        ("Agent", {"description": "add docs", "prompt": "Add a one-line docstring to every function."}),
+        ("Agent", {"description": "check", "prompt": "Run the tests and say which fail."}),
+        ("Agent", {"description": "write it up", "prompt": "Write CHANGES.md saying what changed."})]
+
+
+def gateway_home(h, gw) -> None:
+    """The scratch home's one host is `gw` (a gateway with the OpenAI dialect); its key is in the home's env file only."""
+    (h.state / "config.json").write_text(json.dumps({"ollama": {"hosts": [gw.host_entry()]}}), encoding="utf-8")
+    h.env_file.write_text(f"{KEY_NAME}={gw.key}\n", encoding="utf-8")
+
+
+@test
+def test_a_key_kept_in_the_env_file_reaches_the_host(ctx: Ctx):
+    """A native host entry whose key is named by `api_key_env`, its value only in the env file: the gym loads that file
+    as a session does, every chat request carries the bearer and the trials run; the key is printed nowhere."""
+    with _Home() as h, _Mock(h, [_reply(FOUR), _reply(text="All four done.")] * 2, key=KEY) as mock:
+        ctx.check("the key is not in the process environment before the run", KEY_NAME not in os.environ)
+        rc, text, err = _cmd(["handout", MOCK_REF, "--trials", "1"])
+        chats = [r for r in mock.requests if r["path"] == "/api/chat"]
+        ctx.check(f"four chat requests, each with the bearer, got {[r['headers'].get('authorization') for r in chats]}",
+                  len(chats) == 4 and all(r["headers"].get("authorization") == f"Bearer {KEY}" for r in chats))
+        ctx.check(f"the trials ran: exit 0, a card, no error, got {rc} {text!r} {err!r}",
+                  rc == 0 and len(_cards(h)) == 1 and "errors during the run" not in text)
+        card_text = "".join((h.state / c).read_text(encoding="utf-8") for c in _cards(h))
+        ctx.check("the key is in neither the output nor the card", KEY not in text + err + card_text)
+
+
+@test
+def test_a_gateway_with_the_openai_dialect_is_spoken_to_in_it(ctx: Ctx):
+    """A host entry with `dialect: "openai"` and a key: the trials go through /v1/chat/completions with the bearer,
+    the counts are right, no request goes to Ollama's own API, and the card says the model could not be unloaded."""
+    from halo_harness import gym_handout as G
+    steps = [_oai(FOUR), _oai(text="All four done.")] * 2
+    with _Home() as h, Gateway(MODEL, steps) as gw:
+        gateway_home(h, gw)
+        rc, text, err = _cmd(["handout", MOCK_REF, "--trials", "1"])
+        bodies = gw.chat_bodies()
+        ctx.check(f"exit 0, four chat requests, got {rc} {len(bodies)} {err!r} {text[-400:]!r}",
+                  rc == 0 and len(bodies) == 4)
+        # The one GET of /api/ps a background model listing may make (models_best_at -> ollama_panel.analyze_host,
+        # as in every session on such a host; it reads "nothing loaded" from the refusal) is not the gym's
+        ctx.check(f"no request of the gym's to Ollama's own API, got {gw.native()}",
+                  [p for p in gw.native() if p != "GET /api/ps"] == [])
+        ctx.check("every request carries the entry's key",
+                  all(r["headers"].get("authorization") == f"Bearer {KEY}" for r in gw.requests))
+        ctx.check("the model's own name, and no Ollama-only field (think) on the wire",
+                  all(b.get("model") == MODEL and "think" not in b for b in bodies))
+        cards = G.iter_cards(h.state)
+        now = (cards[0]["now"] if cards else [{}])[0]
+        ctx.check(f"4 parts in 4 calls, finished, got {now}",
+                  now.get("parts") == [1, 2, 3, 4] and now.get("calls") == 4 and now.get("finished"))
+        ctx.check(f"the card's errors are the one unload sentence, got {cards[0].get('errors') if cards else None}",
+                  bool(cards) and cards[0]["errors"] == [GATEWAY_UNLOAD])
+        ctx.check("the key is printed nowhere", KEY not in text + err)
+
+
+# ---- 3.6.0.14 GR-2: the command tells the truth about its run ---------------------------------------------------------
+def _last_lines(text: str, n: int) -> list:
+    return text.rstrip("\n").splitlines()[-n:]
+
+
+@test
+def test_a_run_nobody_answered_is_not_measured(ctx: Ctx):
+    """Every chat request refused: the run stops after the first trial of each arm (two requests, not six), the model
+    is not measured (its cause once), no card is written and the command exits 1."""
+    import re
+    with _Home() as h, _Mock(h, [_refuse]) as mock:
+        rc, text, err = _cmd(["handout", MOCK_REF])
+        last = _last_lines(text, 1)[0]
+        ctx.check(f"exit 1, got {rc} {err!r}", rc == 1)
+        ctx.check(f"two chat requests (the early stop), got {len(_chats(mock))}", len(_chats(mock)) == 2)
+        ctx.check(f"no card and no file under gym-handout, got {_cards(h)}", _cards(h) == [])
+        m = re.fullmatch(re.escape(f"{MOCK_REF}: not measured: ") + r"(.+) \(2 trials\)", last)
+        ctx.check(f"the not-measured line names the cause once for both trials, got {last!r}",
+                  m is not None and "before 1" not in last and "now 1" not in last)
+        ctx.check(f"the cause is printed once in the whole output, got {text!r}",
+                  m is not None and text.count(m.group(1)) == 1)
+        trials = [ln for ln in text.splitlines() if ln.startswith("  ")]
+        ctx.check(f"a line per trial that ran, each says no answer, got {trials}",
+                  len(trials) == 2 and all(re.fullmatch(r"  (before|now) 1 of 3: 0 of 4 parts in 0 calls · own steps 0 · "
+                                                        r"no answer · \d+ s", ln) for ln in trials))
+
+
+@test
+def test_of_two_models_the_answered_one_gets_its_card(ctx: Ctx):
+    other = "small:1b"
+    done = [_reply([("Read", {"file_path": "NOTES.md"})]), _reply(text="ok")] * 2
+    with _Home() as h, _Mock(h, [_refuse], more={other: done}) as mock:
+        rc, text, err = _cmd(["handout", MOCK_REF, f"ol:{other}@gpu-box", "--trials", "1"])
+        ctx.check(f"exit 0 (one model ran), got {rc} {err!r}", rc == 0)
+        ctx.check(f"the first is not measured, got {text!r}", f"\n{MOCK_REF}: not measured: " in text)
+        ctx.check(f"the second has its line and its card only, got {_cards(h)}",
+                  f"\n{other}: hands out " in text and _cards(h) == ["gym-handout/gpu-box/handout-feed02.json"])
+        ctx.check(f"two chat requests for the first (the early stop), four for the second, got {len(_chats(mock))}",
+                  len(_chats(mock)) == 6)
+
+
+@test
+def test_a_trial_with_no_answer_is_left_out_of_the_means(ctx: Ctx):
+    """One trial of six gets no answer: the means count the answered trials only, the errors line names it, and the
+    verdict says to run it again."""
+    own = [_reply([("Read", {"file_path": "NOTES.md"})]), _reply(text="done")]
+    four = [_reply(FOUR), _reply(text="done")]
+    steps = own + four + own + [_refuse] + own + four
+    with _Home() as h, _Mock(h, steps) as mock:
+        rc, text, err = _cmd(["handout", MOCK_REF])
+        ctx.check(f"exit 0, 11 chat requests, a card, got {rc} {len(_chats(mock))} {_cards(h)} {err!r}",
+                  rc == 0 and len(_chats(mock)) == 11 and len(_cards(h)) == 1)
+        head, verdict, errors = _last_lines(text, 3)
+        ctx.check(f"the means count the two answered trials, got {head!r}",
+                  head.startswith(f"{MODEL}: hands out 4 of 4 parts in 4 calls (before 0) · ")
+                  and "finished 2 of 3 (before 3)" in head)
+        ctx.check(f"the verdict, word for word, got {verdict!r}",
+                  verdict == "  Verdict: none. 1 of 6 trials got no answer: run it again.")
+        ctx.check(f"the errors line names now 2, got {errors!r}",
+                  errors.startswith("  errors during the run (non-fatal): now 2: "))
+
+
+@test
+def test_one_line_per_trial_as_each_ends(ctx: Ctx):
+    import io
+    import re
+    from tests.helpers.mock_ollama import _finish_chat
+    out = io.StringIO()
+    seen = []
+
+    def now_first(handler, body):
+        seen.append(out.getvalue())
+        _finish_chat(handler, _reply(FOUR))
+
+    own = [_reply([("Read", {"file_path": "NOTES.md"})]), _reply(text="done")]
+    steps = own + [now_first, _reply(text="done")] + own + [_reply([FOUR[0]]), _reply(text="done")]
+    with _Home() as h, _Mock(h, steps):
+        rc, text, err = _cmd(["handout", MOCK_REF, "--trials", "2"], out)
+        ctx.check(f"exit 0, got {rc} {err!r}", rc == 0)
+        trials = [ln for ln in text.splitlines() if ln.startswith("  ") and not ln.startswith("  Verdict")]
+        pattern = [r"  before 1 of 2: 0 of 4 parts in 0 calls · own steps 1 · finished · \d+ s",
+                   r"  now 1 of 2: 4 of 4 parts in 4 calls · own steps 0 · finished · \d+ s",
+                   r"  before 2 of 2: 0 of 4 parts in 0 calls · own steps 1 · finished · \d+ s",
+                   r"  now 2 of 2: 1 of 4 parts in 1 call · own steps 0 · finished · \d+ s"]
+        ctx.check(f"one line per trial, in order, word for word, got {trials}",
+                  len(trials) == 4 and all(re.fullmatch(p, ln) for p, ln in zip(pattern, trials)))
+        ctx.check(f"each before the model's line, got {text!r}",
+                  text.index("  now 2 of 2: ") < text.index(f"{MODEL}: hands out "))
+        ctx.check(f"before 1's line was out when now 1 asked, got {seen!r}",
+                  len(seen) == 1 and re.search(r"\n  before 1 of 2: .* s\n$", seen[0]) is not None)
+        card = json.loads((h.state / _cards(h)[0]).read_text(encoding="utf-8"))
+        ctx.check(f"every trial and the card keep their seconds, got {card.get('seconds')}",
+                  isinstance(card.get("seconds"), (int, float))
+                  and all(isinstance(t.get("seconds"), (int, float)) for t in card["before"] + card["now"]))
+
+
+def _t(parts=0, calls=0, typed=0, right=0, finished=True, requests=2, error=None) -> dict:
+    return {"parts": list(range(1, parts + 1)), "calls": calls, "bundled": 0, "typed": typed, "named_right": right,
+            "own": 0, "proposals": 0, "finished": finished, "requests": requests, "error": error}
+
+
+@test
+def test_the_verdict_says_whether_the_model_passes(ctx: Ctx):
+    from halo_harness import gym_handout as G
+
+    def card(before, now) -> dict:
+        return {"model": MODEL, "trials": len(now), "before": before, "now": now, "errors": []}
+
+    cases = [
+        ("passes", card([_t(1, 1)] * 3, [_t(3, 3, 3, 3)] * 3),
+         "  Verdict: passes. Today's words make it hand out 2 more of 4 parts."),
+        ("no more parts", card([_t(1, 1)] * 3, [_t(1, 1), _t(2, 2), _t(1, 1)]),
+         "  Verdict: does not pass. Today's words do not make it hand out more (1.3 of 4 parts, before 1)."),
+        ("names wrong", card([_t()] * 3, [_t(2, 2, 10, 8)] * 3),
+         "  Verdict: does not pass. It names a helper right in 24 of 30 calls (it needs 9 in 10)."),
+        ("finishes fewer", card([_t()] * 3, [_t(2, 2), _t(2, 2, finished=False, requests=10), _t(2, 2)]),
+         "  Verdict: does not pass. It finishes fewer trials with today's words (2 of 3, before 3)."),
+        ("two reasons", card([_t()] * 3, [_t(0, 0, 0, 0), _t(1, 1, 1, 0), _t(0, 0, finished=False, requests=10)]),
+         "  Verdict: does not pass. Today's words do not make it hand out more (0.3 of 4 parts, before 0). It names a "
+         "helper right in 0 of 1 calls (it needs 9 in 10). It finishes fewer trials with today's words (2 of 3, "
+         "before 3)."),
+        ("no answer", card([_t(), _t(requests=1, finished=False, error="x")], [_t(2, 2)] * 2),
+         "  Verdict: none. 1 of 4 trials got no answer: run it again."),
+    ]
+    for name, c, want in cases:
+        ctx.check(f"{name}: got {G.verdict(c)!r}", G.verdict(c) == want)
+    answered = card([_t(), _t(requests=3, finished=False, error="x")], [_t(2, 2)] * 2)
+    ctx.check("a trial that got answers before its error was answered", "Verdict: none" not in G.verdict(answered))
 
 
 if __name__ == "__main__":

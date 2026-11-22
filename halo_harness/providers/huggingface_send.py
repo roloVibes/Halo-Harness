@@ -39,17 +39,21 @@ class TurnResult:
 def send_hf_turn(*, base_url: str, api_key: Optional[str], model_id: str, system_text: str, messages: list,
                   tools: "Optional[list]" = None, requested_max_tokens: int = 64,
                   force_format: "Optional[dict]" = None, context_tokens: int = 8192,
-                  max_output_tokens: int = 4096, state_dir, extra_headers: "Optional[dict]" = None) -> TurnResult:
+                  max_output_tokens: int = 4096, state_dir, extra_headers: "Optional[dict]" = None,
+                  route=None) -> TurnResult:
     """One real, end-to-end openai-chat turn against `base_url` -- never
     raises (every failure, upstream or local, comes back as `TurnResult
     (error=...)`, same contract `gym_send.send_turn` has for the Ollama
     dialect, so `doctor_local.py`'s step functions can treat either
-    sender identically)."""
+    sender identically). `route` (3.6.0.14): the Route a session makes for
+    the ref (an `ol:` ref on a host entry with `dialect: "openai"` is
+    `Route(provider="ollama", dialect="openai-chat")`); None is today's
+    huggingface route."""
     from halo_harness.providers.profiles import resolve_profile
     from halo_harness.providers.request import build_request_body
     from halo_harness.providers.routing import Route
     from halo_harness.providers.stream import CompletionRequest, ProviderCreds, stream_completion
-    route = Route(provider="huggingface", upstream_model=model_id, dialect="openai-chat")
+    route = route or Route(provider="huggingface", upstream_model=model_id, dialect="openai-chat")
     try:
         profile = resolve_profile(route, state_dir=state_dir)
         body = build_request_body(system_text=system_text, messages=messages, tools=tools, route=route,

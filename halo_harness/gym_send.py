@@ -17,7 +17,11 @@ reused here AS IS, never re-implemented a third time -- that module's own
 docstring is explicit about this). Every gym task function calls `send_
 turn_for` (never `send_turn` directly) so the battery's own logic stays
 provider-agnostic; only this function (and `send_repair`) knows two
-senders exist."""
+senders exist.
+
+3.6.0.14 GR-1: an `ol:` ref on a host entry with `dialect: "openai"` (a
+gateway in front of Ollama, often with a key) rides the same openai-chat
+sender, as a session on that host does: never Ollama's own `/api/chat`."""
 
 from __future__ import annotations
 
@@ -168,6 +172,12 @@ def send_turn(*, host, route, profile, decision, system_text: str, messages: lis
                        timing_ns=timing_ns, error=error, thinking=thinking)
 
 
+def _is_gateway(host) -> bool:
+    """An Ollama host entry with `dialect: "openai"` (providers.ollama.host_is_openai_dialect)."""
+    from halo_harness.providers.ollama import host_is_openai_dialect
+    return hasattr(host, "dialect") and host_is_openai_dialect(host)
+
+
 def send_turn_for(*, host, route, profile, decision, **kwargs) -> TurnResult:
     """The gym's provider dispatcher (module docstring) -- `kwargs` are
     exactly `send_turn`'s own `system_text`/`messages`/`tools`/
@@ -184,14 +194,25 @@ def send_turn_for(*, host, route, profile, decision, **kwargs) -> TurnResult:
     unchanged, reads this same dict shape -- naturally reports a real
     `tokens_per_second` but `prefill_seconds=None` for an hf: card,
     documented as a real limitation rather than a faked number."""
-    if route.provider == "huggingface":
+    gateway = route.provider == "ollama" and _is_gateway(host)
+    if route.provider == "huggingface" or gateway:
         from halo_harness.providers.huggingface_send import send_hf_turn
+        base_url, sent_route = (None, None) if gateway else (host.base_url, None)
+        if gateway:
+            # 3.6.0.14 GR-1: an Ollama host entry with `dialect: "openai"` (a gateway in front of Ollama) is spoken
+            # to as a session speaks to it: the openai-chat route, the entry's /v1 root and its key as the bearer.
+            # What only Ollama's own API takes (the hand-out gym's think off, the bench's options) is not sent.
+            import dataclasses
+            from halo_harness.providers.ollama import openai_base_url_for_host
+            base_url = openai_base_url_for_host(host) or host.url
+            sent_route = route if route.dialect == "openai-chat" else dataclasses.replace(route, dialect="openai-chat")
+            kwargs.pop("overrides", None)
         t0 = time.perf_counter()
         hf_result = send_hf_turn(
-            base_url=host.base_url, api_key=host.api_key, model_id=route.upstream_model,
+            base_url=base_url, api_key=host.api_key, model_id=route.upstream_model,
             context_tokens=getattr(decision, "num_ctx", None) or 8192,
             max_output_tokens=getattr(decision, "max_output_tokens", None) or 4096,
-            **kwargs,
+            route=sent_route, **kwargs,
         )
         # perf_counter, floored at one millisecond: the coarse monotonic clock on
         # a loaded Windows runner returned 0 for a fast mock turn, which dropped
@@ -234,7 +255,8 @@ def send_repair(*, host, route, profile, decision, tool_name: str, schema: Optio
         # decoding -- see `supports_constrained_tool_calls`'s own
         # docstring.
         from halo_harness.providers.ollama_hw import is_ollama_cloud_host
-        constrained = supports_constrained_tool_calls(provider="ollama", dialect="ollama",
+        constrained = supports_constrained_tool_calls(provider="ollama",  # 3.6.0.14 GR-1: a gateway's own dialect
+                                                        dialect="openai-chat" if _is_gateway(host) else "ollama",
                                                         local=not is_ollama_cloud_host(host))
     system_text, user_text = repair_prompt_for(
         tool_name=tool_name, schema=schema, error_message=error_message, raw_input=raw_input)

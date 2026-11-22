@@ -21,7 +21,11 @@ Ollama host's own catalog when `--models` is omitted; `hf:local/...` and
 `hf:mlx/...` refs run the same battery through their own server (Halo 2.0.3
 round 5f follow-up: tokens/second is then a wall-clock estimate and prefill is
 not reported); a cloud ref may be named for comparison but is never included
-by default. `--roles`
+by default. An `ol:` ref on a gateway in front of Ollama (a host entry with
+`dialect: "openai"`, such as `gpu-box`) runs the same battery as a session
+speaks to that host, with the entry's key; its card leaves the server's
+version, the quantization and prefill empty, and tokens/second is a
+wall-clock estimate, as for an `hf:` ref. `--roles`
 also prints each model's weighted composite for those roles right under
 its card (default: `small`, `researcher`, `judge`, `subagent_default`).
 `--quick` halves the battery size for a faster, noisier read. Every

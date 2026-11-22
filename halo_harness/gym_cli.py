@@ -111,7 +111,7 @@ def _cmd_show(argv: list) -> int:
             print()
         print(gym_handout.HEAD)
         for card in cards:
-            print(gym_handout.line(card))
+            print(gym_handout.report(card))  # 3.6.0.14 GR-2: the line, its verdict, its errors
     return 0
 
 
@@ -217,17 +217,23 @@ def _cmd_handout(argv: list) -> int:
         print(fact)
     sys.stdout.flush()
     state_dir = bridge_home()
+
+    def on_trial(arm, i, n, trial) -> None:  # 3.6.0.14 GR-2: one line per trial, as it ends
+        print(gym_handout.trial_line(arm, i, n, trial))
+        sys.stdout.flush()
+
     ran = 0
     for ref in local:
-        card = gym_handout.run_model(ref, trials=args.trials, state_dir=state_dir)
+        card = gym_handout.run_model(ref, trials=args.trials, state_dir=state_dir, on_trial=on_trial)
+        causes = None if card.get("same_words") else gym_handout.not_measured(card)
         if card.get("same_words"):
             print(gym_handout.SAME_WORDS.format(model=card.get("model")))
             ran += 1
-        elif not card.get("before") and not card.get("now"):  # no trial ran (the model or its host was not found):
-            print(f"{ref}: not measured: {'; '.join(card.get('errors') or ['no trial ran'])}")  # the cause, no card
+        elif causes is not None:  # no trial of an arm was answered (or none ran): the cause once, no card
+            print(f"{ref}: not measured: {causes}")
         else:
             gym_handout.save_card(state_dir, card)
-            print(gym_handout.line(card))
+            print(gym_handout.report(card))
             ran += 1
         sys.stdout.flush()
     return 0 if ran else 1
@@ -236,14 +242,18 @@ def _cmd_handout(argv: list) -> int:
 def cmd_gym(argv: list) -> int:
     if argv and argv[0] == "show":
         return _cmd_show(argv[1:])
-    if argv and argv[0] == "propose":
-        return _cmd_propose(argv[1:])
-    if argv and argv[0] == "handout":
-        return _cmd_handout(argv[1:])
     if argv and argv[0] in ("-h", "--help"):
         print("usage: halo gym [--models REF,REF,...] [--roles ROLE,...] [--quick]", file=sys.stderr)
         print("       halo gym show [model]", file=sys.stderr)
         print("       halo gym propose [--apply] [--name NAME] [--roles ROLE,...] [--main REF]", file=sys.stderr)
         print("       halo gym handout <model> [<model> ...] [--trials N]", file=sys.stderr)
         return 0
+    # 3.6.0.14 GR-1: a sub-command that sends reaches a host the way a session does, so the keys file is loaded first
+    # (a host entry's `api_key_env` names a variable whose value lives there); `show` reads cards only
+    from halo_harness.providers.config import load_provider_env_files
+    load_provider_env_files()
+    if argv and argv[0] == "propose":
+        return _cmd_propose(argv[1:])
+    if argv and argv[0] == "handout":
+        return _cmd_handout(argv[1:])
     return _cmd_run(argv)

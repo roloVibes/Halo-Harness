@@ -102,7 +102,7 @@ def _scratch_dir(scratch_dir):
 
 
 def _run_gym_for_ollama_model(ref, model_ref_raw: str, *, quick: bool, state_dir, scratch_dir) -> dict:
-    from halo_harness.providers.ollama import get_catalog, probe_version, resolve_ollama_host
+    from halo_harness.providers.ollama import get_catalog, host_is_openai_dialect, probe_version, resolve_ollama_host
     from halo_harness.providers.ollama_hw import catalog_row, resolve_context_decision
     from halo_harness.providers.profiles import resolve_profile
     from halo_harness.providers.routing import Route
@@ -117,11 +117,23 @@ def _run_gym_for_ollama_model(ref, model_ref_raw: str, *, quick: bool, state_dir
 
     catalog = get_catalog(host)
     row = catalog_row(catalog, ref.model) or {}
-    # a battery run measures for minutes: give the version probe a real timeout and one more try (the Linux runner lost it
-    # to the 1.5 s enablement timeout once -- run 42517487753 -- and the card had no version)
-    version_info = probe_version(host, timeout=10.0) or probe_version(host, timeout=10.0)
-    decision = resolve_context_decision(ref)
-    route = Route(provider="ollama", upstream_model=ref.model, dialect="ollama")
+    if host_is_openai_dialect(host):
+        # 3.6.0.14 GR-1: a gateway in front of Ollama (`dialect: "openai"`): every reply goes through gym_send in that
+        # dialect with the entry's key, as a session's; none of Ollama's own API is asked (the version probe, the fit:
+        # /api/version, /api/ps), so the card leaves the server's version, the quantization and prefill empty, as an
+        # hf: card does, and its window is the profile's, as an hf: card's
+        from halo_harness.gym_send import HFContextDecision
+        from halo_harness.model import resolve_model_profile
+        prof = resolve_model_profile(ref, state_dir)
+        decision = HFContextDecision(num_ctx=prof.context_tokens, max_output_tokens=prof.max_output_tokens)
+        version_info = None
+        route = Route(provider="ollama", upstream_model=ref.model, dialect="openai-chat")
+    else:
+        # a battery run measures for minutes: give the version probe a real timeout and one more try (the Linux runner
+        # lost it to the 1.5 s enablement timeout once -- run 42517487753 -- and the card had no version)
+        version_info = probe_version(host, timeout=10.0) or probe_version(host, timeout=10.0)
+        decision = resolve_context_decision(ref)
+        route = Route(provider="ollama", upstream_model=ref.model, dialect="ollama")
     profile = resolve_profile(route, state_dir=state_dir)
 
     result = GymResult(

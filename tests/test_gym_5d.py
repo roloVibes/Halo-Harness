@@ -82,6 +82,10 @@ class GymScenario:
         return self.calls % 2 == 1
 
     def __call__(self, handler, body) -> None:
+        _finish(handler, [self.reply(body)])
+
+    def reply(self, body) -> dict:
+        """The one NDJSON reply line for this request (the OpenAI-dialect twin below turns it into chunks)."""
         messages = body.get("messages") or []
         text_all = " ".join(str(m.get("content") or "") for m in messages)
         tools = body.get("tools") or []
@@ -95,27 +99,35 @@ class GymScenario:
                         else {"file_path": "fixture.txt"})  # missing old_string/new_string
             else:
                 args = {}
-            _finish(handler, [_tool_reply(fn_name or "Read", args)])
-            return
+            return _tool_reply(fn_name or "Read", args)
         if "repairing exactly one malformed tool call" in text_all:
-            text = json.dumps({"file_path": "repaired.txt"} if self.mode != "fail" else {"still": "wrong"})
-            _finish(handler, [_text_reply(text)])
-            return
+            return _text_reply(json.dumps({"file_path": "repaired.txt"} if self.mode != "fail" else {"still": "wrong"}))
         if "secret checkpoint code" in text_all:
-            _finish(handler, [_text_reply("7k2p9" if good else "I don't know that one")])
-        elif "what color is grass" in text_all:
-            _finish(handler, [_text_reply("green" if good else "The grass is green, typically")])
-        elif "what is 7 + 5" in text_all:
-            _finish(handler, [_text_reply("12" if good else "The answer to 7 + 5 is 12")])
-        elif "Reply with the single word ready" in text_all:
-            _finish(handler, [_text_reply("ready")])
-        elif "Reply with exactly this JSON object" in text_all:
-            _finish(handler, [_text_reply(json.dumps({"answer": "halo" if good else "nope"}))])
-        elif "Summarize the following conversation" in text_all:
-            _finish(handler, [_text_reply("The assistant added two debug log lines and all tests passed."
-                                           if good else "")])
-        else:
-            _finish(handler, [_text_reply("ok")])
+            return _text_reply("7k2p9" if good else "I don't know that one")
+        if "what color is grass" in text_all:
+            return _text_reply("green" if good else "The grass is green, typically")
+        if "what is 7 + 5" in text_all:
+            return _text_reply("12" if good else "The answer to 7 + 5 is 12")
+        if "Reply with the single word ready" in text_all:
+            return _text_reply("ready")
+        if "Reply with exactly this JSON object" in text_all:
+            return _text_reply(json.dumps({"answer": "halo" if good else "nope"}))
+        if "Summarize the following conversation" in text_all:
+            return _text_reply("The assistant added two debug log lines and all tests passed." if good else "")
+        return _text_reply("ok")
+
+    def openai(self, handler, body) -> None:
+        """The same reply in the OpenAI dialect (a gateway in front of Ollama)."""
+        from tests.helpers.mock_openai import _finish as finish_sse
+        msg = self.reply(body)["message"]
+        calls = msg.get("tool_calls") or []
+        chunks = [{"choices": [{"index": 0, "delta": {"role": "assistant", "content": msg.get("content") or ""}}]}]
+        for i, c in enumerate(calls):
+            chunks.append({"choices": [{"index": 0, "delta": {"tool_calls": [{
+                "index": i, "id": f"call_{i}", "type": "function",
+                "function": {"name": c["function"]["name"], "arguments": json.dumps(c["function"]["arguments"])}}]}}]})
+        chunks.append({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls" if calls else "stop"}]})
+        finish_sse(handler, chunks)
 
 
 class _Env:
@@ -449,6 +461,50 @@ def _show(argv) -> tuple:
 
 
 @test
+def test_the_battery_speaks_to_a_gateway_with_the_openai_dialect(ctx: Ctx):
+    """3.6.0.14 GR-1: `halo gym --models ol:<model>@gpu-box --quick` on a host entry with `dialect: "openai"` whose key
+    lives in the env file only: every reply comes through /v1/chat/completions with the bearer, a card is written,
+    nothing goes to Ollama's own API, and what only that API gives (the server's version, prefill) stays empty."""
+    from halo_harness.gym import iter_results
+    from tests.test_gym_handout import KEY, KEY_NAME, Gateway
+    saved = dict(os.environ)
+    try:
+        with _Env() as env, Gateway("gym-pass", [GymScenario("pass").openai]) as gw:
+            env.state_dir.mkdir(parents=True, exist_ok=True)
+            (env.state_dir / "config.json").write_text(json.dumps({"ollama": {"hosts": [gw.host_entry()]}}),
+                                                       encoding="utf-8")
+            env_file = env.state_dir.parent / "env"
+            env_file.write_text(f"{KEY_NAME}={KEY}\n", encoding="utf-8")
+            os.environ["HALO_ENV_FILE"] = str(env_file)
+            os.environ["OLLAMA_HOST"] = "http://127.0.0.1:9"
+            os.environ.pop(KEY_NAME, None)
+            rc, out, err = _show(["--models", "ol:gym-pass@gpu-box", "--quick"])
+            ctx.check(f"exit 0, got {rc} {err[-300:]!r}", rc == 0)
+            ctx.check(f"replies came through /v1/chat/completions, got {len(gw.chat_bodies())}", len(gw.chat_bodies()) > 4)
+            # a background model listing's GET of /api/ps (as in every session on such a host) is not the battery's
+            ctx.check(f"no request of the battery's to Ollama's own API, got {gw.native()}",
+                      [p for p in gw.native() if p != "GET /api/ps"] == [])
+            ctx.check("every request carries the entry's key",
+                      all(r["headers"].get("authorization") == f"Bearer {KEY}" for r in gw.requests))
+            results = iter_results(env.state_dir)
+            r = results[0] if results else {}
+            ctx.check(f"one card for gpu-box, no error, got {r.get('host_name')} {r.get('errors')}",
+                      len(results) == 1 and r.get("host_name") == "gpu-box" and r.get("errors") == [])
+            ctx.check(f"every task scored on real replies, got {[(r.get(k) or {}).get('score') for k in _TASKS]}",
+                      all((r.get(k) or {}).get("score") == 1.0 for k in _TASKS))
+            ctx.check(f"the server's version and prefill stay empty, got {r.get('ollama_version')} "
+                      f"{r.get('prefill_seconds')}", r.get("ollama_version") is None and r.get("prefill_seconds") is None)
+            ctx.check("the key is printed nowhere", KEY not in out + err)
+    finally:
+        for k in [k for k in os.environ if k not in saved]:
+            os.environ.pop(k, None)
+        os.environ.update(saved)
+
+
+_TASKS = ("tool_call_accuracy", "edit_success", "context_recall", "instruction_adherence")
+
+
+@test
 def test_a_handout_card_changes_no_battery_reader(ctx: Ctx):
     from halo_harness import gym_handout
     from halo_harness.gym import find_results_for_model, iter_results, picker_score_suffix, save_result
@@ -479,7 +535,8 @@ def test_gym_show_prints_the_handout_cards_after_the_battery(ctx: Ctx):
         d = env.state_dir
         save_result(d, _battery_card())
         gym_handout.save_card(d, _handout_card())
-        line = gym_handout.line(_handout_card())
+        # 3.6.0.14 GR-2: the verdict under each card's line, for a card saved by 3.6.0.13 too (no `seconds` keys)
+        line = gym_handout.line(_handout_card()) + "\n  Verdict: passes. Today's words make it hand out 2 more of 4 parts."
         rc, out, _err = _show(["show"])
         ctx.check(f"the battery as today, then the head and the card's line, got {out!r}",
                   rc == 0 and out == format_card(_battery_card()) + "\n\n" + _HANDOUT_HEAD + "\n" + line + "\n")
