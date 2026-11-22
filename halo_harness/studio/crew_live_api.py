@@ -6,13 +6,15 @@ design's "from a live helper"; docs/STUDIO-map.md "While a session runs").
 `agent` is an UNSAVED agent/1 body built from the live helper: a name from its task's first words (one of yours is
 never reused), `does` its task's first line, instructions that say what it was made up for, its model when it ran
 on a catalog model (else auto), and the `uses` and `careful` of the map's main -- what the helper could use, since a
-made-up helper runs on main's own tools and mode (crew/map_run.py `_made_up`). Nothing is written: the page opens the
+made-up helper runs on main's own tools and mode (crew/map_run.py `_made_up`). 3.6.0.12 SP: the names taken and
+main are read in the SESSION's project (its row's `cwd`), not in the folder Studio was started in. Nothing is written: the page opens the
 Agents form with it, and only Save there writes. Owner-only like every write route, though it writes nothing (it
 reads a session's agent).
 """
 
 from __future__ import annotations
 
+import os
 import re
 
 from halo_harness.crew import store
@@ -39,6 +41,13 @@ def name_for(task: str, taken) -> str:
     while name in taken:
         name, n = f"{base}-{n}", n + 1
     return name
+
+
+def project_of(srow: dict, fallback):
+    """3.6.0.12 SP: the project a session works in -- its row's `cwd` (the registry's) when that folder is there --
+    else Studio's own folder. The card reads that project's agents and main, never the folder Studio was started in."""
+    cwd = srow.get("cwd")
+    return cwd if isinstance(cwd, str) and cwd and os.path.isdir(cwd) else fallback
 
 
 def _main_of(map_name: str, cwd) -> dict:
@@ -70,7 +79,7 @@ def post_from_live(req):
         return 404, {"error": f"no live session {sid!r} on this harness"}
     if arow is None:
         return 404, {"error": f"no agent {aid!r} in session {sid!r}"}
-    agent = body_for(srow, arow, cwd=req.cwd)
+    agent = body_for(srow, arow, cwd=project_of(srow, req.cwd))
     return 200, {"agent": agent, "problems": agent_problems(agent),
                  "from": {"session": sid, "agent_id": aid, "name": arow.get("name"), "task": arow.get("task")},
                  "line": "Not saved yet: built from the helper the session made up. Change what you like, then Save."}

@@ -160,7 +160,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
          data-sid={s.sid} data-held={held ? "1" : undefined} onKeyDown={steps}>
       <RunCtx.Provider value={parts}>
       <div className="mp-mini-head mp-down-head">
-        <TruthBlock f={f} sid={s.sid} off={L.unlit ? 0 : ov?.offCount || 0} />
+        <TruthBlock f={f} sid={s.sid} where={s} off={L.unlit ? 0 : ov?.offCount || 0} />
         <div className="mp-down-tools">
           <button type="button" className="mp-link" onClick={() => openInLive(s.sid)} data-testid="session-lit-open">{openInAgents().label}</button>
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />

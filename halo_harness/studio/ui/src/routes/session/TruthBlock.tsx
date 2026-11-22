@@ -16,20 +16,28 @@ import type { MapDetail } from "../crew/map/mapTypes";
 import { isAuto, nextMap, reserve, statusLine, statusRoom, truthLines, truthState, type Line, type TruthFacts } from "../crew/map/truth";
 import { NewSession } from "./NewSession";
 import { mapBody, noteBody, type MapBody } from "./pick";
+import { bodyAsk, type Where } from "./truthBody";
 import { knownFlows, nameOf, statusOf } from "./statusOf";
 
 const LIVE = ["queued", "running", "paused", "waiting"];
 
+const readFor = new Map<string, string>(); // 3.6.0.12 SP: a map's name -> the file its held body was read from ("" by name)
+
 /** {B}'s map body once a workflow runs: a builder_done frame's (pick.ts noteBuild), else the one read of it after the
- *  first draw (never a fetch before it; R22, R28); a read that failed is forgotten, so the next run reads again. */
-function useBody(name: string, want: boolean): MapBody | null {
+ *  first draw (never a fetch before it; R22, R28); a read that failed is forgotten, so the next run reads again.
+ *  3.6.0.12 SP: the session's own map is read from its own file (truthBody.ts), and a body read from another file of
+ *  that name is read again. */
+function useBody(name: string, a: string | null, where: Where | undefined, want: boolean): MapBody | null {
   const [, setN] = useState(0);
+  const ask = bodyAsk(name, a, where);
+  const mine = (readFor.get(name) ?? "") === ask.at;
   useEffect(() => {
-    if (!want || !name || mapBody(name) !== undefined) return;
+    if (!want || !name || (mapBody(name) !== undefined && mine)) return;
+    readFor.set(name, ask.at);
     noteBody(name, false);
-    void api.get<MapDetail>(`crew/map/${name}`).then((d) => (noteBody(name, d.map), setN((n) => n + 1)), () => noteBody(name, null));
-  }, [name, want]);
-  return (want && mapBody(name)) || null;
+    void api.get<MapDetail>(ask.url).then((d) => (noteBody(name, d.map), setN((n) => n + 1)), () => noteBody(name, null));
+  }, [name, want, ask.at]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (want && mine && mapBody(name)) || null;
 }
 
 function Lines({ lines, onNew }: { lines: Line[]; onNew?: () => void }) {
@@ -53,15 +61,16 @@ function Lines({ lines, onNew }: { lines: Line[]; onNew?: () => void }) {
 
 /** `f`: the session's facts (pick.ts factsOf), or `{ none: true, b }` for Empty; `sid`: the session ("" for Empty);
  *  `held`: Empty while {B} is not read yet (its room is kept, no words: never a {B} that may be false); `off`: the hand-offs
- *  outside the map (R17, the overlay's count by rows; 0 on the default map). */
-export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; sid: string; held?: boolean; off?: number }) {
+ *  outside the map (R17, the overlay's count by rows; 0 on the default map); `where`: the file the session follows (its row's
+ *  `map_scope` / `map_path`, 3.6.0.12 SP). */
+export function TruthBlock({ f: given, sid, held, off = 0, where }: { f: TruthFacts; sid: string; held?: boolean; off?: number; where?: Where }) {
   useEffect(() => startLit(), []);
   const rec = useSessionRecord(sid);
   const rows = (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id }));
   const events = useStore(lit, (x) => (sid ? x.events[sid] : undefined)) || [];
   const flow = rows.find((r) => LIVE.includes(String(r.state || "")) && r.crew?.workflow)?.crew?.workflow || "";
   const B = nextMap(given.b);
-  const body = useBody(B, !!flow && !given.none);
+  const body = useBody(B, given.a, where, !!flow && !given.none);
   const runs = !!flow && !!body && (body.boxes || []).some((b) => b?.workflow === flow);
   const moved = useBuilt((x) => (sid ? x.changed[sid] : undefined)); // 3.6.0.9 V: workflows changed by a plain write
   const flowsChanged = useMemo(() => Object.entries(moved || {}).map(([name, t]) => ({ name, t })), [moved]);

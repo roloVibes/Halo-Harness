@@ -129,6 +129,12 @@ class EventBridge:
         with self._lock:
             return sid in self._stops or sid in self._attached
 
+    def attached(self) -> list:
+        """3.6.0.12 SP: the rows of the local sessions this bridge follows now (studio/files_live.py watches their
+        projects); read from memory, never the registry."""
+        with self._lock:
+            return list(self._attached.values())
+
     def publish_local(self, frame: dict) -> None:
         """A frame from this process, not a session's socket: completed to the usual shape."""
         self.publish({"session_id": None, "event": "message", "data": None, "turn": None, "agent_id": None,

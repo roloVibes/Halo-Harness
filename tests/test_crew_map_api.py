@@ -8,6 +8,7 @@
 3. POST use {on}: config crew.map (undo puts config back); DELETE yours only; every write needs the owner's proof;
 4. `halo maps list / show / use` say the same;
 5. (R4) POST crew/from-live: an unsaved agent body from a session's made-up helper, nothing written, owner-only.
+6. (3.6.0.12 SP) the card's body and the truth block's map body are the SESSION's project's, not Studio's folder's.
 Run: python -m tests.test_crew_map_api
 """
 from __future__ import annotations
@@ -573,6 +574,98 @@ def test_from_live_builds_an_unsaved_agent(ctx: Ctx):
             ctx.check("without the owner's proof: 403", rig.api("POST", "crew/from-live", {"session": "s-live-1", "agent_id": "a7"}, owner=False)[0] == 403)
         finally:
             local_view.sessions = saved
+
+
+def _two_projects(rig):
+    """3.6.0.12 SP: Studio's folder A (the rig's project) and another project B, both trusted, each with its own `main`
+    (other `uses`) and B with an agent named as the helper's words would name it."""
+    from halo_harness.crew import store
+    from tests.helpers.trust_dir import trust
+    a, b = rig.proj, rig.root / "other"
+    b.mkdir(exist_ok=True)
+    for proj, uses in ((a, ["read"]), (b, ["read", "web"])):
+        trust(proj)
+        p = store.path_for("agent", "main", cwd=proj, project=True)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        store.write_text(p, store.dump({"format": "agent/1", "name": "main", "does": "the lead", "instructions": "lead", "uses": uses}))
+    taken = store.path_for("agent", "list-what-repo", cwd=b, project=True)
+    store.write_text(taken, store.dump({"format": "agent/1", "name": "list-what-repo", "does": "x", "instructions": "y"}))
+    return a, b
+
+
+def _tree(folder) -> dict:
+    return {str(p): p.read_bytes() for p in sorted(Path(folder).rglob("*")) if p.is_file()}
+
+
+@test
+def test_from_live_reads_the_sessions_own_project(ctx: Ctx):
+    """3.6.0.12 SP: Live's card builds the helper's agent from the project of the SESSION (its row's `cwd`), not from
+    the folder Studio was started in: main's `uses` and the names taken are B's; Studio's folder only when the row
+    names none. Its Save writes a new agent of yours and changes neither project."""
+    from halo_harness.crew import store
+    from halo_harness.peers import local_view
+    with CrewRig() as rig:
+        rig.studio()
+        a, b = _two_projects(rig)
+        row = {"session_id": "s-b", "cwd": str(b), "map": "auto", "agents": [
+            {"agent_id": "a7", "parent": "main", "name": "general-purpose", "state": "running",
+             "task": "List what the repo holds", "crew": {"map": "auto", "box": "main", "made_up": True}}]}
+        saved = local_view.sessions
+        local_view.sessions = lambda list_live=None: [row]
+        try:
+            st, r = rig.api("POST", "crew/from-live", {"session": "s-b", "agent_id": "a7"})
+            got = r.get("agent") or {}
+            ctx.check(f"main's uses are B's main's, got {st} {got.get('uses')}", st == 200 and got.get("uses") == ["read", "web"])
+            ctx.check(f"a name B has is never reused, got {got.get('name')}", got.get("name") == "list-what-repo-2")
+            before_a, before_b = _tree(a / ".halo"), _tree(b / ".halo")
+            st, w = rig.api("POST", f"crew/agent/{got.get('name')}", {"agent": got})
+            ctx.check(f"Save writes a new agent of yours, got {st} {w.get('path')}",
+                      st == 200 and Path(w["path"]) == store.path_for("agent", got["name"], state_dir=rig.state))
+            ctx.check("A's project and B's project are byte-equal after the Save",
+                      _tree(a / ".halo") == before_a and _tree(b / ".halo") == before_b)
+            row["cwd"] = None  # a row naming no folder: Studio's own
+            st, r = rig.api("POST", "crew/from-live", {"session": "s-b", "agent_id": "a7"})
+            ctx.check(f"no folder in the row: Studio's folder's main, got {st} {(r.get('agent') or {}).get('uses')}",
+                      st == 200 and (r.get("agent") or {}).get("uses") == ["read"])
+        finally:
+            local_view.sessions = saved
+
+
+TRUTH_BODY = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "session" / "truthBody.ts"
+TRUTH_JS = """const m = await import(%s);
+const W = {scope: 'project', path: %s};
+console.log(JSON.stringify({own: m.bodyAsk('shop', 'shop', W), other: m.bodyAsk('shop', 'cart', W),
+  none: m.bodyAsk('shop', 'shop', {scope: null, path: null})}));"""
+
+
+@test
+def test_truth_block_reads_the_sessions_own_map_file(ctx: Ctx):
+    """3.6.0.12 SP: Session's truth block asks for the body of the map the session runs on by its row's scope and path
+    (session/truthBody.ts `bodyAsk`, as the drawing does), so a session in B reads B's file, not Studio's folder's map
+    of that name; a map that is not the session's own (no file in its row) is read by name, as before."""
+    import json
+    from halo_harness.crew import store
+    from halo_harness.history import append_history_entry
+    from tests.helpers import node_ts
+    with CrewRig() as rig:
+        rig.studio()
+        a, b = _two_projects(rig)
+        for proj, flow in ((a, "flow-a"), (b, "flow-b")):
+            p = store.path_for("map", "shop", cwd=proj, project=True)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            store.write_text(p, store.dump({"format": "map/1", "name": "shop", "main": {"agent": "main"},
+                                             "boxes": [{"id": "b0", "workflow": flow}],
+                                             "lines": [{"from": "main", "to": "b0", "when": "always"}]}))
+        append_history_entry("work there", str(b))  # a project Studio knows (a live session's, a history line's)
+        theirs = store.path_for("map", "shop", cwd=b, project=True)
+        asks = node_ts.run(TRUTH_JS % (json.dumps(TRUTH_BODY.resolve().as_uri()), json.dumps(str(theirs))))
+        own = asks.get("own") or {}
+        st, m = rig.api("GET", own.get("url") or "crew/map/shop")
+        flows = [x.get("workflow") for x in (m.get("map") or {}).get("boxes") or []]
+        ctx.check(f"the session's own map: B's file, got {own.get('url')} -> {st} {flows}", st == 200 and flows == ["flow-b"])
+        ctx.check(f"another map, or a row with no file: by name, got {asks.get('other')} {asks.get('none')}",
+                  (asks.get("other") or {}).get("url") == "crew/map/shop" and (asks.get("none") or {}).get("url") == "crew/map/shop"
+                  and (asks.get("other") or {}).get("at") == "" and own.get("at") not in (None, ""))
 
 
 if __name__ == "__main__":

@@ -217,9 +217,83 @@ def test_project_halo_and_state_dir_the_same_folder_list_once(ctx: Ctx):
             (h.proj / ".halo" / "crew" / "maps").mkdir(parents=True)
             (h.proj / ".halo" / "crew" / "maps" / "repo.yaml").write_text("name: repo\n", encoding="utf-8")
             got = _data(h.wait())
+            proj = str(h.proj)
     finally:
         project_gate.trusted = was
-    ctx.check(f"a trusted project's .halo/crew/maps is watched too, got {got}", got == [{"kind": "maps", "names": ["repo"], "removed": []}])
+    # 3.6.0.12 SP: the frame names the project whose file moved (`projects`)
+    ctx.check(f"a trusted project's .halo/crew/maps is watched too, got {got}",
+              got == [{"kind": "maps", "names": ["repo"], "removed": [], "projects": [proj]}])
+
+
+@test
+def test_an_open_sessions_project_is_watched_while_it_runs(ctx: Ctx):
+    """3.6.0.12 SP: Studio started in A also hears the project of a session open in B: a change in B's `.halo` gives one
+    `files_changed` naming B (`projects`); once that session ends a change in B gives none; a folder is watched once
+    however many sessions run in it, and Studio's own folder is never added twice."""
+    from halo_harness.studio.files_live import Watcher, folders
+    from tests.helpers.trust_dir import trust, untrust
+    root = Path(tempfile.mkdtemp(prefix="studio-files-two-"))
+    state, a, b = root / ".halo", root / "a", root / "b"
+    for d in (state / "crew" / "agents", a, b):
+        d.mkdir(parents=True)
+    rows: list = []
+    frames: list = []
+    lock = threading.Lock()
+
+    def got(f):
+        with lock:
+            frames.append(f)
+
+    def wait(n: int = 1, timeout: float = 4.0, quiet: float = 0.6) -> list:
+        end = time.time() + timeout
+        while time.time() < end and len(frames) < n:
+            time.sleep(0.02)
+        time.sleep(quiet)
+        with lock:
+            out = list(frames)
+            frames.clear()
+        return out
+
+    trust(a)
+    trust(b)
+    crew_b = b / ".halo" / "crew" / "agents"
+    crew_b.mkdir(parents=True)
+    (crew_b / "old.yaml").write_text("name: old\n", encoding="utf-8")  # there before the session: never "a change"
+    w = Watcher(a, state, got, poll=POLL, sessions=lambda: list(rows)).start()
+    try:
+        rows[:] = [{"session_id": "s1", "cwd": str(b)}, {"session_id": "s2", "cwd": str(b)},
+                   {"session_id": "s3", "cwd": str(a)}]
+        end = time.time() + 4
+        while time.time() < end and not w.extra:
+            time.sleep(0.02)
+        heard = wait(n=99, timeout=POLL * 4, quiet=0.2)
+        ctx.check(f"B's folder joined with no frame, got {w.extra} {heard}", w.extra == [str(b)] and not heard)
+        (crew_b / "x.yaml").write_text("name: x\n", encoding="utf-8")
+        f = wait()
+        ctx.check(f"one files_changed naming B, got {f}", len(f) == 1 and f[0]["data"].get("kind") == "agents"
+                  and f[0]["data"].get("names") == ["x"] and f[0]["data"].get("projects") == [str(b)])
+        dirs = [d for d, _s in folders(a, state, w.extra)["agents"]]
+        ctx.check(f"each folder once (two sessions in B, one in Studio's own folder), got {dirs}",
+                  len(dirs) == len({os.path.normcase(str(d)) for d in dirs}) == 3)
+        rows[:] = [{"session_id": "s3", "cwd": str(a)}]
+        end = time.time() + 4
+        while time.time() < end and w.extra:
+            time.sleep(0.02)
+        heard = wait(n=99, timeout=POLL * 4, quiet=0.2)
+        ctx.check(f"B's sessions ended: its folder left the watch with no frame, got {w.extra} {heard}", not w.extra and not heard)
+        (crew_b / "y.yaml").write_text("name: y\n", encoding="utf-8")
+        heard = wait(n=99, timeout=POLL * 6, quiet=0.2)
+        ctx.check(f"after that a change in B gives none, got {heard}", not heard)
+        (state / "crew" / "agents" / "mine.yaml").write_text("name: mine\n", encoding="utf-8")
+        f = wait()
+        ctx.check(f"your own file still heard, naming no project, got {_data(f)}",
+                  _data(f) == [{"kind": "agents", "names": ["mine"], "removed": []}])
+    finally:
+        w.stop()
+        time.sleep(POLL * 2)
+        untrust(a)
+        untrust(b)
+        shutil.rmtree(root, ignore_errors=True)
 
 
 @test

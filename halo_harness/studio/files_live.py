@@ -28,7 +28,9 @@ while files keep moving) and published once per kind:
 through `EventBridge.publish_local`. 3.6.0.9 V: `sigs` (agents, workflows, maps) is each written name's `sig`: a short
 hash of the bytes of the file the crew store reads for it (`crew.store.find`), "" when none. Studio's answers that
 carry a file (GET / PUT crew/workflow, GET / PUT crew/map, a map's `deps`) and the Builder's `builder_done` bodies carry
-the same hash, so a page reads again only what differs from what it holds -- exact, never a time window. The packs' own folders are
+the same hash, so a page reads again only what differs from what it holds -- exact, never a time window. 3.6.0.12 SP:
+the project folder of each open local session (the rows Studio's event bridge already follows) is watched too, by the
+same thread, until its last session ends; `projects` names the project folders whose files moved. The packs' own folders are
 packs_studio_live.py's (`pack_changed`). Studio's own writes (a PUT agent,
 workflow, map or layout) also come back as a frame 1.5 s later: that is fine, the page
 that wrote is already current (it compares what it reads with what it holds).
@@ -86,12 +88,17 @@ def poll_s() -> float:
     return max(0.02, v)
 
 
-def folders(cwd, state_dir) -> dict:
+def _key(p) -> str:
+    return os.path.normcase(os.path.abspath(str(p)))
+
+
+def folders(cwd, state_dir, extra=()) -> dict:
     """kind -> [(folder, suffix)], each folder once (a Studio started in the home dir has `.halo` twice). 3.6.0.0 R5c:
-    the project's `.halo/crew` only in a trusted folder -- the rule crew/store.folders reads it by."""
+    the project's `.halo/crew` only in a trusted folder -- the rule crew/store.folders reads it by. 3.6.0.12 SP: `extra`,
+    the folders of the open local sessions, add their projects' `.halo/crew` by the same rule."""
     from halo_harness.crew.store import folders as crew_folders
     state = Path(state_dir)
-    proj = [f.parent.parent for f, scope in crew_folders("agent", cwd=cwd, state_dir=state) if scope == "project"]
+    proj = [f.parent.parent for c in [cwd, *extra] for f, scope in crew_folders("agent", cwd=c, state_dir=state) if scope == "project"]
     out: dict = {"agents": [], "workflows": [], "maps": [], "config": [], "layouts": [(state / "studio" / "layouts", ".json")]}
     for kind in ("agents", "workflows", "maps"):
         seen = set()
@@ -123,10 +130,10 @@ def _listing(folder: Path, suffix: str) -> dict:
     return out
 
 
-def snapshot(cwd, state_dir) -> dict:
+def snapshot(cwd, state_dir, extra=()) -> dict:
     """kind -> {name: a sorted tuple of (folder, mtime_ns, size)} for every file it covers."""
     snap: dict = {}
-    for kind, dirs in folders(cwd, state_dir).items():
+    for kind, dirs in folders(cwd, state_dir, extra).items():
         names: dict = {}
         for d, suffix in dirs:
             for name, sig in _listing(d, suffix).items():
@@ -153,17 +160,70 @@ def diff(old: dict, new: dict) -> list:
     return out
 
 
-class Watcher:
-    """Polls the folders of one Studio (cwd, state_dir) and calls `publish(frame)` once per change set and kind."""
+def rebase(old: dict, new: dict, moved_dirs: set) -> dict:
+    """3.6.0.12 SP: the base after the watched folders changed (a session opened in, or left, another project): the old
+    snapshot's files outside `moved_dirs` and the new one's inside them, so a folder that joins or leaves is never
+    published as a change, and a change elsewhere in the same look still is."""
+    out: dict = {}
+    for kind in set(old) | set(new):
+        names: dict = {}
+        for snap, inside in ((old, False), (new, True)):
+            for n, entries in (snap.get(kind) or {}).items():
+                got = [e for e in entries if (_key(e[0]) in moved_dirs) == inside]
+                if got:
+                    names.setdefault(n, []).extend(got)
+        out[kind] = {n: tuple(sorted(v)) for n, v in names.items()}
+    return out
 
-    def __init__(self, cwd, state_dir, publish, *, poll: "float | None" = None, debounce: float = DEBOUNCE_S, alive=None):
+
+def _dirs(cwd, state_dir, extra) -> set:
+    return {_key(d) for dirs in folders(cwd, state_dir, extra).values() for d, _s in dirs}
+
+
+def projects_moved(old: dict, new: dict, kind: str, state_dir) -> list:
+    """3.6.0.12 SP: the project folders (each holding `.halo`) where a file of `kind` was written or removed; your own
+    folder (the state dir) is not one."""
+    a, b = old.get(kind) or {}, new.get(kind) or {}
+    state, out = _key(state_dir), set()
+    for n in set(a) | set(b):
+        for e in set(a.get(n) or ()) ^ set(b.get(n) or ()):
+            base = Path(e[0]).parent.parent  # <project>/.halo/crew/<kind> -> <project>/.halo
+            if _key(base) != state:
+                out.add(str(base.parent))
+    return sorted(out)
+
+
+class Watcher:
+    """Polls the folders of one Studio (cwd, state_dir) and calls `publish(frame)` once per change set and kind.
+    3.6.0.12 SP: `sessions` (a callable: the rows of the open local sessions, from memory) adds each one's project
+    folder; one thread still watches them all, and a folder leaves the watch when its last session ends."""
+
+    def __init__(self, cwd, state_dir, publish, *, poll: "float | None" = None, debounce: float = DEBOUNCE_S, alive=None,
+                 sessions=None):
         self.cwd, self.state_dir, self._publish, self._alive = cwd, state_dir, publish, alive
+        self._sessions = sessions
         self.poll = poll if poll is not None else poll_s()
         self.debounce = debounce
         self._stop = threading.Event()
         self._thread: "threading.Thread | None" = None
-        self.last = snapshot(cwd, state_dir)  # the base: taken now, so a change right after the start is seen
+        self.extra = self.roots()
+        self.dirs = _dirs(cwd, state_dir, self.extra)
+        self.last = snapshot(cwd, state_dir, self.extra)  # the base: taken now, so a change right after the start is seen
         self.published = 0
+
+    def roots(self) -> list:
+        """The folders of the open local sessions other than Studio's own, each once (in the order first seen)."""
+        try:
+            rows = list(self._sessions() or []) if self._sessions is not None else []
+        except Exception:
+            rows = []
+        seen, out = {_key(self.cwd)}, []
+        for r in rows:
+            c = r.get("cwd") if isinstance(r, dict) else None
+            if isinstance(c, str) and c and _key(c) not in seen:
+                seen.add(_key(c))
+                out.append(c)
+        return out
 
     def start(self) -> "Watcher":
         if self._thread is None:
@@ -188,13 +248,20 @@ class Watcher:
     def tick(self) -> list:
         """One look: when something moved, wait until the folders hold still (DEBOUNCE_S, at most
         SETTLE_ROUNDS times), then publish one frame per kind that moved. Returns the frames."""
-        now = snapshot(self.cwd, self.state_dir)
+        extra = self.roots()
+        if extra != self.extra:  # 3.6.0.12 SP: a session opened in, or left, another project: its folder joins or leaves
+            dirs = _dirs(self.cwd, self.state_dir, extra)
+            now = snapshot(self.cwd, self.state_dir, extra)
+            self.last = rebase(self.last, now, dirs ^ self.dirs) if dirs != self.dirs else self.last
+            self.extra, self.dirs = extra, dirs
+        else:
+            now = snapshot(self.cwd, self.state_dir, self.extra)
         if now == self.last:
             return []
         for _ in range(SETTLE_ROUNDS):
             if self._stop.wait(self.debounce):
                 return []
-            again = snapshot(self.cwd, self.state_dir)
+            again = snapshot(self.cwd, self.state_dir, self.extra)
             if again == now:
                 break
             now = again
@@ -204,6 +271,8 @@ class Watcher:
                 d["sigs"] = {n: sig(d["kind"], n, self.cwd, self.state_dir) for n in d["names"]}
             if d["kind"] == "workflows":  # batch 2 repair: the files that really moved, whichever folder Studio reads
                 d["moved"] = {n: moved_sigs(self.last, now, d["kind"], n) for n in d["names"]}
+            if d["kind"] in SIGNED and (where := projects_moved(self.last, now, d["kind"], self.state_dir)):
+                d["projects"] = where  # 3.6.0.12 SP: which project's files moved (none: only yours)
         frames = [{"session_id": "studio", "event": FRAME_KIND, "ts": time.time(), "data": d} for d in moved]
         self.last = now
         for f in frames:
@@ -242,8 +311,13 @@ def watch(server) -> "Watcher | None":
                 from halo_harness.studio.server import sync_steward
                 sync_steward(srv)
 
+    def sessions() -> list:  # 3.6.0.12 SP: the local sessions the server's bridge follows now (none before a browser)
+        srv = ref()
+        bridge = getattr(srv, "events", None) if srv is not None else None
+        return bridge.attached() if bridge is not None else []
+
     try:
-        server.files_watch = Watcher(server.cwd, server.state_dir, publish, alive=alive).start()
+        server.files_watch = Watcher(server.cwd, server.state_dir, publish, alive=alive, sessions=sessions).start()
     except Exception:  # Studio still serves; the pages just do not hear disk changes
         server.files_watch = None
     return server.files_watch
