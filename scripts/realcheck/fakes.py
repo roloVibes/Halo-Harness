@@ -24,6 +24,17 @@ never by model name, so a sub-agent or a workflow step on another model is answe
   RC-BROWSER url=U       3.6.0.6 W: Browser open U, click "Press me", screenshot, close, then BROWSER_DONE + the click
                          result's line that holds BROWSER_AFTER (the page's text after the click)
   RC-BROWSERHOLD url=U   Browser open U, then the next model call is held until `release()` (the step ends halo hard)
+  RC-LIVESCENE           3.6.0.14 K1 (live-scene): ONE message of five Agent calls, the last a batch of three
+                         (`LIVE_CALLS`, `LIVE_REPLY`): seven helpers, then
+                         LIVESCENE_DONE. Its children:
+  RC-LIVEDONE            SUB_DONE at once
+  RC-LIVETOOL            a Bash call `LIVE_SLEEP` (it ends with the session), then SUB_DONE
+  RC-LIVETEST            the first to ask: SUB_DONE once `release()` opened the gate; the later ones once `release_late()`
+                         opened the second gate (`release()` alone leaves them held)
+  RC-LIVEASK             a Bash call `LIVE_ASK_CMD` (a write: the default mode asks him), then SUB_DONE
+  RC-LIVELONG            held until `release()`, then ToolSearch select:`LIVE_TOOL` (deferred), then one call of `LIVE_TOOL` (the suite's fake MCP
+                         server's slow_tool, 30 s), then SUB_DONE once
+                         `release_last()` opened the third gate
   RC-SUBWAIT             SUB_DONE after SUBWAIT_S seconds (a fresh wait: `release()` never shortens it)
   RC-SUB / anything else  SUB_DONE / ANSWER
 
@@ -94,6 +105,46 @@ AUTO_BUILD_CHANGES = [
 ]
 # RC-AUTOGROUPS: which reply answers how many of this turn's tool results (any other count: the end, never a hang)
 _AUTOGROUPS_AT = {0: 0, 3: 1, 4: 2, 5: 3, 6: 4}
+# 3.6.0.14 K1 (live-scene, steps_live.py): seven helpers of one message, in start order (the drawing's group order).
+# Auto runs four at once (templates/crew/plain/session.yaml `max_parallel: 4`): the writer ends at once, so the reviewer
+# starts and asks; the tester and the chart's helper wait queued. Every name is invented.
+LIVESCENE_PROMPT, LIVESCENE_DONE = "RC-LIVESCENE: seven helpers", "RC-LIVESCENE-DONE"
+LIVE_SERVER = "rc_insert_chart_from_range"  # a long server name: the tool's name is 42 characters (three rows narrow)
+LIVE_TOOL = f"mcp__{LIVE_SERVER}__slow_tool"
+LIVE_SLEEP, LIVE_ASK_CMD = "sleep 6013", "mkdir rc-live-ask"
+LIVE_LONG_S = 30  # the suite's fake MCP server caps slow_tool at 30 s
+# The calls of the one message: (the call's agent, its task, [(the child's marker, what it does)]). One child: a lone
+# spawn; three: a `batch`, one group. Halo runs at most four Agent calls at once (agent/loop.py's pool, `_cap`) and draws
+# a lone helper only once it runs; a batch registers every child first (subagent.py _run_agent_fanout), so a child that
+# waits for a slot is drawn queued. Hence: four lone helpers start (the writer ends at once); the batch starts on the
+# writer's freed worker, one of its children takes the freed slot and two wait queued. The helpers that run a shell
+# command or the MCP tool are general-purpose: on Auto a researcher and a reviewer get read-only tools (no Bash), and
+# there is no `tester` card (each seen on the Linux VM).
+LIVE_CALLS = [("writer", "write the changelog", [("RC-LIVEDONE", "write the changelog")]),
+              ("general-purpose", "survey the TODOs", [("RC-LIVETOOL", "grep the TODOs")]),
+              ("general-purpose", "review the money module", [("RC-LIVEASK", "check pay.py")]),
+              ("general-purpose", "make the chart", [("RC-LIVELONG", "draw the chart")]),
+              ("general-purpose", "run the tests", [("RC-LIVETEST", "run the unit tests"), ("RC-LIVETEST", "run the e2e tests"),
+                                                    ("RC-LIVETEST", "run the lint")])]
+# every helper in start order: (agent, task, marker, what it does: its member's description)
+LIVE_HELPERS = [(agent, task, marker, what) for agent, task, kids in LIVE_CALLS for marker, what in kids]
+
+
+def _live_call(agent: str, task: str, kids: list) -> dict:
+    if len(kids) == 1:
+        marker, what = kids[0]
+        return {"description": what, "prompt": f"{marker}: {what}", "subagent_type": agent, "task": task}
+    return {"description": task, "subagent_type": agent, "task": task,
+            "batch": [{"prompt": f"{marker}: {what}", "description": what} for marker, what in kids]}
+
+
+LIVE_REPLY = [("Agent", _live_call(*call), f"call_rc_live{i}") for i, call in enumerate(LIVE_CALLS, 1)]
+# a child's tool calls before its answer, in order: an MCP tool is deferred (its schema loads by ToolSearch first, as
+# the tool error itself tells a model)
+_LIVE_CALLS = {"RC-LIVETOOL": [("Bash", {"command": LIVE_SLEEP, "description": "rc live tool"})],
+               "RC-LIVEASK": [("Bash", {"command": LIVE_ASK_CMD, "description": "rc live ask"})],
+               "RC-LIVELONG": [("ToolSearch", {"query": f"select:{LIVE_TOOL}", "max_results": 1}),
+                               (LIVE_TOOL, {"seconds": LIVE_LONG_S})]}
 
 
 def _text(content) -> str:
@@ -154,7 +205,10 @@ class Provider:
                                                "context_length": 131072, "pricing": {"prompt": "0", "completion": "0"},
                                                "supported_parameters": ["tools"]}]}
         self.gate = threading.Event()
+        self.late_gate = threading.Event()  # RC-LIVELATE (release_late)
+        self.last_gate = threading.Event()  # RC-LIVELONG's answer after its tool result (release_last)
         self.hung: list = []  # the markers of calls held at the gate
+        self.tests_seen = 0  # RC-LIVETEST children asked so far (the first holds at the gate, the later at the late one)
         self._lock = threading.Lock()
         self.calls: list = []  # (marker, size) per POST
 
@@ -177,10 +231,19 @@ class Provider:
     def release(self) -> None:
         self.gate.set()
 
+    def release_late(self) -> None:
+        self.late_gate.set()
+
+    def release_last(self) -> None:
+        self.last_gate.set()
+
     def rearm(self) -> None:
         self.gate = threading.Event()
+        self.late_gate = threading.Event()
+        self.last_gate = threading.Event()
         with self._lock:
             self.hung.clear()
+            self.tests_seen = 0
 
     def requests_with(self, marker: str) -> list:
         """The model calls whose user messages say `marker` (the text as typed: no JSON escaping)."""
@@ -197,7 +260,8 @@ class Provider:
     def _hold(self, marker: str) -> None:
         with self._lock:
             self.hung.append(marker)
-        self.gate.wait(180)
+        gate = {"RC-LIVELATE": self.late_gate, "RC-LIVELONG": self.last_gate}.get(marker, self.gate)
+        gate.wait(180)
 
     def _answer(self, h, body) -> None:
         try:
@@ -231,6 +295,12 @@ class Provider:
             if done_here in _AUTOGROUPS_AT:
                 return _finish(h, tool_step(*AUTOGROUPS_REPLIES[_AUTOGROUPS_AT[done_here]]))
             return _finish(h, text_step(AUTOGROUPS_DONE))
+        if "RC-LIVESCENE" in turn:
+            if done_here == 0:
+                return _finish(h, tool_step(*LIVE_REPLY))
+            return _finish(h, text_step(LIVESCENE_DONE))
+        if "RC-LIVE" in last:
+            return self._live_child(h, last, done)
         if "RC-AUTOBUILD" in turn:
             if done_here == 0:
                 return _finish(h, tool_step(("Builder", {"changes": AUTO_BUILD_CHANGES}, "call_rc_autobuild")))
@@ -279,6 +349,26 @@ class Provider:
             return _finish(h, text_step(WORK_DONE))
         return _finish(h, text_step(ANSWER))
 
+    def _live_child(self, h, last: str, done: int) -> None:
+        """A helper of RC-LIVESCENE, by its marker (the docstring's table)."""
+        from tests.helpers.mock_openai import _finish
+        if "RC-LIVELONG" in last and done == 0:
+            self._hold("RC-LIVEHOLD")  # running, its first model call held; after release() its tools
+        for marker, calls in _LIVE_CALLS.items():
+            if marker in last:
+                if done < len(calls):
+                    tool, args = calls[done]
+                    return _finish(h, tool_step((tool, args, f"call_{marker.lower().replace('-', '_')}_{done}")))
+                if marker == "RC-LIVELONG":
+                    self._hold(marker)
+                return _finish(h, text_step(SUB_DONE))
+        if "RC-LIVETEST" in last:
+            with self._lock:
+                self.tests_seen += 1
+                first = self.tests_seen == 1
+            self._hold("RC-LIVEHOLD" if first else "RC-LIVELATE")
+        return _finish(h, text_step(SUB_DONE))
+
     def _browser(self, h, body, url: str, hold: bool, done_here: int) -> None:
         from tests.helpers.mock_openai import _finish
         steps = [{"action": "open", "url": url}, {"action": "click", "target": "Press me"}, {"action": "screenshot"},
@@ -295,6 +385,8 @@ class Provider:
 
     def stop(self) -> None:
         self.release()
+        self.release_late()
+        self.release_last()
         saved, self._saved = getattr(self, "_saved", {}), {}
         for k in self._KEYS:
             if self._scenarios.get(k) != self._answer:  # another owner took the name since: theirs now

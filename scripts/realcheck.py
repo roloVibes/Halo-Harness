@@ -42,7 +42,7 @@ from realcheck.report import FAIL, PASS, SKIP, Result, markdown, run_info, to_js
 def _steps() -> list:
     """(name, budget seconds, what it checks, the function)."""
     from realcheck import steps_a as A, steps_b as B, steps_c as C, steps_close as Z, steps_map as M, steps_prompt as P
-    from realcheck import steps_auto as S, steps_browser as W, steps_copy as K
+    from realcheck import steps_auto as S, steps_browser as W, steps_copy as K, steps_live as L
     return [
         ("starts", 20, "`halo --version` and `--help` answer in 2 s; --help names every command", A.starts),
         ("first-run", 120, "`halo init` in a fresh home: address, page, Setup's read, no beep, instrument", A.first_run),
@@ -63,6 +63,11 @@ def _steps() -> list:
         ("auto-ready-lines", 180 if sys.platform == "win32" else 120, "a build on Auto says what is ready: the card "
          "makes no map, the folded card and Studio's head say ready now and saved for the next session, crew.map "
          "unchanged; 'use it now' draws the workflow as a group", S.auto_ready_lines),
+        ("live-scene", 180 if sys.platform == "win32" else 120, "the drawing of a running session on Auto as a person "
+         "sees it: seven helpers of a real session, their NOW words, the heads and TURN, the slot's arrow and tail, at "
+         "most four rings and none hidden, nothing moves under a resting pointer, a long tool's held form and its one "
+         "growth in Session's drawer at its narrowest, the box that opens in place, no animation under reduced motion",
+         L.live_scene),
         ("browser", 180 if sys.platform == "win32" else 120, "the built-in Browser tool: a real `halo -p` opens a real page "
          "in this system's browser, presses its button, takes its picture; no listener; nothing left after a normal "
          "and a hard end", W.browser),
@@ -71,7 +76,9 @@ def _steps() -> list:
         ("update", 90, "`halo update --check` online and offline, in plain words", C.update),
         ("closing", 900, "Ctrl+C, a closed terminal, a hard kill: nothing Halo started is left 5 s later", Z.closing),
         ("no-reuse", 120, "a second `halo init` starts its own Studio, never one from before", Z.no_reuse),
-        ("idle-cpu", 150, "a Studio idle with its page open for 60 s uses under 5% of one core", Z.idle_cpu),
+        ("idle-cpu", 240 if sys.platform == "win32" else 180, "a Studio idle 60 s with Agents -> Live open on a session "
+         "on Auto that handed work out: under 5% of one core, and no interval timer added by the drawing or the box that "
+         "opens in place", Z.idle_cpu),
     ]
 
 

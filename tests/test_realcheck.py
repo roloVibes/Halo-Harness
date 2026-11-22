@@ -53,18 +53,22 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         rc = m.main(["--list"])
     lines = out.getvalue().splitlines()
     names = [line.split()[0] for line in lines]
-    ctx.check(f"the eighteen steps in order, got {names}", rc == 0 and names == [
+    ctx.check(f"the nineteen steps in order, got {names}", rc == 0 and names == [
         "starts", "first-run", "theme", "question", "turn", "copy-drag", "studio", "prompt", "session-map",
-        "auto-groups", "auto-ready-lines", "browser", "packs", "local", "update", "closing", "no-reuse", "idle-cpu"])
+        "auto-groups", "auto-ready-lines", "live-scene", "browser", "packs", "local", "update", "closing", "no-reuse",
+        "idle-cpu"])
     # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`; 3.6.0.5: the two Auto steps after `session-map`;
     # 3.6.0.7: `copy-drag` (a drag over an earlier answer in a terminal session) after `turn`; 3.6.0.8: `browser`,
-    # the built-in Browser tool, after the two Auto steps
+    # the built-in Browser tool, after the two Auto steps; 3.6.0.14 K1: `live-scene` (the drawing of a running session
+    # on Auto) after them, before `browser`; K2: idle-cpu measures its minute with Agents -> Live open
     win = sys.platform == "win32"
     for step, want, words in (("copy-drag", "120s" if win else "60s", "120 s on Windows, 60 s elsewhere"),
                               ("session-map", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
                               ("auto-groups", "150s" if win else "90s", "150 s on Windows, 90 s elsewhere"),
                               ("auto-ready-lines", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
-                              ("browser", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere")):
+                              ("live-scene", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
+                              ("browser", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
+                              ("idle-cpu", "240s" if win else "180s", "240 s on Windows, 180 s elsewhere")):
         budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
         ctx.check(f"{step}'s budget is {want} here ({words}), got {budget!r}", budget == want)
     ctx.check("an unknown step: exit 2", m.main(["--only", "no-such-step"]) == 2)
@@ -1132,6 +1136,358 @@ def test_auto_groups_waits_end_when_the_drawer_and_main_are_drawn(ctx: Ctx):
     for k in exprs:
         ctx.check(f"{k}: true when drawn, got {got.get(k + ' / drawn')!r}", got.get(k + " / drawn") is True)
         ctx.check(f"{k}: false when not drawn, got {got.get(k + ' / not drawn')!r}", got.get(k + " / not drawn") is False)
+
+
+# == 3.6.0.14 K1: live-scene; K2: idle-cpu with Agents -> Live open ===================================================
+def _steps_live():
+    from realcheck import steps_live
+    return steps_live
+
+
+def _no_halo_skip(ctx: Ctx, name: str) -> None:
+    from unittest import mock
+    from tests.helpers import chrome_driver
+    m = _main_module()
+    chosen = [s for s in m._steps() if s[0] == name]
+    ctx.check(f"realcheck has the step {name}, got {[s[0] for s in m._steps()]}", len(chosen) == 1)
+    if len(chosen) != 1:
+        return
+    calls: list = []
+
+    def no_terminal(self, *a, **k):
+        calls.append("terminal")
+        raise RuntimeError("a halo was started")
+
+    def no_run(self, *a, **k):
+        calls.append("run")
+        raise RuntimeError("a halo was run")
+    with mock.patch.object(core.Ctx, "terminal", no_terminal), mock.patch.object(core.Ctx, "run", no_run), \
+            mock.patch.object(chrome_driver, "find_chrome", lambda *a, **k: calls.append("find") or "chrome"), \
+            mock.patch.object(chrome_driver, "open_chrome", lambda *a, **k: calls.append("open")), \
+            mock.patch.dict(os.environ, {"REALCHECK_BROWSER": ""}):
+        results, _v = m.run(chosen, root=tempfile.mkdtemp(prefix="rc-test-"), probe_version=False,
+                            say=lambda s: None, browser="none")
+    got = [(r.name, r.status, r.detail) for r in results]
+    ctx.check(f"one SKIP naming the switch, got {got}",
+              got == [(name, "SKIP", "no browser may be used here (--browser none)")])
+    ctx.check(f"no halo and no Chrome was started or looked for, got {calls}", calls == [])
+
+
+@test
+def test_live_scene_step_is_a_skip_with_browser_none_before_any_halo(ctx: Ctx):
+    """3.6.0.14 K1: the step live-scene opens a browser, so --browser none makes it ONE counted SKIP naming the switch,
+    and no `halo` and no Chrome is started or looked for first (each patch put back by its `with`)."""
+    _no_halo_skip(ctx, "live-scene")
+
+
+def _live_ask(p, msgs: list, out: list) -> "threading.Thread":
+    import threading
+    th = threading.Thread(target=lambda: out.append(_ask(p, msgs)), daemon=True)
+    th.start()
+    return th
+
+
+@test
+def test_the_fake_provider_plays_the_live_scene(ctx: Ctx):
+    """3.6.0.14 K1: RC-LIVESCENE is ONE message of four lone Agent calls and a batch of three (task, child markers,
+    start order: seven helpers); its children: RC-LIVETOOL a Bash `sleep 6013`, RC-LIVEASK a Bash `mkdir rc-live-ask`,
+    each SUB_DONE after its result; RC-LIVEDONE at once; RC-LIVELONG held until `release()`, then ToolSearch (the MCP
+    tool is deferred), then one call of the long MCP tool with 30 s, then held until `release_last()`; the first
+    RC-LIVETEST held until `release()`, the later ones until `release_late()` (a `release()` alone leaves them held);
+    `rearm()` re-arms every gate; main after five results LIVESCENE_DONE."""
+    from tests.helpers.mock_openai import SCENARIOS
+    before = {k: SCENARIOS.get(k) for k in ("model", "realcheck")}
+    p = fakes.Provider().start()
+    try:
+        prompt = getattr(fakes, "LIVESCENE_PROMPT", None)
+        ctx.check(f"the markers exist, got {prompt!r}", prompt == "RC-LIVESCENE: seven helpers"
+                  and getattr(fakes, "LIVE_TOOL", "") == "mcp__rc_insert_chart_from_range__slow_tool")
+        if prompt is None:
+            return
+        msgs = [{"role": "user", "content": prompt}]
+        said, calls = _ask(p, msgs)
+        want = [("writer", "write the changelog", ["RC-LIVEDONE: write the changelog"]),
+                ("general-purpose", "survey the TODOs", ["RC-LIVETOOL: grep the TODOs"]),
+                ("general-purpose", "review the money module", ["RC-LIVEASK: check pay.py"]),
+                ("general-purpose", "make the chart", ["RC-LIVELONG: draw the chart"]),
+                ("general-purpose", "run the tests", ["RC-LIVETEST: run the unit tests", "RC-LIVETEST: run the e2e tests",
+                                                      "RC-LIVETEST: run the lint"])]
+        got = [(a.get("subagent_type"), a.get("task"), [a["prompt"]] if "prompt" in a else [b.get("prompt") for b in a.get("batch") or []])
+               for n, a in calls if n == "Agent"]
+        ctx.check(f"ONE message of five Agent calls in order, the last a batch of three, got {said!r} {got}",
+                  len(calls) == 5 and got == want and ["batch" in a for _n, a in calls] == [False] * 4 + [True])
+        said, calls = _ask(p, _called(msgs, calls, 5))
+        ctx.check(f"after five results: LIVESCENE_DONE, got {said!r} {calls}", not calls and said == fakes.LIVESCENE_DONE)
+        for marker, tool, args in (("RC-LIVETOOL: grep the TODOs", "Bash", {"command": "sleep 6013"}),
+                                   ("RC-LIVEASK: check pay.py", "Bash", {"command": "mkdir rc-live-ask"})):
+            child = [{"role": "user", "content": marker}]
+            said, calls = _ask(p, child)
+            ctx.check(f"{marker}: one {tool} call {args}, got {calls}", len(calls) == 1 and calls[0][0] == tool
+                      and all(calls[0][1].get(k) == v for k, v in args.items()))
+            said, calls = _ask(p, _called(child, calls, 1))
+            ctx.check(f"{marker}: SUB_DONE after its result, got {said!r}", not calls and said == fakes.SUB_DONE)
+        said, calls = _ask(p, [{"role": "user", "content": "RC-LIVEDONE: write the changelog"}])
+        ctx.check(f"RC-LIVEDONE answers SUB_DONE at once, got {said!r}", not calls and said == fakes.SUB_DONE)
+        out: list = []
+        long_out: list = []
+        first = _live_ask(p, [{"role": "user", "content": "RC-LIVETEST: run the unit tests"}], out)
+        first.join(0.5)
+        later = _live_ask(p, [{"role": "user", "content": "RC-LIVETEST: run the lint"}], out)
+        long_child = [{"role": "user", "content": "RC-LIVELONG: draw the chart"}]
+        long_first = _live_ask(p, long_child, long_out)
+        long_first.join(0.5)
+        ctx.check("the first RC-LIVETEST and RC-LIVELONG's first call are held before release()",
+                  first.is_alive() and long_first.is_alive())
+        p.release()
+        for th in (first, long_first):
+            th.join(10)
+        later.join(0.5)
+        calls = long_out[0][1] if long_out else []
+        ctx.check(f"release(): the first tester answered SUB_DONE, a later one still held; RC-LIVELONG asks ToolSearch for "
+                  f"the deferred MCP tool, got {out} {calls}", not first.is_alive() and later.is_alive()
+                  and out and out[0][0] == fakes.SUB_DONE
+                  and calls == [("ToolSearch", {"query": "select:" + fakes.LIVE_TOOL, "max_results": 1})])
+        long_child = _called(long_child, calls, 1)
+        said, calls = _ask(p, long_child)
+        ctx.check(f"RC-LIVELONG: then one call of the long tool with 30 s, got {calls}",
+                  calls == [(fakes.LIVE_TOOL, {"seconds": 30})])
+        last = _live_ask(p, _called(long_child, calls, 1), out)
+        p.release_late()
+        later.join(10)
+        last.join(0.5)
+        ctx.check("release_late(): the later tester answered; RC-LIVELONG's answer after its result still held",
+                  not later.is_alive() and last.is_alive())
+        p.release_last()
+        last.join(10)
+        ctx.check(f"release_last(): RC-LIVELONG answered SUB_DONE, got {out}", not last.is_alive()
+                  and len(out) == 3 and all(s == fakes.SUB_DONE for s, _c in out))
+        p.rearm()
+        again = _live_ask(p, [{"role": "user", "content": "RC-LIVETEST: run the unit tests"}], out)
+        again.join(0.5)
+        ctx.check("rearm(): the first tester holds again at the gate", again.is_alive())
+        p.release()
+        again.join(10)
+    finally:
+        p.stop()
+        ctx.check("stopped, the table holds what it held before", all(SCENARIOS.get(k) is v for k, v in before.items()))
+
+
+NB = " "
+
+
+def _live_scene_read() -> dict:
+    """A read of Agents -> Live as the scene draws it (made-up rows): seven members, six groups, the view's foot at 800."""
+    def m(raw, now, group, kind="", state=""):
+        return {"raw": raw, "now": now, "kind": kind, "state": state or f"glm-5 · {raw}", "group": group}
+    members = {"w1": m("done", f"done in 2{NB}s", "group:1"), "r1": m("running", "Bash · 4 s", "group:2", "tool"),
+               "r2": m("running", "waiting for a model reply · 4 s", "group:2"),
+               "c1": m("running", "waiting for a model reply · 1 min 02 s", "group:3"),
+               "v1": m("waiting", "waiting for you · 3 s", "group:4", "wait"),
+               "t1": m("queued", "queued · 4 s", "group:5", state="glm-5 · queued"),
+               "g1": m("queued", "queued · 4 s", "group:6", state="queued")}
+    names = ["write the changelog", "survey the TODOs", "fix the login bug", "review the money module", "run the tests",
+             "make the chart"]
+    counts = [f"1 agent · all done · $0.00 · 2{NB}s", "2 agents · 2 working", "1 agent · 1 working",
+              "1 agent · 1 waiting on you", "1 agent · 1 queued", "1 agent · 1 queued"]
+    tops = [10, 100, 260, 820, 920, 1020]
+    groups = {f"group:{i}": {"name": n, "counts": c, "rect": [300, t, 200, 80]}
+              for i, (n, c, t) in enumerate(zip(names, counts, tops), 1)}
+    return {"members": members, "groups": groups, "view": [0, 0, 800, 800],
+            "main": {"now": "Agent · 5 s", "turn": "This turn: started 5 helpers"},
+            "slot": {"text": "↓ review the money module · waits on you · and 2 more groups below", "arrow": "down"},
+            "lines": {"v1": "reviewer: check pay.py"}}
+
+
+@test
+def test_live_scene_judges_what_the_page_drew(ctx: Ctx):
+    """3.6.0.14 K1 (1)-(3): each judge is a pure function of a read; the scene's read gives no failure, and each fault
+    exactly its own named failure (no browser here)."""
+    import copy
+    s = _steps_live()
+    ok = _live_scene_read()
+    for name, got in (("NOW", s.judge_live_now(ok, {"x": 2, "y": 400, "over": False})), ("heads", s.judge_live_heads(ok)),
+                      ("slot", s.judge_live_slot(ok, {"seen": True, "sheet": False}))):
+        ctx.check(f"{name}: the scene as drawn gives no failure, got {got}", got == [])
+
+    def one(judge, change, word, *more):
+        r = copy.deepcopy(ok)
+        change(r)
+        got = judge(r, *more)
+        ctx.check(f"{word}: exactly one failure that says so, got {got}", len(got) == 1 and word in got[0])
+    one(s.judge_live_now, lambda r: r["members"]["t1"].update(now="waiting for a model reply · 3 s"), "(1)")
+    one(s.judge_live_heads, lambda r: r["members"]["w1"].update(raw="stopped", now=f"stopped after 4{NB}s"),
+        "1 agent · 1 stopped")
+    one(s.judge_live_heads, lambda r: r["main"].update(turn="This turn: started 6 helpers"), "This turn: started 5 helpers")
+    one(s.judge_live_slot, lambda r: r["slot"].update(text="↓ review the money module · waits on you"),
+        "and 2 more groups below")
+    one(s.judge_live_slot, lambda r: r["slot"].update(text="↓ review the money module · waits on you and 2 more below"),
+        "(3) the slot reads")
+    got = s.judge_live_now(ok, {"x": 2, "y": 400, "over": True})
+    ctx.check(f"a pointer over the drawing: exactly the not-judged line, got {got}",
+              got == ["(1) not judged: the pointer at (2, 400) is over the drawing"])
+
+
+@test
+def test_live_scene_judges_rest_rings_sheet_and_motion(ctx: Ctx):
+    """3.6.0.14 K1 (4)-(8): each judge names exactly its fault; a correct product under reduced motion passes (the
+    sheet's data-unfold / data-fold are not judged there)."""
+    import copy
+    s = _steps_live()
+    rects = {"box:main": [10, 10, 184, 120], "member:h1": [10, 200, 184, 90], "box:group:1": [10, 180, 200, 300]}
+    ctx.check("(4) still: no failure", s.judge_live_rest(rects, copy.deepcopy(rects), ("", "")) == [])
+    moved = copy.deepcopy(rects)
+    moved["member:h1"][1] += 2
+    got = s.judge_live_rest(rects, moved, ("", ""))
+    ctx.check(f"(4) a rect 2 px off: one failure, got {got}", len(got) == 1 and "member:h1 moved by 2.0 px" in got[0])
+    tool = fakes.LIVE_TOOL
+    held = {"held": "a tool · 3 s", "whole": tool + " · 6 s", "h0": 90.0, "h1": 107.0, "h2": 107.0,
+            "others0": {"member:a": 90.0}, "others2": {"member:a": 90.0}}
+    ctx.check(f"(5) as drawn: no failure, got {s.judge_live_held(held)}", s.judge_live_held(held) == [])
+    for change, word in ((dict(held=tool + " · 3 s"), "not 'a tool"), (dict(h1=90.0, h2=90.0), "did not grow"),
+                         (dict(h2=124.0), "a second time"), (dict(others2={"member:a": 107.0}), "member:a's height")):
+        got = s.judge_live_held(dict(held, **change))
+        ctx.check(f"(5) {word}: one failure, got {got}", len(got) == 1 and word in got[0])
+    got = s.judge_live_held(dict(held, not_given="not found: " + tool))
+    ctx.check(f"(5) the helper not given the tool: exactly that line, got {got}",
+              got == [f"(5) not judged: the chart's helper was not given the MCP server's tool (not found: {tool})"])
+    got = s.judge_live_held(dict(held, ended_early=True))
+    ctx.check(f"(5) ended early: exactly the not-judged line, got {got}",
+              got == ["(5) not judged: the long tool ended before the pointer left"])
+    ring = {"id": "h1", "group": "group:1", "frame": 10, "rect": [10, 200, 184, 90], "view": [0, 100, 400, 600],
+            "under": "", "underGroup": "", "sheet": None, "reduced": False}
+    ctx.check("(6) a ring in view: no failure", s.judge_live_rings([ring]) == [])
+    for change, word in ((dict(rect=[10, 690, 184, 90]), "out of view"), (dict(under="h1"), "under the pointer"),
+                         (dict(underGroup="h1"), "under the pointer"), (dict(sheet=[0, 250, 300, 300]), "under the open box"),
+                         (dict(id="main"), "main's box rang")):
+        got = s.judge_live_rings([dict(ring, **change)])
+        ctx.check(f"(6) {word}: one failure, got {got}", len(got) == 1 and word in got[0])
+    got = s.judge_live_rings([dict(ring, id=f"h{i}") for i in range(5)])
+    ctx.check(f"(6) five in one frame: one failure, got {got}", len(got) == 1 and "5 rings in one frame" in got[0])
+    ctx.check("(6) a reduced-motion row is (8)'s", s.judge_live_rings([dict(ring, id="main", reduced=True)]) == [])
+    geo = {"side": "corner", "anchor": [300, 200, 200, 90], "view": [100, 100, 1200, 700], "words": 300}
+    sheet = {"open": True, "unfold": 3, "opened": 12, "place": "sheet", "rect": [300, 200, 440, 300], "geo": geo,
+             "moved": {"box:main": 0.0}, "now": "waiting for you · 4 s", "pause": [[310, 260, 76, 28]] * 4,
+             "texts": ["Resume", "Pause"], "gone": True, "moved_after": {"box:main": 0.0}}
+    ctx.check(f"(7) as built: no failure, got {s.judge_live_sheet(sheet)}", s.judge_live_sheet(sheet) == [])
+    ctx.check("(7) clamped 8 px inside the view's left: no failure",
+              s.judge_live_sheet(dict(sheet, rect=[108, 200, 440, 300], geo=dict(geo, anchor=[90, 200, 200, 90]))) == [])
+    for change, word in ((dict(rect=[305, 200, 440, 300]), "corner is off"), (dict(moved={"box:main": 3.0}), "moved by 3.0"),
+                         (dict(pause=[[310, 260, 76, 28]] * 3 + [[310, 262, 76, 28]]), "Pause moved after Resume"),
+                         (dict(unfold=0), "did not unfold"), (dict(gone=False), "Escape did not close")):
+        got = s.judge_live_sheet(dict(sheet, **change))
+        ctx.check(f"(7) {word}: one failure, got {got}", len(got) == 1 and word in got[0])
+    cv = {"pre": True, "place": "drawer", "raw": "done", "rang0": "", "rang1": "", "rows": []}
+    ctx.check("(7c) covered and quiet: no failure", s.judge_live_covered(cv) == [])
+    got = s.judge_live_covered(dict(cv, rang1="1"))
+    ctx.check(f"(7c) the covered tester rang: one failure, got {got}", len(got) == 1 and "rang under the open box" in got[0])
+    ctx.check("(7c) no cover: exactly the not-judged line",
+              s.judge_live_covered(dict(cv, pre=False)) == ["(7c) not judged: the sheet does not cover the tester"])
+    red = {"open": True, "durations": ["0s", "0s"], "anims": [], "runs": [], "gone": True, "raw": "done", "rang0": "",
+           "rang1": "", "rings": [], "member_anims": [], "unfold": 4, "fold": 9}
+    ctx.check(f"(8) reduced as built (data-unfold / data-fold set): no failure, got {s.judge_live_reduced(red)}",
+              s.judge_live_reduced(red) == [])
+    for change, word in ((dict(runs=[{"sheet": True, "prop": "clip-path"}]), "a transition ran"),
+                         (dict(durations=["0.16s"]), "transition-duration"), (dict(anims=["sheet-unfold"]), "the box animated"),
+                         (dict(rings=[{"id": "g1", "reduced": True}]), "rang under reduced motion")):
+        got = s.judge_live_reduced(dict(red, **change))
+        ctx.check(f"(8) {word}: one failure, got {got}", len(got) == 1 and word in got[0])
+
+
+@test
+def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
+    """3.6.0.14 K1: every wait expression of live-scene gives true against a page stand-in where its state is drawn and
+    false where it is not (an element comes back through returnByValue as {}, which never ends a wait: 3.6.0.5)."""
+    import shutil
+    from tests.helpers.runner import SkipTest
+    node = shutil.which("node")
+    if not node:
+        raise SkipTest("no node on this box")
+    s = _steps_live()
+    exprs = s.waits()
+    js = ("const el = (o = {}) => ({dataset: o.dataset || {}, textContent: o.text ?? '', clientTop: 0, clientLeft: 0,"
+          " clientHeight: 100, clientWidth: 100, getBoundingClientRect: () => { const [l, t, w, h] = o.rect || [0, 0, 100, 100];"
+          " return {left: l, top: t, width: w, height: h, right: l + w, bottom: t + h}; },"
+          " querySelector: (x) => (o.q || {})[x] ?? null, querySelectorAll: (x) => (o.all || {})[x] ?? []});"
+          "const doc = (q) => ({querySelector: (x) => q[x] ?? null});"
+          "const mem = (o = {}) => el({dataset: {raw: o.raw || 'running'}, rect: o.rect || [10, 10, 50, 40],"
+          " q: {':scope > [data-testid=map-member-now]': el({text: o.now || ''})}});"
+          "const root = (m, all) => el({q: {'[data-member=\"a1\"]': m, '[data-member]': m}, all: {'[data-member]': all || []}});"
+          "const raws = (xs) => xs.map((r) => el({dataset: {raw: r}}));"
+          "const sheet = (w) => el({q: {'[data-testid=map-step-in-pause]': el({text: ' ' + w + ' '})}});"
+          f"const SCENE = {json.dumps(s.SCENE_RAWS)}, TOOL = {json.dumps(fakes.LIVE_TOOL)}, K = '[data-testid=map-step-in][data-open]';"
+          "const pages = {drawn: [doc({'#root': root(null, raws(SCENE))}), doc({'#root': root(null, raws(SCENE.slice(1)))})],"
+          " live: [doc({'#root': root(mem())}), doc({'#root': root(null)})],"
+          " drawer: [doc({'[data-testid=session-lit-map]': el()}), doc({})], open: [doc({[K]: el()}), doc({})],"
+          " gone: [doc({}), doc({'.mp-step-in': el()})],"
+          " held: [doc({'#root': root(mem({now: 'a tool · 3 s'}))}), doc({'#root': root(mem({now: 'Bash · 3 s'}))})],"
+          " whole: [doc({'#root': root(mem({now: TOOL + ' · 3 s'}))}), doc({'#root': root(mem({now: 'a tool · 3 s'}))})],"
+          " raw: [doc({'#root': root(mem({raw: 'done'}))}), doc({'#root': root(mem({raw: 'running'}))})],"
+          " seen: [doc({'#root': root(mem()), '#scroll': el()}), doc({'#root': root(mem({rect: [10, 80, 50, 40]})), '#scroll': el()})],"
+          " resume: [doc({[K]: sheet('Resume')}), doc({[K]: sheet('Pause')})],"
+          " pause: [doc({[K]: sheet('Pause')}), doc({[K]: sheet('Resume')})]};"
+          f"const exprs = {json.dumps(exprs)}; const out = {{}};"
+          "for (const [k, e] of Object.entries(exprs)) { const p = pages[k] || []; for (const [i, d] of p.entries()) {"
+          "  const v = new Function('document', 'return (' + e + ');')(d);"
+          "  out[k + (i ? ' / not drawn' : ' / drawn')] = JSON.parse(JSON.stringify(v === undefined ? null : v)); } }"
+          "process.stdout.write(JSON.stringify(out));")
+    r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=60)
+    ctx.check(f"node ran the expressions, got {r.returncode}: {r.stderr[-300:]}", r.returncode == 0)
+    got = json.loads(r.stdout or "{}")
+    for k in exprs:
+        ctx.check(f"{k}: true when drawn, got {got.get(k + ' / drawn')!r}", got.get(k + " / drawn") is True)
+        ctx.check(f"{k}: false when not drawn, got {got.get(k + ' / not drawn')!r}", got.get(k + " / not drawn") is False)
+
+
+@test
+def test_idle_cpu_judges_the_share_and_the_timers(ctx: Ctx):
+    """3.6.0.14 K2: steps_close.judge_idle is pure: the share against 5% and the page's live interval timers A (before
+    Live), B (with it), C (box open), D (closed), E (after the minute), each fault exactly its own line."""
+    from realcheck import steps_close as z
+    live = getattr(z, "LIVE_INTERVALS", None)
+    ctx.check("the pin LIVE_INTERVALS exists", isinstance(live, int))
+    if live is None:
+        return
+    a = [1000, 15000, 2000]
+    b = a + [1000] * live
+    ok = {"A": a, "B": b, "C": list(b), "D": list(b), "E": list(b)}
+    ctx.check(f"share 0.049, counts as before: no failure, got {z.judge_idle(0.049, ok, live)}", z.judge_idle(0.049, ok, live) == [])
+    got = z.judge_idle(0.05, ok, live)
+    ctx.check(f"share 0.05: the share's line alone, got {got}",
+              got == ["an idle Studio with Agents -> Live open used 5.0% of one core over 60s (budget 5%)"])
+    for k, line in (("C", "the open sheet added 1 interval timer"), ("D", "the closed sheet left 1 interval timer"),
+                    ("E", "the idle minute ended with 1 interval timer more")):
+        got = z.judge_idle(0.01, dict(ok, **{k: b + [500]}), live)
+        ctx.check(f"{k} = B + 1: exactly {line!r}, got {got}", got == [line])
+    got = z.judge_idle(0.01, dict(ok, A=a[1:]), live)
+    ctx.check(f"B - A = LIVE_INTERVALS + 1: Live's line naming both, got {got}",
+              got == [f"Agents -> Live added {live + 1} interval timer{'' if live + 1 == 1 else 's'}; before the drawing "
+                      f"it added {live}"])
+    got = z.judge_idle(0.01, dict(ok, C=None), live)
+    ctx.check(f"a count missing: exactly the hook's line, got {got}", got == ["the page's timers could not be counted"])
+
+
+@test
+def test_idle_cpu_interval_hook_counts_live_timers(ctx: Ctx):
+    """3.6.0.14 K2: steps_close.INTERVALS in node against a stand-in window: two set (1000, 15000), one cleared -> one
+    live timer of 1000; the hook evaluated twice wraps once; a clear of an id never set changes nothing."""
+    import shutil
+    from tests.helpers.runner import SkipTest
+    from realcheck import steps_close as z
+    node = shutil.which("node")
+    if not node:
+        raise SkipTest("no node on this box")
+    hook, count = getattr(z, "INTERVALS", ""), getattr(z, "COUNT", "")
+    ctx.check("INTERVALS and COUNT exist", bool(hook and count))
+    if not (hook and count):
+        return
+    js = ("let next = 1; const window = {setInterval: () => next++, clearInterval: () => undefined};"
+          f"const hook = new Function('window', {json.dumps(hook)}), count = new Function('window', 'return ' + {json.dumps(count)});"
+          "hook(window); window.setInterval(() => 0, 1000); const b = window.setInterval(() => 0, 15000); window.clearInterval(b);"
+          "hook(window); window.clearInterval(999);"
+          "process.stdout.write(JSON.stringify(count(window)));")
+    r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=60)
+    ctx.check(f"node ran the hook, got {r.returncode}: {r.stderr[-300:]}", r.returncode == 0)
+    ctx.check(f"one live timer of 1000 ms, got {r.stdout!r}", json.loads(r.stdout or "null") == [1000])
 
 
 def _scene2_read() -> "tuple[dict, dict, list, dict]":

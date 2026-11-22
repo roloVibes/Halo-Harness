@@ -7,7 +7,10 @@
     terminal closing (the pty's master closed: SIGHUP; the pseudoconsole closed: CTRL_CLOSE_EVENT) and by a hard kill
     of the top process. Five seconds later no process started under that launch's scratch home may be alive.
 11. After a `halo init` is ended, a second `halo init` must start its own Studio (a new pid, started after it).
-12. A Studio idle with its page open for 60 s: Halo's processes together under 5% of one core."""
+12. A Studio idle 60 s with Agents -> Live open on a session on Auto that handed work out (3.6.0.14 K2: one piece of
+    work handed out in a terminal session, the helper's box opened in place and closed once before the minute): Halo's
+    processes together under 5% of one core, and no interval timer added by the drawing or the box that opens in place
+    (the page's live interval timers counted before Live, with it, with the box open, closed, and after the minute)."""
 from __future__ import annotations
 
 import json
@@ -281,8 +284,101 @@ def no_reuse(ctx):
     return f"the second `halo init` started its own Studio (pid {b}, {b_started - launched:.1f}s after it)", ev
 
 
+# 3.6.0.14 K2: the page's live interval timers, wrapped before the page loads (installed first, before steps_map.HOOK,
+# which sets none); COUNT is the periods of those still running (their number is the count)
+INTERVALS = """(() => { if (window.__rci) return; const si = window.setInterval, ci = window.clearInterval, live = new Map(); window.__rci = live;
+  window.setInterval = function (fn, ms, ...a) { const id = si.call(window, fn, ms, ...a); live.set(id, Number(ms) || 0); return id; };
+  window.clearInterval = function (id) { live.delete(id); return ci.call(window, id); }; })();"""
+COUNT = "window.__rci ? [...window.__rci.values()] : null"
+# The interval timers Agents -> Live adds to the page (count B - count A), measured on the Linux VM on exports of the
+# released 3.6.0.12 (before 3.6.0.13's drawing) with this step copied over, and checked equal on 3.6.0.13 and on
+# 3.6.0.14's tree, three runs each: two timers of 1000 ms every time (A: 500, 1000, 6000, 15000 ms on Session). Pinned:
+# a higher count is a timer added; never raise it to make the step pass.
+LIVE_INTERVALS = 2
+IDLE_WAIT_S = 60.0 if sys.platform == "win32" else 30.0
+LIVE_DONE = "[data-testid=live-group] [data-member][data-state=done]"  # 3.6.0.12 and 3.6.0.13 both draw data-state
+
+
+def _timers(n: int) -> str:
+    return f"{n} interval timer{'' if n == 1 else 's'}"
+
+
+def judge_idle(share: float, counts: dict, live_added: int = LIVE_INTERVALS, seconds: float = 60.0) -> list:
+    """What a person saw of the idle minute ([] when right): the share of one core against 5%, and the page's live
+    interval timers -- A before Live, B with Live, C with the box open, D closed, E after the minute (a list of periods
+    or a number each; None when the hook could not count)."""
+    bad = []
+    if share >= 0.05:
+        bad.append(f"an idle Studio with Agents -> Live open used {share:.1%} of one core over {seconds:.0f}s (budget 5%)")
+    n = {k: (len(v) if isinstance(v, (list, tuple)) else v) for k, v in (counts or {}).items()}
+    if any(n.get(k) is None for k in "ABCDE"):
+        return bad + ["the page's timers could not be counted"]
+    a, b, c, d, e = (n[k] for k in "ABCDE")
+    if c != b:
+        bad.append(f"the open sheet added {_timers(c - b)}")
+    if d != b:
+        bad.append(f"the closed sheet left {_timers(d - b)}")
+    if e != b:
+        bad.append(f"the idle minute ended with {_timers(e - b)} more")
+    if b - a != live_added:
+        bad.append(f"Agents -> Live added {_timers(b - a)}; before the drawing it added {live_added}")
+    return bad
+
+
+def _idle_page(ctx, h, c, url: str, counts: dict, ev: dict):
+    """The page on Studio's address (Session), a session on Auto in a second terminal that hands one piece of work out, Agents ->
+    Live, the helper's box opened in place and closed, the pointer off the drawing; the counts A-D as they are read
+    (into `counts`, kept in the evidence at once). The session's terminal; raises Fail with what a person saw."""
+    from realcheck import fakes
+    from realcheck.steps_live import _away
+    from realcheck.steps_map import ROW, _followed, _say, _started, alt
+
+    def wait(expr: str) -> bool:
+        try:
+            return bool(c.wait(expr, IDLE_WAIT_S))
+        except TimeoutError:
+            return False
+    from realcheck.core import split_url
+    base, token = split_url(url)
+    c.go(f"{base}/?mode=session&tour=off#t={token}")  # Session (a fresh home's bare address opens Setup: no section keys)
+    s = ctx.terminal(h, cols=200, rows=50)  # bare `halo`: Auto, in the same home and project
+    ev["_session"] = s
+    if not screen.tui_ready(s, 60):
+        raise Fail("the terminal session never showed its status line in 60 s: " + excerpt(s.plain(), 200), ev)
+    bad: list = []
+    if not _followed(c, ev, bad, _started(h)):
+        raise Fail(bad[0], ev)
+    _say(s, "RC-PACK agent=researcher")  # one Agent spawn: on Auto one group, then PACK_DONE
+    if not s.wait_for(lambda x: fakes.PACK_DONE in x, IDLE_WAIT_S):
+        raise Fail(f"the session's turn never ended in {IDLE_WAIT_S:.0f} s: " + excerpt(s.plain(), 200), ev)
+    wait(ROW)
+    counts["A"] = c.js(COUNT)
+    alt(c, 2)  # Agents opens on 4 · Live while a session runs
+    if not wait(f"!!document.querySelector('{LIVE_DONE}')"):
+        ev["page"] = c.js("({at: location.search, live: !!document.querySelector('[data-testid=agents-live]'), shown: [...document."
+                          "querySelectorAll('[data-testid=agents-live], [data-testid=session-lit-map]')].map((e) => e.offsetParent !== null),"
+                          " groups: document.querySelectorAll('[data-testid=live-group]').length, members: [...document.querySelectorAll("
+                          "'[data-member]')].map((m) => m.dataset.state)})")
+        raise Fail(f"Agents -> Live never drew the helper that ended in {IDLE_WAIT_S:.0f} s", ev)
+    counts["B"] = c.js(COUNT)
+    if _away(c, "live")["over"]:
+        raise Fail("the pointer at (2, 400) is over the drawing: the minute would not be idle", ev)
+    c.click_on(f"document.querySelector('{LIVE_DONE}')")
+    if not wait("!!document.querySelector('[data-testid=map-step-in][data-open]')"):
+        raise Fail(f"the helper's box never opened in place in {IDLE_WAIT_S:.0f} s", ev)
+    counts["C"] = c.js(COUNT)
+    c.key("Escape")
+    if not wait("!document.querySelector('.mp-step-in')"):
+        raise Fail(f"Escape never closed the helper's box in {IDLE_WAIT_S:.0f} s", ev)
+    counts["D"] = c.js(COUNT)
+    if _away(c, "live")["over"]:
+        raise Fail("the pointer at (2, 400) is over the drawing: the minute would not be idle", ev)
+    return s
+
+
 def idle_cpu(ctx, seconds: float = 60.0):
     from tests.helpers.chrome_driver import open_chrome
+    from realcheck.steps_map import HOOK
     exe = browser(ctx)  # first: --browser none is a SKIP before any halo starts
     h = ctx.home("idle")
     t = ctx.terminal(h, "studio")
@@ -291,35 +387,52 @@ def idle_cpu(ctx, seconds: float = 60.0):
         ctx.end_leftovers(h)
         raise Fail(f"`halo studio` printed no address in {at:.0f} s: " + excerpt(t.plain(), 200),
                    {"while_waiting": meanwhile})
-    c = open_chrome(exe=exe) if exe else None
+    counts: dict = {}
+    ev: dict = {"address_s": round(at, 1), "while_waiting": meanwhile, "timers": counts}
+    c = s = None
     try:
-        if c is not None:
-            c.go(url)
-            time.sleep(5)  # the page's first reads; then nobody touches it
+        c = open_chrome(1440, 900, exe=exe)
+        if c is None:
+            raise Fail("no Chrome opened (" + str(exe) + ")", ev)
+        c.call("Emulation.setDeviceMetricsOverride", width=1440, height=900, deviceScaleFactor=1, mobile=False)
+        c.call("Page.enable")
+        for src in (INTERVALS, HOOK):  # before the first load: every timer the page sets is counted
+            c.call("Page.addScriptToEvaluateOnNewDocument", source=src)
+        try:
+            s = _idle_page(ctx, h, c, url, counts, ev)
+        finally:
+            s = ev.pop("_session", s)
         before = {p.pid: p for p in ctx.ours(h).values()}
-        time.sleep(seconds)
+        time.sleep(seconds)  # the idle minute: nobody touches the page or the terminal
         after = {p.pid: p for p in ctx.ours(h).values()}
+        counts["E"] = c.js(COUNT)
     finally:
         if c is not None:
             c.close()
-        screen.quit_with_ctrl_c(t)
-        t.cleanup()
+        for term in (s, t):
+            if term is not None:
+                screen.quit_with_ctrl_c(term)
+                term.cleanup()
         ctx.end_leftovers(h)
-    used, per = 0.0, {}
+    used, per, studio, session = 0.0, {}, 0.0, 0.0
     for pid, p in after.items():
         if p.cpu < 0:
             continue
         d = p.cpu - (before[pid].cpu if pid in before and before[pid].cpu >= 0 else 0.0)
         per[p.short(70)] = round(d, 2)
         used += d
+        if "studio" in p.cmdline:
+            studio += d
+        else:
+            session += d
     share = used / seconds
-    ev = {"address_s": round(at, 1), "while_waiting": meanwhile, "page_open": c is not None, "cpu_seconds": round(used, 2), "share_of_one_core": round(share, 4),
-          "processes": per}
+    ev.update(cpu_seconds=round(used, 2), studio_cpu_s=round(studio, 2), session_cpu_s=round(session, 2),
+              share_of_one_core=round(share, 4), processes=per)
     if not after:
         raise Fail("no Halo process was found to measure (the scan saw none under the home)", ev)
-    if share >= 0.05:
-        raise Fail(f"an idle Studio{' with its page open' if c else ''} used {share:.1%} of one core over "
-                   f"{seconds:.0f}s (budget 5%)", ev)
-    if c is None:
-        raise Skip(f"no Chrome: measured with no page open: {share:.1%} of one core")
-    return f"{share:.1%} of one core over {seconds:.0f}s with the page open", ev
+    bad = judge_idle(share, counts, LIVE_INTERVALS, seconds)
+    if bad:
+        raise Fail("; ".join(bad), ev)
+    b = len(counts["B"])
+    return (f"{share:.1%} of one core over {seconds:.0f}s with Agents -> Live open on a session on Auto; {b} interval "
+            "timers, as before"), ev
