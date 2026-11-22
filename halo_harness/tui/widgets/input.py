@@ -483,17 +483,26 @@ class PromptInput(TextArea):
             self.post_message(self.CompletionNav(-1))
             return
         row, _col = self.cursor_location
-        if row == 0 and not select:
+        # 3.6.0.11 (the owner: "The up button should bring you to the start of your prompt"): on the first line Up
+        # first moves IN the prompt -- up one line of a wrapped prompt, then to its very start -- and walks history
+        # only from the start (an empty box is at its start). While a recalled entry stands untouched, Up and Down
+        # keep walking history, as before. It was: any Up on the first line swapped the prompt for an older one.
+        if row == 0 and not select and (self._history_walking() or self.get_cursor_up_location() == self.cursor_location):
             self.post_message(self.HistoryNav(-1))
             return
         super().action_cursor_up(select)
+
+    def _history_walking(self) -> bool:
+        walking = getattr(self.app, "history_walking", None)
+        return bool(walking()) if callable(walking) else False
 
     def action_cursor_down(self, select: bool = False) -> None:
         if self._completion_open and not select:
             self.post_message(self.CompletionNav(1))
             return
         row, _col = self.cursor_location
-        if row == self.document.line_count - 1 and not select:
+        if (row == self.document.line_count - 1 and not select  # the mirror: down in the prompt, to its end, then history
+                and (self._history_walking() or self.get_cursor_down_location() == self.cursor_location)):
             self.post_message(self.HistoryNav(1))
             return
         super().action_cursor_down(select)

@@ -2022,7 +2022,18 @@ class BridgeApp(App):
                 self._show_recalled(self._history_draft, self._history_draft_pasted)
             else:
                 self._show_recalled(*self._history_cache[self._history_index])
+        else:
+            return  # 3.6.0.11: nothing to recall (no older entry, none that starts so): the cursor stays where it is
         self.prompt_input.move_cursor(self.prompt_input.document.end)
+
+    def history_walking(self) -> bool:
+        """Does the prompt show an entry Up/Down recalled, untouched, the cursor where the recall left it (the end)?
+        Then Up and Down keep walking history; otherwise they move in the prompt first (3.6.0.11, PromptInput)."""
+        cache, at = self._history_cache, self._history_index
+        if not cache or not 0 <= at < len(cache):
+            return False
+        box = self.prompt_input
+        return box.text == cache[at][0] and box.cursor_location == box.document.end
 
     def _show_recalled(self, display: str, pasted: dict) -> None:
         """Put a recalled entry in the box WITH its paste contents (finding

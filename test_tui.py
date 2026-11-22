@@ -6196,6 +6196,11 @@ def test_up_arrow_prefix_filter_walks_only_matching_entries(ctx: Ctx):
             async with app.run_test(size=(100, 40)) as pilot:
                 await pilot.click("#prompt-input")
                 await _type(pilot, "fix")
+                await pilot.press("up")  # 3.6.0.11: the first Up goes to the start of the prompt, the next walks history
+                await app._drain()
+                ctx.check(f"the first Up moves to the start and recalls nothing, got {app.prompt_input.text!r} "
+                          f"{app.prompt_input.cursor_location}",
+                          app.prompt_input.text == "fix" and app.prompt_input.cursor_location == (0, 0))
                 await pilot.press("up")
                 await app._drain()
                 ctx.check(f"prefix-filtered Up recalls the newest MATCHING entry, "
@@ -6205,6 +6210,70 @@ def test_up_arrow_prefix_filter_walks_only_matching_entries(ctx: Ctx):
                 ctx.check(f"a second Up walks to the NEXT matching entry, skipping the "
                           f"non-matching one in between, got {app.prompt_input.text!r}",
                           app.prompt_input.text == "fix the bug")
+        asyncio.run(body())
+    finally:
+        restore()
+
+
+@test
+def test_up_goes_to_the_start_of_a_long_prompt_before_it_walks_history(ctx: Ctx):
+    """3.6.0.11, the owner: "The up button should bring you to the start of your prompt. If it's long I'm over holding
+    done the left button to scoot thru it all." On the first line Up moved nowhere in the prompt: it swapped the
+    prompt for an older one. Now Up goes up one line of a wrapped prompt, then to its very start, and walks history
+    only from there; Down is the mirror (to the end, then history); a recalled entry left untouched keeps walking."""
+    from halo_harness import history as history_mod
+
+    tmp, restore = _scoped_history_home()
+    try:
+        async def body():
+            fake = FakeController()
+            app = await _mounted(fake)
+            history_mod.append_history_entry("older prompt", str(app.cwd), timestamp=1.0)
+            history_mod.append_history_entry("newer prompt", str(app.cwd), timestamp=2.0)
+            long = " ".join(f"word{i:02d}" for i in range(40))  # 279 characters: wraps over several lines at 60 columns
+            async with app.run_test(size=(60, 40)) as pilot:
+                box = app.prompt_input
+                await pilot.click("#prompt-input")
+                box.text = long
+                box.move_cursor(box.document.end)
+                await pilot.pause(0.05)
+                seen = [box.cursor_location]
+                for _ in range(12):  # up one wrapped line at a time, then to the very start
+                    await pilot.press("up")
+                    await app._drain()
+                    if box.cursor_location == seen[-1]:
+                        break
+                    seen.append(box.cursor_location)
+                ctx.check(f"Up walked up the wrapped lines to the start of the prompt, the prompt unchanged, and one more "
+                          f"Up (no older prompt starts with this one) left the cursor at the start, got {seen}",
+                          box.text == long and seen[-1] == (0, 0) and len(seen) >= 3
+                          and all(a[1] > b[1] for a, b in zip(seen, seen[1:])))
+                await pilot.press("down")
+                await app._drain()
+                ctx.check(f"Down from there moves in the prompt, not into history, got {box.cursor_location}",
+                          box.text == long and box.cursor_location != (0, 0))
+                box.text = ""  # an empty box is at its start: Up walks every older prompt
+                await pilot.pause(0.05)
+                await pilot.press("up")
+                await app._drain()
+                ctx.check(f"Up at the start walks history, got {box.text!r}", box.text == "newer prompt"
+                          and box.cursor_location == box.document.end)
+                await pilot.press("up")
+                await app._drain()
+                ctx.check(f"a recalled entry left untouched: the next Up keeps walking, got {box.text!r}",
+                          box.text == "older prompt")
+                await pilot.press("down")
+                await app._drain()
+                ctx.check(f"and Down walks back, got {box.text!r}", box.text == "newer prompt")
+                await pilot.press("left")
+                await pilot.press("up")
+                await app._drain()
+                ctx.check(f"the cursor moved in a recalled entry: Up goes to its start, the entry stays, got {box.text!r} "
+                          f"{box.cursor_location}", box.text == "newer prompt" and box.cursor_location == (0, 0))
+                await pilot.press("down")
+                await app._drain()
+                ctx.check(f"Down goes to its end, the entry stays, got {box.text!r} {box.cursor_location}",
+                          box.text == "newer prompt" and box.cursor_location == box.document.end)
         asyncio.run(body())
     finally:
         restore()
@@ -6250,7 +6319,7 @@ def test_down_past_the_newest_restores_the_unsent_draft(ctx: Ctx):
             async with app.run_test(size=(100, 40)) as pilot:
                 await pilot.click("#prompt-input")
                 await _type(pilot, "an old")
-                await pilot.press("up")
+                await pilot.press("up", "up")  # 3.6.0.11: to the start of the prompt, then history
                 await app._drain()
                 ctx.check(f"Up recalls the matching old prompt, got {app.prompt_input.text!r}",
                           app.prompt_input.text == "an old prompt")

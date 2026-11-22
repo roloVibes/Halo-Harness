@@ -81,7 +81,10 @@ See the `keybindings-help` skill for the file format itself.
 
 Inside the chat area specifically: `Enter` submits, `Ctrl+J`/`Alt+Enter`
 inserts a newline without submitting, `Tab` accepts the completion popup,
-`Up`/`Down` walk prompt history (prefix-filtered). Inside the transcript:
+`Up` moves up in the prompt: one line up, on the first line to the very start of the prompt, and from the start
+it walks prompt history (prefix-filtered: only older prompts that start with what is typed). `Down` is the
+mirror: one line down, to the very end, and from the end it walks history forward. While a recalled prompt
+stands untouched, `Up`/`Down` keep walking. Inside the transcript:
 `o` on a focused tool card opens a full-screen pager of its untruncated
 output; `Ctrl+O` there toggles that card's own expanded/collapsed state
 (distinct from the global verbose toggle); 2.0.1 (W4c) `y` -- on the card
