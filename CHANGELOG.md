@@ -18,26 +18,30 @@ before it walks history. The limits that remain are at the end of this section.
 ### Changed
 
 - **Setup saves what you pick when you leave the page.** On the Map, Default model, Permissions and Theme pages a pick
-  was saved only by Apply. Next, Back, the step rail and Done saved nothing, so the Summary and the next session
-  showed the older value. Now Next, Back, a click on the step rail, the Summary's Change, Done, and opening another
-  section through Studio's own rail all save the picks still standing first. While a pick is not saved yet, the
-  block's foot reads "1 changed · saved when you leave this page". Apply still saves at once and Revert still drops
-  the pick. A refused save keeps you on the page and the foot says why; at Done the Summary says it and nothing is
-  started.
+  was saved only by the page's own button (Apply on the Map page, Save on the others). Next, Back, the step rail and
+  Done saved nothing, so the Summary and the next session showed the older value. Now Next, Back, a click on the step
+  rail, the Summary's Change, Done, and opening another section through Studio's own rail all save the picks still
+  standing first. While a pick is not saved yet, the block's foot reads "1 changed · saved when you leave this page".
+  The page's button still saves at once and Revert still drops the pick. A pick made while a save is on its way is
+  saved by the same leave. A refused save keeps you on the page and the foot says why; at Done the Summary says it and
+  nothing is started. When Setup is left through Studio's rail the other section opens all the same, and a refused
+  save shows in the block's foot when you come back.
 - **Session's steer box is closed until you ask for it.** The Feed's rows take the whole height. A Steer button in the
   Feed's header, beside Follow, opens the box at the bottom with the cursor in the field; a second click closes it. A
   row's "steer" and `s` on a row open it aimed at that row's agent. An x at the end of the box's top row, or Esc in
   the field, closes it. Text typed and not sent is still there the next time the box opens; a sent steer clears the
   text and leaves the box open for a follow-up. Pause and Stop for the Feed's agent are in the box, so they show while
-  it is open. Every page load starts with the box closed.
+  it is open. Screenshot opens the box too, so its picture shows under the field. Every page load starts with the box
+  closed.
 - **Session follows the newest session you start, and names the one it shows.** When Session chose its session by
   itself and you start `halo` in another folder, Session moves to the new one at its next read of the session list and
-  says "Now typing into {folder} · {title}." for six seconds. If the session it chose by itself ends while another
-  runs, it moves to the newest open one. A session you picked yourself never moves by itself: Change session, a
-  `?session=` link, `/studio`, New session, or a click on a row, a tag or a Map agent of it. Nothing moves while the
-  Prompt box, or the open steer box, holds text. The Feed's header has a new last row that names the session, with a
-  Change session button; while other sessions are open, a chip "N other sessions running" beside it opens the same
-  list.
+  says "Now typing into {folder} · {title}." for six seconds. It follows only a session a person talks to, the
+  terminal app's or one Studio started: a one-shot `halo -p` and a worker another session started never take Session
+  by themselves. If the session it chose by itself ends while another runs, it moves to the newest open one. A session
+  you picked yourself never moves by itself: Change session, a `?session=` link, `/studio`, New session, or a click on
+  a row, a tag or a Map agent of it. Nothing moves while the Prompt box, or the open steer box, holds text. The Feed's
+  header has a new last row that names the session, with a Change session button; while other sessions are open, a
+  chip "N other sessions running" beside it opens the same list.
 - **The Feed shows the lines of that session only.** Before, the lines of every session of this harness were mixed in
   the Feed, while the steer box and the Prompt box sent to the picked one. The Feed's "N working" counts that
   session's agents.
@@ -53,8 +57,9 @@ before it walks history. The limits that remain are at the end of this section.
 - **Up goes to the start of the prompt before it walks history, in the terminal app and in Studio's Prompt box.** Up
   moves one line up; on the first line it takes the cursor to the very start and keeps the text; pressed again at the
   start, it brings back the older prompt. Down is the mirror: one line down, to the very end, then the newer prompt.
-  While a recalled prompt stands untouched, Up and Down keep walking. Before, Up on the first line of a long prompt
-  went to history, and the start was reached by holding Left.
+  While a recalled prompt stands untouched, Up and Down keep walking. With nothing to recall, they leave the cursor
+  where it is (in the terminal app it jumped to the end). Before, Up on the first line of a long prompt went to
+  history, and the start was reached by holding Left.
 - **The terminal's status bar no longer shows an OpenRouter key's lifetime spend.** For a key with no limit the bar
   read "OR $... used" beside the session's cost: everything that key ever spent, in every app, with nothing saying so.
   The bar now shows an OpenRouter figure only when it is a balance ("OR $12.40 left"). `/cost` and `/providers` still
@@ -68,11 +73,12 @@ before it walks history. The limits that remain are at the end of this section.
   no end. The check's line ("Default model: ...", in the terminal setup's Checks and on Setup's Check page) told the
   truth: a new session did start on the older model. Now saving a default model forgets the remembered `/model`
   choices, in every folder: in `halo init`, on Setup's Default model page, in Settings, with `halo config set model
-  ...`, and when a lineup offer on a model's card is accepted. In the terminal setup, picking the model that already
-  is the default does the same.
-- **A `/model` made after that is remembered as before** and outranks the default until a default is saved again. The
-  check then names both: "Default model: {the /model one} ... [from last-used model (/model); config.json's model is
-  {the default}]".
+  ...`, and when a lineup offer on a model's card is accepted. Resetting the default model (Settings' Reset to
+  default) does the same, and so does picking the model that already is the default in the terminal setup.
+- **A `/model` made after that is remembered as before** and outranks the default until a default is saved again.
+  While that model's provider is set up, the check names both: "Default model: {the /model one} ... [from last-used
+  model (/model); config.json's model is {the default}]"; when it is not, the check's warning names the remembered
+  model only.
 - **A map with a problem says that new sessions will not run it.** Setup saved such a map (one that names a workflow
   that does not exist, for example) and every new session quietly ran on Auto. Apply's answer now ends with "{map} has
   a problem: new sessions run on Auto until it is fixed" and the problems; the Summary row, the rail and the Map
@@ -104,6 +110,8 @@ before it walks history. The limits that remain are at the end of this section.
   says so in main's box; which one should win has not been changed.
 - **Main's box names a remembered `/model` without checking that its provider is still set up.** If it is not, a new
   session falls back with a notice while the box still names that model.
+- **Main's box on the Map speaks for the folder Studio was started in.** With the `/model` memory kept per folder (the
+  default), a session started in another folder can start on that folder's remembered `/model`.
 - **Closing the browser tab while a pick stands in Setup saves nothing.**
 - **An install that already shows the older model keeps showing it until a default is saved once more.** Halo cannot
   tell which of the two was chosen last on an existing install. Save the default again (Setup's Default model page, or
