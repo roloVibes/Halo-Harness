@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.11] - unreleased
+## [3.6.0.11] - 2026-11-22
 
 What you pick is what you get. A default model and a map picked in `halo init` or in Studio are what a new session
 runs, and Studio says so where that cannot be; Session's steer box is closed until you ask for it; Session shows the
