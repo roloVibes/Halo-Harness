@@ -21,6 +21,8 @@ from halo_harness import events
 from halo_harness.remote.base import HandleError, _BaseHandle  # HandleError is re-exported here
 from halo_harness.remote.feed import EventHub, Subscription
 
+BANG_WAIT_S = 3.5  # 3.6.0.12 BS: how long a `!` line over the socket waits for its output (the slash capture's wait)
+
 
 @runtime_checkable
 class SessionHandle(Protocol):
@@ -43,6 +45,7 @@ class SessionHandle(Protocol):
                     via: str = "") -> bool: ...
     def answer_approval(self, request_id: str, action: str, *, instruction: str = "", via: str = "") -> bool: ...
     def run_slash(self, name: str, args: str = "") -> "str | dict": ...  # 3.6.0.2 P8: {output, ran} from a terminal
+    def run_bang(self, command: str) -> dict: ...  # 3.6.0.12 BS: {state, id, output?, ran}
     def tail(self, n: int = 20) -> str: ...
     def subscribe(self, *, kinds=None, maxsize: int = 256) -> Subscription: ...
     def unsubscribe(self, sub: Subscription) -> None: ...
@@ -177,3 +180,18 @@ class ControllerHandle(_BaseHandle):
         if callable(hook):
             return hook(name, args or "")
         return self.controller.run_slash(name, args or "")
+
+    def run_bang(self, command: str) -> dict:
+        """3.6.0.12 BS: a `!` line over the `slash` door: `Controller.run_bang`, the one path the terminal's Enter
+        takes (its rows and its ask reach every tap). A command that runs is waited on for BANG_WAIT_S, as the
+        slash capture waits; one still running then answers `running` with no output (the rows bring it)."""
+        command = (command or "").strip()
+        if not command:
+            raise HandleError("empty command")
+        out = dict(self.controller.run_bang(command))
+        if out.get("state") != "ran":
+            return {**out, "ran": False}
+        output = self.controller.wait_bang(out.get("id", ""), BANG_WAIT_S)
+        if output is None:
+            return {**out, "state": "running", "ran": True}
+        return {**out, "output": output, "ran": True}

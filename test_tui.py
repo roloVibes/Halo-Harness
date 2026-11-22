@@ -3061,6 +3061,9 @@ def _real_controller(cwd: Path, *, mode: str = "bypassPermissions"):
         def __init__(self) -> None:
             self.permission_engine = PermissionEngine(mode=mode, print_mode=False, cwd=cwd)
             self.log = SessionLog(cwd)
+            self.abort = threading.Event()  # 3.6.0.12 BS: one per session (an Esc test sets it)
+            self._permission_waiters: dict = {}  # 3.6.0.12 BS: a `!` ask parks here, as a model's ask does
+            self._stopping = threading.Event()  # 3.6.0.12 BS: Controller.quit sets it
             self.busy = False  # Controller.submit reads this; no real turn ever runs in these pilots
             self.interactive = False
             # 2.0.1: Controller.list_models() reads `self.session.model_ref.
@@ -3074,6 +3077,15 @@ def _real_controller(cwd: Path, *, mode: str = "bypassPermissions"):
 
         def run(self, commands, emit, mcp_status_fn=None) -> int:
             return 0  # Controller.start()'s worker thread target; nothing is ever queued to it here
+
+        # 3.6.0.12 BS: the REAL Session's answer and re-decide paths (one claim per ask), not a stand-in.
+        from halo_harness.agent.loop import Session as _Session
+        resolve_permission = _Session.resolve_permission
+        reevaluate_pending_permission = _Session.reevaluate_pending_permission
+
+        def status_event(self, **kw):  # 3.6.0.12 BS: Shift+Tab's Controller.set_permission_mode puts one
+            return ev.status(phase="idle", model="", turn=0, permission_mode=self.permission_engine.mode,
+                             session_id=self.log.session_id)
 
         def _fire_session_end(self, _reason) -> None:
             pass
@@ -3141,6 +3153,8 @@ def test_bang_command_runs_the_real_bash_tool_and_shows_a_tool_card(ctx: Ctx):
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)
             controller = _real_controller(cwd)
+            tapped: list = []  # 3.6.0.12 BS: what Studio's feed (a tap on controller.events) sees
+            controller.add_event_tap(tapped.append)
             app = await _mounted(controller, cwd=str(cwd))
             async with app.run_test(size=(100, 40)) as pilot:
                 await pilot.click("#prompt-input")
@@ -3157,6 +3171,10 @@ def test_bang_command_runs_the_real_bash_tool_and_shows_a_tool_card(ctx: Ctx):
                 ctx.check(f"it ran through the REAL Bash tool, got body={cards[0].body_text!r}",
                           "hello-from-bang" in cards[0].body_text)
                 ctx.check(f"it resolved ok, got status={cards[0].status!r}", cards[0].status == "ok")
+                starts = [e.data.get("id") for e in tapped if e.kind == "tool_use_start"]
+                results = [e.data.get("id") for e in tapped if e.kind == "tool_result"]
+                ctx.check(f"a tap on controller.events sees ONE tool_use_start / tool_result pair, got {starts} {results}",
+                          len(starts) == 1 and starts == results and starts[0] == cards[0].tool_use_id)
                 nodes = controller.session.log.nodes()
                 tool_uses = [n for n in nodes if n.get("type") == "assistant"
                             for b in n.get("content", []) if b.get("type") == "tool_use"]
@@ -3595,6 +3613,124 @@ def test_bang_command_ask_mode_shows_a_permission_card_first(ctx: Ctx):
                 ctx.check("the file it touched really exists on disk",
                           (cwd / "should-ask-first.txt").exists())
     asyncio.run(body())
+
+
+async def _bang_settled(app, pilot, done, rounds: int = 100) -> None:
+    """Drain until `done()` holds (a slow runner gets its rounds; nothing is read the instant after a key)."""
+    for _ in range(rounds):
+        await app._drain()
+        if done():
+            return
+        await pilot.pause(0.05)
+
+
+@test
+def test_bang_ask_answered_from_outside_runs_the_command(ctx: Ctx):
+    """3.6.0.12 BS: a `!` ask answered through `Controller.answer_permission` (as Studio does) is ONE decision
+    with the terminal's card: the command RUNS, and the terminal shows one Bash card for it."""
+    async def body():
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            controller = _real_controller(cwd, mode="default")
+            tapped: list = []
+            controller.add_event_tap(tapped.append)
+            app = await _mounted(controller, cwd=str(cwd))
+            async with app.run_test(size=(100, 40)) as pilot:
+                await pilot.click("#prompt-input")
+                await _type(pilot, "!touch answered-outside.txt")
+                await pilot.press("enter")
+                await _bang_settled(app, pilot, lambda: isinstance(app.pending_card, PermissionCard))
+                card = app.pending_card
+                ctx.check(f"the ask shows as a card, got {type(card).__name__}", isinstance(card, PermissionCard))
+                asks = [e.data for e in tapped if e.kind == "permission_request"]
+                ctx.check(f"the ask is a permission_request on controller.events, got {asks}",
+                          len(asks) == 1 and asks[0].get("name") == "Bash" and asks[0].get("own") is True
+                          and asks[0].get("input") == {"command": "touch answered-outside.txt"}
+                          and asks[0].get("id") == getattr(card, "request_id", None))
+                ok = controller.answer_permission(card.request_id, {"action": "allow"})
+                ctx.check(f"the outside answer claimed the ask, got {ok}", ok is True)
+                await _bang_settled(app, pilot, lambda: any(isinstance(w, ToolCard) and w.status != "running"
+                                                            for w in app.transcript.children))
+                ctx.check("the command RAN", (cwd / "answered-outside.txt").exists())
+                cards = [w for w in app.transcript.children if isinstance(w, ToolCard)]
+                ctx.check(f"the terminal shows ONE Bash card, got {len(cards)}", len(cards) == 1)
+                ctx.check("a second answer claims nothing", controller.answer_permission(card.request_id, {"action": "allow"}) is False)
+            controller.quit()
+    asyncio.run(body())
+
+
+def _bang_threads() -> list:
+    return [t.name for t in threading.enumerate() if t.name.startswith("halo-bang") and t.is_alive()]
+
+
+@test
+def test_bang_escape_ends_a_running_bang_command(ctx: Ctx):
+    """3.6.0.12 BS: Esc with no turn running ends a running `!` command; its card reads as a stopped Bash call."""
+    async def body():
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            controller = _real_controller(cwd)
+            app = await _mounted(controller, cwd=str(cwd))
+            try:
+                async with app.run_test(size=(100, 40)) as pilot:
+                    await pilot.click("#prompt-input")
+                    await _type(pilot, "!sleep 30")
+                    await pilot.press("enter")
+                    await _bang_settled(app, pilot, lambda: any(isinstance(w, ToolCard) for w in app.transcript.children))
+                    cards = [w for w in app.transcript.children if isinstance(w, ToolCard)]
+                    ctx.check(f"the command shows as running, got {[c.status for c in cards]}",
+                              len(cards) == 1 and cards[0].status == "running")
+                    t0 = time.monotonic()
+                    await pilot.press("escape")
+                    await _bang_settled(app, pilot, lambda: cards and cards[0].status != "running", rounds=200)
+                    took = time.monotonic() - t0
+                    ctx.check(f"Esc ended it within 5 s, took {took:.1f} s, status {cards[0].status!r}",
+                              cards[0].status != "running" and took < 5.0)
+                    ctx.check(f"its card says it was stopped, got {cards[0].body_text!r}",
+                              "[command aborted]" in cards[0].body_text)
+            finally:
+                controller.quit()
+    asyncio.run(body())
+
+
+@test
+def test_bang_quit_ends_a_running_command_and_a_waiting_ask(ctx: Ctx):
+    """3.6.0.12 BS: `Controller.quit()` with a `!` command running and a `!` ask waiting leaves no thread of the
+    inline work alive and the command's child process gone."""
+    from halo_harness.bg_run import pid_alive
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        controller = _real_controller(cwd)  # bypassPermissions: the long command runs at once
+        pid_file = cwd / "child.pid"
+        script = f"import os, time; open({pid_file.as_posix()!r}, 'w').write(str(os.getpid())); time.sleep(60)"
+        pid = 0
+        try:
+            ran = controller.run_bang(f"'{Path(sys.executable).as_posix()}' -c \"{script}\"")
+            ctx.check(f"the long command runs, got {ran}", ran.get("state") == "ran")
+            controller.session.permission_engine.mode = "default"  # so the next one asks
+            asked = controller.run_bang("touch never-ran.txt")
+            ctx.check(f"the second asks, got {asked}", asked.get("state") == "asked")
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline and not (pid_file.exists() and pid_file.read_text().strip()):
+                time.sleep(0.1)
+            pid = int(pid_file.read_text().strip() or 0) if pid_file.exists() else 0
+            ctx.check(f"the child started, pid {pid}", pid > 0 and pid_alive(pid))
+            controller.quit()
+            ctx.check(f"no thread of the inline work is alive, got {_bang_threads()}", _bang_threads() == [])
+            gone = time.monotonic() + 10
+            while time.monotonic() < gone and pid_alive(pid):
+                time.sleep(0.1)
+            ctx.check("the child process is gone", not pid_alive(pid))
+            ctx.check("the waiting ask was answered no, its command never ran", not (cwd / "never-ran.txt").exists())
+            ctx.check("no ask is left waiting", asked.get("id") not in controller.session._permission_waiters)
+        finally:
+            controller.quit()
+            if pid and pid_alive(pid):  # a red run: end the child this test started, by its pid
+                import signal as _signal
+                try:
+                    os.kill(pid, _signal.SIGTERM)
+                except Exception:
+                    pass
 
 
 def _two_tool_calls_chunk(calls: list) -> list:
@@ -4053,97 +4189,52 @@ def test_force_quit_kills_background_jobs_even_if_controller_quit_raises(ctx: Ct
 # pending_permission path a live tool-call ask already uses.
 # ============================================================================
 
-class _InlineAskController:
-    """A standalone double (not FakeController -- its own `decide_inline_
-    shell` always allows, and it has no register/discard/reevaluate support
-    at all) with just enough surface for D2.3's own flow: an inline `!cmd`
-    that asks, Shift+Tab mode changes that re-decide it for real."""
-
-    def __init__(self):
-        from halo_harness.permissions import Decision
-        self._Decision = Decision
-        self.permission_mode = "default"
-        self._waiters: dict = {}
-        self.inline_runs: list = []
-        self.events = __import__("queue").Queue()
-
-    def decide_inline_shell(self, command: str):
-        return self._Decision("ask", "a plain Bash tool would ask here too", suggested_rule=None)
-
-    def run_inline_shell(self, command: str):
-        from halo_harness.tools.base import ToolResult
-        self.inline_runs.append(command)
-        return f"inline_{len(self.inline_runs)}", ToolResult(content=f"ran: {command}")
-
-    def register_pending_permission(self, request_id, tool_name, tool_input) -> None:
-        self._waiters[request_id] = {"tool_name": tool_name, "tool_input": tool_input}
-
-    def discard_pending_permission(self, request_id) -> None:
-        self._waiters.pop(request_id, None)
-
-    def set_permission_mode(self, mode: str) -> None:
-        self.permission_mode = mode
-
-    def reevaluate_pending_permission(self, request_id):
-        """Mirrors the REAL Session.reevaluate_pending_permission's own
-        contract (re-decide, resolve only on a real verdict) using a tiny
-        stand-in rule: `auto`/`bypassPermissions` allow, everything else
-        still asks -- enough to prove the WIRING without needing a real
-        PermissionEngine."""
-        if request_id not in self._waiters:
-            return None
-        if self.permission_mode in ("auto", "bypassPermissions"):
-            return "allow"
-        return None
-
-    def add_permission_rule(self, rule, scope) -> None:
-        pass
-
-
 @test
 def test_inline_shell_ask_card_resolves_via_shift_tab_mode_change(ctx: Ctx):
-    controller = _InlineAskController()
-
+    """3.6.0.12 BS: rewritten to the truth -- the REAL Controller (its `run_bang` parks the ask on a slot a thread
+    waits on) and the REAL permission engine: Shift+Tab to acceptEdits re-decides `touch` to allow, and it runs."""
     async def body():
-        app = await _mounted(controller)
-        async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause(0.05)
-            await app._handle_bang_command("echo hi")
-            await pilot.pause(0.05)
-            from halo_harness.tui.widgets.cards import PermissionCard
-            ctx.check(f"an inline ask card is pending, got {app.pending_card}",
-                      isinstance(app.pending_card, PermissionCard))
-            card = app.pending_card
-            ctx.check("the ask was registered for re-evaluation", card.request_id in controller._waiters)
-            # Shift+Tab default -> acceptEdits -> plan -> auto (3 presses).
-            await pilot.press("shift+tab")
-            await pilot.press("shift+tab")
-            await pilot.press("shift+tab")
-            await pilot.pause(0.1)
-            ctx.check(f"auto resolved the inline ask (card done), got done={card.done}", card.done is True)
-            ctx.check(f"the command actually ran, got {controller.inline_runs}",
-                      controller.inline_runs == ["echo hi"])
-            ctx.check("no pending card left", app.pending_card is None)
-            ctx.check("the slot was cleaned up", card.request_id not in controller._waiters)
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            controller = _real_controller(cwd, mode="default")
+            app = await _mounted(controller, cwd=str(cwd))
+            async with app.run_test(size=(100, 40)) as pilot:
+                await pilot.pause(0.05)
+                await app._handle_bang_command("touch via-shift-tab.txt")
+                await _bang_settled(app, pilot, lambda: isinstance(app.pending_card, PermissionCard))
+                ctx.check(f"an inline ask card is pending, got {app.pending_card}",
+                          isinstance(app.pending_card, PermissionCard))
+                card = app.pending_card
+                ctx.check("the ask was registered for re-evaluation",
+                          card.request_id in controller.session._permission_waiters)
+                await pilot.press("shift+tab")  # default -> acceptEdits: `touch` is allowed there
+                await _bang_settled(app, pilot, lambda: (cwd / "via-shift-tab.txt").exists())
+                ctx.check(f"acceptEdits resolved the inline ask (card done), got done={card.done}", card.done is True)
+                ctx.check("the command actually ran", (cwd / "via-shift-tab.txt").exists())
+                ctx.check("no pending card left", app.pending_card is None)
+                ctx.check("the slot was cleaned up", card.request_id not in controller.session._permission_waiters)
+            controller.quit()
     asyncio.run(body())
 
 
 @test
 def test_inline_shell_ask_card_stays_pending_under_a_mode_that_still_asks(ctx: Ctx):
-    controller = _InlineAskController()
-
     async def body():
-        app = await _mounted(controller)
-        async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause(0.05)
-            await app._handle_bang_command("rm -rf /tmp/x")
-            await pilot.pause(0.05)
-            card = app.pending_card
-            await pilot.press("shift+tab")  # default -> acceptEdits only; still "ask" in this fake
-            await pilot.pause(0.05)
-            ctx.check("still pending -- acceptEdits doesn't resolve an inline shell ask here", card.done is False)
-            ctx.check(f"the command did NOT run, got {controller.inline_runs}", controller.inline_runs == [])
-            ctx.check("still showing up as the app's own pending card", app.pending_card is card)
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            controller = _real_controller(cwd, mode="default")
+            app = await _mounted(controller, cwd=str(cwd))
+            async with app.run_test(size=(100, 40)) as pilot:
+                await pilot.pause(0.05)
+                await app._handle_bang_command("python -c \"open('ran.txt', 'w')\"")
+                await _bang_settled(app, pilot, lambda: isinstance(app.pending_card, PermissionCard))
+                card = app.pending_card
+                await pilot.press("shift+tab")  # default -> acceptEdits: this command still asks there
+                await _drain_a_few(app, pilot)
+                ctx.check("still pending -- acceptEdits doesn't resolve this inline shell ask", card.done is False)
+                ctx.check("the command did NOT run", not (cwd / "ran.txt").exists())
+                ctx.check("still showing up as the app's own pending card", app.pending_card is card)
+            controller.quit()
     asyncio.run(body())
 
 

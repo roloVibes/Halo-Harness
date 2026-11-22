@@ -118,6 +118,10 @@ class PrintModeHandle(_BaseHandle):
         text = self.run_slash("effort", level)
         return {"effort": getattr(self.session, "effort", level), "message": text}
 
+    def run_bang(self, command: str) -> dict:
+        """3.6.0.12 BS: a print run has no Controller, so no `!` line."""
+        raise HandleError("a ! command needs a session in the terminal app or one Studio started")
+
     def run_slash(self, name: str, args: str = "") -> str:
         from halo_harness.headless import _maybe_run_slash_command
         name = (name or "").lstrip("/").strip()

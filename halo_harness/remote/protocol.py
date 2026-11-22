@@ -178,6 +178,12 @@ def run_cmd(handle, req: dict, conn) -> Any:
     if cmd == "slash":
         line = _str(req, "line").strip()
         name, args = _str(req, "name"), _str(req, "args")
+        # 3.6.0.12 BS: the door for a line the session handles itself takes a `!` line too (a `line`, or a
+        # `name` that starts with `!`): it runs as the terminal runs it, never through `run_slash`
+        if line.startswith("!") and not name:
+            return handle.run_bang(line[1:].strip())
+        if name.strip().startswith("!"):
+            return handle.run_bang(f"{name.strip()[1:]} {args}".strip())
         if line.startswith("/") and not name:
             name, _, args = line[1:].partition(" ")
         return _slash_answer(handle.run_slash(name, args), conn)

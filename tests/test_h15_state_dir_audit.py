@@ -284,45 +284,62 @@ def test_inline_slot_is_reachable_through_reevaluate_pending_permission(ctx: Ctx
     """The actual point of D2.3: once registered, Shift+Tab's own
     Controller.reevaluate_pending_permission call resolves the inline ask
     exactly like a live tool-call one -- re-running the REAL permission
-    engine, not a blind allow."""
+    engine, not a blind allow. 3.6.0.12 BS (rewritten to the truth): the
+    slot is the one `Controller.run_bang` parks, a thread WAITS on it, and
+    the re-decision is acted on: a deny never runs the command."""
+    import time as _time
+    from halo_harness.agent.loop import Session
     from halo_harness.controller import Controller
     from halo_harness.permissions import PermissionEngine, parse_rule
 
     class _FakeSession:
+        resolve_permission = Session.resolve_permission
+        reevaluate_pending_permission = Session.reevaluate_pending_permission
+
         def __init__(self, engine):
             self._permission_waiters = {}
             self.permission_engine = engine
+            self.abort = threading.Event()
+            self._stopping = threading.Event()  # Controller.quit sets it
 
-        def reevaluate_pending_permission(self, request_id):
-            slot = self._permission_waiters.get(request_id)
-            if slot is None:
-                return None
-            decision = self.permission_engine.decide(slot["tool_name"], slot["tool_input"], slot["tool"])
-            if decision.action not in ("allow", "deny"):
-                return None
-            slot["decision"] = decision
-            slot["event"].set()
-            return decision.action
+        def _fire_session_end(self, _reason) -> None:
+            pass
 
-    rule = parse_rule("Bash(rm -rf /:*)", source="user", base_dir=Path.cwd())
-    engine = PermissionEngine(mode="default", cwd=Path.cwd(), deny_rules=[rule])
+    tmp = Path(tempfile.mkdtemp())
+    engine = PermissionEngine(mode="default", cwd=tmp)
     session = _FakeSession(engine)
-    ctrl = Controller(session=session, cwd=Path.cwd(), state_dir=Path(tempfile.mkdtemp()), routes={})
-    ctrl.register_pending_permission("inline-2", "Bash", {"command": "rm -rf /"})
-    action = ctrl.reevaluate_pending_permission("inline-2")
+    ctrl = Controller(session=session, cwd=tmp, state_dir=Path(tempfile.mkdtemp()), routes={})
+    asked = ctrl.run_bang("touch denied-later.txt")
+    rid = asked.get("id")
+    ctx.check(f"the inline ask parks a slot, got {asked}", asked.get("state") == "asked" and rid in session._permission_waiters)
+    engine.deny_rules.append(parse_rule("Bash(touch:*)", source="user", base_dir=tmp))
+    action = ctrl.reevaluate_pending_permission(rid)
     ctx.check(f"the deny rule actually applies to the inline ask, got {action!r}", action == "deny")
+    deadline = _time.monotonic() + 10
+    while _time.monotonic() < deadline and rid in session._permission_waiters:
+        _time.sleep(0.05)
+    ctx.check("the waiting thread took the answer (the slot is gone)", rid not in session._permission_waiters)
+    ctx.check("a denied ask never runs", not (tmp / "denied-later.txt").exists())
+    ctrl.quit()
 
 
 @test
-def test_permission_card_on_resolved_externally_fires_for_an_inline_card(ctx: Ctx):
+def test_an_inline_ask_card_is_the_event_card_and_needs_no_resolved_externally_hook(ctx: Ctx):
+    """3.6.0.12 BS (rewritten to the truth): a `!` ask's card is the same event-made card a model's ask gets
+    (`tui/dispatch.py` builds it from the `permission_request` the Controller puts out); the thread waiting on its
+    slot runs the command, so a re-decision needs no card hook. The check that `on_resolved_externally` fires for
+    an inline card is dead: no card is built with that hook any more."""
+    import re
     from halo_harness.tui.widgets.cards import PermissionCard
-    decisions, external_decisions = [], []
+    tui = Path(__file__).resolve().parent.parent / "halo_harness" / "tui"
+    passing = [p.name for p in tui.rglob("*.py") if re.search(r"on_resolved_externally\s*=", p.read_text(encoding="utf-8"))
+               and p.name != "cards.py"]
+    ctx.check(f"no card is built with on_resolved_externally, got {passing}", passing == [])
+    decisions = []
     card = PermissionCard(request_id="inline-3", summary="Bash(ls)", reason="", suggested_rule=None,
-                           on_decide=decisions.append, on_resolved_externally=external_decisions.append)
+                           on_decide=decisions.append)
     card.resolve_externally("allow")
     ctx.check(f"on_decide itself is NOT called (unchanged finding-4 contract), got {decisions}", decisions == [])
-    ctx.check(f"on_resolved_externally IS called for an inline card, got {external_decisions}",
-              len(external_decisions) == 1 and external_decisions[0]["action"] == "allow")
     ctx.check("the card is done", card.done is True)
 
 

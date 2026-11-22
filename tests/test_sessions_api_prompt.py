@@ -122,6 +122,82 @@ def test_halo_studio_session_prompt_names_the_prompt(ctx: Ctx):
         ctx.check("`halo studio --help` lists --prompt", "--prompt" in buf.getvalue())
 
 
+def _bang_rig(rig):
+    """3.6.0.12 BS: the live session, a tap on the Controller's events (what Studio's feed reads), a socket client,
+    and a permission engine that allows `echo` and asks for anything else (the fake session has none of its own)."""
+    from halo_harness.permissions import Decision
+    from halo_harness.remote.client import ControlClient
+    session, controller, act = _live(rig)
+    session.permission_engine.decide = lambda name, inp, tool=None: Decision(
+        "allow" if str((inp or {}).get("command", "")).startswith("echo") else "ask", "asks first")
+    tapped: list = []
+    controller.add_event_tap(tapped.append)
+    return session, controller, tapped, ControlClient(act.endpoint, act.server.token, timeout=10.0)
+
+
+def _pair(tapped) -> tuple:
+    return ([e.data.get("id") for e in tapped if e.kind == "tool_use_start"],
+            [e.data.get("id") for e in tapped if e.kind == "tool_result"])
+
+
+@test
+def test_a_bang_line_through_the_slash_door_runs_as_in_the_terminal(ctx: Ctx):
+    with SessionRig() as rig:
+        session, controller, tapped, client = _bang_rig(rig)
+        try:
+            reply = client.call("slash", line="!echo hi-from-the-door")
+            result = reply.get("result") or {}
+            ctx.check(f"slash with a ! line answers ran with the output, got {reply}", reply.get("ok") is True
+                      and result.get("state") == "ran" and "hi-from-the-door" in str(result.get("output"))
+                      and result.get("ran") is True and str(result.get("id", "")).startswith("inline_"))
+            ctx.check(f"it started NO turn, got {session.turn_count}", session.turn_count == 0)
+            ctx.check("the tap carries one tool_use_start / tool_result pair",
+                      wait_for(lambda: _pair(tapped)[1] == [result.get("id")], 5) and _pair(tapped)[0] == [result.get("id")])
+            reply = client.call("slash", name="!echo", args="named-door")
+            result = reply.get("result") or {}
+            ctx.check(f"a `name` that starts with ! takes the same path, got {reply}",
+                      result.get("state") == "ran" and "named-door" in str(result.get("output")))
+        finally:
+            client.close()
+
+
+@test
+def test_a_bang_ask_over_the_socket_runs_after_an_allow(ctx: Ctx):
+    with SessionRig() as rig:
+        session, controller, tapped, client = _bang_rig(rig)
+        try:
+            reply = client.call("slash", line="!touch made-by-the-door.txt")
+            result = reply.get("result") or {}
+            ctx.check(f"an asking ! answers asked, got {reply}", result.get("state") == "asked" and result.get("id"))
+            asks = [e.data for e in tapped if e.kind == "permission_request"]
+            ctx.check(f"a permission_request is on the tap, got {asks}", len(asks) == 1 and asks[0].get("id") == result.get("id")
+                      and asks[0].get("name") == "Bash" and asks[0].get("own") is False)
+            ctx.check("nothing ran yet", not (rig.cwd / "made-by-the-door.txt").exists())
+            reply = client.call("answer", kind="permission", request_id=result.get("id"), action="allow")
+            ctx.check(f"the answer was taken, got {reply}", reply.get("ok") is True)
+            ctx.check("the command RAN after the allow", wait_for(lambda: (rig.cwd / "made-by-the-door.txt").exists(), 8))
+            ctx.check("its tool rows reach the tap", wait_for(lambda: len(_pair(tapped)[1]) == 1, 5))
+            ctx.check(f"no turn, got {session.turn_count}", session.turn_count == 0)
+        finally:
+            client.close()
+
+
+@test
+def test_a_bang_line_on_a_print_run_says_it_needs_a_session(ctx: Ctx):
+    from halo_harness.remote import protocol
+    from halo_harness.remote.base import HandleError
+    from halo_harness.remote.print_handle import PrintModeHandle
+    from tests.helpers.fake_remote_session import FakeSession
+    with SessionRig() as rig:
+        handle = PrintModeHandle(FakeSession(), rig.cwd)
+        said = ""
+        try:
+            protocol.run_cmd(handle, {"cmd": "slash", "line": "!echo hi"}, None)
+        except HandleError as e:
+            said = str(e)
+        ctx.check(f"the sentence, got {said!r}", said == "a ! command needs a session in the terminal app or one Studio started")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

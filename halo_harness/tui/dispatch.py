@@ -300,7 +300,10 @@ async def _show_permission_card(app, data: dict, *, agent_id: "str | None" = Non
     # straight into the transcript any more -- a second concurrent ask no
     # longer silently overwrites this one. The transcript keeps a one-line
     # marker at this exact point in the conversation either way.
-    await app.enqueue_pending_card(card, marker_text=f"⏸ permission needed for {summary}, see below")
+    # 3.6.0.12 BS: `own` -- a `!` line this terminal's own Enter sent (`Controller.run_bang(own=True)`): his act,
+    # so its card takes the focus as the terminal's own card did (3.6.0.2 P5 batch 4, K3).
+    await app.enqueue_pending_card(card, marker_text=f"⏸ permission needed for {summary}, see below",
+                                   own_act=bool(data.get("own")) and not agent_id)
 
 
 def _tag_question_input(input_data: dict, agent_id: "str | None") -> dict:
@@ -680,6 +683,9 @@ async def _apply_event_inner(app, event) -> None:
         # the DOM) so the two never race over the same widget.
         await app.transcript.finish_phase_line(turn, agent_id=agent_id)
         await app.transcript.finish_open_streams(agent_id=agent_id)
+    elif kind == "error" and data.get("err_type") == "inline_shell_denied":
+        # 3.6.0.12 BS: a denied `!` line (`Controller.run_bang`): today's one error note, word for word, no toast
+        await app.transcript.add_note(data.get("message", ""), kind="error")
     elif kind == "error":
         message = data.get("message", "")
         if not agent_id and data.get("err_type") == "not_configured":  # no default model: say so, not "OpenRouter"

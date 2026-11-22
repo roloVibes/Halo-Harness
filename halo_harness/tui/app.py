@@ -1499,94 +1499,18 @@ class BridgeApp(App):
     # ---- `!cmd` inline shell (U5 scope A) ------------------------------
 
     async def _handle_bang_command(self, command: str) -> None:
+        """3.6.0.12 BS: the terminal's Enter on a `!` line goes through `Controller.run_bang`, the ONE code path a
+        `!` line from Studio takes too: the deny line, the Bash card and the ask's card all come back as the
+        Controller's events (`tui/dispatch.py`), so the terminal and Studio show them once each. `own=True`: this
+        Enter is his own act, so the ask's card takes the focus (3.6.0.2 P5 batch 4, K3)."""
         if not command:
             return
-        decide = getattr(self.controller, "decide_inline_shell", None)
-        if not callable(decide):
+        run_bang = getattr(self.controller, "run_bang", None)
+        if not callable(run_bang):
             await self.transcript.add_note("! inline shell needs a real session (not available here).",
                                             kind="error")
             return
-        decision = decide(command)
-        action = getattr(decision, "action", "deny")
-        if action == "deny":
-            await self.transcript.add_note(f"✗ !{command} -- denied: {getattr(decision, 'reason', '')}",
-                                            kind="error")
-            return
-        if action == "allow":
-            self._start_inline_shell_worker(command)
-            return
-        # "ask": a confirmation card, resolved entirely here (never through
-        # `Session.resolve_permission` -- there's no in-flight turn for
-        # this to belong to). Reuses PermissionCard verbatim: same keys
-        # (1/2/3/4), same session/always rule-writing via
-        # `Controller.add_permission_rule`.
-        from halo_harness.tui.widgets.cards import PermissionCard
-
-        request_id = f"inline-{id(command)}"
-
-        def on_decide(reply: dict) -> None:
-            # Part D2.3: discard the slot the SAME closure's slot-
-            # registration below added -- a no-op if `reevaluate_pending_
-            # permission` already resolved (and left in place) a since-
-            # replaced slot; either path ends here exactly once (`done`
-            # guards both PermissionCard entry points).
-            discard = getattr(self.controller, "discard_pending_permission", None)
-            if callable(discard):
-                try:
-                    discard(request_id)
-                except Exception:
-                    pass
-            self.clear_pending_card()
-            if reply.get("action") != "allow":
-                return
-            scope, rule = reply.get("scope"), reply.get("rule")
-            if scope in ("session", "always") and rule:
-                add_rule = getattr(self.controller, "add_permission_rule", None)
-                if callable(add_rule):
-                    try:
-                        add_rule(rule, "local" if scope == "always" else "session")
-                    except Exception:
-                        pass
-            self._start_inline_shell_worker(command)
-
-        # Part D2.3: registered so Shift+Tab/`/permissions` can re-decide
-        # THIS ask too, through the exact same `reevaluate_pending_
-        # permission` path a live tool-call ask already uses -- without
-        # this, a mode change while an inline `!cmd` card is up left it
-        # completely unaffected (a plain digit press was the only way to
-        # answer it, unlike every model-issued permission ask).
-        register = getattr(self.controller, "register_pending_permission", None)
-        if callable(register):
-            try:
-                register(request_id, "Bash", {"command": command})
-            except Exception:
-                pass
-
-        card = PermissionCard(request_id=request_id, summary=f"Bash({command})",
-                               reason=getattr(decision, "reason", "") or "runs now, outside the model turn (! prefix)",
-                               suggested_rule=getattr(decision, "suggested_rule", None), on_decide=on_decide,
-                               on_resolved_externally=on_decide, input_data={"command": command})
-        # Halo 2.0.1 W3a (finding 16 / PendingDock): same queued path every
-        # other permission/question/plan ask goes through now.
-        await self.enqueue_pending_card(card, marker_text=f"⏸ permission needed for Bash({command}), see below",
-                                        own_act=True)  # 3.6.0.2 P5 batch 4 (K3): his own `!cmd` Enter
-
-    def _start_inline_shell_worker(self, command: str) -> None:
-        self.run_worker(lambda: self._inline_shell_worker(command), thread=True, name="inline-shell")
-
-    def _inline_shell_worker(self, command: str) -> None:
-        try:
-            tool_use_id, result = self.controller.run_inline_shell(command)
-        except Exception as e:
-            self._local_events.put(ev.error(f"!{command} failed: {type(e).__name__}: {e}"))
-            return
-        content = result.content if isinstance(result.content, str) else str(result.content)
-        self._local_events.put(ev.Event("tool_use_ready", {
-            "id": tool_use_id, "name": "Bash", "input": {"command": command}, "repaired": False,
-        }))
-        self._local_events.put(ev.Event("tool_result", {
-            "id": tool_use_id, "ok": not result.is_error, "summary": content[:200], "content": content,
-        }))
+        run_bang(command, own=True)
 
     # ---- Ctrl+P command palette (U5 scope A) --------------------------
 

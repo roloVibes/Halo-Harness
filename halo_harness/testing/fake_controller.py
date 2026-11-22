@@ -337,6 +337,30 @@ class FakeController:
         self.inline_shell_runs.append(command)
         return f"fake_inline_{len(self.inline_shell_runs)}", ToolResult(content=f"(fake output of: {command})")
 
+    def run_bang(self, command: str, *, own: bool = False) -> dict:
+        """3.6.0.12 BS: the real `Controller.run_bang`'s shape over `decide_inline_shell`/`run_inline_shell` above:
+        its rows and its ask go on `events` (made on first use, so a fake that never runs a `!` line keeps none)."""
+        import queue as _queue
+        if getattr(self, "events", None) is None:
+            self.events = _queue.Queue()
+        decision = self.decide_inline_shell(command)
+        if decision.action == "deny":
+            self.events.put(ev.error(f"✗ !{command} -- denied: {decision.reason}", err_type="inline_shell_denied"))
+            return {"state": "denied", "id": "", "reason": decision.reason}
+        if decision.action == "ask":
+            request_id = f"fake-inline-{len(self.inline_shell_decisions)}"
+            self.events.put(ev.Event("permission_request", {"id": request_id, "name": "Bash",
+                                                            "input": {"command": command}, "reason": decision.reason,
+                                                            "suggested_rule": None, "own": bool(own)}))
+            return {"state": "asked", "id": request_id}
+        tool_use_id, result = self.run_inline_shell(command)
+        self.events.put(ev.Event("tool_use_start", {"id": tool_use_id, "name": "Bash"}))
+        self.events.put(ev.Event("tool_use_ready", {"id": tool_use_id, "name": "Bash", "input": {"command": command},
+                                                    "repaired": False}))
+        self.events.put(ev.Event("tool_result", {"id": tool_use_id, "ok": not result.is_error,
+                                                 "summary": str(result.content)[:200], "content": result.content}))
+        return {"state": "ran", "id": tool_use_id}
+
     def ingest_at_mentions(self, text: str) -> None:
         self.ingested_mentions.append(text)
 

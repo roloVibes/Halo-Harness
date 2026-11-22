@@ -209,6 +209,8 @@ class Controller:
         # runs OUTSIDE the model loop entirely, so it gets its own small,
         # independent "current directory" memory across `!cmd` calls.
         self._inline_bash_state: dict = {}
+        self._bang_lock = None
+        self._bang_init()  # 3.6.0.12 BS: `run_bang`'s abort, threads and waiting asks (made here, before any thread)
 
     # ---- worker lifecycle -------------------------------------------------
 
@@ -288,6 +290,7 @@ class Controller:
         except Exception:
             pass
         closing.trace(f"quit: background jobs stopped after {time.monotonic() - t0:.2f} s")
+        self._end_bang_work()  # 3.6.0.12 BS: a running `!` command ends, a waiting `!` ask is answered no
         self.commands.put(None)
         try:
             if self._worker is not None:  # the stops after this join keep QUIT_RESERVE_S of the deadline
@@ -394,8 +397,10 @@ class Controller:
     def interrupt(self) -> None:
         """Esc / Ctrl+C during a turn. Direct, not queued: the worker is
         parked inside the turn's generator and only `abort` can reach it
-        (the Bash tool polls this same Event to kill its process group)."""
+        (the Bash tool polls this same Event to kill its process group).
+        3.6.0.12 BS: one Esc also ends a running `!` command (`stop_bang`)."""
         self.session.abort.set()
+        self.stop_bang()
 
     def set_permission_mode(self, mode: str) -> None:
         """review finding 6: a plain string attribute write is atomic/
@@ -494,17 +499,14 @@ class Controller:
     def register_pending_permission(self, request_id: str, tool_name: str, tool_input: dict) -> None:
         """H15 Part D2.3: registers a slot in the session's own
         `_permission_waiters` for an ask that is resolved OUTSIDE the
-        model loop entirely (today: `tui/app.py`'s `!cmd` inline-shell
-        confirmation) so a mode change (Shift+Tab/`/permissions`) can reach
-        it through the exact SAME `reevaluate_pending_permission` path a
-        live tool-call ask already uses, instead of sitting there
-        unaffected by mode changes until answered by hand. Safe by
-        construction: no worker thread ever calls `_await_permission_
-        decision`/blocks on this slot's own `event` (there is no such call
-        for an inline command), so this can never wake a nonexistent
-        waiter -- the slot exists purely so `decide()` can be re-run
-        against the ORIGINAL `tool_name`/`tool_input` under the new mode,
-        exactly like `_resolve_tool_call`'s own ask branch stashes them."""
+        model loop entirely (`run_bang`'s `!cmd` ask) so a mode change
+        (Shift+Tab/`/permissions`) can reach it through the exact SAME
+        `reevaluate_pending_permission` path a live tool-call ask already
+        uses. 3.6.0.12 BS: `run_bang`'s own thread waits on this slot's
+        `event`, so every answer (the terminal's card, Studio, a mode
+        change, quit) is acted on: `decide()` re-runs against the ORIGINAL
+        `tool_name`/`tool_input`, exactly like `_resolve_tool_call`'s own
+        ask branch stashes them."""
         import threading
         self.session._permission_waiters[request_id] = {
             "event": threading.Event(), "decision": None,
@@ -1311,7 +1313,8 @@ class Controller:
         immediately, show a confirmation card, or refuse outright."""
         return self.session.permission_engine.decide("Bash", {"command": command})
 
-    def run_inline_shell(self, command: str) -> "tuple[str, object]":
+    def run_inline_shell(self, command: str, *, tool_use_id: Optional[str] = None,
+                         abort: "Optional[threading.Event]" = None) -> "tuple[str, object]":
         """Execute `command` via the real Bash tool. Synchronous -- always
         called from a Textual worker THREAD (`tui/app.py`'s `run_worker
         (thread=True)`, same pattern as `_git_branch_worker`) -- a
@@ -1333,13 +1336,15 @@ class Controller:
         # os.environ read, which used to leak every provider API key into
         # an inline `!cmd`'s subprocess) + CLAUDE_ENV_FILE (finding 6),
         # same as a model-issued Bash call gets via _dispatch_tools.
+        # 3.6.0.12 BS: `abort` is the Controller's ONE inline abort (`run_bang`), so Esc and quit end the command.
         result = BashTool().run(
             {"command": command},
             ToolContext(cwd=self.cwd, bash_state=self._inline_bash_state,
                         env=getattr(self.session, "tool_env", None),
-                        env_file=env_file_path(self.session.log.session_id)),
+                        env_file=env_file_path(self.session.log.session_id),
+                        **({"abort": abort} if abort is not None else {})),
         )
-        tool_use_id = f"inline_{uuid.uuid4().hex[:12]}"
+        tool_use_id = tool_use_id or f"inline_{uuid.uuid4().hex[:12]}"
         try:
             self.session.queue_log_write("inline_shell", {
                 "tool_use_id": tool_use_id, "command": command,
@@ -1348,6 +1353,143 @@ class Controller:
         except Exception:
             pass  # logging is best-effort -- the command already ran either way
         return tool_use_id, result
+
+    # ---- 3.6.0.12 BS: `!command` from every door, ONE code path ---------
+    # The terminal's Enter, a socket `slash` with a `!` line (Studio's Prompt box) and a headless session all
+    # call `run_bang`. Its tool rows and its ask go on `self.events`, so the terminal draws them once and every
+    # tap (Studio's feed) gets the same rows; an ask is ONE slot a thread waits on, answered by whoever claims it.
+
+    BANG_ASK_REASON = "runs now, outside the model turn (! prefix)"
+
+    def _bang_init(self) -> None:
+        if getattr(self, "_bang_lock", None) is None:
+            self._bang_lock = threading.Lock()
+            self._bang_abort = threading.Event()  # the ONE abort every inline command's ToolContext carries
+            self._bang_active = 0
+            self._bang_threads: list = []
+            self._bang_asks: set = set()
+            self._bang_runs: dict = {}  # tool id -> {"done": Event, "output": str|None}
+
+    def _bang_thread(self, target, name: str) -> None:
+        t = threading.Thread(target=target, name=name, daemon=True)
+        with self._bang_lock:
+            self._bang_threads = [x for x in self._bang_threads if x.is_alive()] + [t]
+        t.start()
+
+    def run_bang(self, command: str, *, own: bool = False) -> dict:
+        """Decide and run one `!` line. Returns {state: ran|asked|denied, id} at once (ran = it is running now;
+        `wait_bang` waits for its output). deny -> one `error` event in today's words; allow -> a thread runs it
+        and puts tool_use_start, tool_use_ready and tool_result on `events`; ask -> a `permission_request`
+        {id, name, input, reason, suggested_rule, own} and a thread that waits on its slot. `own`: the terminal
+        that shows the card is the one whose Enter sent it (its card takes the focus)."""
+        self._bang_init()
+        command = (command or "").strip()
+        if not command or self.quit_called:
+            return {"state": "denied", "id": "", "reason": "this session is closing" if command else "no command"}
+        decision = self.decide_inline_shell(command)
+        action = getattr(decision, "action", "deny")
+        reason = getattr(decision, "reason", "") or ""
+        if action == "allow":
+            return {"state": "ran", "id": self._bang_start(command)}
+        if action != "ask":
+            self.events.put(events.error(f"✗ !{command} -- denied: {reason}", err_type="inline_shell_denied"))
+            return {"state": "denied", "id": "", "reason": reason}
+        request_id = f"inline-{uuid.uuid4().hex[:12]}"
+        self.register_pending_permission(request_id, "Bash", {"command": command})
+        with self._bang_lock:
+            self._bang_asks.add(request_id)
+        self.events.put(events.Event("permission_request", {
+            "id": request_id, "name": "Bash", "input": {"command": command}, "reason": reason or self.BANG_ASK_REASON,
+            "suggested_rule": getattr(decision, "suggested_rule", None), "own": bool(own)}))
+        self._bang_thread(lambda: self._bang_wait(request_id, command), "halo-bang-ask")
+        return {"state": "asked", "id": request_id}
+
+    def _bang_wait(self, request_id: str, command: str) -> None:
+        """The thread an inline ask parks: the terminal's card, Studio's answer, a mode change (Shift+Tab) and
+        quit all resolve the ONE slot; an allow runs the command (and learns the answer's session rule, as a
+        model's ask does)."""
+        slot = self.session._permission_waiters.get(request_id)
+        try:
+            while slot is not None and not slot["event"].wait(0.1):
+                if self.quit_called and self._bang_abort.is_set():
+                    break  # quit answered it no (`_end_bang_work`); never a thread left waiting
+            decision = slot.get("decision") if slot is not None else None
+        finally:
+            self.session._permission_waiters.pop(request_id, None)
+            with self._bang_lock:
+                self._bang_asks.discard(request_id)
+        if isinstance(decision, dict):
+            decision = Decision(action=decision.get("action", "deny"), reason=decision.get("reason", ""),
+                                rule=decision.get("rule"))
+        if getattr(decision, "action", None) != "allow" or self.quit_called:
+            return
+        if getattr(decision, "rule", None):
+            try:
+                self.session.permission_engine.add_session_allow_rule(decision.rule)
+            except Exception:
+                pass
+        self._bang_start(command)
+
+    def _bang_start(self, command: str) -> str:
+        tool_use_id = f"inline_{uuid.uuid4().hex[:12]}"
+        run = {"done": threading.Event(), "output": None}
+        with self._bang_lock:
+            if self._bang_active == 0 and not self.quit_called:
+                self._bang_abort.clear()  # a past Esc ended the ones before; this one starts fresh
+            self._bang_active += 1
+            self._bang_runs[tool_use_id] = run
+            for old in list(self._bang_runs)[:-32]:
+                self._bang_runs.pop(old, None)
+        self.events.put(events.Event("tool_use_start", {"id": tool_use_id, "name": "Bash"}))
+        self.events.put(events.Event("tool_use_ready", {"id": tool_use_id, "name": "Bash", "input": {"command": command},
+                                                        "repaired": False}))
+
+        def _run() -> None:
+            try:
+                try:
+                    _, result = self.run_inline_shell(command, tool_use_id=tool_use_id, abort=self._bang_abort)
+                    content = result.content if isinstance(result.content, str) else str(result.content)
+                    ok = not result.is_error
+                except Exception as e:
+                    content, ok = f"!{command} failed: {type(e).__name__}: {e}", False
+                run["output"] = content
+                self.events.put(events.Event("tool_result", {"id": tool_use_id, "ok": ok, "summary": content[:200],
+                                                             "content": content}))
+            finally:
+                with self._bang_lock:
+                    self._bang_active -= 1
+                run["done"].set()
+
+        self._bang_thread(_run, "halo-bang-run")
+        return tool_use_id
+
+    def wait_bang(self, tool_use_id: str, timeout: float) -> Optional[str]:
+        """The output of the `!` command `tool_use_id` once it ended within `timeout` s, else None (still running)."""
+        self._bang_init()
+        run = self._bang_runs.get(tool_use_id)
+        if run is None or not run["done"].wait(max(0.0, timeout)):
+            return None
+        return run["output"]
+
+    def stop_bang(self) -> None:
+        """Esc: every running `!` command ends (its card reads as a stopped Bash call)."""
+        self._bang_init()
+        self._bang_abort.set()
+
+    def _end_bang_work(self, timeout: float = 3.0) -> None:
+        """quit: the running `!` commands end, every waiting `!` ask is answered no, and their threads are joined."""
+        self._bang_init()
+        self._bang_abort.set()
+        with self._bang_lock:
+            asks, threads = list(self._bang_asks), list(self._bang_threads)
+        for request_id in asks:
+            try:
+                self.session.resolve_permission(request_id, Decision(action="deny", reason="Halo is closing"))
+            except Exception:
+                pass
+        deadline = time.monotonic() + timeout
+        for t in threads:
+            t.join(max(0.0, deadline - time.monotonic()))
 
     # ---- U5 scope C: session titles/rename/fork/export/stats ----------
 

@@ -100,6 +100,68 @@ def test_a_session_with_no_terminal_end_to_end(ctx: Ctx):
 
 
 @test
+def test_a_bang_line_runs_in_a_session_with_no_terminal(ctx: Ctx):
+    """3.6.0.12 BS, a real `halo --headless` child (Studio's own New session): a `!` line over the `slash` door runs
+    with no turn; an asking `!` parks as a `permission_request` an answer runs; closing the session ends a `!`
+    command still running, and its process with it."""
+    from halo_harness.bg_run import pid_alive
+    from tests.helpers.session_rig import wait_for
+    from tests.helpers.headless_rig import HeadlessRig
+    pid = 0
+    import json
+    with HeadlessRig() as rig:
+        try:
+            settings = rig.home / ".claude" / "settings.json"  # `touch` asks in this home, whatever its allow rules
+            data = json.loads(settings.read_text("utf-8"))
+            data.setdefault("permissions", {}).setdefault("ask", []).append("Bash(touch:*)")
+            settings.write_text(json.dumps(data, indent=2), "utf-8")
+            proc = rig.start()
+            entry = rig.entry()
+            ctx.check(f"the child registered\n{rig.child_log()}", entry is not None)
+            if entry is None:
+                return
+            c = rig.client(entry)
+            c.call("subscribe")
+            r = (c.call("slash", line="!echo bang-with-no-terminal").get("result") or {})
+            ctx.check(f"`!echo` ran with its output, got {r}", r.get("state") == "ran" and "bang-with-no-terminal" in str(r.get("output")))
+            ctx.check("its rows are on the feed", c.wait_event("tool_result", 20) is not None)
+            ctx.check("no turn ran", c.call("status")["result"].get("turn", 0) == 0)
+            r = (c.call("slash", line="!touch bang-asked.txt").get("result") or {})
+            ctx.check(f"a command the mode asks about asks, got {r} in {c.call('status')['result'].get('permission_mode')}",
+                      r.get("state") == "asked")
+            ask = c.wait_event("permission_request", 20)
+            ctx.check(f"its ask is on the feed, got {ask}", ask is not None and ask["data"].get("id") == r.get("id"))
+            ctx.check("nothing ran yet", not (rig.proj / "bang-asked.txt").exists())
+            a = c.call("answer", kind="permission", request_id=r.get("id"), action="allow")
+            ctx.check(f"the answer was taken, got {a}", a.get("ok") is True)
+            ctx.check("the command ran after the allow", wait_for(lambda: (rig.proj / "bang-asked.txt").exists(), 20) is True)
+            pid_file = rig.proj / "bang-child.pid"
+            script = f"import os, time; open({pid_file.as_posix()!r}, 'w').write(str(os.getpid())); time.sleep(60)"
+            r = (c.call("slash", line=f"!'{Path(sys.executable).as_posix()}' -c \"{script}\"").get("result") or {})
+            if r.get("state") == "asked":  # the mode's verdict on this one is the engine's, not this test's
+                c.call("answer", kind="permission", request_id=r.get("id"), action="allow")
+            ctx.check(f"a long command runs, got {r}", r.get("state") in ("running", "asked")
+                      and wait_for(lambda: pid_file.is_file() and pid_file.read_text().strip(), 30) is not None)
+            pid = int((pid_file.read_text() if pid_file.is_file() else "0").strip() or 0)
+            ctx.check(f"its process lives, pid {pid}", pid > 0 and pid_alive(pid))
+            c.call("shutdown", by="test", via="test", reason="the end")
+            try:
+                code = proc.wait(40)
+            except Exception:
+                code = None
+            ctx.check(f"the session closed, got {code}\n{rig.child_log()}", code == 0)
+            ctx.check("closing ended the running `!` command's process", wait_for(lambda: not pid_alive(pid), 15) is True)
+        finally:
+            if pid and pid_alive(pid):  # a red run: end the process this test started, by its pid
+                import signal
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except Exception:
+                    pass
+    ctx.check(f"no headless child survives, got {rig.survivors()}", rig.survivors() == [])
+
+
+@test
 def test_quit_through_the_handle_ends_it(ctx: Ctx):
     from tests.helpers.remote_rig import Rig
     from halo_harness.headless_session import HeadlessHandle
