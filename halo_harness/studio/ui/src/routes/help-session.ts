@@ -33,7 +33,7 @@ export const SESSION_HELP: Record<string, Help> = {
   "session-prompt": { // 3.3.11.0 R1
     about: "Type into the chosen session as in the terminal, and see what became of what you typed.",
     help: lines(
-      "Enter sends, Shift+Enter is a new line, Up / Down walk this session's history; Alt+Enter (or the palette) opens this panel with the keyboard in it.",
+      "Enter sends, Shift+Enter is a new line; Up goes to the start of the prompt, Down to its end, and from there Up / Down walk this session's history, as in the terminal; Alt+Enter (or the palette) opens this panel with the keyboard in it.",
       "The box is three lines at the least, grows with what you type and takes the panel's free room while the conversation is short; past twelve lines it scrolls.",
       "/ opens the slash list, the terminal's own commands and the session's custom ones, filtered as you type: Tab completes, Esc closes; a / line runs in the session and its output lands here.",
       "While a turn runs, a send asks first: Queue it starts it when that turn ends (one at a time), Steer puts it into the running turn. A pasted image or a dropped file rides along.",

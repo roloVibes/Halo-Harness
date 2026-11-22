@@ -1,5 +1,6 @@
 // The Prompt panel's box (3.3.11.0 R1): it behaves like the terminal's prompt. Enter sends, Shift+Enter is a new
-// line, Up / Down walk this session's history (kept in this browser) when the caret is on the first / last line;
+// line, Up / Down go to the start / end of the prompt first (promptKeys.ts, the terminal's rule), then
+// walk this session's history (kept in this browser);
 // `/` opens the slash list (the TUI's own table and the session's custom commands: name, arguments, one line of
 // help) filtered as you type, Up / Down move in it, Tab (or Enter on a name not yet complete) completes, Esc
 // closes it. Ctrl+V with an image, or an image file dropped on the box, becomes the chip under it (the steer
@@ -17,10 +18,9 @@ import { resolveBusy, send } from "./promptSend";
 import { editStart } from "./promptWords";
 import { imageFile, kb, readImage } from "./steerImage";
 import { PromptEnded } from "./PromptEnded";
+import { arrowMove, isWalking } from "./promptKeys";
 
 const BARE_MODEL = /^\s*\/model\s*$/; // 3.6.0.2 P69: Enter on a bare `/model` opens the model picker
-const firstLine = (el: HTMLTextAreaElement) => !el.value.slice(0, el.selectionStart).includes("\n");
-const lastLine = (el: HTMLTextAreaElement) => !el.value.slice(el.selectionEnd).includes("\n");
 
 function droppedPath(dt: DataTransfer | null): string {
   const uri = (dt?.getData("text/uri-list") || "").split(/\r?\n/).find((x) => x && !x.startsWith("#")) || "";
@@ -41,6 +41,7 @@ export function PromptComposer({ sid, off, ended = false }: { sid: string; off: 
   const [pick, setPick] = useState(0);
   const [closed, setClosed] = useState("");
   const [hist, setHist] = useState(-1);
+  const before = useRef(""); // the draft Up walked away from; Down past the newest entry brings it back (as the terminal)
   // 3.6.0.2 P72: the coming edit's kind and selection start (beforeinput; a composition from where it began)
   const editAt = useRef<{ type: string; at: number } | null>(null);
   useEffect(() => void loadSlash(sid), [sid]);
@@ -87,14 +88,19 @@ export function PromptComposer({ sid, off, ended = false }: { sid: string; off: 
     setHist(-1);
     void send(sid, draft);
   };
-  const walk = (dir: -1 | 1, e: KeyboardEvent<HTMLTextAreaElement>) => {
-    const h = history(sid);
-    if (!h.length) return;
-    const next = hist < 0 ? (dir < 0 ? h.length - 1 : -1) : hist + dir;
-    if (next < -1 || next >= h.length) return;
+  /** Up / Down (promptKeys.ts): in the box first, then the sent prompts; with nothing to recall, nothing moves. */
+  const arrow = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget, h = history(sid);
+    const move = arrowMove(e.key, el.value, el.selectionStart, el.selectionEnd, isWalking(el.value, el.selectionStart, el.selectionEnd, h[hist]));
+    if (move === "native") return;
     e.preventDefault();
-    setHist(next);
-    setDraft(next < 0 ? "" : h[next]);
+    const at = move === "start" ? 0 : el.value.length;
+    if (move === "start" || move === "end") return void el.setSelectionRange(at, at);
+    const next = hist < 0 ? (move === "older" ? h.length - 1 : -1) : hist + (move === "older" ? -1 : 1);
+    if (next < 0) return; // nothing older to recall, or Down with nothing recalled: nothing moves
+    if (hist < 0) before.current = draft;
+    setHist(next >= h.length ? -1 : next);
+    setDraft(next >= h.length ? before.current : h[next]);
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const el = e.currentTarget;
@@ -112,8 +118,7 @@ export function PromptComposer({ sid, off, ended = false }: { sid: string; off: 
       const typed = draft.slice(1);
       if (!BARE_MODEL.test(draft) && matches.length && matches[at] && matches[at].name !== typed) complete();
       else go();
-    } else if (e.key === "ArrowUp" && !e.shiftKey && firstLine(el)) walk(-1, e);
-    else if (e.key === "ArrowDown" && !e.shiftKey && lastLine(el) && hist >= 0) walk(1, e);
+    } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) arrow(e);
   };
   const take = async (e: ClipboardEvent<HTMLDivElement> | DragEvent<HTMLDivElement>, from: "paste" | "drop") => {
     if (ended) return void e.preventDefault(); // P32: nothing lands in a read-only box

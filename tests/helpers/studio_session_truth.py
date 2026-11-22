@@ -206,9 +206,9 @@ def status(c, rig, rows: Rows, a: str, b: str) -> dict:
     rig.server.events.publish({"session_id": a, "harness": harness()["id"], "event": "map_step", "agent_id": "main", "turn": 1,
                                "data": {"map": "shop", "box": "workflow:W", "workflow": "W", "kind": "start", "steps": STEPS6, "t": now},
                                "ts": now})
-    rows.set(a, busy=True, status="busy", agents=[_main(rows, a, state="running", current="Workflow: W", cost_usd=1.0), *kids])
+    rows.set(a, busy=True, status="busy", agents=[_main(rows, a, state="running", current="Workflow: W", cost_usd=1.92), *kids])  # 3.6.0.11: main holds its done kids
     busy = _settle(c, f"{STATUS}?.textContent.startsWith('tester working')")
-    rows.set(a, busy=False, status="idle", agents=[_main(rows, a, state="done", cost_usd=1.0), *[{**k, "state": "done"} for k in kids]])
+    rows.set(a, busy=False, status="idle", agents=[_main(rows, a, state="done", cost_usd=2.42), *[{**k, "state": "done"} for k in kids]])
     done = _settle(c, f"{STATUS}?.textContent.startsWith('Done')")
     return {"status": [first, busy, done]}
 

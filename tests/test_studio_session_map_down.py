@@ -800,15 +800,18 @@ def test_status_line_room_holds_a_40_character_workflow(ctx: Ctx):
 STATUS_JS = """const S = await import(%s); const T = await import(%s);
 const kid = (id, name, state, step, cost, current) => ({agent_id: id, name, parent: 'main', state, current: current || '', cost_usd: cost,
   crew: {workflow: 'W', step}});
-const main = (state, current) => ({agent_id: 'main', name: 'main', parent: null, state, current, cost_usd: 1.0});
+// 3.6.0.11: main's row holds its finished kids' spend, as the product's does (its meter takes a helper's total when it
+// ends): $1.00 of its own + the done planner and coder = $1.92 at work, + all four = $2.42 when done. The status line
+// counts a finished kid once ($2.42; the double count said $3.34 and $3.84).
+const main = (state, current, cost) => ({agent_id: 'main', name: 'main', parent: null, state, current, cost_usd: cost ?? 1.0});
 const kids = [kid('w1', 'planner', 'done', 1, 0.5), kid('w2', 'coder', 'done', 2, 0.42), kid('w3', 'tester', 'running', 3, 0.3, 'thinking'),
   kid('w4', 'reviewer', 'queued', 4, 0.2)];
 const start = [{event: 'map_step', data: {kind: 'start', workflow: 'W', box: 'workflow:W', steps: ['a', 'b', 'c', 'd', 'e', 'f']}}];
 const line = (rows, ev, busy) => T.statusLine(S.statusOf(rows, ev, busy));
 console.log(JSON.stringify({
-  none: line([], [], false), busy: line([main('running', 'Workflow: W'), ...kids], start, true),
-  nostart: line([main('running', 'Workflow: W'), ...kids], [], true),
-  done: line([main('done', ''), ...kids.map((k) => ({...k, state: 'done'}))], start, false),
+  none: line([], [], false), busy: line([main('running', 'Workflow: W', 1.92), ...kids], start, true),
+  nostart: line([main('running', 'Workflow: W', 1.92), ...kids], [], true),
+  done: line([main('done', '', 2.42), ...kids.map((k) => ({...k, state: 'done'}))], start, false),
   tool: line([main('running', 'Bash: pytest -q')], [], true), you: line([main('waiting', '')], [], true),
   two: line([main('running', 'Read: a.py'), {...kids[2], current: 'Edit: b.py'}], [], true),
 }));"""

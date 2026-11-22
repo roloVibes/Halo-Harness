@@ -305,6 +305,37 @@ def test_prompts_typed_before_studio_attached_show_as_turns(ctx: Ctx):
               got.get("rows") == ["you:old question", "text:old answer", "you:heard live", "you:heard live"])
 
 
+KEYS = WORDS.parent / "promptKeys.ts"
+# (key, text, selection start, end, a recalled entry stands untouched with the caret at its end) -> what the key does
+ARROWS = [
+    ("ArrowUp", "a long prompt", 13, 13, False, "start"),         # first line, caret not at 0: to the start, no recall
+    ("ArrowUp", "a long prompt", 0, 0, False, "older"),           # at 0: history, older
+    ("ArrowUp", "", 0, 0, False, "older"),                         # an empty box is at 0
+    ("ArrowUp", "one\ntwo", 6, 6, False, "native"),               # not on the first line: the browser's own move
+    ("ArrowUp", "one\ntwo", 2, 2, False, "start"),
+    ("ArrowUp", "recalled", 8, 8, True, "older"),                  # a recalled entry untouched: older at once
+    ("ArrowUp", "re\ncalled", 9, 9, True, "native"),              # ...but a multi-line one moves up first, as the terminal
+    ("ArrowDown", "a long prompt", 3, 3, False, "end"),           # the mirror: to the very end
+    ("ArrowDown", "a long prompt", 13, 13, False, "newer"),
+    ("ArrowDown", "one\ntwo", 1, 1, False, "native"),
+    ("ArrowDown", "one\ntwo", 5, 5, False, "end"),
+    ("ArrowDown", "", 0, 0, False, "newer"),
+    ("ArrowDown", "recalled", 8, 8, True, "newer"),
+]
+
+
+@test
+def test_up_goes_to_the_start_of_the_prompt_before_it_walks_history(ctx: Ctx):
+    """3.6.0.11 (the owner: "The up button should bring you to the start of your prompt. If it's long I'm over holding
+    done the left button"): Studio's box walked history on any Up on the first line. Now the terminal's rule, 1:1."""
+    from tests.helpers import node_ts
+    js = (f"const k = await import({KEYS.resolve().as_uri()!r}); const cs = {json.dumps(ARROWS)};"
+          " console.log(JSON.stringify(cs.map(([key, t, s, e, w]) => k.arrowMove(key, t, s, e, w))))")
+    got = node_ts.run(js)
+    for case, move in zip(ARROWS, got):
+        ctx.check(f"{case[:5]} -> {case[5]!r}, got {move!r}", move == case[5])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

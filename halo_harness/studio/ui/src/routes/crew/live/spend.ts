@@ -1,12 +1,16 @@
 // What the drawn work spent (3.4.1.0 R5, live re-check defect 33): the agents' own costs. On the fleet scope a machine,
 // a session or a mission part is a node too, and it carries the money its agents spent (a session's spend IS its
-// agents'), so summing every node said $0.015 for a member's one `halo -p` session of $0.0075. No imports: tests run it.
+// agents'), so summing every node said $0.015 for a member's one `halo -p` session of $0.0075. Node-tested.
 // 3.4.1.1: `spendText` never prints a spend that is not zero as $0.000 (defect 44: $0.0004 read "$0.000"); `spendWords`
 // says "cost unknown at this moment" for an agent whose record cannot give the figure then (defect 60), never $0.
-export type Costed = { kind?: string; cost: number | null; costUnknown?: boolean };
+// 3.6.0.11: a parent's figure already holds its finished helpers', so the agents' spend is the Cost panel's sum
+// (session/shares.ts spentBy): a finished helper counted once.
+import { spentBy } from "../../session/shares";
+
+export type Costed = { kind?: string; cost: number | null; costUnknown?: boolean; id?: string; parent?: string | null; state?: string };
 
 export function liveSpend(nodes: Costed[]): number {
-  return nodes.reduce((s, n) => s + (n.kind ? 0 : Number(n.cost) || 0), 0);
+  return spentBy(nodes.filter((n) => !n.kind).map((n, i) => ({ id: n.id || `#${i}`, parent: n.parent, state: n.state, usd: Number(n.cost) || 0 })));
 }
 
 /** "$1.23", "$0.012", "$0.0004", "<$0.0001"; "$0.000" only for nothing spent. */

@@ -152,6 +152,44 @@ def test_lives_sentence_counts_a_members_session_once(ctx: Ctx):
               got[1:] == ["$0.0075", "$0.0004", "$0.000", "cost unknown at this moment"])
 
 
+_DONE_KID = [{"agent_id": "main", "parent": None, "state": "done", "cost_usd": 0.0251},
+             {"agent_id": "a1", "parent": "main", "state": "done", "cost_usd": 0.01}]
+
+
+@test
+def test_sessions_status_line_counts_a_finished_helper_once(ctx: Ctx):
+    """3.6.0.11 (the owner: "the cost count is off"): main's row already holds a finished helper's spend (its meter takes
+    the helper's total when it ends), so Session's status line said "Done · $0.04" for a $0.0251 session. It counts a
+    finished row only when its parent is not among the rows: the Cost panel's total (shares.ts, ONE function)."""
+    from tests.helpers import node_ts
+    src = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes"
+    js = (f"const s = await import({(src / 'session' / 'statusOf.ts').resolve().as_uri()!r});"
+          f" const t = await import({(src / 'crew' / 'map' / 'truth.ts').resolve().as_uri()!r});"
+          f" const sh = await import({(src / 'session' / 'shares.ts').resolve().as_uri()!r});"
+          f" const r = {json.dumps(_DONE_KID)}; const st = s.statusOf(r, [], false);"
+          " const own = [...sh.ownCosts({session_id: 'x', cost_usd: 0.0251, agents: r}).values()].reduce((a, b) => a + b, 0);"
+          " const lone = s.statusOf([{...r[1], parent: 'gone'}], [], false).cost;"
+          " console.log(JSON.stringify([t.statusLine(st), st.cost, own, sh.spentBy(r), lone]))")
+    got = node_ts.run(js)
+    ctx.check(f"the status line says the session's $0.03 once, got {got[0]!r}", got[0] == "Done · $0.03")
+    ctx.check(f"its figure is the Cost panel's total, got {got[1:4]}", _near(got[1], 0.0251) and _near(got[2], 0.0251) and _near(got[3], 0.0251))
+    ctx.check(f"a finished row whose parent is not among the rows still counts, got {got[4]}", _near(got[4], 0.01))
+
+
+@test
+def test_lives_sentence_counts_a_finished_helper_once(ctx: Ctx):
+    """3.6.0.11: Live's sentence summed each agent node's raw figure, so a finished helper under main was counted twice
+    ($0.035 for a $0.0251 session). liveSpend uses the same function as the Cost panel."""
+    from tests.helpers import node_ts
+    live = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "live"
+    nodes = [{"kind": "session", "cost": 0.0251}] + [
+        {"id": r["agent_id"], "parent": r["parent"], "state": r["state"], "cost": r["cost_usd"]} for r in _DONE_KID]
+    js = (f"const m = await import({(live / 'spend.ts').resolve().as_uri()!r}); const n = {json.dumps(nodes)};"
+          " console.log(JSON.stringify([m.liveSpend(n), m.spendWords(n), m.liveSpend([n[2]])]))")
+    got = node_ts.run(js)
+    ctx.check(f"main and its finished helper: $0.0251 once, got {got}", _near(got[0], 0.0251) and got[1] == "$0.025" and _near(got[2], 0.01))
+
+
 def _with_worker(state: Path, ctx: Ctx):
     """The seed plus a goal run's worker session (its folder `<repo>/.halo/orchestra/r1/wt/worker-1`, $0.003)."""
     from halo_harness.live import session_cost

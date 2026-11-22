@@ -115,12 +115,27 @@ def p72(c, rig, gate) -> dict:
     c.wait(f"!!{turn_of('plain send')} && 'row'", 15)
     out["plain_after"] = c.wait(f"{INPUT}.value === '' && 'empty'", 10)
     out["from_studio_word"] = c.js(f"{FEED}.textContent.includes('from Studio') || !!document.querySelector('[data-testid=\"prompt-via\"]')")
+    # 3.6.0.11 (the owner: "The up button should bring you to the start of your prompt"): a long prompt, Up: the text
+    # stays and the caret is at 0; Up again: the older prompt ("plain send", just sent: a send starts the walk afresh)
+    long = "a long prompt he would rather not scoot through with the left key, word by word"
+    typed(c, long)
+    c.wait(f"{INPUT}.value.length === {len(long)} && 'typed'", 10)
+    press(c, "ArrowUp", "ArrowUp", 38)
+    out["up_once"] = c.js(f"[{INPUT}.value.length, {INPUT}.selectionStart, {INPUT}.selectionEnd]")
+    press(c, "ArrowUp", "ArrowUp", 38)
+    try:
+        out["up_twice"] = c.wait(f"{INPUT}.value.length !== {len(long)} && {INPUT}.value", 10)
+    except TimeoutError:
+        out["up_twice"] = c.js(f"{INPUT}.value")
+    empty_box(c)
     out["typed_after"] = in_flight(c, rig, gate, "first part", lambda c: type_end(c, " and more"))
     empty_box(c)
     typed(c, "repeat me")
     enter(c)
     c.wait(f"{INPUT}.value === '' && 'empty'", 10)
-    out["recall_up"] = in_flight(c, rig, gate, "repeat me", lambda c: press(c, "ArrowUp", "ArrowUp", 38))
+    # 3.6.0.11: Up first takes the caret to the prompt's start, the second Up recalls (rewritten to the truth: one Up)
+    out["recall_up"] = in_flight(c, rig, gate, "repeat me", lambda c: (press(c, "ArrowUp", "ArrowUp", 38),
+                                                                       press(c, "ArrowUp", "ArrowUp", 38)))
     empty_box(c)
 
     def replace(c):

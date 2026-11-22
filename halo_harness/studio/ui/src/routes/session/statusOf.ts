@@ -2,8 +2,9 @@
 // map frames (map_step's start names a workflow's steps): who works = the rows at work now, never a row that only waits
 // on agents it started (an Agent / Task / Workflow call: "delegating" goes); on what = that row's tool in a few words, or
 // "the workflow {W}, step {i} of {n}"; waiting for you (a row waits) or a model reply (the worker is thinking); the
-// session's cost. The sentence itself is truth.ts's statusLine. Pure: `import type` only (node-tested).
+// session's cost (shares.ts spentBy). The sentence itself is truth.ts's statusLine. Pure (node-tested).
 import type { AgentRow } from "../fleet/types";
+import { spentBy } from "./shares";
 import type { OvEvent } from "../crew/map/overlay";
 import type { Status } from "../crew/map/truth";
 
@@ -34,7 +35,7 @@ export function knownFlows(rows: AgentRow[], events: OvEvent[]): { name: string;
 
 /** R23: the status line's facts; `off` = the hand-offs outside the map (batch 4 feeds it). */
 export function statusOf(rows: AgentRow[], events: OvEvent[], busy: boolean, off = 0): Status {
-  const cost = rows.reduce((a, r) => a + (Number(r.cost_usd) || 0), 0);
+  const cost = spentBy(rows); // 3.6.0.11: a finished helper once (main's row already holds it), as the Cost panel
   const live = rows.filter((r) => LIVE.includes(str(r.state)));
   // at work = running now (a queued or paused row is not yet / not now), never only waiting on agents it started
   const work = live.filter((r) => str(r.state) === "running" && !WAITS_ON_AGENTS.test(str(r.current)));

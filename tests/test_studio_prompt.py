@@ -135,6 +135,9 @@ def test_answer_never_wipes_what_he_typed_after_enter(ctx: Ctx):
         got = p.get(name) or {}
         ctx.check(f"{name}: nothing taken out while in flight ({during!r}), then {after!r}, got {got}",
                   got.get("during") == during and got.get("after") == after)
+    ctx.check(f"3.6.0.11: a long prompt, Up: the text stays and the caret is at 0, got {p.get('up_once')}",
+              p.get("up_once") == [79, 0, 0])
+    ctx.check(f"3.6.0.11: Up again: the older prompt, got {p.get('up_twice')!r}", p.get("up_twice") == "plain send")
     ctx.check(f"the slash ran and its 'nothing was run' line shows, got {p.get('slash_ran')} {p.get('ran_false_line')}",
               p.get("slash_ran") == "ran" and p.get("ran_false_line") == "shown")
     s = _one(ctx).get("steer") or {}

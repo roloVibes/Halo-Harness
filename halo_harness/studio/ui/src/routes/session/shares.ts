@@ -17,17 +17,31 @@ import type { AgentRow, SessionRow } from "../fleet/types";
 const FINISHED = ["done", "failed", "stopped"];
 const usd = (a: AgentRow) => Number(a.cost_usd) || 0;
 
-/** agent_id -> what that agent spent itself (never below zero). */
-export function ownCosts(ss: SessionRow): Map<string, number> {
-  const agents = ss.agents || [];
-  const total = Number(ss.cost_usd) || 0;
+/** An agent as the shares read it: an agent row, or a Live node (id, parent, state, cost). */
+export type Spender = { id: string; parent?: string | null; state?: string | null; usd: number };
+const ofRow = (a: AgentRow): Spender => ({ id: a.agent_id, parent: a.parent, state: a.state, usd: usd(a) });
+
+/** id -> what that agent spent itself (never below zero); `total` = the session's figure (main's floor). */
+export function sharesOf(agents: Spender[], total = 0): Map<string, number> {
   const out = new Map<string, number>();
   for (const a of agents) {
-    const base = a.parent ? usd(a) : Math.max(total, usd(a));
-    const kids = agents.filter((k) => k.parent === a.agent_id && FINISHED.includes(String(k.state)));
-    out.set(a.agent_id, Math.max(0, Math.round((base - kids.reduce((s, k) => s + usd(k), 0)) * 1e6) / 1e6));
+    const base = a.parent ? a.usd : Math.max(total, a.usd);
+    const kids = agents.filter((k) => k.parent != null && k.parent === a.id && FINISHED.includes(String(k.state)));
+    out.set(a.id, Math.max(0, Math.round((base - kids.reduce((s, k) => s + k.usd, 0)) * 1e6) / 1e6));
   }
   return out;
+}
+
+/** agent_id -> what that agent spent itself (never below zero). */
+export function ownCosts(ss: SessionRow): Map<string, number> {
+  return sharesOf((ss.agents || []).map(ofRow), Number(ss.cost_usd) || 0);
+}
+
+/** 3.6.0.11: what these agents spent, a finished one counted once (on its own row, never again in its parent's): the
+ *  sum of their shares. Session's status line, Agents -> Live's head line and Live's sentence all read this. */
+export function spentBy(agents: (AgentRow | Spender)[], total = 0): number {
+  const xs = agents.map((a) => ("agent_id" in a ? ofRow(a as AgentRow) : (a as Spender)));
+  return Math.round([...sharesOf(xs, total).values()].reduce((s, v) => s + v, 0) * 1e6) / 1e6;
 }
 
 /** A model ref without its route prefix (`dbx:databricks-glm-5-3` -> `databricks-glm-5-3`). */
