@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.12] - unreleased
+## [3.6.0.12] - 2026-11-22
 
 `!command` runs from Studio too. A line that starts with `!` runs that command in the session at once, from the
 terminal app and now from Studio's Prompt box, through one path: it shows once in both, Esc or Stop ends it, and
