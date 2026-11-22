@@ -8,6 +8,101 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.13] - unreleased
+
+Live you can read, and a measure. On the drawing of a running session (Agents -> Live and Session's map, on Auto)
+every helper's box now says in words what it does at this moment, a box keeps its height, main's box says what this
+turn did, a group's head counts what is true, the slot at the foot names the group that waits on you when it is out of
+sight, and a box rings once when something happens to it. A new command, `halo gym handout`, measures on a local model
+whether main hands work out more with the words 3.6.0.10 gave it. It was never run on a real model: the limits are at
+the end of this section.
+
+### Added
+
+- **NOW: every helper's box says what it does now.** A line under its state line, the first that applies: "waiting for
+  you · {s}"; "paused"; "queued · {s}"; "stopped after {span}", "done in {span}", "failed after {span}"; "{tool} ·
+  {s}" while a tool runs (the tool's own name, as the Feed shows it); "thinking · {s}"; "writing · {s}"; else "waiting
+  for a model reply · {s}". A thought is drawn in the thinking colour, waiting for you in amber. When Studio does not
+  know since when, the words stand alone, with no separator at their end; a tool Studio knows only from the agent's
+  row reads its name alone; and when Studio never saw a helper end, the line stays blank (the state line already says
+  how it ended). On Auto main's box draws the same line where its tool clock was, while main works or waits.
+- **A queued helper reads "queued" and a stopped one "stopped".** Before, a queued helper read as working and a
+  stopped one as done. Both have a calm edge: they are not working and not done.
+- **A helper's hover adds "Now: ..." with the whole words.** For a queued helper: "Now: queued · {s}: it starts when a
+  running helper ends."
+- **Main's box on Auto says what this turn did:** "This turn: started {h} helpers · used {t} tools itself", under NOW.
+  A part that is zero is left out; the line is blank before the first turn and stays until your next message. Main's
+  hover reads "main · {model}", "This session: started {H} helpers · used {T} tools itself" and "Told it can start:
+  {names}" (twelve names, then " and {n} more"); before the session's first request it reads as before.
+- **A group's head counts from the true state:** "{w} working" (running or paused), "{q} queued", "{v} waiting on you"
+  (amber), "{d} done", "{k} stopped", "{f} failed"; a part that is zero is left out.
+- **The slot at the drawing's foot names the group that waits on you when it is out of sight:** "↓ {name} · waits on
+  you" when it lies below, "↑ {name} · waits on you" above (a press scrolls to the helper that asks), and "{name} ·
+  waits on you · under the open box" when the open card covers it (a press closes the card first, then scrolls). With
+  nobody waiting out of sight it names a working group below, as before. The tail " · and {n} more groups below" is
+  unchanged.
+- **A box rings once when something happens to it.** A helper that starts waiting on you (amber) or fails (red) gets a
+  ring that shakes for a third of a second; a helper that ends done (green) and a group main hands work to (the
+  group's colour) get a ring that fades. Nothing rings on the first draw, out of view, under the pointer or under the
+  open card; a box rings at most once in 4 seconds, at most four at once, the top-most first; with reduced motion set
+  nothing rings. Main's box never rings.
+- **`halo gym handout <model> [<model> ...] [--trials N]`: does main hand work out more on your local model?** It runs
+  one fixed four-part job in a scratch copy of a small project with each local model you name as main: N times
+  (default 3) with the words main had before 3.6.0.10 and N times with today's, taking turns. No session runs and no
+  helper is started: the gym answers every tool call itself inside the copy, and each part handed out gets a fixed
+  answer. It prints four facts before its first request (what it does, that it is free, how long it may take, what it
+  writes), then one line per model: "{model}: hands out {a} of 4 parts in {c} calls (before {b}) · bundled {u} · names
+  right {r} of {n} · own steps {o} (before {p}) · finished {f} of 3 (before {g}) · 3 trials". A ref that is not a
+  local model prints "{ref}: the gym runs local models only." and sends nothing. A model that is sent the same words
+  in both arms prints "{model}: not measured: this model is sent the same words before and today (it takes no tools,
+  or today's words do not fit its window), so there is nothing to compare." and gets no card. The model is unloaded at
+  the end and the copy removed.
+- **The cards of `halo gym handout` and `halo gym show`.** One card per model and host under
+  `~/.halo/gym-handout/<host>/`, apart from the battery's cards (nothing that reads the battery's results reads them).
+  `halo gym show` prints the battery as before, then "Main hands work out (halo gym handout):" with each card's line;
+  with only handout cards it prints those and exits 0. The new docs part is docs/COMMANDS-gym-handout.md.
+
+### Changed
+
+- **A box keeps its height.** A helper's NOW holds two rows from the first draw and its state line the room of its
+  longest words, so a helper's box does not grow when it starts waiting or its words change; main's TURN line holds
+  its rows too. Words that need more (a long tool name) grow the box once, while the drawing is not held, and the box
+  keeps that height. While the pointer rests on the drawing, and for later words that need more than the box has, NOW
+  reads "a tool · {s}" and the whole words are in the hover (for main: in the line's own tooltip). A helper's box is
+  taller than before.
+- **Session's slot keeps the room of its longest words from the first draw:** four of its lines at the default drawer
+  width.
+- **Studio's row of a session carries the agents the session had at its start,** which main's hover on Auto reads.
+
+### Fixed
+
+- **While the pointer rests on the drawing, a helper that joins a group no longer changes the group's box.** The group
+  keeps the members it was laid out with until the pointer leaves; then the new helper is drawn, and its group rings.
+
+### Known limits
+
+- **`halo gym handout` was never run on a real model.** Every check used the tests' stand-in for Ollama on this
+  machine's loopback. Its time line says so itself: "About 20 to 40 minutes per model with three trials (not measured
+  yet: the first run sets this line)." Whether main hands out more on your model is what the first real run will say.
+- **The command prints counts, not a verdict.** The bar the design sets (today's words hand out at least one part more
+  than before, a helper is named right in at least 90 % of the calls that name one, and no fewer trials finish) is in
+  the docs, not in the output.
+- **The `hf:local/` and `hf:mlx/` routes of the command are built and no test drives them.** A `local:` ref is refused
+  with the same line as a cloud ref, as the battery does.
+- **No talk between agents is drawn.** No agent sends a message to another agent yet, so there is nothing true to
+  draw.
+- **"The open box" is today's step-in card.** The box that opens in place is a later release.
+- **While the pointer rests on the drawing, a group's head counts leave out a helper that has just joined,** until the
+  pointer leaves.
+- **The slot's answer is worked out again on a scroll, a change of the view's height, a new layout and when the card
+  opens or closes.** A window resized with the card open can keep "under the open box" until one of those.
+- **Only Auto draws NOW, TURN and the rings.** A map of your own draws its boxes as before.
+- **Every Known limit of 3.6.0.12 still holds.**
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the browser
+  modules of the drawing. On the PC (Windows), one at a time: the plain modules of this release. No real Ollama and no
+  real model was used. Browsers on macOS and Windows are CI's part.
+
 ## [3.6.0.12] - 2026-11-22
 
 `!command` runs from Studio too. A line that starts with `!` runs that command in the session at once, from the
