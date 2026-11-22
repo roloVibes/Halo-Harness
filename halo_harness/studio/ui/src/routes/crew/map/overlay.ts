@@ -57,6 +57,14 @@ const str = (v: unknown): string => (v == null ? "" : String(v));
 export { blocksOf, type BlockLit };
 export const lineKey = (from: string, to: string) => `${from}>${to}`;
 
+/** 3.6.0.11: what `rs` spent, a finished helper counted once: a row's figure already holds its finished children's,
+ *  so each row gives its own share (session/shares.ts sharesOf's rule; here because this file imports nothing). */
+export function spent(rs: OvRow[], all: OvRow[]): number {
+  const own = (r: OvRow) => Math.max(0, num(r.cost_usd) - all.filter((k) => k.parent === r.agent_id && ["done", "failed", "stopped"].includes(str(k.state)))
+    .reduce((a, k) => a + num(k.cost_usd), 0));
+  return Math.round(rs.reduce((a, r) => a + own(r), 0) * 1e6) / 1e6;
+}
+
 export function stateOf(rows: OvRow[]): BoxState {
   const s = rows.map((r) => str(r.state));
   if (s.includes("waiting")) return "waiting";
@@ -179,7 +187,7 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number,
     const rs = groups.get(id) || [];
     const own = id === "main" ? rs.filter((r) => r.agent_id === "main") : rs;
     const state = id === "main" ? (stateOf(own) === "idle" ? "working" : stateOf(own)) : stateOf(rs);
-    boxes[id] = { state, doing: doingOf(own, state), cost: rs.reduce((a, r) => a + num(r.cost_usd), 0), agents: rs.map((r) => r.agent_id),
+    boxes[id] = { state, doing: doingOf(own, state), cost: spent(rs, rows), agents: rs.map((r) => r.agent_id),
                   models: [...new Set(rs.map((r) => str(r.model)).filter(Boolean))] };
   }
   const lines: Record<string, LineLit> = {};
@@ -224,7 +232,7 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number,
     gone: [...gone].filter((id) => !m.boxes.some((b) => b.id === id)),
     facts: { working: all.filter((b) => b.state === "working").length + helpers.filter((h) => h.state === "working").length,
              waiting: all.filter((b) => b.state === "waiting").length + helpers.filter((h) => h.state === "waiting").length,
-             cost: rows.reduce((a, r) => a + num(r.cost_usd), 0), models: [...new Set(rows.map((r) => str(r.model)).filter(Boolean))], hops },
+             cost: spent(rows, rows), models: [...new Set(rows.map((r) => str(r.model)).filter(Boolean))], hops },
   };
 }
 

@@ -111,6 +111,9 @@ def test_next_saves_the_picked_map(ctx: Ctx):
     ctx.check(f"Next left the Map page and config.json holds ship-it, got {got.get('next_page')!r} {got.get('next_config')!r}",
               got.get("next_page") == "check" and got.get("next_config") == "ship-it")
     ctx.check(f"the Summary shows the picked map, got {got.get('next_summary')!r}", got.get("next_summary") == "ship-it")
+    ctx.check(f"a pick left by Studio's own rail (another section) is saved too, got {got.get('rail_pick')!r} "
+              f"{got.get('rail_config')!r}", bool(got.get("rail_pick")) and "rail_config" in got
+              and got.get("rail_config") in (got.get("rail_pick"), None))  # None: Auto is the key unset
 
 
 @test

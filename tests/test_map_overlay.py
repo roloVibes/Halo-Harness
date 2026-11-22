@@ -37,8 +37,9 @@ def row(aid, name, state, parent="main", cost=0.0, **kw):
     return {"agent_id": aid, "parent": parent, "name": name, "state": state, "cost_usd": cost, "kind": "subagent", **kw}
 
 
+# main's figure holds its finished planner's $0.02 (a child's spend is rolled into its parent when it ends): 3.6.0.11
 ROWS = [
-    {"agent_id": "main", "parent": None, "name": "main", "state": "running", "kind": "main", "cost_usd": 0.01, "current": "Agent: plan",
+    {"agent_id": "main", "parent": None, "name": "main", "state": "running", "kind": "main", "cost_usd": 0.03, "current": "Agent: plan",
      "model": "or:v/main"},
     {"agent_id": "sq-1", "parent": "main", "name": "plan", "state": "done", "kind": "square", "square": {"name": "plan"}},
     row("p1", "planner", "done", parent="main", cost=0.02, square={"name": "plan"}, model="or:v/think"),
@@ -107,7 +108,7 @@ def test_each_box_says_its_state_what_it_does_and_its_cost(ctx: Ctx):
     ctx.check(f"docs: not used yet, got {b['docs']}", b["docs"]["state"] == "idle" and b["docs"]["doing"] == "not used yet")
     ctx.check(f"main works and counts only its own cost, got {b['main']}", b["main"]["state"] == "working" and abs(b["main"]["cost"] - 0.01) < 1e-9)
     f = got()["live"]["facts"]
-    ctx.check(f"the top sentence's facts: the whole session's cost and its models, got {f}",
+    ctx.check(f"the top sentence's facts: the whole session's cost (a finished helper once) and its models, got {f}",
               abs(f["cost"] - 0.093) < 1e-9 and f["models"] == ["or:v/main", "or:v/think", "or:v/code"] and f["hops"] == 4)
 
 

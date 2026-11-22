@@ -11,11 +11,12 @@
 // Check; R4 the doors (door.ts: `?first=1` leads the summary line with "set
 // up this box" and opens nothing, `?block=` opens that page).
 import { useEffect } from "react";
+import { studio, useStore } from "../../lib/store";
 import { startDoneFeed } from "./done";
 import { adoptRemembered } from "./pages";
 import { SetupPage } from "./SetupPage";
 import { SetupRail } from "./SetupRail";
-import { startSetup, useSetup } from "./store";
+import { savePending, startSetup, useSetup } from "./store";
 
 /** The section's view: the rail over the open page. */
 export function SetupView() {
@@ -26,6 +27,10 @@ export function SetupView() {
     startDoneFeed();
   }, []);
   useEffect(() => adoptRemembered(home), [home]);
+  // 3.6.0.11: Setup left through Studio's own rail (another section) saves the picks still standing, as Next and
+  // Back do. The view stays mounted while another section shows, so the section is watched, not an unmount.
+  const away = useStore(studio, (st) => st.section !== "setup");
+  useEffect(() => void (away && savePending()), [away]);
   return (
     <div className="su-page" data-testid="setup-page">
       {configError && (

@@ -47,7 +47,11 @@ export function leaveSetup(at: string): void {
 
 /** POST setup/done, then leave Setup (the toast shows on Session); a refusal is the Done part's own line and the page stays. */
 export async function pressDone(): Promise<boolean> {
-  if (!(await savePending())) return false; // 3.6.0.11 SM: a pick still standing is saved first; refused, nothing else posts
+  if (!(await savePending())) { // 3.6.0.11 SM: a pick still standing is saved first; refused, nothing else posts
+    const no = Object.values(setup.get().last).find((a) => a && !a.ok);
+    done.update(() => ({ error: `Not saved, so Setup is not done: ${no?.lines[0] || "a pick was refused (its page says why)"}` }));
+    return false;
+  }
   done.update(() => ({ busy: true, error: "" }));
   try {
     const r = await api.post<{ ok: boolean; done_at: string; starts?: string; line?: string }>("setup/done", {});

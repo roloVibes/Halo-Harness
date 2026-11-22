@@ -22,7 +22,7 @@ export function BlockFoot({ block, label = "Save", what }: { block: BlockId; lab
         </Button>
         <span className="su-word mono" data-word={word} data-testid="setup-word" data-block={block}>
           {word}
-          {dirty && " · saved when you leave this page" /* 3.6.0.11 SM: Next, Back, the rail, Change and Done save it */}
+          {dirty && " · saved when you leave this page" /* 3.6.0.11 SM: Next, Back, the rail, Change, Done and another section save it */}
         </span>
       </div>
       {last && last.lines.length > 0 && (

@@ -164,6 +164,21 @@ def next_saves(c, url, ctx) -> dict:
     goto(c, "summary")
     val = q("[data-testid=setup-summary-row][data-step=team] [data-testid=setup-summary-value]")
     out["next_summary"] = c.wait(f"({val}?.textContent || '') === 'ship-it' && {val}.textContent", 15)
+    # 3.6.0.11: the same pick left by Studio's own rail (another section, no Next, no Apply) is saved too
+    goto(c, "team")
+    other = c.js(f"({qa('[data-testid=setup-map-input]')}.find((i) => i.dataset.name !== 'ship-it') || {{dataset: {{}}}}).dataset.name || ''")
+    out["rail_pick"] = other
+    if other:
+        row = f"[data-testid=setup-map-input][data-name={other}]"
+        click(c, q(row), f"{q(row)}.checked")
+        c.wait(f"{word}.startsWith('1 changed')", 10)
+        click(c, q("[data-testid=section-tab][data-tab-id=session]"), f"{q('[data-testid=section-tab][data-tab-id=session]')}.getAttribute('aria-selected') === 'true'")
+        end = time.monotonic() + 15
+        while time.monotonic() < end:
+            out["rail_config"] = (json.loads(p.read_text(encoding="utf-8")).get("crew") or {}).get("map") if p.is_file() else None
+            if out["rail_config"] != "ship-it":  # the other map's name, or no key at all when the other one is Auto
+                break
+            time.sleep(0.25)
     return out
 
 
