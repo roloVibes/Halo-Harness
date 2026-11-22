@@ -217,9 +217,10 @@ export async function act(path: string, body: Record<string, unknown>, block: Bl
     const r = await api.post<SetupData & { lines?: string[]; details?: string[] }>(path, body);
     const { lines, details, ...data } = r;
     adoptAnswer(data as SetupData);
+    const sent = body.map ?? body.value; // a pick made while this save ran is another value: it still stands
     setup.update((s) => {
       const picks = { ...s.picks };
-      delete picks[block];
+      if (sent === undefined || picks[block] === sent) delete picks[block];
       return { picks, last: { ...s.last, [block]: { ok: true, lines: lines || [], details: details || [] } } };
     });
     return true; // 3.3.5.0 R0 (h): the block's foot says what was written, no toast
@@ -242,6 +243,6 @@ export function save(b: BlockId): Promise<boolean> {
 const PICKED: BlockId[] = ["model", "permission_mode", "theme", "team"];
 export const pending = (s: SetupState): boolean => PICKED.some((b) => changed(s, b));
 export async function savePending(): Promise<boolean> {
-  for (const b of PICKED) if (changed(setup.get(), b) && !(await save(b))) return false;
+  for (const b of PICKED) for (let n = 0; n < 2 && changed(setup.get(), b); n++) if (!(await save(b))) return false;
   return true;
 }

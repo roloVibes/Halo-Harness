@@ -179,6 +179,8 @@ def test_a_pick_not_listed_yet_is_never_another_session(ctx: Ctx):
 AUTO_JS = """const m = await import(%s);
 const A = {session_id: 'A', parent: null, turns: 1, started: 100, cwd: '/w/root'};
 const B = {session_id: 'B', parent: null, turns: 0, started: 200, cwd: '/w/home'};
+const P = {session_id: 'P', parent: null, turns: 1, started: 300, cwd: '/w/root', kind: 'print'};
+const W = {session_id: 'W', parent: 'A', turns: 1, started: 400, cwd: '/w/root', kind: 'orchestra-worker'};
 const L = (key) => ({key, kind: 'text', text: 'x', ts: 1, n: 1, t0: 1});
 const lines = [L('h|A|main'), L('h|B|main'), L('h|A|w1'), L('hh|A|main'), L('h|AB|main')];
 console.log(JSON.stringify({
@@ -186,6 +188,8 @@ console.log(JSON.stringify({
   ended: m.autoPick([B], 'A', false, false), holds: m.autoPick([A, B], 'A', false, true),
   ended_hand: m.autoPick([B], 'A', true, false), none_open: m.autoPick([], 'A', false, false),
   no_pick: m.autoPick([A, B], '', false, false),
+  one_shot: m.autoPick([A, P, W], 'A', false, false), only_workers: m.autoPick([P, W], 'A', false, false),
+  after_them: m.autoPick([A, P, W, B], 'A', false, false),
   his_row: m.hisAgent('h', 'h|A|w1', 'h|A|main', '', ''), own_sel: m.hisAgent('h', 'h|A|main', 'h|A|main', '', ''),
   other_h: m.hisAgent('h', 'x|A|main', '', '', ''), none: m.hisAgent('h', '', '', '', ''),
   pin: m.hisAgent('h', 'h|A|main', 'h|A|main', 'h|A|main', ''), target: m.hisAgent('h', 'h|A|main', 'h|A|main', '', 'h|A|main'),
@@ -208,6 +212,11 @@ def test_auto_pick_follows_the_newest_session_he_starts(ctx: Ctx):
     ctx.check(f"A picked by hand ended: it stays A (T8), got {p.get('ended_hand')!r}", p.get("ended_hand") == "A")
     ctx.check(f"nothing open: the pick stays, got {p.get('none_open')!r}", p.get("none_open") == "A")
     ctx.check(f"no pick: the newest open one, got {p.get('no_pick')!r}", p.get("no_pick") == "B")
+    # the review of 3.6.0.11: a `halo -p` run and an Orchestra worker register as sessions too (newer than his own);
+    # Session moved to each as it started. It follows only a session a person talks to.
+    ctx.check(f"a newer one-shot and a newer worker never take Session by themselves, got {p.get('one_shot')!r} "
+              f"{p.get('only_workers')!r}", p.get("one_shot") == "A" and p.get("only_workers") == "A")
+    ctx.check(f"with those listed, a newer terminal session is still followed, got {p.get('after_them')!r}", p.get("after_them") == "B")
     # the check of batch 2: an agent he chose (a row of the shown session, a pin, a steer target) makes the pick his, so
     # Session never moves under a Steer box that sends to the old session's agent; the store's own selection does not
     ctx.check(f"his selection of an agent here, a pin or a steer target is his pick; the store's own selection, another "

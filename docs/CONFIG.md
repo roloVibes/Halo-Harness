@@ -221,7 +221,7 @@ they replace are ignored (`halo doctor --config` says so once, `halo config set`
 
 | Key | Default | Set by | Studio |
 |---|---|---|---|
-| `model` | unset (built-in default applies) | `halo init`, `halo config set model ...`; the model a new session starts on. Picking it (init, Studio's Setup or Settings, `halo config set model`) forgets the model `/model` remembered, in every folder, so the pick is what a session starts on; a `/model` made after it is remembered again and outranks it | Settings -> General |
+| `model` | unset (built-in default applies) | `halo init`, `halo config set model ...`; the model a new session starts on. Picking it (init, Studio's Setup or Settings, `halo config set model`) or resetting it (Settings' Reset to default) forgets the model `/model` remembered, in every folder, so the pick is what a session starts on; a `/model` made after it is remembered again and outranks it | Settings -> General |
 | `team` | unset | not read since 3.6.0.0 (lineups are gone): a session runs on the map in use (`crew.map`, `halo maps use <name>`); a configured `team:` is named once in the old-files line ([MOVING-from-3.5.md](MOVING-from-3.5.md)) | Settings -> General |
 | `agents.max_concurrent` | `4` | hand-edited; how many sub-agents may run at the same time | Settings -> Agents and roles |
 | `workflows.enabled` | `["media"]` | `halo config set workflows.enabled ...`; the squares a session may hand work to through the `Workflow` tool (Halo 3.3.16.0 R3; 3.6.0.0: config is the one place) ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)) | Settings -> Agents and roles |

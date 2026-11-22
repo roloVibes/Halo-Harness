@@ -421,11 +421,23 @@ def test_picking_the_default_again_in_the_terminal_setup_is_a_pick_too(ctx: Ctx)
             ctx.check("Enter picks nothing: the /model choice stays", got == "or:mock/the-default"
                       and launch_state.resolve_last_model(here) == "or:mock/switched-later")
             init_cli._run_entry_picker = lambda a, c, entries: "or:mock/the-default"
+            # with more than one provider in the run this step writes nothing (write=False): the run's own final pick
+            # decides, and an Esc there keeps the old model, so nothing is forgotten here
+            got = init_cli._step_pick_model(args, console, "openrouter", "or:mock/the-default", write=False)
+            ctx.check("a provider's step that writes nothing forgets nothing", got == "or:mock/the-default"
+                      and launch_state.resolve_last_model(here) == "or:mock/switched-later")
             got = init_cli._step_pick_model(args, console, "openrouter", "or:mock/the-default")
             ctx.check("the default picked again: the older /model choice no longer applies",
                       got == "or:mock/the-default" and launch_state.resolve_last_model(here) is None)
         finally:
             init_cli.model_entries_for_provider, init_cli._run_entry_picker = real_entries, real_picker
+        # the default model reset (Settings' Reset to default) is a pick too
+        from halo_harness.theme import unset_config_value
+        launch_state.record_last_model("or:mock/switched-again", cwd=here)
+        unset_config_value("theme")
+        ctx.check("another key reset: the /model choice stays", launch_state.resolve_last_model(here) == "or:mock/switched-again")
+        ctx.check("the default model reset: the older /model choice no longer applies",
+                  unset_config_value("model") is True and launch_state.resolve_last_model(here) is None)
 
 
 if __name__ == "__main__":

@@ -304,6 +304,9 @@ def unset_config_value(key: str) -> bool:
             parent.pop(part)
     from halo_harness.privateio import write_private_atomic
     write_private_atomic(path, json.dumps(data, indent=2) + "\n")
+    if key == "model":  # 3.6.0.11: the default model reset is a pick too: no older /model choice outlives it
+        from halo_harness.launch_state import forget_last_model
+        forget_last_model()
     return True
 
 

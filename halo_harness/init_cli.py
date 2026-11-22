@@ -689,7 +689,8 @@ def _step_pick_model(args, console: Console, provider: str, model_ref_raw: str, 
     if not entries:
         return model_ref_raw
     chosen = _run_entry_picker(args, console, entries)
-    if chosen and chosen == model_ref_raw:  # 3.6.0.11: the default picked again is a pick too (nothing to write)
+    if write and chosen and chosen == model_ref_raw:  # 3.6.0.11: the default picked again is a pick too (nothing to
+        # write). With write=False the run's final pick decides (it writes, or keeps the old model on Esc)
         from halo_harness.launch_state import forget_last_model
         forget_last_model()
     if not chosen or chosen == model_ref_raw:

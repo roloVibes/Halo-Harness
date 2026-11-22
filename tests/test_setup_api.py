@@ -639,6 +639,11 @@ out.refused = [await P.step(1), posts.map((x) => x[0]), P.pages.get().page, S.se
 posts = []; out.doneRefused = [await D.pressDone(), posts.map((x) => x[0])];
 fresh('summary'); S.pick('team', 'ship-it'); out.done = [await D.pressDone(), posts.map((x) => x[0]), saved.team.active];
 fresh('team'); const p = P.goto('providers'); out.sync = [P.pages.get().page, await p, posts.length];
+fresh('team'); S.pick('team', 'ship-it');
+const real = globalThis.__post; let late = true; // he picks another map while the first save is on its way
+globalThis.__post = async (q, b) => { if (late && q === 'setup/team') { late = false; S.pick('team', 'mine'); } return real(q, b); };
+out.during = [await P.step(1), posts.map((x) => x[1].map), saved.team.active, S.setup.get().picks];
+globalThis.__post = real;
 console.log(JSON.stringify(out));"""
 
 
@@ -671,6 +676,9 @@ def test_leaving_a_setup_page_saves_what_he_picked(ctx: Ctx):
               got.get("doneRefused") == [False, ["setup/team"]])
     ctx.check(f"Done saves the pick before setup/done, got {got.get('done')}", got.get("done") == [True, ["setup/team", "setup/done"], "ship-it"])
     ctx.check(f"nothing picked: the page changes at once and nothing is posted, got {got.get('sync')}", got.get("sync") == ["providers", True, 0])
+    # the review of 3.6.0.11: a map picked while the first save was on its way was dropped and the older pick stayed saved
+    ctx.check(f"a pick made while its block's save runs still stands and the same leave saves it, got {got.get('during')}",
+              got.get("during") == [True, ["ship-it", "mine"], "mine", {}])
     foot = (SETUP_UI / "BlockFoot.tsx").read_text(encoding="utf-8")
     ctx.check("the foot's line while a pick stands ends with \" · saved when you leave this page\"",
               '" · saved when you leave this page"' in foot)
