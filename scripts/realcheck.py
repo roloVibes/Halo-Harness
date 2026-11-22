@@ -180,4 +180,14 @@ if __name__ == "__main__":
         from realcheck.named_end import run_named
         sys.exit(run_named([sys.executable, str(Path(__file__).resolve())]
                            + [a for a in sys.argv[1:] if a != "--name-the-end"]))
-    sys.exit(main())
+    code = main()
+    if os.name == "nt":
+        # 3.6.0.11: the checker has said everything and written its files; leave without ending the interpreter.
+        # Three times at a release gate the Windows checker passed every step, printed its last line, and was then
+        # stopped while Python ended (3.6.0.10's gate named it: status 0xC0000409, the C runtime's abort, with no
+        # line of Python's own). What stops it is NOT known; nothing of the result depends on that ending. An end
+        # before the last line is still named by --name-the-end.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(code)
+    sys.exit(code)
