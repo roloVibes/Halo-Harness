@@ -33,7 +33,7 @@ MODS = {
     "view": "routes/crew/map/view.ts", "ld": "routes/crew/map/layoutDown.ts", "lay": "routes/crew/map/layout.ts",
     "gw": "routes/crew/map/groupWords.ts", "hops": "routes/crew/map/overlayHops.ts", "sit": "routes/crew/map/stepInTarget.ts",
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
-    "slot": "routes/agents/liveSlot.ts",
+    "slot": "routes/agents/liveSlot.ts", "now": "routes/crew/map/nowLine.ts", "room": "routes/crew/map/nowRoom.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -405,9 +405,11 @@ console.log(JSON.stringify({a: run(D.rows), b: run(D.bare)}));""" % (T0 + 60)
 # ---------------------------------------------------------------------------------------------- 4. words, lines, cards
 
 def _m(aid: str, state: str = "working", *, who: str = "researcher", desc: str = "", model: str = "kimi-k3", cost: float = 0.0,
-       reason: str = "", made: bool = False, t: float = 0.0, ended: float = 0.0, by: str = "") -> dict:
+       reason: str = "", made: bool = False, t: float = 0.0, ended: float = 0.0, by: str = "", raw: str = "") -> dict:
+    """A stand-in member; `raw` (3.6.0.13 L1: the row's own state) defaults from its BoxState."""
+    raw = raw or {"working": "running", "waiting": "waiting", "done": "done", "failed": "failed"}.get(state, state)
     m = {"aid": aid, "parent": by or "main", "who": who, "description": desc, "model": model, "state": state, "cost": cost,
-         "reason": reason, "made": made, "started": T0 + t if t else 0, "ended": T0 + ended if ended else 0}
+         "reason": reason, "made": made, "started": T0 + t if t else 0, "ended": T0 + ended if ended else 0, "raw": raw}
     if by:
         m["by"] = by
     return m
@@ -908,6 +910,143 @@ console.log(JSON.stringify({clash: place(D.clash), clean: place(D.clean)}));"""
               sorted(p[0] for p in clash.get("placed") or []) == sorted(ids))
     ctx.check(f"the drawing equals the one without a collision (the first group right under main, no hole), got "
               f"{clash.get('placed')} vs {clean.get('placed')}", clash.get("placed") == clean.get("placed") and clash.get("h") == clean.get("h"))
+
+
+# ---------------------------------------------------------------------------------------------- 8. (3.6.0.13 LV) NOW in words
+
+NOW_MS = (T0 + 100) * 1000  # the drawing's clock in these cases (ms)
+
+
+@test
+def test_now_words_each_branch(ctx: Ctx):
+    """L1 (with R11 and the coordinator's rulings): nowOf says what a helper (or main) does now, the FIRST branch that
+    applies; an end Studio never saw reads the blank kept line; a tool known only from the row reads its name alone."""
+    ms = lambda s: NOW_MS - s * 1000  # noqa: E731
+    you = {"kind": "you", "what": "x asks you", "since": ms(40), "who": "k"}
+    model = {"kind": "model", "what": "a model reply", "since": ms(7), "who": "k"}
+    cases = {
+        "waiting": {"raw": "waiting", "started": T0, "ended": 0, "wait": you},
+        "waiting_tool": {"raw": "waiting", "started": T0, "ended": 0, "wait": you, "tool": {"tool": "Grep", "t0": ms(3)}},
+        "paused": {"raw": "paused", "started": T0, "ended": 0, "wait": {**you, "since": None}},
+        "queued": {"raw": "queued", "started": T0 + 95, "ended": 0, "wait": {"kind": "nothing", "what": "queued, not started", "since": None, "who": "k"}},
+        "queued_stale": {"raw": "queued", "started": T0 + 95, "ended": 0, "wait": model},
+        "stopped": {"raw": "stopped", "started": T0, "ended": T0 + 41},
+        "done": {"raw": "done", "started": T0, "ended": T0 + 41},
+        "failed": {"raw": "failed", "started": T0, "ended": T0 + 125},
+        "done_unseen": {"raw": "done", "started": T0, "ended": 0},
+        "stopped_unseen": {"raw": "stopped", "started": T0, "ended": 0},
+        "failed_unseen": {"raw": "failed", "started": T0, "ended": 0},
+        "done_nostart": {"raw": "done", "started": 0, "ended": T0 + 41},
+        "failed_nostart": {"raw": "failed", "started": 0, "ended": T0 + 41},
+        "tool": {"raw": "running", "started": T0, "ended": 0, "tool": {"tool": "Read", "t0": ms(3)}, "wait": model},
+        "row_tool": {"raw": "running", "started": T0, "ended": 0,
+                     "wait": {"kind": "tool", "what": "Bash pytest -q", "since": None, "who": "k", "tool": "Bash"}},
+        "thought": {"raw": "running", "started": T0, "ended": 0, "last": {"kind": "thinking", "t0": ms(12)}, "wait": model},
+        "writing": {"raw": "running", "started": T0, "ended": 0, "last": {"kind": "text", "t0": ms(2)},
+                    "wait": {"kind": "nothing", "what": "working: writing", "since": None, "who": "k"}},
+        "model": {"raw": "running", "started": T0, "ended": 0, "wait": model},
+        "blank": {"raw": "running", "started": T0, "ended": 0},
+    }
+    js = """const out = {};
+for (const [k, x] of Object.entries(D.cases)) out[k] = M.now.nowOf(x, D.now);
+console.log(JSON.stringify(out));"""
+    got = _run(["now"], js, {"cases": cases, "now": NOW_MS})
+    sep = " · "
+    want = {
+        "waiting": ["waiting for you" + sep, "40 s", "wait"], "waiting_tool": ["waiting for you" + sep, "40 s", "wait"],
+        "paused": ["paused", "", ""], "queued": ["queued" + sep, "5 s", ""], "queued_stale": ["queued" + sep, "5 s", ""],
+        "stopped": [f"stopped after 41{NB}s", "", ""], "done": [f"done in 41{NB}s", "", ""], "failed": [f"failed after 2{NB}min", "", ""],
+        "done_unseen": ["", "", ""], "stopped_unseen": ["", "", ""], "failed_unseen": ["", "", ""],
+        "done_nostart": ["", "", ""], "failed_nostart": ["", "", ""],
+        "tool": ["Read" + sep, "3 s", "tool"], "row_tool": ["Bash", "", "tool"], "thought": ["thinking" + sep, "12 s", "think"],
+        "writing": ["writing" + sep, "2 s", ""], "model": ["waiting for a model reply" + sep, "7 s", ""], "blank": ["", "", ""],
+    }
+    for k, w in want.items():
+        g = got.get(k) or {}
+        ctx.check(f"{k}: {w}, got {g}", [g.get("text"), g.get("secs"), g.get("kind")] == w)
+    ends = [k for k, g in got.items() if not g.get("secs") and (g.get("text") or "").rstrip().endswith("·")]
+    ctx.check(f"a line with no seconds never ends in a separator, got {ends}", not ends)
+
+
+@test
+def test_member_carries_its_raw_state(ctx: Ctx):
+    """L1: every member carries its row's own state (`raw`) while `state` stays the BoxState every reader knows."""
+    states = ["queued", "running", "paused", "waiting", "done", "stopped", "failed"]
+    rows = [MAIN, *[kid(f"a{i}", i + 1, step=str(i + 1), state=s, key="task:x", n=1) for i, s in enumerate(states)]]
+    js = """const gs = M.og.autoGroups(D.rows), out = {};
+for (const g of gs) for (const m of g.members) out[m.aid] = [m.raw, m.state];
+const want = {}; for (const r of D.rows.slice(1)) want[r.agent_id] = [r.state, M.ov.stateOf([r])];
+console.log(JSON.stringify({out, want}));"""
+    got = _run(["og", "ov"], js, {"rows": rows})
+    ctx.check(f"raw is the row's state, state is stateOf's, got {got.get('out')} want {got.get('want')}",
+              bool(got.get("want")) and got.get("out") == got.get("want"))
+
+
+@test
+def test_member_now_drawn_and_its_words(ctx: Ctx):
+    """L2a: a queued member reads "queued", a stopped one "stopped"; the hover adds "Now: ..."; NOW is drawn on every
+    member (map-member-now) and on main's face on Auto (map-main-now), coloured by live-now.css."""
+    q, s = _m("q", raw="queued", t=1), _m("s", "done", raw="stopped", t=1, ended=5)
+    w = _m("w", desc="read report A", reason="it reads fast", t=1)
+    js = """const g = M.gw;
+console.log(JSON.stringify({q: g.memberState(D.q), s: g.memberState(D.s), g3: g.g3Lines(D.grp),
+  tool: g.g4Lines(D.w, D.now, "Grep · 4 s"), queued: g.g4Lines(D.q, D.now, "queued · 6 s"),
+  plain: g.g4Lines(D.w, D.now), empty: g.g4Lines(D.w, D.now, "")}));"""
+    got = _run(["gw"], js, {"q": q, "s": s, "w": w, "grp": _grp(1, [q, s]), "now": T0 + 10})
+    ctx.check(f"the state words: {got.get('q')!r}, {got.get('s')!r}", got.get("q") == "kimi-k3 · queued" and got.get("s") == "kimi-k3 · stopped")
+    ctx.check(f"G3 says queued and stopped, got {got.get('g3')}", "researcher · kimi-k3 · queued" in (got.get("g3") or [])
+              and "researcher · kimi-k3 · stopped" in (got.get("g3") or []))
+    ctx.check(f"the hover adds Now: ..., got {got.get('tool')}", (got.get("tool") or [""])[-1] == "Now: Grep · 4 s")
+    ctx.check(f"a queued member's hover, got {got.get('queued')}",
+              (got.get("queued") or [""])[-1] == "Now: queued · 6 s: it starts when a running helper ends.")
+    ctx.check(f"no NOW words: today's list, got {got.get('plain')}", got.get("plain") == got.get("empty")
+              and not any(x.startswith("Now:") for x in got.get("plain") or []))
+    member = (SRC / "routes/crew/map/GroupMember.tsx").read_text(encoding="utf-8")
+    face = (SRC / "routes/crew/map/LitMini.tsx").read_text(encoding="utf-8")
+    box = (SRC / "routes/session/DownBox.tsx").read_text(encoding="utf-8")
+    main = (SRC / "main.tsx").read_text(encoding="utf-8")
+    css_p = SRC / "styles/live-now.css"
+    css = css_p.read_text(encoding="utf-8") if css_p.exists() else ""
+    by, now, save = member.find('data-testid="map-member-by"'), member.find('data-testid="map-member-now"'), member.find('data-testid="map-save-agent"')
+    ctx.check(f"GroupMember draws map-member-now after map-member-by and before map-save-agent ({by}, {now}, {save})",
+              0 < by < now < save and "data-raw={m.raw}" in member)
+    ctx.check("LitFace draws map-main-now for main on Auto, from the `main` prop OneBox passes",
+              'data-testid="map-main-now"' in face and "main?: RecordAgent" in face and "main={" in box)
+    ctx.check("main.tsx imports live-now.css after textbox.css",
+              0 < main.find('"./styles/textbox.css"') < main.find('"./styles/live-now.css"'))
+    ctx.check("live-now.css colours --think, --warn, --muted and the --line-strong edge",
+              all(x in css for x in ("var(--think)", "var(--warn)", "var(--muted)", "var(--line-strong)", "[data-raw=queued]", "[data-raw=stopped]")))
+
+
+@test
+def test_now_room_holds_two_rows_and_grows_once(ctx: Ctx):
+    """L2b with R6: NOW holds two rows from the first draw (members at 204 / 156 px, main at 224 / 160); a longer tool name
+    grows the box ONCE when the drawing is not held, else reads "a tool · {s}"; the state line's rows are held too."""
+    js = """const r = M.room, deck = {text: "mcp__deckcraft__insert_chart_from_range · ", secs: "4 s"};
+const k0 = {rows: r.heldRows(156), grown: false};
+const a = r.nowFit(deck, 156, k0, true), b = r.nowFit(deck, 156, a.kept, false);
+const c = r.nowFit({text: "x".repeat(60) + " · ", secs: "5 s"}, 156, b.kept, false);
+const d = r.nowFit({text: "done in 41\\u00a0s", secs: ""}, 156, c.kept, false);
+const e = r.nowFit(deck, 160, {rows: r.heldRows(160), grown: false}, false), f = r.nowFit({text: "waiting for you · ", secs: "3 s"}, 160, e.kept, false);
+console.log(JSON.stringify({held: [r.heldRows(204), r.heldRows(156), r.heldRows(224), r.heldRows(160)], a, b, c, d, e, f,
+  state: [r.stateRows("kimi-k3", 156), r.stateRows("kimi-k3", 204), r.stateRows("", 156)]}));"""
+    got = _run(["room"], js, None)
+    pick = lambda x: [(x or {}).get("text"), (x or {}).get("secs"), (x or {}).get("rows")]  # noqa: E731
+    deck = "mcp__deckcraft__insert_chart_from_range · "
+    ctx.check(f"two rows held at 204, 156, 224 and 160 px, got {got.get('held')}", got.get("held") == [2, 2, 2, 2])
+    ctx.check(f"held: the held form in 2 rows, no growth used, got {got.get('a')}",
+              pick(got.get("a")) == ["a tool · ", "4 s", 2] and (got.get("a") or {}).get("kept") == {"rows": 2, "grown": False})
+    ctx.check(f"not held: grows once to 3 rows, whole, got {got.get('b')}",
+              pick(got.get("b")) == [deck, "4 s", 3] and (got.get("b") or {}).get("kept") == {"rows": 3, "grown": True})
+    ctx.check(f"later longer words: the held form, still 3 rows, got {got.get('c')}", pick(got.get("c")) == ["a tool · ", "5 s", 3])
+    ctx.check(f"done in 41 s keeps 3 rows, got {got.get('d')}", pick(got.get("d")) == [f"done in 41{NB}s", "", 3])
+    ctx.check(f"main at 160: the deckcraft name grows once to 3 and keeps 3, got {got.get('e')} {got.get('f')}",
+              pick(got.get("e")) == [deck, "4 s", 3] and pick(got.get("f")) == ["waiting for you · ", "3 s", 3])
+    ctx.check(f"the state line's held rows: kimi-k3 at 156 2, at 204 1, alone at 156 1, got {got.get('state')}",
+              got.get("state") == [2, 1, 1])
+    member = (SRC / "routes/crew/map/GroupMember.tsx").read_text(encoding="utf-8")
+    ctx.check("GroupMember holds map-member-state's rows from stateRows and NOW's from its kept rows",
+              "minHeight: stateRows(m.model" in member and "minHeight: fit.rows * 17" in member)
 
 
 if __name__ == "__main__":

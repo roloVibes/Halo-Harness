@@ -69,8 +69,11 @@ def test_auto_draws_main_alone_then_named_coloured_groups(ctx: Ctx):
     ctx.check(f"group 1 named by its task with its three members, got {one}",
               one.get("n") == "1" and one.get("name") == "compare the three reports" and one.get("members") == 3
               and one.get("counts") == "3 agents · 3 working" and one.get("why", "").startswith("3 researchers on kimi-k3"))
-    ctx.check(f"a member reads who: description over model · state, got {one.get('lines')}",
-              (one.get("lines") or [[]])[0] == ["researcher: read report A", "kimi-k3 · working"])
+    first = (one.get("lines") or [[]])[0]
+    ctx.check(f"a member reads who: description over model · state, then NOW (3.6.0.13 L2a: the rig's rows only, no feed "
+              f"line: a model reply), got {one.get('lines')}",
+              first[:2] == ["researcher: read report A", "kimi-k3 · working"] and len(first) == 3
+              and first[2].startswith("waiting for a model reply · "))
     ctx.check(f"its border is --group-1, no state's colour, got {one.get('border')} {probe}",
               one.get("border") == probe.get("--group-1") and one.get("border") not in [probe.get(v) for v in ("--accent", "--warn", "--ok", "--bad")])
     ctx.check(f"main's box holds no rows of its helpers (they are the groups' members), got {d.get('mainRows')}", d.get("mainRows") == 0)
@@ -157,7 +160,8 @@ def test_hover_and_click_say_why_this_model(ctx: Ctx):
     g4 = d.get("g4") or []
     ctx.check(f"hover a member: G4, got {g4}",
               g4[:3] == ["read report A", "researcher on kimi-k3", "Why this model: code work; tools; mid budget"]
-              and len(g4) == 4 and g4[3].startswith("working · $0.01 · "))
+              and len(g4) == 5 and g4[3].startswith("working · $0.01 · ")
+              and g4[4].startswith("Now: waiting for a model reply · "))  # 3.6.0.13 L2a: the hover adds NOW's whole words
     card = d.get("card") or {}
     ctx.check(f"its card: the same why line, the member marked, got {card}",
               card.get("why") == "Why this model: code work; tools; mid budget" and card.get("title") == "researcher" and card.get("sel"))

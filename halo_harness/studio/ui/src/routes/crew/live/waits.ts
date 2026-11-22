@@ -16,7 +16,9 @@ import type { OpenTool } from "../../shared/liveFeed";
 import type { LiveLine } from "../../shared/liveTypes";
 
 export type WaitKind = "you" | "agent" | "tool" | "model" | "nothing";
-export type Wait = { kind: WaitKind; what: string; since: number | null; who: string };
+/** `tool` (3.6.0.13 L1): on a tool's or an agent's wait, the tool's own name (the feed's, else the row's `current` up to
+ *  its ":"), so NOW can name a tool only the row knows. */
+export type Wait = { kind: WaitKind; what: string; since: number | null; who: string; tool?: string };
 export const WRITING_MS = 4000;
 const DELEGATES = ["Agent", "Task", "Workflow"];
 const LIVE = ["queued", "running", "waiting", "paused"];
@@ -54,9 +56,9 @@ export function waitOf(n: LiveNode, open: OpenTool | null, r: Recent | undefined
   if (DELEGATES.includes(tool)) {
     const live = kids.filter((k) => LIVE.includes(k.state));
     const pick = live.find((k) => k.state === "waiting") || live.find((k) => k.current && k.current !== "thinking") || live[live.length - 1];
-    if (pick) return { kind: "agent", what: pick.role && pick.role !== pick.name ? pick.role : pick.name, since: open ? open.t0 : null, who: pick.key };
+    if (pick) return { kind: "agent", what: pick.role && pick.role !== pick.name ? pick.role : pick.name, since: open ? open.t0 : null, who: pick.key, tool };
   }
-  if (tool) return { kind: "tool", what: n.current && n.current.startsWith(tool) ? toolWords(n.current) : tool, since: open ? open.t0 : null, who: n.key };
+  if (tool) return { kind: "tool", what: n.current && n.current.startsWith(tool) ? toolWords(n.current) : tool, since: open ? open.t0 : null, who: n.key, tool };
   if (r?.last && r.last.kind === "text" && now - (r.last.ended || r.last.t0) < WRITING_MS) return { kind: "nothing", what: "working: writing", since: null, who: n.key };
   return { kind: "model", what: "a model reply", since: r?.last ? r.last.ended || r.last.t0 : n.started ? n.started * 1000 : null, who: n.key };
 }

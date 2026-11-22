@@ -144,7 +144,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const gone = got && "removed" in got ? got.removed : 0;
   const pulse = (from: string, to: string) => ov?.pulses.find((p) => p.from === from && p.to === to);
   const wait = useRunWait(s.sid, ov, L.now || 0, shown);
-  const parts = useRunParts(L.agents, L.now || 0, (aid) => openFeed(`under:${aid}`), wait);
+  const parts = useRunParts(L.agents, L.now || 0, (aid) => openFeed(`under:${aid}`), wait, held);
   const talks = useTalkLines(ov, s.sid, L.now || 0, g.lines);
   const steps = useStepKeys(world, true);
   return (

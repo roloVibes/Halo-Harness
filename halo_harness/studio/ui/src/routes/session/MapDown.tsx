@@ -152,7 +152,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
   const wait = useRunWait(s.sid, L.unlit ? null : ov, L.now || 0, on);
-  const parts = useRunParts(L.agents, L.now || 0, (aid) => (openInLive(s.sid), openFeed(`under:${aid}`)), wait);
+  const parts = useRunParts(L.agents, L.now || 0, (aid) => (openInLive(s.sid), openFeed(`under:${aid}`)), wait, held);
   const talks = useTalkLines(ov, s.sid, L.now || 0, g.lines);
   const steps = useStepKeys(world, false);
   return ( // R28: the head first, from the row; the drawing once its map is read (`session-lit-map` only then)

@@ -7,7 +7,7 @@ import { createStore, useStore } from "../../../lib/store";
 import type { LiveNode } from "./liveModel";
 import { live, useLive } from "../../shared/liveFeed";
 import { startLiveTree } from "../../shared/liveTree"; // the feed's THINK and TALK frames too (the near rows, the hand-offs)
-import { recentOf, waitingPath, waitOf, type Wait, type WaitPath } from "./waits";
+import { recentOf, waitingPath, waitOf, type Recent, type Wait, type WaitPath } from "./waits";
 import { orch } from "../../orchestra/store";
 import { runWaitOf } from "../run/runWaits";
 
@@ -17,16 +17,19 @@ export const useWaitOf = (id: string): Wait | undefined => useStore(waitStore, (
 export const useOnPath = (id: string | null | undefined): boolean => useStore(waitStore, (s) => !!id && s.path.includes(id));
 export const usePathIds = (): string[] => useStore(waitStore, (s) => s.path);
 
+type Waits = { waits: Map<string, Wait>; path: WaitPath; recent: Map<string, Recent> };
+
 /** The waits of `nodes` and the waiting path; `on` false (Session's thumbnail) leaves the store alone. `fixed` (waits
- *  a caller already has) stands in for the feed's. */
-export function useWaits(nodes: LiveNode[], now: number, on: boolean, fixed: Map<string, Wait> | null = null): { waits: Map<string, Wait>; path: WaitPath } {
+ *  a caller already has) stands in for the feed's. `recent` (3.6.0.13 L2a): each agent's newest lines by its key, the ones
+ *  the waits were read from (empty when `on` is false or `fixed` is given). */
+export function useWaits(nodes: LiveNode[], now: number, on: boolean, fixed: Map<string, Wait> | null = null): Waits {
   useEffect(() => startLiveTree(), []);
   const open = useLive((s) => s.open);
   const n = useLive((s) => s.lines.length);
-  const out = useMemo(() => {
+  const out = useMemo((): Waits => {
     const waits = new Map<string, Wait>();
-    if (!on) return { waits, path: { ids: [], leaf: null, wait: null } as WaitPath };
-    if (fixed) return { waits: fixed, path: waitingPath(nodes, fixed) };
+    if (!on) return { waits, path: { ids: [], leaf: null, wait: null } as WaitPath, recent: new Map() };
+    if (fixed) return { waits: fixed, path: waitingPath(nodes, fixed), recent: new Map() };
     const keys = new Set(nodes.filter((x) => x.key).map((x) => x.key));
     const recent = recentOf(live.get().lines, keys);
     const kids = new Map<string, LiveNode[]>();
@@ -36,7 +39,7 @@ export function useWaits(nodes: LiveNode[], now: number, on: boolean, fixed: Map
       const w = x.run ? runWaitOf(x, run) : waitOf(x, x.key ? open[x.key] || null : null, recent.get(x.key), kids.get(x.id) || [], now);
       if (w) waits.set(x.id, w);
     }
-    return { waits, path: waitingPath(nodes, waits) };
+    return { waits, path: waitingPath(nodes, waits), recent };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `n` stands for the lines (a new line can change a wait)
   }, [nodes, open, n, now, on, fixed]);
   useEffect(() => {

@@ -76,7 +76,8 @@ function OneBox({ b, L, sid, lines: all, built = null, pick, live, sel }: Props)
          data-testid={live ? (loose ? "live-block" : "live-box") : loose ? "session-map-block" : "session-lit-box"} data-box={b.id} data-map-box={live ? b.id : undefined} title={!b.block && hv.titles ? `${b.name}: ${STATE_WORDS[st]}` : undefined}
          style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}
          tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), e.currentTarget.click()); }}>
-      <LitFace b={b} ov={L.ov} sid={sid} tag={built ? newTag(built) : undefined} bare={!!L.groups} />
+      <LitFace b={b} ov={L.ov} sid={sid} tag={built ? newTag(built) : undefined} bare={!!L.groups} w={b.w}
+               main={b.main && L.groups ? L.agents.find((a) => a.id === "main") : undefined} />
     </div>
   );
 }

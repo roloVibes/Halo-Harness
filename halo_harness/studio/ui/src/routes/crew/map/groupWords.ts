@@ -59,7 +59,9 @@ export const whyLine = (g: AutoGroup): string =>
 
 /** B11 a member: "{who}: {description}" ("{who}" alone without one) over "{model} · {state}" ("{state}" without a model). */
 export const memberLine = (m: Member): string => (m.description ? `${m.who}: ${m.description}` : m.who);
-export const memberState = (m: Member): string => (m.model ? `${m.model} · ${STATE_WORDS[m.state]}` : STATE_WORDS[m.state]);
+/** 3.6.0.13 L2a: a member's state word from its raw state: "queued", "stopped", else its box state's word. */
+export const memberWord = (m: Member): string => (m.raw === "queued" ? "queued" : m.raw === "stopped" ? "stopped" : STATE_WORDS[m.state]);
+export const memberState = (m: Member): string => (m.model ? `${m.model} · ${memberWord(m)}` : memberWord(m));
 /** B2 a child of a child's third line: its parent member's who and description. */
 export const startedBy = (who: string, task: string): string => `started by ${who}: ${task}`;
 export const moreMembers = (n: number): string => `+${n} more`;
@@ -80,15 +82,17 @@ export function thirdLine(g: AutoGroup, m: Member): string {
 /** G3, a group's head hovered: its name, when main started it, one line per member, its cost. */
 export function g3Lines(g: AutoGroup): string[] {
   return [g.name, `Started by main at ${clock(g.first)}`,
-    ...g.members.map((m) => [m.who, m.model, STATE_WORDS[m.state]].filter(Boolean).join(" · ")), money(cost(g))];
+    ...g.members.map((m) => [m.who, m.model, memberWord(m)].filter(Boolean).join(" · ")), money(cost(g))];
 }
 
-/** G4, a member hovered: its description, who on which model, why that model, its state, cost and time (`now`: seconds). */
-export function g4Lines(m: Member, now = 0): string[] {
+/** G4, a member hovered: its description, who on which model, why that model, its state, cost and time (`now`: seconds)
+ *  and, 3.6.0.13 L2a, what it does now in whole words ("Now: ..."; `nowWords` "" leaves it out). */
+export function g4Lines(m: Member, now = 0, nowWords = ""): string[] {
   const end = m.ended || (m.state === "working" || m.state === "waiting" ? now : 0);
   const time = m.started && end >= m.started ? span(end - m.started) : "";
   return [m.description || m.who, m.model ? `${m.who} on ${m.model}` : m.who, whyThisModel(m.reason),
-    [STATE_WORDS[m.state], money(m.cost), time].filter(Boolean).join(" · ")].filter((x) => x !== "");
+    [memberWord(m), money(m.cost), time].filter(Boolean).join(" · "),
+    !nowWords ? "" : m.raw === "queued" ? `Now: ${nowWords}: it starts when a running helper ends.` : `Now: ${nowWords}`].filter((x) => x !== "");
 }
 
 /** G5, main hovered on Auto: its model and the agents this session started with (its row's `map_agents`, A22). */

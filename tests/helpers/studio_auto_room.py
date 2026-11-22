@@ -105,9 +105,12 @@ def card(c, rig, rows: Rows, a: str, b: str) -> dict:
         mem = f"{M}.querySelector('[data-member=r1]')"
         c.wait(f"!!({GROUP})(4) && !!{mem}", 20)
         time.sleep(0.8)
-        c.js(f"{mem}.scrollIntoView({{block: 'nearest'}}); 1")  # inside the drawing's own scroll, when it is below the edge
+        # 3.6.0.13 L2b: a member holds NOW's rows and its state line's from the first draw, so at 1280 x 500 it is taller
+        # than the drawing's scroll box: the click goes to its first line, the part a person sees and presses
+        line = f"{mem}.querySelector('[data-testid=map-member-line]')"
+        c.js(f"{line}.scrollIntoView({{block: 'nearest'}}); 1")  # inside the drawing's own scroll, when it is below the edge
         time.sleep(0.3)
-        c.click_on(mem)
+        c.click_on(line)
         at: dict = {}
         try:
             c.wait(f"!!{SEND}", 10)

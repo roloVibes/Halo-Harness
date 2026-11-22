@@ -30,14 +30,14 @@ const NO_NODES: LiveNode[] = [];
 export function useRunWait(sid: string, ov: Overlay | null, now: number, on: boolean): RunWait {
   const rec = useSessionRecord(on ? sid : "");
   const nodes = useMemo(() => (rec && on ? liveNodes(rec, fleet.get(), now * 1000) : NO_NODES), [rec, now, on]);
-  const { waits, path } = useWaits(nodes, now * 1000, on);
+  const { waits, path, recent } = useWaits(nodes, now * 1000, on);
   return useMemo(() => {
     const leaf = path.leaf?.id || "";
     const room = waitRoom(nodes.map((n) => (n.role && n.role !== n.name ? n.role : n.name)));
-    if (!on || !leaf || !ov) return on ? { ...NO_WAIT, waits, room } : NO_WAIT;
+    if (!on || !leaf || !ov) return on ? { ...NO_WAIT, waits, room, recent } : NO_WAIT;
     const box = boxOfAgent(ov, true).get(leaf) || "";
-    return { waits, leaf, box, link: waitWords(nodes, waits, path, true), room };
-  }, [waits, path, nodes, ov, on]);
+    return { waits, leaf, box, link: waitWords(nodes, waits, path, true), room, recent };
+  }, [waits, path, nodes, ov, on, recent]);
 }
 
 /** The wait link's own row: its room is the tallest of the twins -- a usual link's, from the first draw, and the last

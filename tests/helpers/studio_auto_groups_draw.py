@@ -76,7 +76,7 @@ def _groups(c) -> list:
       rect: ({RECT})(g), border: getComputedStyle(g).borderTopColor, members: g.querySelectorAll('[data-member]').length,
       name: g.querySelector('[data-testid=map-group-name]')?.textContent || '', counts: g.querySelector('[data-testid=map-group-counts]')?.textContent || '',
       why: g.querySelector('[data-testid=map-group-why]')?.textContent || '',
-      lines: [...g.querySelectorAll('[data-member]')].map((m) => [...m.querySelectorAll('span')].map((s) => s.textContent))}}))""")
+      lines: [...g.querySelectorAll('[data-member]')].map((m) => [...m.querySelectorAll(':scope > span')].map((s) => s.textContent))}}))""")
 
 
 def scene(c, rig, rows: Rows, a: str, b: str) -> dict:
@@ -515,7 +515,7 @@ def mainstill(c, rig, rows: Rows, a: str, b: str) -> dict:
     c.wait(f"({GROUP})(1)?.querySelectorAll('[data-member]').length === 3", 20)
     read = (f"({{main: ({RECT})({MAIN_BOX}), one: ({RECT})(({GROUP})(1)), "
             f"row: {MAIN_BOX}?.querySelector('.mp-lit-row[data-state]')?.textContent || '', "
-            f"clock: ({MAIN_BOX}?.querySelector('[data-testid=run-clock]')?.textContent || '').trim()}})")
+            f"clock: ({MAIN_BOX}?.querySelector('[data-testid=map-main-now]')?.textContent || '').trim()}})")
     for name, over in MAIN_STATES:
         _set(rows, a, [_main(rows, a, since=since, started=since, **over), *scene2()])
         try:
@@ -524,7 +524,7 @@ def mainstill(c, rig, rows: Rows, a: str, b: str) -> dict:
             pass  # the reading says what it showed
         if name == "thinking":
             try:
-                c.wait(f"({MAIN_BOX}?.querySelector('[data-testid=run-clock]')?.textContent || '').startsWith('waiting for a model reply')", 10)
+                c.wait(f"({MAIN_BOX}?.querySelector('[data-testid=map-main-now]')?.textContent || '').startsWith('waiting for a model reply')", 10)
             except TimeoutError:
                 pass
         out["states"].append({"state": name, **settled(c, read)})

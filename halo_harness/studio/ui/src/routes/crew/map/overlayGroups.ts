@@ -16,8 +16,10 @@ import { stateOf, type BoxState, type OvRow } from "./overlay";
 import { rowStep, type BlockLit } from "./overlayBlocks";
 
 export type GRow = OvRow & { spawn?: AgentRow["spawn"]; since?: number | null; model_reason?: string | null; ended?: number | null };
-export type Member = { aid: string; parent: string; who: string; description: string; model: string; state: BoxState; cost: number;
-  reason: string; made: boolean; started: number; ended: number; by?: string; step?: number };
+/** `raw`: the row's own state (agent/agent_registry.py STATES; 3.6.0.13 L1): `state` reads queued as working and stopped as
+ *  done, NOW and the state word read `raw`. */
+export type Member = { aid: string; parent: string; who: string; description: string; model: string; state: BoxState; raw: string;
+  cost: number; reason: string; made: boolean; started: number; ended: number; by?: string; step?: number };
 export type AutoGroup = { n: number; key: string; by: "workflow" | "task" | "reply"; name: string; workflow?: string; members: Member[];
   steps?: StepRow[]; first: number };
 
@@ -47,7 +49,7 @@ export function autoGroups(rows: GRow[], blocks: Record<string, BlockLit> = {}):
   for (const g of placeGroups(rows)) { // the one placing and numbering (../live/groups.ts), shared with the Live tree
     const members: Member[] = g.rows.map((r) => {
       const m: Member = { aid: r.agent_id, parent: str(r.parent), who: whoOf(r), description: str(r.spawn?.description) || str(r.task),
-        model: str(r.model), state: stateOf([r]), cost: num(r.cost_usd), reason: str(r.model_reason),
+        model: str(r.model), state: stateOf([r]), raw: str(r.state), cost: num(r.cost_usd), reason: str(r.model_reason),
         made: r.crew ? !!r.crew.made_up : ANY.includes(str(r.name)), started: num(r.since), ended: num(r.ended) };
       if (str(r.parent) !== main) m.by = str(r.parent);
       if (typeof r.crew?.step === "number") m.step = r.crew.step;

@@ -18,7 +18,8 @@ import { live, useLive } from "../../shared/liveFeed";
 import { useTalks } from "../../shared/liveTalk";
 import { startLiveTree } from "../../shared/liveTree";
 import { useAgentsView } from "../../agents/store";
-import { secsWords, type Wait } from "../live/waits";
+import { secsWords, type Recent, type Wait } from "../live/waits";
+import { NO_NOW, nowOf, type Now } from "./nowLine";
 import { lineKey, type Overlay } from "./overlay";
 import { talkPulses, type TalkPulse } from "./talkPulse";
 import { toolClock, waitClock } from "./truthBits";
@@ -26,11 +27,13 @@ import { waitWhat } from "./truth";
 
 /** The run's wait (runWait.tsx): `waits` by agent id; `leaf`: the agent the session waits on; `box`: the drawn box
  *  holding it; `link`: 3.6.0.0's words for it; `room`: the longest links this run can show (P8: the link's reserved room). */
-export type RunWait = { waits: Map<string, Wait>; leaf: string; box: string; link: string; room: string[] };
-export const NO_WAIT: RunWait = { waits: new Map(), leaf: "", box: "", link: "", room: [] };
+export type RunWait = { waits: Map<string, Wait>; leaf: string; box: string; link: string; room: string[];
+  /** 3.6.0.13 L2a: each agent's newest lines by its feed key (useWaits.ts) */ recent: Map<string, Recent> };
+export const NO_WAIT: RunWait = { waits: new Map(), leaf: "", box: "", link: "", room: [], recent: new Map() };
 
-/** What the parts of one drawing read: its agents' keys by id, its clock (`now`, seconds), its Feed door, its wait. */
-export type RunParts = { keys: Map<string, string>; now: number; under: (aid: string) => void; wait: RunWait };
+/** What the parts of one drawing read: its agents' keys by id, its clock (`now`, seconds), its Feed door, its wait, and
+ *  `held`: the drawing is held (hold.ts: the pointer on it or a card open; 3.6.0.13 L2b, NOW's one growth waits). */
+export type RunParts = { keys: Map<string, string>; now: number; under: (aid: string) => void; wait: RunWait; held: boolean };
 export const RunCtx = createContext<RunParts | null>(null);
 
 /** The drawing is on screen: Session's drawer while Session is the section; 4 · Live while Agents shows Live. */
@@ -41,10 +44,23 @@ export function useShown(where: "session" | "live"): boolean {
 }
 
 /** The parts' context for one drawing (`agents`: the session's agents, id -> feed key). */
-export function useRunParts(agents: { id: string; key: string }[], now: number, under: (aid: string) => void, wait: RunWait = NO_WAIT): RunParts {
+export function useRunParts(agents: { id: string; key: string }[], now: number, under: (aid: string) => void, wait: RunWait = NO_WAIT,
+  held = false): RunParts {
   useEffect(() => startLiveTree(), []); // the feed's open tools and its TALK frames
   const keys = useMemo(() => new Map(agents.map((a) => [a.id, a.key])), [agents]);
-  return useMemo(() => ({ keys, now, under, wait }), [keys, now, wait]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => ({ keys, now, under, wait, held }), [keys, now, wait, held]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** 3.6.0.13 L1 L2a: NOW of agent `aid` (its raw state, since and end in seconds; 0 unknown) at the drawing's one clock,
+ *  from the feed's open tool for its key, its newest line and its wait (nowLine.ts). No timer, no fetch. */
+export function useNowOf(aid: string, raw: string, started: number, ended: number): Now {
+  const P = useContext(RunCtx);
+  const open = useLive((s) => s.open);
+  if (!P) return NO_NOW;
+  const key = P.keys.get(aid) || "";
+  const t = key ? open[key] : undefined;
+  return nowOf({ raw, started, ended, tool: t ? { tool: t.tool, t0: t.t0 } : null, last: key ? P.wait.recent.get(key)?.last || null : null,
+    wait: P.wait.waits.get(aid) || null }, P.now * 1000);
 }
 
 

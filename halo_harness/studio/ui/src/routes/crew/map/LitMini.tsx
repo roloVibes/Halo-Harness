@@ -4,7 +4,7 @@
 // 3.6.0.2 R14 R15), the hand-offs counted and in flight (overlayHops.ts; R16 R49) -- and a box's face: its name, then
 // "kind · state", whole (no cap, no ellipsis: the box grows to hold it, R10). The frame (scroll, zoom, rows, the "↓" slot)
 // is the drawing's own; its clock ticks only while `shown` (runParts.tsx). 3.6.0.0 R5: a session that did not start on a map is drawn as main and the helpers it started.
-import { useEffect, useMemo, useRef } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { useStore } from "../../../lib/store";
 import { useSessionRecord, type RecordAgent } from "../../../lib/work/record";
 import { useNow } from "../../fleet/store";
@@ -18,7 +18,9 @@ import type { DrawBox, MapDetail } from "./mapTypes";
 import { overlay, type BoxState, type Overlay } from "./overlay";
 import { groupLive, groupTotals, inFlight, NO_TOTALS, type Totals } from "./overlayHops";
 import { BlockFace, KidRows, NewTag } from "./RunRows";
-import { ToolClock } from "./runParts";
+import { NO_NOW, nowWords } from "./nowLine";
+import { heldRows, nowFit, type Kept } from "./nowRoom";
+import { RunCtx, ToolClock, useNowOf } from "./runParts";
 import { view, type MapView } from "./view";
 
 const NO_AGENTS: RecordAgent[] = [];
@@ -83,17 +85,19 @@ export function litState(b: DrawBox, ov: Overlay | null): { st: BoxState; helper
 
 /** A box's face: the name (13.5 px), then "kind · state" (12 px) and, while it works, what it does now -- every word; then
  *  its children as rows (R15). A workflow's box is its block (R14). */
-export function LitFace({ b, ov, sid, tag, bare }: { b: DrawBox; ov: Overlay | null; sid: string; tag?: string;
-  /** 3.6.0.5 B1: on Auto main's children are its groups' members, never rows in main's box */ bare?: boolean }) {
+export function LitFace({ b, ov, sid, tag, bare, main, w = 248 }: { b: DrawBox; ov: Overlay | null; sid: string; tag?: string;
+  /** 3.6.0.5 B1: on Auto main's children are its groups' members, never rows in main's box */ bare?: boolean;
+  /** 3.6.0.13 L2a: main's record agent on Auto (its NOW) and the box's width (`w`, NOW's room) */ main?: RecordAgent; w?: number }) {
   if (b.block) return <BlockFace block={b.block} ov={ov} tag={tag} />;
   const { st } = litState(b, ov);
   const doing = st === "working" ? ov?.boxes[b.id]?.doing : "";
-  const rows = (<>
-    <span className="mp-lit-row mono" data-state={st}>{b.main ? "main" : b.kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
-    <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={(st === "working" || st === "waiting") && !b.helper} />
-  </>);
   // k/batch02 entry 1: on Auto main's rows that come and go with its state keep their room (a hidden twin of the fullest)
   const held = bare && b.main;
+  const on = (st === "working" || st === "waiting") && !b.helper;
+  const rows = (<>
+    <span className="mp-lit-row mono" data-state={st}>{b.main ? "main" : b.kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
+    {held ? <MainNow main={main} on={on} width={w - 24} /> : <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={on} />}
+  </>);
   return (
     <span className="mp-inner">
       <b className="mp-name">{b.name}</b>
@@ -108,6 +112,24 @@ export function LitFace({ b, ov, sid, tag, bare }: { b: DrawBox; ov: Overlay | n
         </span>
       ) : rows}
       <KidRows kids={bare ? [] : ov?.kids[b.id] || []} sid={sid} sender={b.id} />
+    </span>
+  );
+}
+
+/** 3.6.0.13 L2a, L2b with R6: main's NOW on Auto, in the tool clock's place -- drawn while main's box works or waits, else
+ *  the blank kept line; two rows held from the first draw, one growth when the drawing is not held (else "a tool · {s}"),
+ *  kept for the session's life. `width`: its text room (the box less its padding and border, 24). */
+function MainNow({ main, on, width }: { main?: RecordAgent; on: boolean; width: number }) {
+  const nw = useNowOf("main", main?.state || "", main?.started || 0, main?.ended || 0); // a null end: L1's end not seen
+  const held = !!useContext(RunCtx)?.held;
+  const kept = useRef<Kept>({ rows: heldRows(width), grown: false });
+  const now = on ? nw : NO_NOW;
+  const fit = nowFit(now, width, kept.current, held);
+  kept.current = fit.kept;
+  return (
+    <span className="mp-main-now mono" data-testid="map-main-now" data-now={now.kind} title={now.text ? nowWords(now) : undefined}
+          style={{ minHeight: fit.rows * 17 }}>
+      {fit.text}{fit.secs && <span className="mp-clock-secs">{fit.secs}</span>}
     </span>
   );
 }

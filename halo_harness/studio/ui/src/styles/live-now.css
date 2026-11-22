@@ -1,0 +1,7 @@
+/* 3.6.0.13 L2a: NOW on the drawing of a running session -- a member's (GroupMember.tsx) and main's on Auto (LitMini.tsx
+   MainNow): 12/17 mono, every word wraps (its rows are held from the first draw, nowRoom.ts); a thought in --think,
+   waiting on you in --warn, else --muted. A queued or stopped member's edge is --line-strong (it is not working, not done). */
+.mp-member-now, .mp-main-now { display: block; font-size: 12px; line-height: 17px; overflow-wrap: anywhere; color: var(--muted); }
+.mp-member-now[data-now=think], .mp-main-now[data-now=think] { color: var(--think); }
+.mp-member-now[data-now=wait], .mp-main-now[data-now=wait] { color: var(--warn); }
+.mp-member[data-raw=queued], .mp-member[data-raw=stopped] { border-left-color: var(--line-strong); }
