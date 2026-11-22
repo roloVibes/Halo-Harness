@@ -97,13 +97,14 @@ def test_every_orderly_way_out_ends_the_browser_first_and_within_3_s(ctx: Ctx):
     sess = SimpleNamespace(_stopping=mock.MagicMock(), abort=mock.MagicMock(), job_registry=jobs,
                            _fire_session_end=lambda _w: None, close_runtimes=lambda: order.append("runtimes"))
     fake = SimpleNamespace(quit_called=False, session=sess, quit_stops_children=True, commands=mock.MagicMock(),
-                           _worker=None, _stopped=mock.MagicMock(), state_dir=None, mcp_manager=None, exit_code=0)
+                           _worker=None, _stopped=mock.MagicMock(), state_dir=None, mcp_manager=None, exit_code=0,
+                           _end_bang_work=lambda: order.append("bang"))  # 3.6.0.12: the quit ends `!` work too
     with mock.patch.object(B, "end_browsers", lambda *a, **k: order.append("browser"), create=True), \
             mock.patch.object(Cm, "_stop_children_for_quit", lambda _s: order.append("children") or ""), \
             mock.patch("halo_harness.closing.arm_close_deadline", lambda *a, **k: None):
         Cm.Controller.quit(fake)
     ctx.check(f"the quit (the terminal app's, a Studio session's end): the browser first, got {order}",
-              order[:1] == ["browser"] and "jobs" in order and "children" in order)
+              order[:1] == ["browser"] and "jobs" in order and "children" in order and "bang" in order)
     from halo_harness.tui import app as A
     order.clear()
     me = SimpleNamespace(controller=SimpleNamespace(session=sess, state_dir=None, quit=lambda: 0, stopped_line=""),
