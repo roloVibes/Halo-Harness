@@ -245,24 +245,28 @@ def catalog_auto_refresh_worker(app) -> None:
     # to bare `os.environ`/the settings chain re-derivation, unchanged.
     settings = getattr(app.controller, "settings", None)
     env = settings.effective_env if settings is not None else None
+    from halo_harness.closing import leaving
     from halo_harness.providers.enablement import is_enabled_with_env
+
+    def asks(name: str) -> bool:  # 3.6.0.17 Z2-3: a Halo on its way out asks no further provider
+        return not leaving() and is_enabled_with_env(name, env)
     notes = []
     failures = []
-    if is_enabled_with_env("openrouter", env):
+    if asks("openrouter"):
         from halo_harness.providers.databricks import load_models_json, refresh_openrouter_catalog_if_stale
         result = refresh_openrouter_catalog_if_stale(state_dir, env=env)
         if result:
             notes.append(f"OpenRouter ({len(load_models_json(state_dir))} models)")
         elif result is False:
             failures.append("OpenRouter")
-    if is_enabled_with_env("anthropic", env):
+    if asks("anthropic"):
         from halo_harness.providers.anthropic_catalog import load_ant_models_json, refresh_anthropic_catalog_if_stale
         result = refresh_anthropic_catalog_if_stale(state_dir, env=env)
         if result:
             notes.append(f"Anthropic ({len(load_ant_models_json(state_dir))} models)")
         elif result is False:
             failures.append("Anthropic")
-    if is_enabled_with_env("databricks", env):
+    if asks("databricks"):
         from halo_harness.providers.databricks import format_dbx_diff, refresh_dbx_catalog_if_stale
         result = refresh_dbx_catalog_if_stale(state_dir, env=env)
         if result is not None:
@@ -273,7 +277,7 @@ def catalog_auto_refresh_worker(app) -> None:
                     notes.append(f"Databricks ({summary})")
             else:
                 failures.append("Databricks")
-    if is_enabled_with_env("huggingface", env):
+    if asks("huggingface"):
         # Halo 2.0.3 round 4: same shape as the OpenRouter branch above --
         # `refresh_huggingface_catalog_if_stale` only ever fetches the
         # router's catalog when HF_TOKEN resolves (an endpoint-only setup
@@ -286,7 +290,7 @@ def catalog_auto_refresh_worker(app) -> None:
             notes.append(f"Hugging Face ({len(load_hf_models_json(state_dir))} models)")
         elif result is False:
             failures.append("Hugging Face")
-    if is_enabled_with_env("openai", env):
+    if asks("openai"):
         # Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had
         # no caller at all -- a key from the shell/env file (never run
         # through the init wizard's own OpenAI tab, the only other writer
@@ -300,7 +304,7 @@ def catalog_auto_refresh_worker(app) -> None:
             notes.append(f"OpenAI ({len(load_oai_models_json(state_dir))} models)")
         elif result is False:
             failures.append("OpenAI")
-    if is_enabled_with_env("experiential", env):
+    if asks("experiential"):
         # Halo 2.0.4 round 2: same hooks round 5i part 1 wired for OpenAI
         # just above, for the Experiential Labs gateway.
         from halo_harness.providers.experiential_catalog import (

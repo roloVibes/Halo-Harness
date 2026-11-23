@@ -80,29 +80,52 @@ def _run_tree(cmd, stop: Callable[[], bool], *, timeout, capture_output: bool = 
     """3.6.0.17 Z1: `cmd` started through Halo's own spawn path (marked; in this process's Job on Windows), its own
     process group on POSIX. When `timeout` runs out, or the moment `stop()` answers True (this halo is closing), its
     whole tree ends -- the helper git starts for https included -- and TimeoutExpired is raised at once: never a wait
-    on a pipe that helper holds (a hanging network kept a closed Halo and both git processes alive)."""
+    on a pipe that helper holds (a hanging network kept a closed Halo and both git processes alive).
+    3.6.0.17 Z2-2: a halo already leaving starts no program at all, and ANY exception out of the wait (a Ctrl+C on
+    the main thread of `halo update --check`) ends the whole tree before it goes on."""
+    if stop():
+        raise subprocess.TimeoutExpired(cmd, timeout)
     if capture_output:
         kw["stdout"] = kw["stderr"] = subprocess.PIPE
     if os.name != "nt":
-        kw["start_new_session"] = True  # its own group: closing._signal_tree ends the group, the helper with it
+        kw["start_new_session"] = True  # it leads its own session and group: _end_tree ends the group, the helper too
     p = subprocess.Popen(cmd, **kw)
     end = time.monotonic() + float(timeout)
-    while True:
+    try:
+        while True:
+            try:
+                out, err = p.communicate(timeout=max(0.0, min(_SLICE_S, end - time.monotonic())))
+                return subprocess.CompletedProcess(p.args, p.returncode, out, err)
+            except subprocess.TimeoutExpired:
+                pass
+            if stop() or time.monotonic() >= end:
+                break
+    except BaseException:
+        _end_tree(p)
+        raise
+    _end_tree(p)
+    raise subprocess.TimeoutExpired(cmd, timeout)
+
+
+def _end_tree(p) -> None:
+    """3.6.0.17 Z2-2: the whole tree `_run_tree` started. POSIX: git leads its own session, so its pid is its group's
+    id, and while the group has a member (git not yet reaped, or its helper) that id is no other's: the group ends
+    directly (never through getpgid, which can fail on a leader that has already ended). Windows: taskkill /T /F of
+    its tree, while this Popen still holds git's handle (its pid is not reused)."""
+    if os.name != "nt":
+        import signal
         try:
-            out, err = p.communicate(timeout=max(0.0, min(_SLICE_S, end - time.monotonic())))
-            return subprocess.CompletedProcess(p.args, p.returncode, out, err)
-        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
             pass
-        if stop() or time.monotonic() >= end:
-            break
-    from halo_harness import closing
-    closing._signal_tree(p.pid, hard=True)  # Windows: taskkill /T /F of git's tree; POSIX: SIGKILL to its group
+    else:
+        from halo_harness import closing
+        closing._signal_tree(p.pid, hard=True)
     try:
         p.kill()
         p.wait(1.0)
     except (OSError, subprocess.TimeoutExpired):
         pass
-    raise subprocess.TimeoutExpired(cmd, timeout)
 
 
 def http_get_json(url: str, *, timeout: float = 5.0) -> Optional[dict]:
@@ -693,6 +716,8 @@ def latest_available(channel: Optional[str] = None, *, refresh: bool = False,
         # overwrites the cache file with this failure either (the stale
         # entry is still the most recent REAL data this channel has).
         return {**cached, "source": "cache", "live_reason": result.get("reason") or "network unavailable"}
+    if result.get("commit") is None and _leaving():  # 3.6.0.17 Z2-2: a quit is not a fact about the network
+        return {**result, "source": "live"}
     result["checked_at"] = now
     _update_cache(state_dir, lambda c: c.__setitem__(channel, result))
     return {**result, "source": "live"}

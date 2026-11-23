@@ -1073,6 +1073,92 @@ def test_a_kept_spawn_has_its_own_marker_and_no_owner_watch(ctx: Ctx):
         ctx.check("a caller's own environment still gets the tree's marker", plain["env"].get(closing.MARKER))
 
 
+def _way_out(installed: bool, code, quit_called: bool) -> dict:
+    """BridgeApp._bound_the_way_out on a stand-in app, inside a running loop, with closing's state as `installed` says
+    and hard_exit recorded (never armed for real here); everything it changed is put back."""
+    import asyncio
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import closing
+    from halo_harness.tui.app import BridgeApp
+    app = SimpleNamespace(return_code=code, controller=SimpleNamespace(quit_called=quit_called))
+    armed: list = []
+    seen: dict = {}
+
+    async def body():
+        loop = asyncio.get_running_loop()
+        first = loop.run_in_executor(None, lambda: None)
+        await first
+        with mock.patch.object(closing, "hard_exit", lambda c, g: armed.append((c, g))):
+            BridgeApp._bound_the_way_out(app)
+        seen["deadline"] = closing._STATE.get("deadline")
+    saved = {k: closing._STATE.get(k) for k in ("installed", "deadline")}
+    closing._STATE.update(installed=installed, deadline=None)
+    try:
+        asyncio.run(body())
+    finally:
+        closing._STATE.update(saved)
+    return {"armed": armed, "deadline": seen.get("deadline")}
+
+
+@test
+def test_z2_the_terminal_apps_way_out_arms_the_bound_only_in_a_real_halo(ctx: Ctx):
+    """3.6.0.17 Z2-1: every way out of the terminal app (its unmount) arms the deadline and closing.hard_exit with the
+    app's own code; a test's app (closing not installed) arms nothing. A way out that has not passed controller.quit
+    yet (the restart exit, an exception) gets the quit's budget on top of the grace."""
+    from halo_harness import closing
+    off = _way_out(False, 0, True)
+    ctx.check(f"a test's app arms nothing, got {off}", off == {"armed": [], "deadline": None})
+    quit_ = _way_out(True, 0, True)
+    ctx.check(f"a confirmed quit: the deadline is armed and the bound with code 0 and the grace, got {quit_}",
+              quit_["deadline"] is not None and quit_["armed"] == [(0, closing.EXIT_GRACE_S)])
+    restart = _way_out(True, 91, False)
+    ctx.check(f"the restart exit keeps its code, with the quit's budget on top of the grace, got {restart}",
+              restart["armed"] == [(91, closing.EXIT_GRACE_S + closing.QUIT_BUDGET_S)])
+    error = _way_out(True, None, False)
+    ctx.check(f"no code set reads as 0, the launch's own fallback, got {error}", error["armed"][0][0] == 0)
+
+
+@test
+def test_z2_the_catalog_refresh_asks_no_further_provider_once_halo_is_leaving(ctx: Ctx):
+    """3.6.0.17 Z2-3: the catalog refresh at launch fetches one provider after another; once Halo is leaving (a quit
+    armed its deadline after the first fetch) it asks no further provider, and what it has is said as before."""
+    from unittest import mock
+    from types import SimpleNamespace
+    from halo_harness import closing
+    from halo_harness.providers import anthropic_catalog, databricks, enablement
+    from halo_harness.tui.slash import catalog_auto_refresh_worker
+    fetched: list = []
+    notes: list = []
+
+    def first(state_dir, env=None, **_kw):
+        fetched.append("openrouter")
+        closing._STATE["deadline"] = time.monotonic() + closing.QUIT_BUDGET_S  # the quit begins meanwhile
+        return True
+
+    def second(state_dir, env=None, **_kw):
+        fetched.append("anthropic")
+        return True
+    app = SimpleNamespace(controller=SimpleNamespace(state_dir=Path(tempfile.mkdtemp(prefix="z2-cat-")),
+                                                    settings=SimpleNamespace(effective_env={})),
+                          call_from_thread=lambda fn, *a, **kw: fn(*a, **kw),
+                          notify=lambda text, **kw: notes.append(text))
+    saved_deadline = closing._STATE.get("deadline")
+    saved_net = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+    try:
+        with mock.patch.object(enablement, "is_enabled_with_env", lambda name, env=None: name in ("openrouter", "anthropic")), \
+                mock.patch.object(databricks, "refresh_openrouter_catalog_if_stale", first), \
+                mock.patch.object(databricks, "load_models_json", lambda _d: {"a": 1, "b": 2}), \
+                mock.patch.object(anthropic_catalog, "refresh_anthropic_catalog_if_stale", second):
+            catalog_auto_refresh_worker(app)
+    finally:
+        closing._STATE["deadline"] = saved_deadline
+        if saved_net is not None:
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = saved_net
+    ctx.check(f"only the first provider was asked, got {fetched}", fetched == ["openrouter"])
+    ctx.check(f"what it has is said as before, got {notes}", notes == ["Catalog refreshed: OpenRouter (2 models)"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

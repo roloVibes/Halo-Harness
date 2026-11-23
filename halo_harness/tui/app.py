@@ -690,6 +690,32 @@ class BridgeApp(App):
         from halo_harness.termtitle import deactivate_tui_mode, set_tui_driver
         deactivate_tui_mode()
         set_tui_driver(None)
+        self._bound_the_way_out()
+
+    def _bound_the_way_out(self) -> None:
+        """3.6.0.17 Z2-1: the terminal app's way out gets the bound the other ways out have. Every way out passes
+        here: Textual's run ends in `_shutdown` (its `finally`), which unmounts the app after an `exit()` (the confirmed
+        quit, /quit, /update's restart exit, Ctrl+Q) and after an exception that ends the app (that one never calls
+        `exit()`). From here `closing.leaving()` is true, and `closing.hard_exit` (a real halo only, never a test's
+        app) ends the process with the app's own code once its grace is over: a thread worker still in a network
+        read (the catalog refresh, a balance, the update check) is abandoned, never joined. A way out that has not
+        passed `controller.quit` yet (the restart exit, an exception) runs it after this, in tui/launch.py: its
+        grace adds the quit's own budget. The loop's default pool is handed a fresh one, so asyncio's join at the
+        end of `app.run()` waits on nothing the app started: what tui/launch.py and cli.py do after it (the last
+        lines, the hand-off to the updater) runs as on a quit where nothing is stuck."""
+        from halo_harness import closing
+        closing.arm_close_deadline()
+        if not closing._STATE.get("installed"):
+            return
+        code = self.return_code if self.return_code is not None else 0
+        quit_ahead = not getattr(self.controller, "quit_called", True)
+        closing.hard_exit(code, closing.EXIT_GRACE_S + (closing.QUIT_BUDGET_S if quit_ahead else 0.0))
+        import asyncio
+        import concurrent.futures
+        try:
+            asyncio.get_running_loop().set_default_executor(concurrent.futures.ThreadPoolExecutor())
+        except RuntimeError:
+            pass
 
     def _git_branch(self) -> str:
         try:

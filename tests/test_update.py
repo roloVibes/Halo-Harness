@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -826,6 +827,131 @@ def test_z1_the_check_answers_as_before_when_the_network_answers(ctx: Ctx):
         ctx.check(f"the answer is read as before, got {r}",
                   r == {"channel": "main", "commit": "2222222", "ref": "master", "reason": None})
     finally:
+        if saved is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = saved
+
+
+@test
+def test_z2_a_check_a_quit_cut_short_writes_no_cache_and_the_next_check_asks_again(ctx: Ctx):
+    """3.6.0.17 Z2-2 (a): a check that ends because Halo is leaving writes nothing to update-check.json (a quit is not a
+    fact about the network), so the next launch within the cache's hour asks again."""
+    from halo_harness import closing
+    state_dir = _tmp()
+    saved = closing._STATE.get("deadline")
+
+    def cut(cmd, **_kw):  # the check's git, ended by the quit that began while it waited
+        closing._STATE["deadline"] = time.monotonic() + closing.QUIT_BUDGET_S  # what a quit's arm_close_deadline sets
+        raise subprocess.TimeoutExpired(cmd, 5)
+    try:
+        with _background_net_enabled():
+            r = upd.latest_available("main", state_dir=state_dir, run_fn=cut, fetch_json=lambda *a, **k: None)
+        ctx.check(f"the cut check has no answer, got {r}", r.get("commit") is None)
+        cache = upd._load_cache(state_dir)
+        ctx.check(f"nothing was written for the channel, got {cache}", "main" not in (cache or {}))
+        closing._STATE["deadline"] = saved  # the next launch: not leaving
+        run_fn = _fake_run({"ls-remote": _Proc("2222222222222222222222222222222222222222\trefs/heads/master\n")})
+        with _background_net_enabled():
+            r2 = upd.latest_available("main", state_dir=state_dir, run_fn=run_fn, fetch_json=lambda *a, **k: None)
+        ctx.check(f"the next check asked again and got the answer, got {r2}",
+                  r2.get("commit") == "2222222" and r2.get("source") == "live")
+    finally:
+        closing._STATE["deadline"] = saved
+
+
+_LS_REMOTE = ["git", "ls-remote", "--heads", "--tags", "https://gpu-box.invalid/halo.git"]
+
+
+@test
+def test_z2_a_ctrl_c_in_the_checks_wait_ends_gits_whole_tree_before_it_goes_on(ctx: Ctx):
+    """3.6.0.17 Z2-2 (b): a KeyboardInterrupt out of the wait (`halo update --check` waits on the main thread) ends git
+    and its helper before it propagates: on POSIX they run in a session of their own, where the terminal's Ctrl+C no
+    longer reaches them."""
+    from tests.helpers import hanging_git
+    folder = hanging_git.make(_tmp() / "bin")
+    saved = os.environ.get("PATH")
+    os.environ["PATH"] = f"{folder}{os.pathsep}{saved or ''}"
+    rows: list = []
+    seen: list = []
+
+    def interrupt() -> bool:  # the person's Ctrl+C, the moment git and its helper both run
+        seen[:] = hanging_git.seen(folder)
+        if len(seen) == 2:
+            raise KeyboardInterrupt
+        return False
+    try:
+        raised = None
+        try:
+            upd.run(list(_LS_REMOTE), timeout=60, stop=interrupt)
+        except KeyboardInterrupt as e:
+            raised = e
+        rows = list(seen) or hanging_git.seen(folder)
+        ctx.check(f"the stand-in git and its helper ran (not a vacuous check), got {rows}", len(rows) == 2)
+        ctx.check("the KeyboardInterrupt went on to the caller", isinstance(raised, KeyboardInterrupt))
+        left = hanging_git.wait_gone(rows, 1.0)
+        ctx.check(f"no stand-in process left (git's helper included), alive: {left} of {rows}", not left)
+    finally:
+        hanging_git.end(rows or hanging_git.seen(folder))
+        if saved is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = saved
+
+
+@test
+def test_z2_a_check_started_while_leaving_starts_no_process_at_all(ctx: Ctx):
+    """3.6.0.17 Z2-2 (b): a Halo already on its way out starts no git (nor anything else) for its update check."""
+    from unittest import mock
+    from halo_harness import closing
+    saved = closing._STATE.get("deadline")
+    started: list = []
+    asked: list = []
+
+    def no_popen(*a, **_kw):
+        started.append(a)
+        raise AssertionError("a leaving halo started a process")
+    try:
+        closing._STATE["deadline"] = time.monotonic() + closing.QUIT_BUDGET_S
+        with mock.patch.object(upd.subprocess, "Popen", no_popen):
+            r = upd._fetch_latest("main", run_fn=upd.run, fetch_json=lambda url, **_k: asked.append(url))
+        ctx.check(f"no process was started, got {started}", not started)
+        ctx.check(f"and nothing was asked over HTTP, got {asked}", not asked)
+        ctx.check(f"the check has no answer, got {r}", r.get("commit") is None)
+    finally:
+        closing._STATE["deadline"] = saved
+
+
+@test
+def test_z2_posix_the_checks_git_group_ends_even_when_getpgid_fails(ctx: Ctx):
+    """3.6.0.17 Z2-2 (c): git leads its own session, so its group is ended directly: never through os.getpgid, which
+    can fail on macOS for a leader that has already ended (the helper then lived until close() swept it)."""
+    if os.name == "nt":
+        raise SkipTest("POSIX only: Windows ends git's tree with taskkill /T, there are no process groups")
+    from unittest import mock
+    from tests.helpers import hanging_git
+    folder = hanging_git.make(_tmp() / "bin")
+    saved = os.environ.get("PATH")
+    os.environ["PATH"] = f"{folder}{os.pathsep}{saved or ''}"
+    rows: list = []
+
+    def both_seen() -> bool:
+        rows[:] = hanging_git.seen(folder)
+        return len(rows) == 2
+
+    def no_pgid(_pid):
+        raise ProcessLookupError("getpgid: no such process")
+    try:
+        with mock.patch.object(os, "getpgid", no_pgid):
+            try:
+                upd.run(list(_LS_REMOTE), timeout=60, stop=both_seen)
+            except subprocess.TimeoutExpired:
+                pass
+        ctx.check(f"the stand-in git and its helper ran (not a vacuous check), got {rows}", len(rows) == 2)
+        left = hanging_git.wait_gone(rows, 1.0)
+        ctx.check(f"no stand-in process left (git's helper included), alive: {left} of {rows}", not left)
+    finally:
+        hanging_git.end(rows or hanging_git.seen(folder))
         if saved is None:
             os.environ.pop("PATH", None)
         else:
