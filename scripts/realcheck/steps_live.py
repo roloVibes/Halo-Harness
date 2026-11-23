@@ -362,10 +362,14 @@ def judge_live_rest_point(points: list) -> list:
 
 def _head_line(points: list) -> list:
     """(4) Session's drawer head changed height between the first and the last point (every box below it moves with
-    it): both heights and the words that came new, so a report names the cause."""
+    it): both heights and the words that came new, so a report names the cause. 3.6.0.16: a head that was not read
+    (no `.mp-down-head` on the page) is a failure with its own line, never a pass with nothing checked."""
     a, b = points[0] or {}, points[-1] or {}
     ha, hb = a.get("head"), b.get("head")
-    if not isinstance(ha, (int, float)) or not isinstance(hb, (int, float)) or abs(hb - ha) <= 0.5:
+    if not isinstance(ha, (int, float)) or not isinstance(hb, (int, float)):
+        return [f"(4) Session's drawer head was not read ({ha!r} at the rest, {hb!r} at the last point): no "
+                ".mp-down-head on the page, so its height was not checked"]
+    if abs(hb - ha) <= 0.5:
         return []
     was = (a.get("words") or "").splitlines()
     new = [ln for ln in (b.get("words") or "").splitlines() if ln not in was]

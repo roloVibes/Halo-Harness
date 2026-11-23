@@ -432,7 +432,7 @@ jobs:
           halo --version
 
       - name: realcheck
-        timeout-minutes: 60  # 3.6.0.2 P8: the steps' own budgets add up to 3,560 s on Windows, 3,080 s elsewhere (3.6.0.5: auto-groups, auto-ready-lines; 3.6.0.7: copy-drag, 120 s; 3.6.0.8: browser, 180 s; 3.6.0.14: idle-cpu, 240 s; live-scene, 180 s, counted whether or not it runs in a plain run; 3.6.0.15: made-at-once, 180 s)
+        timeout-minutes: 60  # 3.6.0.2 P8: the steps' own budgets add up to 3,560 s on Windows, 3,080 s elsewhere (3.6.0.5: auto-groups, auto-ready-lines; 3.6.0.7: copy-drag, 120 s; 3.6.0.8: browser, 180 s; 3.6.0.14: idle-cpu, 240 s; live-scene, 180 s, in a plain run since 3.6.0.16; 3.6.0.15: made-at-once, 180 s)
         run: set -o pipefail; python scripts/realcheck.py --name-the-end ${{ matrix.install == 'installed' && '--installed' || '' }} --json "$RUNNER_TEMP/realcheck.json" --summary "$GITHUB_STEP_SUMMARY" 2>&1 | tee "$RUNNER_TEMP/realcheck.log"
 
       - name: The closing tests with the venv's python (Windows, installed leg)

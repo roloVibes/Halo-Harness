@@ -72,7 +72,7 @@ def test_ci_runs_every_node_half_with_the_switch_and_realcheck_has_its_time(ctx:
     """suites.yml: the studio-ui job, after `npm ci`, runs every module that imports tests/helpers/node_ts.py with
     HALO_NODE_TS_REQUIRED=1 (its grep finds every such module on this tree); the realcheck STEP has 60 minutes and its
     JOB 65 (3.6.0.5: room for the budgets of auto-groups and auto-ready-lines; 3.6.0.7: + copy-drag's 2 on Windows;
-    3.6.0.8: + the browser step's 180 s, 3 minutes more; 3.6.0.14: + idle-cpu's 90 s more, and live-scene's 180 s for when it joins the default run; 3.6.0.15: + made-at-once's
+    3.6.0.8: + the browser step's 180 s, 3 minutes more; 3.6.0.14: + idle-cpu's 90 s more, and live-scene's 180 s (in the default run since 3.6.0.16); 3.6.0.15: + made-at-once's
     180 s: the budgets add up to 3,560 s of the step's 3,600 on Windows); the names of the jobs are as they were. docs/DEVELOPMENT.md
     names the switch. Red on fc214582."""
     yml = (REPO / ".github" / "workflows" / "suites.yml").read_text(encoding="utf-8")

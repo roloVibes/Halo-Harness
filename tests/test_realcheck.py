@@ -74,10 +74,10 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
         ctx.check(f"{step}'s budget is {want} here ({words}), got {budget!r}", budget == want)
     ctx.check("an unknown step: exit 2", m.main(["--only", "no-such-step"]) == 2)
-    # 3.6.0.14: live-scene is listed, marked, and runs only when --only names it, so a plain run, and so CI, leaves it
-    # out (3.6.0.15: the faults it found are repaired and it is green by hand on Linux and Windows; not yet in CI)
+    # 3.6.0.16: no step is on request any more: live-scene runs in a plain run, and so in CI (3.6.0.14 and 3.6.0.15
+    # left it out). The rule itself stays for a later step, and is held below with a stand-in list
     marked = [line.split()[0] for line in lines if "[runs only with --only" in line]
-    ctx.check(f"--list marks live-scene alone as running only with --only, got {marked}", marked == ["live-scene"])
+    ctx.check(f"--list marks no step as running only with --only, got {marked}", marked == [] and m.ON_REQUEST == ())
     from unittest import mock
     ran: list = []
 
@@ -88,11 +88,19 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         m.main([])
         m.main(["--only", "live-scene"])
         m.main(["--only", "starts", "live-scene"])
-    ctx.check(f"a plain run is every step not in ON_REQUEST (the other nineteen, made-at-once among them), got {ran[:1]}",
-              len(ran) == 3 and ran[0] == [n for n in names if n not in m.ON_REQUEST] and len(ran[0]) == 19
+        listed = io.StringIO()
+        with mock.patch.object(m, "ON_REQUEST", ("live-scene",)):
+            m.main([])
+            with redirect_stdout(listed):
+                m.main(["--list"])
+    ctx.check(f"a plain run is all twenty steps, live-scene and made-at-once among them, got {ran[:1]}",
+              len(ran) == 4 and ran[0] == names and len(ran[0]) == 20 and "live-scene" in ran[0]
               and "made-at-once" in ran[0])
-    ctx.check(f"--only live-scene runs it, alone or with others, got {ran[1:]}",
-              ran[1:] == [["live-scene"], ["starts", "live-scene"]])
+    ctx.check(f"--only live-scene runs it, alone or with others, got {ran[1:3]}",
+              ran[1:3] == [["live-scene"], ["starts", "live-scene"]])
+    held = [line.split()[0] for line in listed.getvalue().splitlines() if "[runs only with --only" in line]
+    ctx.check(f"a step put in ON_REQUEST is left out of a plain run and marked by --list, got {ran[3:]} {held}",
+              ran[3:] == [[n for n in names if n != "live-scene"]] and held == ["live-scene"])
 
 
 @test
@@ -1500,7 +1508,7 @@ def test_live_scene_judges_the_rest_point(ctx: Ctx):
     off the page or not on the drawing is the STEP's failure (not judged); on it while the drawing is not held is the
     product's, with both readings."""
     s = _steps_live()
-    p = {"x": 700.0, "y": 400.0, "w": 1440, "h": 900, "on": True, "held": "1"}
+    p = {"x": 700.0, "y": 400.0, "w": 1440, "h": 900, "on": True, "held": "1", "head": 150.0}
     ctx.check("on the drawing and held: no failure", s.judge_live_rest_point([p, p, p]) == [])
     off = "(4) not judged: the resting point (700.0, 1838.0) is not on the drawing (page 1440 x 900)"
     got = s.judge_live_rest_point([dict(p, y=1838.0, on=False), p, p])
@@ -1532,7 +1540,14 @@ def test_live_scene_names_the_drawer_head_that_grew(ctx: Ctx):
     ctx.check(f"the head grew with the same words: says so, got {got}", got == [
         "(4) Session's drawer head went from 150.0 to 167.0 px under a resting pointer (its words did not change)"])
     ctx.check("the head kept its height: no line", s.judge_live_rest_point([p, p, dict(p, head=150.4)]) == [])
-    ctx.check("no head read: no line", s.judge_live_rest_point([dict(p, head=None), p, p]) == [])
+    got = s.judge_live_rest_point([dict(p, head=None), p, p])
+    ctx.check(f"3.6.0.16: no head read at the rest: its own line, never a pass, got {got}", got == [
+        "(4) Session's drawer head was not read (None at the rest, 150.0 at the last point): no .mp-down-head on the "
+        "page, so its height was not checked"])
+    got = s.judge_live_rest_point([p, p, {k: v for k, v in p.items() if k != "head"}])
+    ctx.check(f"3.6.0.16: no head read at the last point: the same line, got {got}", got == [
+        "(4) Session's drawer head was not read (150.0 at the rest, None at the last point): no .mp-down-head on the "
+        "page, so its height was not checked"])
 
 
 @test

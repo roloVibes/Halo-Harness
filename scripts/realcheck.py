@@ -39,11 +39,11 @@ os.environ["OLLAMA_HOST"] = "http://127.0.0.1:9"  # this process too: nothing he
 from realcheck.report import FAIL, PASS, SKIP, Result, markdown, run_info, to_json  # noqa: E402
 
 
-# 3.6.0.14: steps that run only when `--only` names them. `live-scene` is one for now: it fails today on faults it
-# found in the product (docs/DEVELOPMENT.md names them), so the default run, and so CI, leaves it out until they are
-# fixed.
-ON_REQUEST = ("live-scene",)
-ON_REQUEST_NOTE = "  [runs only with --only: green by hand on Linux and Windows, not yet run on macOS or in CI, see docs/DEVELOPMENT.md]"
+# Steps that run only when `--only` names them: a step that fails on a product fault it found waits here, named in
+# docs/DEVELOPMENT.md, until the fault is repaired. 3.6.0.14 and 3.6.0.15 held `live-scene` here; since 3.6.0.16
+# the list is empty: every step runs in a plain run, and so in CI.
+ON_REQUEST: tuple = ()
+ON_REQUEST_NOTE = "  [runs only with --only, see docs/DEVELOPMENT.md]"
 
 
 def _steps() -> list:
