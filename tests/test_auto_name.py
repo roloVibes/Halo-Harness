@@ -708,7 +708,9 @@ def test_studio_lists_say_ships_with_halo(ctx: Ctx):
         "crew/List.tsx": ["None yet: + New agent, or copy one that ships with Halo below.", ">Ships with Halo · Copy makes it yours<"],
         "crew/flows/FlowList.tsx": ["None yet: + New workflow, copy one that ships with Halo below, or describe one in the builder box.",
                                     ">Ships with Halo · Copy makes it yours<"],
-        "crew/Form.tsx": ["Make one here, copy one that ships with Halo from the list, or describe it in the builder box below."],
+        "crew/Form.tsx": ["Make one here, copy one that ships with Halo from the list, or describe it in the builder box below.",
+                          # 3.6.0.15 O2-6: a shipped agent opened by name is read in the form (its band)
+                          "ships with Halo: read it here; Copy makes it yours to change."],
         "crew/flows/FlowForm.tsx": ["Make one here, copy one that ships with Halo from the list, or describe it in the builder box below.",
                                     '<span className="cw-tag">{scopeTag(a.scope, a.name)}</span>'],
         # 3.6.0.6 P: the tag of every list comes from the one function (a pack's reads "pack {id}")

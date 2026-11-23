@@ -210,6 +210,8 @@ class HoldStillDriver(Driver):
         seed_catalog(state)  # a catalog of every provider (fixture caches; no network) for the model picker
         seed_b(state)
         write_seven(state)  # 3.6.0.5 A11: the scratch map the Lock and the strip are measured on
+        from tests.helpers.his_agent import his_coder
+        his_coder(state)  # 3.6.0.15 O2-6: a shipped one is read-only (no Save, its picker off): the form measured is his coder
         proj = state.parent / "project"
         seed_run(proj)
         srv, _url = serve(state, proj=proj)

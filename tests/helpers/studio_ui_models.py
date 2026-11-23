@@ -205,6 +205,8 @@ class ModelsUiDriver(Driver):
         from capture_studio import seeded_home, serve
         from tests.helpers.catalog_facts_seed import seed
         state = seeded_home()
+        from tests.helpers.his_agent import his_coder
+        his_coder(state)  # 3.6.0.15 O2-6: a shipped one's picker is off; this check picks on his coder
         seed(state)  # every provider's cache, the fixture keys in this (the server's) process env
         srv, url = serve(state, True)
         from tests.helpers.studio_full import full

@@ -11,8 +11,13 @@ model). tests/test_studio_crew.py reads what it saw:
     write     Write it for me fills the box; Send; the preview's line; Apply: the form's instructions are the draft
     try       the cost line before; a test request; the result (reply, tools, cost) in the tab; marked seen
     delete    Delete asks on the page; Keep it
+    shipped   3.6.0.15 O2-6: `planner` (ships with Halo) opened by name through Studio's edit door is read there: its
+              band, every field and the model picker off, no Save, Discard or Delete, Try it there; Copy: my-planner
+    made      (`made`, its own run over tests/helpers/studio_session_rig.py: a live session with a made-up helper)
+              O2-6: the helper's "Save as an agent" fills the form, its note naming the helper and the body's model
 
     python -m tests.helpers.studio_crew [DIR]     DIR: also save studio-agents-tab.png and studio-builder-preview.png
+    python -m tests.helpers.studio_crew made      the `made` run alone
 No model is called beyond the mock upstream and the scripted builder."""
 from __future__ import annotations
 
@@ -184,6 +189,61 @@ def delete(c, rig) -> dict:
     return out
 
 
+SHIPPED = "planner ships with Halo: read it here; Copy makes it yours to change."
+
+
+def shipped(c, rig) -> dict:
+    """3.6.0.15 O2-6: a shipped agent opened by name (the edit door, as `halo agents edit planner` opens it). A control in
+    a disabled fieldset is `:disabled` while its own `disabled` property stays false: the step asks `:disabled`."""
+    c.go(rig.url("&edit=agent:planner"))
+    c.wait(f"{tid('crew-form')}?.dataset.name === 'planner' && !!{tid('crew-readonly')}", 40)
+    fields = f"{QA}('[data-testid=\"crew-fields\"] input, [data-testid=\"crew-fields\"] textarea, [data-testid=\"crew-fields\"] button')"
+    out = {"shipped": c.js(
+        f"({{band: {tid('crew-readonly')}.innerText, fields: {fields}.length, off: [...{fields}].every((e) => e.matches(':disabled')),"
+        f" picker: !!{tid('crew-model')}?.querySelector('[data-testid=model-select]')?.matches(':disabled'), save: !!{tid('crew-save')}, discard: !!{tid('crew-discard')},"
+        f" del: !!{tid('crew-delete')}, copy: !!{tid('crew-copy')}, try_it: !!{tid('crew-try-text')} && !{tid('crew-try-text')}.matches(':disabled')}})")}
+    click(c, "crew-copy")
+    c.wait(f"{tid('crew-name')}?.value === 'my-planner' && !{tid('crew-readonly')}", 20)
+    out["shipped_copy"] = c.js(f"[{tid('crew-name')}.value, {tid('crew-note')}.innerText, !{tid('crew-name')}.matches(':disabled'), !!{tid('crew-save')}]")
+    out["shipped_file"] = rig.api("GET", "crew/agent/my-planner")[0]  # not saved: nothing written
+    return out
+
+
+def made(c, rig, lv) -> dict:
+    """3.6.0.15 O2-6: Save as an agent on a made-up helper's row (Agents -> 4 · Live) fills the form; its note names the
+    helper and the filled body's model, the route's own line (studio/crew_live_api.py BUILT) letter for letter."""
+    from tests.helpers.studio_map_live_steps import LWORLD, lq
+    _st, r = rig.api("POST", "crew/from-live", {"session": lv.sid, "agent_id": "h3lp3r01"})  # writes nothing
+    c.go(rig.url("agents", "&view=live"))
+    c.wait(f"{VIEW} === 'live'", 40)
+    row = lq(f'{LWORLD} [data-row="h3lp3r01"]')
+    btn = f"{row}?.querySelector('[data-testid=map-save-agent]')"
+    c.wait(f"!!{btn}", 30)
+    c.js(f"{btn}.scrollIntoView({{block: 'nearest'}}); 1")
+    c.click_on(btn)
+    c.wait(f"{VIEW} === 'crew'", 20)
+    note = c.wait(f"{tid('crew-note')}?.innerText.startsWith('Built from') && {tid('crew-note')}.innerText", 20)
+    return {"made": {"note": note, "line": r.get("line"), "model": (r.get("agent") or {}).get("model"), "helper": (r.get("from") or {}).get("name"),
+                     "save": c.js(f"!!{tid('crew-save')} && !{tid('crew-name')}.matches(':disabled')")}}
+
+
+class MadeDriver(Driver):
+    no_chrome = {"skip": "no Chrome found"}
+    width, height = 1500, 900
+
+    @contextmanager
+    def session(self, c):
+        from tests.helpers.studio_live_rig import Live
+        from tests.helpers.studio_map_live import EXTRA, seed
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
+            seed(rig)
+            lv = Live(rig, extra=EXTRA[:1])
+            lv.rows["h3lp3r01"]["crew"] = {"map": "shop", "box": "main", "made_up": True}
+            lv.refresh(map="shop")
+            yield ((made, (c, rig, lv)),)
+
+
 class CrewDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1500, 900
@@ -194,8 +254,8 @@ class CrewDriver(Driver):
         SHOTS[:] = self.argv[:1]
         with CrewRig() as rig:
             rig.studio()
-            yield tuple((fn, (c, rig)) for fn in (first, copy, edit, make, write, try_it, seen, delete))
+            yield tuple((fn, (c, rig)) for fn in (first, copy, edit, make, write, try_it, seen, delete, shipped))
 
 
 if __name__ == "__main__":
-    sys.exit(CrewDriver(sys.argv[1:]).main())
+    sys.exit(MadeDriver(sys.argv[2:]).main() if sys.argv[1:2] == ["made"] else CrewDriver(sys.argv[1:]).main())

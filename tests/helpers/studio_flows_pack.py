@@ -82,7 +82,7 @@ def agents(c, rig) -> dict:
     c.click_on(f"{Q}('{row}')")
     c.wait(f"!!{t('crew-savebar')} && !!{t('crew-copy')}", 20)
     time.sleep(0.3)
-    out["agent_form"] = c.js(f"({{line: {t('crew-readonly')}?.innerText, save: {t('crew-save')}.disabled, delete: !!{t('crew-delete')}}})")
+    out["agent_form"] = c.js(f"({{line: {t('crew-readonly')}?.innerText, save: !!{t('crew-save')}, delete: !!{t('crew-delete')}}})")
     return out
 
 

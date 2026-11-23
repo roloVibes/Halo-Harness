@@ -133,6 +133,8 @@ class SwitchListsDriver(Driver):
         from capture_studio import seeded_home, serve
         from halo_harness.studio import model as M
         state = seeded_home()
+        from tests.helpers.his_agent import his_coder
+        his_coder(state)  # 3.6.0.15 O2-6: a shipped one's picker is off; this check picks on his coder
         claude = Path(os.environ["BRIDGE_TEST_HOME"]) / ".claude"
         claude.mkdir(parents=True, exist_ok=True)
         (claude / "settings.json").write_text(json.dumps({"env": {"ANTHROPIC_MODEL": "databricks-claude-sonnet-4",

@@ -190,6 +190,8 @@ class ModelCardDriver(Driver):
         from halo_harness.theme import set_config_value
         from tests.helpers.model_card_fixtures import ROWS, host_card, write_probes
         state = seeded_home()
+        from tests.helpers.his_agent import his_coder
+        his_coder(state)  # 3.6.0.15 O2-6: a shipped one's picker is off; this check picks on his coder
         set_config_value("ollama.hosts", [{"name": "pc", "url": "http://192.0.2.10:11434", "default": True}])
         set_config_value("model", "ol:qwen3.8:27b")
         write_probes(state)

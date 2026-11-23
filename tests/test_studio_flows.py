@@ -212,7 +212,8 @@ def test_a_packs_agent_and_the_maps_list_say_the_pack(ctx: Ctx):
     got = _pack(ctx)
     ctx.check(f"the Agents list tags the pack's agent, got {got.get('agent_tag')!r}", got.get("agent_tag") == "pack doc-review")
     a = got.get("agent_form") or {}
-    ctx.check(f"its form: the line, Save off, no Delete, got {a}", a.get("line") == PACK_LINE and a.get("save") is True and a.get("delete") is False)
+    # 3.6.0.15 O2-6: the server's `writable` false takes Save (and Discard, Delete) away from a pack's form
+    ctx.check(f"its form: the line, no Save, no Delete, got {a}", a.get("line") == PACK_LINE and a.get("save") is False and a.get("delete") is False)
     tags = got.get("map_tags") or []
     ctx.check(f"the Map's add list tags the pack's workflow and agents, got {tags}",
               len(tags) >= 3 and all(tag == "pack doc-review" for _ref, tag in tags))

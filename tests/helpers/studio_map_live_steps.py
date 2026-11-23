@@ -159,7 +159,7 @@ def helper(c, rig, lv, sent) -> dict:
     c.click_on(btn)
     out["view"] = c.wait(f"{VIEW} === 'crew' && {VIEW}", 15)
     name = "document.querySelector('[data-testid=crew-name]')"
-    out["form"] = c.wait(f"{name}?.value && [{name}.value, document.body.innerText.includes('the helper a session made up, not saved yet')]", 10)
+    out["form"] = c.wait(f"{name}?.value && [{name}.value, document.body.innerText.includes('not saved yet: read it, change what you like, then Save.')]", 10)
     folder = Path(rig.state) / "crew" / "agents"
     out["written"] = sorted(p.name for p in folder.glob("*.yaml")) if folder.is_dir() else []
     c.js("document.activeElement?.blur(); 1")

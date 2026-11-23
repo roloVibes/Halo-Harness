@@ -118,6 +118,8 @@ class LearnedDriver(Driver):
             unset_config_value("team")  # nothing names a lineup: the default auto lineup is in use
             seed(rig.state)  # every provider's cache, the fixture keys in this (the server's) process env
             seed_fixture(rig.state, "learn-roster")
+            from tests.helpers.his_agent import his_coder
+            his_coder(rig.state)  # 3.6.0.15 O2-6: a shipped one's picker is off; this check picks on his coder
             yield ((pick_words, (c, rig)), (picker, (c, rig)))
 
 

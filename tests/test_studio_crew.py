@@ -10,7 +10,9 @@ this tab at 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `crew` view)
    ticked lines say; Undo removes it;
 5. Write it for me fills the box (focused); its preview line, Apply: the form holds the draft;
 6. Try it: the cost line before; the result in the tab (the mock's reply, Glob used, where it ran); marked seen;
-7. Delete asks on the page; Keep it keeps it.
+7. Delete asks on the page; Keep it keeps it;
+8. 3.6.0.15 O2-6: a shipped agent opened by name is read in the form (its band, its fields off, Copy only: my-{name});
+   the form a made-up helper's Save as an agent fills names the helper and its model (a run of its own: `made`).
 Run: python -m tests.test_studio_crew
 """
 from __future__ import annotations
@@ -95,6 +97,30 @@ def test_delete_asks_on_the_page(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the question, got {got.get('ask')!r}", got.get("ask") == "Delete my-reviewer? Its file goes; nothing else changes.")
     ctx.check(f"Keep it: still there, got {got.get('still')}", got.get("kept") is True and got.get("still") == 200)
+
+
+@test
+def test_a_shipped_agent_opened_by_name_is_read_here(ctx: Ctx):
+    got = _got(ctx)
+    s = got.get("shipped") or {}
+    ctx.check(f"the band, got {s.get('band')!r}", s.get("band") == "planner ships with Halo: read it here; Copy makes it yours to change.")
+    ctx.check(f"every field and the model picker off, got {s}", (s.get("fields") or 0) > 5 and s.get("off") is True and s.get("picker") is True)
+    ctx.check(f"no Save, Discard or Delete; Copy and Try it there, got {s}",
+              s.get("save") is False and s.get("discard") is False and s.get("del") is False and s.get("copy") is True and s.get("try_it") is True)
+    ctx.check(f"Copy: my-planner, not saved, his to change, got {got.get('shipped_copy')} {got.get('shipped_file')}",
+              got.get("shipped_copy") == ["my-planner", "A copy of planner, not saved yet: it is yours to change, then Save.", True, True]
+              and got.get("shipped_file") == 404)
+
+
+@test
+def test_a_make_fills_the_form_with_its_model(ctx: Ctx):
+    got = driver_got(ctx, "tests.helpers.studio_crew", why="a made-up helper's Save as an agent, in headless Chrome", cache=_RUN,
+                     key="made", args=("made",), timeout=420)
+    m = got.get("made") or {}
+    want = f"Built from {m.get('helper')} on {m.get('model')}, not saved yet: read it, change what you like, then Save."
+    ctx.check(f"the note names the helper and the body's model, got {m}",
+              bool(m.get("helper")) and bool(m.get("model")) and m.get("note") == want and m.get("line") == want)
+    ctx.check(f"the filled form is his to change and Save, got {m.get('save')}", m.get("save") is True)
 
 
 if __name__ == "__main__":

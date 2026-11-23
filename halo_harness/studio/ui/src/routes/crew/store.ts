@@ -24,11 +24,13 @@ export type CrewState = {
   stale: boolean;
   /** 3.6.0.0 R2: the workflow this agent was made for ("make it" / "+ Add a step" -> a new agent): Save goes back there. */
   returnTo: string;
+  /** 3.6.0.15 O2-6: the server's `writable` (studio/crew_api.py): false for one that ships with Halo or a pack's, read here. */
+  writable: boolean;
 };
 
 export const crew = createStore<CrewState>({
   loaded: false, error: "", agents: [], starters: [], open: null, form: null, saved: null, used: [], note: "", asking: "", busy: false, stale: false,
-  returnTo: "",
+  returnTo: "", writable: true,
 });
 export const useCrew = <T,>(pick: (s: CrewState) => T): T => useStore(crew, pick);
 
@@ -68,9 +70,10 @@ function clean(a: Agent): Agent {
 
 export async function openAgent(name: string, scope?: Scope): Promise<void> {
   try {
-    const r = await api.get<{ agent: Agent; scope: Scope; used: string[] }>(`crew/agent/${encodeURIComponent(name)}`, scope ? { scope } : undefined);
+    const r = await api.get<{ agent: Agent; scope: Scope; used: string[]; writable?: boolean }>(`crew/agent/${encodeURIComponent(name)}`, scope ? { scope } : undefined);
     const a = clean(r.agent);
-    crew.update(() => ({ open: { name, scope: r.scope }, form: a, saved: a, used: r.used, note: "", asking: "", stale: false, returnTo: "" }));
+    crew.update(() => ({ open: { name, scope: r.scope }, form: a, saved: a, used: r.used, note: "", asking: "", stale: false, returnTo: "",
+      writable: r.writable !== false }));
   } catch (e) {
     toast(msg(e), "error", 5000);
   }
@@ -78,7 +81,7 @@ export async function openAgent(name: string, scope?: Scope): Promise<void> {
 
 export function newAgent(): void {
   const a = blank(unique("new-agent"));
-  crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], note: "Not saved yet.", asking: "", stale: false, returnTo: "" }));
+  crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], note: "Not saved yet.", asking: "", stale: false, returnTo: "", writable: true }));
 }
 
 let back: ((agent: string, workflow: string) => void) | null = null;
@@ -90,22 +93,22 @@ export function onSavedFor(fn: (agent: string, workflow: string) => void): void 
 /** 3.6.0.0 R2: the agent form filled in for a workflow (a proposal's "make it", or "+ Add a step" -> a new agent). */
 export function fillAgent(a: Agent, workflow: string): void {
   const form = clean({ ...blank(a.name), ...a });
-  crew.update(() => ({ open: { name: "", scope: "yours" }, form, saved: null, used: [], asking: "", stale: false, returnTo: workflow,
+  crew.update(() => ({ open: { name: "", scope: "yours" }, form, saved: null, used: [], asking: "", stale: false, returnTo: workflow, writable: true,
     note: `Made for the workflow ${workflow}, not saved yet: read it, change what you like, Save -- you go back to the workflow.` }));
 }
 
 /** 3.6.0.0 R4: the agent form filled in from a helper a session made up (the Map's "Save as an agent"): not saved yet. */
 export function fillFromLive(a: Agent, helper: string): void {
   const form = clean({ ...blank(unique(a.name || "helper")), ...a, name: unique(a.name || "helper") });
-  crew.update(() => ({ open: { name: "", scope: "yours" }, form, saved: null, used: [], asking: "", stale: false, returnTo: "",
-    note: `Built from ${helper}, the helper a session made up, not saved yet: read it, change what you like, then Save.` }));
+  crew.update(() => ({ open: { name: "", scope: "yours" }, form, saved: null, used: [], asking: "", stale: false, returnTo: "", writable: true,
+    note: `Built from ${helper} on ${form.model}, not saved yet: read it, change what you like, then Save.` }));
 }
 
 export async function copyFrom(name: string, scope: Scope): Promise<void> {
   try {
     const r = await api.get<{ agent: Agent }>(`crew/agent/${encodeURIComponent(name)}`, { scope });
     const a = clean({ ...r.agent, name: unique(copyStem(name, scope)) });
-    crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], asking: "", stale: false,
+    crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], asking: "", stale: false, writable: true,
       note: `A copy of ${name}, not saved yet: it is yours to change, then Save.` }));
   } catch (e) {
     toast(msg(e), "error", 5000);
@@ -122,7 +125,7 @@ export function setMore(patch: Partial<NonNullable<Agent["more"]>>): void {
 
 export async function save(): Promise<boolean> {
   const s = crew.get();
-  if (!s.form || !s.open || readOnly(s.open.scope)) return false;
+  if (!s.form || !s.open || !s.writable || readOnly(s.open.scope)) return false;
   const a = clean(s.form);
   const path = `crew/agent/${encodeURIComponent(a.name)}`;
   crew.update(() => ({ busy: true }));
@@ -161,9 +164,11 @@ export function discard(): void {
 export function copyOpen(): void {
   const s = crew.get();
   if (!s.form) return;
-  if (s.open?.scope === "pack" && s.open.name) return void copyFrom(s.open.name, "pack"); // 3.6.0.6 P: as a shipped one
+  // 3.6.0.6 P / 3.6.0.15 O2-6: one that ships with Halo or a pack's is copied from its file as my-{name} (copyStem)
+  if (readOnly(s.open?.scope) && s.open?.name) return void copyFrom(s.open.name, s.open.scope);
   const a = { ...s.form, name: unique(`${s.form.name}-copy`) };
-  crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], note: `A copy of ${s.form!.name}, not saved yet.`, asking: "" }));
+  crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], note: `A copy of ${s.form!.name}, not saved yet.`, asking: "",
+    writable: true }));
 }
 
 export const askDelete = (on: boolean) => crew.update(() => ({ asking: on ? "delete" : "" }));
