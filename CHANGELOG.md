@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.14] - unreleased
+## [3.6.0.14] - 2026-11-22
 
 The box opens in place, and the hand-out measure run for real. On the drawing of a running session a click on a box
 now opens that box's card at the box, with a head that holds still, one row of actions and one body that scrolls.
