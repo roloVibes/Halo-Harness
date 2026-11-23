@@ -43,7 +43,7 @@ from realcheck.report import FAIL, PASS, SKIP, Result, markdown, run_info, to_js
 # found in the product (docs/DEVELOPMENT.md names them), so the default run, and so CI, leaves it out until they are
 # fixed.
 ON_REQUEST = ("live-scene",)
-ON_REQUEST_NOTE = "  [runs only with --only: it fails today on product faults it found, see docs/DEVELOPMENT.md]"
+ON_REQUEST_NOTE = "  [runs only with --only: green by hand on Linux and Windows, not yet run on macOS or in CI, see docs/DEVELOPMENT.md]"
 
 
 def _steps() -> list:

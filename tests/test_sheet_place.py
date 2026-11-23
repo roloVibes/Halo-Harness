@@ -550,6 +550,19 @@ def test_the_model_request_ends_with_the_sheet(ctx: Ctx):
     ctx.check("Undo's refusal reads as Undo's (`refused(e, true)`)", "refused(e, true)" in src)
 
 
+@test
+def test_a_groups_card_says_why_its_chosen_row_got_its_model(ctx: Ctx):
+    """3.6.0.15: a group whose helpers are all done folds and its members' boxes (and their hovers) are hidden, so
+    the group's card is where a person reads "Why this model: ..." for the row he chose (the real-use step
+    auto-groups reads it there). A member's card keeps its own line; main's card and a workflow's have none."""
+    src = (Path(__file__).resolve().parent.parent / "halo_harness/studio/ui/src/routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
+    ctx.check("the head's why line is the member's own, else a group's chosen row's",
+              'const why = t.why || (t.id.startsWith("group:") && m ? whyThisModel(m.reason) : "");' in src)
+    ctx.check("the head draws that line under the one test id",
+              src.count('data-testid="map-step-in-why">{why}</p>') == 1 and "{t.why}" not in src)
+    ctx.check("the words come from the one place that writes them", 'whyThisModel, type Said } from "./truthBits"' in src)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

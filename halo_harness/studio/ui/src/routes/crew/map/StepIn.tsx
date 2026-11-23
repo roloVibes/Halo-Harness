@@ -42,7 +42,7 @@ import { saidWho, StepInSaid, useSaid } from "./StepInSaid";
 import { headingOf, modelFor } from "./modelBlock";
 import { StepInModel } from "./StepInModel";
 import { agentRow, endedAt, openInAgents, openMapAt } from "./truth";
-import { saidParts, type Said } from "./truthBits";
+import { saidParts, whyThisModel, type Said } from "./truthBits";
 import { toldEvery, type Told } from "./turnWords";
 import { useSheet } from "./useSheet";
 
@@ -91,6 +91,8 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const met = useRef<string[]>([]); // every helper the block named on this card: each keeps its own while the card lives
   if (aid && !met.current.includes(aid)) met.current.push(aid);
   const m = groups?.flatMap((g) => g.members).find((x) => x.aid === (own || chosen?.aid));
+  // a group's card says why its CHOSEN row got its model: the members of a folded group have no hover to say it
+  const why = t.why || (t.id.startsWith("group:") && m ? whyThisModel(m.reason) : "");
   const state = own && m ? [memberLine(m), memberState(m)].join(" · ") : t.text;
   const nw = useNowOf(m ? m.aid : chosen?.aid || "", m ? m.raw : String(a?.state || ""), m ? m.started : Number(a?.since) || 0, m ? m.ended : 0);
   const head = sheet.width ? sheetHead(sheet.width, t.text, nw) : null; // its width at open: the head's rows are held from it
@@ -113,7 +115,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
           <button type="button" className="mp-step-in-x" data-testid="map-step-in-close" aria-label="Close" onClick={sheet.fold}>×</button>
         </div>
         <p className="mp-step-in-state mono" data-testid="map-step-in-state" style={head ? { minHeight: head.stateRows * 17 } : undefined}>{state}</p>
-        {t.why && <p className="mp-step-in-state mono" data-testid="map-step-in-why">{t.why}</p>}
+        {why && <p className="mp-step-in-state mono" data-testid="map-step-in-why">{why}</p>}
         {(m || chosen) && (
           <p className="mp-step-in-state mp-step-in-now mono" data-testid="map-step-in-now" data-now={nw.kind}
              style={head ? { minHeight: head.nowRows * 17 } : undefined}>

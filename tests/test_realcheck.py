@@ -74,8 +74,8 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
         ctx.check(f"{step}'s budget is {want} here ({words}), got {budget!r}", budget == want)
     ctx.check("an unknown step: exit 2", m.main(["--only", "no-such-step"]) == 2)
-    # 3.6.0.14: live-scene is listed, marked, and runs only when --only names it (it fails today on product faults
-    # it found), so a plain run, and so CI, leaves it out
+    # 3.6.0.14: live-scene is listed, marked, and runs only when --only names it, so a plain run, and so CI, leaves it
+    # out (3.6.0.15: the faults it found are repaired and it is green by hand on Linux and Windows; not yet in CI)
     marked = [line.split()[0] for line in lines if "[runs only with --only" in line]
     ctx.check(f"--list marks live-scene alone as running only with --only, got {marked}", marked == ["live-scene"])
     from unittest import mock
