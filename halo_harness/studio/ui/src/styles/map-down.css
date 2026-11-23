@@ -118,6 +118,7 @@
 .mp-step-in-model-head { font-size: 12px; line-height: 17px; letter-spacing: 0.06em; color: var(--muted); }
 .mp-step-in-model-lines { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .mp-step-in-model-btns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.mp-step-in-model-held { visibility: hidden; pointer-events: none; } /* Undo's room before a pick: its coming moves nothing */
 .mp-step-in-head { flex: none; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .mp-step-in-titlerow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-width: 0; }
 .mp-step-in-title { font-size: 13.5px; line-height: 19px; overflow-wrap: anywhere; }

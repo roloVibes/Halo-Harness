@@ -354,6 +354,7 @@ out.picked = M.mb.blockParts(D.ROUTED, {line: "Made media-reader, an agent of yo
 out.undone = M.mb.blockParts(D.ROUTED, {line: "Taken back: media-reader is gone.", undo: null});
 out.made = M.mb.MADE;
 out.refused = [M.mb.refusedLine({line: "Not switched: main is in a turn: pick again when it ends."}, "x"), M.mb.refusedLine({}, "the name is taken")];
+out.undoRefused = [M.mb.refusedLine({line: "Not undone: media-reader was changed since."}, "x", true), M.mb.refusedLine(undefined, "no answer", true)];
 console.log(JSON.stringify(out));"""
     D = _kinds()
     got = _run(["mb"], js, D)
@@ -369,11 +370,19 @@ console.log(JSON.stringify(out));"""
         ctx.check(f"{k}: Edit in Agents only for MINE, got {p.get('edit')!r}", p.get("edit") == ("Edit in Agents" if k == "MINE" else ""))
         ctx.check(f"{k}: Make it an agent only for the made kinds, got {p.get('make')!r}", p.get("make") == ("Make it an agent" if k in made else ""))
         ctx.check(f"{k}: no Undo before a pick, got {p.get('undo')!r}", p.get("undo") == "")
+        # controls hold still (BUILDER-RULES): the button row is drawn from the first draw whenever it will hold a button,
+        # and Undo's room is kept there whenever a pick can bring it, so neither Undo nor the row pushes anything later
+        ctx.check(f"{k}: the button row from the first draw when a button can be in it, got {p.get('btns')!r}",
+                  p.get("btns") is bool(g["can"] or k == "MINE" or k in made))
+        ctx.check(f"{k}: Undo's room held from the first draw when it can pick, got {p.get('undoRoom')!r}", p.get("undoRoom") is g["can"])
+    ctx.check(f"MAIN: its row (Undo's room) is there before a pick, got {got.get('MAIN')}",
+              (got.get("MAIN") or {}).get("btns") is True and (got.get("MAIN") or {}).get("undoRoom") is True)
     ctx.check(f"MINE's two rows, got {got.get('MINE', {}).get('rows')}", got.get("MINE", {}).get("rows") == two)
     e = got.get("error") or {}
     ctx.check(f"a failed GET: its one row, no picker, no button, got {e}",
               e.get("rows") == ["Could not read this helper's agent: no answer"] and e.get("picker") is False
-              and e.get("edit") == e.get("make") == e.get("undo") == "" and e.get("heading") == "MODEL")
+              and e.get("edit") == e.get("make") == e.get("undo") == "" and e.get("heading") == "MODEL"
+              and e.get("btns") is False and e.get("undoRoom") is False)
     ctx.check(f"still reading: no block, got {got.get('reading')}", got.get("reading") is None)
     p = got.get("picked") or {}
     ctx.check(f"after a pick: its line replaces the rows, first stays, Undo, got {p}",
@@ -383,6 +392,9 @@ console.log(JSON.stringify(out));"""
     ctx.check(f"after Undo: its line, Undo gone, got {u}", u.get("rows") == ["Taken back: media-reader is gone."] and u.get("undo") == "")
     ctx.check(f"a refusal's own line, else 'Not saved: {{error}}.', got {got.get('refused')}",
               got.get("refused") == ["Not switched: main is in a turn: pick again when it ends.", "Not saved: the name is taken."])
+    # a failed Undo is not a failed save: the route's own line, else the design's Undo refusal head "Not undone:"
+    ctx.check(f"a refused Undo: its own line, else 'Not undone: {{error}}.', got {got.get('undoRefused')}",
+              got.get("undoRefused") == ["Not undone: media-reader was changed since.", "Not undone: no answer."])
 
 
 @test
@@ -418,6 +430,11 @@ def test_the_model_request_ends_with_the_sheet(ctx: Ctx):
     ctx.check(f"the pick and Undo POST through call( with the abort signal, got {posts}",
               sorted(posts) == ["crew/agent-model", "crew/agent-model/undo"])
     ctx.check("no api.post( (it takes no signal)", "api.post" not in src)
+    # controls hold still: the rows keep the height of their first draw (a pick's shorter line moves nothing under them),
+    # Undo's room is held hidden until a pick brings it, and Undo's refusal is its own
+    ctx.check("the rows hold their first draw's height (`minHeight: held.current`)", "minHeight: held.current" in src)
+    ctx.check("Undo's room held hidden before a pick (`mp-step-in-model-held`)", "mp-step-in-model-held" in src)
+    ctx.check("Undo's refusal reads as Undo's (`refused(e, true)`)", "refused(e, true)" in src)
 
 
 if __name__ == "__main__":

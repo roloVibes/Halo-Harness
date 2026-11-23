@@ -7,7 +7,7 @@
 // its answer's line replaces the rows, and [Undo] sends its token back. [Edit in Agents] opens his agent in the form;
 // [Make it an agent] is the face's "Save as an agent" (LitBits.tsx saveAsAgent). When the sheet goes, the timer is
 // cleared and every request of the block aborted and its answer dropped (a save already sent stays saved); no interval.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, ApiError, call } from "../../../lib/api";
 import { goSection } from "../../../lib/store";
 import { Button } from "../../../lib/ui";
@@ -44,6 +44,9 @@ export function StepInModel({ sid, aid, got, late }: { sid: string; aid: string;
   const [busy, setBusy] = useState(false);
   const live = useRef<AbortController | null>(null);
   useEffect(() => () => { live.current?.abort(); live.current = null; }, []); // the sheet went: drop what is in flight
+  const lines = useRef<HTMLDivElement>(null);
+  const held = useRef(0); // the rows' height at their first draw: a pick's shorter line moves nothing under them
+  useLayoutEffect(() => { if (!held.current && lines.current) held.current = lines.current.offsetHeight; });
   const parts = blockParts(got, after);
   if (!parts) return null;
   const info = got !== "reading" && !("error" in got) ? got : null;
@@ -59,7 +62,8 @@ export function StepInModel({ sid, aid, got, late }: { sid: string; aid: string;
     setAfter(next);
     setBusy(false);
   };
-  const refused = (e: unknown) => (e instanceof ApiError ? refusedLine(e.data, e.message) : refusedLine(undefined, String(e)));
+  const refused = (e: unknown, isUndo = false) =>
+    (e instanceof ApiError ? refusedLine(e.data, e.message, isUndo) : refusedLine(undefined, String(e), isUndo));
   const pick = (choice: string) => {
     const ref = choice || (info?.kind === "MAIN" ? "" : "auto");
     if (!ref) return;
@@ -72,7 +76,7 @@ export function StepInModel({ sid, aid, got, late }: { sid: string; aid: string;
     const ctl = start();
     call<Answer>("POST", "crew/agent-model/undo", { undo: after?.undo }, undefined, ctl.signal)
       .then((r) => { if (!ctl.signal.aborted) setPicked(null); end(ctl, { line: String(r?.line || ""), undo: null }); },
-            (e) => end(ctl, { line: refused(e), undo: null }));
+            (e) => end(ctl, { line: refused(e, true), undo: null }));
   };
   const edit = () => void openAgent(info?.name || "").then(() => goSection("agents", "crew"));
   const make = () => void saveAsAgent(sid, aid).then((ok) => { if (ok) goSection("agents", "crew"); });
@@ -84,12 +88,13 @@ export function StepInModel({ sid, aid, got, late }: { sid: string; aid: string;
         <ModelSelect label={parts.label} value={picked ?? info.model} onPick={pick} testid="map-step-in-model-select"
                      inherit={info.kind === "MAIN" ? undefined : AUTO} inline compact noTest busy={busy} />
       )}
-      <div className="mp-step-in-model-lines" data-testid="map-step-in-model-line">
+      <div ref={lines} className="mp-step-in-model-lines" data-testid="map-step-in-model-line" style={held.current ? { minHeight: held.current } : undefined}>
         {parts.rows.map((r, i) => <p key={i} className="mp-step-in-state mono">{r}</p>)}
       </div>
-      {(parts.undo || parts.edit || parts.make) && (
+      {parts.btns && (
         <div className="mp-step-in-model-btns">
-          {parts.undo && <Button size="sm" data-testid="map-step-in-model-undo" disabled={busy} onClick={undo}>{parts.undo}</Button>}
+          {parts.undo ? <Button size="sm" data-testid="map-step-in-model-undo" disabled={busy} onClick={undo}>{parts.undo}</Button>
+            : parts.undoRoom && <Button size="sm" className="mp-step-in-model-held" disabled tabIndex={-1} aria-hidden>Undo</Button>}
           {parts.edit && <Button size="sm" data-testid="map-step-in-model-edit" onClick={edit}>{parts.edit}</Button>}
           {parts.make && <Button size="sm" data-testid="map-step-in-model-make" onClick={make}>{parts.make}</Button>}
         </div>
