@@ -461,8 +461,13 @@ LAST_GET = "(window.__modelGets.slice(-1)[0] || '')"
 
 
 def _choose(c, aid: str) -> None:
-    c.click_on(f"[...{SHEET['live']}.querySelectorAll('[data-testid=map-step-in-row]')].find((r) => r.dataset.key.endsWith('|{aid}'))"
-               ".querySelector('[data-testid=map-step-in-row-text]')")
+    text = (f"[...{SHEET['live']}.querySelectorAll('[data-testid=map-step-in-row]')].find((r) => r.dataset.key.endsWith('|{aid}'))"
+            ".querySelector('[data-testid=map-step-in-row-text]')")
+    # with the block open the rows lie below the body's own scroll edge: a person scrolls the body to the row first
+    # (a click at a cut-off row's place lands on the drawing, outside the sheet, and closes it)
+    c.js(f"({text}).scrollIntoView({{block: 'nearest'}}); 1")
+    frames(c, 1)
+    c.click_on(text)
     c.wait(f"{row('live')}?.dataset.aid === '{aid}'", 10)
     frames(c, 2)
 
