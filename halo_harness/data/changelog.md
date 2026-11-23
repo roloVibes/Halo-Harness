@@ -1,5 +1,92 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.16] - 2026-11-23
+
+Small repairs after 3.6.0.15. Main is now told about an agent you save, delete or undo only when the names it can
+start change, so a model you pick on one of Auto's boxes no longer reads to main as "a new helper". On a map of your
+own a box names a running tool without its raw arguments. Nothing under Session's drawing moves while you point at it,
+and choosing a row on a group's card never moves the rows. The real-use check runs its `live-scene` step in every run
+now, on Windows, macOS and Linux.
+
+### Changed
+
+- **Main is told about a saved agent only when the names it can start change.** A new name is told as before: "[Halo]
+  A new helper you can start now: {name} ({words}).", and a delete as before: "[Halo] Taken back: {name} can no longer
+  be started in this session.". Main is no longer told anything when only what stands behind a name it can already
+  start changes: your own agent taking the place of one the session started with (a model you pick on one of Auto's
+  boxes saves such an agent), a project's save over an agent of yours, an edit, and the Undo or the delete that puts
+  the start back. Before, the first two read "A new helper you can start now" and were listed under "Added in this
+  session", and their undo read "[Halo] Taken back: {name} starts as it did when this session began.". That line is
+  now told only when an Undo brings back an agent main had been told it can no longer start. No word of any line
+  changed, and a session in which nothing is saved, deleted or undone sends exactly what 3.6.0.15 sent.
+- **The real-use check runs `live-scene` in every run (for developers).** `python scripts/realcheck.py` runs all
+  twenty steps; 3.6.0.14 and 3.6.0.15 ran `live-scene` only with `--only live-scene`. CI runs it on Windows, macOS and
+  Linux. The step now fails, with a line of its own, when the page has no drawer head to read; before, it passed
+  without checking the head.
+- **The release tool asks GitHub again when one read fails (for developers).** While `scripts/release.py` waits for
+  the suites, a `gh` read that fails on the network is asked again after its pause, and three failures in a row stop
+  it with the last reason. Before, one failed read ended the tool while the run was still going.
+
+### Fixed
+
+- **An agent the session started with, deleted and then saved again, is told to main as startable again.** Main had
+  read "[Halo] Taken back: {name} can no longer be started in this session." and was told nothing when you saved the
+  agent again, so it kept believing it could not start it. It is now told "[Halo] A new helper you can start now:
+  {name} ({words})." once. The name is not listed under "Added in this session": main could start it when the session
+  began.
+- **On a map of your own a box names a tool without its raw arguments.** A helper that ran an MCP tool read
+  `mcp__srv__slow_tool {"seconds": 30}` in its box; it now reads `mcp__srv__slow_tool`, as Session's status line and
+  the wait link do. A built-in reads in its short form, as before.
+- **The wait link under Session's drawing holds still while you point at the drawing.** While the pointer rests on
+  Session's drawing, or a card is open, the slot under the drawing keeps the height it had: the link's words change in
+  place, and a link that needs another row takes it when the pointer leaves. Before, a long tool name gave the link a
+  second row and the drawing got shorter under the pointer.
+- **The whole status line is the hover of the status words only.** While the status line in the head of Session's
+  drawing is held short, only the status words show the whole line as their hover; pointing at the rest of the head
+  (the truth lines, the link to Agents -> Live) no longer shows it.
+- **Choosing a row on a group's card never moves the rows.** The "MODEL of {name}" row is as tall as its longest
+  member's name needs from the moment the card opens: choosing a helper with a long name and then one with a short
+  name moves neither "Change" nor any row, and no name is cut. A single helper's card and main's are unchanged.
+- **After a failed read the MODEL block's rows keep the answer's height.** After "Could not read this helper's agent:
+  {error}", then Close, Change and a read that works, the rows hold the answer's height and not the error row's, so a
+  pick's shorter line moves nothing under them.
+- **Pause and Resume pressed at nearly the same moment leave the helper's row true.** Two presses that crossed could
+  leave the row saying the opposite of what was set, and the button then offered the wrong press.
+- **A helper's own deny on MCP tools, and what a helper's helper does to its parent's tools, are held by tests (for
+  developers).** Nothing changed in what a helper can use: the test of the deny now fails when the helper's own filter
+  is taken out, and the docs of the read say truly that a helper's helper, when it searches, may grow its parent
+  helper's own list of tools it may ask for; nothing is loaded and main's tools never change.
+
+### Known limits
+
+- **The Agent panel's glance line and a pinned agent's small floating panel still write an MCP tool's raw arguments.**
+  They show the helper's line as it is.
+- **Two presses of Pause and Resume that cross leave the row true, but their two updates can reach an open page in
+  either order.** The page then shows the older one until that helper's next update.
+- **While you point at the drawing, a wait link that arrives or grows shows only as many rows as the slot had.** Its
+  whole text is its hover, and it takes its rows when the pointer leaves. The line that says more lies below was not
+  checked for a text that needs a second row.
+- **With Windows' font the long wait link of the browser check fits the rows the slot has,** so on Windows that check
+  proves only that nothing moves; that the slot holds back a row is proven on Linux.
+- **`live-scene` had run by hand on Linux and Windows only.** CI is the first to run it on macOS and on its own
+  Windows runners.
+- **Driven in a browser on Linux only.** The box's words, the wait link, the head's hover and the group card's rows
+  were driven in headless Chrome on Linux against a page whose session rows are stood in, not in a real session with a
+  real MCP tool; browsers on Windows and macOS are CI's part, and nothing was run on macOS by hand.
+- **What main is told was not read in a real model's session.** It is held by the session's own tests and by a real
+  session with Studio's real server taking a save and a delete; no model was asked what it understood.
+- **Every Known limit of 3.6.0.15 still holds, except these:** `live-scene` is in a plain run of the real-use check;
+  on a map of your own a box's line names a tool without its raw arguments; and the wait link under Session's drawing
+  holds while the pointer rests.
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), then, on the final
+  code, the browser modules of Session's drawing, of the card, of Live and of Auto's groups (the card's three times),
+  and the full real-use check, twenty of twenty steps with `live-scene` among them; named alone, `live-scene` passed
+  twice more. On the PC (Windows), one at a time: every node-backed module, the card's two browser modules, the plain
+  modules of this release, and `live-scene` once. One reviewer read the whole diff and found nothing that must be
+  fixed; one sentence of these notes was wrong and is corrected. Browsers on macOS are CI's part, and nothing was run
+  on macOS by hand.
+
 ## [3.6.0.15] - 2026-11-23
 
 The box acts, and what you make can be used at once. An agent you save in Agents, one the Builder makes in a session,
@@ -1372,96 +1459,3 @@ your own is drawn as before. The limits that remain are at the end of this secti
   the fix). macOS was not run locally: CI runs it, and the other browser steps on Windows, at the release gate. How
   the four group colours look to a person was judged by no check; the checks measure only that they stay apart from
   the state colours and from each other, also for colour-blind eyes.
-
-## [3.6.0.4] - 2026-11-18
-
-A small release with one fix at its heart: a running terminal session could vanish from Studio for good after one
-failed connect to it, while the terminal went on working. Now one failed connect no longer removes it. Beside it are
-three small fixes found while flaky tests were looked into, and steadier tools for people who build Halo. Nothing else
-changed in how a session runs. The limits that remain are at the end of this section.
-
-### Fixed
-
-- **A running session could vanish from Studio for good.** One failed connect to a terminal session (a heavily loaded
-  machine, or a terminal paused with Ctrl+Z or a debugger while Studio read its list) took the session off the list
-  every Halo reads. Session and Agents' Live drawing lost it, the Prompt panel showed it ended and its box went
-  read-only, and `halo remote sessions` stopped showing it, while the terminal went on working. Only `/clear` brought
-  it back. Now a refused connect keeps the session listed and only notes when connects began to fail; one connect that
-  gets through clears that. It leaves the list only when its process has ended, its socket file is gone, or connects
-  to it have failed for 30 seconds in a row. `halo ps` and `halo doctor` count such a session the same way.
-- **A session whose row was removed puts it back.** If a session left the list anyway (paused long enough, or removed
-  by an older Halo), it writes its row back at its next status event, without `/clear` (it looks at most once a
-  second, so an event within a second of its last look is passed over). Status events come at the start and end of
-  every turn, on a mode or model change, and when a background result arrives. A session that has ended never writes
-  its row back.
-- **A session refused connects once a few were waiting (9 on Linux).** Its control socket now holds a much longer
-  queue (129 waiting connects on Linux), so a burst of reads while the session is slow to accept waits instead of
-  failing.
-- **Stopping a session with no terminal could say it failed.** When Studio's Stop or another caller sent `shutdown`,
-  the session could close its socket before its answer was written, and on a loaded machine the caller read "control
-  socket closed" for a stop that had worked. The session now begins to end once its answer has gone out, or two
-  seconds after the command when the answer is not out by then (a caller that has stopped reading, or a machine so
-  loaded that the answer waits that long); only then can the caller still read "control socket closed". It still ends
-  if the caller has gone. The terminal's `/exit` sent from Studio gets the same two-second bound.
-- **The terminal app logged "worker git-branch raised" as it closed.** A background worker whose call into the app was
-  cancelled because the app was closing was logged as an error, and could show a red notice. Such a call now ends the
-  worker quietly, for every worker, but only while the app is closing. The same errors while the app runs, and any
-  other error while it closes, are logged and shown as before.
-- **Studio's palette missed an agent that arrived while it was open.** Opened with Ctrl+K (Cmd+K on a Mac) right
-  after a page load and typed into before the session list was read, it did not show "Agents: follow agent <name>"
-  until you typed again. The line now shows as soon as the agent arrives.
-
-### Changed, and you may notice
-
-- **The palette's list follows the live agents while it is open.** Its "Agents: follow agent <name>" lines are worked
-  out again whenever the live agents change, not only when it opens and on each key, so a line can appear or go while
-  you look at it, the way the Settings lines that load late already did.
-
-### Known limits
-
-- **Every Known limit of 3.6.0.3 still holds.** The cut titles in the Map drawer that 3.6.0.3 put on the list for the
-  next release are not in this one.
-- **An idle session whose row was removed comes back at its next turn, not before.** It puts its row back only at a
-  status event, and an idle session that nobody types into sends none.
-- **A paused or hung session leaves the list late, not at once.** While its process is alive but does not answer, it
-  stays listed until its queue of waiting connects is full, and then for 30 seconds more. On Linux, with one process
-  reading the list each second, that was about two and a half minutes. A command sent to it meanwhile fails as it did
-  before. A session whose process has ended still leaves at once.
-- **Two refused connects more than 30 s apart, with nothing reading the list in between, still remove the row once.**
-  The session puts it back at its next status event.
-- **A Halo older than 3.6.0.4 running beside this one still uses the old rule**: one refused connect removes the
-  session's row, and it can leave an old mark that makes a new Halo remove the row at its first refused connect. A
-  session running 3.6.0.4 puts its row back at its next status event; a session running an older Halo does not.
-- **Where it was checked.** On Linux, real separate processes were run on 3.6.0.3 and on this release: a session with
-  no terminal, a second process reading the list each second, and a third filling the session's queue of connects
-  while it was paused. On 3.6.0.3 a paused session left the list about nine seconds into its pause and never came
-  back, not even after its next turn. On this release a session paused for 45 seconds stayed listed; with its queue
-  filled it stayed listed for 30 seconds, then left, and came back at its next turn. A session that ended or was
-  killed left at the next read on both. Nothing was run on macOS or Windows; a real Ctrl+Z in a terminal and a really
-  loaded machine were not run; the lost answer to a shutdown did not show on either version on a quiet machine.
-- **Session's Live drawing can still stop under its last whole row and leave empty room below it** when its boxes are
-  tall, as they are mid-run. This release does not change it.
-
-### For people who build Halo
-
-- **The release tool no longer crashes on Windows when it resumes a release.** Picking up a release it had started
-  (for example after a red CI gate), `scripts/release.py` read the candidate's CHANGELOG through git in the Windows
-  code page and died with "AttributeError: 'NoneType' object has no attribute 'strip'". Every text it and
-  `scripts/release_gate.py` read from git, gh, curl or `git credential fill` is now read as UTF-8; a byte that is not
-  UTF-8 becomes a replacement mark, never a crash. Nothing it writes or prints changed.
-- **The test driver ends its own Chrome's helpers before its close returns.** It waits up to 10 s until no process
-  with its own throwaway profile folder is left, then ends any still there by pid after matching its start time: never
-  by name, never another Chrome. A Windows runner no longer marks a browser module red because the test's own Chrome
-  was still closing its crash handler or a utility process. The leftover check in `tests/run_all.py` is as strict as
-  before. `scripts/realcheck` opens its browser through the same driver and gets the same close. A browser test's
-  close can take up to 10 s longer while its Chrome's helpers are slow to go, as they are on Windows.
-- **The test that proves lazy MCP servers connect in parallel counts overlap, not seconds**: 3 connects in flight at
-  once when parallel, 1 when one after another. A slow runner can no longer turn it red.
-- **The run-parts driver's timeouts name the registry**: the file's row ids, the row's `unreachable_since` and one
-  timed probe.
-- **New and changed tests**: `test_remote_registry` (one failed probe keeps the row; 30 s of failures, or a missing
-  socket file, removes it; `halo ps` and `halo doctor` count a live session), `test_remote_control_socket`,
-  `test_session_registry` (a session puts its row back; an ended one never does), `test_headless_session`,
-  `test_review3_z2`, `test_review3_d1`, `test_chrome_close` (new; no browser), `test_release_script`,
-  `test_mcp_lazy_cache`, and the browser tests `test_studio_prompt` (one refused connect keeps the box editable) and
-  `test_studio_agents_live` (the palette lists an agent that arrives while it is open).

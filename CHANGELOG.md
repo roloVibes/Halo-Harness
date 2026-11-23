@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.16] - unreleased
+## [3.6.0.16] - 2026-11-23
 
 Small repairs after 3.6.0.15. Main is now told about an agent you save, delete or undo only when the names it can
 start change, so a model you pick on one of Auto's boxes no longer reads to main as "a new helper". On a map of your
