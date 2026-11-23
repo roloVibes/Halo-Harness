@@ -21,7 +21,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { useHold } from "../crew/map/hold";
-import { BOX_W, LABEL_H, LABEL_W, layout } from "../crew/map/layout";
+import { AUTO_LANE, autoWide, BOX_W, LABEL_H, LABEL_W, layout } from "../crew/map/layout";
 import { estimateDown, type PlacedDown, type RoutedDown } from "../crew/map/layoutDown";
 import { useLit } from "../crew/map/LitMini";
 import { setFeedFor, takeFocus, useLitStore, type LitSession } from "../crew/map/litStore";
@@ -66,16 +66,21 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const said = useRef(f);
   if (!held) said.current = f; // the head's words: a fact that would grow it waits with the drawing
   const [heights, setHeights] = useState<Record<string, number>>({});
+  const [k, setK] = useState(1);
+  const [mw, setMw] = useState(0); // L9a: the column width drawn when the heights were last measured
+  const [vw, setVw] = useState(0); // L9a: the view's width (the scroll box), read before the first paint and by the fit's observer
+  const seeView = () => { const el = scroll.current; if (el && el.clientWidth > 1) setVw(el.clientWidth); };
+  const wide = s.auto ? autoWide(vw, k) : BOX_W; // L9a: on Auto lane 96 and a group column as wide as the view; it waits for the hold
   const fresh = useMemo<G>(() => {
-    const g = layout(v.boxes, v.lines, (b) => heights[b.id] ?? estimateDown(b));
-    return { boxes: g.boxes.map((b) => ({ ...b, w: BOX_W, rank: b.col, row: 0 })), lines: g.lines.map((l) => ({ ...l, entry: 0 })), w: g.w, h: g.h };
-  }, [v, heights]);
+    const g = layout(v.boxes, v.lines, (b) => heights[b.id] ?? estimateDown(b), s.auto ? { lane: AUTO_LANE, wide } : {});
+    return { boxes: g.boxes.map((b) => ({ ...b, w: b.col ? wide : BOX_W, rank: b.col, row: 0 })), lines: g.lines.map((l) => ({ ...l, entry: 0 })), w: g.w, h: g.h };
+  }, [v, heights, s.auto, wide]);
   // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
   const ready = fresh.boxes.every((b) => heights[b.id] != null);
   const g = useHeld<G>(held, map, fresh, drawnAll(fresh.boxes, heights));
+  const gw = g.boxes.find((b) => b.rank)?.w ?? BOX_W; // L9a: the group column as drawn
   useEffect(() => setCard(null), [s.sid, map]);
 
-  const [k, setK] = useState(1);
   const zoomPt = useZoomPoint(scroll, k, setK);
   const fit = () => { // R12: 100 % from the top left; a map wider than the frame scrolls
     const el = scroll.current;
@@ -85,7 +90,8 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     el.scrollTop = 0;
   };
   const nav = useCanvasNav(scroll, { zoom: k, zoomAt: zoomPt, fit, id: NAV_ID, min: MIN, max: MAX, background: ".mp-world, .mp-world-size, .mp-lines",
-    resized: s.auto && shown ? () => onScroll() : undefined }); // b/batch08: the slot's answer follows the view's height (the fit's observer)
+    resized: s.auto && shown ? () => (onScroll(), seeView()) : undefined }); // b/batch08: the slot's answer follows the view's height (the fit's observer); L9a: the column its width
+  useLayoutEffect(() => { if (s.auto && shown) seeView(); }, [drawn, shown, s.auto]); // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => { // R12: fitted on the first draw and on a different map, never on a box arriving
     if (drawn) nav.fit();
   }, [drawn, map]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,7 +107,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const pulseOff = useRef<(() => void) | null>(null);
   useLayoutEffect(() => { // B27, after the two above so its scroll wins: the group asked for, its head at the top, pulsing 2 s
     const el = scroll.current, box = focus && focus.sid === s.sid ? g.boxes.find((b) => b.id === groupId(focus.n)) : undefined;
-    if (!el || !shown) return; // on screen only
+    if (!el || !shown || (s.auto && mw !== gw)) return; // on screen only; L9a: once the heights are measured at the column's width
     const full = g === fresh && ready; // b/batch07: taken once its box is placed and measured, else dropped at a full draw
     const step = focusStep(focus, s.sid, !!box && (g !== fresh || ready), full);
     if (step === "drop") takeFocus(s.sid);
@@ -126,7 +132,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       pulseOff.current = () => (node.removeEventListener("animationend", end), node.removeAttribute("data-pulse"));
     }
     setCard(null);
-  }, [focus, s.sid, g, shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [focus, s.sid, g, shown, mw]); // eslint-disable-line react-hooks/exhaustive-deps
   // B26 (Auto only): the slot's answer, set only when it changes, at most once per animation frame of a scroll burst or a
   // change of the view's size
   const [ans, setAns] = useState<SlotAnswer>(null);
@@ -143,6 +149,7 @@ export function LiveRun({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const wb = ans ? g.boxes.find((b) => b.id === groupId(ans.n)) : undefined;
   const wbName = ans ? L.groups?.find((x) => x.n === ans.n)?.name || "" : "";
   useMeasure(world, heights, setHeights, true); // R10 (runFrame.ts): never while the view is hidden
+  useLayoutEffect(() => { if (world.current?.offsetParent && mw !== gw) setMw(gw); }); // L9a: a focus waits for heights at this width
   useRings("live", world, scroll, g, L.groups, L.now || 0, shown); // 3.6.0.13 L5 L6: a box rings once when something happens to it
   useAskedBox("live", s.sid, L, world, setCard); // an ask's door: the asking agent's box selected, its card open
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;

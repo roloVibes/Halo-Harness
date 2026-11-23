@@ -13,6 +13,17 @@ export const PAD = 24;
 const GAP = 28;
 const STEP = 34; // one more line into the same box: its label and its line this much lower
 const ENTER = 30; // where the first line enters a box, from its top
+// L9a: on Auto, Agents -> Live passes a lane of 96 and a group column as wide as the view allows (layout()'s options)
+export const AUTO_LANE = 96;
+export const AUTO_MIN = 352;
+export const AUTO_MAX = 760;
+
+/** L9a: Auto's group column at a view `view` px wide and zoom `zoom`: min(760, view / zoom - 392), at least 352, rounded
+ *  down (392 = PAD + BOX_W + AUTO_LANE + PAD: at that width the column ends at the view's right edge). */
+export function autoWide(view: number, zoom: number): number {
+  const z = zoom > 0 ? zoom : 1;
+  return Math.max(AUTO_MIN, Math.min(AUTO_MAX, Math.floor(view / z - (PAD + BOX_W + AUTO_LANE + PAD))));
+}
 
 export type Placed = DrawBox & { x: number; y: number; h: number; col: number };
 export type Routed = DrawLine & { d: string; lx: number; ly: number; key: string };
@@ -41,7 +52,10 @@ export function columns(boxes: DrawBox[], lines: DrawLine[]): Map<string, number
   return col;
 }
 
-export function layout(boxes: DrawBox[], lines: DrawLine[], height: (b: DrawBox) => number) {
+/** `opts` (L9a): the lane between two columns (LANE) and the width of every box after main's column (BOX_W); with none,
+ *  every number is today's (Agents -> Map, a map of his). */
+export function layout(boxes: DrawBox[], lines: DrawLine[], height: (b: DrawBox) => number, opts: { lane?: number; wide?: number } = {}) {
+  const lane = opts.lane ?? LANE, wide = opts.wide ?? BOX_W;
   const col = columns(boxes, lines);
   const drawn = boxes.filter((b) => col.has(b.id));
   const into = new Map<string, DrawLine[]>();
@@ -59,7 +73,7 @@ export function layout(boxes: DrawBox[], lines: DrawLine[], height: (b: DrawBox)
     for (const b of here) {
       const n = (into.get(b.id) || []).length;
       const h = Math.max(height(b), ENTER + STEP * Math.max(0, n - 1) + 24);
-      placed.set(b.id, { ...b, x: PAD + c * (BOX_W + LANE), y, h, col: c });
+      placed.set(b.id, { ...b, x: c === 0 ? PAD : PAD + BOX_W + lane + (c - 1) * (wide + lane), y, h, col: c });
       y += h + GAP;
     }
     bottom = Math.max(bottom, y);
@@ -69,10 +83,10 @@ export function layout(boxes: DrawBox[], lines: DrawLine[], height: (b: DrawBox)
     const t = placed.get(to)!;
     ls.forEach((l, k) => {
       const s = placed.get(l.from)!;
-      const sx = s.x + BOX_W, sy = s.y + ENTER, trunk = sx + 18, ty = t.y + ENTER + STEP * k;
+      const sx = s.x + (s.col === 0 ? BOX_W : wide), sy = s.y + ENTER, trunk = sx + 18, ty = t.y + ENTER + STEP * k;
       routed.push({ ...l, key: `${l.from}>${l.to}`, d: `M${sx} ${sy} H${trunk} V${ty} H${t.x}`,
                     lx: t.x - LABEL_W - 10, ly: ty - LABEL_H - 2 });
     });
   }
-  return { boxes: [...placed.values()], lines: routed, w: PAD * 2 + ncols * BOX_W + (ncols - 1) * LANE, h: Math.max(bottom - GAP + PAD, 160) };
+  return { boxes: [...placed.values()], lines: routed, w: PAD * 2 + BOX_W + (ncols - 1) * (lane + wide), h: Math.max(bottom - GAP + PAD, 160) };
 }

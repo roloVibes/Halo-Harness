@@ -208,7 +208,8 @@ def test_group_card_open_puts_its_head_at_the_top_within_1s(ctx: Ctx):
     for where in ("session", "live"):
         w = d.get(where) or {}
         top, on, off = w.get("top"), w.get("on"), w.get("off")
-        ctx.check(f"from {where}: the head at the top within 1 s of the press, got {w}", top is not None and top <= 1000)
+        ctx.check(f"from {where}: the head at the top (or, when the drawing ends first, the box at its end with the head in "
+                  f"view) within 1 s of the press, got {w}", top is not None and top <= 1000)
         ctx.check(f"from {where}: data-pulse within 1 s, gone 2 s later (+-0.5 s), got {w}",
                   on is not None and on <= 1000 and off is not None and 1500 <= off - on <= 2500)
     ctx.check(f"Agents -> Live shows it (from Session and staying there), got {d.get('session_view')} {d.get('live_view')}",

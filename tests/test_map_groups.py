@@ -352,6 +352,20 @@ console.log(JSON.stringify({main: at("main").x, g: [1, 2, 5].map((n) => [at(M.li
 
 
 @test
+def test_group_box_three_a_row_at_200(ctx: Ctx):
+    """L9b: three a row when (inner - 16) / 3 is at least 200, each member floor((inner - 16) / 3) wide; else two or one
+    a row exactly as before (Agents -> Live's Auto column of L9a is the only one wide enough)."""
+    widths = [760, 640, 650, 639, 352, 248, 384, 200]
+    got = _run(["lit"], "console.log(JSON.stringify(D.map((w) => M.lit.groupBox(w))));", widths)
+    want = [{"inner": 736, "per": 3, "member": 240}, {"inner": 616, "per": 3, "member": 200},
+            {"inner": 626, "per": 3, "member": 203}, {"inner": 615, "per": 2, "member": 303.5},
+            {"inner": 328, "per": 2, "member": 160}, {"inner": 224, "per": 1, "member": 224},
+            {"inner": 360, "per": 2, "member": 176}, {"inner": 176, "per": 1, "member": 176}]
+    for w, a, b in zip(widths, got if isinstance(got, list) else [None] * len(widths), want):
+        ctx.check(f"groupBox({w}) = {b}, got {a}", a == b)
+
+
+@test
 def test_new_group_goes_last_nothing_moves(ctx: Ctx):
     js = """const at = (gs) => {
   const v = M.lit.autoView(M.view.view(D.map, [], []), gs);
@@ -816,8 +830,9 @@ def test_live_slot_hears_the_fits_observer(ctx: Ctx):
     ro = nav[nav.index("new ResizeObserver("):]
     ctx.check("canvasNav: its observer tells the canvas's `resized` on every size change, before the width-only fit check",
               "resized?: () => void" in nav and ro.index("resized?.()") < ro.index("if (now === width"))
-    ctx.check("LiveDraw: `resized` on Auto while shown goes through onScroll (one frame, set only when the answer differs)",
-              "resized: s.auto && shown ? () => onScroll() : undefined" in live)
+    ctx.check("LiveDraw: `resized` on Auto while shown goes through onScroll (one frame, set only when the answer differs) and "
+              "the same one observer tells the drawing the view's width (L9a: seeView, Auto's group column)",
+              "resized: s.auto && shown ? () => (onScroll(), seeView()) : undefined" in live)
     ctx.check("LiveDraw: no observer and no timer of its own",
               "ResizeObserver" not in live and "setTimeout(" not in live and "setInterval(" not in live)
     ctx.check(f"LiveDraw.tsx stays under 250 lines, got {live.count(chr(10))}", live.count("\n") < 250)

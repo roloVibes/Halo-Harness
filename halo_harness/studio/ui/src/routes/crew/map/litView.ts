@@ -85,8 +85,10 @@ export function autoView(v: MapView, groups: AutoGroup[]): MapView {
 }
 
 /** B9 B10: a group's inside at a block `width` (border-box: a 2 px border and 10 px padding each side): members two a row
- *  when (inner - 8) / 2 is at least 160, else one a row at the inner width. */
-export function groupBox(width: number): { inner: number; per: 1 | 2; member: number } {
-  const inner = width - 24, half = (inner - 8) / 2;
+ *  when (inner - 8) / 2 is at least 160, else one a row at the inner width. L9b: three a row when (inner - 16) / 3 is at
+ *  least 200, each rounded down to a whole px (three and two 8 px gaps never pass `inner`): only Auto's wide column. */
+export function groupBox(width: number): { inner: number; per: 1 | 2 | 3; member: number } {
+  const inner = width - 24, half = (inner - 8) / 2, third = (inner - 16) / 3;
+  if (third >= 200) return { inner, per: 3, member: Math.floor(third) };
   return half >= 160 ? { inner, per: 2, member: half } : { inner, per: 1, member: inner };
 }

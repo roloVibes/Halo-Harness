@@ -191,6 +191,83 @@ def test_layout_and_view_pinned_starter_tiers(ctx: Ctx):
     ctx.check(f"layout() and view() give exactly what they gave on the base (first difference: {diff})", not diff)
 
 
+# ---- L9a: Auto's lane and group column in Agents -> Live (layout.ts options, autoWide) ----
+
+LIVE_SRC = MAPDIR.parent.parent / "agents" / "LiveDraw.tsx"
+AUTO_MAP = {"format": "map/1", "name": "auto", "main": {"agent": "main"}, "boxes": [{"id": "x", "agent": "coder"}],
+            "lines": [{"from": "main", "to": "x"}]}
+
+
+def _grp(n: int) -> dict:
+    return {"n": n, "key": f"task:t{n}", "by": "task", "name": f"t{n}", "members": [{"aid": f"a{n}"}], "first": n}
+
+
+def _lay(body: str, data) -> dict:
+    """`body` runs with L = layout.ts, V = view.ts, A = litView.ts and D = `data`; it prints one JSON line."""
+    from tests.helpers import node_ts
+    return node_ts.run(f"const L = await import({_url('layout.ts')}); const V = await import({_url('view.ts')});\n"
+                       f"const A = await import({_url('litView.ts')}); const D = {json.dumps(data)};\n{body}")
+
+
+@test
+def test_auto_lane_96_and_a_wide_group_column(ctx: Ctx):
+    """L9a: with { lane: 96, wide: 760 } main stays at x 24, 248 wide; every group stands at 24 + 248 + 96 = 368, 760 wide,
+    stacked 28 apart; main's line into each enters it 30 below its top; the drawing is 24 + 248 + 96 + 760 + 24 wide."""
+    js = """const v = A.autoView(V.view(D.map, [], []), D.gs);
+const p = L.layout(v.boxes, v.lines, () => 120, { lane: 96, wide: 760 });
+const at = (id) => p.boxes.find((b) => b.id === id);
+console.log(JSON.stringify({main: at("main").x, g: [1, 2].map((n) => [at(A.groupId(n)).x, at(A.groupId(n)).y, at(A.groupId(n)).h]),
+  lines: p.lines.map((l) => [l.to, l.d]), w: p.w}));"""
+    got = _lay(js, {"map": AUTO_MAP, "gs": [_grp(1), _grp(2)]})
+    g = got.get("g") or []
+    ctx.check(f"main in column 0 at x 24, got {got.get('main')}", got.get("main") == 24)
+    ctx.check(f"each group at x 368, stacked 28 apart, got {g}",
+              len(g) == 2 and all(x[0] == 368 for x in g) and g[1][1] == g[0][1] + g[0][2] + 28)
+    ends = {to: d for to, d in got.get("lines") or []}
+    ctx.check(f"main's line into each group: M272 54 H290 V(y + 30) H368, got {ends}",
+              len(g) == 2 and all(ends.get(f"group:{n}") == f"M272 54 H290 V{y + 30} H368" for n, (_x, y, _h) in zip((1, 2), g)))
+    ctx.check(f"the drawing is 24 + 248 + 96 + 760 + 24 = 1152 wide, got {got.get('w')}", got.get("w") == 1152)
+
+
+@test
+def test_auto_group_column_width(ctx: Ctx):
+    """L9a: autoWide(view, zoom) = max(352, min(760, floor(view / zoom - 392))); 392 = PAD + BOX_W + 96 + PAD."""
+    cases = [[1356, 1, 760], [1000, 1, 608], [700, 1, 352], [1356, 2, 352], [1000, 1.25, 408], [1356, 0.75, 760],
+             [1000.6, 1, 608], [0, 1, 352]]
+    got = _lay("console.log(JSON.stringify(D.map((c) => [c[0], c[1], typeof L.autoWide === 'function' ? L.autoWide(c[0], c[1]) : null])));",
+               cases)
+    ctx.check(f"autoWide gives {[c[2] for c in cases]} for {[c[:2] for c in cases]}, got {got}",
+              got == [[a, b, w] for a, b, w in cases])
+
+
+@test
+def test_default_lane_and_width_unchanged_and_only_auto_passes_them(ctx: Ctx):
+    """L9a: with no options layout() is exactly today's (Agents -> Map, a map of his), as with {} and with { lane: LANE,
+    wide: BOX_W }; only Agents -> Live's Auto branch passes AUTO_LANE and autoWide; the drawing's hold is unchanged (a new
+    column width waits for the hold, as every other re-flow)."""
+    js = """const out = {};
+for (const [k, f] of Object.entries(D)) {
+  const v = V.view(f, [], []), h = (b) => L.estimate(b, false, 0);
+  const none = JSON.stringify(L.layout(v.boxes, v.lines, h));
+  out[k] = [none === JSON.stringify(L.layout(v.boxes, v.lines, h, {})),
+            none === JSON.stringify(L.layout(v.boxes, v.lines, h, { lane: L.LANE, wide: L.BOX_W }))];
+}
+out.consts = [L.AUTO_LANE, L.AUTO_MIN, L.AUTO_MAX];
+console.log(JSON.stringify(out));"""
+    got = _lay(js, FIXTURES)
+    for k in FIXTURES:
+        ctx.check(f"{k}: layout() with no options equals it with {{}} and with {{lane: LANE, wide: BOX_W}}, got {got.get(k)}",
+                  got.get(k) == [True, True])
+    ctx.check(f"AUTO_LANE 96, AUTO_MIN 352, AUTO_MAX 760, got {got.get('consts')}", got.get("consts") == [96, 352, 760])
+    live = LIVE_SRC.read_text(encoding="utf-8")
+    uses = [ln for ln in live.splitlines() if ("AUTO_LANE" in ln or "autoWide(" in ln) and not ln.startswith("import ")]
+    ctx.check(f"LiveDraw passes AUTO_LANE and autoWide( only on its s.auto branch, got {uses}",
+              any("AUTO_LANE" in ln for ln in uses) and any("autoWide(" in ln for ln in uses)
+              and all("s.auto ?" in ln for ln in uses))
+    ctx.check("LiveDraw's hold keeps its key `map`: a new column width waits for the hold",
+              "useHeld<G>(held, map, fresh, drawnAll(fresh.boxes, heights))" in live)
+
+
 # ---- Session's drawing top to bottom (layoutDown.ts) ----
 
 def _chain(name, pairs, boxes):

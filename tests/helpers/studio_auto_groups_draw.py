@@ -269,12 +269,15 @@ def slot(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"slot": out}
 
 
-# B27: from the press, in the page: when group n's head first stands at its scroll box's top, when data-pulse came, when it left
-WATCH = """((n) => { const w = window.__focus = {t0: performance.now(), top: null, on: null, off: null};
+# B27: from the press, in the page: when group n's head first stands at its scroll box's top (or, when the drawing ends
+# before that -- Auto's wide column of 3.6.0.15 L9a makes groups shorter -- the box scrolled to its end with the head in
+# view: `end`), when data-pulse came, when it left
+WATCH = """((n) => { const w = window.__focus = {t0: performance.now(), top: null, end: null, on: null, off: null};
   const tick = () => { const s = document.querySelector('[data-part=live] [data-testid=live-scroll]');
     const g = s && s.querySelector(`[data-testid=live-group][data-group="${n}"]`), t = performance.now() - w.t0;
     if (g && s.offsetParent) { const d = g.getBoundingClientRect().top - s.getBoundingClientRect().top - s.clientTop;
-      if (w.top == null && Math.abs(d) <= 1) w.top = t;
+      const last = s.scrollTop > 0 && s.scrollTop >= s.scrollHeight - s.clientHeight - 1 && d >= -1 && d < s.clientHeight;
+      if (w.top == null && (Math.abs(d) <= 1 || last)) (w.top = t), (w.end = Math.abs(d) > 1);
       if (g.hasAttribute('data-pulse')) { if (w.on == null) w.on = t; } else if (w.on != null && w.off == null) w.off = t; }
     if (w.off == null && t < 8000) requestAnimationFrame(tick); };
   requestAnimationFrame(tick); return 1; })"""
