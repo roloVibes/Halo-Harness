@@ -159,7 +159,7 @@ panel's free height while the conversation is short, and a conversation taller t
 behaves like the terminal's prompt: `Enter` sends, `Shift+Enter` is a new line, `Up` / `Down` walk this
 session's history (kept in this browser, per session; a private window keeps none) when the caret is on the first /
 last line (3.6.0.17: on one long line that wraps in the box, Up and Down first move a screen line at a time, then to
-the start or the end, then through the history, as in the terminal). `/` opens the **slash list** -- the same table the TUI completes from (`commands/builtins.py`) plus the
+the start or the end, then through the prompts you sent, as in the terminal). `/` opens the **slash list** -- the same table the TUI completes from (`commands/builtins.py`) plus the
 session's project and user commands and skills, each with its arguments and one line of help (`GET
 /api/sessions/<sid>/slash`) -- filtered as you type: `Up` / `Down` move in it, `Tab` (or `Enter` on a name not yet
 complete) completes, `Esc` closes it. A `/` line runs in the session through the control socket's `slash` and its
