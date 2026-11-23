@@ -9,6 +9,12 @@ L9a
 L9b
 2. A group of four lays three a row when (inner - 16) / 3 >= 200 (inner = its width / zoom - 24), each member
    floor((inner - 16) / 3) wide, the fourth on the next row; narrower, two a row; Session's drawer one or two a row.
+L8
+3. In Session's drawer and in Agents -> Live: a group whose members all ended before the page loaded is folded to its head
+   at the first draw (its members hidden, its box its head + 24); a failed or a stopped member keeps a group open; with
+   the pointer resting on the drawing nothing folds or moves; the pointer off, the group folds and the one under it
+   moves up; an open sheet holds the fold until it closes; a member joining a folded group opens it, its earlier members
+   at the heights they had, with one HAND ring; the slot never names a folded group.
 Run: python -m tests.test_studio_live_fold
 """
 from __future__ import annotations
@@ -128,6 +134,82 @@ def test_a_group_lays_three_a_row(ctx: Ctx):
     per = d.get("session")
     ctx.check(f"Session's drawer at its default width: every group one or two a row, got {per}",
               bool(per) and all(p in ("1", "2") for p in per))
+
+
+def _folded(r: dict) -> list:
+    return [n for n, g in (r.get("groups") or {}).items() if g.get("folded")]
+
+
+def _places(r: dict, ns: list) -> dict:
+    gs = r.get("groups") or {}
+    return {"main": r.get("main"), **{n: [gs.get(n, {}).get(k) for k in ("top", "left", "h")] for n in ns}}
+
+
+def _fold_ok(ctx: Ctx, d: dict, view: str) -> None:
+    first, d_open, resting, left = (d.get(k) or {} for k in ("first", "d_open", "resting", "left"))
+    g = lambda r, n: (r.get("groups") or {}).get(str(n)) or {}  # noqa: E731
+    # (a) the first draw
+    a = g(first, 1)
+    ctx.check(f"{view} (a): A, all done before the page loaded, folded from the first draw; the others open, got {_folded(first)}",
+              _folded(first) == ["1"])
+    ctx.check(f"{view} (a): every member of A has a zero rect, got {a.get('members')}",
+              bool(a.get("members")) and all(m["w"] == 0 and m["rh"] == 0 for m in a["members"].values()))
+    ctx.check(f"{view} (a): A's head reads its all-done line, got {a.get('counts')!r}", "all done" in str(a.get("counts")))
+    ctx.check(f"{view} (a): A's box is its head + 24 tall, got {a.get('h')} for a head of {a.get('head')}",
+              abs((a.get("h") or 0) - (a.get("head") or 0) - 24) <= 1.5)
+    ctx.check(f"{view} (a): every member of B, C, D, E, F drawn, got {[(n, x['members']) for n, x in (first.get('groups') or {}).items() if n != '1']}",
+              all(m["w"] > 0 and m["rh"] > 0 for n, x in (first.get("groups") or {}).items() if n != "1" for m in x["members"].values()))
+    # (b) the pointer rests on the drawing while D's last member ends and 11 s pass; then it leaves
+    ctx.check(f"{view} (b): d2 ended (raw done) and D is still open while the pointer rests, got {g(resting, 2)}",
+              (g(resting, 2).get("members") or {}).get("d2", {}).get("raw") == "done" and not g(resting, 2).get("folded"))
+    ns = ["1", "2", "3", "4", "5", "6"]
+    ctx.check(f"{view} (b): nothing moved while the pointer rested, got {_places(d_open, ns)} -> {_places(resting, ns)}",
+              _places(d_open, ns) == _places(resting, ns))
+    dl = g(left, 2)
+    ctx.check(f"{view} (b): the pointer left: D folded, got {d.get('d_folded')} {_folded(left)}", d.get("d_folded") is True and dl.get("folded"))
+    ctx.check(f"{view} (b): D's box is its head + 24 tall, its members hidden, got {dl.get('h')} {dl.get('head')} {dl.get('members')}",
+              abs((dl.get("h") or 0) - (dl.get("head") or 0) - 24) <= 1.5 and all(m["rh"] == 0 for m in (dl.get("members") or {}).values()))
+    ctx.check(f"{view} (b): F under D moved up, got {g(resting, 3).get('top')} -> {g(left, 3).get('top')}",
+              (g(left, 3).get("top") or 0) < (g(resting, 3).get("top") or 0))
+    ctx.check(f"{view} (b): nothing above D moved, got {_places(resting, ['1'])} -> {_places(left, ['1'])}",
+              _places(resting, ["1"]) == _places(left, ["1"]))
+    # (c) a sheet open: E's member ends, E stays open; the sheet closed: E folds
+    sh = d.get("sheet") or {}
+    ctx.check(f"{view} (c): the sheet opened on b1 and is open 11 s after e1 ended, got {d.get('sheet_opened')} {sh.get('sheet')}",
+              d.get("sheet_opened") is True and sh.get("sheet") is True)
+    ctx.check(f"{view} (c): E open while the sheet is open, got {g(sh, 6)}",
+              (g(sh, 6).get("members") or {}).get("e1", {}).get("raw") == "done" and not g(sh, 6).get("folded"))
+    ctx.check(f"{view} (c): the sheet closed by Escape: E folds, got {d.get('closed')} {d.get('e_folded')}",
+              d.get("closed") is True and d.get("e_folded") is True)
+    # (d) a member joins D (drawn open, then folded): back at the heights read before the fold, one HAND ring
+    before, after = d.get("d_before") or {}, d.get("d_after") or {}
+    hs = {k: m["h"] for k, m in (g(d_open, 2).get("members") or {}).items()}
+    back = {k: m["h"] for k, m in (g(after, 2).get("members") or {}).items() if k in hs}
+    ctx.check(f"{view} (d): D opened when d3 joined, got {d.get('d_opened')} {_folded(after)}", d.get("d_opened") is True and not g(after, 2).get("folded"))
+    ctx.check(f"{view} (d): D's earlier members have the heights read before the fold, got {hs} -> {back}",
+              bool(hs) and set(back) == set(hs) and all(abs(back[k] - hs[k]) <= 1 for k in hs))
+    ctx.check(f"{view} (d): D rang HAND once, got {g(before, 2).get('rang')!r} -> {g(after, 2).get('rang')!r}",
+              int(g(after, 2).get("rang") or 0) == int(g(before, 2).get("rang") or 0) + 1)
+    rang = lambda r, n: {k: m["rang"] for k, m in (g(r, n).get("members") or {}).items()}  # noqa: E731
+    ctx.check(f"{view} (d): no member hidden by the fold rang, got D {rang(before, 2)} -> {rang(after, 2)}, A {rang(after, 1)}",
+              all(rang(after, 2).get(k) == v for k, v in rang(before, 2).items()) and not any(rang(d.get("a_after") or {}, 1).get(k) for k in ("a1", "a2")))
+    aa = g(d.get("a_after") or {}, 1)
+    ctx.check(f"{view} (d): a member joining A opens it and draws every member, got {d.get('a_opened')} {aa.get('members')}",
+              d.get("a_opened") is True and not aa.get("folded") and len(aa.get("members") or {}) == 3
+              and all(m["w"] > 0 and m["rh"] > 0 for m in aa["members"].values()))
+    # (e) the slot never names a folded group
+    reads = [d.get(k) or {} for k in ("first", "d_open", "resting", "left", "sheet", "after_sheet", "d_before", "d_after", "a_after")]
+    ctx.check(f"{view} (e): the slot's group is never a folded one, got {[(r.get('slot'), _folded(r)) for r in reads]}",
+              all(r.get("slot") is None or r.get("slot") not in _folded(r) for r in reads))
+
+
+@test
+def test_an_all_done_group_folds_after_the_hold(ctx: Ctx):
+    """L8 (with R1 and the coordinator's rulings): Session's drawer, then Agents -> Live."""
+    d = _ran(ctx, "groupfold")
+    for view in ("session", "live"):
+        ctx.check(f"the driver read {view}", bool(d.get(view)))
+        _fold_ok(ctx, d.get(view) or {}, view)
 
 
 if __name__ == "__main__":

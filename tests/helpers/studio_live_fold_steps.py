@@ -9,6 +9,12 @@ from the scroll box's clientWidth).
              the new width)
     three    L9b: a group of four members at 1440 x 900 (three a row), then at 1000 x 800 (two a row), then the same
              groups in Session's drawer at its default width
+    groupfold  L8, in Session's drawer and then in Agents -> Live: a group all done before the page loaded is folded at
+             the first draw; a done + failed and a done + stopped group stay open; a running group's last member ends
+             with the pointer resting on the drawing (nothing moves for 11 s of the page's time), then the pointer leaves
+             (it folds, the group under it moves up); a group's member ends while a sheet is open (it stays open), the
+             sheet closed (it folds); a member joins the folded group (it opens with its earlier heights and one HAND
+             ring) and one joins the group folded from the start; the slot's group read at every step
 
     python -m tests.helpers.studio_live_fold_steps [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -25,7 +31,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.studio_auto_groups_draw import LSCROLL, LW, P, RECT  # noqa: E402
-from tests.helpers.studio_live_now_steps import CLOCK, frames, go, mk, rest_on, to_live, wait_or  # noqa: E402
+from tests.helpers.studio_live_now_steps import CLOCK, VIEWS, frames, go, mk, put, rest_on, to_live, wait_or  # noqa: E402
 from tests.helpers.studio_session_map_down import MapDownDriver, Rows  # noqa: E402
 from tests.helpers.studio_session_run import M, _main, _seed  # noqa: E402
 
@@ -105,7 +111,121 @@ def three(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"three": out}
 
 
-STEPS = (lanes, three)
+# ---- L8: the fold ---------------------------------------------------------------------------------------------------
+FOLD_TASKS = {1: "sort the old mail", 2: "read the release notes", 3: "fix the login bug", 4: "check the money module",
+              5: "note the release", 6: "run the slow tests"}
+# A (1) all done before the page loads; D (2) one done, one running; F (3) running under D; B (4) done + failed;
+# C (5) done + stopped; E (6) running
+FOLD_SPEC = [("a1", "sorter", "sort the inbox", 1, "done"), ("a2", "sorter", "sort the outbox", 1, "done"),
+             ("d1", "researcher", "read the notes", 2, "done"), ("d2", "researcher", "read the issues", 2, "running"),
+             ("f1", "coder", "fix the form", 3, "running"),
+             ("b1", "reviewer", "check pay.py", 4, "done"), ("b2", "reviewer", "check tax.py", 4, "failed"),
+             ("c1", "writer", "note the fixes", 5, "done"), ("c2", "writer", "note the moves", 5, "stopped"),
+             ("e1", "Tester", "run the unit tests", 6, "running")]
+GROUP_SEL = ":is([data-testid=session-map-group], [data-testid=live-group])"
+SHEET = "document.querySelector('[data-testid=map-step-in]')"
+OPEN_SHEET = "document.querySelector('[data-testid=map-step-in][data-open]')"
+# one drawing as the fold check reads it: each group's fold, place in the world (offsets: unscaled), height, its head's
+# height, counts, data-rang, and each member's size, raw state and data-rang; main's place; the slot's group; the sheet
+FREAD = f"""((root, slot) => {{ if (!root) return null; const gs = {{}};
+  for (const g of root.querySelectorAll('{GROUP_SEL}')) {{ const head = g.querySelector('[data-testid=map-group-head]');
+    gs[g.dataset.group] = {{ folded: g.hasAttribute('data-folded'), top: g.offsetTop, left: g.offsetLeft, h: g.offsetHeight,
+      head: head ? head.offsetHeight : 0, counts: g.querySelector('[data-testid=map-group-counts]')?.textContent || '', rang: g.dataset.rang || '',
+      members: Object.fromEntries([...g.querySelectorAll('[data-member]')].map((m) => {{ const r = m.getBoundingClientRect();
+        return [m.dataset.member, {{ h: m.offsetHeight, w: r.width, rh: r.height, raw: m.dataset.raw || '', rang: m.dataset.rang || '' }}]; }})) }}; }}
+  const main = root.querySelector('[data-box=main]');
+  return {{ groups: gs, main: main ? [main.offsetTop, main.offsetLeft] : null, slot: slot ? (slot.dataset.group ?? null) : null,
+    sheet: !!{OPEN_SHEET} }}; }})"""
+
+
+def _fold_rows(rows: Rows, a: str, t0: float, **st) -> list:
+    """The fold scene; `st` sets a member's state by its id; `extra` adds (aid, who, desc, n) members."""
+    spec = FOLD_SPEC + [(aid, who, desc, n, "running") for aid, who, desc, n in st.pop("extra", ())]
+    main = _main(rows, a, state="running", current="Agent: run the slow tests", since=t0, started=t0)
+    return [main, *[mk(aid, who, desc, FOLD_TASKS[n], n, st.get(aid, s), since=t0) for aid, who, desc, n, s in spec]]
+
+
+def _fread(c, view: str) -> dict:
+    root, _, slot = VIEWS[view]
+    return c.js(f"({FREAD})({root}, {slot})") or {}
+
+
+def _page_wait(c, secs: float) -> None:
+    """Waits until the page's own clock (Date.now()) is `secs` past now (a state read from the page, never a sleep)."""
+    t = c.js("Date.now()")
+    wait_or(c, f"Date.now() >= {t} + {int(secs * 1000)}", secs + 15)
+
+
+def _group(view: str, n: int) -> str:
+    return f"{VIEWS[view][0]}.querySelector('[data-box=\"group:{n}\"]')"
+
+
+def _fold_view(c, rig, rows: Rows, a: str, b: str, view: str) -> dict:
+    out: dict = {}
+    root, sc, _ = VIEWS[view]
+    t0 = time.time() - 60
+    put_rows = lambda **st: put(rows, a, _fold_rows(rows, a, t0, **st))  # noqa: E731
+    go(c, rig, rows, a, b, _fold_rows(rows, a, t0))
+    c.wait(f"{M}.querySelectorAll('{GROUP_SEL}').length === 6", 20)
+    if view == "live":
+        to_live(c, 6)
+    c.mouse("mouseMoved", 2, 400)  # the pointer off the drawing (on the rail)
+    wait_or(c, f"!!{_group(view, 1)}?.hasAttribute('data-folded')", 10)
+    frames(c, 6)
+    out["first"] = _fread(c, view)
+    # (b) D open: its members' heights and data-rang; the pointer rests on main; d2 ends; 11 s of the page's time
+    rest_on(c, f"{root}.querySelector('[data-box=main]')")
+    frames(c, 2)
+    out["d_open"] = _fread(c, view)
+    put_rows(d2="done")
+    wait_or(c, f"{root}.querySelector('[data-member=d2]')?.dataset.raw === 'done'", 15)
+    _page_wait(c, 11)
+    frames(c, 2)
+    out["resting"] = _fread(c, view)
+    c.mouse("mouseMoved", 2, 400)
+    out["d_folded"] = bool(wait_or(c, f"!!{_group(view, 2)}?.hasAttribute('data-folded')", 10))
+    frames(c, 4)
+    out["left"] = _fread(c, view)
+    # (c) a sheet open on B's member b1; E's member ends; 11 s with the pointer off; the sheet closed by Escape
+    c.click_on(f"{root}.querySelector('[data-member=b1]')")
+    out["sheet_opened"] = bool(wait_or(c, f"!!{OPEN_SHEET}", 10))
+    c.mouse("mouseMoved", 2, 400)
+    put_rows(d2="done", e1="done")
+    wait_or(c, f"{root}.querySelector('[data-member=e1]')?.dataset.raw === 'done'", 15)
+    _page_wait(c, 11)
+    frames(c, 2)
+    out["sheet"] = _fread(c, view)
+    c.key("Escape")
+    if not wait_or(c, f"!{SHEET}", 5) and c.js(f"!!{SHEET}"):
+        c.click_on("document.querySelector('[data-testid=map-step-in-close]')")
+        c.mouse("mouseMoved", 2, 400)
+    out["closed"] = bool(wait_or(c, f"!{SHEET}", 10))
+    out["e_folded"] = bool(wait_or(c, f"!!{_group(view, 6)}?.hasAttribute('data-folded')", 10))
+    frames(c, 4)
+    out["after_sheet"] = _fread(c, view)
+    # (d) D (drawn open, then folded) at the scroll box's top; a member joins it with the pointer off
+    c.js(f"(() => {{ const s = {sc}, g = {_group(view, 2)}; s.scrollTop += g.getBoundingClientRect().top - s.getBoundingClientRect().top - 8; return 1; }})()")
+    frames(c, 4)
+    out["d_before"] = _fread(c, view)
+    put_rows(d2="done", e1="done", extra=[("d3", "researcher", "read the wiki", 2)])
+    out["d_opened"] = bool(wait_or(c, f"!!{root}.querySelector('[data-member=d3]') && !{_group(view, 2)}.hasAttribute('data-folded')", 15))
+    wait_or(c, f"!!{_group(view, 2)}?.dataset.rang", 10)
+    frames(c, 4)
+    out["d_after"] = _fread(c, view)
+    # A, folded from the first draw: a member joins
+    c.js(f"(() => {{ const s = {sc}; s.scrollTop = 0; return 1; }})()")
+    put_rows(d2="done", e1="done", extra=[("d3", "researcher", "read the wiki", 2), ("a3", "sorter", "sort the drafts", 1)])
+    out["a_opened"] = bool(wait_or(c, f"!!{root}.querySelector('[data-member=a3]') && !{_group(view, 1)}.hasAttribute('data-folded')", 15))
+    frames(c, 4)
+    out["a_after"] = _fread(c, view)
+    return out
+
+
+def groupfold(c, rig, rows: Rows, a: str, b: str) -> dict:
+    return {"groupfold": {view: _fold_view(c, rig, rows, a, b, view) for view in ("session", "live")}}
+
+
+STEPS = (lanes, three, groupfold)
 
 
 class LiveFoldDriver(MapDownDriver):

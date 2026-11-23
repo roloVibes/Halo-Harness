@@ -35,7 +35,7 @@ MODS = {
     "gw": "routes/crew/map/groupWords.ts", "hops": "routes/crew/map/overlayHops.ts", "sit": "routes/crew/map/stepInTarget.ts",
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
     "slot": "routes/agents/liveSlot.ts", "now": "routes/crew/map/nowLine.ts", "room": "routes/crew/map/nowRoom.ts",
-    "turn": "routes/crew/map/turnWords.ts", "rings": "routes/crew/map/rings.ts",
+    "turn": "routes/crew/map/turnWords.ts", "rings": "routes/crew/map/rings.ts", "fold": "routes/crew/map/foldRule.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -709,7 +709,7 @@ def test_no_fetch_or_timer_in_group_files(ctx: Ctx):
     import re
     bad, missing = {}, []
     for f in ("GroupBlock.tsx", "GroupMember.tsx", "groupWords.ts", "overlayGroups.ts", "litView.ts", "nowLine.ts", "nowRoom.ts",
-              "turnWords.ts", "rings.ts", "useRings.ts", "cover.ts"):
+              "turnWords.ts", "rings.ts", "useRings.ts", "cover.ts", "foldRule.ts"):
         p = SRC / "routes/crew/map" / f
         if not p.is_file():
             missing.append(f)
@@ -1151,6 +1151,94 @@ console.log(JSON.stringify(out));"""
     ctx.check(f"every member raw done: the all-done form, got {dn}", dn.get("all") is True and "all done" in str(dn.get("line")))
     ctx.check(f"failed (bad) and stopped, got {bd}", bd.get("line") == "2 agents · 1 stopped · 1 failed"
               and [p.get("bad", False) for p in bd.get("parts") or []] == [False, False, True])
+
+
+# ---------------------------------------------------------------------------------------------- 3.6.0.15 L8: the fold
+
+_FOLDS = """const f = M.fold, out = {};
+for (const [k, [g, now]] of Object.entries(D)) out[k] = f.foldsAt(g, now);
+console.log(JSON.stringify(out));"""
+
+
+@test
+def test_fold_ten_seconds_after_the_last_end(ctx: Ctx):
+    """L8: a group whose members are all raw done folds to its head 10 s after its LAST end (FOLD_S, the ten seconds of
+    fleet/store.ts DONE_MS and crew/live/now.ts LINGER_MS)."""
+    g = _grp(1, [_m("a", "done", t=1, ended=5), _m("b", "done", t=2, ended=20)], "one")
+    got = _run(["fold"], _FOLDS, {"before": [g, T0 + 29.9], "at": [g, T0 + 30], "after": [g, T0 + 31], "first": [g, T0 + 15]})
+    ctx.check(f"not before 10 s after the last end, folded from it, got {got}",
+              got == {"before": False, "at": True, "after": True, "first": False})
+    fold = (SRC / MODS["fold"]).read_text(encoding="utf-8")
+    ctx.check("FOLD_S is the same ten seconds", "FOLD_S = 10" in fold)
+
+
+@test
+def test_failed_or_stopped_keeps_it_open(ctx: Ctx):
+    """L8 with R1: only a group whose members are ALL raw done folds; a failed or a stopped member keeps it open, so does
+    anything live (running, queued, waiting, paused), and a group with no member never folds."""
+    d = lambda aid: _m(aid, "done", t=1, ended=5)  # noqa: E731
+    late = T0 + 1000
+    data = {
+        "done+failed": [_grp(1, [d("a"), _m("b", "failed", t=1, ended=6)]), late],
+        "failed": [_grp(2, [_m("a", "failed", t=1, ended=6)]), late],
+        "done+stopped": [_grp(3, [d("a"), _m("b", "done", raw="stopped", t=1, ended=6)]), late],
+        "stopped": [_grp(4, [_m("a", "done", raw="stopped", t=1, ended=6)]), late],
+        "done+running": [_grp(5, [d("a"), _m("b", "working", t=2)]), late],
+        "done+queued": [_grp(6, [d("a"), _m("b", "working", raw="queued")]), late],
+        "done+waiting": [_grp(7, [d("a"), _m("b", "waiting", t=2)]), late],
+        "done+paused": [_grp(8, [d("a"), _m("b", "working", raw="paused", t=2)]), late],
+        "empty": [_grp(9, []), late],
+        "all done": [_grp(10, [d("a"), d("b")]), late],
+    }
+    got = _run(["fold"], _FOLDS, data)
+    ctx.check(f"every group but the all-done one stays open, got {got}",
+              got == {k: k == "all done" for k in data})
+    fold = (SRC / MODS["fold"]).read_text(encoding="utf-8")
+    ctx.check("foldRule.ts reads the raw state through groupWords' isAllDone, never a second copy of the rule",
+              re.search(r"import\s*\{[^}]*\bisAllDone\b[^}]*\}\s*from\s*\"\./groupWords\"", fold) is not None
+              and "rawOf(" not in fold and '=== "done"' not in fold)
+
+
+@test
+def test_an_end_the_page_did_not_see_is_past(ctx: Ctx):
+    """L8 (the coordinator's ruling 1): an end this page did not see (`ended` 0: it ended before the page loaded, or was
+    first seen ended) counts as long past, so such a group is folded from its first draw; no clock yet (now 0) never folds."""
+    unseen = _grp(1, [_m("a", "done", t=1), _m("b", "done", t=2)])
+    mixed = _grp(2, [_m("a", "done", t=1, ended=20), _m("b", "done", t=2)])
+    got = _run(["fold"], _FOLDS, {"unseen": [unseen, 1], "unseen late": [unseen, T0 + 3], "mixed before": [mixed, T0 + 29.9],
+                                  "mixed at": [mixed, T0 + 30], "no clock": [unseen, 0]})
+    ctx.check(f"unseen ends are past, a seen one counts, no clock never folds, got {got}",
+              got == {"unseen": True, "unseen late": True, "mixed before": False, "mixed at": True, "no clock": False})
+
+
+@test
+def test_fold_waits_for_the_hold(ctx: Ctx):
+    """L8: the first draw takes the rule at once (nothing moves after it); after that nothing folds or unfolds while the
+    drawing is held (the pointer on it or a sheet open): the re-flow waits for the hold."""
+    due = _grp(1, [_m("a", "done", t=1, ended=5)])
+    js = """const f = M.fold, [g, now] = [D.g, D.now], late = D.late;
+console.log(JSON.stringify([f.foldNext(undefined, g, late, true), f.foldNext(false, g, late, true), f.foldNext(false, g, late, false),
+  f.foldNext(true, g, now, true), f.foldNext(true, g, now, false), f.foldNext(undefined, g, now, false)]));"""
+    got = _run(["fold"], js, {"g": due, "now": T0 + 6, "late": T0 + 100})
+    ctx.check(f"first draw at once; held keeps the last answer both ways; free takes the rule, got {got}",
+              got == [True, False, True, True, False, False])
+
+
+@test
+def test_group_block_folds_to_its_head(ctx: Ctx):
+    """L8: GroupBlock reads the drawing's hold from RunCtx, asks foldNext before its first `return null` (hooks first),
+    marks `data-folded`, hides its steps and members rows (`hidden`) and keeps every member mounted; no timer anywhere."""
+    src = (SRC / "routes/crew/map/GroupBlock.tsx").read_text(encoding="utf-8")
+    fold = (SRC / MODS["fold"]).read_text(encoding="utf-8")
+    early = src.find("return null")
+    ctx.check("the hold from useContext(RunCtx), foldNext( before the first return null",
+              "useContext(RunCtx)" in src and 0 <= src.find("foldNext(") < early and src.find("useContext(RunCtx)") < early)
+    ctx.check("data-folded on the group, hidden={folded} on the steps row and on the members row",
+              "data-folded=" in src and re.search(r'className="mp-group-steps"[^>]*hidden=\{folded\}', src) is not None
+              and re.search(r'className="mp-group-members"[^>]*hidden=\{folded\}', src) is not None)
+    ctx.check("every member is still mapped (kept mounted)", "g.members.map((m, i) => (" in src and "<GroupMember " in src)
+    ctx.check("no setTimeout( or setInterval( in GroupBlock.tsx or foldRule.ts",
+              not re.search(r"\bset(?:Timeout|Interval)\(", src + fold))
 
 
 @test

@@ -6,9 +6,11 @@
 // gave it steps), else its members in start order, up to 8, then "+{n} more" (its hover lists every one). Hover the head:
 // G3; a click on it: the group's card (a row per live member). 3.6.0.13 L4: the counts read the raw state, "{v} waiting
 // on you" in --warn, and "all done" only when every member is raw done (R1). `data-pad` tells useMeasure (runFrame.ts) its padding and
-// border. Nothing here fetches, times or calls the network (tests/test_map_groups.py guards it).
-import type { MouseEvent } from "react";
+// border. Nothing here fetches, times or calls the network (tests/test_map_groups.py guards it). 3.6.0.15 L8: an all-done
+// group folds to its head (foldRule.ts; `data-folded`): its rows are hidden, its members stay mounted, never while held.
+import { useContext, useRef, type MouseEvent } from "react";
 import { useHover } from "../../../lib/hover/useHover";
+import { foldNext } from "./foldRule";
 import type { PlacedDown } from "./layoutDown";
 import type { Lit } from "./LitMini";
 import { groupBox } from "./litView";
@@ -16,6 +18,7 @@ import { countParts, doneLine, g3Lines, isAllDone, memberLine, memberState, more
 import { GroupMember } from "./GroupMember";
 import { runningStep } from "./overlayBlocks";
 import type { AutoGroup } from "./overlayGroups";
+import { RunCtx } from "./runParts";
 import type { Hit } from "./stepInTarget";
 import { blockHead, stepRow } from "./truthBits";
 
@@ -55,6 +58,8 @@ export function GroupBlock({ b, L, sid, pick, live, sel, card }: Props) {
       ))}
     </div>
   ), !!sid && !!g);
+  const held = !!useContext(RunCtx)?.held, fold = useRef<boolean | undefined>(undefined);
+  const folded = g ? (fold.current = foldNext(fold.current, g, L.now || 0, held)) : false;
   if (!g || !b.group) return null;
   const lit = g.workflow ? L.ov?.blocks[g.workflow] : undefined;
   const at = g.steps && lit ? runningStep({ state: lit.state, steps: g.steps }) : undefined;
@@ -72,7 +77,7 @@ export function GroupBlock({ b, L, sid, pick, live, sel, card }: Props) {
   return (
     <div className="mp-group" data-testid={live ? "live-group" : "session-map-group"} data-box={b.id} data-map-box={live ? b.id : undefined}
          data-pad="24" data-group={g.n} data-colour={b.group.colour} data-state={stateOf(g)} data-done={isAllDone(g) ? "" : undefined}
-         data-workflow={g.workflow} data-selected={sel ? "" : undefined} tabIndex={0}
+         data-folded={folded ? "" : undefined} data-workflow={g.workflow} data-selected={sel ? "" : undefined} tabIndex={0}
          style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }}
          onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), pick({ kind: "group", n: g.n, text: "" })); }}>
       <div className="mp-inner">
@@ -80,7 +85,7 @@ export function GroupBlock({ b, L, sid, pick, live, sel, card }: Props) {
           <Head g={g} name={name} />
         </div>
         {g.steps ? (
-          <div className="mp-group-steps">
+          <div className="mp-group-steps" hidden={folded}>
             {g.steps.map((s) => (
               <span key={s.n} className="mp-step mono" data-testid="session-map-step" data-n={s.n} data-state={s.state} onClick={(e) => step(e, s.n)}>
                 {stepRow(s.n, s.step, s.agent, s.model, s.state)}
@@ -88,7 +93,7 @@ export function GroupBlock({ b, L, sid, pick, live, sel, card }: Props) {
             ))}
           </div>
         ) : (
-          <div className="mp-group-members" data-per={box.per}>
+          <div className="mp-group-members" data-per={box.per} hidden={folded}>
             {g.members.map((m, i) => (
               <GroupMember key={m.aid} g={g} m={m} sid={sid} width={box.member} now={L.now || 0} pick={pick}
                            sel={card === `member:${m.aid}`} hidden={more > 0 && i >= SHOWN_MEMBERS} />

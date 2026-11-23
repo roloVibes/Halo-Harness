@@ -219,8 +219,9 @@ AT = """((g, s) => { if (!g || !s) return null; const a = g.getBoundingClientRec
 
 
 def _five(fifth: str) -> list:
-    """Five groups of three coders; the first four done, the fifth `fifth`."""
-    return [member(f"s{i}{j}", "coder", f"step {j} of part {i}", NAMES[i - 1], i, state="done" if i < 5 else fifth, model="glm-5")
+    """Five groups of three coders; the first four finished (stopped: 3.6.0.15 L8 folds an all-done group, and these
+    fillers need their height), the fifth `fifth`."""
+    return [member(f"s{i}{j}", "coder", f"step {j} of part {i}", NAMES[i - 1], i, state="stopped" if i < 5 else fifth, model="glm-5")
             for i in range(1, 6) for j in range(1, 4)]
 
 
@@ -352,7 +353,8 @@ PULSES = f"""((n) => {{ const g = ({LGROUP})(n), w =window.__pulses = {{t0: perf
 
 
 def _twelve(gone: int = 0) -> list:
-    return [member(f"t{i}{j}", "coder", f"step {j} of job {i}", f"job number {i}", i, state="done", model="glm-5")
+    """Twelve finished groups of three (stopped: L8 would fold all-done ones, and these need their height)."""
+    return [member(f"t{i}{j}", "coder", f"step {j} of job {i}", f"job number {i}", i, state="stopped", model="glm-5")
             for i in range(1, 13) if i != gone for j in range(1, 4)]
 
 
