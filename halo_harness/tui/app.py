@@ -899,7 +899,9 @@ class BridgeApp(App):
                 except Exception:
                     pass
             try:
-                manager.complete_deferred_start(note_fn=_note)
+                out = manager.complete_deferred_start(note_fn=_note)
+                # 3.6.0.15 F2: what connected after the first catalog enters it
+                self.controller.take_connected_servers(out.get("connected") or [])
             except Exception:
                 pass
         self.run_worker(_work, thread=True, name="mcp-deferred-start",

@@ -28,7 +28,7 @@ from typing import Optional
 from halo_harness import events
 from halo_harness.agent import sessions as agent_sessions
 from halo_harness.agent.assemble import SessionContext
-from halo_harness.agent.catalog import SessionCatalog, host_cap, select_preload
+from halo_harness.agent.catalog import SessionCatalog, host_cap, mcp_survivors, select_preload
 from halo_harness.agent.log import SessionLog
 from halo_harness.agent.loop import Session
 from halo_harness.agent.planmode import ensure_plan_file
@@ -45,7 +45,7 @@ from halo_harness.output import PrintModeSink, StreamJsonSink
 from halo_harness.providers.routing import InvalidModelError
 from halo_harness.permissions import (
     PermissionEngine, bare_deny_tool_names, build_rules_from_settings, freeze_tool_registry,
-    mcp_deny_tool_names, normalize_permission_mode, split_tool_rule_list,
+    normalize_permission_mode, split_tool_rule_list,
 )
 from halo_harness.providers.config import (
     derive_workspace_root, load_provider_env_files, load_routes, resolve_anthropic, resolve_databricks,
@@ -1277,10 +1277,8 @@ def build_session(
                 frozen_registry.add_tool(ReadMcpResourceTool())
 
             all_mcp = mcp_manager.all_tools()
-            candidate_names = [t[1] for t in all_mcp]
-            denied = mcp_deny_tool_names(deny_rules, candidate_names)
-            denied |= {r.strip() for r in cli_disallow if "(" not in r and r.strip().startswith("mcp__")}
-            survivors = [t for t in all_mcp if t[1] not in denied]
+            # 3.6.0.15 F2: the ONE filter; a server whose tools enter later passes it too (the catalog keeps its inputs)
+            survivors = mcp_survivors(all_mcp, deny_rules=deny_rules, disallowed=cli_disallow)
 
             # Halo 2.0.3 round 3 (brief item 3): an ollama ref's initial
             # freeze/preload budget already respects its context class --
@@ -1386,6 +1384,7 @@ def build_session(
                 # ToolSearch hit) is filtered the same way the warm-cache
                 # loop just above already filtered every OTHER connector.
                 tools_subset=tools_subset, bare_denied_names=bare_denied_names,
+                deny_rules=list(deny_rules), disallowed=list(cli_disallow), preload_names=preload_names,
             )
             # external review finding 3 (2026-10-08): the deferred pool
             # admits "cached" alongside "connected" (manager.state_serves)

@@ -155,6 +155,190 @@ def test_the_tui_wires_the_worker_and_print_mode_blocks(ctx: Ctx):
               "complete_deferred_start" in app_src and "thread=True" in app_src)
 
 
+REPO_DIR = Path(__file__).resolve().parent.parent
+_F2_ENV = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "OLLAMA_HOST", "HALO_NO_UPDATER")
+
+
+def _f2_home(*, servers=True):
+    """A scratch home whose claude.json names three fake stdio servers ("fake"
+    eager, "fake2" with the server's "alwaysLoad", "lazy" lazy as servers are
+    by default) and NO tools cache, so a terminal session builds its catalog
+    before any of them has connected."""
+    import os
+    from tests.helpers.fake_home import build_fake_home
+    fh = build_fake_home()
+    spec = {"type": "stdio", "command": sys.executable, "args": ["-m", "tests.helpers.fake_mcp_server"],
+            "cwd": str(REPO_DIR)}
+    cfg = {"mcpServers": {"fake": dict(spec, mcpLazy=False), "fake2": dict(spec, alwaysLoad=True),
+                          "lazy": dict(spec)}} if servers else {}
+    (fh["home"] / ".claude.json").write_text(json.dumps(cfg), encoding="utf-8")
+    saved = {k: os.environ.get(k) for k in _F2_ENV}
+    os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+    os.environ.pop("BRIDGE_STATE_DIR", None)
+    os.environ["OLLAMA_HOST"] = "http://127.0.0.1:9"
+    os.environ["HALO_NO_UPDATER"] = "1"
+    return fh, saved
+
+
+def _f2_restore(saved):
+    import os
+    for k, v in saved.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
+def _f2_controller(fh, extra=()):
+    from halo_harness.cli import _build_parser
+    from halo_harness.tui.bootstrap import build_controller
+    args = _build_parser().parse_args(["--cwd", str(fh["proj"]), "--model", "or:mock/model", *extra])
+    controller, _registry, _facade = build_controller(args)
+    return controller
+
+
+def _f2_late_connect(controller):
+    """What the terminal app's worker runs once the first catalog is built."""
+    manager = controller.session.mcp_manager
+    out = manager.complete_deferred_start()
+    take = getattr(controller, "take_connected_servers", None)
+    if callable(take):
+        take(out["connected"])
+    return out
+
+
+def _f2_helper(controller, agent_id, spec=None):
+    from halo_harness.agent.subagent import _build_child_session
+    from halo_harness.config.agents_md import AgentSpec
+    spec = spec or AgentSpec(name="general-purpose", description="general purpose sub-agent", tools=None,
+                             disallowed_tools=["Agent", "Task"], body="You are a helpful sub-agent.")
+    child, _meta = _build_child_session(runtime=controller.session.agent_runtime, spec=spec, agent_id=agent_id,
+                                        model_override=None, parent_tool_use_id="t")
+    return child
+
+
+def _f2_close(controller):
+    manager = getattr(getattr(controller, "session", None), "mcp_manager", None) if controller else None
+    if manager is not None:
+        manager.close_all()
+
+
+@test
+def test_a_server_that_connects_after_the_first_catalog_reaches_main_and_a_helper(ctx: Ctx):
+    """3.6.0.15 F2: on a fresh home a terminal session builds its catalog
+    before its MCP servers connect; the late servers' tools must enter that
+    catalog (deferred, the alwaysLoad ones loaded at once) and a helper
+    built after that gets its own catalog over its parent's deferred tools."""
+    fh, saved = _f2_home()
+    controller = None
+    try:
+        controller = _f2_controller(fh)
+        catalog = controller.session.session_catalog
+        ctx.check("the session has a catalog", catalog is not None)
+        before = set(catalog.names) | set(catalog.deferred)
+        ctx.check(f"before the deferred start no server tool is known, got {sorted(before)}",
+                  not any(n.startswith("mcp__fake") for n in before))
+        out = _f2_late_connect(controller)
+        ctx.check(f"both servers connected late, got {out}", sorted(out["connected"]) == ["fake", "fake2"])
+        found, deferred = catalog.search("select:mcp__fake__echo")
+        ctx.check(f"main finds the plain server's tool in its pool, got {[d['name'] for d in found]} {deferred}",
+                  [d["name"] for d in found] == ["mcp__fake__echo"] and deferred == ["mcp__fake__echo"])
+        ctx.check(f"the alwaysLoad server's tool is loaded in main, got {catalog.names}",
+                  "mcp__fake2__echo" in catalog.names and catalog.registry.get("mcp__fake2__echo") is not None)
+        ctx.check(f"a tool's alwaysLoad meta loads it in main, got {catalog.names}",
+                  "mcp__fake__always_load_tool" in catalog.names)
+        child = _f2_helper(controller, "f2late1")
+        ctx.check(f"the helper has the alwaysLoad tool, got {child.tool_registry.names()}",
+                  child.tool_registry.get("mcp__fake2__echo") is not None)
+        cc = child.session_catalog
+        ctx.check("the helper has its own catalog", cc is not None and cc is not catalog)
+        if cc is not None:
+            ctx.check("the helper has ToolSearch", child.tool_registry.get("ToolSearch") is not None)
+            c_found, c_def = cc.search("select:mcp__fake__echo")
+            ctx.check(f"the helper's ToolSearch finds the deferred tool, got {c_def}", c_def == ["mcp__fake__echo"])
+            ctx.check(f"the helper loads it, got {cc.load(c_def)}", "mcp__fake__echo" in cc.names)
+            ctx.check("loading in the helper never grows main's catalog",
+                      "mcp__fake__echo" not in catalog.names and "mcp__fake__echo" in catalog.deferred)
+        ctx.check(f"main's ToolSearch loads it too, got {catalog.load(['mcp__fake__echo'])}",
+                  "mcp__fake__echo" in catalog.names and catalog.registry.get("mcp__fake__echo") is not None)
+        if cc is not None:
+            cc.ensure_lazy_discovered()
+            ctx.check(f"the helper's ToolSearch starts a lazy server and finds its tool, got "
+                      f"{cc.search('select:mcp__lazy__echo')[1]}", cc.search("select:mcp__lazy__echo")[1] == ["mcp__lazy__echo"])
+        catalog.ensure_lazy_discovered()
+        ctx.check(f"main finds the lazy server's tool after a helper started it, got "
+                  f"{catalog.search('select:mcp__lazy__echo')[1]}",
+                  catalog.search("select:mcp__lazy__echo")[1] == ["mcp__lazy__echo"])
+    finally:
+        _f2_close(controller)
+        _f2_restore(saved)
+
+
+@test
+def test_a_late_server_keeps_every_deny_and_a_helpers_tools_line(ctx: Ctx):
+    """3.6.0.15 F2: the late connect passes the build's own filter (a deny
+    holds), and a helper's `tools:` still narrows what it gets."""
+    from halo_harness.config.agents_md import AgentSpec
+    fh, saved = _f2_home()
+    controller = None
+    try:
+        controller = _f2_controller(fh, ["--disallowedTools", "mcp__fake__echo"])
+        catalog = controller.session.session_catalog
+        _f2_late_connect(controller)
+        known = set(catalog.names) | set(catalog.deferred)
+        ctx.check(f"the denied tool never enters the pool, got {sorted(n for n in known if 'fake__' in n)}",
+                  "mcp__fake__echo" not in known)
+        ctx.check(f"the other tools did, got {sorted(known)}", "mcp__fake__slow_tool" in known)
+        narrow = _f2_helper(controller, "f2late2", AgentSpec(name="narrow", description="d", tools=["Read"]))
+        nc = narrow.session_catalog
+        ctx.check(f"a `tools: Read` helper has no MCP tool, got {narrow.tool_registry.names()}",
+                  narrow.tool_registry.names() == ["Read"]
+                  and (nc is None or not nc.deferred))
+        wide = _f2_helper(controller, "f2late3",
+                          AgentSpec(name="wide", description="d", tools=["Read", "mcp__fake__*"]))
+        wc = wide.session_catalog
+        pool = sorted(wc.deferred) if wc is not None else []
+        ctx.check(f"`tools: Read, mcp__fake__*` gets that server only, never the denied tool, got {pool}",
+                  "mcp__fake__slow_tool" in pool and "mcp__fake__echo" not in pool
+                  and not any(n.startswith("mcp__fake2") for n in pool))
+    finally:
+        _f2_close(controller)
+        _f2_restore(saved)
+
+
+@test
+def test_a_session_with_no_mcp_server_builds_its_helpers_as_before(ctx: Ctx):
+    """3.6.0.15 F2: with no MCP server configured (the session still has a
+    catalog, with an empty pool) a helper is built exactly as 3.6.0.14 built
+    it: no catalog of its own, its parent's tools filtered by the spec, in
+    the same order."""
+    fh, saved = _f2_home(servers=False)
+    controller = None
+    try:
+        controller = _f2_controller(fh, ["--strict-mcp-config"])
+        parent = controller.session
+        ctx.check("the parent has no MCP server", not getattr(parent.mcp_manager, "handles", None))
+        child = _f2_helper(controller, "f2none")
+        from halo_harness.config.agents_md import AgentSpec
+        spec = AgentSpec(name="general-purpose", description="general purpose sub-agent", tools=None,
+                         disallowed_tools=["Agent", "Task"], body="You are a helpful sub-agent.")
+        names = parent.session_catalog.names if parent.session_catalog is not None else parent.tool_registry.names()
+        want = parent.tool_registry.filtered(spec.resolved_tools(names)).names()
+        ctx.check("the helper has no catalog", child.session_catalog is None)
+        ctx.check(f"the helper's tools, in order, are 3.6.0.14's, got {child.tool_registry.names()} want {want}",
+                  child.tool_registry.names() == want)
+    finally:
+        _f2_close(controller)
+        _f2_restore(saved)
+
+
+@test
+def test_the_tui_worker_hands_the_connected_servers_to_the_catalog(ctx: Ctx):
+    app_src = (REPO_DIR / "halo_harness" / "tui" / "app.py").read_text(encoding="utf-8")
+    ctx.check("the worker hands what connected to the controller",
+              "take_connected_servers" in app_src)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -949,6 +949,19 @@ class Controller:
         except Exception as e:
             return [f"reconnect {name} failed: {type(e).__name__}: {e}"]
 
+    def take_connected_servers(self, names) -> None:
+        """3.6.0.15 F2: the servers the terminal app's deferred start connected
+        after this session's first catalog was built enter that catalog
+        (`SessionCatalog.take_server`: the build's filter and preload rule)."""
+        catalog = getattr(self.session, "session_catalog", None)
+        if catalog is None:
+            return
+        for name in names or ():
+            try:
+                catalog.take_server(name)
+            except Exception:
+                pass
+
     def approve_mcp_server(self, name: str, abort=None) -> list:
         """H3b must-do (unwired seam): completes the `.mcp.json`
         `pending_approval` interactive flow. Persists the approval via

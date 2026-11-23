@@ -487,7 +487,11 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
 
     catalog_names = (parent.session_catalog.names if parent.session_catalog is not None
                       else parent.tool_registry.names())
-    tool_names = spec.resolved_tools(catalog_names)
+    # 3.6.0.15 F2: with an MCP server configured a helper may use every tool its parent may use when it starts:
+    # its own catalog over the parent's deferred tools (a copy), within the spec's own limits
+    _parent_catalog = parent.session_catalog if getattr(parent.mcp_manager, "handles", None) else None
+    _pool_names = list(_parent_catalog.deferred) if _parent_catalog is not None else []
+    tool_names = spec.resolved_tools(list(catalog_names) + _pool_names)
     child_registry = parent.tool_registry.filtered(tool_names)
     # 3.6.0.10 M8: the child's own Agent/Task/Workflow objects (filtered() shares them): its start (Session.__init__'s
     # crew/session_start.tool_state) never rewrites main's lineup, map or kinds, and a helper reads no kinds of main's
@@ -497,6 +501,8 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
             _tool = copy.copy(_tool)
             _tool.kinds_tail = ""
             child_registry.add_tool(_tool)
+    child_catalog = (_parent_catalog.for_helper(child_registry, lambda n: spec.resolved_tools([n]) == [n])
+                     if _parent_catalog is not None else None)
     _opt_ins = None  # 3.6.0.0 R5b: a lineup member's tools.capabilities went with lineups (a map agent: its `uses`)
 
     ctx = SessionContext(
@@ -824,7 +830,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         small_model_ref=parent.small_model_ref, small_model_effort=getattr(parent, "small_model_effort", None),
         session_log=child_log,
         max_turns=(spec.max_turns or parent.max_turns), effort=_effective_effort,
-        permission_engine=child_engine, session_catalog=None, mcp_manager=parent.mcp_manager,
+        permission_engine=child_engine, session_catalog=child_catalog, mcp_manager=parent.mcp_manager,
         hook_runner=hook_runner,
         # Halo 2.0.3 round 5e: so `roles.role_escalation_enabled` can see
         # which role this CHILD was actually resolved under -- the main

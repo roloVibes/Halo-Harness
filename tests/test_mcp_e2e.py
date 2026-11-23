@@ -280,6 +280,78 @@ def test_claude_json_checksum_unchanged_after_a_session_with_mcp(ctx: Ctx):
         mock.stop()
 
 
+# ---- 3.6.0.15 F2: a helper finds and calls a deferred MCP tool -------------
+
+_F2_MARK = "f2-text-from-the-helper"
+
+
+def _f2_scenarios(main_name, child_name, subagent_type):
+    """Main hands work out (Agent, the child on its own scripted model); the
+    helper calls ToolSearch select, then the echo tool, then answers with
+    the last tool result; main answers with what the helper said."""
+    from tests.helpers.mock_openai import _finish
+
+    def _main(h, body):
+        tools = [m for m in (body.get("messages") or []) if m.get("role") == "tool"]
+        if not tools:
+            return _finish(h, _tool_call_chunk("call_agent", "Agent", {
+                "description": "use the echo tool", "prompt": "call the echo tool",
+                "subagent_type": subagent_type, "model": f"or:mock/{child_name}"}))
+        _finish(h, _final_text_chunk("main heard: " + str(tools[-1].get("content"))))
+
+    def _child(h, body):
+        tools = [m for m in (body.get("messages") or []) if m.get("role") == "tool"]
+        if not tools:
+            return _finish(h, _tool_call_chunk("call_ts", "ToolSearch", {"query": "select:mcp__fake__echo"}))
+        if len(tools) == 1:
+            return _finish(h, _tool_call_chunk("call_echo", "mcp__fake__echo", {"text": _F2_MARK}))
+        _finish(h, _final_text_chunk("helper got: " + str(tools[-1].get("content"))))
+    SCENARIOS[main_name] = _main
+    SCENARIOS[child_name] = _child
+
+
+def _f2_run(fh, main_name, child_name, subagent_type):
+    _f2_scenarios(main_name, child_name, subagent_type)
+    mock = MockUpstream().start()
+    try:
+        return _run_cli(fh, mock, "hand the echo out", model=f"or:mock/{main_name}",
+                        extra_args=["--permission-mode", "auto"], timeout=60,
+                        extra_env={"OLLAMA_HOST": "http://127.0.0.1:9", "HALO_NO_UPDATER": "1"})
+    finally:
+        mock.stop()
+
+
+def _f2_agent_file(fh, name, tools):
+    d = Path(fh["proj"]) / ".claude" / "agents"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{name}.md").write_text(f"---\nname: {name}\ndescription: A helper for the echo tool.\ntools: {tools}\n"
+                                  f"---\nYou call the tools you are asked to call.\n", encoding="utf-8")
+
+
+@test
+def test_a_helper_finds_and_calls_a_deferred_mcp_tool(ctx: Ctx):
+    fh = build_fake_home()
+    _write_fake_mcp_only_claude_json(fh["home"])
+    result = _f2_run(fh, "f2-main-gp", "f2-child-gp", "general-purpose")
+    ctx.check(f"exit 0, got {result.returncode} stderr={result.stderr[-1200:]!r}", result.returncode == 0)
+    ctx.check(f"the helper's echo reached main, got {result.stdout[-1200:]!r}", _F2_MARK in result.stdout)
+
+
+@test
+def test_a_helper_with_its_own_tools_line_gets_no_wider(ctx: Ctx):
+    fh = build_fake_home()
+    _write_fake_mcp_only_claude_json(fh["home"])
+    _f2_agent_file(fh, "narrow", "Read")
+    _f2_agent_file(fh, "withmcp", "Read, mcp__fake__*")
+    narrow = _f2_run(fh, "f2-main-narrow", "f2-child-narrow", "narrow")
+    ctx.check(f"narrow: exit 0, got {narrow.returncode} stderr={narrow.stderr[-800:]!r}", narrow.returncode == 0)
+    ctx.check(f"`tools: Read` never reaches the server's tool, got {narrow.stdout[-800:]!r}",
+              "main heard:" in narrow.stdout and _F2_MARK not in narrow.stdout)
+    wide = _f2_run(fh, "f2-main-wide", "f2-child-wide", "withmcp")
+    ctx.check(f"wide: exit 0, got {wide.returncode} stderr={wide.stderr[-800:]!r}", wide.returncode == 0)
+    ctx.check(f"`tools: Read, mcp__fake__*` finds and calls it, got {wide.stdout[-800:]!r}", _F2_MARK in wide.stdout)
+
+
 def _hermetic_child_env() -> dict:
     """2.0.0 fixpass item G: never forward a stray BRIDGE_STATE_DIR
     (would let bridge_home() escape this test's own BRIDGE_TEST_HOME

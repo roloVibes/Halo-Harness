@@ -139,6 +139,20 @@ def select_preload(mcp_triples, *, preload_names=None, always_load_servers=None,
     return preload, deferred
 
 
+def mcp_survivors(mcp_triples, *, deny_rules=(), disallowed=()) -> list:
+    """3.6.0.15 F2: the ONE filter an MCP server's tools pass before they
+    enter a session's catalog -- at the build (`headless.build_session`) and
+    whenever a server's tools enter it later (`SessionCatalog.
+    refresh_deferred_for_server`, `take_server`, lazy discovery). A deny
+    rule's `mcp__...` names (`permissions.mcp_deny_tool_names`) and the
+    `--disallowedTools` names that start with `mcp__` are removed."""
+    from halo_harness.permissions import mcp_deny_tool_names
+    triples = list(mcp_triples)
+    denied = mcp_deny_tool_names(list(deny_rules or ()), [t[1] for t in triples])
+    denied |= {r.strip() for r in (disallowed or ()) if "(" not in r and r.strip().startswith("mcp__")}
+    return [t for t in triples if t[1] not in denied]
+
+
 @dataclass
 class SessionCatalog:
     """Owns the session's growing, append-only wire-catalog NAME LIST plus
@@ -192,6 +206,57 @@ class SessionCatalog:
     # nothing, matching every caller that never passes these through.
     tools_subset: "Optional[set]" = None
     bare_denied_names: set = field(default_factory=set)
+    # 3.6.0.15 F2: the inputs of `mcp_survivors` the build applied (its deny
+    # rules and `--disallowedTools`) and its `mcpPreload` names, so a server
+    # whose tools enter later is filtered and preloaded exactly as at the
+    # build; `allow` (a helper's catalog only) is the helper's own tool limit.
+    deny_rules: list = field(default_factory=list)
+    disallowed: list = field(default_factory=list)
+    preload_names: set = field(default_factory=set)
+    allow: Optional[Callable[[str], bool]] = None
+    _lazy_taken: set = field(default_factory=set, repr=False, compare=False)
+
+    def _admitted(self, triples) -> list:
+        out = mcp_survivors(triples, deny_rules=self.deny_rules, disallowed=self.disallowed)
+        return out if self.allow is None else [t for t in out if self.allow(t[1])]
+
+    def for_helper(self, registry, allow: Callable[[str], bool]) -> "SessionCatalog":
+        """3.6.0.15 F2: a helper's own catalog, made when it starts: a COPY of
+        the deferred entries `allow` passes (a later load of the parent never
+        reaches it; the helper never grows the parent's pool); ToolSearch is
+        put in `registry` when that pool is not empty (the build's own rule)."""
+        with self._lock:
+            pool = {n: e for n, e in self.deferred.items() if allow(n)}
+            lazy_taken = set(self._lazy_taken)
+        if pool and registry.get("ToolSearch") is None:
+            from halo_harness.tools.tool_search import ToolSearchTool
+            registry.add_tool(ToolSearchTool())
+        names = registry.names()
+        return SessionCatalog(
+            registry=registry, deferred=pool, manager=self.manager, cap=max(self.cap, len(names)),
+            vision=self.vision, audio=self.audio, family=self.family, names=names,
+            tools_subset=self.tools_subset, bare_denied_names=set(self.bare_denied_names),
+            deny_rules=list(self.deny_rules), disallowed=list(self.disallowed),
+            preload_names=set(self.preload_names), allow=allow, _lazy_taken=lazy_taken)
+
+    def take_server(self, server_name: str) -> "list[str]":
+        """3.6.0.15 F2: a server that connected after this catalog was built
+        (the terminal app's deferred start) enters it: its tools go to the
+        deferred pool through the build's filter, and the ones the build
+        would have preloaded (the same `select_preload`: a tool's alwaysLoad
+        meta, the server's `alwaysLoad`, `mcpPreload`) are loaded within the
+        room the cap leaves. Returns the names loaded."""
+        self.refresh_deferred_for_server(server_name)
+        with self._lock:
+            mine = sorted(((srv, n, t) for n, (srv, t) in self.deferred.items() if srv == server_name),
+                          key=lambda t: t[1])
+            room = self.cap - len(self.names)
+        handle = (getattr(self.manager, "handles", None) or {}).get(server_name)
+        always = {server_name} if getattr(getattr(handle, "config", None), "always_load", False) else set()
+        preload, _rest = select_preload(mine, preload_names=self.preload_names,
+                                        always_load_servers=always, cap_budget=room)
+        names = [n for _srv, n, _t in preload]
+        return self.load(names) if names else []
 
     def _deferred_definition(self, wire_name: str) -> dict:
         server, sdk_tool = self.deferred[wire_name]
@@ -341,12 +406,14 @@ class SessionCatalog:
         alone (still real, still dispatchable, still in `self.names`)
         even if the fresh tool list no longer contains that exact tool --
         only the DEFERRED (not-yet-loaded) entries for this server are
-        replaced."""
+        replaced. 3.6.0.15 F2: the tools pass the build's own filter
+        (`_admitted`), so a denied tool never enters the pool this way."""
         with self._lock:
             for name in [n for n, (srv, _) in self.deferred.items() if srv == server_name]:
                 del self.deferred[name]
-            for server, wire_name, sdk_tool in self.manager.all_tools():
-                if server != server_name or wire_name in self.names:
+            for server, wire_name, sdk_tool in self._admitted(
+                    t for t in self.manager.all_tools() if t[0] == server_name):
+                if wire_name in self.names:
                     continue
                 self.deferred[wire_name] = (server, sdk_tool)
 
@@ -391,13 +458,22 @@ class SessionCatalog:
         through to `ensure_lazy_started_all`, which now starts every
         pending lazy server IN PARALLEL (one shared MCP_TIMEOUT window,
         not one per server) and honours the abort instead of blocking the
-        whole wait."""
-        started = self.manager.ensure_lazy_started_all(abort=abort)
+        whole wait.
+        3.6.0.15 F2: one manager serves main and its helpers, so a lazy
+        server another catalog started (or one started in the background)
+        is taken too, once; its tools pass the build's filter and, in a
+        helper's catalog, the helper's own limit."""
+        started = set(self.manager.ensure_lazy_started_all(abort=abort) or ())
+        handles = getattr(self.manager, "handles", None) or {}
+        started |= {n for n in (getattr(self.manager, "_lazy_names", None) or ())
+                    if n not in self._lazy_taken and getattr(handles.get(n), "state", None) == "connected"}
         if not started:
             return
         with self._lock:
-            for server, wire_name, sdk_tool in self.manager.all_tools():
-                if server in started and wire_name not in self.names and wire_name not in self.deferred:
+            self._lazy_taken |= started
+            for server, wire_name, sdk_tool in self._admitted(
+                    t for t in self.manager.all_tools() if t[0] in started):
+                if wire_name not in self.names and wire_name not in self.deferred:
                     self.deferred[wire_name] = (server, sdk_tool)
 
     def add_connector_tools(self, infos: "list") -> "list[str]":
@@ -434,6 +510,8 @@ class SessionCatalog:
                 if self.tools_subset is not None and wire_name not in self.tools_subset:
                     continue
                 if wire_name in self.bare_denied_names:
+                    continue
+                if self.allow is not None and not self.allow(wire_name):  # 3.6.0.15 F2: a helper's own limit
                     continue
                 self.deferred[wire_name] = (None, ConnectorTool(info))
                 added.append(wire_name)
