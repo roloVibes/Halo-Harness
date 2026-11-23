@@ -15,6 +15,7 @@ import { pickLive as pickLiveSession } from "../agents/livePick";
 import { setAgentsView } from "../agents/store";
 import type { AgentKey, Harness } from "./types";
 import { load } from "./sync";
+import { pauseSet } from "./pauseFact";
 
 const hidPath = (h: Harness | undefined, id: string) => (h?.local ? "local" : encodeURIComponent(id));
 
@@ -114,7 +115,7 @@ export async function steer(key: AgentKey, text: string, mode: "nudge" | "redire
 export async function togglePause(key: AgentKey = fleet.get().selected): Promise<void> {
   const ref = findAgent(fleet.get(), key);
   if (!ref) return;
-  const paused = ref.a.state === "paused";
+  const paused = pauseSet(ref.a);
   const r = await agentCommand(key, paused ? "resume" : "pause");
   if (r.ok && !r.asked) toast(paused ? "Resumed" : "Paused: it holds at its next tool or model call", "done");
 }

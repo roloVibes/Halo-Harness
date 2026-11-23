@@ -36,7 +36,7 @@ MODS = {
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
     "slot": "routes/agents/liveSlot.ts", "now": "routes/crew/map/nowLine.ts", "room": "routes/crew/map/nowRoom.ts",
     "turn": "routes/crew/map/turnWords.ts", "rings": "routes/crew/map/rings.ts", "fold": "routes/crew/map/foldRule.ts",
-    "fmt": "routes/orchestra/format.ts",
+    "fmt": "routes/orchestra/format.ts", "pf": "routes/fleet/pauseFact.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -1549,6 +1549,28 @@ def test_rings_are_css_with_one_end_listener(ctx: Ctx):
     for name in ("routes/agents/LiveDraw.tsx", "routes/session/MapDown.tsx"):
         s = (SRC / name).read_text(encoding="utf-8")
         ctx.check(f"{name} calls useRings and stays at or under 215 lines", "useRings(" in s and s.count("\n") <= 215)
+
+
+@test
+def test_pause_reads_resume_while_a_pause_is_set(ctx: Ctx):
+    """3.6.0.15 F3: one fact, one rule (routes/fleet/pauseFact.ts): a door reads "Resume" while the agent holds or a
+    pause is set on it (`pause_set`, from the press until a resume, also before it holds), else "Pause"; every
+    Pause / Resume door reads it, none decides from the state alone."""
+    cases = [({"state": "waiting", "pause_set": True}, "Resume"), ({"state": "paused"}, "Resume"),
+             ({"state": "running"}, "Pause"), ({"state": "waiting", "pause_set": False}, "Pause"),
+             ({"state": "running", "pause_set": True}, "Resume"), (None, "Pause")]
+    js = """console.log(JSON.stringify({w: D.map(([a]) => M.pf.pauseWord(a)), s: D.map(([a]) => M.pf.pauseSet(a))}));"""
+    got = _run(["pf"], js, cases)
+    for (a, want), w, s in zip(cases, got.get("w") or [], got.get("s") or []):
+        ctx.check(f"{a}: {want}, got {w} {s}", w == want and s == (want == "Resume"))
+    ctx.check(f"every case answered, got {got}", len(got.get("w") or []) == len(cases))
+    doors = {"routes/fleet/actions.ts": "pauseSet(", "routes/crew/map/StepIn.tsx": "pauseWord(",
+             "routes/crew/map/BoxHead.tsx": "pauseSet(", "routes/fleet/Agent.tsx": "pauseWord(",
+             "routes/fleet/commands.ts": "pauseSet(", "routes/session/LiveSteer.tsx": "pauseSet("}
+    for name, call in doors.items():
+        s = (SRC / name).read_text(encoding="utf-8")
+        ctx.check(f"{name} reads the one fact ({call}) and no door decides from `=== \"paused\"` alone",
+                  call in s and "pauseFact" in s and not re.search(r"""=== "paused" \? (?:`?(?:Resume|Pause)|"(?:play|resume)")""", s))
 
 
 if __name__ == "__main__":

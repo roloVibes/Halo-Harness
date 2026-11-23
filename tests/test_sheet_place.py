@@ -300,6 +300,42 @@ console.log(JSON.stringify(out));"""
 
 
 @test
+def test_last_said_names_whose_words(ctx: Ctx):
+    """3.6.0.15 F8: the block names whose words it shows, the name read at the click as its row shows it (`who` in the
+    answer): "Last said by {name} at {t}: {text}", "Last said by {name}: {text}", "Last thought by {name} at {t}: {text}",
+    "Last thought by {name}: {text}"; "Nothing said yet." unchanged; the time from the one formatter; a late answer keeps
+    its name at the body's end; `saidWho` (StepInSaid.tsx) takes the name with the aid, the one GET unchanged."""
+    js = r"""const T = 1700000000;
+const E = (kind, text, ts) => ts == null ? {kind, text} : {kind, text, ts};
+const G = {
+  text: {who: "reader", events: [E("thinking", "a thought", T), E("text", "new words", T + 9)]},
+  handback: {who: "reader", events: [E("handback", "done: 3 files changed", T + 30)]},
+  thought: {who: "reader", events: [E("thinking", "which file first", T + 61)]},
+  notime: {who: "reader", events: [E("text", "no clock here")]}, notimeThought: {who: "reader", events: [E("thinking", "a bare thought")]},
+  none: {who: "reader", events: []}};
+const out = {lines: {}, want: {text: M.tb.secsClock(T + 9), handback: M.tb.secsClock(T + 30), thought: M.tb.secsClock(T + 61)}};
+for (const [k, g] of Object.entries(G)) out.lines[k] = M.tb.saidLines(g, "S-1");
+out.late = M.tb.saidParts("reading", G.thought, "S-1");
+console.log(JSON.stringify(out));"""
+    got = _run(["tb"], js, None)
+    L, W = got.get("lines") or {}, got.get("want") or {}
+    ctx.check(f"a text: 'Last said by reader at', got {L.get('text')}", L.get("text") == [f"Last said by reader at {W.get('text')}: new words"])
+    ctx.check(f"a handback, got {L.get('handback')}", L.get("handback") == [f"Last said by reader at {W.get('handback')}: done: 3 files changed"])
+    ctx.check(f"a thought only, got {L.get('thought')}", L.get("thought") == [f"Last thought by reader at {W.get('thought')}: which file first"])
+    ctx.check(f"no time, got {L.get('notime')} {L.get('notimeThought')}",
+              L.get("notime") == ["Last said by reader: no clock here"] and L.get("notimeThought") == ["Last thought by reader: a bare thought"])
+    ctx.check(f"nothing said: unchanged, got {L.get('none')}", L.get("none") == ["Nothing said yet."])
+    ctx.check(f"a late answer keeps its name at the body's end, got {got.get('late')}",
+              got.get("late") == {"here": ["Reading what it said..."], "end": [f"Last thought by reader at {W.get('thought')}: which file first"]})
+    p = SRC / "routes/crew/map/StepInSaid.tsx"
+    src = p.read_text(encoding="utf-8") if p.is_file() else ""
+    ctx.check("StepInSaid.tsx: saidWho gives the aid and the name, the answer carries the name read at the click",
+              "export function saidWho(" in src and "who: " in src and "saidAid" not in src)
+    sheet = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
+    ctx.check("StepIn.tsx reads Last said through saidWho", "useSaid(sid, saidWho(t))" in sheet)
+
+
+@test
 def test_the_said_request_ends_with_the_sheet(ctx: Ctx):
     """O1-6: ONE GET of the tail at the click, aborted and its answer dropped when the sheet goes; one timer, cleared; no
     interval. The request and its timer live in StepInSaid.tsx only."""

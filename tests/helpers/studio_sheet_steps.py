@@ -14,6 +14,10 @@ called. Every name and figure is invented; every expected figure is read from th
              frame once placed, and when Escape folded it
     body     group 1 with fourteen more helpers (its body longer than its room): the body under a wheel, the head and the
              action row around it, and the words of Last said
+    pausing  (3.6.0.15 F3) a member that waits on an ask: its sheet's Pause pressed, then pressed again (the sheet's
+             parts and its word at each, the commands the session received; the session answered here: `answers`)
+    said     (3.6.0.15 F8) group 1's sheet with two names among its rows: Last said at the open and after another row
+             is chosen, and the tail reads the click made
 
     python -m tests.helpers.studio_sheet_steps [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -267,7 +271,95 @@ def body(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"body": out}
 
 
-STEPS = (place, closers, motion, body)
+# ---- 3.6.0.15 F3 and F8: Pause on a helper that waits on you; Last said names whose words -----------------------------
+@contextmanager
+def answers(rows: Rows):
+    """Agent commands answered here as a session would (Studio's forward, live_agents_api.forward): a pause SETS a pause on
+    the agent (its row's `pause_set`, its state unchanged: a waiting helper holds only after his answer), a resume takes it
+    back; a tail answers with one text of that agent. `log`: the commands in order; `tails`: the tail reads."""
+    from halo_harness.studio import live_agents_api as la
+    orig, got = la.forward, {"log": [], "tails": []}
+
+    def fwd(sid, cmd, fields):
+        aid = fields.get("agent_id")
+        if cmd == "agent_tail":
+            got["tails"].append(aid)
+            return 200, {"agent_id": aid, "events": [{"kind": "text", "text": f"the words of {aid}", "ts": time.time() - 5}]}
+        if cmd in ("pause", "resume") and aid:
+            got["log"].append(cmd)
+            agents = (rows.fields.get(sid) or {}).get("agents") or []
+            rows.set(sid, agents=[{**x, "pause_set": cmd == "pause"} if x.get("agent_id") == aid else x for x in agents])
+            return 200, {"ok": True}
+        return orig(sid, cmd, fields)
+    la.forward = fwd
+    try:
+        yield got
+    finally:
+        la.forward = orig
+
+
+PAUSE_BTN = f"{SHEET['live']}?.querySelector('[data-testid=map-step-in-pause]')"
+
+
+def pausing(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """k1 waits on an ask; its sheet open: Pause pressed, its word read (it must turn to Resume while k1 still waits),
+    pressed again (it must resume); the sheet's parts at each, the commands the session received."""
+    out: dict = {}
+    with answers(rows) as got:
+        t0 = time.time() - 40
+        _s3(c, rig, rows, a, b, t0, "live", k1="waiting")
+        ask(rig, a, "k1", 7)
+        open_on(c, "live", f"{LW}.querySelector('[data-member=k1]')")
+        out["first"] = parts(c, "live")
+        c.click_on(PAUSE_BTN)
+        out["resume"] = bool(wait_or(c, f"{PAUSE_BTN}?.textContent === 'Resume'", 15))
+        frames(c, 2)
+        out["mid"] = parts(c, "live")
+        out["state"] = c.js(f"{LW}.querySelector('[data-member=k1]')?.dataset.state || null")
+        c.click_on(PAUSE_BTN)
+        out["pause"] = bool(wait_or(c, f"{PAUSE_BTN}?.textContent === 'Pause'", 15))
+        frames(c, 2)
+        out["after"] = parts(c, "live")
+        out["log"] = list(got["log"])
+    return {"pausing": out}
+
+
+ROWS_JS = (f"[...({SHEET['live']}?.querySelectorAll('[data-testid=map-step-in-row]') || [])].map((r) => ({{ key: r.dataset.key,"
+           " chosen: r.hasAttribute('data-chosen'), text: r.querySelector('[data-testid=map-step-in-row-text]')?.textContent || '' }))")
+SAID_JS = f"[...({SHEET['live']}?.querySelectorAll('[data-testid=map-step-in-said] > p') || [])].map((p) => p.textContent)"
+
+
+def said(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """Group 1's sheet (r2 named "scout", so its rows read two names): Last said's lines at the open and after another
+    row (of another name) is chosen; the rows as they read; the tail reads the click made."""
+    out: dict = {}
+    with answers(rows) as got:
+        t0 = time.time() - 40
+        agents = [{**x, "name": "scout", **({"crew": {**x["crew"], "agent": "scout"}} if isinstance(x.get("crew"), dict) else {})}
+                  if x.get("agent_id") == "r2" else x for x in s3_rows(rows, a, t0)]
+        go(c, rig, rows, a, b, agents)
+        c.wait(f"{M}.querySelectorAll('{GROUPS}').length === 7", 20)
+        to_live(c, 7)
+        frames(c, 6)
+        n0 = len(got["tails"])
+        open_on(c, "live", f"{LW}.querySelector('[data-box=\"group:1\"] [data-testid=map-group-name]')")
+        wait_or(c, f"{SAID_JS}.some((t) => t.startsWith('Last said'))", 10)
+        out["rows"], out["first"] = c.js(ROWS_JS) or [], c.js(SAID_JS) or []
+        chosen = next((r for r in out["rows"] if r["chosen"]), {})
+        name = (chosen.get("text") or "").split(" · ")[0]
+        other = next((r for r in out["rows"] if (r["text"] or "").split(" · ")[0] != name), {})
+        out["name"], out["other"] = name, other.get("key")
+        if other.get("key"):
+            c.click_on(f"[...{SHEET['live']}.querySelectorAll('[data-testid=map-step-in-row]')].find((r) => r.dataset.key === {other['key']!r})"
+                       ".querySelector('[data-testid=map-step-in-row-text]')")
+            out["chose"] = bool(wait_or(c, f"{ROWS_JS}.some((r) => r.chosen && r.key === {other['key']!r})", 10))
+            frames(c, 4)
+        out["then"] = c.js(SAID_JS) or []
+        out["tails"] = len(got["tails"]) - n0
+    return {"said": out}
+
+
+STEPS = (place, closers, motion, body, pausing, said)
 
 
 class SheetDriver(LiveNowDriver):

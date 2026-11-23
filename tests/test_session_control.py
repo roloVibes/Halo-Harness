@@ -265,6 +265,59 @@ def test_a_helper_that_ends_in_its_first_frame_carries_its_end_time(ctx: Ctx):
     ctx.check(f"main's row never carries `ended`, got {main.get('ended')}", main.get("ended") is None)
 
 
+@test
+def test_a_pause_set_on_a_waiting_helper_is_on_its_row_until_resume(ctx: Ctx):
+    """3.6.0.15 F3: a pause pressed on a helper that waits on an ask is on its row (`pause_set`) from the press until
+    a resume, beside its state (still "waiting": it never held); a frame goes out for each change. A grandchild held
+    by lineage, and every row under a session-wide pause, carry no `pause_set` (their Resume would take nothing back)."""
+    from types import SimpleNamespace
+    from halo_harness.agent.agent_registry import FIELDS, AgentTree
+
+    class _Root:
+        agent_id = None
+        model_ref = None
+        log = None
+
+    class _Kid:
+        def __init__(self, aid):
+            self.agent_id, self.model_ref = aid, None
+
+    tree = AgentTree(_Root())
+    frames: list = []
+    tree.add_listener(lambda kind, aid, data: frames.append((aid, dict(data))) if kind == "agent_state" else None)
+    child, grand = _Kid("helper-1"), _Kid("helper-2")
+    tree.add("helper-1", session=child, parent=tree.root_id, name="reader", kind="subagent")
+    tree.add("helper-2", session=grand, parent="helper-1", name="scout", kind="subagent")
+    tree.started("helper-1", child, "read the notes")
+    tree.started("helper-2", grand, "look around")
+    tree.observe("helper-1", SimpleNamespace(kind="permission_request", data={}))
+    ctx.check(f"the helper waits on an ask, got {tree.state_of('helper-1')}", tree.state_of("helper-1") == "waiting")
+    ctx.check("`pause_set` is an agent row field", "pause_set" in FIELDS)
+    n = len(frames)
+    tree.controls.pause("helper-1", "Studio")
+    row = tree.row("helper-1")
+    ctx.check(f"after the press: pause_set True, state still waiting, got {row.get('pause_set')} {row.get('state')}",
+              row.get("pause_set") is True and row.get("state") == "waiting")
+    sent = [d for a, d in frames[n:] if a == "helper-1"]
+    ctx.check(f"a frame carried the set pause, got {[d.get('pause_set') for d in sent]}",
+              bool(sent) and sent[-1].get("pause_set") is True)
+    ctx.check(f"the grandchild, held by lineage, has no pause_set, got {tree.row('helper-2').get('pause_set')}",
+              not tree.row("helper-2").get("pause_set"))
+    n = len(frames)
+    ctx.check("resume takes it back", tree.controls.resume("helper-1") is True)
+    ctx.check(f"after resume: pause_set False, got {tree.row('helper-1').get('pause_set')}",
+              tree.row("helper-1").get("pause_set") is False)
+    sent = [d for a, d in frames[n:] if a == "helper-1"]
+    ctx.check(f"a frame carried the resume, got {[d.get('pause_set') for d in sent]}",
+              bool(sent) and sent[-1].get("pause_set") is False)
+    tree.controls.pause(None, "Studio")
+    try:
+        ctx.check(f"a session-wide pause sets it on no row, got {[r.get('pause_set') for r in tree.public_rows()]}",
+                  not any(r.get("pause_set") for r in tree.public_rows()))
+    finally:
+        tree.controls.resume(None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

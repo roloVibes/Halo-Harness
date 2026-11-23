@@ -25,6 +25,7 @@ import { askStop, togglePause } from "../../fleet/actions";
 import { usePanels } from "../../fleet/pstore";
 import { Steer } from "../../fleet/Steer";
 import { findAgent, isLive, useFleet } from "../../fleet/store";
+import { pauseWord } from "../../fleet/pauseFact";
 import { memberLine, memberState } from "./groupWords";
 import { STATE_WORDS } from "./LitBits";
 import type { Where } from "./cover";
@@ -36,7 +37,7 @@ import { useNowOf } from "./runParts";
 import { sheetHead } from "./sheetPlace";
 import type { Target, Who } from "./stepInTarget";
 import { askRows, StepInAsks } from "./StepInAsk";
-import { saidAid, StepInSaid, useSaid } from "./StepInSaid";
+import { saidWho, StepInSaid, useSaid } from "./StepInSaid";
 import { modelAid, sheetReady } from "./modelBlock";
 import { StepInModel, useModel } from "./StepInModel";
 import { agentRow, endedAt, openInAgents, openMapAt } from "./truth";
@@ -76,7 +77,7 @@ type Props = { t: Target; where: Where; map: string; sid: string; close: () => v
 export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Props) {
   const [pick, setPick] = useState(t.who[0]?.key || "");
   useEffect(() => setPick(t.who[0]?.key || ""), [t]);
-  const said = useSaid(sid, saidAid(t));
+  const said = useSaid(sid, saidWho(t));
   const model = useModel(sid, modelAid(t.id)); // a member's and main's sheet only (ruling F): none on a group's
   const sheet = useSheet(where, t, sheetReady(said.ready, model.ready), close);
   const attn = usePanels((s) => s.attention);
@@ -126,7 +127,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
           {t.who.length > 0 && (
             <span className="mp-step-in-acts mp-step-in-hold">
               {steerLive && <>
-                <Button size="sm" data-testid="map-step-in-pause" onClick={() => void togglePause(pick)}>{a?.state === "paused" ? "Resume" : "Pause"}</Button>
+                <Button size="sm" data-testid="map-step-in-pause" onClick={() => void togglePause(pick)}>{pauseWord(a)}</Button>
                 <Button size="sm" variant="danger" data-testid="map-step-in-stop" onClick={() => askStop(pick, "card")}>Stop</Button>
               </>}
             </span>

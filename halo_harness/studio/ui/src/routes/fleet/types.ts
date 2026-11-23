@@ -41,6 +41,8 @@ export type AgentRow = {
    *  turn; kept until his next message), and the session's totals (3.6.0.13 L3: main's TURN and hover). */
   turn?: { n: number; helpers: number; tools: number; ended: boolean } | null;
   turn_total?: { helpers: number; tools: number } | null;
+  /** 3.6.0.15 F3 (agent/agent_inbox.py): a pause is set on this agent, from the press until a resume (pauseFact.ts). */
+  pause_set?: boolean | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;

@@ -12,6 +12,7 @@ import type { MotionState } from "../../lib/motion";
 import { cost, elapsed, short } from "../orchestra/format";
 import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
+import { pauseSet, pauseWord } from "./pauseFact";
 import { endedAt } from "../crew/map/truth";
 import { AgentExtras, RecentSessions } from "./AgentHistory";
 import { nowText } from "../crew/live/nodeBits";
@@ -135,8 +136,8 @@ export function AgentView({ r }: { r: AgentRef }) {
         )}
       </div>
       <div className="fa-controls">
-        <Button size="sm" icon={<Icon name={a.state === "paused" ? "play" : "pause"} />} disabled={done || noControl} onClick={() => void togglePause(key)} title={why || "P"} data-testid="fleet-pause">
-          {a.state === "paused" ? "Resume" : "Pause"}
+        <Button size="sm" icon={<Icon name={pauseSet(a) ? "play" : "pause"} />} disabled={done || noControl} onClick={() => void togglePause(key)} title={why || "P"} data-testid="fleet-pause">
+          {pauseWord(a)}
         </Button>
         <Button size="sm" variant="danger" icon={<Icon name="stop" />} disabled={done || noControl} onClick={() => askStop(key)} title={why || "Stops at its next step (asks first)"} data-testid="fleet-stop">
           Stop

@@ -8,6 +8,7 @@
 import { Button } from "../../../lib/ui";
 import type { RecordAgent } from "../../../lib/work/record";
 import { togglePause } from "../../fleet/actions";
+import { pauseSet } from "../../fleet/pauseFact";
 import { askHandoff } from "../../fleet/extras";
 import { cost as money } from "../../orchestra/format";
 import { ackFailed } from "../live/glow";
@@ -42,6 +43,7 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
   const live = LIVE.includes(a.state);
   const tin = Number(r.tokens_in || 0), tout = Number(r.tokens_out || 0);
   const state = a.state === "paused" ? "paused" : a.state === "waiting" ? STATE_WORDS.waiting : a.state || "not started";
+  const set = pauseSet({ state: a.state, pause_set: r.pause_set }); // F3: what a press of Pause / Resume does
   return (
     <section className="mpf-head" data-testid="map-feed-head" data-agent={a.id} data-box={box} data-state={a.state}>
       <span className="mpf-fact" data-testid="map-fact-who"><b>{a.name}</b> · {state}{box && box !== a.name ? ` · the box ${box}` : ""}</span>
@@ -54,9 +56,9 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
       {(live || (a.state === "failed" && !gone)) && (
         <span className="mpf-buttons" data-testid="map-feed-more">
           {live && (
-            <Button onClick={() => void togglePause(a.key)} data-testid="map-feed-pause" data-paused={a.state === "paused" || undefined}
-                    title={a.state === "paused" ? `Resume ${a.name}` : `Pause ${a.name}: it holds at its next tool or model call`}>
-              {a.state === "paused" ? `Resume ${a.name}` : `Pause ${a.name}`}
+            <Button onClick={() => void togglePause(a.key)} data-testid="map-feed-pause" data-paused={set || undefined}
+                    title={set ? `Resume ${a.name}` : `Pause ${a.name}: it holds at its next tool or model call`}>
+              {set ? `Resume ${a.name}` : `Pause ${a.name}`}
             </Button>
           )}
           {live && a.id !== "main" && (

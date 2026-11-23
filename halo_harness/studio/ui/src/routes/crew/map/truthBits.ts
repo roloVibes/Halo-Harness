@@ -129,7 +129,7 @@ export const askOffMap = (agent: string): string => `${agent} is not on the map:
 /** 3.6.0.14 O1-6 the sheet's Last said (one GET of the agent's tail at the click): `ts` in seconds, read with its
  *  seconds by the one locale-aware formatter (truthWords.ts clock: "14:02:11", or "2:02:11 PM" where the locale
  *  writes it so). A done helper's last words come back as `handback`: they are what it said. */
-export type Said = "reading" | { events?: { kind?: string; text?: string; ts?: number }[] } | { error: string };
+export type Said = "reading" | { events?: { kind?: string; text?: string; ts?: number }[]; who?: string } | { error: string };
 export const secsClock = (t: number): string => clock(t, true);
 export const saidReading = "Reading what it said...";
 export function saidLines(got: Said, sid: string): string[] {
@@ -138,7 +138,8 @@ export function saidLines(got: Said, sid: string): string[] {
   const ev = got.events || [], last = (kinds: string[]) => [...ev].reverse().find((e) => kinds.includes(e.kind || "") && e.text);
   const said = last(["text", "handback"]), e = said || last(["thinking"]);
   if (!e) return ["Nothing said yet."];
-  const head = `${said ? "Last said" : "Last thought"}${e.ts ? ` at ${secsClock(e.ts)}` : ""}: ${e.text}`;
+  const by = got.who ? ` by ${got.who}` : ""; // 3.6.0.15 F8: whose words, the name read at the click
+  const head = `${said ? "Last said" : "Last thought"}${by}${e.ts ? ` at ${secsClock(e.ts)}` : ""}: ${e.text}`;
   return /\.\.\. \(\d+ more characters\)$/.test(e.text || "")
     ? [head, `The rest is in the session export: Export on Session's ${WORDS.feed}, or halo session export ${sid}.`] : [head];
 }

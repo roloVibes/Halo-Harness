@@ -6,6 +6,7 @@ import { openLocalHost } from "../agents/fleetDoor";
 import { showAttention } from "../glance/openAsk";
 import { rowIn } from "./attnScope";
 import { askStop, everySession, openAgentPanel, select, toggleFollow, togglePause } from "./actions";
+import { pauseSet } from "./pauseFact";
 import { allAgents, fleet, findAgent, isLive, localId, sessionTitle, type FleetState } from "./store";
 import { askHandoff, record } from "./extras";
 import { panels } from "./pstore";
@@ -38,7 +39,7 @@ export function fleetCommands(): FleetCommand[] {
     const name = sel.a.name || sel.a.agent_id;
     out.push(
       { id: "fleet-steer", group: g, label: `Agents: steer ${name}`, hint: "the Steer box: a nudge or a new task", run: () => (openAgentPanel(sel.key), focusSteer("agent")) },
-      { id: "fleet-pause", group: g, label: `Agents: ${sel.a.state === "paused" ? "resume" : "pause"} ${name}`, kbd: "P", run: () => void togglePause(sel.key) },
+      { id: "fleet-pause", group: g, label: `Agents: ${pauseSet(sel.a) ? "resume" : "pause"} ${name}`, kbd: "P", run: () => void togglePause(sel.key) },
       { id: "fleet-stop", group: g, label: `Agents: stop ${name}`, hint: "asks first", run: () => askStop(sel.key, "palette") },
       { id: "fleet-takeover", group: g, label: `Agents: take over ${name}`, hint: "your brief replaces its task, recorded as a hand-off", run: () => askHandoff("take_over", sel.key) },
       { id: "fleet-handto", group: g, label: `Agents: hand ${name} to...`, hint: "its task as a written brief; it stops", run: () => askHandoff("hand_to", sel.key) },

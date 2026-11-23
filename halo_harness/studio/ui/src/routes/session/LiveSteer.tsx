@@ -20,6 +20,7 @@
 import { useEffect, type ClipboardEvent, type DragEvent, type FocusEvent, type KeyboardEvent } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { askStop, togglePause } from "../fleet/actions";
+import { pauseSet } from "../fleet/pauseFact";
 import { endedAt } from "../crew/map/truth";
 import { Steer } from "../fleet/Steer";
 import { hueOf } from "../shared/hues";
@@ -76,7 +77,7 @@ export function LiveSteer() {
       : done
         ? `${name} has finished (${a.state}): pin a live agent to steer`
         : undefined;
-  const paused = a?.state === "paused";
+  const paused = !!a && pauseSet(a); // F3: a pause set and not yet taken back reads Resume, also before it holds
   const head = (
     <span className="slv-steer-to" title={a ? `${a.name || a.agent_id}: ${a.state}${t.main ? " (the session's main agent)" : ""}` : undefined}>
       <span className="rail-label mono">STEER</span>

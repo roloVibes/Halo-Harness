@@ -38,8 +38,9 @@ test, TESTS = new_registry()
 _RUNS: dict = {}
 S = r"\d+(?:\s(?:s|min)(?:\s\d+\ss)?)?"  # "{s}"
 CLOCK = r"\d{1,2}[:.]\d\d[:.]\d\d(?:\s?[AaPp]\.?\s?[Mm]\.?)?"  # the locale's time with its seconds (R41)
-SAID = [rf"Last said at {CLOCK}: .+", r"Last said: .+", rf"Last thought at {CLOCK}: .+", r"Last thought: .+", r"Nothing said yet\.",
-        r"Reading what it said\.\.\.", r"Could not read what it said: .+"]
+BY = r"(?: by \S(?:.*?\S)?)?"  # 3.6.0.15 F8: " by {name}" when the name read at the click is known
+SAID = [rf"Last said{BY} at {CLOCK}: .+", rf"Last said{BY}: .+", rf"Last thought{BY} at {CLOCK}: .+", rf"Last thought{BY}: .+",
+        r"Nothing said yet\.", r"Reading what it said\.\.\.", r"Could not read what it said: .+"]
 REST = r"The rest is in the session export: Export on Session's Feed, or halo session export \S+\."
 
 
@@ -197,6 +198,38 @@ def test_the_body_alone_scrolls_and_last_said_reads_one_form(ctx: Ctx):
     ctx.check(f"Last said reads one of its forms letter for letter, got {said}",
               1 <= len(said) <= 2 and all(1 <= len(s) <= 2 and any(re.fullmatch(p, s[0], re.S) for p in SAID)
                                           and (len(s) == 1 or re.fullmatch(REST, s[1]) is not None) for s in said))
+
+
+@test
+def test_pause_on_a_helper_that_waits_on_you_reads_resume_and_a_second_press_resumes(ctx: Ctx):
+    """3.6.0.15 F3: Pause says what a press does. On a helper that waits on an ask (it holds only after his answer) the
+    press sets a pause: the button reads "Resume" at once, and a second press takes the pause back ("Pause" again);
+    the session received pause, then resume. The sheet and its buttons do not move."""
+    d = _ran(ctx, "pausing")
+    f, m, a = (d.get(k) or {} for k in ("first", "mid", "after"))
+    ctx.check(f"the sheet opened on k1 with Pause, got {f.get('target')!r} {f.get('pauseText')!r}",
+              f.get("target") == "member:k1" and f.get("pauseText") == "Pause")
+    ctx.check(f"after the press it reads Resume while it still waits, got {d.get('resume')} {m.get('pauseText')!r} {d.get('state')!r}",
+              d.get("resume") is True and m.get("pauseText") == "Resume")
+    ctx.check(f"a second press resumes: Pause again, got {d.get('pause')} {a.get('pauseText')!r}", d.get("pause") is True and a.get("pauseText") == "Pause")
+    ctx.check(f"the session received pause, then resume, got {d.get('log')}", d.get("log") == ["pause", "resume"])
+    for part in ("rect", "pause", "stop", "steer"):
+        ctx.check(f"the {part} did not move, got {f.get(part)} {m.get(part)} {a.get(part)}",
+                  _near(f.get(part), m.get(part)) and _near(f.get(part), a.get(part)))
+
+
+@test
+def test_last_said_keeps_naming_the_agent_read_at_the_click(ctx: Ctx):
+    """3.6.0.15 F8: Last said names whose words it shows, the name of the row chosen at the click as that row shows it;
+    when a row of another name is chosen it keeps naming the agent read, and the click made ONE read of the tail."""
+    d = _ran(ctx, "said")
+    name, first, then = d.get("name") or "", d.get("first") or [], d.get("then") or []
+    ctx.check(f"two names among group 1's rows, got {name!r} and {d.get('other')!r}: {[r.get('text') for r in d.get('rows') or []]}",
+              bool(name) and bool(d.get("other")) and d.get("chose") is True)
+    pat = rf"Last said by {re.escape(name)} at {CLOCK}: .+"
+    ctx.check(f"at the open: 'Last said by {name} at ...', got {first}", bool(first) and re.fullmatch(pat, first[0]) is not None)
+    ctx.check(f"another row chosen: the same line, still naming {name}, got {then}", then[:1] == first[:1])
+    ctx.check(f"ONE read of the tail at the click, got {d.get('tails')}", d.get("tails") == 1)
 
 
 if __name__ == "__main__":

@@ -12,15 +12,21 @@ import type { Said } from "./truthBits";
 
 type Tail = { events?: { kind?: string; text?: string; ts?: number }[] };
 
-/** The agent the sheet reads: the chosen row's at the click, else a member's own, else main's; null: nothing to read. */
-export function saidAid(t: Target): string | null {
-  if (t.who[0]?.aid) return t.who[0].aid;
-  if (t.id.startsWith("member:")) return t.id.slice("member:".length);
-  return t.id === "box:main" ? "main" : null;
+/** The agent the sheet reads and its name as its row shows it (3.6.0.15 F8: the block names whose words it shows): the
+ *  chosen row's at the click, else a member's own, else main's; null: nothing to read. */
+export function saidWho(t: Target): { aid: string; name: string } | null {
+  if (t.who[0]?.aid) return { aid: t.who[0].aid, name: t.who[0].name };
+  if (t.id.startsWith("member:")) {
+    const aid = t.id.slice("member:".length);
+    return { aid, name: t.who.find((w) => w.aid === aid)?.name || t.title };
+  }
+  return t.id === "box:main" ? { aid: "main", name: t.who[0]?.name || "main" } : null;
 }
 
-/** `got`: null (nothing to read), "reading", the answer or its error; `ready`: the sheet may open. */
-export function useSaid(sid: string, aid: string | null): { got: Said | null; ready: boolean } {
+/** `got`: null (nothing to read), "reading", the answer (with the name read at the click) or its error; `ready`: the
+ *  sheet may open. */
+export function useSaid(sid: string, who: { aid: string; name: string } | null): { got: Said | null; ready: boolean } {
+  const aid = who?.aid || null;
   const [got, setGot] = useState<Said | null>(aid ? "reading" : null);
   const [waited, setWaited] = useState(0);
   useEffect(() => { // once, at the click
@@ -29,7 +35,7 @@ export function useSaid(sid: string, aid: string | null): { got: Said | null; re
     const ctl = new AbortController();
     const timer = setTimeout(() => setWaited(SAID_WAIT_MS), SAID_WAIT_MS);
     api.get<Tail>(`sessions/${encodeURIComponent(sid)}/agents/${encodeURIComponent(aid)}/tail`, { n: 20, kinds: "text,thinking,handback" }, ctl.signal)
-      .then((r) => dropped || setGot({ events: r?.events || [] }), (e) => dropped || setGot({ error: e instanceof Error ? e.message : String(e) }))
+      .then((r) => dropped || setGot({ events: r?.events || [], who: who?.name }), (e) => dropped || setGot({ error: e instanceof Error ? e.message : String(e) }))
       .finally(() => clearTimeout(timer));
     return () => { dropped = true; clearTimeout(timer); ctl.abort(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
