@@ -5,7 +5,8 @@ Chrome by tests/helpers/studio_controls.py (its docstring says how a press is ma
 Chrome; browser-driven: the Linux VM and CI only).
 
 Groups: `session` (Session's Live drawer: the zoom row and Fit, the pair, [New session], "↓ n more below", [Open in
-Agents -> Live], a box / step row / line click, each button of the step-in card), `map` (3 · Map: the picker, + New map,
+Agents -> Live], a box / step row / line click, each button of the step-in card, the MODEL block's picker, Undo, Edit in Agents and Make
+it an agent on a helper of Auto: 3.6.0.15 O2-7), `map` (3 · Map: the picker, + New map,
 the switch, Run a goal, Lock, Undo, Dismiss, `map-fresh`, [Open it], [Watch it in Live], the tabs), `live` (4 · Live: the picker, a box and its card, the Feed and its controls), `agents` and `workflows`
 (every visible control of 1 · Agents and 2 · Workflows at rest, enumerated). A failure lists `name: not found` or
 `name: nothing changed`.
@@ -31,7 +32,8 @@ _RUN: dict = {}
 SESSION = ["the pair: Running", "the pair: Just built", "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "[New session]",
            "the New session form's x", "↓ n more below", "a step row", "the card: Pause", "the card: Resume",
            "the card: steer field (Enter sends)", "the card: Stop", "Stop's confirm: Cancel", "the card: x", "a box",
-           "the card: Open in Agents -> Live", "a line", "an off-map line's card: Open the map at main", "[Open in Agents -> Live]"]
+           "the card: Open in Agents -> Live", "a line", "an off-map line's card: Open the map at main", "[Open in Agents -> Live]",
+           "the sheet: Model (its picker)", "the sheet: Undo", "the sheet: Edit in Agents", "the sheet: Make it an agent"]
 MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", f"New sessions run on this ({SEVEN}, his map shop)",
        "Undo (the switch)", "Run a goal", "Lock", "Lock (off again)", "n new, not connected yet", "Undo (the box)", "[Open it]",
        "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "the tab 1 · Agents",

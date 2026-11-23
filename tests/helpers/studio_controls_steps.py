@@ -5,7 +5,9 @@
               hidden with its slot kept: `fit`), the T-state line's [New session] and its form's x; "↓ n more below" (the
               map `seven` at 1280 x 640); a step row, a box and a line (each opens the step-in card), the card's Pause,
               Resume, the steer field (Enter sends), Stop (up to its confirm) and the confirm's Cancel, its x, [Open in
-              Agents -> Live], an off-map line's "Open the map at main"; the drawer's [Open in Agents -> Live]
+              Agents -> Live], an off-map line's "Open the map at main"; the drawer's [Open in Agents -> Live]; on a
+              helper of Auto (3.6.0.15 O2-7) the sheet's MODEL block: its picker, Undo after a pick, Edit in Agents,
+              Make it an agent
     map       Agents -> 3 · Map at 1500 x 900: [Watch it in Live] (L1: the session on auto), the picker, + New map, its
               Make with a name it refuses, the error's Dismiss, the switch New sessions run on this, Undo, Run a goal,
               Lock (on, off), "n new, not connected yet" (a box added from the list to the strip) and Undo, [Open it]
@@ -122,8 +124,37 @@ def session(c, rig, lv, rows) -> dict:
         ("an off-map line's card: Open the map at main", card("map-step-in-map"), off_line),
         ("[Open in Agents -> Live]", down("session-lit-open"), hops),
     ])
+    recs += _model_block(c, rig, rows, a, b, card)
     out["session"] = recs
     return out
+
+
+def _model_block(c, rig, rows, a: str, b: str, card) -> list:
+    """3.6.0.15 O2-7: the sheet's MODEL block (StepInModel.tsx) on a helper of Auto in Session's drawer: the picker's
+    field (it folds open), Undo after a pick (its line), Edit in Agents (his `sorter`: the form) and Make it an agent (a
+    helper main made up: the form filled). His `sorter` is dropped after, so no later group sees it."""
+    from tests.helpers import studio_sheet_acts_steps as SA
+
+    def opened(aid: str):
+        def setup():
+            SA.his_sorter(rig.state)
+            SA.on_auto(c, rig, rows, a, b, view="session", w=1280, h=800)
+            SA.open_box(c, "session", aid)
+        return setup
+
+    def picked():
+        SA.pick_other(c, "session")
+        c.wait(f"!!{card('map-step-in-model-undo')}", 20)
+
+    try:
+        return presses(c, [
+            ("the sheet: Model (its picker)", vis("[data-testid=map-step-in] [data-testid=map-step-in-model-select] [data-testid=model-select]"), opened("a1")),
+            ("the sheet: Undo", card("map-step-in-model-undo"), picked),
+            ("the sheet: Edit in Agents", card("map-step-in-model-edit")),
+            ("the sheet: Make it an agent", card("map-step-in-model-make"), opened("a5")),
+        ])
+    finally:
+        SA.drop_his(rig.state)
 
 
 def map_view(c, rig, lv, rows) -> dict:
