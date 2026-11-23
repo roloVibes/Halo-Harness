@@ -113,6 +113,36 @@ def _alone(n: int, bad: list, fn, *args):
         return None
 
 
+# 3.6.0.15 K2 (g): the helpers two steps share (live-scene, idle-cpu, made-at-once), so no step imports another's
+WIDE = (1440, 900)  # the page the drawing steps open
+SPOTS = {"live": (2, 400)}  # off the drawing: the rail in Agents; Session's is the page's last pixel, read from the page
+ROOTS = {"live": "document.querySelector('[data-testid=agents-live]')",
+         "session": "document.querySelector('[data-testid=session-lit-map]')"}
+
+
+def _away(c, view: str) -> dict:
+    """The pointer off the drawing: (2, 400) on the rail in Agents, the page's last pixel in Session; whether the point
+    is still inside the drawing's root (a read that needs the pointer off is then not judged)."""
+    x, y = SPOTS.get(view) or c.js("[innerWidth - 1, innerHeight - 1]")
+    c.mouse("mouseMoved", x, y)
+    over = c.js(f"((r) => {{ const e = document.elementFromPoint({x}, {y}); return !!(r && e && r.contains(e)); }})({ROOTS[view]})")
+    return {"x": x, "y": y, "over": bool(over)}
+
+
+def _wide_chrome(exe: str, hooks=()):
+    """Headless Chrome at 1440 x 900 with motion as a person's (no-preference, set before the first load: the hosted
+    runners reduce motion), each script of `hooks` run on every new document."""
+    from tests.helpers.chrome_driver import emulate_motion, open_chrome
+    w, h = WIDE
+    c = open_chrome(w, h, exe=exe)
+    c.call("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1, mobile=False)
+    c.call("Page.enable")
+    emulate_motion(c, "no-preference")
+    for src in hooks:
+        c.call("Page.addScriptToEvaluateOnNewDocument", source=src)
+    return c
+
+
 def session_map(ctx):
     from tests.helpers.chrome_driver import open_chrome
     exe = browser(ctx)  # first: --browser none is a SKIP before any halo starts

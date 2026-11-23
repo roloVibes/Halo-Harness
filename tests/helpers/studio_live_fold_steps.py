@@ -170,9 +170,10 @@ def _fold_view(c, rig, rows: Rows, a: str, b: str, view: str) -> dict:
     if view == "live":
         to_live(c, 6)
     c.mouse("mouseMoved", 2, 400)  # the pointer off the drawing (on the rail)
-    wait_or(c, f"!!{_group(view, 1)}?.hasAttribute('data-folded')", 10)
+    frames(c, 2)
+    out["first"] = _fread(c, view)  # 3.6.0.15 K2 (j): read BEFORE the wait, so (a) proves A folded at its first draw
+    wait_or(c, f"!!{_group(view, 1)}?.hasAttribute('data-folded')", 10)  # later parts need the fold settled
     frames(c, 6)
-    out["first"] = _fread(c, view)
     # (b) D open: its members' heights and data-rang; the pointer rests on main; d2 ends; 11 s of the page's time
     rest_on(c, f"{root}.querySelector('[data-box=main]')")
     frames(c, 2)

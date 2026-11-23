@@ -7,20 +7,26 @@ runs four at once, so two of the batch wait queued), headless Chrome at
   (1) NOW: each member says what it does now, letter for letter ("done in {span}", "waiting for you · {s}",
       "Bash · {s}", "waiting for a model reply · {s}" twice, "queued · {s}" twice), main "Agent · {s}"
   (2) each group's counts line is the product's rule over its members' raw states; main's TURN counts the helpers started
-  (3) the slot names the group that waits on you below the view, with its tail; one press brings its member into view
-  (4) Session's drawer at its narrowest, the pointer resting on a member while two helpers end and two start: no box
-      moves (0.5 px) and the box under the pointer does not ring
+      ((1)-(3) wait for the writer's all-done group to fold to its head first, so every run reads one layout)
+  (3) the slot names the group that waits on you, by where the page drew it (one message cannot start the lone helpers
+      in a fixed order): below the view the down form, else, the drawing scrolled to its end, above it the up form; its
+      tail; one press brings its member into view
+  (4) Session's drawer at its narrowest, the member scrolled into the page and the pointer resting ON it (the point is
+      read on the drawing, with the root's `data-held`, at the rest, before the let-go and after) while two helpers end
+      and two start: no box moves (0.5 px) and the box under the pointer does not ring
   (5) the long tool (42 characters) reads "a tool · {s}" while held, its whole name once the pointer left: one growth,
-      no second, no other member's height changed
+      no second, no other member's height changed; the chart's helper was given the tool at once (alwaysLoad) with
+      ToolSearch in its first request, and the tool ran ("slept 30.0s")
   (6) every ring of the no-preference parts: in view, not under the pointer, not under the open box, at most four in one
       frame, never main's box
   (7) the box opens in place in Agents -> Live: it unfolds from its box, its corner at its box (or the view's clamp),
       nothing else moves, its NOW waits on you, Pause holds still through its seconds, Pause and Resume; Escape closes it
- (7c) in Session's drawer the box opened over a tester: the tester ends under it and does not ring
+ (7c) in Session's drawer the box opened on the lowest working member of the open group drawn directly above the
+      testers', over a tester: the tester ends under it and does not ring
   (8) reduced motion: the box opens and closes with no transition and no animation, and a helper that ends does not ring
   (9) nothing left running after quit
 
-The pointer is moved OFF the drawing by `_away` (the rail in Agents, the page's last pixel in Session), and a read whose
+The pointer is moved OFF the drawing by `_away` (steps_map.py: the rail in Agents, the page's last pixel in Session), and a read whose
 pointer was found over the drawing is a named failure, never a pass. Every wait names the state it waits for and ends
 only on a true value. The judges are pure functions of a read (tests/test_realcheck.py judges them with no browser).
 SKIP when no browser may be used (--browser none); with no Chrome found, a FAIL that names it (the first thing it does)."""
@@ -35,16 +41,13 @@ from types import SimpleNamespace
 from realcheck import fakes, screen  # noqa: F401  (screen: the terminal helpers the step's imports share)
 from realcheck.core import Fail, browser  # noqa: F401
 from realcheck.steps_b import WATCH
-from realcheck.steps_map import BTN, HOOK, _alone, _say, alt
+from realcheck.steps_map import BTN, HOOK, WIDE, _alone, _away, _say, _wide_chrome, alt
 from realcheck.steps_auto import _fail, _open, _quit, _session
 
 WIN = sys.platform == "win32"
 LIVE_WAIT_S = 30.0 if WIN else 15.0
 TURN_WAIT_S = 120.0 if WIN else 60.0  # the seven drawn: a real session's first turn on Auto
-W, H = 1440, 900
-SPOTS = {"live": (2, 400), "session": (W - 1, H - 1)}  # off the drawing: the rail; the page's last pixel
-ROOTS = {"live": "document.querySelector('[data-testid=agents-live]')",
-         "session": "document.querySelector('[data-testid=session-lit-map]')"}
+W, H = WIDE
 DRAWER = "!!document.querySelector('[data-testid=session-lit-map]')"
 OPEN = "!!document.querySelector('[data-testid=map-step-in][data-open]')"
 GONE = "!document.querySelector('.mp-step-in')"
@@ -61,6 +64,7 @@ SPAN = "\\d+\u00a0(?:s|min)"
 FORMS = {"done": (rf"done in {SPAN}", "done in {span}"), "waiting": (rf"waiting for you · {SECS}", "waiting for you · {s}"),
          "queued": (rf"queued · {SECS}", "queued · {s}"), "bash": (rf"Bash · {SECS}", "Bash · {s}"),
          "model": (rf"waiting for a model reply · {SECS}", "waiting for a model reply · {s}")}
+COST = r"<?\$\d+\.\d{2,4}"  # a group's cost as the page writes it (F5: "$0.0024", "<$0.0001"; "$0.00")
 MAIN_NOW = rf"Agent · {SECS}"
 HELD = rf"a tool · {SECS}"
 WHOLE = rf"{re.escape(fakes.LIVE_TOOL)} · {SECS}"
@@ -151,10 +155,15 @@ def live_wait(root: str) -> str:
     return f"!!({root})?.querySelector('[data-member]')"
 
 
+def folded_wait(root: str, aid: str) -> str:
+    """3.6.0.15 K2 (a): the member's group folded to its head (GroupBlock.tsx `data-folded`; its members stay mounted)."""
+    return f"!!{member(root, aid)}?.closest('[data-box]')?.hasAttribute('data-folded')"
+
+
 def waits(root: str = "document.querySelector('#root')", scroll: str = "document.querySelector('#scroll')") -> dict:
     """Every wait expression of the step (tests/test_realcheck.py evaluates each against a page stand-in)."""
     return {"drawn": members_wait(root), "done_now": done_now_wait(root), "live": live_wait(root), "drawer": DRAWER, "open": OPEN, "gone": GONE,
-            "held": now_wait(root, "a1", HELD_JS), "whole": now_wait(root, "a1", WHOLE_JS),
+            "folded": folded_wait(root, "a1"), "held": now_wait(root, "a1", HELD_JS), "whole": now_wait(root, "a1", WHOLE_JS),
             "raw": raw_wait(root, "a1", "done"), "seen": seen_wait(root, scroll, "a1"), "resume": pause_wait("Resume"),
             "pause": pause_wait("Pause")}
 
@@ -229,11 +238,11 @@ def judge_live_heads(read: dict, away=None) -> list:
         raws = [m.get("raw", "") for m in ms.values() if m.get("group") == gid]
         got = g.get("counts", "")
         if raws and all(r == "done" for r in raws):
-            ok, want = bool(re.fullmatch(rf"{_agents(len(raws))} · all done · \$\d+\.\d\d · {SPAN}", got)), \
+            ok, want = bool(re.fullmatch(rf"{_agents(len(raws))} · all done · {COST} · {SPAN}", got)), \
                 f"{_agents(len(raws))} · all done · ${{cost}} · {{time}}"
         else:
             want = counts_line(raws)  # + its cost when above 0 (the page does not show the raw cost: "$0.00" may stand)
-            ok = got == want or bool(re.fullmatch(re.escape(want) + r" · \$\d+\.\d\d", got))
+            ok = got == want or bool(re.fullmatch(re.escape(want) + rf" · {COST}", got))
         if not ok:
             bad.append(f"(2) the group {g.get('name', gid)!r} reads {got!r} over its members' states {raws}, want {want!r}")
     started = sum(1 for m in ms.values() if m.get("raw") != "queued")
@@ -244,32 +253,58 @@ def judge_live_heads(read: dict, away=None) -> list:
     return bad
 
 
-def slot_words(name: str, more: int) -> str:
-    head = f"↓ {name} · waits on you"
+def slot_words(name: str, more: int, arrow: str = "down") -> str:
+    """groupWords.ts slotWords, the waiting forms: down (below the view) and up (above it)."""
+    head = f"{'↑' if arrow == 'up' else '↓'} {name} · waits on you"
     return f"{head} · and {more} more {'group' if more == 1 else 'groups'} below" if more > 0 else head
 
 
+def _gn(gid: str) -> int:
+    try:
+        return int(str(gid).split(":")[-1])
+    except ValueError:
+        return 0
+
+
+def order_of(read: dict) -> list:
+    """The groups' names in the order the page drew them (their `group:<n>`)."""
+    gs = (read or {}).get("groups") or {}
+    return [gs[g].get("name", g) for g in sorted(gs, key=_gn)]
+
+
 def judge_live_slot(read: dict, pressed=None, away=None) -> list:
-    """(3) the slot names the asking group below the view with its tail (the other groups wholly below, from the rects);
-    `pressed` ({seen, sheet}) after one press. The asking group not wholly below the view is the entry's named failure."""
+    """(3) the slot names the asking group with its arrow, by where the page drew it (the lone helpers' order is the
+    order their workers took the lock: 3.6.0.15 K2 (a)): wholly below the view the down form, wholly above it the up
+    form, each with the tail of the other groups wholly below (downFit.ts groupsBelow: a folded group's box counts);
+    `pressed` ({seen, sheet}) after one press. The asking group in the view is the entry's named failure."""
     if _over(away):
         return [_over_line(3, away)]
     gs, view, slot = (read or {}).get("groups") or {}, (read or {}).get("view"), (read or {}).get("slot") or {}
     if not view:
         return ["(3) not judged: the drawing's scroll box was not read"]
-    foot = view[1] + view[3]
+    top, foot = view[1], view[1] + view[3]
     below = {gid for gid, g in gs.items() if g.get("rect") and g["rect"][1] >= foot - 0.5}
+    above = {gid for gid, g in gs.items() if g.get("rect") and g["rect"][1] + g["rect"][3] <= top + 0.5}
     ask = next((gid for gid, g in gs.items() if g.get("name") == ASK_GROUP), None)
-    if ask is None or ask not in below:
-        r = gs.get(ask, {}).get("rect") if ask else None
-        return [f"(3) not judged: the group {ASK_GROUP!r} does not lie wholly below the view at {W} x {H} "
-                f"(its rect {r}, the view {view})"]
-    want = slot_words(ASK_GROUP, len(below - {ask}))
+    arrow = "down" if ask in below else "up" if ask in above else ""
+    # the slot's own input is the WAITING member (downFit.ts waitSlot): out of sight when not wholly in the view (partly
+    # counts), its arrow by its top; read when the read has its rect (Agents scrolled to its end may leave a middle
+    # group partly above the view, its waiting member wholly above it)
+    m = next((x for x in ((read or {}).get("members") or {}).values() if x.get("group") == ask and x.get("raw") == "waiting"
+              and x.get("rect") and x["rect"][3] > 0), None)
+    if m and not arrow:
+        r = m["rect"]
+        arrow = "" if r[1] >= top - 0.5 and r[1] + r[3] <= foot + 0.5 else "up" if r[1] < top - 0.5 else "down"
+    if ask is None:
+        return [f"(3) not judged: the group {ASK_GROUP!r} was not drawn ({order_of(read)})"]
+    if not arrow:
+        return [f"(3) not judged: the group {ASK_GROUP!r} lies in the view at {W} x {H} ({order_of(read)})"]
+    want = slot_words(ASK_GROUP, len(below - {ask}), arrow)
     bad = []
     if slot.get("text") != want:
         bad.append(f"(3) the slot reads {slot.get('text')!r}, want {want!r}")
-    if slot.get("arrow") != "down":
-        bad.append(f"(3) the slot's arrow is {slot.get('arrow')!r}, not 'down'")
+    if slot.get("arrow") != arrow:
+        bad.append(f"(3) the slot's arrow is {slot.get('arrow')!r}, not {arrow!r}")
     if pressed is not None and not pressed.get("seen"):
         bad.append("(3) one press on the slot did not bring the asking member wholly into view")
     if pressed is not None and pressed.get("sheet"):
@@ -293,6 +328,57 @@ def judge_live_rest(before: dict, after: dict, rang=("", "")) -> list:
                        else f"(4) {k} was gone under a resting pointer")
     if (rang or ("", ""))[0] != (rang or ("", ""))[1]:
         bad.append("(4) the box under the resting pointer rang")
+    return bad
+
+
+def judge_live_rest_point(points: list) -> list:
+    """(4) 3.6.0.15 K2 (c): the resting point, read at the rest, just before the long tool is let go and with the second
+    rects ({x, y, w, h, on, held}): off the page or not on the drawing is the STEP's failure (then nothing of (4) is
+    judged); on it while the drawing's root does not say `data-held` "1" at the rest or before the let-go is the
+    product's, with both readings."""
+    if not points:
+        return ["(4) not judged: the resting point was not read"]
+    for p in points:
+        p = p or {}
+        x, y, w, h = p.get("x"), p.get("y"), p.get("w") or 0, p.get("h") or 0
+        inside = isinstance(x, (int, float)) and isinstance(y, (int, float)) and 0 <= x < w and 0 <= y < h
+        if not (inside and p.get("on")):
+            return [f"(4) not judged: the resting point ({x}, {y}) is not on the drawing (page {w} x {h})"]
+    a, b = (points[0] or {}).get("held", ""), ((points[1] if len(points) > 1 else points[0]) or {}).get("held", "")
+    if a != "1" or b != "1":
+        return [f"(4) the drawing was not held under a pointer resting on it (data-held {a!r} at the rest, {b!r} before "
+                "the long tool was let go)"]
+    return []
+
+
+def live_mcp(requests: list) -> dict:
+    """(5) what the provider got from the chart's helper: the tool names of its FIRST request and the long tool's result
+    text it sent back (the last of its requests with a tool result)."""
+    tools, result = None, ""
+    for r in requests or []:
+        body = (r or {}).get("body") or {}
+        msgs = [m for m in body.get("messages") or [] if isinstance(m, dict)]
+        if _marker(msgs) != "RC-LIVELONG":
+            continue
+        if tools is None:
+            tools = [(t.get("function") or {}).get("name") or t.get("name") or "" for t in body.get("tools") or []
+                     if isinstance(t, dict)]
+        said = [fakes._text(m.get("content")) for m in msgs if m.get("role") == "tool"]
+        if said:
+            result = said[-1]
+    return {"tools": tools or [], "result": result}
+
+
+def judge_live_mcp(m: dict) -> list:
+    """(5) 3.6.0.15 K2 (e): the chart's helper was given the server's tool at once (alwaysLoad) with ToolSearch in its
+    first request (F2), and the long tool ran (the fake server's slow_tool takes `seconds: float`: "slept 30.0s")."""
+    m = m or {}
+    tools, result = m.get("tools") or [], m.get("result") or ""
+    bad = []
+    if fakes.LIVE_TOOL not in tools or "ToolSearch" not in tools:
+        bad.append(f"(5) the chart's helper was not given {fakes.LIVE_TOOL} at once (alwaysLoad) with ToolSearch: {tools}")
+    if not re.search(rf"\bslept {fakes.LIVE_LONG_S}(?:\.0)?s\b", result):
+        bad.append(f"(5) the long tool did not run: its result reads {result!r}, not \"slept {fakes.LIVE_LONG_S}.0s\"")
     return bad
 
 
@@ -399,6 +485,8 @@ def judge_live_sheet(s: dict) -> list:
 def judge_live_covered(cv: dict) -> list:
     """(7c) the box open in Session's drawer over the tester: the tester ends under it and does not ring."""
     cv = cv or {}
+    if "on" in cv and not cv["on"]:  # 3.6.0.15 K2 (b): no member to open: never a click on an empty id
+        return [f"(7c) not run: the member to open was not found in Session's drawer ({cv.get('lines') or {}})"]
     if not cv.get("pre"):
         return ["(7c) not judged: the sheet does not cover the tester"]
     bad = []
@@ -456,31 +544,12 @@ def _wait(c, expr: str, timeout: float = LIVE_WAIT_S):
         return None
 
 
-def _away(c, view: str) -> dict:
-    """The pointer off the drawing: (2, 400) on the rail in Agents, the page's last pixel in Session (this step's 1440 x
-    900); whether the point is still inside the drawing's root (a read that needs the pointer off is then not judged)."""
-    x, y = SPOTS[view]
-    c.mouse("mouseMoved", x, y)
-    over = c.js(f"((r) => {{ const e = document.elementFromPoint({x}, {y}); return !!(r && e && r.contains(e)); }})({ROOTS[view]})")
-    return {"x": x, "y": y, "over": bool(over)}
-
-
-def _chrome(exe: str):
-    from tests.helpers.chrome_driver import emulate_motion, open_chrome
-    c = open_chrome(W, H, exe=exe)
-    c.call("Emulation.setDeviceMetricsOverride", width=W, height=H, deviceScaleFactor=1, mobile=False)
-    c.call("Page.enable")
-    emulate_motion(c, "no-preference")  # before the first load: the hosted runners reduce motion
-    for src in (WATCH, HOOK, LIVE_HOOK):
-        c.call("Page.addScriptToEvaluateOnNewDocument", source=src)
-    return c
-
-
 def _read(c, V, view: str) -> dict:
     root, sc = V.root[view], V.scroll[view]
     got = c.js(f"({V.READ})({root}, {sc})") or {}
     got["slot"] = c.js(f"({V.SLOT_READ})({V.slot[view]})")
     got["lines"] = c.js(f"({LINES})({root})") or {}
+    got["folded"] = c.js(f"((r) => r ? [...r.querySelectorAll('[data-box][data-folded]')].map((g) => g.dataset.box) : [])({root})") or []
     return got
 
 
@@ -550,7 +619,7 @@ def live_scene(ctx):
     ev: dict = {}
     try:
         ts, base, token, ev = _open(ctx, h)
-        c = _chrome(exe)
+        c = _wide_chrome(exe, (WATCH, HOOK, LIVE_HOOK))
         t, _sid = _session(ctx, h, c, f"{base}/?mode=agents&view=live&tour=off#t={token}", ev, bad, "9")
         if ev.get("session_up_s"):
             _scene(ctx, c, t, ev, bad)
@@ -583,9 +652,16 @@ def _scene(ctx, c, t, ev: dict, bad: list) -> None:
     ev["done_now_drawn"] = bool(_wait(c, done_now_wait(V.LW)))
     aids ={k: _aid(c, V, "live", what) for k, what in DESC.items()}
     ev["aids"] = aids
-    _alone(1, bad, _one, c, V, ev, bad, 1, judge_live_now)
-    _alone(2, bad, _one, c, V, ev, bad, 2, judge_live_heads)
-    _alone(3, bad, _slot, c, V, aids, ev, bad)
+    # 3.6.0.15 K2 (a): the writer's all-done group folds to its head 10 s after its end (LW); (1)-(3) read one layout
+    _away(c, "live")
+    ev["folded"] = bool(aids["writer"]) and bool(_wait(c, folded_wait(V.LW, aids["writer"])))
+    ev["order"] = order_of(_read(c, V, "live"))  # the order the page drew (one message: no fixed start order)
+    if ev["folded"]:
+        _alone(1, bad, _one, c, V, ev, bad, 1, judge_live_now)
+        _alone(2, bad, _one, c, V, ev, bad, 2, judge_live_heads)
+        _alone(3, bad, _slot, c, V, aids, ev, bad)
+    else:
+        bad.append(f"(1)-(3) not run: the writer's all-done group did not fold in {LIVE_WAIT_S:.0f} s")
     held = _alone(4, bad, _rest, ctx, c, V, aids, ev, bad)
     if held:
         _alone(5, bad, _held, ctx, c, V, aids, held, ev, bad)
@@ -595,9 +671,18 @@ def _scene(ctx, c, t, ev: dict, bad: list) -> None:
     _alone(7, bad, _covered, ctx, c, V, aids, ev, bad)
     _alone(8, bad, _reduced, ctx, c, V, aids, ev, bad)
     ev["results"] = _results(ctx.provider)
+    ev["mcp"] = live_mcp(ctx.provider.mock.requests)  # the long tool's result reached the provider once it ended
+    bad.extend(judge_live_mcp(ev["mcp"]))
     rows = _hook(c, "rings")
     ev["rings"] = [[r.get("id"), r.get("root"), r.get("frame"), r.get("reduced")] for r in rows]
     bad.extend(judge_live_rings(rows))
+
+
+def _marker(msgs: list) -> str:
+    """Whose request this is: the scene's marker in its user messages (main's first)."""
+    users = " ".join(fakes._text(m.get("content")) for m in msgs if m.get("role") == "user")
+    return next((k for k in ("RC-LIVESCENE", "RC-LIVETOOL", "RC-LIVEASK", "RC-LIVELONG", "RC-LIVETEST", "RC-LIVEDONE")
+                 if k in users), "")
 
 
 def _results(p) -> dict:
@@ -605,9 +690,7 @@ def _results(p) -> dict:
     out: dict = {}
     for r in p.mock.requests:
         msgs = [m for m in (r.get("body") or {}).get("messages") or [] if isinstance(m, dict)]
-        users = " ".join(fakes._text(m.get("content")) for m in msgs if m.get("role") == "user")
-        marker = next((k for k in ("RC-LIVESCENE", "RC-LIVETOOL", "RC-LIVEASK", "RC-LIVELONG", "RC-LIVETEST", "RC-LIVEDONE")
-                       if k in users), "")
+        marker = _marker(msgs)
         tools = [fakes._text(m.get("content"))[:300] for m in msgs if m.get("role") == "tool"]
         if marker and tools:
             out[marker] = tools[-3:]
@@ -626,9 +709,18 @@ def _one(c, V, ev: dict, bad: list, n: int, judge) -> None:
 def _slot(c, V, aids: dict, ev: dict, bad: list) -> None:
     away = _away(c, "live")
     r = _read(c, V, "live")
-    ev["slot"] = {"slot": r.get("slot"), "view": r.get("view"),
-                  "groups": {g.get("name"): g.get("rect") for g in (r.get("groups") or {}).values()}}
     first = judge_live_slot(r, None, away)
+    if first and "lies in the view" in first[0]:
+        # 3.6.0.15 K2 (a): the asking group drawn high: the drawing scrolled to its end, where it lies wholly above
+        c.js(f"((s) => {{ if (s) s.scrollTop = s.scrollHeight; return 1; }})({V.LSCROLL})")
+        V.frames(c, 3)
+        away = _away(c, "live")
+        _wait(c, f"({V.LMORE})?.dataset.arrow === 'up'")  # the slot answers a scroll at its next frame; else judged as read
+        r = _read(c, V, "live")
+        first = judge_live_slot(r, None, away)
+    ev["slot"] = {"slot": r.get("slot"), "view": r.get("view"), "order": order_of(r),
+                  "groups": {g.get("name"): g.get("rect") for g in (r.get("groups") or {}).values()},
+                  "folded": [((r.get("groups") or {}).get(g) or {}).get("name", g) for g in r.get("folded") or []]}
     if first and "not judged" in first[0]:
         bad.extend(first)
         return
@@ -638,6 +730,20 @@ def _slot(c, V, aids: dict, ev: dict, bad: list) -> None:
     pressed = {"seen": seen, "sheet": bool(c.js("!!document.querySelector('.mp-step-in')"))}
     ev["slot"]["pressed"] = pressed
     bad.extend(judge_live_slot(r, pressed, away))
+
+
+POINT = """((x, y) => { const root = document.querySelector('[data-testid=session-lit-map]'), e = document.elementFromPoint(x, y);
+  const sc = root?.querySelector('.mp-mini-scroll');
+  return {x, y, w: innerWidth, h: innerHeight, on: !!(root && e && root.contains(e)), held: root?.dataset.held || '',
+    scroll: sc ? [sc.scrollTop, sc.scrollHeight, sc.clientHeight, sc.getBoundingClientRect().top] : null, page: scrollY,
+    head: root?.querySelector('.mp-down-head')?.getBoundingClientRect().height ?? null,
+    words: (root?.querySelector('.mp-down-head')?.innerText || '').slice(0, 300),
+    built: root?.querySelector('.mp-down-room')?.firstElementChild?.getBoundingClientRect().height ?? null}; })"""
+
+
+def _point(c, x: float, y: float) -> dict:
+    """The resting point: on the drawing, and whether the drawing's root says it is held."""
+    return c.js(f"({POINT})({x}, {y})") or {"x": x, "y": y}
 
 
 def _rest(ctx, c, V, aids: dict, ev: dict, bad: list):
@@ -651,20 +757,36 @@ def _rest(ctx, c, V, aids: dict, ev: dict, bad: list):
     _away(c, "session")
     s = {k: _aid(c, V, "session", what) for k, what in DESC.items()}
     ev["session_aids"] = s
-    on = next((s[k] for k in TESTS if c.js(raw_wait(V.M, s[k], "running"))), s["tool"])  # it ends under the pointer
+    on = next((s[k] for k in TESTS if s[k] and c.js(raw_wait(V.M, s[k], "running"))), s["tool"])  # it ends under the pointer
+    if not on:
+        ctx.provider.release()  # the scene goes on: the running tester ends, the chart's helper runs its long tool
+        bad.append(f"(4) not run: the member to rest on was not found in Session's drawer ({s})")
+        return None
     _into_view(c, V, "session", on)
+    # 3.6.0.15 K2 (c): the member in the PAGE too (the drawer's scroll box alone left it at y 1838 on a 900 px page)
+    c.js(f"(({member(V.M, on)})?.scrollIntoView({{block: 'center', inline: 'nearest'}}), 1)")
+    V.frames(c, 3)
+    x, y, w, h = c.rect(member(V.M, on))
+    spot = (round(x + w / 2 + 4, 1), round(y + h / 2, 1))  # where V.rest_on ends: the centre + 4 px
     V.rest_on(c, member(V.M, on))
     V.frames(c, 3)
+    points = [_point(c, *spot)]
     rects0 = c.js(f"({RECTS})({V.M})") or {}
     rang = f"{member(V.M, on)}?.dataset.rang || ''"
     rang0 = c.js(rang)
+    points.append(_point(c, *spot))
     ctx.provider.release()  # the running tester ends and a queued one starts; the chart's helper runs its long tool
     held = bool(_wait(c, now_wait(V.M, s["long"], HELD_JS)))
     ticks = _ticks(c, f"({NOWS})({V.M})")
     rects1 = c.js(f"({RECTS})({V.M})") or {}
+    points.append(_point(c, *spot))
     rang1 = c.js(rang)
     now = _now(c, V, "session", s["long"])
-    ev["rest"] = {"held_seen": held, "ticks": ticks, "now": now, "boxes": len(rects0)}
+    ev["rest"] = {"held_seen": held, "ticks": ticks, "now": now, "boxes": len(rects0), "on": on, "points": points}
+    first = judge_live_rest_point(points)
+    bad.extend(first)
+    if first and "not judged" in first[0]:
+        return None  # (5): "(4) never rested the pointer on the drawing"
     bad.extend(judge_live_rest(rects0, rects1, (rang0, rang1)))
     heights = {k: r[3] for k, r in rects0.items() if k.startswith("member:") and r}
     return {"held": now[0], "kind": now[1], "h0": heights.get("member:" + s["long"]), "heights": heights, "aids": s,
@@ -748,9 +870,45 @@ MEETS = """((k, m) => { if (!k || !m) return false; const a = k.getBoundingClien
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom; })"""
 
 
+def above_tests(read: dict, tests: list) -> tuple:
+    """(7c) the member to open: of the open (not folded) group drawn directly above the testers' group (the greatest top
+    above its top), its lowest running or waiting member; ("", "") when there is none."""
+    ms, gs, folded = (read or {}).get("members") or {}, (read or {}).get("groups") or {}, set((read or {}).get("folded") or [])
+    tg = next((ms[a].get("group") for a in tests if a in ms), "")
+    t_rect = (gs.get(tg) or {}).get("rect")
+    if not tg or not t_rect:
+        return "", ""
+    over = [(g["rect"][1], gid) for gid, g in gs.items()
+            if gid != tg and gid not in folded and g.get("rect") and g["rect"][1] < t_rect[1] - 0.5]
+    if not over:
+        return "", ""
+    gid = max(over)[1]
+    live = [(m["rect"][1], a) for a, m in ms.items() if m.get("group") == gid and m.get("raw") in ("running", "waiting")
+            and m.get("rect") and m["rect"][3] > 0]
+    return (max(live)[1], (gs.get(gid) or {}).get("name", gid)) if live else ("", "")
+
+
+def _under_sheet(c, V, tests: list) -> dict:
+    """(7c) with the box open, the drawing scrolled (as a person scrolls it, the sheet staying where it opened) till the
+    first tester lies under the middle of the sheet, when no tester lies under it yet: at the drawer's narrowest a box is
+    taller than the room above or below it, so the sheet opens at the drawer's own place (sheetPlace.ts drawerPlace)."""
+    js = f"""((k, s, ts) => {{ if (!k || !s) return null; const r = k.getBoundingClientRect(), es = ts.filter(Boolean);
+      const t = es.length ? Math.min(...es.map((e) => e.getBoundingClientRect().top)) : null;
+      return {{sheet: [r.top, r.bottom], t, scroll: s.scrollTop}}; }})({SHEET}, {V.MSCROLL}, [{', '.join(member(V.M, a) for a in tests)}])"""
+    g = c.js(js) or {}
+    if g.get("t") is None or any(c.js(f"({MEETS})({SHEET}, {member(V.M, a)})") for a in tests):
+        return g
+    by = round(g["t"] - (g["sheet"][0] + g["sheet"][1]) / 2 + 24)
+    c.js(f"((s) => {{ if (s) s.scrollTop += {by}; return 1; }})({V.MSCROLL})")
+    V.frames(c, 3)
+    return {**g, "by": by, "after": c.js(js), "still_open": bool(c.js(OPEN))}
+
+
 def _covered(ctx, c, V, aids: dict, ev: dict, bad: list) -> None:
-    """(7c) the box opened in Session's drawer on the reviewer's member (the drawing's upper half), covering a tester
-    that then ends: it must not ring. The sheet not over a tester is the entry's named failure."""
+    """(7c) the box opened in Session's drawer on the lowest running or waiting member of the open group drawn directly
+    above the testers' group (3.6.0.15 K2 (a): by the rects, the order the page drew), covering a tester that then ends:
+    it must not ring. No member to open is its own named line (never a click on an empty id); the sheet not over a
+    tester is the entry's named failure."""
     alt(c, 1)
     if not _wait(c, DRAWER):
         bad.append("(7c) not run: Session's Live drawer was not drawn")
@@ -758,13 +916,22 @@ def _covered(ctx, c, V, aids: dict, ev: dict, bad: list) -> None:
     _away(c, "session")
     s = {k: _aid(c, V, "session", what) for k, what in DESC.items()}
     tests = [s[k] for k in TESTS if s[k]]
-    on = s["ask"]
-    _into_view(c, V, "session", on, top=True)
-    cv: dict = {"on": on, "open": _open_on(c, V, "session", on)}
+    r = _read(c, V, "session")
+    on, on_group = above_tests(r, tests)
+    if not on:
+        cv0 = {"on": "", "lines": r.get("lines") or {}, "order": order_of(r)}
+        ev["covered"] = cv0
+        bad.extend(judge_live_covered(cv0))
+        return
+    _into_view(c, V, "session", on)
+    cv: dict = {"on": on, "on_group": on_group, "open": _open_on(c, V, "session", on)}
     if cv["open"]:
         cv["place"] = c.js(f"{SHEET}?.dataset.place || ''")
+        cv["at"] = _under_sheet(c, V, tests)
         covered = [a for a in tests if c.js(f"({MEETS})({SHEET}, {member(V.M, a)})")]
         cv["pre"] = bool(covered)
+        cv["rects"] = {"sheet": c.js(f"({RECT})({SHEET})"), "on": c.js(f"({RECT})({member(V.M, on)})"),
+                       **{a: c.js(f"({RECT})({member(V.M, a)})") for a in tests}}
         away = _away(c, "session")
         if covered and _over(away):
             bad.append(_over_line("7c", away))
@@ -784,7 +951,7 @@ def _covered(ctx, c, V, aids: dict, ev: dict, bad: list) -> None:
         _wait(c, GONE)
     ev["covered"] = {k: v for k, v in cv.items() if k != "rows"}
     if not cv["open"]:
-        bad.append("(7c) a click on the reviewer's member opened no box in Session's drawer")
+        bad.append(f"(7c) a click on {_who(r, on)} (the group {on_group!r}) opened no box in Session's drawer")
     elif cv.get("pre") is not None:  # None: the pointer was over the drawing, said above
         bad.extend(judge_live_covered(cv))
 
@@ -815,7 +982,8 @@ def _reduced(ctx, c, V, aids: dict, ev: dict, bad: list) -> None:
         rang = f"{member(V.LW, aids['long'])}?.dataset.rang || ''"
         r["rang0"] = c.js(rang)
         ctx.provider.release_last()  # the chart's helper ends with reduced motion
-        _wait(c, raw_wait(V.LW, aids["long"], "done"))
+        # its long tool runs LIVE_LONG_S from (4)'s let-go: the wait covers what is left of it (3.6.0.15 K2)
+        _wait(c, raw_wait(V.LW, aids["long"], "done"), fakes.LIVE_LONG_S + LIVE_WAIT_S)
         r["raw"] = c.js(f"{member(V.LW, aids['long'])}?.dataset.raw || ''")
         r["rang1"] = c.js(rang)
         r["rings"] = _hook(c, "rings")[rings0:]

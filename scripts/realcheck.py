@@ -68,8 +68,8 @@ def _steps() -> list:
          "drawn as four named, coloured groups in Session and in Agents -> Live; /status says Auto; nothing left",
          S.auto_groups),
         ("auto-ready-lines", 180 if sys.platform == "win32" else 120, "a build on Auto says what is ready: the card "
-         "makes no map, the folded card and Studio's head say ready now and saved for the next session, crew.map "
-         "unchanged; 'use it now' draws the workflow as a group", S.auto_ready_lines),
+         "makes no map, the folded card and Studio's head say the workflow and its agent are ready in this session now, "
+         "crew.map unchanged; 'use it now' draws the workflow as a group", S.auto_ready_lines),
         ("live-scene", 180 if sys.platform == "win32" else 120, "the drawing of a running session on Auto as a person "
          "sees it: seven helpers of a real session, their NOW words, the heads and TURN, the slot's arrow and tail, at "
          "most four rings and none hidden, nothing moves under a resting pointer, a long tool's held form and its one "

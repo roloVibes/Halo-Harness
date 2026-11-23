@@ -330,7 +330,7 @@ def _idle_page(ctx, h, c, url: str, counts: dict, ev: dict):
     Live, the helper's box opened in place and closed, the pointer off the drawing; the counts A-D as they are read
     (into `counts`, kept in the evidence at once). The session's terminal; raises Fail with what a person saw."""
     from realcheck import fakes
-    from realcheck.steps_live import _away
+    from realcheck.steps_map import _away
     from realcheck.steps_map import ROW, _followed, _say, _started, alt
 
     def wait(expr: str) -> bool:

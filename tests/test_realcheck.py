@@ -93,6 +93,15 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
 
 
 @test
+def test_auto_ready_lines_summary_says_what_it_judges(ctx: Ctx):
+    """3.6.0.15 K2 (i): since UN the step judges P1 alone (ready in this session now), so its line in --list says that,
+    not "saved for the next session"."""
+    what = next((s[2] for s in _main_module()._steps() if s[0] == "auto-ready-lines"), "")
+    ctx.check(f"the summary names what the step judges, got {what!r}",
+              "ready in this session now" in what and "saved for the next session" not in what)
+
+
+@test
 def test_each_step_runs_a_failure_does_not_stop_the_rest_and_over_budget_is_a_fail(ctx: Ctx):
     m = _main_module()
     seen = []
@@ -1345,12 +1354,11 @@ def test_live_scene_judges_what_the_page_drew(ctx: Ctx):
         "and 2 more groups below")
     one(s.judge_live_slot, lambda r: r["slot"].update(text="↓ review the money module · waits on you and 2 more below"),
         "(3) the slot reads")
-    high = copy.deepcopy(ok)  # the asking group drawn high (the start order): the entry's named failure, never the up form
+    high = copy.deepcopy(ok)  # 3.6.0.15 K2 (a): the asking group drawn high (the order the page drew): the up form
     high["groups"]["group:4"]["rect"] = [300, -200, 200, 80]
     high["slot"] = {"text": "↑ review the money module · waits on you · and 2 more groups below", "arrow": "up"}
     got = s.judge_live_slot(high, {"seen": True, "sheet": False})
-    ctx.check(f"(3) the asking group above the view: exactly the not-judged line, got {got}", len(got) == 1
-              and got[0].startswith("(3) not judged: the group 'review the money module' does not lie wholly below the view"))
+    ctx.check(f"(3) the asking group wholly above the view, the slot's up form: no failure, got {got}", got == [])
     got = s.judge_live_now(ok, {"x": 2, "y": 400, "over": True})
     ctx.check(f"a pointer over the drawing: exactly the not-judged line, got {got}",
               got == ["(1) not judged: the pointer at (2, 400) is over the drawing"])
@@ -1405,7 +1413,7 @@ def test_live_scene_judges_rest_rings_sheet_and_motion(ctx: Ctx):
                          (dict(unfold=0), "did not unfold"), (dict(gone=False), "Escape did not close")):
         got = s.judge_live_sheet(dict(sheet, **change))
         ctx.check(f"(7) {word}: one failure, got {got}", len(got) == 1 and word in got[0])
-    cv = {"pre": True, "place": "drawer", "raw": "done", "rang0": "", "rang1": "", "rows": []}
+    cv = {"on": "v1", "pre": True, "place": "drawer", "raw": "done", "rang0": "", "rang1": "", "rows": []}
     ctx.check("(7c) covered and quiet: no failure", s.judge_live_covered(cv) == [])
     got = s.judge_live_covered(dict(cv, rang1="1"))
     ctx.check(f"(7c) the covered tester rang: one failure, got {got}", len(got) == 1 and "rang under the open box" in got[0])
@@ -1420,6 +1428,169 @@ def test_live_scene_judges_rest_rings_sheet_and_motion(ctx: Ctx):
                          (dict(rings=[{"id": "g1", "reduced": True}]), "rang under reduced motion")):
         got = s.judge_live_reduced(dict(red, **change))
         ctx.check(f"(8) {word}: one failure, got {got}", len(got) == 1 and word in got[0])
+    got = s.judge_live_sheet(dict(sheet, texts=["Pause", "Pause"]))  # 3.6.0.15 K2 (f): the button never read "Resume"
+    ctx.check(f"(7) Pause never read Resume: exactly that line, got {got}",
+              got == ["(7) Pause then Resume read ['Pause', 'Pause'], want ['Resume', 'Pause']"])
+
+
+@test
+def test_live_scene_judges_the_slot_by_where_the_asking_group_lies(ctx: Ctx):
+    """3.6.0.15 K2 (a): the step reads the order the page drew (one message cannot start the lone helpers in a fixed
+    order), so (3) judges the slot's down form when the asking group lies wholly below the view, its up form (letter
+    for letter groupWords.ts slotWords, arrow "up") when it lies wholly above, and names the group in the view."""
+    import copy
+    s = _steps_live()
+    ctx.check("slot_words writes the up form", s.slot_words("review the money module", 2, "up")
+              == "↑ review the money module · waits on you · and 2 more groups below"
+              and s.slot_words("review the money module", 0) == "↓ review the money module · waits on you")
+    high = _live_scene_read()
+    high["groups"]["group:4"]["rect"] = [300, -200, 200, 80]
+    high["slot"] = {"text": "↑ review the money module · waits on you · and 2 more groups below", "arrow": "up"}
+    ctx.check("the up form over a group wholly above: no failure", s.judge_live_slot(high, {"seen": True, "sheet": False}) == [])
+    down = copy.deepcopy(high)
+    down["slot"]["text"] = "↓ review the money module · waits on you · and 2 more groups below"
+    got = s.judge_live_slot(down)
+    ctx.check(f"the down form while the group lies above: one line naming the up form, got {got}", len(got) == 1
+              and "want '↑ review the money module · waits on you · and 2 more groups below'" in got[0])
+    got = s.judge_live_slot(dict(high, slot=dict(high["slot"], arrow="down")))
+    ctx.check(f"the arrow 'down' while the group lies above: one line, got {got}", got == ["(3) the slot's arrow is 'down', not 'up'"])
+    inview = _live_scene_read()
+    inview["groups"]["group:4"]["rect"] = [300, 300, 200, 80]
+    got = s.judge_live_slot(inview)
+    order = ["write the changelog", "survey the TODOs", "fix the login bug", "review the money module", "run the tests",
+             "make the chart"]
+    ctx.check(f"the group in the view: exactly the not-judged line with the order the page drew, got {got}",
+              got == [f"(3) not judged: the group 'review the money module' lies in the view at 1440 x 900 ({order})"])
+    part = _live_scene_read()  # the group partly above the view, its waiting member wholly above it: the up form
+    part["groups"]["group:4"]["rect"] = [300, -60, 200, 200]
+    part["members"]["v1"]["rect"] = [310, -50, 180, 40]
+    part["slot"] = {"text": "↑ review the money module · waits on you · and 2 more groups below", "arrow": "up"}
+    got = s.judge_live_slot(part)
+    ctx.check(f"the waiting member above the view (its group partly in it): the up form, got {got}", got == [])
+    part["members"]["v1"]["rect"] = [310, 20, 180, 40]
+    got = s.judge_live_slot(part)
+    ctx.check(f"the waiting member wholly in the view: the not-judged line, got {got}", len(got) == 1 and "lies in the view" in got[0])
+
+
+@test
+def test_live_scene_covered_names_a_missing_member(ctx: Ctx):
+    """3.6.0.15 K2 (b): (7c) never clicks an empty member id: the member to open not found is its own named line (the
+    key "on" present and empty); a read without "on" is judged as before."""
+    s = _steps_live()
+    lines = {"w1": "writer: write the changelog"}
+    got = s.judge_live_covered({"on": "", "pre": False, "lines": lines})
+    ctx.check(f"no member to open: exactly the not-run line, got {got}",
+              got == [f"(7c) not run: the member to open was not found in Session's drawer ({lines})"])
+    ctx.check("no \"on\" key: judged as before", s.judge_live_covered({"pre": False})
+              == ["(7c) not judged: the sheet does not cover the tester"])
+    r = _live_scene_read()  # the testers' group:5 at top 920; group:4 (820) waits on you, group:3 (260) runs
+    for x in r["members"].values():
+        x["rect"] = [300, 0, 180, 60]
+    got = (s.above_tests(r, ["t1"]), s.above_tests(dict(r, folded=["group:4"]), ["t1"]), s.above_tests(r, ["nobody"]))
+    ctx.check(f"the member to open: of the open group drawn directly above the testers', a folded group never; none "
+              f"without testers, got {got}", got == (("v1", "review the money module"), ("c1", "fix the login bug"), ("", "")))
+
+
+@test
+def test_live_scene_judges_the_rest_point(ctx: Ctx):
+    """3.6.0.15 K2 (c): the resting point read at the rest, before the long tool is let go and with the second rects:
+    off the page or not on the drawing is the STEP's failure (not judged); on it while the drawing is not held is the
+    product's, with both readings."""
+    s = _steps_live()
+    p = {"x": 700.0, "y": 400.0, "w": 1440, "h": 900, "on": True, "held": "1"}
+    ctx.check("on the drawing and held: no failure", s.judge_live_rest_point([p, p, p]) == [])
+    off = "(4) not judged: the resting point (700.0, 1838.0) is not on the drawing (page 1440 x 900)"
+    got = s.judge_live_rest_point([dict(p, y=1838.0, on=False), p, p])
+    ctx.check(f"a rest past the page: exactly the not-judged line, got {got}", got == [off])
+    got = s.judge_live_rest_point([p, dict(p, y=1838.0, on=True), p])
+    ctx.check(f"a point past the page counts as off even if read as on: exactly the not-judged line, got {got}", got == [off])
+    got = s.judge_live_rest_point([dict(p, held=""), p, p])
+    ctx.check(f"on the drawing, not held at the rest: exactly the not-held line, got {got}", got == [
+        "(4) the drawing was not held under a pointer resting on it (data-held '' at the rest, '1' before the long tool "
+        "was let go)"])
+    ctx.check("nothing read: not judged", s.judge_live_rest_point([])[:1] == [
+        "(4) not judged: the resting point was not read"])
+
+
+@test
+def test_live_scene_counts_take_the_cost_as_the_page_writes_it(ctx: Ctx):
+    """3.6.0.15 K2 (d): a group's cost as the page writes it since F5 ("$0.0024", "<$0.0001", and "$0.00"), in the
+    all-done form and the counts form; a cost of one decimal is still wrong."""
+    s = _steps_live()
+    for cost in ("$0.0024", "<$0.0001", "$0.00"):
+        r = _live_scene_read()
+        r["groups"]["group:1"]["counts"] = f"1 agent · all done · {cost} · 2{NB}s"
+        r["groups"]["group:3"]["counts"] = f"1 agent · 1 working · {cost}"
+        got = s.judge_live_heads(r)
+        ctx.check(f"{cost} in both forms: no failure, got {got}", got == [])
+    r = _live_scene_read()
+    r["groups"]["group:3"]["counts"] = "1 agent · 1 working · $0.0"
+    got = s.judge_live_heads(r)
+    ctx.check(f"'$0.0': one failure, got {got}", len(got) == 1 and "fix the login bug" in got[0])
+    r = _live_scene_read()
+    r["groups"]["group:1"]["counts"] = f"1 agent · all done · $0.0 · 2{NB}s"
+    ctx.check("'$0.0' all done: one failure", len(s.judge_live_heads(r)) == 1)
+
+
+@test
+def test_live_scene_judges_the_mcp_tool_given_and_run(ctx: Ctx):
+    """3.6.0.15 K2 (e): the chart's helper was given the server's tool at once (alwaysLoad) with ToolSearch in its
+    FIRST request (F2), and the tool ran (the fake server answers "slept 30.0s": `seconds: float`); read from the
+    requests the provider got."""
+    s = _steps_live()
+    tool = fakes.LIVE_TOOL
+    tools = ["Read", tool, "ToolSearch"]
+    ctx.check("given and run: no failure", s.judge_live_mcp({"tools": tools, "result": "slept 30.0s"}) == []
+              and s.judge_live_mcp({"tools": tools, "result": "slept 30s"}) == [])
+    got = s.judge_live_mcp({"tools": ["Read", "ToolSearch"], "result": "slept 30.0s"})
+    ctx.check(f"the tool missing: exactly the not-given line, got {got}", got == [
+        f"(5) the chart's helper was not given {tool} at once (alwaysLoad) with ToolSearch: ['Read', 'ToolSearch']"])
+    got = s.judge_live_mcp({"tools": ["Read", tool], "result": "slept 30.0s"})
+    ctx.check(f"ToolSearch missing: exactly the not-given line, got {got}", len(got) == 1 and "not given" in got[0])
+    got = s.judge_live_mcp({"tools": tools, "result": "tool failed"})
+    ctx.check(f"the tool did not run: exactly the not-run line, got {got}",
+              got == ["(5) the long tool did not run: its result reads 'tool failed', not \"slept 30.0s\""])
+
+    def req(user, tools=(), results=()):
+        msgs = [{"role": "user", "content": user}] + [{"role": "tool", "content": x} for x in results]
+        return {"body": {"messages": msgs, "tools": [{"type": "function", "function": {"name": n}} for n in tools]}}
+    reqs = [req("RC-LIVESCENE: seven helpers", ["Agent"]), req("RC-LIVELONG: draw the chart", tools),
+            req("RC-LIVETEST: run the lint", ["Bash"]), req("RC-LIVELONG: draw the chart", tools, ["slept 30.0s"])]
+    got = s.live_mcp(reqs)
+    ctx.check(f"read from the requests: the chart helper's first tools and the long tool's result, got {got}",
+              got == {"tools": tools, "result": "slept 30.0s"})
+
+
+@test
+def test_away_is_shared_from_steps_map(ctx: Ctx):
+    """3.6.0.15 K2 (g): `_away` and the wide Chrome live in steps_map.py, the module the steps share; no module of the
+    check imports realcheck.steps_live for a helper; Session's spot is the page's last pixel, read from the page."""
+    import re
+    from realcheck import steps_map
+    ctx.check("steps_map has _away and _wide_chrome", callable(getattr(steps_map, "_away", None))
+              and callable(getattr(steps_map, "_wide_chrome", None)))
+    here = REPO / "scripts" / "realcheck"
+    live = (here / "steps_live.py").read_text(encoding="utf-8")
+    ctx.check("steps_live defines neither", not re.search(r"^def (_away|_chrome|_wide_chrome)\b", live, re.M))
+    users = [f.name for f in sorted(here.glob("*.py")) if f.name != "steps_live.py"
+             and re.search(r"realcheck\.steps_live|from realcheck import [^\n]*\bsteps_live\b", f.read_text(encoding="utf-8"))]
+    ctx.check(f"no module of the check imports steps_live, got {users}", users == [])
+
+    class Page:
+        def __init__(self):
+            self.moves = []
+
+        def js(self, expr):
+            return False if "elementFromPoint" in expr else [1279, 799]
+
+        def mouse(self, kind, x, y):
+            self.moves.append((kind, x, y))
+    c = Page()
+    got = steps_map._away(c, "session")
+    ctx.check(f"Session's spot is the page's last pixel, read from the page, got {got} {c.moves}",
+              got == {"x": 1279, "y": 799, "over": False} and c.moves == [("mouseMoved", 1279, 799)])
+    c = Page()
+    ctx.check("Agents' spot is the rail", steps_map._away(c, "live") == {"x": 2, "y": 400, "over": False})
 
 
 @test
@@ -1435,13 +1606,16 @@ def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
     exprs = s.waits()
     ctx.check(f"(1) waits for the done member's NOW as drawn (the done time may reach the page after the done state), "
               f"got {sorted(exprs)}", "done_now" in exprs)
+    ctx.check(f"3.6.0.15 K2 (a): the wait for the writer's all-done group to fold is listed, got {sorted(exprs)}",
+              "folded" in exprs)
     js = ("const el = (o = {}) => ({dataset: o.dataset || {}, textContent: o.text ?? '', clientTop: 0, clientLeft: 0,"
           " clientHeight: 100, clientWidth: 100, getBoundingClientRect: () => { const [l, t, w, h] = o.rect || [0, 0, 100, 100];"
           " return {left: l, top: t, width: w, height: h, right: l + w, bottom: t + h}; },"
           " querySelector: (x) => (o.q || {})[x] ?? null, querySelectorAll: (x) => (o.all || {})[x] ?? []});"
           "const doc = (q) => ({querySelector: (x) => q[x] ?? null});"
-          "const mem = (o = {}) => el({dataset: {raw: o.raw || 'running'}, rect: o.rect || [10, 10, 50, 40],"
-          " q: {':scope > [data-testid=map-member-now]': el({text: o.now || ''})}});"
+          "const mem = (o = {}) => Object.assign(el({dataset: {raw: o.raw || 'running'}, rect: o.rect || [10, 10, 50, 40],"
+          " q: {':scope > [data-testid=map-member-now]': el({text: o.now || ''})}}),"
+          " {closest: (x) => (x === '[data-box]' ? {hasAttribute: (a) => a === 'data-folded' && !!o.folded} : null)});"
           "const root = (m, all) => el({q: {'[data-member=\"a1\"]': m, '[data-member]': m}, all: {'[data-member]': all || []}});"
           "const raws = (xs) => xs.map((r) => el({dataset: {raw: r}}));"
           "const sheet = (w) => el({q: {'[data-testid=map-step-in-pause]': el({text: ' ' + w + ' '})}});"
@@ -1455,6 +1629,7 @@ def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
           " held: [doc({'#root': root(mem({now: 'a tool · 3 s'}))}), doc({'#root': root(mem({now: 'Bash · 3 s'}))})],"
           " whole: [doc({'#root': root(mem({now: TOOL + ' · 3 s'}))}), doc({'#root': root(mem({now: 'a tool · 3 s'}))})],"
           " raw: [doc({'#root': root(mem({raw: 'done'}))}), doc({'#root': root(mem({raw: 'running'}))})],"
+          " folded: [doc({'#root': root(mem({raw: 'done', folded: true}))}), doc({'#root': root(mem({raw: 'done'}))})],"
           " seen: [doc({'#root': root(mem()), '#scroll': el()}), doc({'#root': root(mem({rect: [10, 80, 50, 40]})), '#scroll': el()})],"
           " resume: [doc({[K]: sheet('Resume')}), doc({[K]: sheet('Pause')})],"
           " pause: [doc({[K]: sheet('Pause')}), doc({[K]: sheet('Resume')})]};"
