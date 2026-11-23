@@ -8,6 +8,234 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.15] - unreleased
+
+The box acts, and what you make can be used at once. An agent you save in Agents, one the Builder makes in a session,
+or one a model pick in a helper's box makes can be started by main in the session that is running on Auto, from main's
+next step, with no restart, and main is told so once. A click on a helper's box or on main's now opens a MODEL block:
+pick one of your models and it saves or makes your agent (for main it runs /model), with Undo and a way to open that
+agent in Agents. On Auto the helper groups in Agents -> Live stand wider and closer to main, a wide group lays three
+helpers a row, and a group whose helpers are all done folds to its head. What last release's real-use step found is
+repaired: a helper can use an MCP server's tools, a helper that ends at once shows its time, no box moves when a
+group's counts line changes, and a cost above zero never reads as zero.
+
+### Added
+
+- **An agent you save in Agents can be started in the session that is running now.** A save (a new agent, an edit or a
+  delete) reaches every Halo session running on Auto (one of yours reaches every session; a project's, the sessions in
+  that project), and the session takes it before main's next model call; a helper already running keeps what it
+  started with. Main is told once, before its next step: "[Halo] A new helper you can start now: {name} ({words}).";
+  when you delete it or undo it, "[Halo] Taken back: {name} can no longer be started in this session." (or "[Halo]
+  Taken back: {name} starts as it did when this session began." when your save had replaced an agent the session
+  started with). An edit of an agent the session started with is not told, nothing is told twice, and after /clear or
+  a compaction what main can no longer have read is told once more. A session that cannot run the agent as it is (it
+  runs on a map of yours, the agent asks for a tool its main does not have or a mode above its own, a built-in has
+  that name, or the session holds that name from a source that wins, such as the project's own agent file or
+  `--agents`) leaves it for your next session. A session that does not answer is that session's alone: the others
+  still take the save. A session in which nothing is added or taken back sends exactly what 3.6.0.14 sent.
+- **What the Builder makes in a session is ready in it at once.** Main can call an agent the applied card made in the
+  same turn, and the card's result ends with "Ready in this session now: the agent {x} (subagent_type `{x}`)." (with a
+  workflow, the workflow is named first in the same line). An agent the session cannot run says why: "Saved for your
+  next session: the agent {name} (it asks for {tool}, which this session's main does not have).", "(it asks for a mode
+  above this session's)." or "(a built-in has that name).". A card that removes an agent, or an undo of a card, takes
+  it back and main is told at its next step. The terminal's folded card and Studio's lines over Session's drawing say
+  the same words.
+- **Main's hover says what was added.** On Auto, main's hover ends with "Added in this session: {names}" once agents
+  were added since the session started; "Told it can start: {names}" stays what main read at the start.
+- **A MODEL block in a helper's box and in main's, closed until you ask (Agents -> Live and Session's drawing).** A
+  click on a helper's box (a member of a group on Auto) or on main's box opens its card with one row first in its
+  body: "MODEL" and a button "Change". A press opens the block in place and only then reads the helper's agent
+  ("Reading this helper's agent..." until it answers); the button then reads "Close", which folds the block again and
+  keeps what it showed. Open, it holds one line that says what a pick does for this kind of helper, and the picker of
+  your own models, labelled "Model" (picked, never typed; for a helper its first row is "Auto: Halo picks the model
+  per task"; main's has no Auto row). A card opened anew starts closed, and a card whose block was never opened asks
+  nothing for it. A group's card has the block of the row you chose: its row reads "MODEL of {name}", and choosing
+  another row closes it and asks nothing, so a helper of a folded group can still be given a model. When the read
+  fails: "Could not read this helper's agent: {error}", with no picker; Close, then Change, asks again.
+- **The block says what a pick does before you pick.** One of your agents: "Picking a model saves it in your agent
+  {name}: its next start uses it, in this session too, unless main names a model itself."; one that ships with Halo:
+  "{name} ships with Halo and Auto picks its model per task. Picking a model saves your own {name} on that model:
+  ..."; a built-in: "{X} is built into Halo and has no file. Picking a model makes {name}, an agent of yours built
+  from {X}, on that model: ..."; one main made up: "Main made this helper up for its task. Picking a model makes
+  {name}, an agent of yours built from it, on that model: ..."; a general helper Auto sent to one of its cards first
+  reads "A general helper that Auto sent to its {card} card for the word "{word}"." and its pick saves your own agent
+  of that card; main: "Picking a model runs /model in this session.". A pack's agent ("{name} comes with the pack {P};
+  Halo does not change it here.") and a Claude Code agent file ("{name} is a Claude Code agent file; Halo reads it and
+  does not change it.") have no picker, and neither has a helper whose own agent you deleted after it started ("Your
+  agent {name} is gone: it was deleted after this helper started."). A session that cannot take agents at once reads
+  the "from your next session" form of each line. Under it, for a helper: "This helper keeps {model} until it ends."
+  ("It ran on {model}." once it ended).
+- **A pick saves or makes your agent, and Undo takes it back.** The answer's line takes the place of the rows: "Saved:
+  {name} runs on {model} from its next start, in this session too, unless main names a model itself." (or "Saved:
+  {name} runs on {model} from your next session."), "Made {name}, an agent of yours on {model}: main can start it now,
+  unless it names a model itself." (or "... main can start it from your next session."), and a refusal "Not saved:
+  {error}.". A built-in's pick makes an agent named like it (`judge` for Judge; `judge-2` while you already have a
+  `judge`). Then [Undo]: "Put back: {name} runs on {old} again." or "Taken back: {name} is gone." (main is told it is
+  taken back); "Not undone: {name} was changed since." when the file changed after the pick, else "Not undone:
+  {error}.". [Edit in Agents] opens your agent in the Agents form; [Make it an agent] (a helper that ships with Halo,
+  a routed, a built-in or a made-up one) does what the box's "Save as an agent" does, then goes to Agents. Open, the
+  block holds still: its row of buttons and Undo's room are there from its first draw (main's pick has no Undo).
+- **Main's model from its box.** A pick in main's MODEL block runs /model in that session: "Switched main to {model}
+  now, as /model in its terminal, and saved for your next launch." when a terminal ran it, "Switched main to {model}
+  for this session; not saved for your next launch." when none did; either is written only once the session reads back
+  the pick (for up to 3 s), else "Not switched: {why}.". While main is in a turn nothing is sent: "Not switched: main
+  is in a turn: pick again when it ends."
+- **On Auto a general hand-off starts your agent once you own one named like the card's.** With an agent of your own
+  named like the agent of one of Auto's cards (your own `coder`, say), main's general hand-offs that Auto sends to
+  that card start yours: your instructions, your model (unless main names a model in the call), drawn in Agents ->
+  Live as your saved agent. It runs exactly as if main had named your agent. With only the one that ships with Halo, a
+  call that names a type, a fanned-out call, a helper's own hand-off or a session on a map of yours, everything is as
+  before. An agent you save during the session counts at once.
+- **Auto's helper groups fold when they are done (Agents -> Live and Session's drawing).** A group whose helpers have
+  all finished as done folds to its head 10 s after the last one ended: only the head is drawn, with its all-done
+  line; its hover still lists every member, and a click opens its card, which lists every member as a row (choose one
+  to pause, stop or steer it, to read what it said and why it got its model, or to set its model); the groups below
+  move up. A group that finished before you opened the page is drawn folded from the start. A group with a failed or
+  stopped helper stays open, and so does one with anything running, queued, paused or waiting. Nothing folds while the
+  pointer is on the drawing or a card is open: it folds when the pointer leaves or the card closes. When a new helper
+  joins a folded group, the group opens again once the drawing is free, its earlier helpers at the heights they had,
+  and rings once.
+- **The real-use check has a step for a pick that acts at once (for developers).** `python scripts/realcheck.py --only
+  made-at-once`: in a real Studio and a real terminal session on Auto, it presses "Change" in the built-in Judge's box
+  and picks a model in its MODEL block, which makes `judge`; main is told and starts it on that model in the same
+  session; Undo takes it back and main is told; an agent saved in Agents' form reaches the running session; nothing is
+  left behind. It runs in every plain run, so in CI's real-use legs on three systems.
+
+### Changed
+
+- **In Agents -> Live on Auto the groups stand closer to main and as wide as the view allows.** The lane between main
+  and the groups is 96 px (it was 212) and the group column is min(760, view / zoom - 392) px, at least 352 (it was
+  248); from a view of 744 px the drawing does not scroll sideways. A new width waits like every re-flow: nothing
+  moves while the pointer is on the drawing or a card is open. A group lays its helpers three a row when each would be
+  at least 200 px wide, else two or one as before (in practice only this column gets three; Session's drawer stays at
+  one or two). Agents -> Map and a map of yours are laid out as before.
+- **An agent that ships with Halo is read in the Agents form, with Copy.** Opened by name, it shows "{name} ships with
+  Halo: read it here; Copy makes it yours to change.", every field and the model picker off (More still unfolds), no
+  Save, no Discard changes, no Delete; Copy and Try it stay. Copy opens "my-{name}", not saved: "A copy of {name}, not
+  saved yet: it is yours to change, then Save." (it was "{name}-copy"). A pack's agent is read the same way, with its
+  band "From the pack {pack}: read-only here. Copy makes it yours." and no Save at all (it was drawn turned off).
+- **"Save as an agent" and "Make it an agent" fill the form from the helper as it is.** One that ships with Halo gives
+  its own file; a general helper Auto routed gives its card's agent; a built-in gives its description, its
+  instructions, its tools and its mode; any other keeps the made-up agent as before. The form says "Built from
+  {helper} on {model}, not saved yet: read it, change what you like, then Save."
+- **`halo local prompt` counts what a first request really sends.** "Halo's own first turn: ..." now holds the
+  permission mode line every turn starts with and, for a local main on Auto, the reminder after the task, each as its
+  own row ("mode line", "reminder") before the tool rows; `--json` carries them as `turn_start`. `/status`, `halo
+  doctor`'s default-model row, Studio's model card and the Ollama steward's fit floor read the same measure.
+  `docs/MODELS-prompt-diet.md` names the two rows.
+- **The gym's card says when a host gives no digest.** For a host that gives none (a gateway that speaks the OpenAI
+  dialect, say), `halo gym handout` after a run and `halo gym show` print, under the card's line and before the
+  verdict: "no digest from this host: a later build of this model overwrites this card". The card keeps its file name;
+  nothing more is asked of the host (`docs/COMMANDS-gym-handout.md`).
+- **Last said names whose words it shows:** "Last said by {name} at {t}: {text}", "Last said by {name}: {text}", "Last
+  thought by {name} at {t}: {text}", "Last thought by {name}: {text}", with the name as the row shows it, read at the
+  click and kept when another row is chosen (still one read, at the click); "Nothing said yet." is unchanged.
+- **The real-use step `live-scene` is repaired and passes by hand (for developers).** It reads the order the page drew
+  the groups in, waits for the writer's group to fold, rests the pointer on the drawing and reads that it is there,
+  takes a cost as the page now writes it, gives the chart's work out only after the terminal said its MCP server
+  connected, and proves the chart's helper was given the MCP tool at once and that the tool ran. It still runs only
+  when named (`--only live-scene`); `--list` says why.
+- **The real-use step `auto-groups` reads a folded group's helpers from the group's card (for developers).** A group
+  that has folded shows no helper to hover, so the step opens the group's card, chooses each row and reads why that
+  helper got its model there.
+- **The docs say what this release built.** `docs/STUDIO-live.md` (the MODEL block, Last said by, Resume),
+  `docs/STUDIO-groups.md` (the fold, Auto's column, three a row, the counts line's rows, the cost form),
+  `docs/CREW-sessions.md` (usable at once), `docs/STUDIO-agents.md` (an agent that ships with Halo is read there),
+  `docs/SUBAGENTS.md` and `docs/COMMANDS-mcp.md` (a helper's MCP tools), `docs/DEVELOPMENT.md` (the real-use steps).
+
+### Fixed
+
+- **A helper can use an MCP server's tools.** A helper main hands work to may use every tool main may use when the
+  helper starts, an MCP server's tools included: it finds one with ToolSearch, or has it at once when the tool or its
+  server is set to `alwaysLoad`. Before, ToolSearch answered "(not found: ...)" and a call got "Unknown tool" unless
+  main had loaded that tool first. An agent file's `tools:` still narrows a helper, a deny rule or `--disallowedTools`
+  holds for a helper as for main, and a tool main loads later does not reach a helper already running. A helper that
+  started before a server connected finds that server's tools with ToolSearch from then on. In a session with an MCP
+  server a helper's first request now carries ToolSearch, the deferred-tools reminder and its `alwaysLoad` tools; a
+  session with none sends what it sent before.
+- **An MCP server that connects after a terminal session started now counts, for main too.** In the terminal app
+  servers connect after the first paint; one with no tools cache yet (a fresh home) connected and said "mcp: {n}
+  server(s) connected" while its tools never entered the session. They now enter when it connects, through the same
+  rules as at the start, and its `alwaysLoad` tools are loaded at once. A lazy server that a helper starts reaches
+  main too, and the other way round.
+- **Session's drawer head holds still under a resting pointer.** While the pointer rests on Session's drawing, or a
+  card is open, the drawer's head keeps its height: its status line changes in place and takes another row only when
+  the pointer leaves or the card closes (the whole line is in the head's hover meanwhile). Before, a longer line grew
+  the head and moved every box under it by a row.
+- **The status line names a running tool without its raw arguments.** A tool whose arguments have no short form (an
+  MCP tool) is named alone in Session's status line and in the wait link under the drawing, as a box's NOW line names
+  it; before, its arguments were written out as JSON. A built-in's short form reads as before.
+- **`/mcp reconnect` keeps the session's deny rules.** A reconnected server's tools pass the same rules as at the
+  start; before, a denied tool of that server could be found with ToolSearch after a reconnect.
+- **A helper that ends at once shows its time.** In Agents -> Live and Session's drawing a helper that ends inside its
+  first second, or before the page saw it run, now always reads "done in {span}" ("stopped after {span}", "failed
+  after {span}"); before, it sometimes kept an empty line and its group's all-done line counted from its start. An
+  ended run is rounded to the nearest second, the same in the helper's box, in its group's all-done line and in its
+  hover (0 s only for a run under half a second), and its all-done group folds 10 s after the real end.
+- **No box moves when a part joins a group's counts line.** The counts line keeps, from the group's first draw, the
+  room its longest form takes at the group's width, so a helper starting to wait on you, one ending or a cost arriving
+  never pushes the boxes under it down (Session's drawer at its narrowest included, with the pointer resting or not).
+  When the group's width changes, the room is taken anew.
+- **A cost above zero never reads as zero.** A group's cost, its all-done line and the hovers of a group and of its
+  members write amounts as the boxes' heads do (four decimals under $1, two from $1), and an amount above zero under
+  $0.00005 reads "<$0.0001" there, on the box heads, in Session's Cost panel, in the hub's today figures and on the
+  report card. Before, a group of helpers that cost under half a cent read "$0.00".
+- **Pause says what a press does.** While a pause you set is in place (from your press until a Resume), Pause reads
+  "Resume" and a press takes the pause back, also before the helper holds (a helper that waits on you holds only at
+  the call after your answer); before, it read "Pause" and a second press paused again. The card, a box's head in the
+  feed, Agents' detail and its palette command and Session's steer row all read the same fact; the words, and the
+  toast "Paused: it holds at its next tool or model call", do not change. A helper that has ended reads "Pause" again.
+
+### Known limits
+
+- **A model pick for main while main is in a turn is refused:** "Not switched: main is in a turn: pick again when it
+  ends."
+- **A model set in a helper's box counts from that helper's next start.** A helper already running keeps its model
+  ("This helper keeps {model} until it ends."), and a model main names in its own call still wins.
+- **A save in Agents' form does not say on the page whether a running session took it.** Main is told when one does; a
+  session on a map of yours, or one that cannot run the agent, leaves it for your next session without a word on the
+  page. A save asks each running session in turn and waits up to 5 s for one that does not answer.
+- **A helper that calls an MCP tool before its server has connected gets "Unknown tool"** and is told to call
+  ToolSearch, which then finds it; the tool is not pushed into a helper that is already running.
+- **On a map of your own a box's line still writes an MCP tool's raw arguments,** and with a very long tool name the
+  wait link under Session's drawing can take another row while the pointer rests (the head and the boxes hold).
+- **A helper whose `tools:` names only `mcp__<server>__*` (and not ToolSearch) cannot reach a lazy MCP server that
+  nobody has started yet,** as a main started with `--tools` that leaves ToolSearch out cannot.
+- **`halo local prompt`'s composition line counts the mode line and the reminder under "history",** not under
+  "system"; its total holds them.
+- **With its MODEL block open a helper's card is tall.** In a 1440 x 900 window an open block can make the card take
+  the drawing's whole height, so no other box in that column can be clicked until the block or the card is closed.
+  Closed, as it opens, the card is one row taller than in 3.6.0.14.
+- **Driven in a browser on Linux only.** The MODEL block of every kind of helper, a pick, Undo, Edit in Agents and
+  Make it an agent are driven in headless Chrome on Linux against a page whose session rows are stood in; a pick that
+  counts at once in a real session on Auto is driven by the real-use step `made-at-once` (by hand on Linux; CI is the
+  first to run it on Windows and macOS). A routed hand-off starting your agent is proven in the session's own tests,
+  not in a real page, and a pick for main with a real terminal attached is held by tests of the terminal's side.
+- **Main's "Added in this session" line** was checked in its rule and on the session's row, not hovered in a browser
+  after a real save.
+- **The fold's 10 s is timed to the second by its rule, not in a browser,** where the check waits 11 s of the page's
+  own clock.
+- **The terminal app was not driven by hand with a model for the MCP repairs:** the late connect is proven through the
+  terminal's own builder with test servers, and a helper's MCP call through a real `halo -p` with a test server.
+- **Two suspected faults were not faults.** A helper of a fan-out names its tool on its box as a lone helper does, and
+  a pointer that already rests on Session's drawing holds it (also when the drawing is drawn under it, or the drawer
+  is narrowed by its keys or closed and opened again). Both were tried in a real session and in headless Chrome on
+  Linux; pointer events may differ in other browsers.
+- **Run by hand on Windows and Linux only.** The browser checks ran in headless Chrome on Linux; browsers on Windows
+  and macOS are CI's part, and nothing was run on macOS by hand.
+- **Every Known limit of 3.6.0.14 still holds, except these:** the card has a model block now; `halo local prompt`
+  counts the mode line and the reminder; and of what the `live-scene` step found, the counts line's second row, the
+  helper given no MCP tool, the helper with no "done in" and the "$0.00" are repaired, and the fan-out helper's
+  "waiting for a model reply" did not show in a check built to catch it.
+- **Two more of 3.6.0.14's limits end with the repairs above:** Pause on a helper that waits on you, and Last said not
+  naming whose words it shows.
+- **A pick for main with no terminal attached compares the model the session reports with your pick.** If the session
+  spells that model another way, a switch that worked reads "Not switched: ...".
+- **`live-scene` is not in a plain run of the real-use check yet.** The product faults it found are repaired and it
+  passed three times in a row on Linux, once more on Linux's macOS path, and twice on Windows; it has not run on macOS
+  or on CI's runners, so CI does not run it.
+- **Where it was checked.** Provisional: this paragraph is written when the gate is done.
+
 ## [3.6.0.14] - 2026-11-22
 
 The box opens in place, and the hand-out measure run for real. On the drawing of a running session a click on a box
