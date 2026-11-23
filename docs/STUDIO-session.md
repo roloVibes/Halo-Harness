@@ -69,7 +69,7 @@ stops there and the pill counts what arrives. Following again (the pill,
 | `Tab` / `Shift+Tab` | the Steer field | the next / previous live agent becomes the target (with no other live agent, the focus moves on as usual) |
 | `Enter` / `Shift+Enter` | the Steer field | send / a new line |
 | `Escape` | the Steer field | leave the field and follow again |
-| `s` | a focused row | that row's agent becomes the target, the field gets the keyboard |
+| `s` | a focused row | that row's agent becomes the target and is pinned, exactly as the row's "steer ▸" does; the field gets the keyboard (its unsent text is kept per session) |
 | `A` / `R` / `S` / `O` | the column | answer the newest ask card (`s` on a focused row steers instead) |
 | `Esc` | the column | show every agent again after a pin |
 
@@ -158,18 +158,21 @@ keyboard in its box. It talks to the chosen session (the map's, else the newest 
 panel's free height while the conversation is short, and a conversation taller than the panel scrolls on its own)
 behaves like the terminal's prompt: `Enter` sends, `Shift+Enter` is a new line, `Up` / `Down` walk this
 session's history (kept in this browser, per session; a private window keeps none) when the caret is on the first /
-last line. `/` opens the **slash list** -- the same table the TUI completes from (`commands/builtins.py`) plus the
+last line (3.6.0.17: on one long line that wraps in the box, Up and Down first move a screen line at a time, then to
+the start or the end, then through the history, as in the terminal). `/` opens the **slash list** -- the same table the TUI completes from (`commands/builtins.py`) plus the
 session's project and user commands and skills, each with its arguments and one line of help (`GET
 /api/sessions/<sid>/slash`) -- filtered as you type: `Up` / `Down` move in it, `Tab` (or `Enter` on a name not yet
 complete) completes, `Esc` closes it. A `/` line runs in the session through the control socket's `slash` and its
 output lands in the panel as the lines the terminal would print. A line that starts with ! runs that command in the
 session at once, as in the terminal: no model turn; its output shows here and in the Feed (3.6.0.12: a one-line `!`
 goes through the same `slash` door, also while a turn runs, and an image chip beside it waits for the next prompt,
-as in the terminal; with a second line it is a prompt). Under your line one answer line says `ran` and the output's lines, `asks first: answer below` (the ask card
-is the panel's own; Allow runs it, and the terminal's card reads `Answered in Studio: Allow`), `denied: <reason>`, or
+as in the terminal; with a second line it is a prompt; 3.6.0.17: a `!` or `/` line typed after a space or a blank
+line runs the same way, as the terminal strips them, and a `/` line runs with an image chip waiting too). Under your line one answer line says `ran` and the output's lines, `asks first: answer below` (the ask card
+is the panel's own; Allow runs it, and the terminal's card reads `Answered in Studio: Allow`), `denied: <reason>`
+(shown once; the box is then empty, as the terminal's, and Up brings the line back), or
 `still running: Stop is on its row; its output shows in the Feed`. A `!` command that still runs carries a Stop on its
-row in the panel: it ends the command (and a running turn with it), as `Esc` does in the terminal; closing Halo ends
-it too. Ctrl+V with an image, or an image file dropped on the
+row in the panel, and since 3.6.0.17 on its row in the Feed: it ends the command (and a running turn with it), as
+`Esc` does in the terminal; closing Halo ends it too. Ctrl+V with an image, or an image file dropped on the
 box, becomes the chip under it, as on the steer box; a dropped file path lands in the text.
 
 **While a turn runs**, a send asks first (`submit` with `when_busy: refuse`): the busy line keeps your text and offers
