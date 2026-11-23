@@ -332,6 +332,71 @@ def test_a_session_with_no_mcp_server_builds_its_helpers_as_before(ctx: Ctx):
         _f2_restore(saved)
 
 
+def _f13_search(child, query):
+    """The helper's own ToolSearch, as its loop runs it."""
+    from halo_harness.tools.base import ToolContext
+    tool = child.tool_registry.get("ToolSearch")
+    tctx = ToolContext(cwd=REPO_DIR, registry=child.tool_registry, catalog=child.session_catalog)
+    return tool.run({"query": query}, tctx), tctx
+
+
+@test
+def test_a_helper_built_before_a_server_connects_finds_its_tools_later(ctx: Ctx):
+    """3.6.0.15 F13: a helper that started BEFORE an MCP server connected
+    finds that server's tools with its own ToolSearch: it looks at what its
+    parent's catalog holds NOW, within its own limits; nothing is pushed into
+    its tool list, and its parent's catalog never changes by it."""
+    from halo_harness.config.agents_md import AgentSpec
+    fh, saved = _f2_home()
+    controller = None
+    try:
+        controller = _f2_controller(fh, ["--disallowedTools", "mcp__fake__slow_tool"])
+        catalog = controller.session.session_catalog
+        child = _f2_helper(controller, "f13early")
+        narrow = _f2_helper(controller, "f13narrow", AgentSpec(name="narrow", description="d", tools=["Read"]))
+        cc = child.session_catalog
+        ctx.check("the early helper has its own catalog", cc is not None and cc is not catalog)
+        held = set(child.tool_registry.names()) | (set(cc.names) | set(cc.deferred) if cc is not None else set())
+        ctx.check(f"before the deferred start the helper holds no server tool, got {sorted(held)}",
+                  not any(n.startswith("mcp__") for n in held))
+        out = _f2_late_connect(controller)
+        ctx.check(f"both servers connected late, got {out}", sorted(out["connected"]) == ["fake", "fake2"])
+        p_names, p_pool = list(catalog.names), sorted(catalog.deferred)
+        p_reg = catalog.registry.names()
+        c_names = child.tool_registry.names()
+        ctx.check(f"the late alwaysLoad tool is not pushed into the running helper, got {c_names}",
+                  not any(n.startswith("mcp__") for n in c_names))
+        if cc is None:
+            return
+        result, tctx = _f13_search(child, "select:mcp__fake__echo")
+        text = json.dumps(result.content) if isinstance(result.content, list) else str(result.content)
+        ctx.check(f"the helper's ToolSearch finds and loads the late server's tool, got {text[:200]}",
+                  "not found" not in text and child.tool_registry.get("mcp__fake__echo") is not None)
+        echo = child.tool_registry.get("mcp__fake__echo")
+        if echo is not None:
+            called = echo.run({"text": "f13-hello"}, tctx)
+            ctx.check(f"the call runs, got {called.content!r}",
+                      not called.is_error and "f13-hello" in str(called.content))
+        result, _ = _f13_search(child, "select:mcp__fake2__echo")
+        ctx.check("the alwaysLoad server's tool is found the same way",
+                  child.tool_registry.get("mcp__fake2__echo") is not None)
+        result, _ = _f13_search(child, "select:mcp__fake__slow_tool")
+        ctx.check(f"a deny rule still holds, got {str(result.content)[:200]}",
+                  child.tool_registry.get("mcp__fake__slow_tool") is None
+                  and "mcp__fake__slow_tool" not in cc.deferred)
+        nc = narrow.session_catalog
+        if nc is not None:
+            nc.search("select:mcp__fake__echo")
+        ctx.check(f"a `tools: Read` helper still finds nothing, got {narrow.tool_registry.names()}",
+                  narrow.tool_registry.names() == ["Read"] and (nc is None or not nc.deferred))
+        ctx.check(f"the parent's catalog is exactly what it was, got {catalog.names} {sorted(catalog.deferred)}",
+                  catalog.names == p_names and sorted(catalog.deferred) == p_pool
+                  and catalog.registry.names() == p_reg)
+    finally:
+        _f2_close(controller)
+        _f2_restore(saved)
+
+
 @test
 def test_the_tui_worker_hands_the_connected_servers_to_the_catalog(ctx: Ctx):
     app_src = (REPO_DIR / "halo_harness" / "tui" / "app.py").read_text(encoding="utf-8")

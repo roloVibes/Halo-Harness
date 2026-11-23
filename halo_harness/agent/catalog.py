@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 import threading
+import weakref
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
@@ -215,6 +216,9 @@ class SessionCatalog:
     preload_names: set = field(default_factory=set)
     allow: Optional[Callable[[str], bool]] = None
     _lazy_taken: set = field(default_factory=set, repr=False, compare=False)
+    # 3.6.0.15 F13: a helper's catalog only: a WEAK reference to its parent's
+    # catalog, read again on the helper's own search (`_take_from_parent`).
+    _parent: Optional[Callable[[], Optional["SessionCatalog"]]] = field(default=None, repr=False, compare=False)
 
     def _admitted(self, triples) -> list:
         out = mcp_survivors(triples, deny_rules=self.deny_rules, disallowed=self.disallowed)
@@ -223,7 +227,8 @@ class SessionCatalog:
     def for_helper(self, registry, allow: Callable[[str], bool]) -> "SessionCatalog":
         """3.6.0.15 F2: a helper's own catalog, made when it starts: a COPY of
         the deferred entries `allow` passes (a later load of the parent never
-        reaches it; the helper never grows the parent's pool); ToolSearch is
+        reaches it; the helper never grows the parent's pool; F13: its own
+        search finds what the parent holds then, `_take_from_parent`); ToolSearch is
         put in `registry` when that pool is not empty (the build's own rule)."""
         with self._lock:
             pool = {n: e for n, e in self.deferred.items() if allow(n)}
@@ -237,7 +242,42 @@ class SessionCatalog:
             vision=self.vision, audio=self.audio, family=self.family, names=names,
             tools_subset=self.tools_subset, bare_denied_names=set(self.bare_denied_names),
             deny_rules=list(self.deny_rules), disallowed=list(self.disallowed),
-            preload_names=set(self.preload_names), allow=allow, _lazy_taken=lazy_taken)
+            preload_names=set(self.preload_names), allow=allow, _lazy_taken=lazy_taken,
+            _parent=weakref.ref(self))
+
+    def _take_from_parent(self) -> None:
+        """3.6.0.15 F13: a helper's search looks at what its parent's catalog
+        holds NOW: the deferred and loaded MCP tools (and connectors) it does
+        not hold yet and may use (`allow`, the build's filter) enter its OWN
+        deferred pool; nothing is loaded and the parent never changes. The
+        parent's pool and registry are read under the parent's `_lock` (the
+        lock `take_server`'s refresh and a ToolSearch load hold), the helper's
+        pool written under its own; the two are never held together. A parent
+        that is gone leaves the helper with what it has."""
+        parent = self._parent() if self._parent is not None else None
+        if parent is None or self.allow is None:
+            return
+        parent._take_from_parent()
+        with parent._lock:
+            entries = dict(parent.deferred)
+            for name in parent.names:
+                tool = parent.registry.get(name)
+                if hasattr(tool, "sdk_tool") and hasattr(tool, "server_name"):
+                    entries[name] = (tool.server_name, tool.sdk_tool)
+                elif name.startswith("connector__") and tool is not None:
+                    entries[name] = (None, tool)
+        with self._lock:
+            new = {n: e for n, e in entries.items()
+                   if n not in self.names and n not in self.deferred and self.allow(n)}
+            if not new:
+                return
+            mcp = self._admitted((e[0], n, e[1]) for n, e in new.items() if e[0] is not None)
+            for server, wire_name, sdk_tool in mcp:
+                self.deferred[wire_name] = (server, sdk_tool)
+            for name, entry in new.items():
+                if entry[0] is None and (self.tools_subset is None or name in self.tools_subset) \
+                        and name not in self.bare_denied_names:
+                    self.deferred[name] = entry
 
     def take_server(self, server_name: str) -> "list[str]":
         """3.6.0.15 F2: a server that connected after this catalog was built
@@ -273,6 +313,7 @@ class SessionCatalog:
         built fresh from the raw SDK tool, without loading it);
         `deferred_names_among_them` is the subset still in `self.deferred`
         -- what a `select:` caller should hand to `load()`."""
+        self._take_from_parent()
         registry_defs = self.registry.definitions()
         deferred_defs = [self._deferred_definition(n) for n in sorted(self.deferred)]
         all_defs = registry_defs + deferred_defs
