@@ -8,6 +8,146 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.14] - unreleased
+
+The box opens in place, and the hand-out measure run for real. On the drawing of a running session a click on a box
+now opens that box's card at the box, with a head that holds still, one row of actions and one body that scrolls.
+`halo gym handout` was run on real local models for the first time: it showed that 3.6.0.10's words alone made no
+local model hand work out, so a local main on Auto is now also reminded at each task, and the command now reaches a
+host that needs a key, says what it does while it runs and says whether a model passes.
+
+### Added
+
+- **A click on a box opens its card at the box (Agents -> Live).** A helper, a group, main, a workflow's block or a
+  line's label: the card is 440 wide with its top-left at the box's top-left (its top-right when it would pass the
+  view's right edge), lifted to stay inside the view. It unfolds from the box's own rectangle in 160 ms and folds back
+  into it in 120 ms; with reduced motion it comes and goes at once. One card at a time: a click on another box opens
+  that box's card, a click on the same box closes it.
+- **In Session's map the card sits at its box:** 6 px under it, the drawer less 16 wide (6 px over it when there is no
+  room below; else the drawer's lower corner, as before). It opens and closes at once there.
+- **The card holds still: a head, one row of actions, one body.** The head: the title and its x, the state line, "Why
+  this model: ..." and a NOW line for the chosen agent ("Grep · 4 s", "waiting for you · 12 s") in two rows held from
+  the start. On a helper's card the state line changes with the helper's box ("queued", "waiting on you", "stopped":
+  the same words the box shows) in rows held for its longest state. The actions: Pause or Resume and Stop for the
+  chosen agent, "Open the map at {sender}" when there is one, "Open in Agents -> Live", and the steer box under them
+  (three lines at most; a longer steer scrolls inside it). The body alone scrolls: the asks that were there at the
+  click, a row per live agent (a click on its words aims Pause, Stop and the steer box at it; an ended one reads
+  "ended at {t}"), what the card's agent said last, on main's card "Told it can start: {every name}", then asks that
+  arrive later.
+- **Last said.** Under its rows the card shows what its agent said last: "Last said at 14:02:11: ..." (for a helper
+  that answered and ended: its answer), else "Last thought at ...: ...", else "Nothing said yet."; "Could not read
+  what it said: ..." on an error. It is read once, at the click, for the agent chosen then (a group's first row, else
+  the helper, else main): the card opens when that read answers or after one second, and an answer that comes later is
+  added to the body. A card closed before the answer stops the read quietly.
+- **Ways to close the card, in both drawings:** Escape (outside a text field), its x, a click anywhere outside it, a
+  wheel over the drawing or a zoom. A wheel over the card scrolls its body. Escape in the Stop confirm closes the
+  confirm only. The Stop confirm and the slot under the drawing do not close it by a press; the slot's own press still
+  closes it first, then scrolls. Leaving the section by its key closes it too.
+- **On Auto a local main is reminded at every task to hand work out.** After your task, on the line under the
+  permission mode, a main that runs on a local model (`ol:`, `hf:local/`, `hf:mlx/`) and was told its helpers also
+  reads: "If this job has parts that can run on their own, hand each one to a helper with the Agent tool before you
+  work on it yourself (one call per part; `subagent_type` names the helper). A small job you do yourself." About 60
+  tokens a task by Halo's own count. A turn that background results open, not a task of yours, does not carry it. A
+  main on a cloud model, a main on a map of your own and every helper read exactly what they read before.
+- **`halo gym handout` says whether a model passes.** Under each model's line, and under each hand-out card in `halo
+  gym show` (cards saved by 3.6.0.13 too): "Verdict: passes. Today's words make it hand out {d} more of 4 parts.", or
+  "Verdict: does not pass." followed by a sentence for each rule that fails ("Today's words do not make it hand out
+  more ({a} of 4 parts, before {b}).", "It names a helper right in {r} of {n} calls (it needs 9 in 10).", "It finishes
+  fewer trials with today's words ({f} of {n}, before {g})."), or "Verdict: none. {k} of {m} trials got no answer: run
+  it again."
+- **`halo gym handout` prints one line per trial as it ends:** "  now 2 of 3: 2 of 4 parts in 2 calls · own steps 1 ·
+  finished · 41 s". A trial ends "finished", "not finished in 10 requests", "stopped by an error after {n} requests"
+  or with "no answer". Each trial and the card keep their seconds.
+- **The real-use check has a step for the drawing of a running session (for developers).** `python
+  scripts/realcheck.py --only live-scene`: a real Studio and a real terminal session on Auto in one scratch home,
+  seven helpers of a scripted model, headless Chrome on Agents -> Live and on Session's map at its narrowest. It
+  reports each alone: the helpers' NOW words, the heads and main's turn line, the slot, nothing moving under a resting
+  pointer, a long tool's held form, the rings, the box opening in place, reduced motion, nothing left behind. It runs
+  only when named: today it fails on faults it found in the product (Known limits), so a plain run and CI leave it
+  out; `--list` marks it.
+
+### Changed
+
+- **The gym's time line is the measured one:** "About 2 minutes per model with three trials when the model runs on a
+  GPU (five real runs took 9 minutes together); a model that runs on the CPU takes much longer." It said 20 to 40
+  minutes, unmeasured.
+- **The gym's "now" is today's whole first request:** for a local main it carries the reminder line; "before" has
+  neither the helpers words nor the reminder.
+- **The gym's means count the trials that got an answer.** A trial whose first request got no reply is left out of
+  them and named on the errors line.
+- **One pair of Pause and Stop on the card,** for the chosen agent, where every row had its own pair. A row's hover
+  reads "Pause, stop or steer this one with the buttons and the field above".
+- **In a window too low for the head, the actions and a sliver of the body, the whole card scrolls,** so Send can be
+  reached.
+- **The real-use check's idle minute has Agents -> Live open (for developers).** `idle-cpu` now starts a session on
+  Auto that hands one piece of work out, opens Agents -> Live on it, opens the helper's box in place and closes it,
+  then measures 60 s: Halo's processes together under 5% of one core, and the page's interval timers counted at five
+  moments: Live adds two, the box adds none and leaves none. When no browser opens it now fails (it measured without
+  the page before); with `--browser none` it is a counted SKIP. Its budget is 240 s on Windows and 180 s elsewhere;
+  CI's real-use check has 60 minutes (it had 56).
+- **The docs say what the drawing of a running session shows.** `docs/STUDIO-groups.md`: each helper's state word and
+  NOW line, the held height, main's turn line and hover, the heads' counts, the slot's forms and tail, the rings,
+  nothing moving under the pointer. `docs/STUDIO-live.md`: "The box opens in place". A test holds every quoted line to
+  the words the product makes.
+
+### Fixed
+
+- **`halo gym`, `halo gym handout` and `halo gym propose` reach a host that needs a key.** They did not load the keys
+  file, so a host whose key is kept by name (`api_key_env`) was asked without it and refused every request.
+- **The gym speaks to a gateway in front of Ollama in its own dialect.** A host entry with `dialect: "openai"` was
+  sent Ollama's own API and refused; the hand-out gym and the battery now speak to it as a session does, with the
+  entry's key. Through a gateway the gym asks nothing of Ollama's own API and cannot unload the model; the card's
+  errors line says so: "unload: {host} is a gateway that speaks the OpenAI dialect: the gym cannot unload {model}
+  through it; it stays loaded until that host's keep-alive ends."
+- **A run that no host answered is not a measurement.** It printed a row of zeros, saved a card and exited 0. It now
+  prints "{ref}: not measured: {the cause}" (each cause once), saves no card and exits 1 when no model ran; when the
+  first trial of both arms gets no answer the run stops there.
+- **The model listing no longer asks a gateway for Ollama's `/api/ps`.** The answer was always a refusal.
+
+### Known limits
+
+- **What the first real runs measured (local models on one machine with a GPU).** With 3.6.0.10's words alone no model
+  handed out more than before. With the reminder, five trials each way: one 27B model went from 0 to 2.2 of 4 parts
+  and passes; a 12B model went from 0 to 0.8 and now finishes every run (it finished none before), which is short of
+  the one part more that passing needs; a second 27B model and a 30B coder model handed out nothing with any wording
+  tried (a stronger line in the system text, a nudge after three steps done alone, thinking on). In ten trials a job
+  with one small part was never handed out with the reminder. The samples are small: `halo gym handout <model>` tells
+  you which kind your model is.
+- **Through a gateway the hand-out gym was run for real once** (three trials: it reached the host with its key,
+  measured, and left the model loaded as its errors line says). The battery (`halo gym`) through a gateway was driven
+  by tests only, and its repair round there by no test.
+- **`halo prompt` does not count the permission mode line or the reminder.** Its measure of a first request never held
+  that line.
+- **Last said is the words of the agent chosen at the click.** Choosing another row aims Pause, Stop and the steer box
+  at that agent, but Last said stays the first one's and does not name whose words they are.
+- **The card has no model block yet.** Picking a model and "Make it an agent" from the card are the next release.
+- **"6 px under its box" in Session's map is proven on numbers, not in a browser:** the browser scene has no room
+  below its box, so there the card sits over it.
+- **Leaving Session by its key with a card open in its map** runs the same code as in Agents -> Live, where it is
+  tested; no browser test drives it from Session.
+- **Found by the new `live-scene` step, not fixed in this release.** (1) In Session's map at its narrowest a group's
+  counts line takes a second row when a part joins it (a helper asks, one ends, a cost appears) and every box under it
+  drops 17 px, also under a resting pointer (so since 3.6.0.13, with or without a card; an open card stays where it
+  opened). (2) A helper is not given an MCP server's tool: in the step a general-purpose helper that called one got
+  "Unknown tool", also with the server set to `alwaysLoad`. A helper gets the tools main's list holds; why the
+  server's tools were not in it is read in the code (a session in a terminal builds its list before its MCP servers
+  connect), not proven in a run. (3) Pause on a helper that waits on you stays "Pause": nothing shows whether it was
+  taken. (4) A helper that ends at once sometimes shows no "done in {span}" (one run in two). (5) A group whose
+  helpers cost under half a cent reads "$0.00". (6) Seen once: a helper of a fan-out that ran a command read "waiting
+  for a model reply". Two of the step's scenes also depend on the order four helpers start in.
+- **No talk between agents is drawn,** and only Auto draws NOW, TURN and the rings: both as in 3.6.0.13.
+- **Every Known limit of 3.6.0.13 still holds, except three:** the gym has now been run on real models, it prints a
+  verdict, and the open box is no longer the old step-in card.
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), then the modules
+  changed after that run once more, the browser modules of the drawing and of the card, and the full real-use check,
+  eighteen of eighteen steps (`live-scene` is left out of a plain run and fails when named, as said above). On the PC
+  (Windows), one at a time: the plain modules of this release, and the real-use check's `idle-cpu` step alone (0.7 to
+  3.9% of one core in four runs; a fifth failed before its fix, when a line typed a tenth of a second after the
+  session's status line showed was not taken). `halo gym handout` was run for real on five local models on one
+  machine's own Ollama, and once through a gateway that needs a key. One reviewer read the whole diff. Browsers on
+  macOS and Windows are CI's part.
+
 ## [3.6.0.13] - 2026-11-22
 
 Live you can read, and a measure. On the drawing of a running session (Agents -> Live and Session's map, on Auto)
