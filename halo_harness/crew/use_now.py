@@ -8,10 +8,21 @@ the design's rule U1): the VALIDATED body goes into the running top session's ag
                                                  "map", "off", "problems", "built-in", "outranked", "tool:<T>", "mode"
     gone(session, name, scope) -> bool           queue taking back an agent whose file was deleted
     back(session, name) -> bool                  queue putting back what the session started with (an undo)
-    take(session) -> list[dict]                  apply what is queued, in order: [{name, change: added | edited | gone
-                                                 | back, ...}]; called before each of main's model calls (crew/kinds_note)
+    take(session) -> list[dict]                  apply what is queued, in order: [{name, change, ...}]; called before
+                                                 each of main's model calls (crew/kinds_note picks the line)
     started_with(session) -> dict                the agents the session started with
     added(session) -> list                       the names a take added, not taken back since
+
+`change` says how the set of names main can start moved (3.6.0.16 C1: main is told exactly when that set changes, never
+when only what stands behind a name it can already start changes). Whether the name is in the session's agents BEFORE
+the change decides it:
+    added    {name, change, note, spec}  a name the session did not start with is in now; listed in `added`
+    again    {name, change, note, spec}  a name the session started with, deleted since, is in again (a save after the
+                                         delete); never listed in `added` (main could start it when the session began)
+    gone     {name, change}              a name that was in is out
+    back     {name, change}              a name the session started with, out before, is in again as it started (an undo)
+    edited   {name, change}              the name was in before and is in after (a save over it, his own agent taking
+                                         the place of one the session started with, or the undo of either): never told
 
 No thread, no timer, no socket, no file read: every input arrives as an argument. The state lives on the top session,
 made on first use only (a session nothing is ever put to gains no attribute): `_kinds_pending` (name -> change, in queue
@@ -162,15 +173,17 @@ def take(session) -> "list[dict]":
             ch = pending.pop(name)
             op = ch.get("op")
             if op == "put":
+                present = name in agents  # main can start this name already: whatever stands behind it, nothing told
                 if name not in starts:
                     starts[name] = agents.get(name)
                 spec = ch["spec"]
                 agents[name] = spec
                 shas[name] = ch.get("sha")
-                start = starts[name]
-                if start is not None and getattr(start, "source", None) == spec.source:
-                    out.append({"name": name, "change": "edited"})  # main read this name at its start
-                elif name not in added:
+                if present:
+                    out.append({"name": name, "change": "edited"})
+                elif starts[name] is not None:  # a start name a delete took out (main read N2): in again, not "added"
+                    out.append({"name": name, "change": "again", "note": ch.get("note", True), "spec": spec})
+                else:
                     added.append(name)
                     out.append({"name": name, "change": "added", "note": ch.get("note", True), "spec": spec})
             elif op == "gone":
@@ -182,8 +195,8 @@ def take(session) -> "list[dict]":
                     starts[name] = cur
                 start = starts[name]
                 if start is not None and getattr(start, "source", None) != scope_src:
-                    agents[name] = start
-                    out.append(_undo(session, name, "back"))
+                    agents[name] = start  # the name was in and stays in: only what stands behind it changes
+                    out.append(_undo(session, name, "edited"))
                 else:
                     agents.pop(name, None)
                     out.append(_undo(session, name, "gone"))
@@ -195,8 +208,9 @@ def take(session) -> "list[dict]":
                     agents.pop(name, None)
                     out.append(_undo(session, name, "gone"))
                 else:
+                    was_in = name in agents  # N2_BACK only when main had read that it can no longer start it
                     agents[name] = start
-                    out.append(_undo(session, name, "back"))
+                    out.append(_undo(session, name, "edited" if was_in else "back"))
     return out
 
 

@@ -194,10 +194,12 @@ def test_gone_and_back(ctx: Ctx):
         name = starters[0]
         start = s.agent_runtime.agents[name]
         ctx.check(f"a put over {name} took", use_now.put(s, _body(name), "yours", SHA1) == (True, ""))
-        ctx.check(f"it is told as added", changes(s) == [(name, "added")])
+        # 3.6.0.16 C1: main could start this name before the put and can after it: an edit, never "added"
+        ctx.check(f"it is an edit, not added", changes(s) == [(name, "edited")] and name not in use_now.added(s))
         ctx.check("started_with gives the start back", use_now.started_with(s)[name] is start)
         use_now.gone(s, name, "yours")
-        ctx.check(f"gone puts the starter back", changes(s) == [(name, "back")] and s.agent_runtime.agents[name] is start)
+        ctx.check(f"gone puts the starter back, an edit again (the name never left)",
+                  changes(s) == [(name, "edited")] and s.agent_runtime.agents[name] is start)
 
         use_now.put(s, _body("tidy"), "yours", SHA1)
         use_now.take(s)
@@ -282,7 +284,9 @@ def test_n1_and_n2_letter_for_letter(ctx: Ctx):
 
     def run(home):
         from halo_harness.crew.map_session import agents as start_agents, prepare
-        s = _session(home, agents=start_agents({}, prepare(None, home / "proj")[0])[0])
+        start = start_agents({}, prepare(None, home / "proj")[0])[0]
+        start["keeper"] = _spec(_body("keeper"), "crew:yours")
+        s = _session(home, agents=start)
         use_now.put(s, _body(), "yours", SHA1)
         got = kinds_note.step(s)
         ctx.check(f"N1 letter for letter, got {got}", got == [N1_SORTER] and _notes(s) == [N1_SORTER])
@@ -292,13 +296,13 @@ def test_n1_and_n2_letter_for_letter(ctx: Ctx):
         use_now.gone(s, "sorter", "yours")
         ctx.check("N2 (gone) letter for letter", kinds_note.step(s) == [N2_SORTER])
         ctx.check(f"N2 is 20 tokens, got {tokens_of(N2_SORTER)}", tokens_of(N2_SORTER) == 20)
-        name = next(n for n, sp in s.agent_runtime.agents.items() if str(sp.source) == "crew:starter")
-        use_now.put(s, _body(name), "yours", SHA1)
+        # 3.6.0.16 C1: N2 (back) is told when an undo brings back a start name a delete took out
+        use_now.gone(s, "keeper", "yours")
         kinds_note.step(s)
-        use_now.gone(s, name, "yours")
-        back = f"[Halo] Taken back: {name} starts as it did when this session began."
+        use_now.back(s, "keeper")
+        back = "[Halo] Taken back: keeper starts as it did when this session began."
         ctx.check(f"N2 (back) letter for letter, got {_notes(s)[-1:]}", kinds_note.step(s) == [back])
-        ctx.check(f"N2 (back) is 20 tokens for the example", tokens_of(back.replace(name, "sorter")) == 20)
+        ctx.check(f"N2 (back) is 20 tokens for the example", tokens_of(back.replace("keeper", "sorter")) == 20)
         use_now.put(s, _body("tidy", does="..."), "yours", SHA2)
         ctx.check(f"a kind with no words is told bare, got {_notes(s)[-1:]}",
                   kinds_note.step(s) == ["[Halo] A new helper you can start now: tidy."])
@@ -354,6 +358,110 @@ def test_after_clear_the_added_names_are_told_again(ctx: Ctx):
         ctx.check("told once: the next step is quiet", kinds_note.step(s) is None)
         kinds_note.compacted(s)
         ctx.check("after a compaction they are told once more", len(kinds_note.step(s) or []) == 3)
+    _scoped(run)
+
+
+# -- 3.6.0.16 C1: main is told exactly when the set of names it can start changes -----------------------------------
+
+N1_KEEPER = "[Halo] A new helper you can start now: keeper (Sorts the files it is given by kind)."
+N2_KEEPER = "[Halo] Taken back: keeper can no longer be started in this session."
+BACK_KEEPER = "[Halo] Taken back: keeper starts as it did when this session began."
+
+
+def _auto_start(home, **extra):
+    """A session that started with Auto's agents (crew:starter) plus `extra` -> (session, a starter's name)."""
+    from halo_harness.crew.map_session import agents as start_agents, prepare
+    start = start_agents({}, prepare(None, home / "proj")[0])[0]
+    start.update(extra)
+    s = _session(home, agents=start)
+    return s, next(n for n, sp in s.agent_runtime.agents.items() if str(sp.source) == "crew:starter")
+
+
+@test
+def test_a_save_over_a_name_the_session_started_with_is_never_a_new_helper(ctx: Ctx):
+    from halo_harness.crew import kinds_note, map_facts, use_now
+
+    def run(home):
+        s, name = _auto_start(home, keeper=_spec(_body("keeper"), "crew:yours"))
+        use_now.put(s, _body("keeper", does="Keeps the notes."), "project", SHA1)  # a project's save over his agent
+        use_now.put(s, _body(name), "yours", SHA2)  # a model pick on one of Auto's cards: his over the starter
+        got = kinds_note.step(s)
+        ctx.check(f"neither save is told, got {got}", got is None and _notes(s) == [])
+        ctx.check(f"neither is added, got {use_now.added(s)}", use_now.added(s) == [])
+        ctx.check("the session runs both new bodies", str(s.agent_runtime.agents["keeper"].source) == "crew:project"
+                  and str(s.agent_runtime.agents[name].source) == "crew:yours")
+        ctx.check("the row lists no kinds_added", "kinds_added" not in map_facts.row(s))
+        s.clear()
+        ctx.check("after /clear nothing is told again", kinds_note.step(s) is None)
+    _scoped(run)
+
+
+@test
+def test_a_started_agent_deleted_then_saved_again_is_told_it_can_start(ctx: Ctx):
+    from halo_harness.crew import kinds_note, use_now
+
+    def run(home):
+        s = _session(home, agents={"keeper": _spec(_body("keeper"), "crew:yours")})
+        use_now.gone(s, "keeper", "yours")
+        ctx.check(f"the delete is told N2, got {_notes(s)}", kinds_note.step(s) == [N2_KEEPER])
+        use_now.put(s, _body("keeper"), "yours", SHA2)
+        got = kinds_note.step(s)
+        ctx.check(f"saved again: N1 once, got {got}", got == [N1_KEEPER] and "keeper" in s.agent_runtime.agents)
+        ctx.check("not 'Added in this session': main could start it when the session began", use_now.added(s) == [])
+        ctx.check("told once: the next step is quiet", kinds_note.step(s) is None)
+        s.clear()
+        ctx.check("after /clear nothing to retell (its start block names it)",
+                  kinds_note.step(s) is None and "keeper" in use_now.started_with(s))
+        use_now.gone(s, "keeper", "yours")
+        kinds_note.step(s)
+        kinds_note.compacted(s)
+        ctx.check(f"deleted again, then a compaction: N2 told once more, got {_notes(s)[-2:]}",
+                  kinds_note.step(s) == [N2_KEEPER] and _notes(s)[-2:] == [N2_KEEPER, N2_KEEPER])
+        use_now.put(s, _body("keeper"), "yours", SHA1, note=False)
+        ctx.check("a put with note False (the Builder's) tells nothing", kinds_note.step(s) is None
+                  and "keeper" in s.agent_runtime.agents and use_now.added(s) == [])
+    _scoped(run)
+
+
+@test
+def test_the_undo_of_a_change_main_never_read_is_not_told(ctx: Ctx):
+    from halo_harness.crew import kinds_note, use_now
+
+    def run(home):
+        start = _spec(_body("keeper"), "crew:yours")
+        s, name = _auto_start(home, keeper=start)
+        use_now.put(s, _body("keeper", does="Keeps the notes."), "yours", SHA2)
+        kinds_note.step(s)
+        ctx.check("an undo of an edit queues", use_now.back(s, "keeper") is True)
+        got = kinds_note.step(s)
+        ctx.check(f"the undo of an edit is not told, got {got}", got is None
+                  and s.agent_runtime.agents["keeper"] is start)
+        held = s.agent_runtime.agents[name]
+        use_now.put(s, _body(name), "yours", SHA1)
+        kinds_note.step(s)
+        ctx.check("the delete of the replacing file queues", use_now.gone(s, name, "yours") is True)
+        got = kinds_note.step(s)
+        ctx.check(f"the starter is back and nothing is told, got {got}", got is None
+                  and s.agent_runtime.agents[name] is held)
+        ctx.check(f"nothing was ever told, got {_notes(s)}", _notes(s) == [])
+    _scoped(run)
+
+
+@test
+def test_the_undo_of_a_delete_is_told(ctx: Ctx):
+    from halo_harness.crew import kinds_note, use_now
+
+    def run(home):
+        start = _spec(_body("keeper"), "crew:yours")
+        s = _session(home, agents={"keeper": start})
+        use_now.gone(s, "keeper", "yours")
+        ctx.check("the delete: N2", kinds_note.step(s) == [N2_KEEPER] and "keeper" not in s.agent_runtime.agents)
+        ctx.check("the undo queues", use_now.back(s, "keeper") is True)
+        ctx.check(f"the undo: N2 (back) once, got {_notes(s)}", kinds_note.step(s) == [BACK_KEEPER]
+                  and s.agent_runtime.agents["keeper"] is start)
+        ctx.check("told once: the next step is quiet", kinds_note.step(s) is None)
+        s.clear()
+        ctx.check("after /clear nothing to retell", kinds_note.step(s) is None)
     _scoped(run)
 
 

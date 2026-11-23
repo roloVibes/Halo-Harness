@@ -34,7 +34,7 @@ def _trust(folder: Path) -> None:
     cj.write_text(json.dumps({"projects": {key: {"hasTrustDialogAccepted": True}}}), encoding="utf-8")
 
 
-def _session(rig, cwd: Path):
+def _session(rig, cwd: Path, agents=None):
     from halo_harness.agent.assemble import SessionContext
     from halo_harness.agent.loop import Session
     from halo_harness.crew.map_session import prepare
@@ -47,7 +47,7 @@ def _session(rig, cwd: Path):
                    state_dir=Path(tempfile.mkdtemp(prefix="sess-", dir=str(rig.root))), model_label=MODEL,
                    crew_map=prepare(None, cwd)[0], openrouter_base_url=rig.mock.base_url, max_turns=4,
                    session_context=SessionContext(cwd=cwd, model_label=MODEL, tool_registry=ToolRegistry(default_tools())),
-                   permission_engine=PermissionEngine(mode="default", cwd=cwd))
+                   permission_engine=PermissionEngine(mode="default", cwd=cwd), agents=agents)
 
 
 def _asked(session) -> list:
@@ -316,6 +316,63 @@ def test_a_judge_pick_makes_judge_started_in_this_session(ctx: Ctx):
 def test_undo_of_the_pick_takes_judge_back(ctx: Ctx):
     """POST crew/agent-model/undo: "Taken back: judge is gone.", and main's next request carries N2 once."""
     _run_live(ctx, "judge", None, "", "or:mock/auto-cheap")
+
+
+@test
+def test_a_save_over_one_of_autos_agents_tells_main_nothing(ctx: Ctx):
+    """3.6.0.16 C1, end to end: a real session on Auto, Studio's real server. His save of an agent named as one of
+    Auto's agents the session started with (the Agents form's POST; a model pick writes the same file) and its DELETE
+    change only what stands behind a name main can already start: main's next requests carry neither N1 nor N2, the
+    row lists no `kinds_added`, and the DELETE puts Auto's agent back."""
+    from halo_harness.controller import Controller
+    from halo_harness.crew import map_facts
+    from halo_harness.remote import runtime
+    from tests.helpers.crew_rig import CrewRig
+    from tests.helpers.fake_remote_session import FakeRegistry
+    from tests.helpers.mock_openai import SCENARIOS
+    from tests.helpers.session_rig import text_step
+    controllers: list = []
+    with CrewRig() as rig:
+        main = _main_script([text_step("ok.")], [])
+        SCENARIOS["usable-at-once"] = main
+        try:
+            from halo_harness.crew.map_session import agents as start_agents, prepare
+            s = _session(rig, rig.proj, agents=start_agents({}, prepare(None, rig.proj)[0])[0])  # Auto's, as a start
+            starters = sorted(n for n, sp in s.agent_runtime.agents.items() if str(sp.source) == "crew:starter")
+            ctx.check(f"the session started with Auto's agents, got {starters}", bool(starters))
+            if not starters:
+                return
+            name, held = starters[0], s.agent_runtime.agents[starters[0]]
+            c = Controller(session=s, cwd=s.cwd, registry=FakeRegistry()).start()
+            controllers.append(c)
+            ctx.check("the session's socket opened", runtime.start_for_controller(c) is not None)
+            rig.studio()
+            list(s.turn("first"))
+            status, got = rig.api("POST", f"crew/agent/{name}", {"agent": _agent(name, "Does it my way.")})
+            ctx.check(f"POST 200, the running session took it, got {status} {got.get('live')}",
+                      status == 200 and [(x.get("took"), x.get("why")) for x in got.get("live") or []] == [(True, "")])
+            list(s.turn("second"))
+            ctx.check("the session runs his body now", str(s.agent_runtime.agents[name].source) == "crew:yours")
+            status, got = rig.api("DELETE", f"crew/agent/{name}")
+            ctx.check(f"DELETE 200, queued, got {status} {got.get('live')}",
+                      status == 200 and [x.get("queued") for x in got.get("live") or []] == [True])
+            list(s.turn("third"))
+            texts = [json.dumps(b.get("messages") or []) for b in main.seen]
+            ctx.check(f"three main requests, got {len(texts)}", len(texts) == 3)
+            ctx.check("no request tells main of a new helper or of one taken back",
+                      not any("A new helper you can start now" in t or "Taken back:" in t for t in texts))
+            ctx.check("the row lists no kinds_added", "kinds_added" not in map_facts.row(s))
+            ctx.check("Auto's agent is back", s.agent_runtime.agents.get(name) is held)
+        finally:
+            runtime.stop()
+            for c in controllers:
+                try:
+                    c.quit()
+                except Exception:
+                    pass
+            runtime._private_flag = None
+            runtime._reopeners[:] = []
+            SCENARIOS.pop("usable-at-once", None)
 
 
 if __name__ == "__main__":

@@ -381,7 +381,9 @@ def test_a_helper_built_before_a_server_connects_finds_its_tools_later(ctx: Ctx)
         ctx.check("the alwaysLoad server's tool is found the same way",
                   child.tool_registry.get("mcp__fake2__echo") is not None)
         result, _ = _f13_search(child, "select:mcp__fake__slow_tool")
-        ctx.check(f"a deny rule still holds, got {str(result.content)[:200]}",
+        # 3.6.0.16 C2: the helper copies its parent's deny inputs, so this proves the PARENT's own filter (the
+        # denied tool never enters the parent's pool); the helper's own filter: test_a_helpers_own_deny_holds_...
+        ctx.check(f"the parent's deny still holds in the helper, got {str(result.content)[:200]}",
                   child.tool_registry.get("mcp__fake__slow_tool") is None
                   and "mcp__fake__slow_tool" not in cc.deferred)
         nc = narrow.session_catalog
@@ -395,6 +397,106 @@ def test_a_helper_built_before_a_server_connects_finds_its_tools_later(ctx: Ctx)
     finally:
         _f2_close(controller)
         _f2_restore(saved)
+
+
+def _c_tool(name: str):
+    """A raw MCP SDK tool of the fake server `fake` (or the server the name gives), no process: catalog level."""
+    from types import SimpleNamespace
+    schema = {"type": "object", "properties": {}}
+    return SimpleNamespace(name=name, description=f"the {name} tool", inputSchema=schema, input_schema=schema)
+
+
+def _c_main(first=("fake", "first")):
+    """A session's top catalog at catalog level: one deferred tool (so a helper made from it gets ToolSearch, the
+    build's own rule) and no process anywhere."""
+    from halo_harness.agent.catalog import SessionCatalog
+    from halo_harness.tools.registry import ToolRegistry
+    from types import SimpleNamespace
+    server, tool = first
+    idle = SimpleNamespace(handles={}, ensure_lazy_started_all=lambda abort=None: (), all_tools=lambda: [])
+    return SessionCatalog(registry=ToolRegistry([]), deferred={f"mcp__{server}__{tool}": (server, _c_tool(tool))},
+                          manager=idle, cap=40)
+
+
+def _c_gain(catalog, deferred=(), loaded=()):
+    """The parent's catalog gains tools after its helpers were made (a late server, a load): (server, tool) pairs."""
+    from halo_harness.tools.mcp_tool import McpTool
+    for server, tool in deferred:
+        catalog.deferred[f"mcp__{server}__{tool}"] = (server, _c_tool(tool))
+    for server, tool in loaded:
+        t = McpTool(server, _c_tool(tool), None)
+        catalog.registry.add_tool(t)
+        catalog.names.append(t.name)
+
+
+def _c_search(catalog, query):
+    """The helper's own ToolSearch over its own catalog, as its loop runs it -> (text, its registry's names)."""
+    from halo_harness.tools.base import ToolContext
+    tool = catalog.registry.get("ToolSearch")
+    result = tool.run({"query": query}, ToolContext(cwd=REPO_DIR, registry=catalog.registry, catalog=catalog))
+    text = json.dumps(result.content) if isinstance(result.content, list) else str(result.content)
+    return text, catalog.registry.names()
+
+
+@test
+def test_a_helpers_own_deny_holds_on_what_it_reads_from_its_parent(ctx: Ctx):
+    """3.6.0.16 C2: a helper whose OWN catalog refuses tools its parent holds (one deferred, one loaded) never takes
+    them on its search; a tool it may use is found. The product gives a helper its parent's deny inputs, so the case
+    is built at the catalog's level: `for_helper`, then deny inputs the parent lacks, as the build sets them
+    (`--disallowedTools` names, parsed deny rules). Red when `_admitted` is taken out of `_take_from_parent`."""
+    from halo_harness.permissions import parse_rule
+    from halo_harness.tools.registry import ToolRegistry
+    main = _c_main()
+    helper = main.for_helper(ToolRegistry([]), lambda n: n.startswith("mcp__fake__"))
+    ctx.check("the helper has ToolSearch over its own catalog", helper.registry.get("ToolSearch") is not None)
+    helper.disallowed = ["mcp__fake__secret"]
+    helper.deny_rules = [parse_rule("mcp__fake__loud")]
+    _c_gain(main, deferred=[("fake", "secret"), ("fake", "open")], loaded=[("fake", "loud"), ("fake", "kept")])
+    text, names = _c_search(helper, "select:mcp__fake__secret")
+    ctx.check(f"the deferred tool its own --disallowedTools refuses: not found, got {text[:160]}",
+              "mcp__fake__secret" not in helper.deferred and "mcp__fake__secret" not in names)
+    text, names = _c_search(helper, "select:mcp__fake__loud")
+    ctx.check(f"the loaded tool its own deny rule refuses: not found, got {text[:160]}",
+              "mcp__fake__loud" not in helper.deferred and "mcp__fake__loud" not in names)
+    text, names = _c_search(helper, "select:mcp__fake__open")
+    ctx.check(f"a deferred tool it may use: found and loaded, got {names}", "mcp__fake__open" in names)
+    text, names = _c_search(helper, "select:mcp__fake__kept")
+    ctx.check(f"a loaded tool of its parent it may use: found and loaded, got {names}", "mcp__fake__kept" in names)
+    ctx.check(f"the parent still holds all four, got {sorted(main.deferred)} {main.names}",
+              {"mcp__fake__secret", "mcp__fake__open"} <= set(main.deferred)
+              and {"mcp__fake__loud", "mcp__fake__kept"} <= set(main.names))
+
+
+@test
+def test_a_grandchilds_search_changes_no_loaded_tool_and_never_main(ctx: Ctx):
+    """3.6.0.16 C3: main holds a server's tools, a helper of main, a helper of that helper; main's pool gains tools
+    late; the GRANDCHILD searches. Its parent helper first reads main, so that helper's pool may grow, by what its own
+    allow and deny admit only; nothing is loaded anywhere but in the grandchild, and main is exactly as before."""
+    from halo_harness.tools.registry import ToolRegistry
+    main = _c_main()
+    helper = main.for_helper(ToolRegistry([]), lambda n: n.startswith("mcp__fake__"))
+    helper.disallowed = ["mcp__fake__secret"]
+    grand = helper.for_helper(ToolRegistry([]), lambda n: True)
+    ctx.check("the grandchild has ToolSearch", grand.registry.get("ToolSearch") is not None)
+    _c_gain(main, deferred=[("fake", "late"), ("fake", "secret"), ("other", "far")], loaded=[("fake", "kept")])
+    m_names, m_pool, m_reg = list(main.names), dict(main.deferred), main.registry.names()
+    h_names, h_pool = list(helper.names), set(helper.deferred)
+    g_names = list(grand.names)
+    text, _ = _c_search(grand, "select:nothing-at-all")
+    ctx.check(f"(1) the grandchild's pool holds what it may use, got {sorted(grand.deferred)}",
+              {"mcp__fake__late", "mcp__fake__kept"} <= set(grand.deferred)
+              and "mcp__fake__secret" not in grand.deferred and "mcp__other__far" not in grand.deferred)
+    gained = set(helper.deferred) - h_pool
+    ctx.check(f"(2) its parent helper gained only what its own allow and deny admit, got {sorted(gained)}",
+              gained == {"mcp__fake__late", "mcp__fake__kept"})
+    ctx.check(f"(3) no catalog's loaded names changed, got {main.names} {helper.names} {grand.names}",
+              main.names == m_names and helper.names == h_names and grand.names == g_names)
+    ctx.check(f"(4) main is exactly as before, got {sorted(main.deferred)}",
+              main.deferred == m_pool and main.names == m_names and main.registry.names() == m_reg)
+    _c_search(grand, "select:mcp__fake__late")
+    ctx.check("a load in the grandchild reaches neither its parent nor main",
+              "mcp__fake__late" in grand.names and "mcp__fake__late" not in helper.names
+              and "mcp__fake__late" not in main.names and main.deferred == m_pool)
 
 
 @test

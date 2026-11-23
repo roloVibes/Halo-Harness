@@ -326,6 +326,59 @@ def test_a_pause_set_on_a_waiting_helper_is_on_its_row_until_resume(ctx: Ctx):
               tree.row("helper-2").get("pause_set") is False and bool(sent) and sent[-1].get("pause_set") is False)
 
 
+@test
+def test_a_pause_and_a_resume_that_cross_leave_the_row_telling_the_truth(ctx: Ctx):
+    """3.6.0.16 C4: a Pause and a Resume of the same helper from two threads (two Studio requests), the Resume landing
+    in the gap after the Pause changed `pauses` and left the lock: the row's `pause_set` ends equal to `aid in
+    controls.pauses` (each write reads the truth under the lock that guards `pauses`). The pausing thread is held at
+    whichever comes first after its lock is left (the row's write, else the frame's publish), by Events, no sleeps."""
+    import threading
+    from halo_harness.agent.agent_registry import AgentTree
+
+    class _Root:
+        agent_id = None
+        model_ref = None
+        log = None
+
+    class _Kid:
+        agent_id, model_ref = "helper-1", None
+
+    for first, then in (("pause", "resume"), ("resume", "pause")):
+        tree = AgentTree(_Root())
+        tree.add("helper-1", session=_Kid(), parent=tree.root_id, name="reader", kind="subagent")
+        tree.started("helper-1", _Kid(), "read the notes")
+        if first == "resume":
+            tree.controls.pause("helper-1", "Studio")
+        at_gap, go = threading.Event(), threading.Event()
+        holder: dict = {}
+        real_update, real_publish = tree.update, tree._publish
+
+        def held(real):
+            def run(*a, **kw):
+                if threading.current_thread() is holder.get("t") and not at_gap.is_set():
+                    at_gap.set()
+                    go.wait(30)
+                return real(*a, **kw)
+            return run
+
+        tree.update, tree._publish = held(real_update), held(real_publish)
+        try:
+            t = threading.Thread(target=getattr(tree.controls, first), args=("helper-1",), daemon=True)
+            holder["t"] = t
+            t.start()
+            ctx.check(f"{first}: the first thread reached the gap", at_gap.wait(30))
+            getattr(tree.controls, then)("helper-1")
+            go.set()
+            t.join(30)
+            ctx.check(f"{first}: the first thread ended", not t.is_alive())
+        finally:
+            go.set()
+            tree.update, tree._publish = real_update, real_publish
+        truth = "helper-1" in tree.controls.pauses
+        ctx.check(f"{first} then {then}: the row says the truth, got pause_set {tree.row('helper-1').get('pause_set')}"
+                  f", paused {truth}", tree.row("helper-1").get("pause_set") is truth)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

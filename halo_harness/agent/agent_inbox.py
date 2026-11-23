@@ -94,28 +94,40 @@ class Controls:
         with self.tree.lock:
             for table in (self.stops, self.pauses, self.cuts, self.inbox):
                 table.pop(aid, None)
-        self.tree.update(aid, pause_set=False)
+            pub = self._pause_row(aid)
+        self.tree._publish(pub)
 
     # ---- pause / resume ---------------------------------------------------------
     # 3.6.0.15 F3: an agent's row carries `pause_set` -- its OWN key is in `pauses` (the pause its Resume takes
     # back), true from the press until a resume, also before it holds; a session-wide pause sets it on no row.
-    # The row is updated after the lock is left (update publishes to the listeners).
+    # 3.6.0.16 C4: the row is written under the ONE lock that guards `pauses` (tree.lock; tree.cv is built on it), from
+    # the truth at that moment, so a Pause and a Resume that cross leave it true; no other lock is taken. The frame
+    # goes to the listeners after the lock is left.
+    def _pause_row(self, aid: Optional[str]):
+        """Under tree.lock: the row's `pause_set` = `aid in pauses` now -> the frame to publish once the lock is left."""
+        row = self.tree.rows.get(aid) if aid else None
+        if row is None:
+            return None
+        before = dict(row)
+        row["pause_set"] = aid in self.pauses
+        return self.tree._commit(aid, row, before)
+
     def pause(self, aid: Optional[str], via: str = "Studio") -> bool:
         """False when it was paused already (the parent is told once)."""
         with self.tree.cv:
             key = aid or ALL
             fresh = key not in self.pauses
             self.pauses[key] = self._rec(via)
-        if aid:
-            self.tree.update(aid, pause_set=True)
+            pub = self._pause_row(aid)
+        self.tree._publish(pub)
         return fresh
 
     def resume(self, aid: Optional[str]) -> bool:
         with self.tree.cv:
             had = self.pauses.pop(aid or ALL, None) is not None
             self.tree.cv.notify_all()
-        if aid:
-            self.tree.update(aid, pause_set=False)
+            pub = self._pause_row(aid)
+        self.tree._publish(pub)
         return had
 
     def pause_record(self, aid: str) -> Optional[dict]:

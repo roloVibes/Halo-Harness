@@ -217,7 +217,10 @@ class SessionCatalog:
     allow: Optional[Callable[[str], bool]] = None
     _lazy_taken: set = field(default_factory=set, repr=False, compare=False)
     # 3.6.0.15 F13: a helper's catalog only: a WEAK reference to its parent's
-    # catalog, read again on the helper's own search (`_take_from_parent`).
+    # catalog, read again on the helper's own search (`_take_from_parent`; a
+    # parent that is itself a helper first reads ITS parent, so its own
+    # deferred pool may grow by what it may use; nothing is loaded anywhere,
+    # and a session's top catalog never changes by it).
     _parent: Optional[Callable[[], Optional["SessionCatalog"]]] = field(default=None, repr=False, compare=False)
 
     def _admitted(self, triples) -> list:
@@ -227,7 +230,7 @@ class SessionCatalog:
     def for_helper(self, registry, allow: Callable[[str], bool]) -> "SessionCatalog":
         """3.6.0.15 F2: a helper's own catalog, made when it starts: a COPY of
         the deferred entries `allow` passes (a later load of the parent never
-        reaches it; the helper never grows the parent's pool; F13: its own
+        reaches it; a load in the helper never reaches the parent; F13: its own
         search finds what the parent holds then, `_take_from_parent`); ToolSearch is
         put in `registry` when that pool is not empty (the build's own rule)."""
         with self._lock:
@@ -248,9 +251,14 @@ class SessionCatalog:
     def _take_from_parent(self) -> None:
         """3.6.0.15 F13: a helper's search looks at what its parent's catalog
         holds NOW: the deferred and loaded MCP tools (and connectors) it does
-        not hold yet and may use (`allow`, the build's filter) enter its OWN
-        deferred pool; nothing is loaded and the parent never changes. The
-        parent's pool and registry are read under the parent's `_lock` (the
+        not hold yet and may use (`allow`, the build's filter with the
+        helper's OWN deny inputs, `_admitted`) enter its OWN deferred pool.
+        3.6.0.16 C3: a parent that is itself a helper first reads ITS parent
+        the same way, so that parent's own deferred pool may grow by what it
+        may itself use (what its own search would add). Nothing is loaded
+        anywhere, no catalog's loaded names change, and a session's top
+        catalog never changes. Each parent's pool and registry are read
+        under the parent's `_lock` (the
         lock `take_server`'s refresh and a ToolSearch load hold), the helper's
         pool written under its own; the two are never held together. A parent
         that is gone leaves the helper with what it has."""

@@ -3,13 +3,16 @@
 
     step(session) -> list | None    before EACH of main's model calls (agent/loop.py, beside the mode notice's sync):
                                     take what crew/use_now.py queued, then log ONE snapshot of kind "kinds_note" with
-                                    N1 for each name added (once while it stays added), N2 for each name taken back
+                                    N1 for each name that comes in, N2 for each name that goes out or comes back
     cleared(session) / compacted(session)
                                     after /clear or a compaction, the next step tells once more what main can no longer
                                     have read (N1 for each name still added, N2 for each start name taken out)
 
-"Once": N1 once per name while it stays added (an edit of an added name, or of an agent the session STARTED with, is
-never told), N2 once when it leaves, N1 again only after its N2. A put with note False (the Builder's: its result line
+"Once" (3.6.0.16 C1): main is told exactly when the set of names it can start changes (crew/use_now.py `take`'s
+`change`), never when only what stands behind a name it can already start changes: N1 when a name comes in (a new one,
+or one the session started with, saved again after its delete), N2_GONE when a name goes out, N2_BACK when an undo
+brings back a start name that was out. An edit, his own agent taking the place of one the session started with, and the
+undo of either are never told; N1 again only after its N2. A put with note False (the Builder's: its result line
 "Ready in this session now" tells main, crew/ready_now.py) sends no N1. A session nothing is put to or taken from
 returns before any lock, log write or attribute: it sends byte for byte what it sent before this module. Never raises.
 """
@@ -69,7 +72,7 @@ def step(session) -> "list | None":
         told: set = set()
         for ch in use_now.take(session):
             name, change = ch.get("name"), ch.get("change")
-            if change == "added":
+            if change in ("added", "again"):
                 if ch.get("note", True):
                     texts.append(n1(name, ch.get("spec")))
                 told.add(name)

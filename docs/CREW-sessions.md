@@ -117,11 +117,14 @@ On Auto (the default) a new agent counts in the session that is running, from ma
 agent you save in Agents' form (Agents -> 1 · Agents), one the Builder makes in a session, or one a pick in a helper's
 MODEL block makes or saves ([STUDIO-live.md](STUDIO-live.md#the-model-block)).
 
-- **Main is told once** per name, before its next model call: "[Halo] A new helper you can start now: {name} ({words})."
-  ("[Halo] A new helper you can start now: {name}." when the agent's `does` gives no words). When it is taken back (an
-  Undo, the file deleted): "[Halo] Taken back: {name} can no longer be started in this session.", or "[Halo] Taken back:
-  {name} starts as it did when this session began." when the session started with an agent of that name. An edit of an
-  agent the session started with is not told.
+- **Main is told once**, before its next model call, and only when the names it can start change. When a new name can
+  be started: "[Halo] A new helper you can start now: {name} ({words})." ("[Halo] A new helper you can start now:
+  {name}." when the agent's `does` gives no words); the same line when an agent the session started with was deleted
+  and is saved again. When a name can no longer be started (an Undo, the file deleted): "[Halo] Taken back: {name} can
+  no longer be started in this session." When an Undo brings back a deleted agent the session started with: "[Halo]
+  Taken back: {name} starts as it did when this session began." Main is never told of an edit, of your own agent taking
+  the place of one the session started with (a save of yours, a model picked on one of Auto's boxes), or of the undo of
+  either: main could start that name before and still can.
 - **The Builder** tells main in its own result instead: "Ready in this session now: the agent {x} (subagent_type
   `{x}`)." When an agent does NOT take in this session, the result says so: "Saved for your next session: the agent
   {name} ({why})." with the reason: "this session's list of agents was fixed when it started", "this session keeps the
