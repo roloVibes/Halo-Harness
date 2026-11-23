@@ -737,6 +737,7 @@ def test_z1_the_check_ends_gits_whole_tree_at_its_budget_and_never_waits_on_its_
     """3.6.0.17 Z1 (b): a hanging network (git's helper holds its pipes and sleeps): the check returns within its budget
     plus a little (a slow runner's taskkill), with no answer, and no stand-in process is left, the helper included."""
     from tests.helpers import hanging_git
+    budget = getattr(upd, "CHECK_TIMEOUT_S", 5)  # the base had the 5 s inline: a red there is the hang, not a name
     folder = hanging_git.make(_tmp() / "bin")
     saved = os.environ.get("PATH")
     os.environ["PATH"] = f"{folder}{os.pathsep}{saved or ''}"
@@ -745,13 +746,13 @@ def test_z1_the_check_ends_gits_whole_tree_at_its_budget_and_never_waits_on_its_
         answers: list = []
         t0 = time.monotonic()
         th = _fetch_beside(folder, answers, [])
-        rows = hanging_git.wait_seen(folder, upd.CHECK_TIMEOUT_S)
+        rows = hanging_git.wait_seen(folder, budget)
         ctx.check(f"the stand-in git and its helper ran (not a vacuous check), got {rows}",
                   len(rows) == 2 and len(hanging_git.alive(rows)) == 2)
-        th.join(upd.CHECK_TIMEOUT_S + 3.0)
+        th.join(budget + 3.0)
         took = time.monotonic() - t0
-        ctx.check(f"the check returned within its budget ({upd.CHECK_TIMEOUT_S} s) and a little, took {took:.1f} s",
-                  not th.is_alive() and took <= upd.CHECK_TIMEOUT_S + 3.0)
+        ctx.check(f"the check returned within its budget ({budget} s) and a little, took {took:.1f} s",
+                  not th.is_alive() and took <= budget + 3.0)
         ctx.check(f"no answer, as an unreachable network gives, got {answers}",
                   bool(answers) and answers[0].get("commit") is None)
         left = hanging_git.wait_gone(rows, 1.0)
@@ -771,7 +772,8 @@ def test_z1_a_closing_halo_ends_the_checks_git_at_once_and_asks_no_further(ctx: 
     from halo_harness import closing
     from tests.helpers import hanging_git
     folder = hanging_git.make(_tmp() / "bin")
-    saved_path, saved_budget, saved_deadline = os.environ.get("PATH"), upd.CHECK_TIMEOUT_S, closing._STATE.get("deadline")
+    saved_path, saved_deadline = os.environ.get("PATH"), closing._STATE.get("deadline")
+    saved_budget = getattr(upd, "CHECK_TIMEOUT_S", None)
     os.environ["PATH"] = f"{folder}{os.pathsep}{saved_path or ''}"
     upd.CHECK_TIMEOUT_S = 60
     rows: list = []
@@ -793,7 +795,10 @@ def test_z1_a_closing_halo_ends_the_checks_git_at_once_and_asks_no_further(ctx: 
         ctx.check(f"no stand-in process left (git's helper included), alive: {left} of {rows}", not left)
     finally:
         closing._STATE["deadline"] = saved_deadline
-        upd.CHECK_TIMEOUT_S = saved_budget
+        if saved_budget is None:  # the base had no such name: leave none behind
+            delattr(upd, "CHECK_TIMEOUT_S")
+        else:
+            upd.CHECK_TIMEOUT_S = saved_budget
         hanging_git.end(rows or hanging_git.seen(folder))
         if saved_path is None:
             os.environ.pop("PATH", None)

@@ -104,15 +104,23 @@ def _session_while_the_check_hangs(c: "core.Ctx") -> dict:
     h = c.home("session")
     folder = hanging_git.make(h.dir / "git-standin")
     trace = h.dir / "close-trace.txt"
+    # Never the real network: git is a stand-in, and every HTTP(S) request (the check's fallback to the API, and
+    # anything else the session asks) goes to a proxy on a dead loopback port and fails at once.
+    dead = "http://127.0.0.1:9"
+    proxies = {k: dead for k in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")}
     env = c.env(h, PATH=f"{folder}{os.pathsep}{os.environ.get('PATH', '')}", HALO_NO_UPDATER="1",
-                BRIDGE_TEST_NO_BACKGROUND_NET=None, HALO_OFFLINE=None, HALO_CLOSE_TRACE=str(trace))
+                BRIDGE_TEST_NO_BACKGROUND_NET=None, HALO_OFFLINE=None, HALO_CLOSE_TRACE=str(trace),
+                NO_PROXY=None, no_proxy=None, **proxies)
     t = c.terminal(h, env=env)
     row: dict = {}
     rows: list = []
+    first = None
     try:
         end = time.monotonic() + 90
         while time.monotonic() < end and t.poll() is None:
             rows = hanging_git.seen(folder)
+            if rows and first is None:
+                first = time.monotonic()
             if rows and screen.READY.search(t.plain()):
                 break
             time.sleep(0.2)
@@ -122,6 +130,9 @@ def _session_while_the_check_hangs(c: "core.Ctx") -> dict:
             row["not_up"] = core.excerpt(t.plain(), 300) or f"exit {t.poll()}"
             return row
         time.sleep(1.0)  # keys typed the moment the status line shows may not be taken (the realcheck re-presses then)
+        # the close must land DURING the hang: git and its helper still alive as the keys go (else nothing is proved)
+        row["standins_alive_at_close"] = hanging_git.alive(rows)
+        row["hung_s_at_close"] = round(time.monotonic() - (first or time.monotonic()), 1)
         row["keys"] = _end(c, t, HOW[0], full_screen=True, note=_noter(trace))
         end = time.monotonic() + GONE_S
         while t.poll() is None and time.monotonic() < end:
@@ -147,6 +158,8 @@ def test_z1_a_session_closed_while_its_update_check_hangs_is_gone_with_its_git(c
         c.close()
     ctx.check(f"the session came up and its update check's git and helper ran (not a vacuous check), got {row}",
               "not_up" not in row and len(row["standins_alive"]) == 2)
+    ctx.check(f"the close landed while the check's git and helper still hung (not a vacuous check), got {row}",
+              len(row.get("standins_alive_at_close") or []) == 2)
     ctx.check(f"{row.get('keys')}: the Halo process gone within {GONE_S:.0f} s, got {row}", not row["halo_alive_after"])
     ctx.check(f"{row.get('keys')}: no stand-in git left {GONE_S:.0f} s after the close, got {row}",
               not row["standins_alive_after"])
