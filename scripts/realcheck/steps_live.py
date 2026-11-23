@@ -46,6 +46,8 @@ from realcheck.steps_auto import _fail, _open, _quit, _session
 
 WIN = sys.platform == "win32"
 LIVE_WAIT_S = 30.0 if WIN else 15.0
+FOLD_S = 10.0  # routes/crew/map/foldRule.ts FOLD_S: an all-done group folds this long after its last end
+FOLD_WAIT_S = FOLD_S + LIVE_WAIT_S  # the scene's wait for that fold: the fold's own time, then the step's wait
 TURN_WAIT_S = 120.0 if WIN else 60.0  # the seven drawn: a real session's first turn on Auto
 W, H = WIDE
 DRAWER = "!!document.querySelector('[data-testid=session-lit-map]')"
@@ -347,8 +349,21 @@ def judge_live_rest_point(points: list) -> list:
     a, b = (points[0] or {}).get("held", ""), ((points[1] if len(points) > 1 else points[0]) or {}).get("held", "")
     if a != "1" or b != "1":
         return [f"(4) the drawing was not held under a pointer resting on it (data-held {a!r} at the rest, {b!r} before "
-                "the long tool was let go)"]
-    return []
+                "the long tool was let go)"] + _head_line(points)
+    return _head_line(points)
+
+
+def _head_line(points: list) -> list:
+    """(4) Session's drawer head changed height between the first and the last point (every box below it moves with
+    it): both heights and the words that came new, so a report names the cause."""
+    a, b = points[0] or {}, points[-1] or {}
+    ha, hb = a.get("head"), b.get("head")
+    if not isinstance(ha, (int, float)) or not isinstance(hb, (int, float)) or abs(hb - ha) <= 0.5:
+        return []
+    was = (a.get("words") or "").splitlines()
+    new = [ln for ln in (b.get("words") or "").splitlines() if ln not in was]
+    said = f"its new words: {new}" if new else "its words did not change"
+    return [f"(4) Session's drawer head went from {ha:.1f} to {hb:.1f} px under a resting pointer ({said})"]
 
 
 def live_mcp(requests: list) -> dict:
@@ -654,14 +669,14 @@ def _scene(ctx, c, t, ev: dict, bad: list) -> None:
     ev["aids"] = aids
     # 3.6.0.15 K2 (a): the writer's all-done group folds to its head 10 s after its end (LW); (1)-(3) read one layout
     _away(c, "live")
-    ev["folded"] = bool(aids["writer"]) and bool(_wait(c, folded_wait(V.LW, aids["writer"])))
+    ev["folded"] = bool(aids["writer"]) and bool(_wait(c, folded_wait(V.LW, aids["writer"]), FOLD_WAIT_S))
     ev["order"] = order_of(_read(c, V, "live"))  # the order the page drew (one message: no fixed start order)
     if ev["folded"]:
         _alone(1, bad, _one, c, V, ev, bad, 1, judge_live_now)
         _alone(2, bad, _one, c, V, ev, bad, 2, judge_live_heads)
         _alone(3, bad, _slot, c, V, aids, ev, bad)
     else:
-        bad.append(f"(1)-(3) not run: the writer's all-done group did not fold in {LIVE_WAIT_S:.0f} s")
+        bad.append(f"(1)-(3) not run: the writer's all-done group did not fold in {FOLD_WAIT_S:.0f} s")
     held = _alone(4, bad, _rest, ctx, c, V, aids, ev, bad)
     if held:
         _alone(5, bad, _held, ctx, c, V, aids, held, ev, bad)

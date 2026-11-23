@@ -1513,6 +1513,42 @@ def test_live_scene_judges_the_rest_point(ctx: Ctx):
 
 
 @test
+def test_live_scene_names_the_drawer_head_that_grew(ctx: Ctx):
+    """3.6.0.15 K2 repair: when Session's drawer head changes height under a resting pointer (every box below it moves
+    with it), (4) says so with the words that came new, so a report names the cause (a counts line that wrapped)."""
+    s = _steps_live()
+    p = {"x": 700.0, "y": 400.0, "w": 1440, "h": 900, "on": True, "held": "1", "head": 150.0,
+         "words": "Live\n2 agents working · waiting for you · $0.0180"}
+    grew = dict(p, head=167.0, words="Live\n2 agents working on mcp__rc_chart__slow_tool {\"seconds\": 9} · waiting for "
+                                     "you · $0.0180")
+    got = s.judge_live_rest_point([p, p, grew])
+    ctx.check(f"the head grew: one line with both heights and the new words, got {got}", got == [
+        "(4) Session's drawer head went from 150.0 to 167.0 px under a resting pointer (its new words: ['2 agents working "
+        "on mcp__rc_chart__slow_tool {\"seconds\": 9} · waiting for you · $0.0180'])"])
+    got = s.judge_live_rest_point([p, p, dict(p, head=167.0)])
+    ctx.check(f"the head grew with the same words: says so, got {got}", got == [
+        "(4) Session's drawer head went from 150.0 to 167.0 px under a resting pointer (its words did not change)"])
+    ctx.check("the head kept its height: no line", s.judge_live_rest_point([p, p, dict(p, head=150.4)]) == [])
+    ctx.check("no head read: no line", s.judge_live_rest_point([dict(p, head=None), p, p]) == [])
+
+
+@test
+def test_live_scene_waits_for_the_fold_past_the_fold_time(ctx: Ctx):
+    """3.6.0.15 K2 repair: the writer's group folds FOLD_S after its end (foldRule.ts), so the scene's wait for it is the
+    fold time plus the step's own wait, never the step's wait alone (a hosted runner is five to ten times slower)."""
+    import re
+    s = _steps_live()
+    rule = (Path(__file__).resolve().parents[1] / "halo_harness/studio/ui/src/routes/crew/map/foldRule.ts").read_text(
+        encoding="utf-8")
+    m = re.search(r"export const FOLD_S = (\d+(?:\.\d+)?);", rule)
+    ctx.check(f"foldRule.ts states FOLD_S, got {bool(m)}", bool(m))
+    ctx.check(f"the step's FOLD_S is foldRule.ts's, got {getattr(s, 'FOLD_S', None)}",
+              bool(m) and getattr(s, "FOLD_S", None) == float(m.group(1)))
+    ctx.check(f"the fold wait is FOLD_S + LIVE_WAIT_S, got {getattr(s, 'FOLD_WAIT_S', None)}",
+              getattr(s, "FOLD_WAIT_S", None) == getattr(s, "FOLD_S", 0) + s.LIVE_WAIT_S)
+
+
+@test
 def test_live_scene_counts_take_the_cost_as_the_page_writes_it(ctx: Ctx):
     """3.6.0.15 K2 (d): a group's cost as the page writes it since F5 ("$0.0024", "<$0.0001", and "$0.00"), in the
     all-done form and the counts form; a cost of one decimal is still wrong."""
