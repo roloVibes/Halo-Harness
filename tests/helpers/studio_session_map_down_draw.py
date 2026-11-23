@@ -9,6 +9,8 @@ No model is called.
             are counted in "↓ {n} more below" and a press scrolls one row (R11)
     hold    the pointer on main: a new box and new words move nothing; it leaves: the box is drawn; after a hand scroll
             the first box seen keeps its place when a box arrives above it (R12)
+    headhold  the pointer on a working helper whose tool's line needs more rows: the drawer's head and every box hold
+            still, the words change in place; it leaves: the head takes its rows (3.6.0.15 F12)
     still   the head's buttons and the slot keep their rects across 20 frames of new words and zoom percents (R12)
     gone    a hand scroll, then the drawer closed at once: no timer of the drawing fires once it is gone (batch 7)
 
@@ -189,6 +191,45 @@ def hold(c, rig, rows, a) -> dict:
     return {"hold": out}
 
 
+# 3.6.0.15 F12: the drawer's head (the truth block, the status line, Open in Agents and the zoom) and the boxes, as rects
+HEAD_READ = f"""(() => {{ const m = {M}; if (!m) return null; const hd = m.querySelector('.mp-down-head'), st = m.querySelector('[data-testid=session-status]');
+  const R = (e) => {{ if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }};
+  return {{held: m.dataset.held || '', head: R(hd), title: hd.title || '', status: st ? st.textContent : null, sh: st ? st.offsetHeight : 0,
+          tools: R(m.querySelector('.mp-down-tools')), sc: R(m.querySelector('.mp-mini-scroll')), below: R(m.querySelector('[data-testid=session-map-below]')),
+          boxes: [...m.querySelectorAll('[data-testid=session-lit-box]')].map((b) => [b.dataset.box, ...R(b)])}}; }})()"""
+SLOW = "mcp__srv__" + "slow_tool_" * 9  # a tool whose name alone (100 characters) needs a row more than the status line has
+
+
+def headhold(c, rig, rows, a) -> dict:
+    """The pointer rests on a working helper's box; its tool becomes one whose line needs more rows: the head and every
+    box hold still while held, the line's words change in place; the pointer leaves: the head takes its rows."""
+    w, h = 1280, 800
+    busy = lambda cur: _agents(rows, a, main="running", current="Agent: planner", extra=(("plan0001", "planner", "running", cur),))  # noqa: E731
+    _open(c, rig, rows, a, "seven", w, h, 8, main="running", current="Agent: planner", extra=(("plan0001", "planner", "running", "Read: notes"),))
+    c.wait(f"{M}.querySelector('[data-box=planner]')?.dataset.state === 'working'", 15)
+    d = _settled(c)
+    x, y, bw, bh = _rects(d).get("planner") or [0, 0, 0, 0]
+    c.mouse("mouseMoved", x + bw / 2, y + bh / 2)
+    c.wait(f"{M}.dataset.held === '1'", 5)
+    out: dict = {"before": c.js(HEAD_READ) or {}}
+    rows.set(a, agents=busy(SLOW + ': {"seconds": 30}'))
+    _reload(c, rows, 2)
+    c.wait(f"({M}.querySelector('[data-testid=session-status]')?.textContent || '').includes('{SLOW}')", 15)
+    samples = []
+    for _ in range(6):
+        samples.append(c.js(HEAD_READ) or {})
+        time.sleep(0.25)
+    out["under"] = samples
+    c.mouse("mouseMoved", w - 1, h - 1)
+    h0 = (out["before"].get("head") or [0, 0, 0, 0])[3]
+    try:
+        c.wait(f"!{M}.dataset.held && {M}.querySelector('.mp-down-head').getBoundingClientRect().height > {h0} + 1", 5)
+    except TimeoutError:
+        pass
+    out["after"] = c.js(HEAD_READ) or {}
+    return {"headhold": out}
+
+
 def still(c, rig, rows, a) -> dict:
     w, h = 1440, 900
     first = _open(c, rig, rows, a, "seven", w, h, 8)
@@ -247,7 +288,7 @@ class DrawDriver(MapDownDriver):
             rows = Rows(rig)
             collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id)
-            steps = [s for s in (pair, long, cut, hold, still, gone) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (pair, long, cut, hold, headhold, still, gone) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

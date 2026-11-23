@@ -553,6 +553,36 @@ def test_nothing_moves_under_the_pointer(ctx: Ctx):
 
 
 @test
+def test_the_drawer_head_holds_still_under_a_resting_pointer(ctx: Ctx):
+    # 3.6.0.15 F12 (the real-use step live-scene saw it): the pointer rests on a working helper's box and the head's
+    # status line comes to need more rows (a tool with a long name): while held the head keeps its height, its words
+    # change in place and no box moves; the whole line is in the head's hover; the pointer leaves: the head takes its
+    # rows. Red on 231cb414: the head grew a row and every box moved with it while held.
+    from tests.helpers.studio_session_map_down_draw import SLOW
+    d = _drew(ctx, "headhold")
+    b, under, a = d.get("before") or {}, d.get("under") or [], d.get("after") or {}
+    ctx.check(f"held before the change (data-held), got {b.get('held')!r} {[u.get('held') for u in under]}",
+              b.get("held") == "1" and len(under) == 6 and all(u.get("held") == "1" for u in under))
+    ctx.check(f"the words changed in place: the new tool by its name alone, got {[u.get('status') for u in under][:1]}",
+              all(SLOW in (u.get("status") or "") and "{" not in (u.get("status") or "") for u in under))
+    rest = {x[0]: x[1:] for x in b.get("boxes") or []}
+    moved = [(i, k) for i, u in enumerate(under) for k in set(rest) | {x[0] for x in u.get("boxes") or []}
+             if not _same(rest.get(k), next((x[1:] for x in u.get("boxes") or [] if x[0] == k), None))]
+    ctx.check(f"no box moved while held, got {moved[:6]} of {sorted(rest)}", len(rest) >= 8 and not moved)
+    # the scroll box's top edge is the head's foot (its height also follows the slot under it, whose wait link P8 lets
+    # take its room when it comes, so its height is not this test's)
+    ctx.check(f"the head and its tools held their rects, the scroll box its top, got {b.get('head')} {b.get('tools')} {b.get('sc')} -> "
+              f"{[(u.get('head'), u.get('tools'), u.get('sc')) for u in under][:2]}",
+              all(_same(b.get(k), u.get(k)) for u in under for k in ("head", "tools"))
+              and all(_same((b.get("sc") or [])[:3], (u.get("sc") or [])[:3]) for u in under))
+    ctx.check(f"held short, the whole line is in the head's hover, got {[u.get('title') for u in under][:1]!r}",
+              all(u.get("title") == u.get("status") for u in under))
+    h0, h1 = (b.get("head") or [0, 0, 0, 0])[3], (a.get("head") or [0, 0, 0, 0])[3]
+    ctx.check(f"the pointer left: the head took its rows ({h0} -> {h1}), its hover is its own again, got {a.get('held')!r} {a.get('title')!r}",
+              not a.get("held") and h1 > h0 + 1 and not a.get("title"))
+
+
+@test
 def test_button_and_card_hold_still(ctx: Ctx):
     s = _drew(ctx, "still")
     first, frames = s.get("first") or {}, s.get("frames") or []

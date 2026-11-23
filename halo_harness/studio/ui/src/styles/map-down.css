@@ -64,6 +64,9 @@
 /* P4 batch 11: the status line's room is its twin's tallest sentence with this run's real names, from the first draw */
 .mp-status-box { position: relative; min-width: 0; }
 .mp-status-twin { position: absolute; left: 0; right: 0; top: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+/* 3.6.0.15 F12: while Session's drawing is held its head keeps its height (headHold.ts) and the status line the room it
+   had when the hold began: new words change in place there, a row more is taken when the hold ends */
+.mp-head-held .mp-status-box { height: var(--mp-said-h); min-height: 0 !important; overflow: hidden; }
 .mp-truth-form { position: absolute; top: 100%; right: 0; z-index: 5; width: min(380px, 100%); padding: var(--s-2);
   display: flex; flex-direction: column; gap: var(--s-2); background: var(--surface); border: 1px solid var(--line-strong);
   box-shadow: var(--glow); }

@@ -26,6 +26,7 @@ import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../..
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { holding, tagOf, useBuilt } from "../crew/map/built";
 import { useHold } from "../crew/map/hold";
+import { useHeadHold } from "../crew/map/headHold";
 import { useLit } from "../crew/map/LitMini";
 import { RunLine } from "../crew/map/RunLine";
 import { drawnAll, selected, useHeld, useMeasure, useStepCard } from "../crew/map/runFrame";
@@ -91,6 +92,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   const live = useMemo(() => layoutDown({ ...v, strip: [] }, (b) => heights[b.id] ?? estimateDown(b), cw), [v, heights, cw]);
   const { card, setCard, pick, pickLine, closeCard, open } = useStepCard(L, "session"); // R18 (runFrame.ts)
   const { held } = useHold(root, !!card);
+  const headEl = useRef<HTMLDivElement>(null), hh = useHeadHold(headEl, held); // F12: the head keeps its height while held
   useEffect(() => holding(s.sid, held), [s.sid, held]); // R30: Just built is chosen only while this is not held
   useEffect(() => () => holding(s.sid, false), [s.sid]);
   useEffect(() => setCard(null), [s.sid, shown]);
@@ -174,7 +176,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     <div className="mp-mini mp-down" ref={root} data-testid={drawn ? "session-lit-map" : "session-lit-map-wait"} data-dir="down" data-map={shown}
          data-sid={s.sid} data-held={held ? "1" : undefined} onKeyDown={steps}>
       <RunCtx.Provider value={parts}>
-      <div className="mp-mini-head mp-down-head">
+      <div className={`mp-mini-head mp-down-head${hh.cls}`} ref={headEl} style={hh.style} title={hh.title}>
         <TruthBlock f={f} sid={s.sid} where={s} off={L.unlit ? 0 : ov?.offCount || 0} />
         <div className="mp-down-tools">
           <button type="button" className="mp-link" onClick={() => openInLive(s.sid)} data-testid="session-lit-open">{openInAgents().label}</button>

@@ -6,7 +6,7 @@
 import type { AgentRow } from "../fleet/types";
 import { spentBy } from "./shares";
 import type { OvEvent } from "../crew/map/overlay";
-import type { Status } from "../crew/map/truth";
+import { toolWords, type Status } from "../crew/map/truth";
 
 const LIVE = ["queued", "running", "paused"];
 const FINISHED = ["done", "failed", "stopped"];
@@ -46,7 +46,7 @@ export function statusOf(rows: AgentRow[], events: OvEvent[], busy: boolean, off
   }
   const name = nameOf;
   const first = work[0];
-  const cur = str(first?.current).replace(/^([A-Za-z_]+):\s*/, "$1 ").trim();
+  const cur = toolWords(str(first?.current));
   const flow = first?.crew?.workflow ? str(first.crew.workflow) : "";
   return {
     state: "working",

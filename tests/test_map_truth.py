@@ -351,6 +351,38 @@ def test_status_line_each_state(ctx: Ctx):
     ctx.check(f"no 'delegating', 'helpers', 'models', 'thinking in', 'waiting on:', got {bad}", not bad)
 
 
+# 3.6.0.15 F12: a running row's `current` as the product writes it (agent_transcript.py tool_label: "{name}: {one line}",
+# the raw JSON of the arguments when no argument says what it does), and the status line's words for it
+RAW_TOOLS = [
+    ('mcp__srv__slow_tool: {"seconds": 30}', "main working on mcp__srv__slow_tool · $0.00"),
+    ('mcp__srv__slow_tool {"seconds": 30}', "main working on mcp__srv__slow_tool · $0.00"),
+    ('mcp__gpu-box__list: ["a", "b"]', "main working on mcp__gpu-box__list · $0.00"),
+    ('mcp__srv__big: {"text": "' + "a" * 80 + '...', "main working on mcp__srv__big · $0.00"),
+    ("Bash: ls -la", "main working on Bash ls -la · $0.00"),
+    ("Bash: [ -f notes.md ] && echo yes", "main working on Bash [ -f notes.md ] && echo yes · $0.00"),
+    ("Bash: [[ -d ~/proj ]]", "main working on Bash [[ -d ~/proj ]] · $0.00"),
+    ("Read: ~/proj/notes.md", "main working on Read ~/proj/notes.md · $0.00"),
+    ("thinking", "main working · waiting for a model reply · $0.00"),
+]
+
+
+@test
+def test_the_status_line_names_a_tool_without_raw_arguments(ctx: Ctx):
+    # The real-use step live-scene saw the head's status line name a running MCP tool WITH its raw JSON arguments; the
+    # longer line took a second row and the drawer's head grew under a resting pointer. The line names such a tool alone,
+    # as a box's NOW names it (nowLine.ts: the raw name); every built-in's short form reads exactly as before. Red on
+    # 231cb414: the JSON was in the line.
+    body = f"const S = await import({_url('statusOf.ts', MAPDIR.parent.parent / 'session')});\n" + (
+        "out.raw = D.raw.map((c) => T.statusLine(S.statusOf([{agent_id: 'main', name: 'main', parent: null, state: 'running',"
+        " current: c, cost_usd: 0}], [], true)));")
+    _, out = ts(body, dict(raw=[c for c, _ in RAW_TOOLS]))
+    for got, (cur, want) in zip(out["raw"], RAW_TOOLS):
+        ctx.check(f"{cur!r} reads {want!r}, got {got!r}", got == want)
+    mcp = [s for s, (cur, _) in zip(out["raw"], RAW_TOOLS) if cur.startswith("mcp__")]
+    ctx.check(f"no brace, bracket or quote of the arguments in an MCP tool's line, got {mcp}",
+              len(mcp) == 4 and not any(ch in s for s in mcp for ch in '{}[]"'))
+
+
 @test
 def test_hand_offs_plural_by_count(ctx: Ctx):
     data = dict(offs=[dict(s, off=n) for s in (STATUS[1], STATUS[4], STATUS[5]) for n in (0, 1, 2, 12)])
