@@ -591,7 +591,8 @@ def test_the_wait_link_holds_still_under_a_resting_pointer(ctx: Ctx):
     # 3.6.0.16 U2 (the head's rule, for the slot under the drawing): the pointer rests on the drawing and a helper starts
     # waiting on a tool with a 100-character name: while held the slot keeps its rect and the drawing's scroll box its
     # height, the link's words change in place (its hover holds the whole line); the pointer leaves: the slot takes its
-    # row and the link's words are whole. Red on 602c5df6: the slot took a row and the scroll box got shorter while held.
+    # row when it needs one and the link's words are whole. Red on 602c5df6 where the link needs a row more (Linux):
+    # the slot took it and the scroll box got shorter while held.
     from tests.helpers.studio_session_map_down_draw import SLOW
     d = _drew(ctx, "headhold")
     b, under, a = d.get("before") or {}, d.get("under") or [], d.get("after") or {}
@@ -604,9 +605,15 @@ def test_the_wait_link_holds_still_under_a_resting_pointer(ctx: Ctx):
     ctx.check(f"held short, the link's own hover holds its whole words, got {[u.get('wtitle') for u in under][:1]!r}",
               all((u.get("wtitle") or "").startswith(u.get("wait") or "-") for u in under))
     bh, ah = (b.get("below") or [0] * 4)[3], (a.get("below") or [0] * 4)[3]
-    ctx.check(f"the pointer left: the slot took its row ({bh} -> {ah}) and the link's words are whole, got {a.get('wait')!r} {a.get('wrow')}",
-              not a.get("held") and ah > bh + 1 and SLOW in (a.get("wait") or "") and bool(a.get("wrow"))
-              and a["wrow"][0] <= a["wrow"][1] + 0.5)
+    # what the long link needs is read from the page, never assumed: its own box while held against the slot's (with
+    # Linux' font the 100 characters take a row more than the slot has; with Windows' they fit the rows it has)
+    need = max(((u.get("link") or [0] * 4)[3] for u in under), default=0)
+    lk, bl = a.get("link") or [0] * 4, a.get("below") or [0] * 4
+    ctx.check(f"the pointer left: the slot has the room its link needs ({bh} -> {ah}, the link needs {need}) and the "
+              f"link's words are whole, got {a.get('wait')!r} {lk} in {bl}",
+              not a.get("held") and (ah > bh + 1 if need > bh + 1 else abs(ah - bh) <= 0.5)
+              and SLOW in (a.get("wait") or "") and lk[3] > 0 and lk[1] >= bl[1] - 0.5
+              and lk[1] + lk[3] <= bl[1] + bl[3] + 0.5)
 
 
 @test
