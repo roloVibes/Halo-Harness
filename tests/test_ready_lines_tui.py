@@ -25,7 +25,7 @@ ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
-from tests.test_ready_lines import CARD, P1_REVIEW, P2_STEP, _apply_all, _drive, _scoped  # noqa: E402
+from tests.test_ready_lines import CARD, P1_BOTH, P1_REVIEW, P2_STEP, _apply_all, _drive, _scoped  # noqa: E402
 
 test, TESTS = new_registry()
 
@@ -71,8 +71,9 @@ def test_terminal_builder_card_shows_p_lines_while_folded(ctx: Ctx):
             lines = text.split("\n")
             first = lines[0]
             ctx.check(f"the card is folded, got expanded={card.expanded}", card.expanded is False)
-            ctx.check(f"right under the first header line: P1 then P2, got {lines[:4]!r}",
-                      lines[1:3] == ["  " + P1_REVIEW, "  " + P2_STEP])
+            ctx.check(f"right under the first header line: P1, then the card's status row, got {lines[:4]!r}",
+                      lines[1:2] == ["  " + P1_BOTH] and len(lines) > 2
+                      and not lines[2].lstrip().startswith(("Ready", "Saved", "Not run")))
             ctx.check(f"the first line is the Builder's own header, got {first!r}",
                       first.startswith("⏺") and not first.lstrip("⏺ ").startswith(("Ready", "Saved", "Not run")))
             # a Read card whose result holds the same lines: its header holds neither

@@ -93,6 +93,11 @@ export type SessionRow = {
    *  its first request); 3.6.0.13 L3: main's hover "Told it can start: ...". */
   kinds_told?: string[] | null;
   kinds_more?: number | null;
+  /** 3.6.0.15 U6 (crew/map_facts.py row): an agent saved now is put into THIS session and taken at main's next model call
+   *  (`use_now`); the agents added to it since its start, not taken back (`kinds_added`: main's hover "Added in this
+   *  session: {names}"). */
+  use_now?: boolean | null;
+  kinds_added?: string[] | null;
   pending?: Pending;
   model?: string | null;
   /** 3.3.5.0 R0 (e): what the effort level does on its model (`think on`, `effort n/a`, or the level). */

@@ -101,6 +101,10 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
     row["kinds_more"] = _num(data.get("kinds_more"))
     agents_at_start = data.get("map_agents")  # 3.6.0.13 L3: the agents it had at its start (main's hover on Auto)
     row["map_agents"] = [str(n) for n in agents_at_start if isinstance(n, str)] if isinstance(agents_at_start, list) else None
+    # 3.6.0.15 U6: a put to this session takes now; the agents added to it since its start (crew/map_facts.py row)
+    row["use_now"] = data.get("use_now") if isinstance(data.get("use_now"), bool) else None
+    added = data.get("kinds_added")
+    row["kinds_added"] = [str(n) for n in added if isinstance(n, str)] if isinstance(added, list) else None
     return row
 
 

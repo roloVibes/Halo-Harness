@@ -6,14 +6,14 @@ an applied card on Auto writes them (no map, crew.map untouched), and the Builde
 receipt's wire shape, with t's `ready` and `later`) is published through Studio's own bridge. Then, at 1280 x 800,
 pointer moved out first, Studio's page is read:
 
-    ready    Session's Live drawer: the head H1 with [Open in Workflows], P1 then P2 under it, no pair, still Auto, the
+    ready    Session's Live drawer: the head H1 with [Open in Workflows], P1 alone under it, no pair, still Auto, the
              same boxes, no control of the view bar moved
     use      the rows and the two `map_step` frames a run of the crew workflow review gives: the group
              "workflow review · step 1 of 2", wholly inside the drawer's visible box or named by the slot with one
              press bringing its head to the top within 1 s; the head and main hold still; the room on record; still
              Auto (scripts/realcheck/steps_auto.py use_now, judge_use: one read and one judge, k/batch02 entry 3)
     waits    (its own process: `python -m tests.helpers.studio_auto waits`) a home with no workflow of his: H2 with
-             [Open in Workflows], P2 for the agent then P2 for the workflow, no P1, no pair
+             [Open in Workflows], P1 for the agent then P2 for the workflow, no pair
 
 Every step catches its own waits and returns what it saw (no step raises); `verdicts(got)` says, per assert, what a
 person would have seen wrong. The words are scripts/realcheck/steps_auto.py's (one place).
@@ -33,11 +33,11 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from realcheck.steps_auto import H1, OPEN_WF, P1, P2, USE_SHOWN, USE_WAIT_S, judge_use, still_now, use_now  # noqa: E402
+from realcheck.steps_auto import H1, OPEN_WF, P1, USE_SHOWN, USE_WAIT_S, judge_use, still_now, use_now  # noqa: E402
 
 H2 = ("Just built: the workflow review. It waits for your next session: this session started with no workflow, so it "
       "has no Workflow tool.")
-P2_AGENT = "Saved for your next session: the agent checker (this session's list of agents was fixed when it started)."
+P1_AGENT = "Ready in this session now: the agent checker (subagent_type `checker`)."  # 3.6.0.15 U4: the put took
 P2_FLOW = ("Saved for your next session: the workflow review (this session started with no workflow, so it has no "
            "Workflow tool).")
 CHECKER = {"format": "agent/1", "name": "checker", "does": "checks the code against the request"}
@@ -75,19 +75,20 @@ def _load(c, rig) -> bool:
     return ok
 
 
-def _builder_done(lv, ready: list, later: list) -> None:
-    """The `builder_done` frame an applied card on Auto sends (the receipt's wire shape, t/batch01 entry 3), from main."""
+def _builder_done(lv, ready: list, later: list, ready_agents: list) -> None:
+    """The `builder_done` frame an applied card on Auto sends (the receipt's wire shape, t/batch01 entry 3), from main;
+    `ready_agents`: the card's agents the session took (3.6.0.15 U4)."""
     lv.frame("main", "builder_done", {"id": "card-auto-1", "outcome": "applied", "wrote": WROTE, "undo": "u-auto-1",
-                                      "next": "auto", "this_session": "auto", "maps": {}, "ready": ready, "later": later,
-                                      "t": time.time()})
+                                      "next": "auto", "this_session": "auto", "maps": {}, "ready": ready,
+                                      "ready_agents": ready_agents, "later": later, "t": time.time()})
 
 
 def ready(c, rig, lv, st) -> dict:
     out: dict = {"reached": _load(c, rig)}
     out["boxes_before"] = c.js(BOXES) or []
     bar = c.js(VIEWBAR) or {}
-    _builder_done(lv, ["review"], [{"kind": "agent", "name": "checker", "why": "AG1", "step": "review"}])
-    _wait(c, "document.querySelectorAll('[data-testid=session-ready-line]').length >= 2", 10)
+    _builder_done(lv, ["review"], [], ["checker"])
+    _wait(c, "document.querySelectorAll('[data-testid=session-ready-line]').length >= 1", 10)
     time.sleep(0.5)
     out.update(c.js(HEAD) or {})
     out["boxes"] = c.js(BOXES) or []
@@ -127,8 +128,7 @@ def use(c, rig, lv, st) -> dict:
 
 def waits(c, rig, lv, st) -> dict:
     out: dict = {"reached": _load(c, rig)}
-    _builder_done(lv, [], [{"kind": "agent", "name": "checker", "why": "AG1"},
-                           {"kind": "workflow", "name": "review", "why": "WF"}])
+    _builder_done(lv, [], [{"kind": "workflow", "name": "review", "why": "WF"}], ["checker"])
     _wait(c, "document.querySelectorAll('[data-testid=session-ready-line]').length >= 2", 10)
     time.sleep(0.5)
     out.update(c.js(HEAD) or {})
@@ -143,8 +143,8 @@ def _ready_says(r: dict) -> list:
         says.append(f"the head says {_fold(r.get('head'))!r}, not H1")
     if OPEN_WF not in (r.get("buttons") or []):
         says.append(f"the head has no button {OPEN_WF!r} (got {r.get('buttons')})")
-    if [_fold(x) for x in r.get("lines") or []] != [P1, P2]:
-        says.append(f"the lines under the head are {[_fold(x) for x in r.get('lines') or []]}, not P1 then P2")
+    if [_fold(x) for x in r.get("lines") or []] != [P1]:
+        says.append(f"the lines under the head are {[_fold(x) for x in r.get('lines') or []]}, not P1 alone")
     if r.get("pair"):
         says.append("a pair Running | Just built is shown")
     if r.get("map") != "auto":
@@ -171,10 +171,8 @@ def _waits_says(w: dict) -> list:
     if OPEN_WF not in (w.get("buttons") or []):
         says.append(f"the head has no button {OPEN_WF!r} (got {w.get('buttons')})")
     lines = [_fold(x) for x in w.get("lines") or []]
-    if lines != [P2_AGENT, P2_FLOW]:
-        says.append(f"the lines are {lines}, not P2 for the agent then P2 for the workflow")
-    if any(x.startswith("Ready in this session now:") for x in lines):
-        says.append("a P1 line is shown")
+    if lines != [P1_AGENT, P2_FLOW]:
+        says.append(f"the lines are {lines}, not P1 for the agent then P2 for the workflow")
     if w.get("pair"):
         says.append("a pair Running | Just built is shown")
     return says

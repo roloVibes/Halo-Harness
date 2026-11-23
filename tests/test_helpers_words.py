@@ -156,6 +156,33 @@ def test_frozen_for_ten_requests_and_a_saved_agent_and_made_again_on_a_new_model
 
 
 @test
+def test_told_names_what_main_read_after_a_put(ctx: Ctx):
+    """3.6.0.15 U6: an agent put and taken into the running session (crew/use_now.py) is told by N1 and listed as
+    `kinds_added`; the block main reads and `kinds_told` stay the kinds the session STARTED with, also when the block is
+    made again for another model."""
+    from halo_harness.agent.helpers_words import told
+    from halo_harness.crew import use_now
+    from halo_harness.model import parse_model_ref
+    with _Home() as h:
+        s = _session(h)
+        first, _sent = _shaped(s)
+        before = told(s)
+        body = {"format": "agent/1", "name": "sorter", "does": "Sorts the inbox by sender and date.", "uses": ["read"],
+                "careful": "ask-changes", "model": "auto"}
+        ctx.check("the put took", use_now.put(s, body, "yours", "c" * 64) == (True, ""))
+        use_now.take(s)
+        ctx.check("main can start sorter", "sorter" in s.agent_runtime.agents)
+        ctx.check(f"kinds_told is what main read, got {told(s)} vs {before}",
+                  before and told(s) == before and "sorter" not in (told(s) or {}).get("kinds_told", []))
+        ctx.check("the system text is byte-equal", _shaped(s, "again")[0] == first)
+        s.model_ref = parse_model_ref("ol:qwen3-coder:30b@lan")
+        again, _sent = _shaped(s)
+        ctx.check("made again for another model: the kinds it started with, no sorter",
+                  M2_HEAD in again and "sorter" not in again)
+        ctx.check(f"kinds_told still names no sorter, got {told(s)}", "sorter" not in (told(s) or {}).get("kinds_told", []))
+
+
+@test
 def test_a_real_session_on_auto_reads_the_block_and_one_with_no_map_todays_line(ctx: Ctx):
     """A real agent.loop.Session, built as headless.build_session builds one: on the default map (Auto) and with no
     map (an `--agent` session); its request shaped as the loop shapes it. Never a model call."""

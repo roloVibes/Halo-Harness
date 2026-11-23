@@ -162,6 +162,51 @@ def _had(rows: list, ids, cwd) -> set:
     return out
 
 
+def _agent_names(paths) -> list:
+    from halo_harness.crew import store
+    return [(Path(p).stem, str(p)) for p in paths or [] if Path(p).parent.name == store.KINDS["agent"]]
+
+
+def _put_agents(session, wrote, removed, texts: dict) -> dict:
+    """3.6.0.15 U4: each agent an applied card wrote is put into the session on Auto (crew/use_now.py, from the very text
+    written: no disk read; note False, the result's "Ready in this session now" tells main), each it removed is taken
+    back. {name: (took, why)}; {} off Auto. A raise in a put leaves that agent out (it waits, as before)."""
+    from halo_harness.crew import ready_now
+    owner = ready_now._owner(session)
+    if owner is None:
+        return {}
+    import hashlib
+    from halo_harness.crew import store, use_now
+    from halo_harness.yamlfile import safe_load
+    took: dict = {}
+    for name, path in _agent_names(wrote):
+        try:
+            text = texts[path]
+            body = store.clean(safe_load(text))
+            took[name] = use_now.put(owner, body, "yours", hashlib.sha256(text.encode("utf-8")).hexdigest(), note=False)
+        except Exception:
+            continue
+    for name, _path in _agent_names(removed):
+        try:
+            use_now.gone(owner, name, "yours")
+        except Exception:
+            continue
+    return took
+
+
+def _take_back(session, paths) -> None:
+    """3.6.0.15 U4: an applied undo puts each agent it touched back to what the session started with (use_now.back)."""
+    try:
+        from halo_harness.crew import ready_now, use_now
+        owner = ready_now._owner(session)
+        if owner is None:
+            return
+        for name in dict.fromkeys(n for n, _p in _agent_names(paths)):
+            use_now.back(owner, name)
+    except Exception:
+        pass
+
+
 def finish(pv: dict, answer, session) -> str:
     """The card's answer -> what is written, as text; the outcome (`applied | left | failed`, what was written, the
     undo id) is left on `pv["outcome"]` for the `builder_done` frame (3.6.0.2 R25). A raise leaves `failed`."""
@@ -173,6 +218,7 @@ def finish(pv: dict, answer, session) -> str:
             return f"Left as it is: the change {pv['undo']} was not undone."
         got = changes.undo(pv["undo"])
         if got.get("ok"):  # R25: nothing an undo touches is new -- a body put back, or a file the card made removed
+            _take_back(session, (got.get("restored") or []) + (got.get("removed") or []))
             gone = set(got.get("removed") or [])
             back = [p for p in got.get("restored") or [] if p not in gone]
             pv["outcome"] = _outcome("applied", _items(back, set(back)) + _items(sorted(gone), removed=True))
@@ -191,7 +237,8 @@ def finish(pv: dict, answer, session) -> str:
     had = _had(pv["rows"], set(ids), cwd)
     import time
     before = time.time() - 0.001  # crew.map_since's `at` is rounded to 3 decimals
-    got = changes.apply(pv["rows"], ids, cwd=cwd)
+    texts: dict = {}
+    got = changes.apply(pv["rows"], ids, cwd=cwd, texts=texts)
     if not got["ok"]:
         return pv["text"] + "\nNothing was written: " + "; ".join(got["problems"])
     for r in pv["rows"]:  # 3.6.0.2 R38: the facts note says ", by this session" for a switch this card wrote
@@ -214,11 +261,13 @@ def finish(pv: dict, answer, session) -> str:
         from halo_harness.crew import ready_now
         try:
             gone = set(got["removed"])
-            answer = ready_now.ready_and_later(session, [p for p in got["wrote"] if p not in gone])
+            took = _put_agents(session, [p for p in got["wrote"] if p not in gone], got["removed"], texts)
+            answer = ready_now.ready_and_later(session, [p for p in got["wrote"] if p not in gone], took=took)
         except Exception:
             answer = None
         if answer is not None:
             pv["outcome"]["ready"] = answer["ready"]
+            pv["outcome"]["ready_agents"] = answer.get("ready_agents") or []
             pv["outcome"]["later"] = answer["later"]
             if answer["p3"]:
                 pv["outcome"]["p3"] = answer["p3"]

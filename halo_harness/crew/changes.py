@@ -170,12 +170,16 @@ def _undo_dir(state_dir) -> Path:
     return store.state_dir_of(state_dir) / "crew" / ".undo"
 
 
-def apply(rows: list, ids, *, cwd=None, state_dir=None) -> dict:
-    """Write the ticked rows. {ok, undo_id, wrote [path], removed [path], skipped, problems, filled}."""
+def apply(rows: list, ids, *, cwd=None, state_dir=None, texts: "dict | None" = None) -> dict:
+    """Write the ticked rows. {ok, undo_id, wrote [path], removed [path], skipped, problems, filled}. `texts`, when a
+    dict is passed, is filled {str(path): the validated text written} (3.6.0.15 U4: the Builder puts an agent it wrote
+    into its running session with no disk read); the answer's keys never change (Studio's builder/apply returns it)."""
     writes, skipped, problems, fills = plan(rows, ids, cwd=cwd, state_dir=state_dir)
     if problems:
         return {"ok": False, "undo_id": "", "wrote": [], "removed": [], "skipped": skipped, "problems": problems, "filled": []}
     undo_id = write_all(writes, state_dir=state_dir)
+    if texts is not None:
+        texts.update({str(p): t for p, t in writes.items() if t is not None})
     return {"ok": True, "undo_id": undo_id, "wrote": [str(p) for p, t in writes.items() if t is not None],
             "removed": [str(p) for p, t in writes.items() if t is None], "skipped": skipped, "problems": [], "filled": fills}
 

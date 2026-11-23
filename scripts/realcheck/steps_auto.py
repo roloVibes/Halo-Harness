@@ -17,8 +17,8 @@ auto-groups (a fresh home: no workflow of his, no crew.map):
 
 auto-ready-lines (a home holding one workflow of his, tidy, so the session has the Workflow tool):
   (1) the Builder card says A15 and offers no map row and no use row; Enter applies it
-  (2) the folded terminal card says P1 then P2 in its header (above its status row)
-  (3) Studio's head is H1 with [Open in Workflows] and the two lines under it; no pair; the drawer still Auto
+  (2) the folded terminal card says P1 in its header (above its status row)
+  (3) Studio's head is H1 with [Open in Workflows] and the one line under it; no pair; the drawer still Auto
   (4) `halo config get crew.map` is what it was before the build
   (5) "use it now" draws the workflow as the group "workflow review · step 1 of 2": wholly inside the drawer's visible
       box, or named by the slot and one press puts its head at the top within 1 s; the head and main hold still
@@ -61,9 +61,8 @@ TURN_S = 120.0 if WIN else 60.0
 SUBWAIT_PROMPTS = sorted(a["prompt"] for reply in fakes.AUTOGROUPS_REPLIES for _n, a, _c in reply)
 
 A15 = "Your review workflow: the workflow review (coder, then checker)."
-P1 = "Ready in this session now: the workflow review."
-P2 = ("Saved for your next session: the agent checker (this session's list of agents was fixed when it started; as a "
-      "step of the workflow review it can run now).")
+# 3.6.0.15 U4: the card's checker is put into the running session and the put takes, so ONE line names both
+P1 = "Ready in this session now: the workflow review, the agent checker (subagent_type `checker`)."
 H1 = "Just built: the workflow review. Ready in this session now, by name."
 OPEN_WF = "Open in Workflows"
 NO_ROWS = ("Make a new map", "New sessions run on")
@@ -564,7 +563,7 @@ def auto_ready_lines(ctx):
         ctx.provider.release()  # always, before ending anything: no held call outlives the step
         _quit(ctx, h, c, (t, ts), bad, ev, "6")
     _fail(bad, ev)
-    return ("the card made no map, the folded card and Studio's head said ready now and saved for the next session, "
+    return ("the card made no map, the folded card and Studio's head said the workflow and the agent are ready now, "
             "crew.map unchanged, the workflow ran as a group, nothing left"), ev
 
 
@@ -596,7 +595,7 @@ def judge_card(seen: str) -> list:
 
 
 def _folded(t, mark: int, ev: dict, bad: list) -> None:
-    """(2) the folded card's header says P1 then P2; then the turn ends."""
+    """(2) the folded card's header says P1; then the turn ends."""
     ok = t.wait_for(lambda s: not judge_ready_lines(s[mark:]), 15)
     seen = t.plain()[mark:]
     ev["folded"] = seen[-2000:]
@@ -607,21 +606,24 @@ def _folded(t, mark: int, ev: dict, bad: list) -> None:
 
 
 def judge_ready_lines(seen: str) -> list:
-    """(2) P1 then P2 in the Builder card's HEADER: after its last header glyph before P1, with no status row between
-    the glyph and P1 or between P1 and P2, and the status row after P2 (a folded card draws its body only below it)."""
-    flat, p1, p2 = _flat(seen), _flat(P1), _flat(P2)
+    """(2) P1 alone in the Builder card's HEADER: after its last header glyph before P1, with no status row between
+    the glyph and P1, the status row after P1 and no other ready line between them (a folded card draws its body only
+    below its status row)."""
+    flat, p1 = _flat(seen), _flat(P1)
     i1 = flat.find(p1)
     if i1 < 0:
         return [f"(2) the folded card does not say {P1!r}"]
-    i2 = flat.find(p2, i1 + len(p1))
-    if i2 < 0:
-        return [f"(2) the folded card does not say {P2!r} after P1"]
     h = flat.rfind(HEADER, 0, i1)
+    end = i1 + len(p1)
+    st = flat.find(STATUS_OK, end)
     out = []
-    if h < 0 or STATUS_OK in flat[h:i1] or STATUS_OK in flat[i1:i2]:
-        out.append("(2) the lines stand in the card's body, not its header (a status row comes before them)")
-    elif STATUS_OK not in flat[i2 + len(p2):]:
-        out.append("(2) no status row follows the lines")
+    if h < 0 or STATUS_OK in flat[h:i1]:
+        out.append("(2) the line stands in the card's body, not its header (a status row comes before it)")
+    elif st < 0:
+        out.append("(2) no status row follows the line")
+    elif any(_flat(w) in flat[end:st] for w in ("Ready in this session now:", "Saved for your next session:",
+                                                "Not run under its name:")):
+        out.append("(2) another ready line follows P1 in the header: " + excerpt(flat[end:st], 160))
     return out
 
 
@@ -634,7 +636,7 @@ HEAD_READ = f"""(() => {{ const hd = document.querySelector('[data-testid=sessio
 
 def _head(c, ev: dict, bad: list) -> None:
     """(3) Studio's head over the drawing."""
-    _wait(c, "document.querySelectorAll('[data-testid=session-ready-line]').length >= 2", 10)
+    _wait(c, "document.querySelectorAll('[data-testid=session-ready-line]').length >= 1", 10)
     read = c.js(HEAD_READ) or {}
     ev["head"] = read
     bad.extend(judge_head(read))
@@ -649,8 +651,8 @@ def judge_head(read: dict) -> list:
     if OPEN_WF not in (read.get("buttons") or []):
         out.append(f"(3) the head has no button {OPEN_WF!r} (got {read.get('buttons')})")
     lines = [_fold(x) for x in read.get("lines") or []]
-    if lines != [P1, P2]:
-        out.append(f"(3) the lines under the head are {lines}, not P1 then P2")
+    if lines != [P1]:
+        out.append(f"(3) the lines under the head are {lines}, not P1 alone")
     if read.get("pair"):
         out.append("(3) a pair Running | Just built is shown for a build that made no map")
     if read.get("map") != "auto":

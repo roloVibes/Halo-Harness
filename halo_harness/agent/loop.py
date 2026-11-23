@@ -47,6 +47,7 @@ from halo_harness.agent import agent_inbox as _inbox_gate
 from halo_harness.agent import agent_hooks as _agent_tree
 from halo_harness.agent import mode_notice as _mode_notice
 from halo_harness.crew import map_facts as _map_facts  # 3.6.0.2 R38: the facts note
+from halo_harness.crew import kinds_note as _kinds_note  # 3.6.0.15 U5: N1/N2, an agent added or taken back
 from halo_harness.agent import turn_marker as _turn_marker
 from halo_harness.agent import bg_pickup as _bg_pickup  # 3.4.1.3: finished background work while idle
 from halo_harness.agent import policy_gate as _policy_gate  # 3.3.10.0 R2: a pack's verdict on each tool call
@@ -2517,6 +2518,7 @@ class Session:
             )
             self.log.append_snapshot([{"type": "text", "text": reminder}], kind="deferred_tools")
         _map_facts.cleared(self)  # 3.6.0.2 R38: the new conversation's first turn is a first turn (no note)
+        _kinds_note.cleared(self)  # 3.6.0.15 U5: the added names are told once more
         if getattr(getattr(self, "team_control", None), "is_map", False) and self.agent_depth == 0:
             # 3.6.0.2 R51: /clear keeps the map and the new log says so (after its system node, as at construction);
             # `started` also sets F1's time and the note's baseline to now
@@ -5439,6 +5441,7 @@ class Session:
         self.log.append_compacted(trigger=trigger, custom_instructions=custom_instructions)
         self.log.append_user([{"type": "text", "text": wrapped}], kind="compaction_summary")
         _map_facts.compacted(self)  # 3.6.0.2 R38: a note sent before goes again at the next turn
+        _kinds_note.compacted(self)  # 3.6.0.15 U5: the added names are told once more
 
         # finding 18: re-inject EVERY session-start snapshot kind, not just
         # CLAUDE.md/memory/files-read -- environment and the deferred-tool-
@@ -5843,6 +5846,7 @@ class Session:
             # Halo 3.2.2.0 R4: a Shift+Tab / `/plan` made since the last call
             # is told to the model before this one.
             _mode_notice.sync(self)
+            _kinds_note.step(self)  # 3.6.0.15 U5: an agent put or taken back is taken now and told (N1/N2)
             if self.max_turns is not None and model_calls >= self.max_turns:
                 # H5 scope F item 9 (OpenCode Appendix H): inject
                 # MAX_STEPS_PROMPT as a snapshot and give the model ONE more

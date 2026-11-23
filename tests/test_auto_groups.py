@@ -975,6 +975,33 @@ console.log(JSON.stringify({
         ctx.check(f"{doc} no longer says {gone!r}", gone not in docs[doc])
 
 
+@test
+def test_mains_hover_says_what_was_added_in_this_session(ctx: Ctx):
+    """3.6.0.15 U6: an agent added to the running session (the row's `kinds_added`) ends main's hover, "Added in this
+    session: {names}", every name, in both forms (after G5's lines before the first request); with none added the hover
+    is today's, line for line (turnWords.ts mainHover in node)."""
+    from tests.helpers import node_ts
+    ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map"
+    js = """const T = await import(%s), G = await import(%s);
+const told = { names: ["kind1", "kind2"], more: 0 }, total = { helpers: 2, tools: 3 };
+console.log(JSON.stringify({
+  told: T.mainHover("qwen-x", [], told, total, ["sorter", "tidy"]),
+  told_plain: T.mainHover("qwen-x", [], told, total),
+  told_none: T.mainHover("qwen-x", [], told, total, []),
+  before: T.mainHover("qwen-x", ["kind1", "kind2"], null, null, ["sorter", "tidy"]),
+  g5: G.g5Lines("qwen-x", ["kind1", "kind2"]),
+  before_none: T.mainHover("qwen-x", ["kind1", "kind2"], null, null, []),
+}));""" % (json.dumps((ui / "turnWords.ts").resolve().as_uri()), json.dumps((ui / "groupWords.ts").resolve().as_uri()))
+    got = node_ts.run(js)
+    added = "Added in this session: sorter, tidy"
+    ctx.check(f"told: today's lines, then the added line, got {got.get('told')}",
+              got.get("told") == got.get("told_plain") + [added] and len(got.get("told_plain") or []) == 3)
+    ctx.check(f"before the first request: G5's lines, then the added line, got {got.get('before')}",
+              got.get("before") == (got.get("g5") or []) + [added] and got.get("g5"))
+    ctx.check("none added: today's lines exactly",
+              got.get("told_none") == got.get("told_plain") and got.get("before_none") == got.get("g5"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -34,7 +34,8 @@ export type Lit = { detail: MapDetail | null; ov: Overlay | null; v: MapView; to
   got?: Got | null; unlit?: boolean; /** the drawing's clock, seconds (P4 batch 13) */ now?: number;
   /** 3.6.0.5 B1: on Auto (the row says `map_plain`) the groups drawn, else undefined; B30 the row's `map_agents` */
   groups?: AutoGroup[]; mapAgents?: string[];
-  /** 3.6.0.13 L3: the kinds main was told it can start (null before its first request): main's hover */ told?: LitSession["told"] };
+  /** 3.6.0.13 L3: the kinds main was told it can start (null before its first request): main's hover */ told?: LitSession["told"];
+  /** 3.6.0.15 U6: the agents added to the session since its start: main's hover */ added?: string[] };
 
 /** R49: what the drawing's layout depends on -- the blocks (workflow, caller, step count) and which box holds which
  *  rows -- never a frame's state or time, so the layout is computed again only when that changes. */
@@ -76,7 +77,7 @@ export function useLit(s: LitSession, show?: { map: string; unlit?: boolean }, s
   const shownTotals = useMemo(() => (groups ? groupTotals(groups) : totals), [groups, totals]);
   const live = useMemo(() => (groups ? groupLive(groups) : inFlight(totals, rows, !unlit && !!s.busy)), [groups, totals, rows, s.busy, unlit]);
   return { detail, ov, v, totals: shownTotals, live, agents: unlit ? NO_AGENTS : rec?.agents || NO_AGENTS, got, unlit, now, groups,
-           mapAgents: s.map_agents || [], told: s.told ?? null };
+           mapAgents: s.map_agents || [], told: s.told ?? null, added: s.added || [] };
 }
 
 /** A box's state and, for a made-up helper, its agent id. */

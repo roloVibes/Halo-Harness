@@ -41,6 +41,8 @@ CARD = [{"tool": "agent_make", "args": {"name": "checker", "does": "Checks a cha
                                            "steps": [{"name": "code", "agents": ["coder"]},
                                                      {"name": "check", "agents": ["checker"]}]}}]
 P1_REVIEW = "Ready in this session now: the workflow review."
+P1_BOTH = "Ready in this session now: the workflow review, the agent checker (subagent_type `checker`)."  # U4: the put took
+P1_SORTER = "Ready in this session now: the agent sorter (subagent_type `sorter`)."
 P2_STEP = ("Saved for your next session: the agent checker (this session's list of agents was fixed when it started; "
            "as a step of the workflow review it can run now).")
 P2_AG1 = "Saved for your next session: the agent checker (this session's list of agents was fixed when it started)."
@@ -102,7 +104,8 @@ def _shop() -> None:
                                        "boxes": raw["boxes"], "lines": raw["lines"]}))
 
 
-def _auto_session(home: Path, *, workflow_tool: bool = True, agents=None, base_url: str = DEAD, crew_map=None):
+def _auto_session(home: Path, *, workflow_tool: bool = True, agents=None, base_url: str = DEAD, crew_map=None,
+                  drop=()):
     """A real, never-turned Session on the default map (as tests/test_builder_session_parity.py builds one), with
     `agents` its start agents and, when `workflow_tool` is False, the Workflow tool taken out before it is made (the
     call workflows/offer.py makes). `crew_map`: another map (his) instead of the default."""
@@ -116,7 +119,7 @@ def _auto_session(home: Path, *, workflow_tool: bool = True, agents=None, base_u
     from halo_harness.tools.registry import ToolRegistry, default_tools
     cwd = home / "proj"
     cwd.mkdir(exist_ok=True)
-    reg = ToolRegistry(default_tools() + [BuilderTool()])
+    reg = ToolRegistry([t for t in default_tools() + [BuilderTool()] if t.name not in drop])
     if not workflow_tool:
         reg.remove_tool("Workflow")
     s = Session(cwd=cwd, model_ref=parse_model_ref(MODEL), model_profile=ModelProfile(),
@@ -142,7 +145,7 @@ def _apply_all(qs: list):
 
 
 def _drive(calls, answer_fn, *, home: Path, workflow_tool: bool = True, crew_map_flags=None, agents_fn=None,
-           before=None, started_at=None, go_on: bool = False, inspect=None) -> dict:
+           before=None, started_at=None, go_on: bool = False, inspect=None, scenario=None) -> dict:
     """A REAL interactive Session turn against the mock upstream: the model calls Builder once with `calls`, the card is
     answered by `answer_fn(questions)`, then it says `Done.`; with `go_on`, a second turn ("go on") answered `ok.`.
     BRIDGE_TEST_HOME must name `home` (the caller's `_scoped`). Returns the yielded events, the `builder_done` frames,
@@ -154,7 +157,7 @@ def _drive(calls, answer_fn, *, home: Path, workflow_tool: bool = True, crew_map
     mock = MockUpstream().start()
     os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url
     steps = [tool_step(("Builder", {"changes": calls}, "call_b")), text_step("Done.")] + ([text_step("ok.")] if go_on else [])
-    SCENARIOS[SCENARIO] = ScriptedTurns(steps)
+    SCENARIOS[SCENARIO] = scenario or ScriptedTurns(steps)  # `scenario`: a test's own (handler, body) script
     out: dict = {"frames": [], "error": None, "events": []}
     try:
         if before:
@@ -205,7 +208,7 @@ def _drive(calls, answer_fn, *, home: Path, workflow_tool: bool = True, crew_map
 
 
 def _keys(d) -> dict:
-    return {k: (d or {})[k] for k in ("ready", "later", "p3") if k in (d or {})}
+    return {k: (d or {})[k] for k in ("ready", "ready_agents", "later", "p3") if k in (d or {})}
 
 
 def _p_of(text: str) -> list:
@@ -238,8 +241,8 @@ def test_workflow_waits_when_the_tool_was_dropped_at_start(ctx: Ctx):
         from halo_harness.crew import ready_now
         review = _write("workflow", REVIEW)
         ans = ready_now.ready_and_later(_auto_session(home, workflow_tool=False), [str(review)])
-        ctx.check(f"WF, got {ans}", ans == {"ready": [], "later": [{"kind": "workflow", "name": "review", "why": "WF"}],
-                                            "p3": []})
+        ctx.check(f"WF, got {ans}", ans == {"ready": [], "ready_agents": [],
+                                            "later": [{"kind": "workflow", "name": "review", "why": "WF"}], "p3": []})
         ctx.check(f"the WF line, got {ready_now.p_lines(ans)}", ready_now.p_lines(ans) == [P2_WF])
     _scoped(body)
 
@@ -266,7 +269,8 @@ def test_new_agent_waits_list_fixed_at_start(ctx: Ctx):
         checker = _write("agent", CHECKER)
         ans = ready_now.ready_and_later(_auto_session(home), [str(checker)])
         ctx.check(f"AG1 with no step, got {ans}",
-                  ans == {"ready": [], "later": [{"kind": "agent", "name": "checker", "why": "AG1"}], "p3": []})
+                  ans == {"ready": [], "ready_agents": [], "later": [{"kind": "agent", "name": "checker", "why": "AG1"}],
+                          "p3": []})
         ctx.check(f"the AG1 line, got {ready_now.p_lines(ans)}", ready_now.p_lines(ans) == [P2_AG1])
     _scoped(body)
 
@@ -323,15 +327,16 @@ def test_only_auto_and_only_what_the_card_wrote(ctx: Ctx):
         s.team_control = auto_tc
         other = _write("agent", {**CHECKER, "name": "other"})
         ans = ready_now.ready_and_later(s, [str(_state() / "crew" / "maps" / "shop.yaml"), str(_state() / "config.json")])
-        ctx.check(f"a map path and a config path name nothing, got {ans}", ans == {"ready": [], "later": [], "p3": []})
+        ctx.check(f"a map path and a config path name nothing, got {ans}", ans == {"ready": [], "ready_agents": [], "later": [], "p3": []})
         ans = ready_now.ready_and_later(s, [str(checker)])
         ctx.check(f"an agent on disk not in wrote is not named, got {ans}",
                   other.is_file() and [i["name"] for i in ans["later"]] == ["checker"])
         bare = types.SimpleNamespace(cwd=home / "proj", team_control=auto_tc)
         ans = ready_now.ready_and_later(bare, [str(review), str(checker)])
         ctx.check(f"a bare session object: WF and AG1, never None, got {ans}",
-                  ans == {"ready": [], "later": [{"kind": "workflow", "name": "review", "why": "WF"},
-                                                 {"kind": "agent", "name": "checker", "why": "AG1"}], "p3": []})
+                  ans == {"ready": [], "ready_agents": [], "later": [{"kind": "workflow", "name": "review", "why": "WF"},
+                                                                     {"kind": "agent", "name": "checker", "why": "AG1"}],
+                          "p3": []})
     _scoped(body)
 
 
@@ -341,12 +346,12 @@ def test_only_auto_and_only_what_the_card_wrote(ctx: Ctx):
 def test_auto_card_result_ends_with_p_lines(ctx: Ctx):
     def body(home):
         pv, out = _apply(_auto_session(home))
-        ctx.check(f"the result ends with P1 and the step-clause P2, got {out[-300:]!r}",
-                  out.endswith("\n" + P1_REVIEW + "\n" + P2_STEP))
+        ctx.check(f"the result ends with the one P1 (the put of checker took), got {out[-300:]!r}",
+                  out.endswith("\n" + P1_BOTH) and len(_p_of(out)) == 1)
         o = pv["outcome"]
-        ctx.check(f"the outcome carries ready and later, no p3, got {_keys(o)}",
-                  o.get("ready") == ["review"] and "p3" not in o
-                  and o.get("later") == [{"kind": "agent", "name": "checker", "why": "AG1", "step": "review"}])
+        ctx.check(f"the outcome carries ready, ready_agents and an empty later, no p3, got {_keys(o)}",
+                  o.get("ready") == ["review"] and o.get("ready_agents") == ["checker"] and "p3" not in o
+                  and o.get("later") == [])
     _scoped(body)
 
 
@@ -358,15 +363,15 @@ def test_p_lines_follow_the_3602_tail_letter_for_letter(ctx: Ctx):
         pv1, out1 = _apply(_auto_session(home), at=at)
         _fresh(home)
         real = ready_now.ready_and_later
-        ready_now.ready_and_later = lambda session, wrote: None
+        ready_now.ready_and_later = lambda session, wrote, took=None: None
         try:
             pv2, out2 = _apply(_auto_session(home), at=at)
         finally:
             ready_now.ready_and_later = real
         m1 = out1.replace(pv1["outcome"]["undo"], "U")
         m2 = out2.replace(pv2["outcome"]["undo"], "U")
-        ctx.check(f"with the lines: the result without them plus exactly the two lines, got {m1[-400:]!r} vs {m2[-300:]!r}",
-                  m1 == m2 + "\n" + P1_REVIEW + "\n" + P2_STEP and not _p_of(m2))
+        ctx.check(f"with the lines: the result without them plus exactly the one line, got {m1[-400:]!r} vs {m2[-300:]!r}",
+                  m1 == m2 + "\n" + P1_BOTH and not _p_of(m2))
     _scoped(body)
 
 
@@ -378,7 +383,8 @@ def test_left_and_undo_cards_compute_nothing(ctx: Ctx):
         s._map_started_at = time.time()
         calls: list = []
         real = ready_now.ready_and_later
-        ready_now.ready_and_later = lambda session, wrote: calls.append(wrote) or real(session, wrote)
+        ready_now.ready_and_later = lambda session, wrote, took=None: calls.append(wrote) or real(session, wrote,
+                                                                                                    took=took)
         try:
             pv = session_tool.preview(s, {"changes": CARD})
             out = session_tool.finish(pv, "Leave them", s)
@@ -387,8 +393,9 @@ def test_left_and_undo_cards_compute_nothing(ctx: Ctx):
         finally:
             ready_now.ready_and_later = real
         pv, out = _apply(s)
-        ctx.check("the applied card has its lines", len(_p_of(out)) == 2)
-        ready_now.ready_and_later = lambda session, wrote: calls.append(wrote) or real(session, wrote)
+        ctx.check("the applied card has its line", len(_p_of(out)) == 1)
+        ready_now.ready_and_later = lambda session, wrote, took=None: calls.append(wrote) or real(session, wrote,
+                                                                                                    took=took)
         try:
             un = {"undo": pv["outcome"]["undo"], "rows": [], "text": ""}
             out = session_tool.finish(un, {"Undo it?": "Yes"}, s)
@@ -403,7 +410,7 @@ def test_left_and_undo_cards_compute_nothing(ctx: Ctx):
 
 @test
 def test_builder_done_carries_ready_and_later(ctx: Ctx):
-    want = {"ready": ["review"], "later": [{"kind": "agent", "name": "checker", "why": "AG1", "step": "review"}]}
+    want = {"ready": ["review"], "ready_agents": ["checker"], "later": []}
 
     def auto(home):
         out = _drive(CARD, _apply_all, home=home)
@@ -470,7 +477,7 @@ def test_ready_lines_add_nothing_to_the_session(ctx: Ctx):
         one = _drive(CARD, _apply_all, home=home, started_at=at, go_on=True, inspect=inspect)
         _fresh(home)
         real = ready_now.ready_and_later
-        ready_now.ready_and_later = lambda session, wrote: None
+        ready_now.ready_and_later = lambda session, wrote, took=None: None
         try:
             two = _drive(CARD, _apply_all, home=home, started_at=at, go_on=True)
         finally:
@@ -478,11 +485,13 @@ def test_ready_lines_add_nothing_to_the_session(ctx: Ctx):
         s1, s2 = one["session"], two["session"]
         ctx.check(f"both turns ended, got {one['error']!r} {two['error']!r}",
                   one["ended"] and two["ended"] and one["error"] is None and two["error"] is None)
-        ctx.check("the run with the lines has them, the other none", len(_p_of(one["result"])) == 2 and not _p_of(two["result"]))
+        ctx.check("the run with the line has it, the other none", len(_p_of(one["result"])) == 1 and not _p_of(two["result"]))
         ctx.check(f"the session holds the same attributes, got {set(vars(s1)) ^ set(vars(s2))}", set(vars(s1)) == set(vars(s2)))
         ctx.check("its tools are what they were before the card", list(s1.tool_registry.names()) == one["names_before"])
-        ctx.check("its agents are the very same objects",
-                  set(s1.agent_runtime.agents) == set(one["agents_before"])
+        ctx.check("its agents are the very same objects, the card's checker added (U4: the put took, taken at the next "
+                  "model call, in both runs)",
+                  set(s1.agent_runtime.agents) == set(one["agents_before"]) | {"checker"}
+                  and set(s2.agent_runtime.agents) == set(s1.agent_runtime.agents)
                   and all(s1.agent_runtime.agents[k] is v for k, v in one["agents_before"].items()))
         ctx.check(f"computing the answer starts no thread, got {len(counted)}", counted == [])
         r1, r2 = one["requests"][-1]["body"], two["requests"][-1]["body"]
@@ -499,7 +508,7 @@ def test_ready_lines_add_nothing_to_the_session(ctx: Ctx):
         c1 = [str(m1[i].get("content")) for i in tool1]
         c2 = [str(m2[i].get("content")) for i in tool2]
         ctx.check(f"the Builder's tool result differs only by the lines at its end, got {c1[-1:]!r} vs {c2[-1:]!r}",
-                  len(c1) == 1 and c1[0] == c2[0] + "\n" + P1_REVIEW + "\n" + P2_STEP)
+                  len(c1) == 1 and c1[0] == c2[0] + "\n" + P1_BOTH)
     _scoped(body)
 
 
@@ -540,18 +549,17 @@ def test_ready_lines_match_what_runs(ctx: Ctx):
             ctx.check(f"{w} runs by name through the Workflow tool: its file is the card's",
                       _same_path(named(w, s.cwd)["_path"]) == _same_path(store.path_for("workflow", w))
                       and s.tool_registry.get("Workflow") is not None)
-        for it in o.get("later") or []:
-            if it["kind"] == "agent" and it["why"] == "AG1":
-                ctx.check(f"the Agent tool does not know {it['name']}", s.agent_runtime.agents.get(it["name"]) is None)
-            if it.get("step"):
-                ctx.check(f"the step runner reads the card's {it['name']}",
-                          _same_path(store.load("agent", it["name"], cwd=s.cwd)["_path"])
-                          == _same_path(store.path_for("agent", it["name"])))
-        ctx.check(f"the answer had ready and a step clause, got {_keys(o)}",
-                  o.get("ready") and any(it.get("step") for it in o.get("later") or []))
+        from halo_harness.crew import kinds_note
+        kinds_note.step(s)  # main's next model call takes what the card put
+        for x in o.get("ready_agents") or []:
+            sp = s.agent_runtime.agents.get(x)
+            ctx.check(f"the Agent tool starts {x} from the card's text",
+                      sp is not None and sp.source == "crew:yours" and sp.description == CHECKER["does"])
+        ctx.check(f"the answer had ready and ready_agents, nothing waits, got {_keys(o)}",
+                  o.get("ready") and o.get("ready_agents") == ["checker"] and o.get("later") == [])
         data = map_events.builder_done(s, "card-1", o)
         ctx.check(f"the result's lines, the frame's keys and p_lines of them are one list, got {_p_of(out)}",
-                  _p_of(out) == ready_now.p_lines(_keys(data)) == ready_now.p_lines(_keys(o)) and len(_p_of(out)) == 2)
+                  _p_of(out) == ready_now.p_lines(_keys(data)) == ready_now.p_lines(_keys(o)) == [P1_BOTH])
 
     def known(home):
         from halo_harness.config.agents_md import discover_agents
@@ -561,10 +569,15 @@ def test_ready_lines_match_what_runs(ctx: Ctx):
         spec = s.agent_runtime.agents["checker"]
         new = "Checks a change and names each fault."
         pv, out = _apply(s, [{"tool": "agent_change", "args": {"name": "checker", "fields": {"does": new}}}])
-        ctx.check(f"AG2, got {pv['outcome']} {out[-300:]!r}",
-                  pv["outcome"].get("later") == [{"kind": "agent", "name": "checker", "why": "AG2"}])
-        ctx.check("the Agent tool runs the spec the session started with, not the card's new text",
-                  s.agent_runtime.agents["checker"] is spec and new not in repr(spec))
+        ctx.check(f"his own start agent changed by the card is ready now (U4), got {pv['outcome']} {out[-300:]!r}",
+                  pv["outcome"].get("ready_agents") == ["checker"] and pv["outcome"].get("later") == []
+                  and out.endswith("\nReady in this session now: the agent checker (subagent_type `checker`)."))
+        from halo_harness.crew import kinds_note
+        ctx.check("before main's next model call the Agent tool still runs the start spec",
+                  s.agent_runtime.agents["checker"] is spec)
+        ctx.check("the take tells main nothing (an edit of a start agent)", kinds_note.step(s) is None)
+        ctx.check("then it runs the card's new text", new in s.agent_runtime.agents["checker"].description
+                  and spec.description != new)
 
     def no_tool(home):
         s = _auto_session(home, workflow_tool=False)
@@ -576,6 +589,117 @@ def test_ready_lines_match_what_runs(ctx: Ctx):
     _scoped(with_tool)
     _scoped(known)
     _scoped(no_tool)
+
+
+# -- 3.6.0.15 U4: the Builder puts what an applied card wrote; "Ready in this session now" only for a put that took ------
+
+SORTER_CARD = [{"tool": "agent_make", "args": {"name": "sorter", "does": "Sorts the files it is given by kind.",
+                                               "uses": ["read"]}}]
+CHILD_MARK = "SORT-JOB: sort the files in the folder."
+
+
+def _first_user(body: dict) -> str:
+    for m in (body or {}).get("messages") or []:
+        if isinstance(m, dict) and m.get("role") == "user":
+            return json.dumps(m.get("content"))
+    return ""
+
+
+@test
+def test_a_builder_made_agent_starts_in_the_same_turn(ctx: Ctx):
+    """The design's red first: `agent_make sorter`, approve, `Agent(subagent_type="sorter")` in the SAME turn."""
+    from tests.helpers.mock_openai import ScriptedTurns, _finish
+    from tests.helpers.session_rig import text_step, tool_step
+    main = ScriptedTurns([tool_step(("Builder", {"changes": SORTER_CARD}, "call_b")),
+                          tool_step(("Agent", {"description": "sort", "prompt": CHILD_MARK, "subagent_type": "sorter"},
+                                     "call_a")),
+                          text_step("Done.")])
+    child: list = []
+
+    def scenario(handler, body):
+        if "SORT-JOB" in _first_user(body):
+            child.append(body)
+            _finish(handler, text_step("Sorted: two kinds."))
+        else:
+            main(handler, body)
+
+    def body(home):
+        out = _drive(SORTER_CARD, _apply_all, home=home, scenario=scenario)
+        ctx.check(f"the turn ended without an error, got {out['error']!r}", out["ended"] and out["error"] is None)
+        s = out["session"]
+        results = [str(n.get("content")) for n in s.log.nodes() if n.get("type") == "tool_result"]
+        ctx.check(f"the Builder result ends with the Ready line, got {results[:1]!r}",
+                  results and results[0].endswith("\n" + P1_SORTER) and _p_of(results[0]) == [P1_SORTER])
+        ctx.check(f"the Agent result is the child's reply, got {results[1:2]!r}",
+                  len(results) >= 2 and "Sorted: two kinds." in results[1] and "Unknown subagent_type" not in results[1])
+        ctx.check(f"the child ran once, got {len(child)}", len(child) == 1)
+        ctx.check(f"the frame carries ready_agents [sorter], got {[_keys(f) for f in out['frames']]}",
+                  len(out["frames"]) == 1 and out["frames"][0].get("ready_agents") == ["sorter"]
+                  and out["frames"][0].get("later") == [])
+        mains = [r for r in out["requests"] if "SORT-JOB" not in _first_user(r.get("body") or {})]
+        ctx.check(f"no request carries N1 for sorter (the Ready line told it), got {len(mains)} requests",
+                  len(mains) == 3 and not any("A new helper you can start now: sorter" in json.dumps(r.get("body"))
+                                              for r in mains))
+    _scoped(body)
+
+
+def _apply_wide(s, calls):
+    """The card applied with every widening line ticked too ("yes N" for each)."""
+    from halo_harness.crew import session_tool
+    s._map_started_at = time.time()
+    pv = session_tool.preview(s, {"changes": calls})
+    return pv, session_tool.finish(pv, "apply " + " ".join(f"yes {k}" for k in range(1, len(pv["rows"]) + 1)), s)
+
+
+@test
+def test_a_builder_agent_main_cannot_run_waits_with_its_why(ctx: Ctx):
+    def web(home):
+        s = _auto_session(home, drop=("WebFetch", "WebSearch"))
+        pv, out = _apply_wide(s, [{"tool": "agent_make", "args": {"name": "sorter", "does": "Sorts the files it is given by kind.",
+                                                             "uses": ["read", "web"]}}])
+        ctx.check(f"web with neither web tool: TOOL, got {_p_of(out)}", _p_of(out) == [
+            "Saved for your next session: the agent sorter (it asks for WebFetch, which this session's main does not "
+            "have)."])
+        ctx.check(f"the outcome names the tool, got {pv['outcome'].get('later')}",
+                  pv["outcome"].get("later") == [{"kind": "agent", "name": "sorter", "why": "TOOL", "tool": "WebFetch"}]
+                  and pv["outcome"].get("ready_agents") == [])
+        ctx.check("nothing queued", not getattr(s, "_kinds_pending", None))
+
+    def own(home):
+        s = _auto_session(home)
+        pv, out = _apply_wide(s, [{"tool": "agent_make", "args": {"name": "sorter", "does": "Sorts the files it is given by kind.",
+                                                                  "uses": ["read"], "careful": "own"}}])
+        ctx.check(f"own on a default-mode session: MODE, got {_p_of(out)}", _p_of(out) == [
+            "Saved for your next session: the agent sorter (it asks for a mode above this session's)."])
+    _scoped(web)
+    _scoped(own)
+
+
+@test
+def test_a_card_that_removes_or_an_undo_takes_back(ctx: Ctx):
+    from halo_harness.crew import kinds_note, session_tool
+
+    def run(home):
+        s = _auto_session(home)
+        pv, out = _apply(s, SORTER_CARD)
+        ctx.check(f"made and ready, got {_p_of(out)}", _p_of(out) == [P1_SORTER])
+        ctx.check("taken at the next step, no N1 (the Ready line told it)", kinds_note.step(s) is None
+                  and "sorter" in s.agent_runtime.agents)
+        un = {"undo": pv["outcome"]["undo"], "rows": [], "text": ""}
+        session_tool.finish(un, {"Undo it?": "Yes"}, s)
+        ctx.check(f"an applied undo takes it back: N2 at the next step, got {getattr(s, '_kinds_pending', None)}",
+                  kinds_note.step(s) == ["[Halo] Taken back: sorter can no longer be started in this session."]
+                  and "sorter" not in s.agent_runtime.agents)
+        pv, out = _apply(s, SORTER_CARD)
+        kinds_note.step(s)
+        ctx.check("made again: startable", "sorter" in s.agent_runtime.agents)
+        pv, out = _apply(s, [{"tool": "agent_remove", "args": {"name": "sorter"}}])
+        ctx.check(f"a card that removes it: applied, got {pv['outcome'].get('outcome')}",
+                  pv["outcome"].get("outcome") == "applied")
+        ctx.check("the removal queues gone: N2 at the next step",
+                  kinds_note.step(s) == ["[Halo] Taken back: sorter can no longer be started in this session."]
+                  and "sorter" not in s.agent_runtime.agents)
+    _scoped(run)
 
 
 # -- batch 2: Studio's head and lines over Session's Live drawing (node; routes/session/readyWords.ts, built.ts) -----
@@ -644,12 +768,19 @@ def test_head_and_card_agree_with_p1_p2(ctx: Ctx):
     from halo_harness.crew import ready_now
     out, agents = _scoped(answers)
     ctx.check(f"three answers and an agents-only one, got {out} {agents}", all(a is not None for a in [*out, agents]))
+    put = {"ready": ["review"], "ready_agents": ["checker", "sorter"], "p3": [],  # 3.6.0.15 U4: puts that took or not
+           "later": [{"kind": "agent", "name": "reader", "why": "TOOL", "tool": "WebFetch"},
+                     {"kind": "agent", "name": "boss", "why": "MODE"},
+                     {"kind": "agent", "name": "general-purpose", "why": "BUILTIN"}]}
     got = _ts("""const m = await import(%s);
-const A = %s, AG = %s;
+const A = %s, AG = %s, PUT = %s;
 const view = A.map((r) => m.builtView({ t: 1, kind: "workflow", map: "", workflow: "review", next: "", ready: m.readyOf(r) }, true));
 const agents = m.builtView({ t: 1, kind: null, map: "", workflow: "", next: "", ready: m.readyOf(AG) }, true);
-const words = { FIRST_WORDS: m.FIRST_WORDS, P1: m.P1, P1_ITEM: m.P1_ITEM, P2: m.P2, P3: m.P3, WHY: m.WHY, STEP: m.STEP };
-console.log(JSON.stringify({ view, agents, words }));""", _url(READY_TS), out, agents)
+const words = { FIRST_WORDS: m.FIRST_WORDS, P1: m.P1, P1_ITEM: m.P1_ITEM, P1_AGENT: m.P1_AGENT, P2: m.P2, P3: m.P3,
+  WHY: m.WHY, STEP: m.STEP };
+const old = m.readyOf({ ready: ["review"], later: [] });
+console.log(JSON.stringify({ view, agents, words, put: m.pLines(m.readyOf(PUT)), old: old && old.ready_agents }));""",
+              _url(READY_TS), out, agents, put)
     for (name, h), v, a in zip((("H1", H1), ("H2", H2), ("H3", H3)), got["view"], out):
         ctx.check(f"{name}: the head, got {v['head']}", v["head"] == {"text": h, **H_OPEN})
         ctx.check(f"{name}: the lines equal the terminal's, got {v['lines']} vs {ready_now.p_lines(a)}",
@@ -659,7 +790,17 @@ console.log(JSON.stringify({ view, agents, words }));""", _url(READY_TS), out, a
     w = got["words"]
     ctx.check(f"every word constant equals its Python twin, got {w}",
               w["FIRST_WORDS"] == list(ready_now.FIRST_WORDS) and w["P1"] == ready_now.P1 and w["P1_ITEM"] == ready_now.P1_ITEM
-              and w["P2"] == ready_now.P2 and w["P3"] == ready_now.P3 and w["WHY"] == ready_now.WHY and w["STEP"] == ready_now.STEP)
+              and w["P2"] == ready_now.P2 and w["P3"] == ready_now.P3 and w["WHY"] == ready_now.WHY and w["STEP"] == ready_now.STEP
+              and w["P1_AGENT"] == ready_now.P1_AGENT)
+    ctx.check(f"ready agents and a refused put's why: Studio's lines equal the terminal's, got {got['put']}",
+              got["put"] == ready_now.p_lines(put) == [
+                  "Ready in this session now: the workflow review, the agent checker (subagent_type `checker`), the agent "
+                  "sorter (subagent_type `sorter`).",
+                  "Saved for your next session: the agent reader (it asks for WebFetch, which this session's main does not "
+                  "have).",
+                  "Saved for your next session: the agent boss (it asks for a mode above this session's).",
+                  "Saved for your next session: the agent general-purpose (a built-in has that name)."])
+    ctx.check(f"an older session's frame (no ready_agents) reads as none, got {got['old']}", got["old"] == [])
 
 
 @test
@@ -700,7 +841,8 @@ const last = m.built.get().last;
 res = { S: last.S.ready, same: JSON.stringify(last.S.ready) === JSON.stringify(rw.readyOf(F)), T: last.T.ready, kind: last.S.kind };""" % json.dumps(frame),
                  ready=True)
     ctx.check(f"the answer kept as readyOf reads it, got {got}",
-              got["same"] and got["S"] == {"ready": ["review"], "later": frame["later"], "p3": []} and got["kind"] == "workflow")
+              got["same"] and got["S"] == {"ready": ["review"], "ready_agents": [], "later": frame["later"], "p3": []}
+              and got["kind"] == "workflow")
     ctx.check(f"a frame without ready keeps null, got {got['T']}", got["T"] is None)
 
 
@@ -778,7 +920,7 @@ def test_no_wf_line_when_the_sessions_own_rules_leave_the_tool_out(ctx: Ctx):
         review = _write("workflow", REVIEW)
         ans = ready_now.ready_and_later(s, [str(review)])
         ctx.check(f"{label}: no line for the workflow, got {ans} {ready_now.p_lines(ans)}",
-                  ans == {"ready": [], "later": [], "p3": []} and ready_now.p_lines(ans) == [])
+                  ans == {"ready": [], "ready_agents": [], "later": [], "p3": []} and ready_now.p_lines(ans) == [])
 
     def by_rules(home):
         s = _auto_session(home, workflow_tool=False)

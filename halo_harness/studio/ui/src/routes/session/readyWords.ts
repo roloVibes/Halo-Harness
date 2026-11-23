@@ -2,21 +2,28 @@
 // saved for the next session, as `builder_done` carries it (`ready`, `later`, `p3`, computed by crew/ready_now.py). The
 // words are crew/ready_now.py's, letter for letter (tests/test_ready_lines.py pins each constant to its Python twin), and
 // the head over Session's Live drawing (H1 H2 H3) comes from the same answer, so Studio and the terminal never disagree.
+// 3.6.0.15 U4: an agent the card wrote and the session took is ready now (`ready_agents`, P1_AGENT); one it refused waits
+// with the put's why (TOOL, MODE, BUILTIN).
 // Pure: no React, no store, no DOM. built.ts imports this file; this file imports nothing of built.ts.
 import { justBuilt, type Line } from "../crew/map/truth";
 
-export type Later = { kind: "workflow" | "agent"; name: string; why: "WF" | "AG1" | "AG2"; step?: string };
-export type Ready = { ready: string[]; later: Later[]; p3: string[] };
+export type Later = { kind: "workflow" | "agent"; name: string; why: "WF" | "AG1" | "AG2" | "TOOL" | "MODE" | "BUILTIN";
+  tool?: string; step?: string };
+export type Ready = { ready: string[]; ready_agents: string[]; later: Later[]; p3: string[] };
 
 export const FIRST_WORDS = ["Ready in this session now:", "Saved for your next session:", "Not run under its name:"] as const;
 export const P1 = `${FIRST_WORDS[0]} {items}.`;
 export const P1_ITEM = "the workflow {W}";
+export const P1_AGENT = "the agent {x} (subagent_type `{x}`)";
 export const P2 = `${FIRST_WORDS[1]} the {kind} {name} ({why}{step}).`;
 export const P3 = `${FIRST_WORDS[2]} the workflow {W} (this project has its own workflow {W}, which runs first).`;
 export const WHY = {
   WF: "this session started with no workflow, so it has no Workflow tool",
   AG1: "this session's list of agents was fixed when it started",
   AG2: "this session keeps the {name} it started with",
+  TOOL: "it asks for {tool}, which this session's main does not have",
+  MODE: "it asks for a mode above this session's",
+  BUILTIN: "a built-in has that name",
 } as const;
 export const STEP = "; as a step of the workflow {W} it can run now";
 
@@ -34,17 +41,20 @@ export function readyOf(d: Record<string, unknown>): Ready | null {
     if (!x || typeof x !== "object") continue;
     const o = x as Record<string, unknown>;
     if ((o.kind !== "workflow" && o.kind !== "agent") || typeof o.name !== "string" || !isWhy(o.why)) continue;
-    later.push({ kind: o.kind, name: o.name, why: o.why, ...(typeof o.step === "string" && o.step ? { step: o.step } : {}) });
+    later.push({ kind: o.kind, name: o.name, why: o.why, ...(typeof o.tool === "string" ? { tool: o.tool } : {}),
+      ...(typeof o.step === "string" && o.step ? { step: o.step } : {}) });
   }
-  return { ready: words(d.ready), later, p3: words(d.p3) };
+  return { ready: words(d.ready), ready_agents: words(d.ready_agents), later, p3: words(d.p3) };
 }
 
-/** The lines for one answer: P1 once (the ready workflows), one P2 per item that waits, one P3 per shadowed workflow. */
+/** The lines for one answer: P1 once (the ready workflows, then the ready agents), one P2 per item that waits, one P3
+ * per shadowed workflow. */
 export function pLines(r: Ready): string[] {
   const out: string[] = [];
-  if (r.ready.length) out.push(fill(P1, { items: r.ready.map((w) => fill(P1_ITEM, { W: w })).join(", ") }));
+  const items = [...r.ready.map((w) => fill(P1_ITEM, { W: w })), ...(r.ready_agents || []).map((x) => fill(P1_AGENT, { x }))];
+  if (items.length) out.push(fill(P1, { items: items.join(", ") }));
   for (const it of r.later) {
-    const why = fill(WHY[it.why], { name: it.name });
+    const why = fill(WHY[it.why], { name: it.name, tool: it.tool || "" });
     out.push(fill(P2, { kind: it.kind, name: it.name, why, step: it.step ? fill(STEP, { W: it.step }) : "" }));
   }
   for (const w of r.p3) out.push(fill(P3, { W: w }));

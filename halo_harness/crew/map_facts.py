@@ -375,7 +375,10 @@ def row(session) -> dict:
     """The status row's map facts (R40): map_since, map_plain, map_next, map_next_none (new sessions start with no map:
     map_next None is then not "the default"), map_next_since, built, asked; on Auto `map_agents` (3.6.0.5 A22: the agents
     the session had when it started, its own dict, never re-read from disk); `map_flows`; on Auto `kinds_told`, `kinds_more`
-    (3.6.0.10 M9: the kinds main read, once frozen). Never raises."""
+    (3.6.0.10 M9: the kinds main read, once frozen); `use_now` (3.6.0.15 U6: True when an agent put to THIS session can
+    take now, crew/use_now.py `can_take`) and, when not empty, `kinds_added` (the agents put and taken into it as new
+    kinds, not taken back, in the order taken; main's hover "Added in this session"). These reach no model. Never
+    raises."""
     try:
         f = facts(session)
     except Exception:
@@ -385,9 +388,18 @@ def row(session) -> dict:
     runtime = getattr(session, "agent_runtime", None)
     if f["plain"] and runtime is not None:
         try:
-            out["map_agents"] = list(getattr(runtime, "agents", {}) or {})
+            from halo_harness.crew import use_now
+            out["map_agents"] = list(use_now.started_with(session) or {})  # U6: never an agent put since
         except Exception:
             pass
+    try:  # 3.6.0.15 U6: whether a put takes here now, and what was added (OP2's MODEL block and main's hover read them)
+        from halo_harness.crew import use_now
+        out["use_now"] = bool(use_now.can_take(session))
+        added = use_now.added(session)
+        if added:
+            out["kinds_added"] = added
+    except Exception:
+        out["use_now"] = False
     try:  # 3.6.0.9 V batch 2 repair: the workflows on its map's boxes (Session holds their changed line's room from the start)
         boxes = getattr(getattr(getattr(session, "team_control", None), "map", None), "boxes", None) or {}
         flows = sorted({str(n) for b in boxes.values() if isinstance(b, dict) and b.get("kind") == "workflow" for n in b.get("names") or []})

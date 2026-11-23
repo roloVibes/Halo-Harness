@@ -32,7 +32,7 @@ type Props = { b: PlacedDown; L: Lit; sid: string; lines: RoutedDown[]; built?: 
  *  session's counts and what main was told it can start; before its first request G5 (3.6.0.5 B30), the agents it started with. */
 function lines(b: PlacedDown, L: Lit, feeding: RoutedDown[], built: number | null): string[] {
   const me = b.main && L.groups ? L.agents.find((a) => a.id === "main") : undefined;
-  if (b.main && L.groups) return mainHover(me?.model || "", L.mapAgents || [], L.told, me?.row?.turn_total);
+  if (b.main && L.groups) return mainHover(me?.model || "", L.mapAgents || [], L.told, me?.row?.turn_total, L.added || []);
   const blk = b.block ? L.ov?.blocks[b.block.workflow] : undefined;
   const st = blk ? BLOCK_ST[blk.state] || "idle" : litState(b, L.ov).st; // a block: the workflow's own state
   const ob = L.ov?.boxes[b.id];

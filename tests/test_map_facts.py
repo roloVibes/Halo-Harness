@@ -496,6 +496,48 @@ def test_status_row_names_the_workflows_on_its_map(ctx: Ctx):
 
 
 @test
+def test_use_now_and_kinds_added_on_the_row(ctx: Ctx):
+    """3.6.0.15 U6: the status row says whether an agent put to the session takes now (`use_now`) and which were added
+    (`kinds_added`, present only when not empty); `map_agents` stays the agents it started with. session_row forwards
+    both, typed. These reach no model."""
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.agent.prompt_measure import new_session
+        from halo_harness.crew import map_facts, store, use_now
+        from halo_harness.peers.local_view import session_row
+        s = new_session("ol:tiny:3b", window=16384, platform="linux", cwd=env.repo)
+        s.log, s.turn_count, s.busy = _Log(), 0, False
+        row = map_facts.row(s)
+        ctx.check(f"on Auto: use_now True, no kinds_added, got {row.get('use_now')} {sorted(row)}",
+                  row.get("use_now") is True and "kinds_added" not in row)
+        start = list(row.get("map_agents") or [])
+        body = {"format": "agent/1", "name": "sorter", "does": "Sorts the files it is given by kind.", "uses": ["read"],
+                "careful": "ask-changes", "model": "auto"}
+        use_now.put(s, body, "yours", "d" * 64)
+        use_now.take(s)
+        row = map_facts.row(s)
+        ctx.check(f"after a put and a take: kinds_added [sorter], map_agents unchanged, got {row.get('kinds_added')}",
+                  row.get("kinds_added") == ["sorter"] and row.get("map_agents") == start and start
+                  and "sorter" in s.agent_runtime.agents)
+        fwd = session_row({"session_id": "s-added", "cwd": str(env.repo)}, row, [])
+        ctx.check(f"session_row forwards both, got {fwd.get('use_now')} {fwd.get('kinds_added')}",
+                  fwd.get("use_now") is True and fwd.get("kinds_added") == ["sorter"])
+        bad = session_row({"session_id": "s-x"}, {"use_now": "yes", "kinds_added": "sorter"}, [])
+        ctx.check(f"wrong types are dropped, got {bad.get('use_now')} {bad.get('kinds_added')}",
+                  bad.get("use_now") is None and bad.get("kinds_added") is None)
+        mixed = session_row({"session_id": "s-y"}, {"use_now": False, "kinds_added": ["a", 3, "b"]}, [])
+        ctx.check(f"a list keeps its strings, got {mixed.get('kinds_added')}",
+                  mixed.get("use_now") is False and mixed.get("kinds_added") == ["a", "b"])
+        store.write_text(store.path_for("map", "mine8", state_dir=env.state),
+                         "format: map/1\nname: mine8\nboxes:\n- {id: c, agent: coder}\n"
+                         "lines:\n- {from: main, to: c, when: always}\n")
+        his = new_session("ol:tiny:3b", window=16384, platform="linux", cwd=env.repo, control="mine8")
+        his.log, his.turn_count, his.busy = _Log(), 0, False
+        ctx.check(f"his map: use_now False, got {map_facts.row(his).get('use_now')}",
+                  map_facts.row(his).get("use_now") is False)
+
+
+@test
 def test_m9_status_row_names_the_kinds_main_was_told(ctx: Ctx):
     """3.6.0.10 M9: what he reads is what main reads. The status row carries `kinds_told` (the names main read) and
     `kinds_more` (how many it read as " and {n} more"), next to `map_flows`: a local model's once its block is frozen

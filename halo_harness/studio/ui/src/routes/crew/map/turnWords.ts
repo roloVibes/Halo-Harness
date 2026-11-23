@@ -2,7 +2,9 @@
 // `turn` (3.6.0.10 M10: blank before the first turn, kept until his next message), and main's hover: "main · {model}",
 // "This session: ..." (the row's `turn_total`), "Told it can start: {names}" (the status row's `kinds_told`, `kinds_more`);
 // before the session's first request (nothing told yet) the hover is G5 (`g5Lines`) byte for byte. A part that is zero is
-// left out; both zero: no line (nothing true to say). Pure: no React, no DOM (tests/test_map_groups.py runs it in node).
+// left out; both zero: no line (nothing true to say). 3.6.0.15 U6: an agent added to the running session since its start
+// (the row's `kinds_added`) ends the hover in both forms, "Added in this session: {names}", every name.
+// Pure: no React, no DOM (tests/test_map_groups.py runs it in node).
 import { g5Lines, NAMES_SHOWN } from "./groupWords";
 import { rowsOf } from "./nowRoom";
 
@@ -35,11 +37,16 @@ export function toldEvery(told: Told): string {
   return `Told it can start: ${told.names.join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
 }
 
-/** Main hovered on Auto. `told` null (a session before its first request): G5, "Can hand work to: {names}". */
-export function mainHover(model: string, names: string[], told: Told, total: TurnCounts): string[] {
-  if (!told) return g5Lines(model, names);
+/** 3.6.0.15 U6: "Added in this session: {names}" ("" with none). */
+export const addedLine = (added: string[]): string => (added.length ? `Added in this session: ${added.join(", ")}` : "");
+
+/** Main hovered on Auto. `told` null (a session before its first request): G5, "Can hand work to: {names}". `added`: the
+ *  agents added since its start (U6), the last line in both forms. */
+export function mainHover(model: string, names: string[], told: Told, total: TurnCounts, added: string[] = []): string[] {
+  const end = addedLine(added);
+  if (!told) return end ? [...g5Lines(model, names), end] : g5Lines(model, names);
   const head = model ? `main · ${model}` : "main";
   const more = Math.max(0, told.names.length - NAMES_SHOWN) + Math.max(0, Math.floor(Number(told.more) || 0));
   const said = told.names.length ? `Told it can start: ${told.names.slice(0, NAMES_SHOWN).join(", ")}${more > 0 ? ` and ${more} more` : ""}` : "";
-  return [head, sessionLine(total), said].filter((x) => x !== "");
+  return [head, sessionLine(total), said, end].filter((x) => x !== "");
 }

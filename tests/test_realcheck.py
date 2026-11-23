@@ -1661,9 +1661,10 @@ def _boxed(text: str, width: int = 80) -> str:
 
 @test
 def test_auto_ready_lines_reads_the_card_and_the_lines_in_any_wrap(ctx: Ctx):
-    """3.6.0.5 section 6: auto-ready-lines reads A15 and the lines through a wrap and box-drawing characters; P1 and P2
-    count only in the Builder card's header (between its '⏺' and its '✓' status row); a map row or a use row, A15 with
-    another agent, a third line or a pair each give their named failure (no browser here)."""
+    """3.6.0.5 section 6: auto-ready-lines reads A15 and the line through a wrap and box-drawing characters; P1 counts
+    only in the Builder card's header (between its '⏺' and its '✓' status row), alone (3.6.0.15 U4: the card's agent is
+    ready now too, so one line names both); a map row or a use row, A15 with another agent, a second line or a pair
+    each give their named failure (no browser here)."""
     s = _steps_auto()
     card = "⏺ Builder: apply these 2 changes?\n" + _boxed(s.A15) + "\n" + _boxed("Make the agent checker") + "\n"
     ctx.check(f"the card wrapped at 80 columns: no failure, got {s.judge_card(card)}", s.judge_card(card) == [])
@@ -1675,21 +1676,22 @@ def test_auto_ready_lines_reads_the_card_and_the_lines_in_any_wrap(ctx: Ctx):
     ctx.check(f"A15 with reviewer for checker: its failure, got {got}", len(got) == 1 and "does not say" in got[0])
     head = "⏺ Builder(2 changes)\n"
     body = _boxed("Written: the agent checker, the workflow review. Undo: u1.") + "\n"
-    folded = head + _boxed(s.P1) + "\n" + _boxed(s.P2) + "\n  ✓ done · 0.4 s\n" + body
-    ctx.check(f"P1 then P2 in the header, wrapped: no failure, got {s.judge_ready_lines(folded)}",
+    folded = head + _boxed(s.P1) + "\n  ✓ done · 0.4 s\n" + body
+    ctx.check(f"P1 in the header, wrapped: no failure, got {s.judge_ready_lines(folded)}",
               s.judge_ready_lines(folded) == [])
-    short = s.P2.replace("; as a step of the workflow review it can run now", "")
-    got = s.judge_ready_lines(head + _boxed(s.P1) + "\n" + _boxed(short) + "\n  ✓ done\n")
-    ctx.check(f"P2 without its step clause: its failure, got {got}", len(got) == 1 and "does not say" in got[0])
-    got = s.judge_ready_lines(head + _boxed(s.P2) + "\n" + _boxed(s.P1) + "\n  ✓ done\n")
-    ctx.check(f"P2 before P1: its failure, got {got}", len(got) == 1 and "after P1" in got[0])
-    got = s.judge_ready_lines(head + "  ✓ done · 0.4 s\n" + body + _boxed(s.P1) + "\n" + _boxed(s.P2) + "\n")
-    ctx.check(f"P1 and P2 only in the body, below the status row: its failure, got {got}",
+    old = "Ready in this session now: the workflow review."
+    got = s.judge_ready_lines(head + _boxed(old) + "\n  ✓ done\n")
+    ctx.check(f"P1 without the agent: its failure, got {got}", len(got) == 1 and "does not say" in got[0])
+    p2 = "Saved for your next session: the agent checker (this session's list of agents was fixed when it started)."
+    got = s.judge_ready_lines(head + _boxed(s.P1) + "\n" + _boxed(p2) + "\n  ✓ done\n")
+    ctx.check(f"a P2 after P1 in the header: its failure, got {got}", len(got) == 1 and "another ready line" in got[0])
+    got = s.judge_ready_lines(head + "  ✓ done · 0.4 s\n" + body + _boxed(s.P1) + "\n")
+    ctx.check(f"P1 only in the body, below the status row: its failure, got {got}",
               len(got) == 1 and "body, not its header" in got[0])
-    good = {"head": s.H1, "buttons": [s.OPEN_WF], "lines": [s.P1, s.P2], "pair": False, "map": "auto"}
+    good = {"head": s.H1, "buttons": [s.OPEN_WF], "lines": [s.P1], "pair": False, "map": "auto"}
     ctx.check(f"the head as t draws it: no failure, got {s.judge_head(good)}", s.judge_head(good) == [])
     for name, bad, word in (("a head read with starter for the map", dict(good, map="starter"), "'starter'"),
-                            ("a third ready line", dict(good, lines=[s.P1, s.P2, s.P2]), "not P1 then P2"),
+                            ("a second ready line", dict(good, lines=[s.P1, s.P1]), "not P1 alone"),
                             ("a pair", dict(good, pair=True), "pair")):
         got = s.judge_head(bad)
         ctx.check(f"{name}: its failure, got {got}", len(got) == 1 and word in got[0])
@@ -1831,16 +1833,15 @@ def test_use_it_now_a_missing_head_is_never_standing_still(ctx: Ctx):
 @test
 def test_auto_steps_read_the_words_that_ship(ctx: Ctx):
     """3.6.0.5 section 6: one place for the words: the step's A15 is the product's FIRST_WORKFLOW_AUTO for this card,
-    and its P1 and P2 are what ready_now.p_lines gives for this card's answer (ready review; later the agent checker,
-    AG1, a step of review). If they differ, the step's words are wrong, never the product's."""
+    and its P1 is what ready_now.p_lines gives for this card's answer (ready review; the agent checker ready too, its
+    put took: 3.6.0.15 U4). If they differ, the step's words are wrong, never the product's."""
     from halo_harness.crew import map_facts, ready_now
     s = _steps_auto()
     a15 = map_facts.FIRST_WORKFLOW_AUTO.format(words="review", W="review", steps="coder, then checker")
     ctx.check(f"A15 is the product's, got {s.A15!r} vs {a15!r}", s.A15 == a15)
-    answer = {"ready": ["review"], "later": [{"kind": "agent", "name": "checker", "why": "AG1", "step": "review"}],
-              "p3": []}
+    answer = {"ready": ["review"], "ready_agents": ["checker"], "later": [], "p3": []}
     lines = ready_now.p_lines(answer)
-    ctx.check(f"P1 and P2 are the product's, got {[s.P1, s.P2]} vs {lines}", [s.P1, s.P2] == lines)
+    ctx.check(f"P1 is the product's, got {[s.P1]} vs {lines}", [s.P1] == lines and not hasattr(s, "P2"))
 
 
 @test

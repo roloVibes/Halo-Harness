@@ -77,12 +77,22 @@ def one_shot(session) -> bool:
     return not many_turns(session)
 
 
+def _started(session):
+    """3.6.0.15 U6: the agents the session STARTED with (crew/use_now.py `started_with`): what main read in its block.
+    An agent put into the running session since is told by N1 (crew/kinds_note.py) and listed as `kinds_added`. For a
+    session nothing was put to it is the session's very dict, so the text is byte-equal."""
+    if getattr(getattr(session, "agent_runtime", None), "agents", None) is None:
+        return None
+    from halo_harness.crew import use_now
+    return use_now.started_with(session)
+
+
 def _make(session) -> Optional[str]:
     if not on_auto(session):
         return None
     from halo_harness.agent.prompt_composition import tokens_of
     from halo_harness.crew.kinds import CAP, block, kinds
-    rows = kinds(getattr(session.agent_runtime, "agents", None), getattr(session, "agent_type_restriction", None))
+    rows = kinds(_started(session), getattr(session, "agent_type_restriction", None))
     return block(rows, M1, M2_HEAD, M2_END, M2_MORE, CAP - tokens_of(longest_tail()))
 
 
@@ -150,7 +160,7 @@ def told(session) -> Optional[dict]:
         return None
     import re
     from halo_harness.crew.kinds import kinds, names
-    listed = names(kinds(getattr(session.agent_runtime, "agents", None), getattr(session, "agent_type_restriction", None)))
+    listed = names(kinds(_started(session), getattr(session, "agent_type_restriction", None)))
     m = re.search(re.escape(M2_MORE).replace(r"\{n\}", r"(\d+)"), text)
     more = int(m.group(1)) if m else 0
     return {"kinds_told": listed[:len(listed) - more], "kinds_more": more}

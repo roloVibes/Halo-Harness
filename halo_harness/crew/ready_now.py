@@ -11,11 +11,15 @@ thread, no network call). Only a session on Auto -- its own control, or its top 
   when the offer's drop is the reason: when the session's own rules leave the tool out, no line at all. When
   `named(W)` finds another file (the project's own W runs first) it gets P3. When it finds nothing: no line at all
   rather than a line that may be false.
-- An agent x the card wrote always waits for the next session: AG2 when the session started with an agent named x,
-  else AG1. When x is a step of a ready workflow and the step runner's own lookup (`store.load("agent", x, cwd=cwd)`,
+- An agent x the card wrote is READY when crew/session_tool.py `finish` put it into the session and the put took
+  (crew/use_now.py, 3.6.0.15 U4: `took`); main can start it at its very next model call. A put that was refused waits
+  with the put's why (TOOL, MODE, BUILTIN, AG2 for a name the session keeps, else AG1). An agent no put was made for
+  (a caller that passes no `took`) waits: AG2 when the session started with an agent named x, else AG1. When x waits
+  and is a step of a ready workflow and the step runner's own lookup (`store.load("agent", x, cwd=cwd)`,
   crew/runner_session.py) reads the card's file, the step clause is added.
 
-`p_lines(answer)` writes the lines a person and main read (P1, P2, P3), in that order. The words are the constants
+`p_lines(answer)` writes the lines a person and main read (P1: the ready workflows, then the ready agents; P2; P3),
+in that order. The words are the constants
 below; the terminal (tui/dispatch.py READY_FIRST_WORDS) and Studio pin their copies to them.
 """
 from __future__ import annotations
@@ -26,11 +30,15 @@ from typing import Optional
 FIRST_WORDS = ("Ready in this session now:", "Saved for your next session:", "Not run under its name:")
 P1 = FIRST_WORDS[0] + " {items}."
 P1_ITEM = "the workflow {W}"
+P1_AGENT = "the agent {x} (subagent_type `{x}`)"
 P2 = FIRST_WORDS[1] + " the {kind} {name} ({why}{step})."
 P3 = FIRST_WORDS[2] + " the workflow {W} (this project has its own workflow {W}, which runs first)."
 WHY = {"WF": "this session started with no workflow, so it has no Workflow tool",
        "AG1": "this session's list of agents was fixed when it started",
-       "AG2": "this session keeps the {name} it started with"}
+       "AG2": "this session keeps the {name} it started with",
+       "TOOL": "it asks for {tool}, which this session's main does not have",
+       "MODE": "it asks for a mode above this session's",
+       "BUILTIN": "a built-in has that name"}
 STEP = "; as a step of the workflow {W} it can run now"
 
 
@@ -76,9 +84,18 @@ def _steps_hold(body: dict, name: str) -> bool:
     return False
 
 
-def ready_and_later(session, wrote) -> Optional[dict]:
-    """`{ready: [W], later: [{kind, name, why, step?}], p3: [W]}` for the agents and workflows in `wrote` (paths), each
-    list in written order; None off Auto or on any fault (a fault never stops a card)."""
+def _why_of(code: str) -> dict:
+    """A refused put's why (crew/use_now.py `put`) -> the P2 why: {why, tool?}."""
+    code = str(code or "")
+    if code.startswith("tool:"):
+        return {"why": "TOOL", "tool": code[len("tool:"):]}
+    return {"why": {"mode": "MODE", "built-in": "BUILTIN", "outranked": "AG2"}.get(code, "AG1")}
+
+
+def ready_and_later(session, wrote, took=None) -> Optional[dict]:
+    """`{ready: [W], ready_agents: [x], later: [{kind, name, why, tool?, step?}], p3: [W]}` for the agents and
+    workflows in `wrote` (paths), each list in written order; `took` is {x: (took, why)} of the puts `finish` made
+    (3.6.0.15 U4). None off Auto or on any fault (a fault never stops a card)."""
     try:
         owner = _owner(session)
         if owner is None:
@@ -120,29 +137,36 @@ def ready_and_later(session, wrote) -> Optional[dict]:
             else:
                 p3.append(w)
         start = getattr(getattr(owner, "agent_runtime", None), "agents", None) or {}
+        ready_agents: list = []
         for x, key in agents:
-            item = {"kind": "agent", "name": x, "why": "AG2" if x in start else "AG1"}
+            put = (took or {}).get(x)
+            if put is not None and put[0]:
+                ready_agents.append(x)
+                continue
+            item = {"kind": "agent", "name": x, **(_why_of(put[1]) if put is not None else
+                                                     {"why": "AG2" if x in start else "AG1"})}
             step = next((w for w in ready if _steps_hold(bodies[w], x)), None)
             if step is not None:
                 spec = store.load("agent", x, cwd=cwd)
                 if isinstance(spec, dict) and spec.get("_path") and _same_path(spec["_path"]) == key:
                     item["step"] = step
             later.append(item)
-        return {"ready": ready, "later": later, "p3": p3}
+        return {"ready": ready, "ready_agents": ready_agents, "later": later, "p3": p3}
     except Exception:
         return None
 
 
 def p_lines(answer) -> list:
-    """The lines for one answer: P1 once (the ready workflows), one P2 per item that waits, one P3 per workflow the
-    project's own file of that name runs before; [] for None."""
+    """The lines for one answer: P1 once (the ready workflows, then the ready agents), one P2 per item that waits, one
+    P3 per workflow the project's own file of that name runs before; [] for None."""
     if not answer:
         return []
     out = []
-    if answer.get("ready"):
-        out.append(P1.format(items=", ".join(P1_ITEM.format(W=w) for w in answer["ready"])))
+    items = [P1_ITEM.format(W=w) for w in answer.get("ready") or []] +         [P1_AGENT.format(x=x) for x in answer.get("ready_agents") or []]
+    if items:
+        out.append(P1.format(items=", ".join(items)))
     for it in answer.get("later") or []:
-        why = WHY[it["why"]].format(name=it["name"])
+        why = WHY[it["why"]].format(name=it["name"], tool=it.get("tool") or "")
         step = STEP.format(W=it["step"]) if it.get("step") else ""
         out.append(P2.format(kind=it["kind"], name=it["name"], why=why, step=step))
     for w in answer.get("p3") or []:

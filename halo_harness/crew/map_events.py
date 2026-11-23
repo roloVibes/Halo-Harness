@@ -291,7 +291,7 @@ def builder_done(session, request_id: str, outcome) -> dict:
         receipt = {"id": request_id, "outcome": got.get("outcome") or "left", "wrote": wrote,
                    "undo": got.get("undo") or None, "next": _next_map(), "next_none": _next_none(), "this_session": _this_map(session),
                    "t": round(time.time(), 3),
-                   **{k: [dict(x) if isinstance(x, dict) else x for x in got[k]] for k in ("ready", "later", "p3") if k in got}}
+                   **{k: [dict(x) if isinstance(x, dict) else x for x in got[k]] for k in ("ready", "ready_agents", "later", "p3") if k in got}}
         try:
             session._builder_built = receipt
         except Exception:
