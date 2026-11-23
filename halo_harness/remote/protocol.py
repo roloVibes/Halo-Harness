@@ -106,12 +106,14 @@ def _message(handle, req: dict) -> dict:
 
 
 def _slash_answer(result, conn) -> dict:
-    """3.6.0.2 P8: `slash` answers `{output, ran}` (a handle's plain string ran); P11: a `then` (the terminal's
+    """3.6.0.2 P8: `slash` answers `{output, ran}` (a handle's plain string ran; a terminal's dict adds
+    `terminal: true`, 3.6.0.15 OP2); P11: a `then` (the terminal's
     `/exit`) runs once the answer went out (`conn.then`, control_socket), or at once with no connection."""
     if not isinstance(result, dict):
         return {"output": "" if result is None else str(result), "ran": True}
     out = {"output": str(result.get("output") or ""), "ran": result.get("ran") is not False}
-    then = result.get("then")
+    out["terminal"] = True  # 3.6.0.15 OP2 (O2-3): a terminal's own table answered (Studio's pick says "as /model")
+    then =result.get("then")
     if callable(then):
         if conn is not None:
             conn.then = then

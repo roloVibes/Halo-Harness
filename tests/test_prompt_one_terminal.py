@@ -1123,7 +1123,8 @@ def test_socket_slash_runs_terminal_table_model_switches(ctx: Ctx):
         rig.controller.slash_hook = lambda name, args: seen.append((name, args)) or {"output": "done", "ran": True}
         r = c.call("slash", line="/model other-model")
         ctx.check(f"a session with the hook runs it, never run_slash, got {r} {seen}",
-                  r["ok"] and r["result"] == {"output": "done", "ran": True} and seen == [("model", "other-model")])
+                  r["ok"] and r["result"] == {"output": "done", "ran": True, "terminal": True}  # 3.6.0.15 OP2 O2-3
+                  and seen == [("model", "other-model")])
         rig.controller.slash_hook = None
         r = c.call("slash", line="/help me")
         ctx.check(f"no hook: run_slash as today, a plain string ran, got {r}",
@@ -1417,7 +1418,7 @@ def test_exit_from_studio_ends_the_terminal(ctx: Ctx):
             conn = SimpleNamespace()
             ans = protocol._slash_answer(r, conn)
             ctx.check(f"the wire answer, the end held for after the send, got {ans}",
-                      ans == {"output": "", "ran": True} and callable(getattr(conn, "then", None)) and not app._quitting)
+                      ans == {"output": "", "ran": True, "terminal": True} and callable(getattr(conn, "then", None)) and not app._quitting)
             await asyncio.to_thread(conn.then)
             for _ in range(50):
                 if getattr(fake, "quit_called", False):

@@ -153,6 +153,8 @@ owner PUT ^crew/map/(?P<name>[a-z][a-z0-9-]{0,47})$
 owner POST ^crew/map/(?P<name>[a-z][a-z0-9-]{0,47})/use$
 owner DELETE ^crew/map/(?P<name>[a-z][a-z0-9-]{0,47})$
 owner POST ^crew/from-live$
+owner POST ^crew/agent-model$
+owner POST ^crew/agent-model/undo$
 owner POST ^builder/ask$
 owner POST ^builder/apply$
 owner POST ^builder/undo$

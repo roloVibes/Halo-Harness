@@ -171,9 +171,43 @@ def _main_script(steps: list, child: list, extra: "dict | None" = None):
     return scenario
 
 
-def _run_live(ctx: Ctx, name: str, agent: dict, words: str, child_model: "str | None") -> None:
-    """A real session on Auto, its socket registered, Studio's real server: turn 1; POST crew/agent/<name>; turn 2 (main
-    starts it); DELETE; turn 3. `child_model`: the model the agent names, whose scenario must get the child's request."""
+JUDGE_ROW = {"agent_id": "j1", "parent": "main", "name": "Judge", "state": "done", "model": MODEL, "task": "judge it",
+             "spawn": {"step": "main#1", "description": "judge", "lead": "", "source": "built-in"}}
+MADE_NOW = "Made judge, an agent of yours on {model}: main can start it now, unless it names a model itself."
+
+
+def _save(ctx: Ctx, rig, sid: str, name: str, agent: "dict | None", child_model: "str | None"):
+    """The save leg: the Agents form's POST, or (agent None, OP2 O2-3) Studio's pick at the session's Judge box, whose
+    row the real session's own row gains (the drawing's helper; nothing else of the row is stood in). -> (words, undo)"""
+    if agent is not None:
+        status, got = rig.api("POST", f"crew/agent/{name}", {"agent": agent})
+        ctx.check(f"{name}: POST 200, the running session took it, got {status} {got.get('live')}",
+                  status == 200 and [(x.get("took"), x.get("why")) for x in got.get("live") or []] == [(True, "")])
+        return None, None
+    from halo_harness.crew import store
+    from halo_harness.crew.kinds_note import n1
+    from halo_harness.crew.spec import agent_spec
+    from halo_harness.peers import local_view
+    real = local_view.sessions
+    local_view.sessions = lambda list_live=None: [
+        dict(r, agents=list(r.get("agents") or []) + [JUDGE_ROW]) if r.get("session_id") == sid else r
+        for r in real(list_live)]
+    try:
+        status, got = rig.api("POST", "crew/agent-model", {"session": sid, "agent": "j1", "model": child_model})
+    finally:
+        local_view.sessions = real
+    ctx.check(f"judge: the pick made judge and the session took it, got {status} {got.get('line')!r}",
+              status == 200 and got.get("line") == MADE_NOW.format(model=child_model))
+    made = store.load("agent", "judge", scope="yours")
+    ctx.check("judge: his file is on the pick", (made or {}).get("model") == child_model)
+    return n1("judge", agent_spec(store.clean(made or {}))), got.get("undo")
+
+
+def _run_live(ctx: Ctx, name: str, agent: "dict | None", words: str, child_model: "str | None",
+              undo_leg: bool = True) -> None:
+    """A real session on Auto, its socket registered, Studio's real server: turn 1; POST crew/agent/<name> (or the pick:
+    `agent` None); turn 2 (main starts it); DELETE (or the pick's Undo); turn 3. `child_model`: the model the agent
+    names, whose scenario must get the child's request."""
     from halo_harness.controller import Controller
     from halo_harness.crew import map_facts
     from halo_harness.peers.local_view import session_row
@@ -202,11 +236,9 @@ def _run_live(ctx: Ctx, name: str, agent: dict, words: str, child_model: "str | 
             rig.studio()
             list(s.turn("first"))
             before = map_facts.row(s)
-            status, got = rig.api("POST", f"crew/agent/{name}", {"agent": agent})
-            ctx.check(f"{name}: POST 200, the running session took it, got {status} {got.get('live')}",
-                      status == 200 and [(x.get("took"), x.get("why")) for x in got.get("live") or []] == [(True, "")])
+            told, token = _save(ctx, rig, act.session_id if act is not None else "", name, agent, child_model)
             list(s.turn("use it"))
-            n1 = N1.format(name=name, words=words)
+            n1 = told or N1.format(name=name, words=words)
             texts = [json.dumps(b.get("messages") or []) for b in main.seen]
             ctx.check(f"{name}: three main requests so far, got {len(texts)}", len(texts) == 3)
             q = json.dumps(n1)[1:-1]
@@ -226,9 +258,16 @@ def _run_live(ctx: Ctx, name: str, agent: dict, words: str, child_model: "str | 
             ctx.check(f"{name}: map_agents and kinds_told are what main started with",
                       row.get("map_agents") == before.get("map_agents") and name not in (row.get("map_agents") or [])
                       and row.get("kinds_told") == before.get("kinds_told"))
-            status, got = rig.api("DELETE", f"crew/agent/{name}")
-            ctx.check(f"{name}: DELETE 200, queued, got {status} {got.get('live')}",
-                      status == 200 and [x.get("queued") for x in got.get("live") or []] == [True])
+            if not undo_leg:
+                return
+            if agent is None:
+                status, got = rig.api("POST", "crew/agent-model/undo", {"undo": token})
+                ctx.check(f"{name}: Undo of the pick: Taken back, got {status} {got}",
+                          status == 200 and got.get("line") == "Taken back: judge is gone.")
+            else:
+                status, got = rig.api("DELETE", f"crew/agent/{name}")
+                ctx.check(f"{name}: DELETE 200, queued, got {status} {got.get('live')}",
+                          status == 200 and [x.get("queued") for x in got.get("live") or []] == [True])
             list(s.turn("third"))
             last = json.dumps(main.seen[-1].get("messages") or []) if main.seen else ""
             q2 = json.dumps(N2.format(name=name))[1:-1]
@@ -262,6 +301,21 @@ def test_an_agent_saved_on_a_model_starts_on_that_model(ctx: Ctx):
     does = BUILTIN_WORDS["Judge"][:1].upper() + BUILTIN_WORDS["Judge"][1:] + "."
     body = dict(_agent("judge", does), model="or:mock/auto-cheap")
     _run_live(ctx, "judge", body, does.rstrip("."), "or:mock/auto-cheap")
+
+
+# -- OP2 O2-3: the pick and Undo legs UN's ruling 6 left to OP2, on the same real session ---------------------------------
+
+@test
+def test_a_judge_pick_makes_judge_started_in_this_session(ctx: Ctx):
+    """Studio's POST crew/agent-model at the session's Judge box on a model: `judge` made through the form's POST, the
+    running session took it (the line's now form), N1 once, main starts `judge` and its request goes to that model."""
+    _run_live(ctx, "judge", None, "", "or:mock/auto-cheap", undo_leg=False)
+
+
+@test
+def test_undo_of_the_pick_takes_judge_back(ctx: Ctx):
+    """POST crew/agent-model/undo: "Taken back: judge is gone.", and main's next request carries N2 once."""
+    _run_live(ctx, "judge", None, "", "or:mock/auto-cheap")
 
 
 if __name__ == "__main__":

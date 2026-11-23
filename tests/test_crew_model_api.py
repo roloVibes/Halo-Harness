@@ -54,7 +54,7 @@ def _his(rig, name: str, model: str = "auto") -> None:
     folder = rig.state / "crew" / "agents"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{name}.yaml").write_text(f"format: agent/1\nname: {name}\ndoes: Does {name} work.\nmodel: {model}\n"
-                                         "uses:\n- read\ncareful: ask-changes\n", encoding="utf-8")
+                                         "uses:\n- read\ncareful: ask-changes\n", encoding="utf-8", newline="\n")
 
 
 def _get(rig, aid: str, sid: str = SID):
@@ -227,6 +227,302 @@ def test_a_missing_session_or_helper_is_404(ctx: Ctx):
 
 def _get_plain(rig, aid: str) -> int:
     return rig.api("GET", "crew/agent-model?" + urlencode({"session": SID, "agent": aid}), owner=False)[0]
+
+
+# -- O2-3: POST crew/agent-model (a pick writes through the Agents form's own routes), main's door, Undo --------------
+
+class _Push:
+    """`studio.crew_push.put_live` answers `took` for the sheet's session (or `live` as given); put back on exit."""
+
+    def __init__(self, took: bool = True, live: "list | None" = None):
+        self.took, self.live, self.calls = took, live, []
+
+    def __enter__(self):
+        from halo_harness.studio import crew_push
+        self._saved = crew_push.put_live
+
+        def put_live(req, name, body, scope, text):
+            self.calls.append((name, scope))
+            return list(self.live) if self.live is not None else [{"session_id": SID, "took": self.took, "why": ""}]
+        crew_push.put_live = put_live
+        return self
+
+    def __exit__(self, *exc):
+        from halo_harness.studio import crew_push
+        crew_push.put_live = self._saved
+
+
+def _pick(rig, aid: str, model: str = RUN, owner: bool = True):
+    return rig.api("POST", "crew/agent-model", {"session": SID, "agent": aid, "model": model}, owner=owner)
+
+
+def _undo(rig, token, owner: bool = True):
+    return rig.api("POST", "crew/agent-model/undo", {"undo": token}, owner=owner)
+
+
+def _file(rig, name: str) -> Path:
+    return rig.state / "crew" / "agents" / f"{name}.yaml"
+
+
+def _files(rig) -> list:
+    folder = rig.state / "crew" / "agents"
+    return sorted(p.name for p in folder.glob("*.yaml")) if folder.is_dir() else []
+
+
+def _body(name: str, scope: str = "yours") -> dict:
+    from halo_harness.crew import store
+    got = store.load("agent", name, scope=scope)
+    return store.clean(got) if got else {}
+
+
+@test
+def test_a_pick_saves_his_agent_through_the_forms_put(ctx: Ctx):
+    from tests.helpers.crew_rig import CrewRig
+    with CrewRig() as rig:
+        rig.studio()
+        _his(rig, "sorter")
+        before = _body("sorter")
+        with _Rows(_row(rig)), _Push() as push:
+            st, got = _pick(rig, "a1")
+            after = _body("sorter")
+            ctx.check(f"200, his file's model is the pick and nothing else changed, got {st} {after}",
+                      st == 200 and after == dict(before, model=RUN))
+            ctx.check(f"through the form's PUT, its push asked once for sorter, got {push.calls}",
+                      push.calls == [("sorter", "yours")])
+            ctx.check(f"took: the now line, got {got.get('line')!r}", got.get("line") == (
+                "Saved: sorter runs on or:vendor/fast from its next start, in this session too, unless main names a model "
+                "itself."))
+            ctx.check(f"an undo token with no path, got {got.get('undo')}",
+                      isinstance(got.get("undo"), dict) and "path" not in got["undo"]
+                      and got["undo"].get("name") == "sorter" and got["undo"].get("made") is False
+                      and got["undo"].get("old") == before)
+        later = "Saved: sorter runs on or:vendor/fast from your next session."
+        for push in (_Push(took=False), _Push(live=[{"session_id": "s-other", "took": True, "why": ""}]), _Push(live=[])):
+            with _Rows(_row(rig)), push:
+                got = _pick(rig, "a1")[1]
+                ctx.check(f"not took for the sheet's session: the later line, got {got.get('line')!r}", got.get("line") == later)
+        with _Rows(_row(rig)):
+            st, got = rig.api("POST", "crew/agent-model", {"session": SID, "agent": "a1", "model": " "})
+            ctx.check(f"no model picked: 422, got {st}", st == 422)
+            _file(rig, "sorter").write_text(_file(rig, "sorter").read_text(encoding="utf-8").replace(
+                "careful: ask-changes", "careful: whenever"), encoding="utf-8")
+            st, got = _pick(rig, "a1")
+            ctx.check(f"the form refuses: its status and Not saved with its error, got {st} {got}",
+                      st == 422 and got.get("error") and got.get("line") == f"Not saved: {got['error'].rstrip('.')}.")
+
+
+@test
+def test_a_pick_makes_an_agent_for_each_made_kind(ctx: Ctx):
+    from halo_harness.config.agents_md import _builtin_specs
+    from halo_harness.crew.spec import tools_of
+    from tests.helpers.crew_rig import CrewRig
+    made = "Made {n}, an agent of yours on or:vendor/fast: main can start it now, unless it names a model itself."
+    with CrewRig() as rig:
+        rig.studio()
+        with _Rows(_row(rig)):
+            built = {}
+            for aid in ("a2", "a3", "a4", "a5"):
+                st, live = rig.api("POST", "crew/from-live", {"session": SID, "agent_id": aid})
+                built[aid] = live.get("agent") or {}
+                ctx.check(f"{aid}: from-live says what it built, got {live.get('line')!r}", live.get("line") == (
+                    f"Built from {_helpers()[int(aid[1:])]['name']} on {built[aid].get('model')}, not saved yet: read it, "
+                    "change what you like, then Save."))
+            ctx.check("SHIPPED: from-live builds the shipped planner", built["a2"] == _body("planner", "starter"))
+            ctx.check("ROUTED: from-live builds the shipped media-reader", built["a3"] == _body("media-reader", "starter"))
+            judge = _builtin_specs()["Judge"]
+            want = {"format": "agent/1", "name": "judge", "does": judge.description[:200], "instructions": judge.body,
+                    "model": "auto", "uses": ["read", "bash", "web"], "careful": "ask-changes"}
+            ctx.check(f"BUILT-IN: from the built-in, got {built['a4']}", built["a4"] == want)
+            ctx.check("BUILT-IN: never Agent or Task", not {"Agent", "Task"} & set(tools_of(built["a4"])[0]))
+            with _Push():
+                for aid in ("a2", "a3", "a4", "a5"):
+                    name = built[aid]["name"]
+                    st, got = _pick(rig, aid)
+                    want = {k: v for k, v in dict(built[aid], model=RUN).items() if k != "needs"}  # needs: only on auto
+                    ctx.check(f"{aid}: 200, his {name} = the built body on the pick, got {st} {_body(name)}",
+                              st == 200 and _body(name) == want)
+                    ctx.check(f"{aid}: the made line, got {got.get('line')!r}", got.get("line") == made.format(n=name))
+                    ctx.check(f"{aid}: undo made, no path", (got.get("undo") or {}).get("made") is True
+                              and "path" not in (got.get("undo") or {}))
+            for name in ("planner", "media-reader", "judge", built["a5"]["name"]):
+                _file(rig, name).unlink()
+            with _Push(took=False):
+                got = _pick(rig, "a4")[1]
+                ctx.check(f"not took: the later made line, got {got.get('line')!r}", got.get("line") == (
+                    "Made judge, an agent of yours on or:vendor/fast: main can start it from your next session."))
+
+
+@test
+def test_pack_and_claude_are_refused_409(ctx: Ctx):
+    from tests.helpers.crew_rig import CrewRig
+    with CrewRig() as rig:
+        rig.studio()
+        with _Rows(_row(rig)), _Push() as push:
+            before = _files(rig)
+            for aid in ("a6", "a7"):
+                st, got = _pick(rig, aid)
+                line = NOW_LINES[aid][3]
+                ctx.check(f"{aid}: 409 with the kind's line, got {st} {got}",
+                          st == 409 and got.get("line") == line and got.get("error") == line)
+            ctx.check("nothing written, nobody asked", _files(rig) == before and push.calls == [])
+
+
+@test
+def test_undo_puts_back_or_deletes_while_the_sha_holds(ctx: Ctx):
+    from tests.helpers.crew_rig import CrewRig
+    with CrewRig() as rig:
+        rig.studio()
+        _his(rig, "sorter")
+        with _Rows(_row(rig)):
+            raw = _file(rig, "sorter").read_bytes()
+            token = _pick(rig, "a1")[1].get("undo")
+            st, got = _undo(rig, token)
+            ctx.check(f"MINE: Put back, got {st} {got}", st == 200 and got.get("line") == "Put back: sorter runs on auto again.")
+            ctx.check("his file byte-equal to before", _file(rig, "sorter").read_bytes() == raw)
+            token = _pick(rig, "a4")[1].get("undo")
+            st, got = _undo(rig, token)
+            ctx.check(f"made: Taken back, got {st} {got}", st == 200 and got.get("line") == "Taken back: judge is gone.")
+            ctx.check("the made file is gone", not _file(rig, "judge").exists())
+            token = _pick(rig, "a1")[1].get("undo")
+            edited = _file(rig, "sorter").read_bytes() + b"# a hand edit\n"
+            _file(rig, "sorter").write_bytes(edited)
+            st, got = _undo(rig, token)
+            ctx.check(f"changed since: 409, nothing written, got {st} {got}", st == 409
+                      and got.get("line") == "Not undone: sorter was changed since."
+                      and _file(rig, "sorter").read_bytes() == edited)
+            token = _pick(rig, "a1")[1].get("undo")
+            _file(rig, "sorter").unlink()
+            st, got = _undo(rig, token)
+            ctx.check(f"gone before Undo: Not undone, got {st} {got}",
+                      st == 409 and got.get("line") == "Not undone: sorter was changed since." and not _file(rig, "sorter").exists())
+            token = _pick(rig, "a4")[1].get("undo")
+            maps = rig.state / "crew" / "maps"
+            maps.mkdir(parents=True, exist_ok=True)
+            (maps / "shop.yaml").write_text("format: map/1\nname: shop\nboxes:\n- {id: judge, agent: judge}\nlines:\n"
+                                            "- {from: main, to: judge}\n", encoding="utf-8")
+            st, got = _undo(rig, token)
+            ctx.check(f"a made judge his map names: 409 and the route's own words, got {st} {got}",
+                      st == 409 and got.get("line") == "judge is used by map shop: take it out there first"
+                      and _file(rig, "judge").exists())
+
+
+@test
+def test_undo_reads_no_path_it_is_sent(ctx: Ctx):
+    import hashlib
+    from halo_harness.crew import store
+    from tests.helpers.crew_rig import CrewRig
+    with CrewRig() as rig:
+        rig.studio()
+        _his(rig, "sorter")
+        decoy = rig.root / "decoy.yaml"
+        decoy.write_text("format: agent/1\nname: sorter\n", encoding="utf-8")
+        with _Rows(_row(rig)):
+            token = _pick(rig, "a1")[1].get("undo")
+            sha = hashlib.sha256(decoy.read_bytes()).hexdigest()
+            st, got = _undo(rig, dict(token, path=str(decoy), sha256=sha))
+            ctx.check(f"the decoy's sha with its path: the route hashes HIS file, Not undone, got {st} {got}",
+                      st == 409 and got.get("line") == "Not undone: sorter was changed since.")
+            st, got = _undo(rig, dict(token, path=str(decoy)))
+            ctx.check(f"an added path is answered as without it, got {st} {got}",
+                      st == 200 and got.get("line") == "Put back: sorter runs on auto again.")
+            asked: list = []
+            saved = store.find
+            store.find = lambda *a, **k: asked.append((a, k)) or saved(*a, **k)
+            try:
+                for bad in ({"name": "../x"}, {"name": "\\\\gpu-box\\share\\a"}, {"name": "A b"}, {"name": ""},
+                            {"scope": "starter"}, {"scope": "pack"}, {"scope": "../yours"}, {"sha256": None}):
+                    st, got = _undo(rig, dict(token, **bad))
+                    ctx.check(f"{bad}: 422, got {st} {got}", st == 422 and got.get("error") == "not an undo this route made")
+                st, got = _undo(rig, "sorter")
+                ctx.check(f"no token mapping: 422, got {st}", st == 422)
+            finally:
+                store.find = saved
+            ctx.check(f"nothing was looked up for a refused token, got {len(asked)}", asked == [])
+
+
+class _Door:
+    """`studio.live_agents_api.forward` stood in: a session whose model moves when the door or `model` switches it."""
+
+    def __init__(self, *, terminal: bool, refuse: str = "", busy: bool = False):
+        self.terminal, self.refuse, self.busy, self.model, self.cmds = terminal, refuse, busy, MAIN_MODEL, []
+
+    def __call__(self, sid, cmd, fields):
+        self.cmds.append(cmd)
+        if cmd == "status":
+            return 200, {"busy": self.busy, "model": self.model}
+        if cmd == "slash":
+            ref = fields["line"].split(" ", 1)[1]
+            if not self.terminal:
+                return 200, {"output": f"Current model: {self.model}", "ran": True}
+            if self.refuse:
+                return 200, {"output": self.refuse + "\nmore", "ran": True, "terminal": True}
+            self.model = ref
+            return 200, {"output": f"Model set to {ref}", "ran": True, "terminal": True}
+        if cmd == "model":
+            if self.refuse:
+                return 502, {"error": self.refuse}
+            self.model = fields["ref"]
+            return 200, {"model": fields["ref"], "queued": True}
+        return 422, {"error": "no"}
+
+    def __enter__(self):
+        from halo_harness.studio import live_agents_api
+        self._saved = live_agents_api.forward
+        live_agents_api.forward = self
+        return self
+
+    def __exit__(self, *exc):
+        from halo_harness.studio import live_agents_api
+        live_agents_api.forward = self._saved
+
+
+@test
+def test_mains_pick_runs_the_door(ctx: Ctx):
+    from tests.helpers.crew_rig import CrewRig
+    with CrewRig() as rig:
+        rig.studio()
+        with _Rows(_row(rig)):
+            with _Door(terminal=True) as door:
+                st, got = _pick(rig, "main")
+                ctx.check(f"a terminal ran /model: Switched now, saved, got {st} {got}", st == 200 and got == {
+                    "line": "Switched main to or:vendor/fast now, as /model in its terminal, and saved for your next launch.",
+                    "undo": None, "terminal": True, "model": RUN})
+                ctx.check(f"status, the door, status, got {door.cmds}", door.cmds == ["status", "slash", "status"])
+            with _Door(terminal=False) as door:
+                st, got = _pick(rig, "main")
+                ctx.check(f"no terminal: the socket's model, this session only, got {st} {got}", st == 200 and got == {
+                    "line": "Switched main to or:vendor/fast for this session; not saved for your next launch.",
+                    "undo": None, "terminal": False, "model": RUN})
+                ctx.check(f"the model command was sent, got {door.cmds}", door.cmds[:3] == ["status", "slash", "model"])
+            with _Door(terminal=True, refuse="unknown model: or:vendor/none") as door:
+                st, got = _pick(rig, "main", "or:vendor/none")
+                ctx.check(f"a refused ref: Not switched with the door's first line, got {st} {got}",
+                          got.get("line") == "Not switched: unknown model: or:vendor/none." and got.get("terminal") is True
+                          and got.get("model") == MAIN_MODEL and st != 200)
+            with _Door(terminal=False, refuse="unknown model: or:vendor/none") as door:
+                got = _pick(rig, "main", "or:vendor/none")[1]
+                ctx.check(f"no terminal, the model command refused: its error, got {got}",
+                          got.get("line") == "Not switched: unknown model: or:vendor/none." and got.get("terminal") is False)
+            with _Door(terminal=True, busy=True) as door:
+                st, got = _pick(rig, "main")
+                ctx.check(f"main in a turn: 409 before the door, got {st} {got}", st == 409 and got == {
+                    "line": "Not switched: main is in a turn: pick again when it ends.", "undo": None, "terminal": None,
+                    "model": MAIN_MODEL})
+                ctx.check(f"nothing sent but the status, got {door.cmds}", door.cmds == ["status"])
+
+
+@test
+def test_the_two_routes_are_owner_only(ctx: Ctx):
+    from tests.helpers.crew_rig import CrewRig
+    with CrewRig() as rig:
+        rig.studio()
+        _his(rig, "sorter")
+        with _Rows(_row(rig)), _Push():
+            raw = _file(rig, "sorter").read_bytes()
+            ctx.check("POST crew/agent-model without the owner's proof: 403", _pick(rig, "a1", owner=False)[0] == 403)
+            ctx.check("nothing written", _file(rig, "sorter").read_bytes() == raw)
+            token = _pick(rig, "a1")[1].get("undo")
+            ctx.check("POST crew/agent-model/undo without the owner's proof: 403", _undo(rig, token, owner=False)[0] == 403)
 
 
 if __name__ == "__main__":
