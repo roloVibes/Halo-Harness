@@ -24,15 +24,16 @@ group's counts line changes, and a cost above zero never reads as zero.
 - **An agent you save in Agents can be started in the session that is running now.** A save (a new agent, an edit or a
   delete) reaches every Halo session running on Auto (one of yours reaches every session; a project's, the sessions in
   that project), and the session takes it before main's next model call; a helper already running keeps what it
-  started with. Main is told once, before its next step: "[Halo] A new helper you can start now: {name} ({words}).";
-  when you delete it or undo it, "[Halo] Taken back: {name} can no longer be started in this session." (or "[Halo]
-  Taken back: {name} starts as it did when this session began." when your save had replaced an agent the session
-  started with). An edit of an agent the session started with is not told, nothing is told twice, and after /clear or
-  a compaction what main can no longer have read is told once more. A session that cannot run the agent as it is (it
-  runs on a map of yours, the agent asks for a tool its main does not have or a mode above its own, a built-in has
-  that name, or the session holds that name from a source that wins, such as the project's own agent file or
-  `--agents`) leaves it for your next session. A session that does not answer is that session's alone: the others
-  still take the save. A session in which nothing is added or taken back sends exactly what 3.6.0.14 sent.
+  started with. A session that is not on Auto (a map of your own) takes nothing and loses nothing: a delete leaves the
+  agent it started with in place there. Main is told once, before its next step: "[Halo] A new helper you can start
+  now: {name} ({words})."; when you delete it or undo it, "[Halo] Taken back: {name} can no longer be started in this
+  session." (or "[Halo] Taken back: {name} starts as it did when this session began." when your save had replaced an
+  agent the session started with). An edit of an agent the session started with is not told, nothing is told twice,
+  and after /clear or a compaction what main can no longer have read is told once more. A session that cannot run the
+  agent as it is (it runs on a map of yours, the agent asks for a tool its main does not have or a mode above its own,
+  a built-in has that name, or the session holds that name from a source that wins, such as the project's own agent
+  file or `--agents`) leaves it for your next session. A session that does not answer is that session's alone: the
+  others still take the save. A session in which nothing is added or taken back sends exactly what 3.6.0.14 sent.
 - **What the Builder makes in a session is ready in it at once.** Main can call an agent the applied card made in the
   same turn, and the card's result ends with "Ready in this session now: the agent {x} (subagent_type `{x}`)." (with a
   workflow, the workflow is named first in the same line). An agent the session cannot run says why: "Saved for your
@@ -71,10 +72,12 @@ group's counts line changes, and a cost above zero never reads as zero.
   unless it names a model itself." (or "... main can start it from your next session."), and a refusal "Not saved:
   {error}.". A built-in's pick makes an agent named like it (`judge` for Judge; `judge-2` while you already have a
   `judge`). Then [Undo]: "Put back: {name} runs on {old} again." or "Taken back: {name} is gone." (main is told it is
-  taken back); "Not undone: {name} was changed since." when the file changed after the pick, else "Not undone:
-  {error}.". [Edit in Agents] opens your agent in the Agents form; [Make it an agent] (a helper that ships with Halo,
-  a routed, a built-in or a made-up one) does what the box's "Save as an agent" does, then goes to Agents. Open, the
-  block holds still: its row of buttons and Undo's room are there from its first draw (main's pick has no Undo).
+  taken back); "Not undone: {name} was changed since." when the file changed after the pick; a put-back the form
+  refuses reads "Not undone: {error}.", and a delete it refuses reads the form's own line ("{name} is used by {list}:
+  take it out there first"). [Edit in Agents] opens your agent in the Agents form; [Make it an agent] (a helper that
+  ships with Halo, a routed, a built-in or a made-up one) does what the box's "Save as an agent" does, then goes to
+  Agents. Open, the block holds still: its row of buttons and Undo's room are there from its first draw (main's pick
+  has no Undo).
 - **Main's model from its box.** A pick in main's MODEL block runs /model in that session: "Switched main to {model}
   now, as /model in its terminal, and saved for your next launch." when a terminal ran it, "Switched main to {model}
   for this session; not saved for your next launch." when none did; either is written only once the session reads back
@@ -95,6 +98,10 @@ group's counts line changes, and a cost above zero never reads as zero.
   pointer is on the drawing or a card is open: it folds when the pointer leaves or the card closes. When a new helper
   joins a folded group, the group opens again once the drawing is free, its earlier helpers at the heights they had,
   and rings once.
+- **What a program can now ask and read (for developers).** The control socket takes `agent_put` and `agent_gone`;
+  Studio serves `GET crew/agent-model`, `POST crew/agent-model` and `POST crew/agent-model/undo`; a terminal's answer
+  to a `slash` command carries `terminal: true`; a session's row carries `use_now` and `kinds_added`, a helper's row
+  `ended`, `pause_set` and, under `spawn`, `source` and `routed`.
 - **The real-use check has a step for a pick that acts at once (for developers).** `python scripts/realcheck.py --only
   made-at-once`: in a real Studio and a real terminal session on Auto, it presses "Change" in the built-in Judge's box
   and picks a model in its MODEL block, which makes `judge`; main is told and starts it on that model in the same
@@ -229,12 +236,19 @@ group's counts line changes, and a cost above zero never reads as zero.
   "waiting for a model reply" did not show in a check built to catch it.
 - **Two more of 3.6.0.14's limits end with the repairs above:** Pause on a helper that waits on you, and Last said not
   naming whose words it shows.
-- **A pick for main with no terminal attached compares the model the session reports with your pick.** If the session
-  spells that model another way, a switch that worked reads "Not switched: ...".
+- **A pick for main compares the model the session reports with your pick,** with a terminal attached or not. If the
+  session spells that model another way, a switch that worked reads "Not switched: ...".
 - **`live-scene` is not in a plain run of the real-use check yet.** The product faults it found are repaired and it
   passed three times in a row on Linux, once more on Linux's macOS path, and twice on Windows; it has not run on macOS
   or on CI's runners, so CI does not run it.
-- **Where it was checked.** Provisional: this paragraph is written when the gate is done.
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), then the modules
+  changed after that run once more, the browser modules of the drawing, of the card and of the Agents form, and the
+  full real-use check, nineteen of nineteen steps (`live-scene` is left out of a plain run; named, it passed three
+  times in a row, once more on Linux's macOS identity path, and once on the final tree). On the PC (Windows), one at a
+  time: every node-backed module and the plain modules of this release, and `live-scene` twice. One reviewer read the
+  whole diff; its one must (a delete in Agents reached a session that is not on Auto) is fixed, with a test. Browsers
+  on macOS and Windows are CI's part, and nothing was run on macOS by hand.
 
 ## [3.6.0.14] - 2026-11-22
 
