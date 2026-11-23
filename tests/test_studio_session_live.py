@@ -150,6 +150,12 @@ def test_a_running_bang_row_carries_stop(ctx: Ctx):
     ctx.check(f"the row's first line keeps its height and the elapsed time its place, got {run} {end}",
               same(run.get("runs"), end.get("runs"), "top", "bottom")
               and same(run.get("elapsed"), end.get("elapsed"), "top", "bottom", "right"))
+    # the join's repair after the review: the Stop is drawn only on a session of THIS harness (a peer harness's `!` row
+    # would post to this Studio's own door, which has no such session and answers 404): the rule's source, both parts
+    src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "session" / "LiveTool.tsx").read_text(encoding="utf-8")
+    ctx.check("the Stop is drawn only when the row's harness is the local one",
+              re.search(r"const mine = useFleet\(\(s\) => parseKey\(l\.key\)\.h === localId\(s\)\)", src) is not None
+              and re.search(r"isBang\(l\.id\) && !l\.ended && mine && \(", src) is not None)
 
 
 @test

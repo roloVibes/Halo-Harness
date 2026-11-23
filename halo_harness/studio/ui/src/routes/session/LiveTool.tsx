@@ -9,7 +9,7 @@
 // elapsed time, so the time keeps its place at the row's end when the Stop goes; a model's tool rows have none.
 import { useState } from "react";
 import { short } from "../orchestra/format";
-import { parseKey, useNow } from "../fleet/store";
+import { localId, parseKey, useFleet, useNow } from "../fleet/store";
 import type { LiveLine } from "../shared/liveFeed";
 import { BrowserShot } from "./BrowserShot";
 import { BANG_STOP, BANG_STOP_TITLE, isBang } from "./promptWords";
@@ -23,6 +23,7 @@ export function dur(ms: number): string {
 
 export function ToolRow({ l }: { l: LiveLine }) {
   const now = useNow(!l.ended, 1000);
+  const mine = useFleet((s) => parseKey(l.key).h === localId(s)); // a peer harness's `!` is not this Studio's to stop (its own door has no such session)
   const [open, setOpen] = useState(false);
   const took = l.ended && l.t0 && l.ended > l.t0 + 400 ? dur(l.ended - l.t0) : "";
   const more = (!!l.full && l.full.trim() !== (l.result || "").trim()) || !!l.pic;
@@ -35,7 +36,7 @@ export function ToolRow({ l }: { l: LiveLine }) {
         <span className="slv-runs">runs</span>
         <span className="slv-tool-name mono">{l.tool}</span>
         {l.target && <span className="slv-target mono" title={l.target}>{short(l.target, 90)}</span>}
-        {isBang(l.id) && !l.ended && (
+        {isBang(l.id) && !l.ended && mine && (
           <button type="button" className="og-link" data-testid="session-live-bang-stop" title={BANG_STOP_TITLE}
                   onKeyDown={(e) => e.stopPropagation()} onClick={(e) => (e.stopPropagation(), void stopBang(parseKey(l.key).s))}>{BANG_STOP}</button>
         )}
