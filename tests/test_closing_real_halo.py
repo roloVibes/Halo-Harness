@@ -215,41 +215,43 @@ def _last_lines(text: str) -> list:
     return [ln.rstrip() for ln in text.splitlines() if ln.strip()][-_LAST_LINES:]
 
 
-def _z2_env(c: "core.Ctx", h, folder: Path, listener: "_Silent", trace: Path) -> dict:
+def _z2_env(c: "core.Ctx", h, folder: Path, listener: "_Silent", trace: Path, stuck: bool = True) -> dict:
     """A scratch home's session whose OpenRouter catalog and balance refreshes at launch read from `listener` (they
-    hang), whose git answers at once (tests/helpers/hanging_git.py, hang=False) and whose every other HTTP(S) request
-    goes to a proxy on a dead loopback port and fails at once: never the real network."""
+    hang; with `stuck` false they go to the dead port and fail at once, the same rig with nothing stuck), whose git
+    answers at once (tests/helpers/hanging_git.py, hang=False) and whose every other HTTP(S) request goes to a proxy
+    on a dead loopback port and fails at once: never the real network."""
     import os
     dead = "http://127.0.0.1:9"
     proxies = {k: dead for k in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")}
-    base = f"http://127.0.0.1:{listener.port}/api/v1"
+    base = f"http://127.0.0.1:{listener.port}/api/v1" if stuck else f"{dead}/api/v1"
     return c.env(h, PATH=f"{folder}{os.pathsep}{os.environ.get('PATH', '')}", HALO_NO_UPDATER="1",
                  BRIDGE_TEST_NO_BACKGROUND_NET=None, HALO_OFFLINE=None, HALO_CLOSE_TRACE=str(trace),
                  NO_PROXY=None, no_proxy=None, OPENROUTER_BASE_URL=base, BRIDGE_OPENROUTER_BASE_URL=base, **proxies)
 
 
-def _quit_while_a_read_hangs(c: "core.Ctx", how: str) -> dict:
+def _quit_while_a_read_hangs(c: "core.Ctx", how: str, stuck: bool = True) -> dict:
     """A real terminal session (bare `halo`) in a scratch home, ONE of its launch workers (the OpenRouter catalog
-    refresh: a 30 s read) stuck on `_Silent`; the session is quit the way a person does (`how`: Ctrl+C then Enter on
-    "Quit Halo?", or /quit). The Halo process must be gone within GONE_S, with the normal quit's code."""
+    refresh: a 30 s read) stuck on `_Silent` (`stuck` false: the same rig, nothing stuck); the session is quit the
+    way a person does (`how`: Ctrl+C then Enter on "Quit Halo?", or /quit). The Halo process must be gone within
+    GONE_S, with the normal quit's code."""
     from realcheck import screen
     from realcheck.steps_close import _noter
     from tests.helpers import hanging_git
-    h = c.home("z2")
+    h = c.home("z2" if stuck else "z2-free")
     folder = hanging_git.make(h.dir / "git-standin", hang=False)
     trace = h.dir / "close-trace.txt"
     listener = _Silent()
-    row: dict = {"how": how}
+    row: dict = {"how": how, "stuck": stuck}
     t = None
     try:
-        t = c.terminal(h, env=_z2_env(c, h, folder, listener, trace))
+        t = c.terminal(h, env=_z2_env(c, h, folder, listener, trace, stuck))
         end = time.monotonic() + 90
         while time.monotonic() < end and t.poll() is None:
-            if listener.conns and screen.READY.search(t.plain()):
+            if (listener.conns or not stuck) and screen.READY.search(t.plain()):
                 break
             time.sleep(0.2)
         row["held"] = len(listener.conns)
-        if not (listener.conns and screen.READY.search(t.plain())):
+        if not ((listener.conns or not stuck) and screen.READY.search(t.plain())):
             row["not_up"] = core.excerpt(t.plain(), 300) or f"exit {t.poll()}"
             return row
         time.sleep(1.0)  # keys typed the moment the status line shows may not be taken
@@ -266,7 +268,9 @@ def _quit_while_a_read_hangs(c: "core.Ctx", how: str) -> dict:
             time.sleep(0.1)
         row["halo_alive_after"] = t.poll() is None
         row["code"] = t.poll()
-        row["last_lines"] = _last_lines(t.plain())
+        text = _settled(t)
+        row["last_lines"] = _last_lines(text)
+        row["way_out"] = _way_out(text)
         row["left"] = [f"{p.short(110)} [{p.why}]" for p in c.left_after(h, 0.5)]
         return row
     finally:
@@ -276,20 +280,50 @@ def _quit_while_a_read_hangs(c: "core.Ctx", how: str) -> dict:
         c.end_leftovers(h)
 
 
+_WAY_OUT = ("halo:", "stopped:", "stand-in:")
+
+
+def _settled(t) -> str:
+    """The terminal's text once its reader has drained what the process wrote just before it left: unchanged for
+    0.5 s, at most 5 s after the process is gone (a line printed right before the exit is otherwise read too soon)."""
+    end = time.monotonic() + 5
+    seen, still = len(t.raw()), time.monotonic()
+    while time.monotonic() < end and time.monotonic() - still < 0.5:
+        time.sleep(0.1)
+        if len(t.raw()) != seen:
+            seen, still = len(t.raw()), time.monotonic()
+    return t.plain()
+
+
+def _way_out(text: str) -> list:
+    """The lines a way out prints once the app's own screen is gone (the closing procedure's `halo: ...`, the quit's
+    `stopped: ...`, the rig's stand-in updater), never the app's screen or its replay (a terminal may keep or repaint
+    them, with a tip picked at random), with what differs between two runs by nature (a pid) read the same."""
+    import re
+    found = (re.search(r"(?<![\w-])(?:%s).*" % "|".join(map(re.escape, _WAY_OUT)), ln) for ln in text.splitlines())
+    return [re.sub(r"\bpid \d+", "pid N", m.group(0).strip()) for m in found if m]  # a row may hold screen remnants first
+
+
 def _check_z2(ctx: Ctx, how: str) -> None:
     c = core.Ctx(REPO, Path(tempfile.mkdtemp(prefix="rc-close-z2-")))
     try:
+        free = _quit_while_a_read_hangs(c, how, stuck=False)
         row = _quit_while_a_read_hangs(c, how)
     finally:
         c.close()
     ctx.check(f"the session came up and a launch worker's read hung on the test's listener (not a vacuous check), "
               f"got {row}", "not_up" not in row and row["held"] >= 1)
+    ctx.check(f"the same session with nothing stuck came up and quit, got {free}",
+              "not_up" not in free and not free["halo_alive_after"] and free.get("code") == 0)
     ctx.check(f"{row.get('keys')}: the Halo process gone within {GONE_S:.0f} s of the quit, got {row}",
               not row["halo_alive_after"])
     ctx.check(f"{row.get('keys')}: it left with the normal quit's code 0, got {row.get('code')}", row.get("code") == 0)
     ctx.check(f"{row.get('keys')}: the terminal shows no traceback on the way out, got {row.get('last_lines')}",
               not any("Traceback" in ln for ln in row.get("last_lines") or []))
-    ctx.check(f"{row.get('keys')}: nothing started under the scratch home left, got {row['left']}", not row["left"])
+    ctx.check(f"{row.get('keys')}: 3.6.0.17 Z3-1: the stuck quit's last lines are those of the quit with nothing "
+              f"stuck, got {row.get('way_out')} vs {free.get('way_out')}", row.get("way_out") == free.get("way_out"))
+    ctx.check(f"{row.get('keys')}: nothing started under the scratch home left, got {row['left']} / {free['left']}",
+              not row["left"] and not free["left"])
 
 
 @test
@@ -305,81 +339,179 @@ def test_z2_a_session_quit_with_slash_quit_while_a_launch_read_hangs_is_gone_wit
 
 
 # The restart exit (/update's Enter) needs an update on offer and then hands over to the updater, so a real session
-# cannot be driven to it here. This drives the same terminal app (`run_tui`, the demo controller) in a terminal of its
-# own, with the real closing procedure installed as cli.main installs it, a thread worker of the app stuck on the
-# test's listener, and then the very function /update's dialog calls with Enter (slash._on_update_dialog_result).
-_RESTART = r'''
-import socket, sys, threading
+# cannot be driven to it here. This drives the same terminal app the way cli.main does (`cli._run_full_screen`: the
+# app, then for the restart exit the hand-off), the demo controller, in a terminal of its own, with the real closing
+# procedure installed as cli.main installs it. A thread worker of the app (`stuck`) holds a read on the test's
+# listener; it then asks the way out: the very function /update's dialog calls with Enter
+# (slash._on_update_dialog_result), or the quit /quit asks (`_begin_quit`). The updater's start is a stand-in that
+# takes HAND_OFF_S (longer than any grace: a slow machine's hand-off) and prints one line: never a real updater.
+# `kept`: the app first starts a thing a person asked to keep (closing.start_kept), whose line the way out prints.
+_RIG = r'''
+import json, os, socket, sys, time
 from halo_harness import closing
 closing.install()  # what cli.main does first in the real process
-from halo_harness import cli
+from halo_harness import cli, update_detached
 from halo_harness.tui import app as A, slash
-from halo_harness.tui.launch import run_tui
-port = int(sys.argv[1])
+port, way, stuck, kept, out = int(sys.argv[1]), sys.argv[2], sys.argv[3] == "stuck", sys.argv[4] == "kept", sys.argv[5]
+HAND_OFF_S = float(sys.argv[6])
+
+
+def hand_off(**_kw):  # the updater's start, stood in
+    time.sleep(HAND_OFF_S)
+    print("stand-in: the updater is on its way", flush=True)
+    return 0
+
+
+update_detached.run_after_exit = hand_off
 _mount = A.BridgeApp.on_mount
 
 
 async def on_mount(self):
     await _mount(self)
+    if kept:
+        p = closing.start_kept([sys.executable, "-c", "import time; time.sleep(120)", out], what="host")
+        with open(os.path.join(out, "kept.json"), "w", encoding="utf-8") as f:
+            json.dump({"pid": p.pid}, f)
 
-    def held():  # a launch worker in a network read that never answers
-        s = socket.create_connection(("127.0.0.1", port), timeout=5)
-        s.settimeout(120)
-        self.call_from_thread(slash._on_update_dialog_result, self, "update")
-        try:
-            s.recv(1)
-        except OSError:
-            pass
-    self.run_worker(held, thread=True, name="z2-held", group="z2-held")
+    def act():
+        s = None
+        if stuck:  # a launch worker in a network read that never answers
+            s = socket.create_connection(("127.0.0.1", port), timeout=5)
+            s.settimeout(120)
+        with open(os.path.join(out, "asked.json"), "w", encoding="utf-8") as f:
+            json.dump({"at": time.time()}, f)
+        if way == "restart":
+            self.call_from_thread(slash._on_update_dialog_result, self, "update")
+        else:
+            self.call_from_thread(self._begin_quit)
+        if s is not None:
+            try:
+                s.recv(1)
+            except OSError:
+                pass
+    self.run_worker(act, thread=True, name="z3-act", group="z3-act")
 
 
 A.BridgeApp.on_mount = on_mount
-sys.exit(run_tui(cli._build_parser().parse_intermixed_args(["--demo"])))
+sys.exit(cli._run_full_screen(cli._build_parser().parse_intermixed_args(["--demo"]), ["--demo"]))
 '''
+HAND_OFF_S = 8.0  # longer than Z2's bound for the restart exit (EXIT_GRACE_S + QUIT_BUDGET_S): it was cut there
 
 
-@test
-def test_z2_the_restart_exit_keeps_its_code_through_the_bound(ctx: Ctx):
-    """3.6.0.17 Z2-1: /update's restart exit (update.RESTART_EXIT_CODE) passes the same bound and keeps its code."""
+def _end_kept(pid, started) -> None:
+    """End the rig's kept thing, by its pid and its start time (never another program that pid was given to)."""
+    import os
+    import signal
+    if pid and _same(pid, started or 0):
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        end = time.monotonic() + 5
+        while _same(pid, started or 0) and time.monotonic() < end:
+            time.sleep(0.1)
+
+
+def _rig(c: "core.Ctx", way: str, stuck: bool, kept: bool) -> dict:
+    """One run of _RIG in a scratch home: the process's code, how long after the way out was asked it was gone, its
+    last lines, what of it was left (the kept thing apart), and the kept thing's pid; that one is ended here, by pid
+    and start time."""
+    import json
     from realcheck.term import Terminal
-    from halo_harness import closing
-    from halo_harness.update import RESTART_EXIT_CODE
-    # its controller.quit is still ahead when the app ends (tui/launch.py runs it): its budget is part of the bound
-    bound = GONE_S + closing.QUIT_BUDGET_S
-    c = core.Ctx(REPO, Path(tempfile.mkdtemp(prefix="rc-close-z2r-")))
     listener = _Silent()
-    row: dict = {}
+    row: dict = {"way": way, "stuck": stuck}
     t = None
+    kept_pid = kept_start = None
+    h = c.home(f"z3-{way}-{'stuck' if stuck else 'free'}")
+    out = h.dir / "rig-out"
+    out.mkdir(parents=True, exist_ok=True)
     try:
-        h = c.home("z2r")
-        script = h.dir / "z2_restart.py"
-        script.write_text(_RESTART, encoding="utf-8")
+        script = h.dir / "z3_rig.py"
+        script.write_text(_RIG, encoding="utf-8")
         env = c.env(h, HALO_NO_UPDATER="1", BRIDGE_TEST_NO_BACKGROUND_NET="1")
-        t = Terminal([sys.executable, str(script), str(listener.port)], env=env, cwd=str(h.proj))
+        argv = [sys.executable, str(script), str(listener.port), way, "stuck" if stuck else "free",
+                "kept" if kept else "-", str(out), str(HAND_OFF_S)]
+        t = Terminal(argv, env=env, cwd=str(h.proj))
         c._mark(h, t.pid)
         c.terms.append(t)
-        end = time.monotonic() + 90
-        while time.monotonic() < end and t.poll() is None and not listener.conns:
+        end = time.monotonic() + 90 + HAND_OFF_S + GONE_S
+        gone_at = None
+        while True:
+            if kept and kept_pid is None and (out / "kept.json").exists():
+                try:
+                    kept_pid = json.loads((out / "kept.json").read_text(encoding="utf-8"))["pid"]
+                    kept_start = procs.started_at(kept_pid)
+                except (OSError, ValueError, KeyError):
+                    pass
+            if gone_at is not None or time.monotonic() >= end:
+                break
+            if t.poll() is not None:
+                gone_at = time.time()  # one more turn reads the kept thing's pid when it was written last
+                continue
             time.sleep(0.1)
         row["held"] = len(listener.conns)
-        start = listener.first or time.monotonic()
-        end = start + bound
-        while t.poll() is None and time.monotonic() < end:
-            time.sleep(0.1)
-        row["alive_after"] = t.poll() is None
+        try:
+            asked = json.loads((out / "asked.json").read_text(encoding="utf-8"))["at"]
+        except (OSError, ValueError, KeyError):
+            asked = None
+        row["gone_s"] = round(gone_at - asked, 1) if gone_at and asked else None
         row["code"] = t.poll()
-        row["last_lines"] = _last_lines(t.plain())
-        row["left"] = [f"{p.short(110)} [{p.why}]" for p in c.left_after(h, 0.5)]
+        text = _settled(t)
+        row["last_lines"] = _last_lines(text)
+        row["way_out"] = _way_out(text)
+        row["kept_pid"] = kept_pid
+        _end_kept(kept_pid, kept_start)  # it holds the terminal (Windows: its conhost) while it runs
+        row["left"] = [f"{p.short(110)} [{p.why}]" for p in c.left_after(h, 2.0) if p.pid != kept_pid]
     finally:
+        _end_kept(kept_pid, kept_start)
         if t is not None:
             t.cleanup()
         listener.close()
-        c.end_leftovers()
+        c.end_leftovers(h)
+    return row
+
+
+def _check_rig(ctx: Ctx, way: str, kept: bool, code: int, bound: float) -> dict:
+    c = core.Ctx(REPO, Path(tempfile.mkdtemp(prefix=f"rc-close-z3{way[0]}-")))
+    try:
+        free = _rig(c, way, False, kept)
+        row = _rig(c, way, True, kept)
+    finally:
         c.close()
-    ctx.check(f"the app's worker read hung on the test's listener (not a vacuous check), got {row}", row["held"] >= 1)
-    ctx.check(f"the process gone within {bound:.0f} s of the restart exit, got {row}", not row["alive_after"])
-    ctx.check(f"it left with the restart exit's code {RESTART_EXIT_CODE}, got {row.get('code')}",
-              row.get("code") == RESTART_EXIT_CODE)
+    for name, r in (("nothing stuck", free), ("a worker stuck", row)):
+        ctx.check(f"{way}, {name}: gone within {bound:.0f} s of the way out, with code {code}, got {r}",
+                  r["gone_s"] is not None and r["gone_s"] <= bound and r["code"] == code)
+        ctx.check(f"{way}, {name}: nothing started under the scratch home left, got {r['left']}", not r["left"])
+    ctx.check(f"{way}: the worker's read hung on the test's listener (not a vacuous check), got {row}", row["held"] >= 1)
+    ctx.check(f"{way}: the stuck way out's last lines are those of the one with nothing stuck, got "
+              f"{row['way_out']} vs {free['way_out']}", row["way_out"] == free["way_out"])
+    return row
+
+
+@test
+def test_z3_the_restart_exits_hand_off_is_never_cut_and_leaves_with_its_code(ctx: Ctx):
+    """3.6.0.17 Z3-1 (rewrites Z2's `test_z2_the_restart_exit_keeps_its_code_through_the_bound`): /update's restart exit
+    runs controller.quit and then the hand-off to the updater (cli.py) to its end, also when it takes longer than any
+    grace (a slow machine) and also when a thread worker is stuck; the process then leaves within the bound with the
+    hand-off's code, and the lines are those of a restart with nothing stuck."""
+    from halo_harness import closing
+    row = _check_rig(ctx, "restart", False, 0, HAND_OFF_S + closing.QUIT_BUDGET_S + GONE_S)
+    ctx.check(f"the hand-off ran to its end (its line shows), got {row['way_out']}",
+              "stand-in: the updater is on its way" in row["way_out"])
+
+
+@test
+def test_z3_a_quit_while_a_worker_is_stuck_names_what_it_leaves_running(ctx: Ctx):
+    """3.6.0.17 Z3-1 (c): the closing procedure runs on the main path before the bound, as a normal exit runs it, so a
+    quit whose thread worker is stuck in a network read prints the same last lines as one with nothing stuck:
+    "halo: left running on purpose: ..." for the thing a person asked to keep (the owner's rule: Halo names what it
+    leaves running). Before, the interpreter's join of the stuck thread held the exit until the bound's silent
+    close() ran and the line was lost."""
+    from halo_harness import closing
+    row = _check_rig(ctx, "quit", True, 0, closing.QUIT_BUDGET_S + GONE_S)
+    ctx.check(f"the kept thing is named on the way out, got {row['last_lines']}",
+              any("left running on purpose" in ln and f"pid {row['kept_pid']}" in ln for ln in row["last_lines"]))
+    ctx.check(f"and only once, got {row['way_out']}", sum("left running on purpose" in ln for ln in row["way_out"]) == 1)
 
 
 if __name__ == "__main__":

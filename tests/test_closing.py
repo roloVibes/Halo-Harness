@@ -1073,50 +1073,234 @@ def test_a_kept_spawn_has_its_own_marker_and_no_owner_watch(ctx: Ctx):
         ctx.check("a caller's own environment still gets the tree's marker", plain["env"].get(closing.MARKER))
 
 
+class _NoTimer:
+    """closing's `threading` for a test that arms hard_exit for real: its timer thread is recorded, never started."""
+
+    def __init__(self, started: list) -> None:
+        import threading
+        self._threading = threading
+        self._started = started
+
+    def __getattr__(self, name):
+        return getattr(self._threading, name)
+
+    def Thread(self, *a, **kw):  # noqa: N802 -- stands in for threading.Thread
+        from types import SimpleNamespace
+        return SimpleNamespace(start=lambda: self._started.append(kw.get("name")))
+
+
+_Z3_KEYS = ("installed", "deadline", "closed", "hard_exit")
+
+
+def _closing_state_saved() -> dict:
+    from halo_harness import closing
+    return {k: closing._STATE[k] for k in _Z3_KEYS if k in closing._STATE}
+
+
+def _closing_state_back(saved: dict) -> None:
+    from halo_harness import closing
+    for k in _Z3_KEYS:
+        if k in saved:
+            closing._STATE[k] = saved[k]
+        else:
+            closing._STATE.pop(k, None)
+
+
 def _way_out(installed: bool, code, quit_called: bool) -> dict:
     """BridgeApp._bound_the_way_out on a stand-in app, inside a running loop, with closing's state as `installed` says
-    and hard_exit recorded (never armed for real here); everything it changed is put back."""
+    and hard_exit's timer never started (whatever it arms is recorded); everything it changed is put back."""
     import asyncio
     from types import SimpleNamespace
     from unittest import mock
     from halo_harness import closing
     from halo_harness.tui.app import BridgeApp
     app = SimpleNamespace(return_code=code, controller=SimpleNamespace(quit_called=quit_called))
-    armed: list = []
+    timers: list = []
     seen: dict = {}
 
     async def body():
         loop = asyncio.get_running_loop()
-        first = loop.run_in_executor(None, lambda: None)
-        await first
-        with mock.patch.object(closing, "hard_exit", lambda c, g: armed.append((c, g))):
-            BridgeApp._bound_the_way_out(app)
-        seen["deadline"] = closing._STATE.get("deadline")
-    saved = {k: closing._STATE.get(k) for k in ("installed", "deadline")}
-    closing._STATE.update(installed=installed, deadline=None)
+        await loop.run_in_executor(None, lambda: None)
+        first = getattr(loop, "_default_executor", None)
+        BridgeApp._bound_the_way_out(app)
+        seen.update(deadline=closing._STATE.get("deadline"), stop_asked=closing.stop_asked(),
+                    fresh_pool=getattr(loop, "_default_executor", None) is not first)
+    saved = _closing_state_saved()
+    closing._STATE.update(installed=installed, deadline=None, closed=False)
+    closing._STATE.pop("hard_exit", None)
     try:
-        asyncio.run(body())
+        with mock.patch.object(closing, "threading", _NoTimer(timers)):
+            asyncio.run(body())
     finally:
-        closing._STATE.update(saved)
-    return {"armed": armed, "deadline": seen.get("deadline")}
+        _closing_state_back(saved)
+    return {"timers": timers, **seen}
 
 
 @test
-def test_z2_the_terminal_apps_way_out_arms_the_bound_only_in_a_real_halo(ctx: Ctx):
-    """3.6.0.17 Z2-1: every way out of the terminal app (its unmount) arms the deadline and closing.hard_exit with the
-    app's own code; a test's app (closing not installed) arms nothing. A way out that has not passed controller.quit
-    yet (the restart exit, an exception) gets the quit's budget on top of the grace."""
-    from halo_harness import closing
+def test_z3_at_unmount_the_terminal_app_arms_the_deadline_and_a_fresh_pool_never_the_bound(ctx: Ctx):
+    """3.6.0.17 Z3-1 (rewrites Z2's `test_z2_the_terminal_apps_way_out_arms_the_bound_only_in_a_real_halo`): every way
+    out of the terminal app passes its unmount; there a real halo arms the closing deadline and hands the loop a fresh
+    pool (asyncio's join at the end of app.run waits on nothing the app started), and arms NO hard exit, on a quit, on
+    the restart exit and on an exception exit alike: `closing.stop_asked()` stays false until the quit itself. A test's
+    app (closing not installed) changes nothing."""
     off = _way_out(False, 0, True)
-    ctx.check(f"a test's app arms nothing, got {off}", off == {"armed": [], "deadline": None})
-    quit_ = _way_out(True, 0, True)
-    ctx.check(f"a confirmed quit: the deadline is armed and the bound with code 0 and the grace, got {quit_}",
-              quit_["deadline"] is not None and quit_["armed"] == [(0, closing.EXIT_GRACE_S)])
-    restart = _way_out(True, 91, False)
-    ctx.check(f"the restart exit keeps its code, with the quit's budget on top of the grace, got {restart}",
-              restart["armed"] == [(91, closing.EXIT_GRACE_S + closing.QUIT_BUDGET_S)])
-    error = _way_out(True, None, False)
-    ctx.check(f"no code set reads as 0, the launch's own fallback, got {error}", error["armed"][0][0] == 0)
+    ctx.check(f"a test's app arms nothing and keeps its pool, got {off}",
+              off["timers"] == [] and off["deadline"] is None and not off["fresh_pool"])
+    for name, code, quit_called in (("a confirmed quit", 0, True), ("the restart exit", 91, False),
+                                    ("an exception exit", None, False)):
+        row = _way_out(True, code, quit_called)
+        ctx.check(f"{name}: the deadline is armed and the loop has a fresh pool, got {row}",
+                  row["deadline"] is not None and row["fresh_pool"])
+        ctx.check(f"{name}: no hard exit is armed at unmount and stop_asked() is still false, got {row}",
+                  row["timers"] == [] and row["stop_asked"] is False)
+
+
+def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" = None, hand_off_s: float = 8.0):
+    """tui/launch.py run_tui (and, for /update's restart exit, cli._run_full_screen with its hand-off) on a stand-in
+    app and controller, in a 'real halo' (closing installed) whose hard_exit is armed for real with its timer never
+    started. Returns the ordered events: the app's run and unmount, the controller's quit (with stop_asked() at that
+    moment), launch.py's last line, close(), each hard exit armed (with its code, its grace and the injected clock),
+    and the hand-off's end on that clock (it takes `hand_off_s` there, no real sleep)."""
+    import contextlib
+    import io
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import cli, closing, privateio, theme, update_detached
+    from halo_harness.tui import app as A
+    from halo_harness.tui import console_mode, launch
+    events: list = []
+    clock = [0.0]
+    timers: list = []
+    real_hard_exit = closing.hard_exit
+
+    class Controller:
+        quit_called = False
+        stopped_line_shown = False
+
+        def quit(self):
+            if not self.quit_called:
+                events.append(("quit", closing.stop_asked()))
+            self.quit_called = True
+            return 0
+
+        @property
+        def stopped_line(self):
+            events.append("last line")
+            return "stopped: gpu-box helper (pid 4242)"
+
+    class App:
+        def __init__(self, controller, **_kw):
+            self.controller, self.return_code = controller, None
+
+        def run(self):
+            events.append("app.run")
+            self.return_code = code
+            if code == 0:
+                self.controller.quit()  # the app's own quit card ran it
+            A.BridgeApp._bound_the_way_out(self)  # Textual's unmount
+            events.append("unmount")
+            if raises:
+                raise RuntimeError("the driver failed")
+
+    def hard_exit(c, g=closing.EXIT_GRACE_S):
+        events.append(("hard_exit", c, g, clock[0]))
+        real_hard_exit(c, g)
+
+    def hand_off(**_kw):  # the updater's start, stood in: it takes `hand_off_s` on the injected clock
+        clock[0] += hand_off_s
+        events.append(("hand-off done", clock[0]))
+        return 0
+    ctl = Controller()
+    args = SimpleNamespace(demo=True, cwd=None, stress=0, theme=None, prompt=None, no_inline_images=False,
+                           no_intro=True)
+    saved = _closing_state_saved()
+    closing._STATE.update(installed=True, deadline=None, closed=False)
+    closing._STATE.pop("hard_exit", None)
+    out = io.StringIO()
+    result: dict = {}
+    try:
+        with mock.patch.object(A, "BridgeApp", type("BridgeApp", (App,), {"_bound_the_way_out":
+                                                                         A.BridgeApp._bound_the_way_out})), \
+                mock.patch.object(launch, "_build_demo_controller", lambda _a: (ctl, None, None, None)), \
+                mock.patch.object(theme, "load_persisted_theme", lambda: None), \
+                mock.patch.object(theme, "removed_theme_notice", lambda *_a, **_k: ""), \
+                mock.patch.object(console_mode, "install", lambda: SimpleNamespace(restore=lambda: None)), \
+                mock.patch.object(privateio, "tighten_state_tree", lambda _p: 0), \
+                mock.patch.object(closing, "close", lambda **_kw: events.append("close") or []), \
+                mock.patch.object(closing, "hard_exit", hard_exit), \
+                mock.patch.object(closing, "threading", _NoTimer(timers)), \
+                mock.patch.object(update_detached, "run_after_exit", hand_off), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            try:
+                result["code"] = cli._run_full_screen(args, ["--demo"]) if restart_code else launch.run_tui(args)
+            except RuntimeError as e:
+                result["raised"] = str(e)
+    finally:
+        _closing_state_back(saved)
+    return {"events": events, "timers": timers, **result}
+
+
+@test
+def test_z3_the_terminal_apps_bound_comes_last_with_its_code(ctx: Ctx):
+    """3.6.0.17 Z3-1 (b): the terminal app's way out arms closing.hard_exit at its END: after controller.quit and
+    after launch.py's own last line, right after the closing procedure ran on the main path, with the app's code and
+    the plain grace: one timer. An exception escaping app.run leaves with Python's 1, its quit run before stop is
+    asked."""
+    from halo_harness import closing
+    quit_ = _terminal_way_out(0)
+    ev = quit_["events"]
+    ctx.check(f"a quit: nothing is armed before the app's way out is done, the bound is the last thing, with code 0 "
+              f"and the grace, after close(), got {ev}",
+              ev[-2:] == ["close", ("hard_exit", 0, closing.EXIT_GRACE_S, 0.0)]
+              and [e for e in ev if isinstance(e, tuple) and e[0] == "hard_exit"] == [ev[-1]]
+              and "last line" in ev and ev.index("last line") < ev.index("close"))
+    ctx.check(f"a quit: one timer, got {quit_['timers']}", quit_["timers"] == ["halo-hard-exit"])
+    err = _terminal_way_out(None, raises=True)
+    ev = err["events"]
+    ctx.check(f"an exception exit: the error still goes up, got {err}", err.get("raised") == "the driver failed")
+    ctx.check(f"an exception exit: its quit runs before any stop is asked, got {ev}", ("quit", False) in ev)
+    ctx.check(f"an exception exit: the bound comes last, after close(), with Python's 1, got {ev}",
+              ev[-2:] == ["close", ("hard_exit", 1, closing.EXIT_GRACE_S, 0.0)] and ev.index(("quit", False)) < len(ev) - 2)
+
+
+@test
+def test_z3_the_restart_exits_bound_comes_after_the_hand_off_to_the_updater(ctx: Ctx):
+    """3.6.0.17 Z3-1 (b): /update's restart exit hands over to the updater after the app (cli.py
+    `_apply_update_and_relaunch`); on a slow machine that takes longer than any grace (stood in: 8 s on an injected
+    clock, no real sleep). The bound is armed only once the hand-off returned, with the hand-off's code, so it can
+    never cut it; controller.quit runs before any stop is asked."""
+    from halo_harness import closing
+    from halo_harness.update import RESTART_EXIT_CODE
+    row = _terminal_way_out(RESTART_EXIT_CODE, restart_code=RESTART_EXIT_CODE, hand_off_s=8.0)
+    ev = row["events"]
+    bounds = [e for e in ev if isinstance(e, tuple) and e[0] == "hard_exit"]
+    ctx.check(f"the process leaves with the hand-off's code, got {row.get('code')}", row.get("code") == 0)
+    ctx.check(f"no bound is armed before the hand-off returned (one armed earlier fires inside it), got {ev}",
+              bounds and all(b[3] >= 8.0 for b in bounds))
+    ctx.check(f"one bound, last, after close(), with the hand-off's code and the plain grace, got {ev}",
+              bounds == [ev[-1]] and ev[-2:] == ["close", ("hard_exit", 0, closing.EXIT_GRACE_S, 8.0)])
+    ctx.check(f"the quit ran before any stop was asked, got {ev}", ("quit", False) in ev)
+    ctx.check(f"one timer, got {row['timers']}", row["timers"] == ["halo-hard-exit"])
+
+
+@test
+def test_z3_hard_exit_armed_with_0_holds(ctx: Ctx):
+    """3.6.0.17 Z3-1 (d): `hard_exit` is idempotent for code 0 too: a SIGTERM or a console close during a quit's
+    grace arms no second timer with another code; the process leaves with the first one's 0."""
+    from unittest import mock
+    from halo_harness import closing
+    timers: list = []
+    saved = _closing_state_saved()
+    closing._STATE.pop("hard_exit", None)
+    try:
+        with mock.patch.object(closing, "threading", _NoTimer(timers)):
+            closing.hard_exit(0)
+            closing.hard_exit(1)
+            code = closing._STATE.get("hard_exit")
+    finally:
+        _closing_state_back(saved)
+    ctx.check(f"one timer, got {timers}", timers == ["halo-hard-exit"])
+    ctx.check(f"it leaves with the first code 0, got {code}", code == 0)
 
 
 @test

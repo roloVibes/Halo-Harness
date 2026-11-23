@@ -1292,7 +1292,7 @@ def hard_exit(code: int, grace_s: float = EXIT_GRACE_S) -> None:
     (interpreter exit joins it), a main thread in a socket read (Windows hands it Ctrl+C only between bytecodes).
     After `grace_s` the closing procedure and the exit hooks run here, then the process leaves with `code`: in-flight
     calls are abandoned, pool threads are not waited on. Idempotent (judge's real-use bugs 3 and 4)."""
-    if _STATE.get("hard_exit"):
+    if _STATE.get("hard_exit") is not None:  # 3.6.0.17 Z3-1: an exit armed with 0 holds too
         return
     _STATE["hard_exit"] = code
 

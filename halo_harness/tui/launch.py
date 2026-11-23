@@ -85,8 +85,10 @@ def run_tui(args) -> int:
     if _theme_notice:
         _earlier = getattr(app, "startup_notice", None)
         app.startup_notice = f"{_earlier}\n{_theme_notice}" if _earlier else _theme_notice
+    returned = False
     try:
         app.run()
+        returned = True
     finally:
         from halo_harness import closing
         closing.trace("app.run returned")  # fx jb12: HALO_CLOSE_TRACE (nothing when unset)
@@ -109,7 +111,27 @@ def run_tui(args) -> int:
         if line and not getattr(controller, "stopped_line_shown", False):
             print(line)
         closing.trace("app.run's finally done", done=True)  # fx jb14: the app's way out ended, nothing outlives it
+        # 3.6.0.17 Z3-1: the bound comes last. /update's restart exit still hands over to the updater (cli.py
+        # `_apply_update_and_relaunch` arms it after that); an exception escaping app.run leaves with Python's 1.
+        from halo_harness.update import RESTART_EXIT_CODE
+        code = (app.return_code if app.return_code is not None else 0) if returned else 1
+        if code != RESTART_EXIT_CODE:
+            bound_the_end(code)
     return app.return_code if app.return_code is not None else 0
+
+
+def bound_the_end(code: int) -> None:
+    """3.6.0.17 Z3-1: the end of the terminal app's way out, where the process has nothing left to do but leave (a
+    real halo only, never a test's app). The closing procedure runs here on the main path exactly as the normal exit
+    runs it from atexit (`closing.close()`, its own `say`; the exit's later call is a no-op), so the lines a quit
+    prints at its close ("halo: left running on purpose: ...") are printed also when a thread worker is stuck in a
+    network read (the interpreter joins that thread before atexit). Then `closing.hard_exit(code)` with its own grace:
+    only the interpreter's own ending is inside it, and a stuck thread is abandoned, never joined."""
+    from halo_harness import closing
+    if not closing._STATE.get("installed"):
+        return
+    closing.close()
+    closing.hard_exit(code)
 
 
 def _build_demo_controller(args):

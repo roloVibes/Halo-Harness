@@ -424,10 +424,13 @@ def _apply_update_and_relaunch(argv: list) -> int:
     from halo_harness.update_detached import run_after_exit
     hint = " ".join(["halo", "--continue", *_relaunch_flags(argv)])
     try:
-        return run_after_exit(resume_hint=hint)
+        code = run_after_exit(resume_hint=hint)
     except Exception as e:
         print(f"halo: the update did not start: {e}; run `halo update` from a shell", file=sys.stderr)
-        return 1
+        code = 1
+    from halo_harness.tui.launch import bound_the_end
+    bound_the_end(code)  # 3.6.0.17 Z3-1: the hand-off is done (or failed): the bound comes last
+    return code
 
 
 def _relaunch_flags(argv: list) -> list:
