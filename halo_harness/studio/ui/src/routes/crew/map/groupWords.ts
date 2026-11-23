@@ -9,13 +9,14 @@ import type { AutoGroup, Member } from "./overlayGroups";
 import { waitWhat } from "./truth";
 import { waitClock, whyThisModel } from "./truthBits";
 import { clock } from "./truthWords";
+// 3.6.0.15 F5: every amount a group's words write is the box heads' own formatter (one drawing, one form of an amount)
+import { cost as money } from "../../orchestra/format";
 
 export const STATE_WORDS: Record<BoxState, string> = { working: "working", waiting: "waiting on you", done: "done", failed: "failed", idle: "not used yet" };
 
 export const SHOWN_MEMBERS = 8; // B11: up to 8 members shown, then "+{n} more"
 export const NAMES_SHOWN = 12; // G5: twelve names, then "and {n} more"
 
-export const money = (x: number): string => `$${(Number(x) || 0).toFixed(2)}`;
 /** r/batch04 entry 3: a number and its unit are held by a no-break space, so a narrow box never tears "0" from "s". */
 const NB = "\u00a0";
 /** "{m} min" from 60 s (whole minutes, rounded down), else "{s} s". Every group line, member line and hover takes its

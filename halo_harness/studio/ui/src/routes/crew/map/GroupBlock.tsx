@@ -16,6 +16,7 @@ import type { Lit } from "./LitMini";
 import { groupBox } from "./litView";
 import { countParts, doneLine, g3Lines, isAllDone, memberLine, memberState, moreMembers, SHOWN_MEMBERS, whyLine } from "./groupWords";
 import { GroupMember } from "./GroupMember";
+import { countsRows } from "./nowRoom";
 import { runningStep } from "./overlayBlocks";
 import type { AutoGroup } from "./overlayGroups";
 import { RunCtx } from "./runParts";
@@ -31,12 +32,12 @@ function stateOf(g: AutoGroup): string {
     : s.every((x) => x === "done") ? "done" : s.includes("failed") ? "failed" : "done";
 }
 
-function Head({ g, name }: { g: AutoGroup; name: string }) {
+function Head({ g, name, rows }: { g: AutoGroup; name: string; rows: number }) {
   const why = whyLine(g);
   return (
     <>
       <b className="mp-group-name" data-testid="map-group-name">{name}</b>
-      <span className="mp-group-counts mono" data-testid="map-group-counts">
+      <span className="mp-group-counts mono" data-testid="map-group-counts" style={{ minHeight: rows * 17 }}>
         {isAllDone(g) ? doneLine(g) : countParts(g).map((p, i) => (
           <span key={i}>{i ? " · " : ""}{p.bad || p.warn ? <span className={p.bad ? "mp-bad" : "mp-warn"}>{p.text}</span> : p.text}</span>
         ))}
@@ -58,13 +59,19 @@ export function GroupBlock({ b, L, sid, pick, live, sel, card }: Props) {
       ))}
     </div>
   ), !!sid && !!g);
-  const held = !!useContext(RunCtx)?.held, fold = useRef<boolean | undefined>(undefined);
+  const held = !!useContext(RunCtx)?.held, fold = useRef<boolean | undefined>(undefined), kept = useRef({ w: 0, rows: 0 });
   const folded = g ? (fold.current = foldNext(fold.current, g, L.now || 0, held)) : false;
   if (!g || !b.group) return null;
   const lit = g.workflow ? L.ov?.blocks[g.workflow] : undefined;
   const at = g.steps && lit ? runningStep({ state: lit.state, steps: g.steps }) : undefined;
   const name = g.steps && g.workflow ? blockHead(g.workflow, at, at ? g.steps.length : undefined) : g.name;
   const box = groupBox(b.w);
+  // 3.6.0.15 F1: the counts line holds the rows of its longest form at the width the group HAS, from its first draw;
+  // kept for the block's life at that width, never shrinking: a member that joins may raise it, a part that joins never
+  // does; a new width (the drawer dragged, Auto's column re-fitted) re-lays everything, so its rows are taken anew
+  const need = countsRows(g.members.length, box.inner);
+  if (kept.current.w !== b.w) kept.current = { w: b.w, rows: need };
+  const rows = (kept.current.rows = Math.max(kept.current.rows, need));
   const more = g.members.length - SHOWN_MEMBERS;
   const head = (e: MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest("button, a, input, textarea")) return;
@@ -82,7 +89,7 @@ export function GroupBlock({ b, L, sid, pick, live, sel, card }: Props) {
          onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), pick({ kind: "group", n: g.n, text: "" })); }}>
       <div className="mp-inner">
         <div className="mp-group-head" data-testid="map-group-head" {...hv.props} onClick={head}>
-          <Head g={g} name={name} />
+          <Head g={g} name={name} rows={rows} />
         </div>
         {g.steps ? (
           <div className="mp-group-steps" hidden={folded}>

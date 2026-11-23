@@ -5,7 +5,8 @@
 // ("waiting on you") from the first draw too, so a member never grows when it starts waiting. Text is 12 px mono: 7.2 px a
 // character; the seconds sit in their 10ch slot. Pure: no React, no DOM (tests/test_map_groups.py runs it in node).
 import { WAIT_WORD } from "../live/waits";
-import { STATE_WORDS } from "./groupWords";
+import { countParts, doneLine, STATE_WORDS } from "./groupWords";
+import type { AutoGroup } from "./overlayGroups";
 import { waitWhat } from "./truth";
 import { toolClock, waitClock } from "./truthBits";
 
@@ -23,6 +24,35 @@ export const heldRows = (width: number): number => Math.min(2, rowsOf(waitClock(
 /** The state line's held rows: "{model} · waiting on you" (the longest state word). */
 export const stateRows = (model: string, width: number): number =>
   rowsOf(model ? `${model} · ${STATE_WORDS.waiting}` : STATE_WORDS.waiting, "", width);
+
+/** 3.6.0.15 F1: the rows a line takes at `width` when it breaks at its spaces, as a group's counts line does (greedy,
+ *  perRow characters a row; a word longer than a row breaks inside it, as `overflow-wrap: anywhere` does; a no-break
+ *  space never breaks). NOW's rows stay rowsOf's. */
+export function wrapRows(text: string, width: number): number {
+  const per = perRow(width);
+  let rows = 1, used = 0;
+  for (const word of text.split(" ")) {
+    if (used && used + 1 + word.length <= per) { used += 1 + word.length; continue; }
+    if (used) rows += 1;
+    rows += Math.max(0, Math.ceil(word.length / per) - 1);
+    used = word.length % per || (word.length ? per : 0);
+  }
+  return rows;
+}
+const COST_CH = 8; // the cost part of the longest form: "<$0.0001", "$0.0400", "$123.45" all fit eight characters
+const COUNTED = ["running", "queued", "waiting", "done", "stopped", "failed"]; // every raw state countParts counts
+const standIn = (raws: string[], ended: number): AutoGroup => ({ n: 0, key: "", by: "task", name: "", first: 0,
+  members: raws.map((raw, i) => ({ aid: `${i}`, parent: "", who: "", description: "", model: "", state: "idle", raw, cost: 1,
+                                    reason: "", made: false, started: 1, ended })) });
+/** F1: the counts line's held rows for a group of `members` at text `width`: the rows of its LONGEST form (every part
+ *  present, each count written as `members`, the cost eight characters) or of its all-done form at "59 min". */
+export function countsRows(members: number, width: number): number {
+  const k = Math.max(1, members), cost = "$".padEnd(COST_CH, "0");
+  const parts = countParts(standIn(COUNTED, 0)).map((p) => p.text);
+  const all = [...parts.slice(0, -1).map((t) => t.replace(/^\d+/, String(k))), cost].join(" · ");
+  const done = doneLine(standIn(Array(k).fill("done"), 1 + 59 * 60)).replace(/\S*\$\S*/, cost);
+  return Math.max(wrapRows(all, width), wrapRows(done, width));
+}
 
 /** NOW `now` in a text `width` with its kept rows, `held` while the drawing is held: the words drawn and the rows kept. */
 export function nowFit(now: { text: string; secs: string }, width: number, kept: Kept, held: boolean): Fit {

@@ -36,6 +36,7 @@ MODS = {
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
     "slot": "routes/agents/liveSlot.ts", "now": "routes/crew/map/nowLine.ts", "room": "routes/crew/map/nowRoom.ts",
     "turn": "routes/crew/map/turnWords.ts", "rings": "routes/crew/map/rings.ts", "fold": "routes/crew/map/foldRule.ts",
+    "fmt": "routes/orchestra/format.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -453,23 +454,23 @@ out.member = [g.memberLine(D.m1), g.memberState(D.m1)];
 out.bare = [g.memberLine(D.m2), g.memberState(D.m2)];
 out.third = g.startedBy("researcher", "read report A");
 out.more = g.moreMembers(2);
-out.span = [g.span(59), g.span(60), g.span(125), g.money(0.1)];
+out.span = [g.span(59), g.span(60), g.span(125), M.fmt.cost(0.1)];
 console.log(JSON.stringify(out));"""
-    got = _run(["gw"], js, {"groups": {"three": three, "each": each, "one": one, "done": done},
+    got = _run(["gw", "fmt"], js, {"groups": {"three": three, "each": each, "one": one, "done": done},
                             "m1": _m("a", desc="read report A"), "m2": _m("b", "done", who="agent", model="")})
-    ctx.check(f"3 working at $0.04, got {got['three']['line']!r}", got["three"]["line"] == "3 agents · 3 working · $0.04")
+    ctx.check(f"3 working at $0.0400, got {got['three']['line']!r}", got["three"]["line"] == "3 agents · 3 working · $0.0400")
     ctx.check(f"every part in order, failed its own (--bad) part, got {got['each']}",
-              got["each"]["line"] == "4 agents · 1 working · 1 waiting on you · 1 done · 1 failed · $0.50"
+              got["each"]["line"] == "4 agents · 1 working · 1 waiting on you · 1 done · 1 failed · $0.5000"
               and [p.get("bad", False) for p in got["each"]["parts"]] == [False, False, False, False, True, False]
               and [p.get("warn", False) for p in got["each"]["parts"]] == [False, False, True, False, False, False])
     ctx.check(f"one member: '1 agent', zero parts and a zero cost left out, got {got['one']['line']!r}",
               got["one"]["line"] == "1 agent · 1 working")
-    ctx.check(f"all done over 125 s: the done form, got {got['done']['line']!r}", got["done"]["line"] == f"3 agents · all done · $0.09 · 2{NB}min")
+    ctx.check(f"all done over 125 s: the done form, got {got['done']['line']!r}", got["done"]["line"] == f"3 agents · all done · $0.0900 · 2{NB}min")
     ctx.check(f"a member's two lines, got {got['member']}", got["member"] == ["researcher: read report A", "kimi-k3 · working"])
     ctx.check(f"no description: who alone; no model: the state alone, got {got['bare']}", got["bare"] == ["agent", "done"])
     ctx.check(f"the third line, got {got['third']!r}", got["third"] == "started by researcher: read report A")
     ctx.check(f"+2 more, got {got['more']!r}", got["more"] == "+2 more")
-    ctx.check(f"span and money, got {got['span']}", got["span"] == [f"59{NB}s", f"1{NB}min", f"2{NB}min", "$0.10"])
+    ctx.check(f"span, and an amount as the box heads write it, got {got['span']}", got["span"] == [f"59{NB}s", f"1{NB}min", f"2{NB}min", "$0.1000"])
 
 
 @test
@@ -543,9 +544,9 @@ const e = M.sit.stepIn({kind: "member", aid: "k3", text: "x"}, D.rec, null, gs);
 console.log(JSON.stringify({g4: M.gw.g4Lines(D.mem, %s), bare: M.gw.g4Lines(D.bare, %s), t, e}));""" % (T0 + 50, T0 + 99)
     got = _run(["og", "gw", "sit"], js, {"rows": rows, "rec": _rec(rows), "mem": mem, "bare": bare})
     ctx.check(f"G4 with a reason, got {got.get('g4')}",
-              got.get("g4") == ["read report A", "researcher on kimi-k3", "Why this model: code work; tools; mid budget", f"working · $0.01 · 40{NB}s"])
+              got.get("g4") == ["read report A", "researcher on kimi-k3", "Why this model: code work; tools; mid budget", f"working · $0.0100 · 40{NB}s"])
     ctx.check(f"G4 without one (and no model; an ended member's own time), got {got.get('bare')}",
-              got.get("bare") == ["fix it", "coder", "Why this model: named by main or by your settings", f"done · $0.00 · 5{NB}s"])
+              got.get("bare") == ["fix it", "coder", "Why this model: named by main or by your settings", f"done · $0.0000 · 5{NB}s"])
     t, e = got.get("t") or {}, got.get("e") or {}
     ctx.check(f"the member's card: the same why line, its who, the member live, got {t}",
               t.get("id") == "member:k1" and t.get("title") == "researcher" and t.get("why") == "Why this model: code work; tools; mid budget"
@@ -565,7 +566,7 @@ const l = M.sit.stepIn({kind: "line", from: "main", to: "group:2", text: "x", of
 console.log(JSON.stringify({g3: M.gw.g3Lines(gs[0]), at: M.tw.clock(gs[0].first), c, l}));"""
     got = _run(["og", "gw", "sit", "tw"], js, {"rows": rows, "rec": _rec(rows)})
     ctx.check(f"G3, got {got.get('g3')}", got.get("g3") == ["compare", f"Started by main at {got.get('at')}", "researcher · kimi-k3 · working",
-                                                            "researcher · kimi-k3 · done", "coder · waiting on you", "$0.09"])
+                                                            "researcher · kimi-k3 · done", "coder · waiting on you", "$0.0900"])
     c = got.get("c") or {}
     ctx.check(f"the group's card: its name, a row per LIVE member in start order, got {c}",
               c.get("id") == "group:2" and c.get("title") == "compare" and [w.get("aid") for w in c.get("who") or []] == ["k1", "k3"])
@@ -945,21 +946,21 @@ def test_a_number_keeps_its_unit(ctx: Ctx):
     done = _grp(2, [_m("k1", "done", who="coder", desc="fix the login form", cost=0.02, t=10, ended=10)], "fix the login bug")
     slow = _grp(3, [_m("k2", "done", t=10, ended=200), _m("k3", "done", t=20, ended=4000)], "x")
     js = """const g = M.gw;
-console.log(JSON.stringify({spans: [0, 1, 59, 60, 125, 3599, 7200].map((s) => g.span(s)), money: [g.money(0), g.money(0.02), g.money(12.5)],
+console.log(JSON.stringify({spans: [0, 1, 59, 60, 125, 3599, 7200].map((s) => g.span(s)), money: [M.fmt.cost(0), M.fmt.cost(0.02), M.fmt.cost(12.5)],
   lines: [g.doneLine(D.done), g.countsLine(D.done), g.countsLine(D.slow), ...g.g4Lines(D.m, %s), ...g.g3Lines(D.done)]}));""" % (T0 + 50)
-    got = _run(["gw"], js, {"done": done, "slow": slow, "m": _m("k4", cost=0.01, t=10)})
+    got = _run(["gw", "fmt"], js, {"done": done, "slow": slow, "m": _m("k4", cost=0.01, t=10)})
     spans, money, lines = got.get("spans") or [], got.get("money") or [], got.get("lines") or []
     ctx.check(f"every span is the number, a no-break space and its unit, got {spans!r}",
               len(spans) == 7 and all(re.fullmatch(r"\d+\u00a0(s|min|h)", x) for x in spans))
     src = (SRC / "routes" / "crew" / "map" / "groupWords.ts").read_text(encoding="utf-8")
     ctx.check("the source writes the no-break space as an escape that can be seen (\\u00a0), never the bare character",
               'const NB = "\\u00a0";' in src and "\u00a0" not in src)
-    ctx.check(f"the cost has no inner space, got {money!r}", money == ["$0.00", "$0.02", "$12.50"])
+    ctx.check(f"the cost has no inner space, got {money!r}", money == ["$0.0000", "$0.0200", "$12.50"])
     torn = [x for x in lines if re.search(r"\d (s|min|h)\b", x)]
     ctx.check(f"no line holds an ordinary space between a number and its unit, got {torn!r} of {lines!r}", lines and not torn)
     ctx.check(f"the done group's line, the facts still joined by ' · ', got {lines[:1]!r}",
-              lines[:1] == [f"1 agent · all done · $0.02 · 0{NB}s"])
-    ctx.check(f"a slow group's time in minutes, got {lines[2:3]!r}", lines[2:3] == [f"2 agents · all done · $0.00 · 66{NB}min"])
+              lines[:1] == [f"1 agent · all done · $0.0200 · 0{NB}s"])
+    ctx.check(f"a slow group's time in minutes, got {lines[2:3]!r}", lines[2:3] == [f"2 agents · all done · $0.0000 · 66{NB}min"])
 
 
 @test
@@ -1126,6 +1127,74 @@ console.log(JSON.stringify({held: [r.heldRows(204), r.heldRows(156), r.heldRows(
     member = (SRC / "routes/crew/map/GroupMember.tsx").read_text(encoding="utf-8")
     ctx.check("GroupMember holds map-member-state's rows from stateRows and NOW's from its kept rows",
               "minHeight: stateRows(m.model" in member and "minHeight: fit.rows * 17" in member)
+
+
+@test
+def test_counts_line_holds_its_longest_rows_from_the_first_draw(ctx: Ctx):
+    """3.6.0.15 F1: a group's counts line holds, from the group's first draw, the rows its LONGEST form takes at the width
+    the group has (every part present, the cost eight characters, the all-done form at "59 min"); a part that joins later
+    never adds a row. The narrow width is read from layoutDown at Session's drawer narrowest (clientWidth 360)."""
+    steps = [[_m("a", "working"), _m("b", "working")],
+             [_m("a", "working"), _m("b", "working", raw="queued")],
+             [_m("a", "working"), _m("b", "waiting")],
+             [_m("a", "done", t=1, ended=9), _m("b", "waiting")],
+             [_m("a", "done", t=1, ended=9, cost=0.0004), _m("b", "waiting", cost=0.0002)],
+             [_m("a", "done", t=1, ended=9, cost=0.0004), _m("b", "failed", cost=0.0002)],
+             [_m("a", "done", t=1, ended=9, cost=0.0004), _m("b", "done", t=2, ended=3500, cost=0.0002)]]
+    js = """const v = M.lit.autoView(M.view.view(D.auto, [], []), [{n: 1, key: "task:a", by: "task", name: "a", members: [], first: 1}]);
+const at = (cw) => M.lit.groupBox(M.ld.layoutDown(v, () => 80, cw).boxes.find((b) => b.id === M.lit.groupId(1)).w).inner;
+const narrow = at(360), wide = M.lit.groupBox(760).inner;
+const lines = D.steps.map((ms) => M.gw.countsLine({n: 1, key: "task:a", by: "task", name: "a", members: ms, first: 1}));
+console.log(JSON.stringify({narrow, wide, lines, rows: lines.map((l) => M.room.wrapRows(l, narrow)),
+  held: [1, 2, 3, 8, 12].map((k) => M.room.countsRows(k, narrow)), heldWide: M.room.countsRows(2, wide),
+  wrap: [M.room.wrapRows("aaa bbb", 7 * 7.2 + 1), M.room.wrapRows("aaa bbb", 6 * 7.2 + 1), M.room.wrapRows("x".repeat(30), 24 * 7.2 + 1),
+         M.room.wrapRows("aaaa 1\\u00a0bbbbb", 6 * 7.2 + 1), M.room.wrapRows("a b c", 1 * 7.2 + 1)]}));"""
+    got = _run(["view", "lit", "ld", "gw", "room"], js, {"auto": AUTO, "steps": steps})
+    lines, rows, held = got.get("lines") or [], got.get("rows") or [], got.get("held") or []
+    ctx.check(f"the narrow group's text width is read from the drawer's layout (176 at clientWidth 360), got {got.get('narrow')}",
+              got.get("narrow") == 176)
+    ctx.check(f"the rows a line takes when it breaks at its spaces: 1, 2, a long word broken inside (2), a no-break space "
+              f"never breaks (3), one character a row (3), got {got.get('wrap')}", got.get("wrap") == [1, 2, 2, 3, 3])
+    ctx.check(f"unheld, the counts line takes more rows as parts join (the fault), got {list(zip(lines, rows))}",
+              len(rows) == len(steps) and rows[0] == 1 and max(rows) > rows[0])
+    ctx.check(f"held from the first draw: countsRows(2, narrow) {held[1:2]} is at least every line's rows {rows}",
+              len(held) == 5 and rows and held[1] >= max(rows))
+    ctx.check(f"more members never hold fewer rows, got {held}", held == sorted(held))
+    ctx.check(f"at a wide group (Agents -> Live) the line holds one row, got {got.get('heldWide')}", got.get("heldWide") == 1)
+    block = (SRC / "routes/crew/map/GroupBlock.tsx").read_text(encoding="utf-8")
+    ctx.check("GroupBlock holds map-group-counts' rows from countsRows, in a kept ref that never shrinks at the width the "
+              "group has (a new width takes its rows anew)",
+              "countsRows(g.members.length, box.inner)" in block and "minHeight: rows * 17" in block
+              and "Math.max(kept.current.rows" in block and "kept.current.w !== b.w" in block)
+
+
+@test
+def test_a_cost_above_zero_never_reads_zero(ctx: Ctx):
+    """3.6.0.15 F5: every amount a group's words write comes from the box heads' formatter (orchestra/format.ts `cost`),
+    which writes "<$0.0001" for an amount above zero under $0.00005; nothing above zero reads as zero."""
+    pair = _grp(1, [_m("a", "working", cost=0.0004, t=1), _m("b", "working", cost=0.0002, t=2)], "x")
+    done = _grp(2, [_m("a", "done", cost=0.0004, t=1, ended=5), _m("b", "done", cost=0.0002, t=2, ended=6)], "y")
+    tiny = _m("c", "working", cost=0.00003, t=1)
+    none = _grp(3, [_m("a", "done", t=1, ended=5)], "z")
+    js = """const g = M.gw, f = M.fmt;
+console.log(JSON.stringify({line: g.countsLine(D.pair), done: g.countsLine(D.done), g3: g.g3Lines(D.pair).slice(-1)[0],
+  g4: g.g4Lines(D.tiny, %s).find((l) => l.startsWith("working")), none: g.countsLine(D.none), zero: [g.countsLine(D.zero)],
+  fmt: [f.cost(0), f.cost(null), f.cost(0.00003), f.cost(0.00005), f.cost(0.0004), f.cost(0.04), f.cost(12.5)]}));""" % (T0 + 9)
+    got = _run(["gw", "fmt"], js, {"pair": pair, "done": done, "tiny": tiny, "none": none,
+                                   "zero": _grp(4, [_m("a", "working")], "w")})
+    ctx.check(f"a group that cost $0.0006: its counts line, got {got.get('line')!r}", got.get("line") == "2 agents · 2 working · $0.0006")
+    ctx.check(f"its all-done line, got {got.get('done')!r}", got.get("done") == f"2 agents · all done · $0.0006 · 5{NB}s")
+    ctx.check(f"G3's cost line, got {got.get('g3')!r}", got.get("g3") == "$0.0006")
+    ctx.check(f"G4 for a member that cost $0.00003, got {got.get('g4')!r}", got.get("g4") == f"working · <$0.0001 · 8{NB}s")
+    ctx.check(f"nothing spent: the all-done line writes the formatter's zero, got {got.get('none')!r}",
+              got.get("none") == f"1 agent · all done · $0.0000 · 4{NB}s")
+    ctx.check(f"nothing spent: no cost part on the counts line, got {got.get('zero')!r}", got.get("zero") == ["1 agent · 1 working"])
+    ctx.check(f"cost: zero and nothing known stay $0.0000; above zero under $0.00005 '<$0.0001'; four decimals under $1, two "
+              f"from $1, got {got.get('fmt')}",
+              got.get("fmt") == ["$0.0000", "$0.0000", "<$0.0001", "$0.0001", "$0.0004", "$0.0400", "$12.50"])
+    src = (SRC / "routes/crew/map/groupWords.ts").read_text(encoding="utf-8")
+    ctx.check("groupWords writes amounts with orchestra/format's cost, no formatter of its own",
+              'from "../../orchestra/format"' in src and "toFixed" not in src)
 
 
 @test

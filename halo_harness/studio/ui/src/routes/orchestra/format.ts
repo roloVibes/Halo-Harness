@@ -23,6 +23,8 @@ export function when(mode: "relative" | "absolute", elapsedS: number, ts: number
 
 export function cost(usd: number | null | undefined): string {
   const v = Number(usd) || 0;
+  // 3.6.0.15 F5: an amount above zero never reads as zero (as live/spend.ts spendText writes it)
+  if (v > 0 && v < 0.00005) return "<$0.0001";
   return v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(4)}`;
 }
 

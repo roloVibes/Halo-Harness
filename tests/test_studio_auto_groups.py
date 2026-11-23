@@ -23,6 +23,7 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
 10. (r/batch04, tests/helpers/studio_auto_room.py) On Auto Session's drawing takes the whole room of its drawer from the
    first draw at 1280 x 800 and 1440 x 900, group 1's head in view; on a map of his the released height. A helper's card
    lies inside the drawer and its Send is in view or brought into view by the card's own scroll.
+11. (3.6.0.15 F1) At the drawer's narrowest no box moves when a group's counts take a part (a wait, an end, a cost).
 Run: python -m tests.test_studio_auto_groups
 """
 from __future__ import annotations
@@ -133,7 +134,7 @@ def test_group_head_and_members_grow_never_clip(ctx: Ctx):
     ctx.check(f"no ellipsis, no text under 12 px, got {d.get('ell')} {d.get('small')}", d.get("ell") == 0 and d.get("small") == 0)
     ctx.check(f"the 60-character name whole, got {d.get('name')!r}", d.get("name") == "compare the three quarterly reports and write the summary now")
     ctx.check(f"five count parts, the failed one in --bad, got {d.get('counts')!r} {d.get('bad')!r}",
-              d.get("counts") == "5 agents · 2 working · 1 waiting on you · 1 done · 1 failed · $0.03" and d.get("bad") == "1 failed")
+              d.get("counts") == "5 agents · 2 working · 1 waiting on you · 1 done · 1 failed · $0.0300" and d.get("bad") == "1 failed")
     ctx.check(f"the why line, got {d.get('why')!r}", bool(d.get("why")))
     ctx.check(f"the child of a child's third line, got {d.get('third')!r}",
               d.get("third") == "started by researcher: compare the three quarterly reports and write the summary now")
@@ -164,7 +165,7 @@ def test_hover_and_click_say_why_this_model(ctx: Ctx):
     g4 = d.get("g4") or []
     ctx.check(f"hover a member: G4, got {g4}",
               g4[:3] == ["read report A", "researcher on kimi-k3", "Why this model: code work; tools; mid budget"]
-              and len(g4) == 5 and g4[3].startswith("working · $0.01 · ")
+              and len(g4) == 5 and g4[3].startswith("working · $0.0100 · ")
               and g4[4].startswith("Now: waiting for a model reply · "))  # 3.6.0.13 L2a: the hover adds NOW's whole words
     card = d.get("card") or {}
     ctx.check(f"its card: the same why line, the member marked, got {card}",
@@ -419,6 +420,35 @@ def test_a_helpers_card_stays_inside_the_drawer(ctx: Ctx):
         ctx.check(f"{size}: Send in view ({shown}) or brought into view by the card's own scroll ({after}), got send "
                   f"{o.get('send')} / {s.get('send')} in {o.get('vis')}, scroll {o.get('scroll')} -> {s.get('scroll')}",
                   shown or (after and (s.get("scroll") or [0])[0] > 0))
+
+
+def _moved(first: dict, now: dict) -> list:
+    """The boxes (and members' tops) of `now` more than 1 px from where `first` had them, or missing."""
+    return [(k, first.get(k), now.get(k)) for k in first
+            if not now.get(k) or len(now[k]) != len(first[k]) or any(abs(x - y) > 1 for x, y in zip(first[k], now[k]))]
+
+
+@test
+def test_no_box_moves_when_a_groups_counts_take_a_part(ctx: Ctx):
+    """3.6.0.15 F1: at Session's drawer narrowest a group's counts line holds, from its first draw, the rows of its longest
+    form, so when a member waits on an ask, one ends and a cost arrives (under a resting pointer, then with the pointer
+    gone) no box of the drawing moves: main's, the two groups', the members' tops. Both motion settings."""
+    d = _ran(ctx, "countsstill")
+    ctx.check(f"the drawer at its narrowest lays one member a row (data-per 1), got {d.get('per')!r} at {d.get('drawer')}",
+              d.get("per") == "1")
+    runs = d.get("runs") or []
+    ctx.check(f"both motion settings ran, got {[r.get('motion') for r in runs]}", [r.get("motion") for r in runs] == ["reduce", "no-preference"])
+    for run in runs:
+        steps, first, m = run.get("steps") or [], run.get("first") or {}, run.get("motion")
+        said = [s.get("counts", "") for s in steps]
+        ctx.check(f"({m}) the parts joined as driven, got {said}",
+                  len(said) == 4 and said[0] == "2 agents · 1 working · 1 waiting on you"
+                  and said[1] == "2 agents · 1 waiting on you · 1 done" and said[2] == "2 agents · 1 waiting on you · 1 done · $0.0006")
+        ctx.check(f"({m}) main, both groups and the members were read at the first draw, got {sorted(first)}",
+                  {"main", "group:1", "group:2", "member c1", "member c2", "member c3"} <= set(first))
+        moved = [(s.get("step"), _moved(first, s.get("places") or {})) for s in steps]
+        ctx.check(f"({m}) no box moved by more than 1 px as the parts joined (first {first}), moved: {[x for x in moved if x[1]]}",
+                  bool(first) and not any(x[1] for x in moved))
 
 
 if __name__ == "__main__":

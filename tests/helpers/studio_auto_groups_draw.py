@@ -24,6 +24,8 @@ No model is called.
             group 1's rect in each state
     longest (batch 7-8, last: it narrows the drawer) Session's slot with the 60-character sample of ordinary letters,
             then a 25-character name, each with a two-digit count, at the default drawer width and at its narrowest
+    countsstill (3.6.0.15 F1) the drawer at its narrowest: a group's counts take a part (a wait, an end, a cost) under a
+            resting pointer, then the pointer leaves: where every box is after each, in both motion settings
 
     python -m tests.helpers.studio_auto_groups_draw [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -501,6 +503,15 @@ def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
     drawer = f"{SLOT}?.closest('[data-testid=stage-drawer]')"
     _set(rows, a, [main, *_sixteen("done")])
     c.wait(f"!({named(SAMPLE)}) && !({named(SHORT)})", 20)
+    out["drawer"] = _narrow(c, drawer)
+    pair("narrow_", SAMPLE)
+    pair("narrow_short_", SHORT)
+    return {"longest": out}
+
+
+def _narrow(c, drawer: str) -> list:
+    """Drag Session's drawer to its least width (as tests/helpers/studio_run_parts.py drags it): [its width, its minimum]."""
+    from tests.helpers.studio_run_parts import settled
     for _ in range(3):
         sp = c.js(f"""(() => {{ const d = {drawer};
           const s = d?.querySelector(':scope > [data-testid=stage-splitter]'); if (!s) return null; const r = s.getBoundingClientRect();
@@ -510,10 +521,62 @@ def longest(c, rig, rows: Rows, a: str, b: str) -> dict:
         c.drag(sp[0], sp[1], sp[0] + (-600 if sp[2] == "left" else 600), sp[1])
         c.mouse("mouseMoved", 1279, 799)
         settled(c, f"Math.round({drawer}?.getBoundingClientRect().width || 0)")
-    out["drawer"] = c.js(f"[Math.round({drawer}?.getBoundingClientRect().width || 0), +({drawer}?.querySelector(':scope > [data-testid=stage-splitter]')?.getAttribute('aria-valuemin') || 0)]")
-    pair("narrow_", SAMPLE)
-    pair("narrow_short_", SHORT)
-    return {"longest": out}
+    return c.js(f"[Math.round({drawer}?.getBoundingClientRect().width || 0), +({drawer}?.querySelector(':scope > [data-testid=stage-splitter]')?.getAttribute('aria-valuemin') || 0)]")
+
+
+# 3.6.0.15 F1: what each box of the drawing is where: [data-box] rects, a member's top
+COUNTS = f"((n) => ({GROUP})(n)?.querySelector('[data-testid=map-group-counts]')?.textContent || '')"
+PLACES = f"""(() => {{ const r = {{}};
+  for (const e of {M}.querySelectorAll('[data-box]')) r[e.dataset.box] = ({RECT})(e).map((x) => Math.round(x));
+  for (const e of {M}.querySelectorAll('[data-member]')) r['member ' + e.dataset.member] = [Math.round(e.getBoundingClientRect().top)];
+  return r; }})()"""
+# the point the pointer rests on: inside the drawing, right of main's box, on no box
+REST = f"""(() => {{ const m = {M}, r = m.getBoundingClientRect(), b = m.querySelector('[data-box=main]').getBoundingClientRect();
+  return [Math.min(r.right, innerWidth) - 6, b.top + b.height / 2]; }})()"""
+
+
+def _pair(a: str, b: str, cost: float = 0.0) -> list:
+    return [member("c1", "researcher", "read report A", "compare the two reports", 1, state=a, cost=round(cost * 2 / 3, 6)),
+            member("c2", "researcher", "read report B", "compare the two reports", 1, state=b, cost=round(cost / 3, 6))]
+
+
+def countsstill(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """3.6.0.15 F1: Session's drawer at its narrowest, a group of two helpers under main and a second group under it, the
+    pointer resting on the drawing; a member waits on an ask, one ends, a cost arrives (each step waits for the counts
+    words that name it), then the pointer leaves: where every box is after each, in both motion settings."""
+    from tests.helpers.studio_run_parts import settled
+    out: dict = {"runs": []}
+    main = _main(rows, a)
+    second = [member("c3", "coder", "fix the login form", "fix the login bug", 2, model="glm-5")]
+    _open(c, rig, rows, a, b, "auto", True, [main, *_pair("running", "running"), *second])
+    c.wait(f"!!({GROUP})(2) && ({GROUP})(1)?.querySelectorAll('[data-member]').length === 2", 20)
+    out["drawer"] = _narrow(c, f"{M}?.closest('[data-testid=stage-drawer]')")
+    out["per"] = c.js(f"({GROUP})(1)?.querySelector('.mp-group-members')?.dataset.per || ''")
+    steps = (("waits", _pair("running", "waiting"), "waiting on you"), ("ends", _pair("done", "waiting"), "1 done"),
+             ("cost", _pair("done", "waiting", 0.0006), "$"))
+    try:
+        for motion in ("reduce", "no-preference"):
+            c.call("Emulation.setEmulatedMedia", features=[{"name": "prefers-reduced-motion", "value": motion}])
+            _set(rows, a, [main, *_pair("running", "running"), *second])
+            c.wait(f"{COUNTS}(1) === '2 agents · 2 working'", 20)
+            c.mouse("mouseMoved", 1279, 799)
+            settled(c, PLACES)
+            rest = c.js(REST)
+            c.mouse("mouseMoved", rest[0], rest[1])
+            run = {"motion": motion, "first": settled(c, PLACES), "steps": []}
+            for tag, agents, want in steps:
+                _set(rows, a, [main, *agents, *second])
+                try:
+                    c.wait(f"{COUNTS}(1).includes({json.dumps(want)})", 15)
+                except TimeoutError:
+                    pass  # the reading says what it showed
+                run["steps"].append({"step": tag, "counts": c.js(f"{COUNTS}(1)"), "places": settled(c, PLACES)})
+            c.mouse("mouseMoved", 1279, 799)
+            run["steps"].append({"step": "left", "counts": c.js(f"{COUNTS}(1)"), "places": settled(c, PLACES)})
+            out["runs"].append(run)
+    finally:
+        c.call("Emulation.setEmulatedMedia", features=[])
+    return {"countsstill": out}
 
 
 # k/batch02 entry 1: main's states on Auto, each with what its box's rows then say (the fullest: a two-line row and the
@@ -570,7 +633,7 @@ class AutoGroupsDriver(MapDownDriver):
             rows = Rows(rig)
             collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, heights, mainstill, longest)
+            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, heights, mainstill, longest, countsstill)
                      if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
