@@ -43,6 +43,8 @@ RESTART_EXIT_CODE = 91
 # whatever this is set to with no edit of its own needed.
 CACHE_TTL_S = 3600
 
+CHECK_TIMEOUT_S = 5  # the update check's `git ls-remote`: its budget (3.6.0.17 Z1: then its whole tree ends)
+
 _UNSET = object()
 _TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$")  # v3.0.1 and v3.0.1.0 alike
 RAW_BASE = "https://raw.githubusercontent.com/roloVibes/Halo-Harness"
@@ -57,13 +59,50 @@ def _quote_for_shell(path: str) -> str:
     return f'"{path}"' if path and (" " in path or "\t" in path) else path
 
 
-def run(cmd, **kwargs):
+def run(cmd, *, stop: Optional[Callable[[], bool]] = None, **kwargs):
     """The one subprocess seam this module uses -- tests monkeypatch
-    `halo_harness.update.run`, never `subprocess.run` directly."""
+    `halo_harness.update.run`, never `subprocess.run` directly.
+
+    3.6.0.17 Z1: with `stop` (the update check's git, waiting on the network in
+    the background of a session) the program runs as `_run_tree` does."""
     kwargs.setdefault("capture_output", True)
     kwargs.setdefault("text", True)
     kwargs.setdefault("timeout", 10)
+    if stop is not None:
+        return _run_tree(cmd, stop, **kwargs)
     return subprocess.run(cmd, **kwargs)
+
+
+_SLICE_S = 0.1
+
+
+def _run_tree(cmd, stop: Callable[[], bool], *, timeout, capture_output: bool = False, **kw):
+    """3.6.0.17 Z1: `cmd` started through Halo's own spawn path (marked; in this process's Job on Windows), its own
+    process group on POSIX. When `timeout` runs out, or the moment `stop()` answers True (this halo is closing), its
+    whole tree ends -- the helper git starts for https included -- and TimeoutExpired is raised at once: never a wait
+    on a pipe that helper holds (a hanging network kept a closed Halo and both git processes alive)."""
+    if capture_output:
+        kw["stdout"] = kw["stderr"] = subprocess.PIPE
+    if os.name != "nt":
+        kw["start_new_session"] = True  # its own group: closing._signal_tree ends the group, the helper with it
+    p = subprocess.Popen(cmd, **kw)
+    end = time.monotonic() + float(timeout)
+    while True:
+        try:
+            out, err = p.communicate(timeout=max(0.0, min(_SLICE_S, end - time.monotonic())))
+            return subprocess.CompletedProcess(p.args, p.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            pass
+        if stop() or time.monotonic() >= end:
+            break
+    from halo_harness import closing
+    closing._signal_tree(p.pid, hard=True)  # Windows: taskkill /T /F of git's tree; POSIX: SIGKILL to its group
+    try:
+        p.kill()
+        p.wait(1.0)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    raise subprocess.TimeoutExpired(cmd, timeout)
 
 
 def http_get_json(url: str, *, timeout: float = 5.0) -> Optional[dict]:
@@ -540,17 +579,24 @@ def _parse_ls_remote(output: str, channel: str) -> Optional[dict]:
     return {"channel": channel, "commit": sha[:7], "ref": DEFAULT_BRANCH, "reason": None} if sha else None
 
 
+def _leaving() -> bool:
+    from halo_harness import closing
+    return closing.leaving()
+
+
 def _fetch_latest(channel: str, *, run_fn, fetch_json) -> dict:
     if shutil.which("git"):
         try:
             r = run_fn(["git", "ls-remote", "--heads", "--tags", REPO_URL],
-                       capture_output=True, text=True, timeout=5)
+                       capture_output=True, text=True, timeout=CHECK_TIMEOUT_S, stop=_leaving)
             if r.returncode == 0:
                 parsed = _parse_ls_remote(r.stdout, channel)
                 if parsed:
                     return parsed
         except (OSError, subprocess.SubprocessError):
             pass
+    if _leaving():  # 3.6.0.17 Z1: a closing halo asks nothing more
+        return {"channel": channel, "commit": None, "ref": None, "reason": "network unavailable"}
     if channel == "stable":
         data = fetch_json(f"{API_BASE}/tags", timeout=5)
         names = [t.get("name") for t in data if isinstance(t, dict)] if isinstance(data, list) else []

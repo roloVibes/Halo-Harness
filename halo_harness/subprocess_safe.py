@@ -155,7 +155,10 @@ def _win_run(args, *, input=None, capture_output=False, timeout=None, check=Fals
             out, err = p.communicate(input, timeout=timeout)
         except _sp.TimeoutExpired as exc:
             p.kill()
-            exc.stdout, exc.stderr = p.communicate()
+            try:  # 3.6.0.17 Z1: a grandchild still holding the pipes (git's https helper) is never waited on
+                exc.stdout, exc.stderr = p.communicate(timeout=1.0)
+            except _sp.TimeoutExpired:
+                p.stdout = p.stderr = None  # their reader threads hold them: a close here would wait on those reads
             raise
         except BaseException:
             p.kill()

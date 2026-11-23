@@ -267,6 +267,12 @@ def stop_asked() -> bool:
     return bool(_STATE.get("closed") or _STATE.get("owner_gone") or _STATE.get("hard_exit") is not None)
 
 
+def leaving() -> bool:
+    """3.6.0.17 Z1: this halo is on its way out from the quit on (its deadline armed), or stop_asked(): a wait that is
+    no part of the way out (the update check's git) ends now, so the thread it holds never holds the exit."""
+    return _STATE.get("deadline") is not None or stop_asked()
+
+
 def _chosen_browsers(url: str, value: Optional[str] = None) -> list:
     """The BROWSER a person set, read as Python's webbrowser reads it: entries split by os.pathsep, each a program
     given the URL as its last argument (its path kept whole), or a command line whose %s is the URL. [] when unset."""

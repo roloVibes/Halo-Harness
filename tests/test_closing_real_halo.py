@@ -90,6 +90,69 @@ def test_a_real_halo_init_killed_hard_takes_its_studio_with_it(ctx: Ctx):
     _check(ctx, HOW[2])
 
 
+GONE_S = 5.0  # 3.6.0.17 Z1: a closed session is gone this long after its last key, its git with it
+
+
+def _session_while_the_check_hangs(c: "core.Ctx") -> dict:
+    """A real terminal session (bare `halo`) in a scratch home with no update cache: its update check at the start
+    runs the stand-in `git` (tests/helpers/hanging_git.py: a hanging network), which is still waiting when the session
+    is ended with Ctrl+C (its "Quit Halo?" answered with Enter, as a person does)."""
+    import os
+    from realcheck import screen
+    from realcheck.steps_close import _noter
+    from tests.helpers import hanging_git
+    h = c.home("session")
+    folder = hanging_git.make(h.dir / "git-standin")
+    trace = h.dir / "close-trace.txt"
+    env = c.env(h, PATH=f"{folder}{os.pathsep}{os.environ.get('PATH', '')}", HALO_NO_UPDATER="1",
+                BRIDGE_TEST_NO_BACKGROUND_NET=None, HALO_OFFLINE=None, HALO_CLOSE_TRACE=str(trace))
+    t = c.terminal(h, env=env)
+    row: dict = {}
+    rows: list = []
+    try:
+        end = time.monotonic() + 90
+        while time.monotonic() < end and t.poll() is None:
+            rows = hanging_git.seen(folder)
+            if rows and screen.READY.search(t.plain()):
+                break
+            time.sleep(0.2)
+        row["standins"] = rows
+        row["standins_alive"] = hanging_git.alive(rows)
+        if not (rows and screen.READY.search(t.plain())):
+            row["not_up"] = core.excerpt(t.plain(), 300) or f"exit {t.poll()}"
+            return row
+        time.sleep(1.0)  # keys typed the moment the status line shows may not be taken (the realcheck re-presses then)
+        row["keys"] = _end(c, t, HOW[0], full_screen=True, note=_noter(trace))
+        end = time.monotonic() + GONE_S
+        while t.poll() is None and time.monotonic() < end:
+            time.sleep(0.1)
+        row["halo_alive_after"] = t.poll() is None
+        row["standins_alive_after"] = hanging_git.wait_gone(rows, max(0.0, end - time.monotonic()))
+        row["left"] = [f"{p.short(110)} [{p.why}]" for p in c.left_after(h, 0.5)]
+        return row
+    finally:
+        hanging_git.end(rows or hanging_git.seen(folder))
+        t.cleanup()
+        c.end_leftovers(h)
+
+
+@test
+def test_z1_a_session_closed_while_its_update_check_hangs_is_gone_with_its_git(ctx: Ctx):
+    """3.6.0.17 Z1 (a): the closing rule while the network hangs: the Halo process gone within GONE_S of the Ctrl+C,
+    and neither git nor its helper alive then (by pid and start time)."""
+    c = core.Ctx(REPO, Path(tempfile.mkdtemp(prefix="rc-close-z1-")))
+    try:
+        row = _session_while_the_check_hangs(c)
+    finally:
+        c.close()
+    ctx.check(f"the session came up and its update check's git and helper ran (not a vacuous check), got {row}",
+              "not_up" not in row and len(row["standins_alive"]) == 2)
+    ctx.check(f"{row.get('keys')}: the Halo process gone within {GONE_S:.0f} s, got {row}", not row["halo_alive_after"])
+    ctx.check(f"{row.get('keys')}: no stand-in git left {GONE_S:.0f} s after the close, got {row}",
+              not row["standins_alive_after"])
+    ctx.check(f"{row.get('keys')}: nothing started under the scratch home left, got {row['left']}", not row["left"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

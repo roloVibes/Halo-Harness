@@ -716,6 +716,117 @@ def test_relaunch_halo_on_windows_waits_for_a_real_child_instead_of_execv(ctx: C
         ctx.check(f"sys.exit carried call_fn's own return code, got {e.code}", e.code == 7)
 
 
+def _fetch_beside(folder: Path, answers: list, called: list):
+    """`_fetch_latest` with the module's own `run` (no fake) and the hanging stand-in `git` first on PATH, on a thread
+    of the test's own (daemon: a red run never holds the suite); the HTTP fallback is a counter, never the network."""
+    import threading
+
+    def fetch_json(url, **_kw):
+        called.append(url)
+        return None
+
+    def go():
+        answers.append(upd._fetch_latest("main", run_fn=upd.run, fetch_json=fetch_json))
+    th = threading.Thread(target=go, name="z1-fetch", daemon=True)
+    th.start()
+    return th
+
+
+@test
+def test_z1_the_check_ends_gits_whole_tree_at_its_budget_and_never_waits_on_its_helper(ctx: Ctx):
+    """3.6.0.17 Z1 (b): a hanging network (git's helper holds its pipes and sleeps): the check returns within its budget
+    plus a little (a slow runner's taskkill), with no answer, and no stand-in process is left, the helper included."""
+    from tests.helpers import hanging_git
+    folder = hanging_git.make(_tmp() / "bin")
+    saved = os.environ.get("PATH")
+    os.environ["PATH"] = f"{folder}{os.pathsep}{saved or ''}"
+    rows: list = []
+    try:
+        answers: list = []
+        t0 = time.monotonic()
+        th = _fetch_beside(folder, answers, [])
+        rows = hanging_git.wait_seen(folder, upd.CHECK_TIMEOUT_S)
+        ctx.check(f"the stand-in git and its helper ran (not a vacuous check), got {rows}",
+                  len(rows) == 2 and len(hanging_git.alive(rows)) == 2)
+        th.join(upd.CHECK_TIMEOUT_S + 3.0)
+        took = time.monotonic() - t0
+        ctx.check(f"the check returned within its budget ({upd.CHECK_TIMEOUT_S} s) and a little, took {took:.1f} s",
+                  not th.is_alive() and took <= upd.CHECK_TIMEOUT_S + 3.0)
+        ctx.check(f"no answer, as an unreachable network gives, got {answers}",
+                  bool(answers) and answers[0].get("commit") is None)
+        left = hanging_git.wait_gone(rows, 1.0)
+        ctx.check(f"no stand-in process left (git's helper included), alive: {left} of {rows}", not left)
+    finally:
+        hanging_git.end(rows or hanging_git.seen(folder))
+        if saved is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = saved
+
+
+@test
+def test_z1_a_closing_halo_ends_the_checks_git_at_once_and_asks_no_further(ctx: Ctx):
+    """3.6.0.17 Z1: the moment this halo is on its way out (a quit armed its deadline), the check's git ends, its whole
+    tree, and the check asks nothing more (no HTTP fallback): long before a budget made long for this test."""
+    from halo_harness import closing
+    from tests.helpers import hanging_git
+    folder = hanging_git.make(_tmp() / "bin")
+    saved_path, saved_budget, saved_deadline = os.environ.get("PATH"), upd.CHECK_TIMEOUT_S, closing._STATE.get("deadline")
+    os.environ["PATH"] = f"{folder}{os.pathsep}{saved_path or ''}"
+    upd.CHECK_TIMEOUT_S = 60
+    rows: list = []
+    try:
+        answers: list = []
+        called: list = []
+        th = _fetch_beside(folder, answers, called)
+        rows = hanging_git.wait_seen(folder, 30.0)
+        ctx.check(f"the stand-in git and its helper ran (not a vacuous check), got {rows}",
+                  len(rows) == 2 and len(hanging_git.alive(rows)) == 2)
+        t0 = time.monotonic()
+        closing._STATE["deadline"] = time.monotonic() + closing.QUIT_BUDGET_S  # what a quit's arm_close_deadline sets
+        th.join(10.0)
+        took = time.monotonic() - t0
+        ctx.check(f"the check returned soon after the quit began (budget 60 s), took {took:.1f} s",
+                  not th.is_alive() and took <= 4.0)
+        ctx.check(f"a closing halo asks nothing more (no HTTP fallback), asked: {called}", not called)
+        left = hanging_git.wait_gone(rows, 1.0)
+        ctx.check(f"no stand-in process left (git's helper included), alive: {left} of {rows}", not left)
+    finally:
+        closing._STATE["deadline"] = saved_deadline
+        upd.CHECK_TIMEOUT_S = saved_budget
+        hanging_git.end(rows or hanging_git.seen(folder))
+        if saved_path is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = saved_path
+
+
+@test
+def test_z1_the_check_answers_as_before_when_the_network_answers(ctx: Ctx):
+    """3.6.0.17 Z1 (4): a git that answers at once: the same answer through the module's own `run` as before."""
+    folder = _tmp() / "bin"
+    folder.mkdir(parents=True)
+    line = "2222222222222222222222222222222222222222\trefs/heads/master"
+    script = folder / "git_answers.py"
+    script.write_text(f"import sys\nprint({line!r}) if 'ls-remote' in sys.argv else sys.exit(1)\n", encoding="utf-8")
+    if os.name == "nt":
+        (folder / "git.cmd").write_text(f'@"{sys.executable}" "{script}" %*\r\n', encoding="utf-8")
+    else:
+        (folder / "git").write_text(f"#!{sys.executable}\n" + script.read_text(encoding="utf-8"), encoding="utf-8")
+        (folder / "git").chmod(0o755)
+    saved = os.environ.get("PATH")
+    os.environ["PATH"] = f"{folder}{os.pathsep}{saved or ''}"
+    try:
+        r = upd._fetch_latest("main", run_fn=upd.run, fetch_json=lambda *a, **k: None)
+        ctx.check(f"the answer is read as before, got {r}",
+                  r == {"channel": "main", "commit": "2222222", "ref": "master", "reason": None})
+    finally:
+        if saved is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = saved
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

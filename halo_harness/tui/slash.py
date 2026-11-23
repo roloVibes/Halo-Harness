@@ -882,9 +882,12 @@ def update_check_startup_worker(app) -> None:
         return
     from halo_harness import update as upd
     build = upd.installed_build()
-    avail = upd.latest_available(upd.default_channel(build), state_dir=state_dir)
-    if not avail.get("commit") or not build.get("commit") or avail["commit"] == build["commit"]:
+    from halo_harness import closing
+    if closing.leaving():  # 3.6.0.17 Z1: a closing halo starts no check
         return
+    avail = upd.latest_available(upd.default_channel(build), state_dir=state_dir)
+    if closing.leaving() or not avail.get("commit") or not build.get("commit") or avail["commit"] == build["commit"]:
+        return  # Z1: nor anything after it (ahead_of_offer may run git) once it is on its way out
     from halo_harness.update_cli import older_release
     if older_release(build, avail, avail.get("channel") or upd.default_channel(build)):
         return  # 3.6.0.0 R13: an older release is not an update
