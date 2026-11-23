@@ -316,6 +316,14 @@ def test_a_pause_set_on_a_waiting_helper_is_on_its_row_until_resume(ctx: Ctx):
                   not any(r.get("pause_set") for r in tree.public_rows()))
     finally:
         tree.controls.resume(None)
+    tree.controls.pause("helper-2", "Studio")
+    ctx.check("a pause set on the grandchild is on its row", tree.row("helper-2").get("pause_set") is True)
+    n = len(frames)
+    tree.ended("helper-2")
+    sent = [d for a, d in frames[n:] if a == "helper-2"]
+    ctx.check(f"an agent that ended holds no set pause (its button reads Pause again), got {tree.row('helper-2').get('pause_set')}, "
+              f"frames {[d.get('pause_set') for d in sent]}",
+              tree.row("helper-2").get("pause_set") is False and bool(sent) and sent[-1].get("pause_set") is False)
 
 
 if __name__ == "__main__":

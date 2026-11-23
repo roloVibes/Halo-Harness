@@ -113,6 +113,7 @@ class ObserveMixin:
             stopped = self.controls.stop_record(aid) is not None
             row["state"] = "stopped" if stopped else END_STATE.get(self._reason.pop(aid, None), "done")
             row["current"] = ""
+            row["pause_set"] = False  # 3.6.0.15 F3: an agent that ended holds no pause a Resume could take back
             if aid != self.root_id:  # 3.6.0.15 F4: the end time goes out with the end state (not main: since = session)
                 row["ended"] = time.time()
             self._inflight.pop(aid, None)
