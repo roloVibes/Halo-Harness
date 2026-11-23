@@ -522,6 +522,39 @@ console.log(JSON.stringify(f && h ? {
 
 
 @test
+def test_a_groups_model_row_reserves_its_longest_heading(ctx: Ctx):
+    """3.6.0.16 U4 (the coordinator's ruling): on a group's card the MODEL row is as tall, from the first draw, as its
+    LONGEST member's heading needs: `headRoom(id, kept, names)` gives the headings of every member the card has named, as
+    invisible sizers in the heading's cell (never shrinking: a helper that joins may grow it once); a member's and main's
+    card get none, so they are unchanged by a pixel."""
+    js = """const r = M.mb.headRoom;
+console.log(JSON.stringify(r ? {member: r("member:k1", [], ["sorter"]), main: r("box:main", [], ["main"]),
+  group: r("group:1", [], ["sorter", "a-much-longer-helper-name"]), joined: r("group:1", ["MODEL of sorter"], ["sorter", "Judge"]),
+  left: r("group:1", ["MODEL of sorter", "MODEL of Judge"], ["sorter"])} : {}));"""
+    got = _run(["mb"], js, None)
+    ctx.check(f"a member's and main's card: no sizer, got {got.get('member')} {got.get('main')}", got.get("member") == [] and got.get("main") == [])
+    ctx.check(f"a group's card: every member's heading, got {got.get('group')}",
+              got.get("group") == ["MODEL of sorter", "MODEL of a-much-longer-helper-name"])
+    ctx.check(f"a helper joins: its heading added; one leaves: kept (never shrinks), got {got.get('joined')} {got.get('left')}",
+              got.get("joined") == ["MODEL of sorter", "MODEL of Judge"] and got.get("left") == ["MODEL of sorter", "MODEL of Judge"])
+    src = (SRC / "routes/crew/map/StepInModel.tsx").read_text(encoding="utf-8")
+    ctx.check("StepInModel.tsx: the sizers are hidden from the reader (aria-hidden) in the heading's cell",
+              "mp-step-in-model-sizer" in src and 'aria-hidden="true"' in src)
+
+
+@test
+def test_the_model_rows_hold_only_an_answers_height(ctx: Ctx):
+    """3.6.0.16 U5 (the coordinator's ruling): the rows' kept height is taken from the first draw of an ANSWER (a read
+    that worked), never from "reading" and never from the error row: an error row holds nothing (`holdsRoom`)."""
+    js = """const h = M.mb.holdsRoom, a = {kind: "MINE", name: "sorter", model: "auto", first: "", line: "a line", can: true, now: true};
+console.log(JSON.stringify(h ? [h(null), h("reading"), h({error: "busy"}), h(a)] : null));"""
+    got = _run(["mb"], js, None)
+    ctx.check(f"null, reading and an error hold nothing; an answer holds its rows' height, got {got}", got == [False, False, False, True])
+    src = (SRC / "routes/crew/map/StepInModel.tsx").read_text(encoding="utf-8")
+    ctx.check("StepInModel.tsx keeps the height only of an answer's draw (`holdsRoom(got)`)", "holdsRoom(got)" in src)
+
+
+@test
 def test_the_model_request_ends_with_the_sheet(ctx: Ctx):
     """O2-5, O2-8: ONE GET of crew/agent-model, sent at the block's first open (never at the sheet's click), aborted and
     its answer dropped when the sheet goes; no timer (the 1 s wait went with the sheet's wait for it); no interval; its

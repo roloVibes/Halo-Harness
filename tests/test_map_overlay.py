@@ -17,6 +17,7 @@ No model, no browser. Run: python -m tests.test_map_overlay
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -339,6 +340,24 @@ console.log(JSON.stringify({ queued, drawn: { events: n(), ups: globalThis.__ups
     ctx.check(f"litStore's entry heard map_hop and, the tab hidden, queued three frames: nothing drawn, no animation frame asked, got {q}",
               q == {"handlers": 1, "events": 0, "ups": 0, "rafs": 0})
     ctx.check(f"the timer drew all three in one update, still with no animation frame, got {d}", d == {"events": 3, "ups": 1, "rafs": 0})
+
+
+@test
+def test_a_boxs_words_name_a_tool_without_raw_arguments(ctx: Ctx):
+    """3.6.0.16 U1: on a map of his a box's NOW words follow the ONE rule (truthToolWords.ts, re-exported by truth.ts): a tool
+    whose arguments are raw JSON is named alone; a built-in's short form still reads "Bash ls -la"."""
+    js = """const m = await import(%s), tw = await import(%s), t = await import(%s);
+const map = %s, now = %s;
+const said = (cur) => m.overlay(map, [{agent_id: 'c1', parent: 'main', name: 'coder', state: 'running', kind: 'subagent', current: cur}], [], now).boxes.code.doing;
+const curs = ['mcp__srv__slow_tool {"seconds": 30}', 'Bash: ls -la', 'mcp__srv__many ["a"]', 'Bash: [ -f x ]'];
+console.log(JSON.stringify({box: curs.map(said), one: t.toolWords === tw.toolWords}));"""
+    got = _node(js, TS.resolve().as_uri(), (TS.parent / "truthToolWords.ts").resolve().as_uri(), (TS.parent / "truth.ts").resolve().as_uri(),
+                MAP, T0 + 5)
+    ctx.check(f"a box's words: the MCP tool alone, Bash's short form, the list-argument tool alone, a built-in's bracket kept, got {got}",
+              got.get("box") == ["mcp__srv__slow_tool", "Bash ls -la", "mcp__srv__many", "Bash [ -f x ]"])
+    ctx.check(f"truth.ts's toolWords is the one in truthToolWords.ts (one rule in one place), got {got.get('one')}", got.get("one") is True)
+    src = (TS.parent / "truthToolWords.ts").read_text(encoding="utf-8") if (TS.parent / "truthToolWords.ts").exists() else ""
+    ctx.check("truthToolWords.ts is pure: it imports nothing", bool(src) and not re.search(r"^\s*import\b", src, re.M))
 
 
 @test

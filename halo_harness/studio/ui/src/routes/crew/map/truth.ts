@@ -197,17 +197,9 @@ export type Status = {
   off: number; // hand-offs outside the map (0 on starter: there every hand-off is main's pick)
 };
 
-// 3.6.0.15 F12: a tool followed by its raw JSON arguments (agent_transcript.py tool_label's form when no argument says what
-// it does: an MCP tool's `{"seconds": 30}`) is named alone, as a box's NOW names it (nowLine.ts: the raw name). A JSON
-// object or array opens with `{"`, `{}`, `["`, `[{` or `[]`, so a built-in's short form ("Bash: [ -f x ]") reads as before.
-const RAW_ARGS = /^([^\s:{[]+):?\s+(?:\{["}]|\[["{\]])/;
-
-/** On what (R23): a row's `current` in a few words: "Bash: ls -la" reads "Bash ls -la"; a tool with raw JSON arguments
- *  reads as its name alone. */
-export function toolWords(current: string): string {
-  const raw = RAW_ARGS.exec(current);
-  return raw ? raw[1] : current.replace(/^([A-Za-z_]+):\s*/, "$1 ").trim();
-}
+// On what (R23): a row's `current` in a few words, the ONE rule (3.6.0.15 F12): its own pure file since 3.6.0.16 U1, so the
+// lit map's overlay.ts follows it too; every importer of toolWords from here stays as it is.
+export { toolWords } from "./truthToolWords";
 
 /** R23: one status line; who = the rows working now only. */
 export function statusLine(s: Status): string {

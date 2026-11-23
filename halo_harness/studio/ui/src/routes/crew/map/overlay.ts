@@ -3,7 +3,7 @@
 // (crew/map_events.py: map_hop, map_step) -- to what the map draws over the boxes and lines he built: each box's state, what it does now and its cost;
 // the hand-off moving along the line the runtime's receipt named; an opened workflow box's steps; the helpers the
 // session made up, under the box that started them; and every row that matches nothing, shown in the strip (never
-// dropped). Agents -> 4 · Live and Session's drawing call it. No runtime imports but its pure sibling overlayBlocks.ts (tests/test_map_overlay.py runs both in node).
+// dropped). Agents -> 4 · Live and Session's drawing call it. No runtime imports but its pure siblings overlayBlocks.ts and truthToolWords.ts (tests/test_map_overlay.py runs them in node).
 //
 // 3.6.0.2 R14: a row tagged with a workflow (`crew.workflow`) is a step row of that workflow's block (overlayBlocks.ts),
 // whatever its name, before anything else; R15: every other child is a named row inside its box (`kids`); R17: on a map of
@@ -15,7 +15,8 @@
 // those claim is a helper made up for the task, under the box its parent row belongs to; a row whose parent belongs to
 // no box (or a tag naming a box the map no longer has) is a stranger: the strip shows it, tagged.
 
-import { blocksOf, type BlockLit } from "./overlayBlocks";
+import { blocksOf, str, type BlockLit } from "./overlayBlocks";
+import { toolWords } from "./truthToolWords";
 
 export type OvRow = {
   agent_id: string; parent?: string | null; name?: string | null; role?: string | null; state?: string | null; cost_usd?: number | null;
@@ -53,7 +54,6 @@ const LIVE = ["queued", "running", "paused"];
 const ANY = ["", "general-purpose"]; // the spec of a child made up for its task (R13)
 type Place = { box: string; helper: boolean; why: string; workflow?: string };
 const num = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
-const str = (v: unknown): string => (v == null ? "" : String(v));
 export { blocksOf, type BlockLit };
 export const lineKey = (from: string, to: string) => `${from}>${to}`;
 
@@ -80,7 +80,7 @@ export function doingOf(rows: OvRow[], state: BoxState): string {
   if (state === "waiting") return "waiting on you";
   if (state === "done" || state === "failed") return state === "done" ? "done" : "failed";
   const r = rows.find((x) => LIVE.includes(str(x.state)) && str(x.current)) || rows.find((x) => LIVE.includes(str(x.state)));
-  const cur = str(r?.current).replace(/^([A-Za-z_]+):\s*/, "$1 ").trim();
+  const cur = toolWords(str(r?.current).trim()); // the ONE rule: raw JSON arguments first, then a built-in's short form
   const words = cur && cur !== "thinking" ? cur : "thinking";
   return words; // 3.6.0.2 R10: whole; the box grows to hold it
 }

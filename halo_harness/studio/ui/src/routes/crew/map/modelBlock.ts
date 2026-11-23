@@ -41,6 +41,21 @@ export function headingOf(id: string, name: string): string {
   return id.startsWith("group:") ? `MODEL of ${name}` : "MODEL";
 }
 
+/** 3.6.0.16 U4 (controls hold still; a text is never cut): on a group's card the MODEL row reserves, from the card's first
+ *  draw, the room its LONGEST heading needs: the headings of every member the card has named (`kept`: it never shrinks,
+ *  a helper that joins may grow it once), drawn as invisible sizers in the shown heading's grid cell, so choosing a row
+ *  moves nothing under the pointer; nothing is measured in script. A member's and main's card: none (unchanged). */
+export function headRoom(id: string, kept: string[], names: string[]): string[] {
+  if (!id.startsWith("group:")) return [];
+  const out = [...kept];
+  for (const n of names) if (!out.includes(headingOf(id, n))) out.push(headingOf(id, n));
+  return out.length === kept.length ? kept : out;
+}
+
+/** 3.6.0.16 U5: the rows keep the height of the first draw of an ANSWER (a read that worked), never of "reading" nor of
+ *  the error row ("Could not read ..."): an error row holds nothing, so a read that answers after it holds its own. */
+export const holdsRoom = (got: ModelGot | null): boolean => !!got && got !== "reading" && !("error" in got);
+
 /** What a refused pick or Undo reads: the route's own line, else the page's "Not saved: {error}." (a pick) or, for Undo,
  *  the design's Undo refusal head, "Not undone: {error}.". */
 export function refusedLine(data: Record<string, unknown> | undefined, error: string, undo = false): string {

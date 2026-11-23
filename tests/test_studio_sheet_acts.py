@@ -301,6 +301,41 @@ def test_a_folded_groups_helper_can_still_be_given_a_model(ctx: Ctx):
               and (k.get("gets") or [0])[0] == 2 and k.get("open") is True)
 
 
+@test
+def test_choosing_a_row_never_moves_the_rows_of_a_groups_card(ctx: Ctx):
+    """3.6.0.16 U4 (the owner's rules: controls hold still; a text is never cut): on a group's card the MODEL row is as tall
+    as its longest member's heading needs from the first draw, so choosing a short name, a 60-character one and the short
+    one again moves neither [Change] nor any row, and the long heading is whole. Red on 602c5df6: the heading wrapped to
+    a second line and every row under it moved by a line."""
+    from tests.helpers.studio_sheet_acts_steps import LONG
+    d = _ran(ctx, "grouplong")
+    s, lg, ag = d.get("short") or {}, d.get("long") or {}, d.get("again") or {}
+    ctx.check(f"the short name's heading, then the long one's, then the short one's, got {s.get('head')!r} {lg.get('head')!r} {ag.get('head')!r}",
+              s.get("head") == "MODEL of sorter" and lg.get("head") == f"MODEL of {LONG}" and ag.get("head") == "MODEL of sorter")
+    ctx.check(f"two rows and [Change] read, got {len(s.get('rows') or [])} {s.get('toggle')}", len(s.get("rows") or []) == 2 and bool(s.get("toggle")))
+    for name, x in (("the long one", lg), ("the short one again", ag)):
+        ctx.check(f"{name} chosen: [Change] and every row where they were, got {s.get('toggle')} {s.get('rows')} -> {x.get('toggle')} {x.get('rows')}",
+                  _near(s.get("toggle"), x.get("toggle")) and len(x.get("rows") or []) == len(s.get("rows") or [])
+                  and all(_near(p, q) for p, q in zip(s.get("rows") or [], x.get("rows") or [])))
+    w = lg.get("whole") or []
+    ctx.check(f"the long heading is whole: no ellipsis, its scroll size its box's, got {w} {lg.get('ellipsis')}",
+              len(w) == 4 and w[0] <= w[1] and w[2] <= w[3] and lg.get("ellipsis") is False)
+
+
+@test
+def test_after_a_failed_read_the_rows_hold_the_answers_height(ctx: Ctx):
+    """3.6.0.16 U5: the MODEL block's rows keep the height of the first draw of an ANSWER, never of the error row: after a
+    failed read, Close, Change and an answer, the kept height is the answer's own. Red on 602c5df6: the error row's."""
+    from tests.helpers.studio_sheet_acts_steps import FAIL_WHY
+    d = _ran(ctx, "failread")
+    e, a = d.get("refused") or {}, d.get("answer") or {}
+    ctx.check(f"the failed read's row, holding nothing, got {e}",
+              (e.get("text") or "").startswith("Could not read this helper's agent: ") and FAIL_WHY in (e.get("text") or "") and e.get("kept") == "")
+    ctx.check(f"the answer's rows keep the answer's own height, got {a}",
+              not (a.get("text") or "").startswith("Could not") and bool(a.get("own"))
+              and (a.get("kept") == "" or abs(float(str(a.get("kept")).rstrip("px") or 0) - a["own"]) <= 0.5) and abs(a.get("h", 0) - a["own"]) <= 0.5)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

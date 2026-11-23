@@ -575,11 +575,38 @@ def test_the_drawer_head_holds_still_under_a_resting_pointer(ctx: Ctx):
               f"{[(u.get('head'), u.get('tools'), u.get('sc')) for u in under][:2]}",
               all(_same(b.get(k), u.get(k)) for u in under for k in ("head", "tools"))
               and all(_same((b.get("sc") or [])[:3], (u.get("sc") or [])[:3]) for u in under))
-    ctx.check(f"held short, the whole line is in the head's hover, got {[u.get('title') for u in under][:1]!r}",
-              all(u.get("title") == u.get("status") for u in under))
+    # 3.6.0.16 U3: the hover is on the status words' own box, never on the head (a button of the head keeps its own);
+    # red on 602c5df6: the head carried the line as its title
+    ctx.check(f"held short, the whole line is the hover of the status words' box and the head has none, got "
+              f"{[(u.get('said'), u.get('title')) for u in under][:1]!r}",
+              all(u.get("said") == u.get("status") and u.get("title") is None for u in under))
     h0, h1 = (b.get("head") or [0, 0, 0, 0])[3], (a.get("head") or [0, 0, 0, 0])[3]
-    ctx.check(f"the pointer left: the head took its rows ({h0} -> {h1}), its hover is its own again, got {a.get('held')!r} {a.get('title')!r}",
-              not a.get("held") and h1 > h0 + 1 and not a.get("title"))
+    ctx.check(f"the pointer left: the head took its rows ({h0} -> {h1}), neither the head nor the words' box has a hover, got "
+              f"{a.get('held')!r} {a.get('title')!r} {a.get('said')!r}",
+              not a.get("held") and h1 > h0 + 1 and a.get("title") is None and a.get("said") is None)
+
+
+@test
+def test_the_wait_link_holds_still_under_a_resting_pointer(ctx: Ctx):
+    # 3.6.0.16 U2 (the head's rule, for the slot under the drawing): the pointer rests on the drawing and a helper starts
+    # waiting on a tool with a 100-character name: while held the slot keeps its rect and the drawing's scroll box its
+    # height, the link's words change in place (its hover holds the whole line); the pointer leaves: the slot takes its
+    # row and the link's words are whole. Red on 602c5df6: the slot took a row and the scroll box got shorter while held.
+    from tests.helpers.studio_session_map_down_draw import SLOW
+    d = _drew(ctx, "headhold")
+    b, under, a = d.get("before") or {}, d.get("under") or [], d.get("after") or {}
+    ctx.check(f"a wait link before the change and the long tool in it while held, got {b.get('wait')!r} {[u.get('wait') for u in under][:1]!r}",
+              bool(b.get("wait")) and len(under) == 6 and all(SLOW in (u.get("wait") or "") for u in under))
+    ctx.check(f"held: the slot kept its rect, got {b.get('below')} -> {[u.get('below') for u in under][:2]}",
+              all(_same(b.get("below"), u.get("below")) for u in under))
+    ctx.check(f"held: the drawing's scroll box kept its height, got {(b.get('sc') or [0] * 4)[3]} -> {[(u.get('sc') or [0] * 4)[3] for u in under][:2]}",
+              all(b.get("sc") and u.get("sc") and abs(b["sc"][3] - u["sc"][3]) <= 0.5 for u in under))
+    ctx.check(f"held short, the link's own hover holds its whole words, got {[u.get('wtitle') for u in under][:1]!r}",
+              all((u.get("wtitle") or "").startswith(u.get("wait") or "-") for u in under))
+    bh, ah = (b.get("below") or [0] * 4)[3], (a.get("below") or [0] * 4)[3]
+    ctx.check(f"the pointer left: the slot took its row ({bh} -> {ah}) and the link's words are whole, got {a.get('wait')!r} {a.get('wrow')}",
+              not a.get("held") and ah > bh + 1 and SLOW in (a.get("wait") or "") and bool(a.get("wrow"))
+              and a["wrow"][0] <= a["wrow"][1] + 0.5)
 
 
 @test

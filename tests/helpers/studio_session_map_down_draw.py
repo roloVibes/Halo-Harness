@@ -194,7 +194,11 @@ def hold(c, rig, rows, a) -> dict:
 # 3.6.0.15 F12: the drawer's head (the truth block, the status line, Open in Agents and the zoom) and the boxes, as rects
 HEAD_READ = f"""(() => {{ const m = {M}; if (!m) return null; const hd = m.querySelector('.mp-down-head'), st = m.querySelector('[data-testid=session-status]');
   const R = (e) => {{ if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }};
-  return {{held: m.dataset.held || '', head: R(hd), title: hd.title || '', status: st ? st.textContent : null, sh: st ? st.offsetHeight : 0,
+  const sb = m.querySelector('.mp-status-box'), wl = m.querySelector('[data-testid=session-map-below] [data-testid=run-wait]'),
+        wr = m.querySelector('[data-testid=session-map-below] .mp-wait-row');
+  return {{held: m.dataset.held || '', head: R(hd), title: hd.getAttribute('title'), said: sb ? sb.getAttribute('title') : null,
+          wait: wl ? wl.textContent : null, wtitle: wl ? wl.title : null, link: R(wl), wrow: wr ? [wr.scrollHeight, wr.clientHeight] : null,
+          status: st ? st.textContent : null, sh: st ? st.offsetHeight : 0,
           tools: R(m.querySelector('.mp-down-tools')), sc: R(m.querySelector('.mp-mini-scroll')), below: R(m.querySelector('[data-testid=session-map-below]')),
           boxes: [...m.querySelectorAll('[data-testid=session-lit-box]')].map((b) => [b.dataset.box, ...R(b)])}}; }})()"""
 SLOW = "mcp__srv__" + "slow_tool_" * 9  # a tool whose name alone (100 characters) needs a row more than the status line has

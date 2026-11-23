@@ -67,6 +67,9 @@
 /* 3.6.0.15 F12: while Session's drawing is held its head keeps its height (headHold.ts) and the status line the room it
    had when the hold began: new words change in place there, a row more is taken when the hold ends */
 .mp-head-held .mp-status-box { height: var(--mp-said-h); min-height: 0 !important; overflow: hidden; }
+/* 3.6.0.16 U2: the same rule for the slot under the drawing: held, it keeps its height (headHold.ts useDrawerHold) and
+   the wait link's row the room it had; the link's words change in place, its own hover holds the whole line */
+.mp-below-held > .mp-wait-row { height: var(--mp-said-h); overflow: hidden; }
 .mp-truth-form { position: absolute; top: 100%; right: 0; z-index: 5; width: min(380px, 100%); padding: var(--s-2);
   display: flex; flex-direction: column; gap: var(--s-2); background: var(--surface); border: 1px solid var(--line-strong);
   box-shadow: var(--glow); }
@@ -124,6 +127,13 @@
 .mp-step-in-model-lines { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .mp-step-in-model-btns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .mp-step-in-model-held { visibility: hidden; pointer-events: none; } /* Undo's room before a pick: its coming moves nothing */
+/* 3.6.0.16 U4: on a group's card the row's heading shares its grid cell with invisible sizers of every member's heading
+   (modelBlock.ts headRoom), so the row is as tall as the longest needs from the first draw: a name wraps whole, never cut,
+   and choosing a row moves nothing; [Change] / [Close] stays at the row's top right */
+.mp-step-in-model[data-room] { align-items: flex-start; }
+.mp-step-in-model-heads { display: grid; flex: 1 1 auto; min-width: 0; }
+.mp-step-in-model-heads > * { grid-area: 1 / 1; min-width: 0; overflow-wrap: anywhere; }
+.mp-step-in-model-sizer { visibility: hidden; pointer-events: none; }
 .mp-step-in-head { flex: none; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .mp-step-in-titlerow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-width: 0; }
 .mp-step-in-title { font-size: 13.5px; line-height: 19px; overflow-wrap: anywhere; }

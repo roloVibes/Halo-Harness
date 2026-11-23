@@ -39,7 +39,7 @@ import { sheetHead } from "./sheetPlace";
 import type { Target, Who } from "./stepInTarget";
 import { askRows, StepInAsks } from "./StepInAsk";
 import { saidWho, StepInSaid, useSaid } from "./StepInSaid";
-import { headingOf, modelFor } from "./modelBlock";
+import { headingOf, headRoom, modelFor } from "./modelBlock";
 import { StepInModel } from "./StepInModel";
 import { agentRow, endedAt, openInAgents, openMapAt } from "./truth";
 import { saidParts, whyThisModel, type Said } from "./truthBits";
@@ -90,6 +90,8 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const aid = modelFor(t.id, chosen?.aid || null); // the MODEL block: a member's, main's, a group's CHOSEN row's (O2-9)
   const met = useRef<string[]>([]); // every helper the block named on this card: each keeps its own while the card lives
   if (aid && !met.current.includes(aid)) met.current.push(aid);
+  const room = useRef<string[]>([]); // 3.6.0.16 U4: a group's MODEL row holds its longest member's heading's room, never shrinks
+  room.current = headRoom(t.id, room.current, t.who.map((w) => w.name));
   const m = groups?.flatMap((g) => g.members).find((x) => x.aid === (own || chosen?.aid));
   // a group's card says why its CHOSEN row got its model: the members of a folded group have no hover to say it
   const why = t.why || (t.id.startsWith("group:") && m ? whyThisModel(m.reason) : "");
@@ -143,7 +145,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
         )}
       </div>
       <div className="mp-step-in-body" data-testid="map-step-in-body">
-        {met.current.map((x) => <StepInModel key={x} sid={sid} aid={x} shown={x === aid} heading={headingOf(t.id, chosen?.name || "")} />)}
+        {met.current.map((x) => <StepInModel key={x} sid={sid} aid={x} shown={x === aid} heading={headingOf(t.id, chosen?.name || "")} room={room.current} />)}
         <StepInAsks who={t.who} part="open" seen={seen.current.ids} />
         {t.who.map((w) => <WhoRow key={w.key} w={w} chosen={w.key === pick} choose={() => setPick(w.key)} />)}
         <StepInSaid lines={parts.here} />

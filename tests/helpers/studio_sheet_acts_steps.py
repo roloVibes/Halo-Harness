@@ -25,6 +25,10 @@ The scene: main and one group of seven helpers, one of each kind (MINE `sorter`,
              chosen row's ("MODEL of {name}"), nothing asked; Change reads THAT helper; another row closes it, asks
              nothing; Change reads the second; back to the first, Change: its block at once, no read; a pick gives the
              folded group's helper a model; its line and Undo kept over another row's choice
+    grouplong (3.6.0.16 U4) a group of a short name and a 60-character one: choosing either row moves no row and not
+             [Change]; the long name's heading is whole
+    failread (3.6.0.16 U5) the first read of a helper's agent fails, Close, Change, the second answers: the rows keep
+             the answer's height, not the error row's
 
     python -m tests.helpers.studio_sheet_acts_steps [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -60,6 +64,8 @@ ROOTS = {"live": LW, "session": M}
 WRAP = """(() => { const f = window.fetch.bind(window); window.__modelGets = []; window.__modelHold = false; window.__modelWaits = [];
   window.fetch = (u, init) => { const s = String((u && u.url) || u), m = String((init && init.method) || 'GET').toUpperCase();
     if (m === 'GET' && s.includes('crew/agent-model')) { window.__modelGets.push(s);
+      if (window.__modelFail) { window.__modelFail = false; return Promise.resolve(new Response(JSON.stringify({ error: window.__modelFailWhy }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } })); }
       if (window.__modelHold) return new Promise((r) => window.__modelWaits.push(r)).then(() => f(u, init)); }
     return f(u, init); };
   window.__modelRelease = () => { window.__modelHold = false; const w = window.__modelWaits; window.__modelWaits = []; w.forEach((r) => r()); return w.length; };
@@ -528,7 +534,83 @@ def grouprow(c, rig, rows: Rows, a: str, b: str) -> dict:
     return _step("grouprow", run)
 
 
-STEPS = (kinds, picks, forms, door, closed, picker, grouprow)
+# ---- grouplong: choosing a row on a group's card never moves the rows (3.6.0.16 U4) ----------------------------------
+LONG = "basket-module-line-counter-who-tidies-every-file-in-the-tree"  # 60 characters, invented
+# the toggle's and every row's rect in the body's own frame (its scroll taken out), and the heading's whole-ness
+HOLD_READ = (f"(() => {{ const k = {SHEET['live']}, b = k?.querySelector('[data-testid=map-step-in-body]'); if (!b) return null;"
+             " const v = b.getBoundingClientRect(), R = (e) => { if (!e) return null; const r = e.getBoundingClientRect();"
+             " return [r.left - v.left, r.top - v.top + b.scrollTop, r.width, r.height]; };"
+             " const h = k.querySelector('[data-testid=map-step-in-model] .mp-step-in-model-head');"
+             " return { toggle: R(k.querySelector('[data-testid=map-step-in-model-toggle]')),"
+             " rows: [...b.querySelectorAll('[data-testid=map-step-in-row]')].map(R), head: h ? h.textContent : null,"
+             " whole: h ? [h.scrollWidth, h.clientWidth, h.scrollHeight, h.clientHeight] : null,"
+             " ellipsis: h ? getComputedStyle(h).textOverflow === 'ellipsis' : null }; })()")
+
+
+def grouplong(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """A group of a helper with a short name and one with a 60-character name, folded: on its card, choosing the short
+    one, the long one and the short one again moves neither [Change] nor any row; the long name is whole."""
+    def run(out: dict) -> None:
+        t0 = time.time() - 60
+        main = _main(rows, a, state="running", current="Agent: tidy the basket module", since=t0, started=t0)
+        kids = []
+        for aid, name in (("a1", "sorter"), ("a9", LONG)):
+            k = mk(aid, name, TASK, GROUP_TASK, 1, state="done", model=RUN, since=t0)
+            k["spawn"] = {**k["spawn"], "source": "user"}
+            kids.append(k)
+        go(c, rig, rows, a, b, [main, *kids])
+        rows.set(a, use_now=True)
+        c.wait(f"{M}.querySelectorAll('[data-member]').length >= 2", 20)
+        to_live(c, 1)
+        c.wait(f"!!{LW}.querySelector('[data-box=\"group:1\"]')?.hasAttribute('data-folded')", 30)
+        frames(c, 4)
+        open_on(c, "live", f"{LW}.querySelector('[data-box=\"group:1\"] [data-testid=map-group-name]')")
+        _choose(c, "a1")
+        out["short"] = c.js(HOLD_READ) or {}
+        _choose(c, "a9")
+        out["long"] = c.js(HOLD_READ) or {}
+        _choose(c, "a1")
+        out["again"] = c.js(HOLD_READ) or {}
+        close(c, "live")
+    return _step("grouplong", run)
+
+
+# ---- failread: a failed read, then a good one: the rows hold the ANSWER's height (3.6.0.16 U5) -------------------------
+# an invented refusal, taller than any answer's rows: on the base its height was kept for the answer
+FAIL_WHY = ("the agent store is busy right now and asked this card to come back later; this refusal is invented for the test "
+            "and long on purpose, so that its row takes many more lines of the card than the answer that comes after it, "
+            "which is what made the kept height wrong before: the rows held the error's height, not the answer's")
+LINES = (f"(() => {{ const l = {blk('live')}?.querySelector('[data-testid=map-step-in-model-line]'); if (!l) return null;"
+         " const kept = l.style.minHeight, h = l.offsetHeight; l.style.minHeight = ''; const own = l.offsetHeight; l.style.minHeight = kept;"
+         " return { kept: kept || '', h, own, text: l.textContent }; })()")
+
+
+def failread(c, rig, rows: Rows, a: str, b: str) -> dict:
+    def run(out: dict) -> None:
+        his_sorter(rig.state)
+        on_auto(c, rig, rows, a, b)
+        c.js(f"{box('live', 'a1')}.scrollIntoView({{block: 'nearest', inline: 'nearest'}}); 1")
+        frames(c, 3)
+        open_on(c, "live", box("live", "a1"))
+        c.js(f"window.__modelFailWhy = {json.dumps(FAIL_WHY)}; window.__modelFail = true; 1")
+        c.click_on(toggle("live"))
+        c.wait(line_is("live", "Could not read"), 20)
+        frames(c, 2)
+        out["refused"] = c.js(LINES) or {}
+        c.click_on(toggle("live"))
+        c.wait(f"!{blk('live')}", 10)
+        c.click_on(toggle("live"))
+        c.wait(drawn("live"), 20)
+        frames(c, 2)
+        out["answer"] = c.js(LINES) or {}
+        close(c, "live")
+    try:
+        return _step("failread", run)
+    finally:
+        c.js("window.__modelFail = false; 1")
+
+
+STEPS = (kinds, picks, forms, door, closed, picker, grouprow, grouplong, failread)
 
 
 class SheetActsDriver(LiveNowDriver):

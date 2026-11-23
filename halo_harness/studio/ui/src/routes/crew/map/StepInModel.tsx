@@ -17,7 +17,7 @@ import { ModelSelect } from "../../shared/ModelSelect";
 import { AUTO } from "../Form";
 import { openAgent } from "../store";
 import { saveAsAgent } from "./LitBits";
-import { blockParts, refusedLine, toggleParts, type After, type ModelAnswer, type ModelGot } from "./modelBlock";
+import { blockParts, holdsRoom, refusedLine, toggleParts, type After, type ModelAnswer, type ModelGot } from "./modelBlock";
 
 /** `got`: null until `ask()` (the block's first open), then "reading", the answer or its error. */
 export function useModel(sid: string, aid: string): { got: ModelGot | null; ask: () => void } {
@@ -42,8 +42,11 @@ export function useModel(sid: string, aid: string): { got: ModelGot | null; ask:
 type Answer = { line?: string; undo?: unknown };
 
 /** O2-9: on a group's card StepIn keeps one per helper the card named (keyed by its agent id): what it read, a pick's line
- *  and Undo's token stay while the card lives; only the chosen row's is `shown`, under `heading` ("MODEL of {name}"). */
-export function StepInModel({ sid, aid, heading = "MODEL", shown = true }: { sid: string; aid: string; heading?: string; shown?: boolean }) {
+ *  and Undo's token stay while the card lives; only the chosen row's is `shown`, under `heading` ("MODEL of {name}").
+ *  3.6.0.16 U4: `room` (a group's card: modelBlock.ts headRoom) are its members' headings, drawn invisible in the shown
+ *  heading's grid cell, so the row is as tall as the longest needs from the first draw and [Change] never moves. */
+export function StepInModel({ sid, aid, heading = "MODEL", shown = true, room = [] }:
+  { sid: string; aid: string; heading?: string; shown?: boolean; room?: string[] }) {
   const [open, setOpen] = useState(false); // a sheet opened anew starts closed
   if (!shown && open) setOpen(false); // another row chosen closes it, and asks nothing
   const { got, ask } = useModel(sid, aid);
@@ -55,7 +58,7 @@ export function StepInModel({ sid, aid, heading = "MODEL", shown = true }: { sid
   const id = useId();
   const lines = useRef<HTMLDivElement>(null);
   const held = useRef(0); // the rows' height at THEIR first draw (the answer's): a pick's shorter line moves nothing under them
-  useLayoutEffect(() => { if (!held.current && lines.current && got && got !== "reading") held.current = lines.current.offsetHeight; });
+  useLayoutEffect(() => { if (!held.current && lines.current && holdsRoom(got)) held.current = lines.current.offsetHeight; }); // U5: never the error row's
   const tp = toggleParts(open);
   const toggle = () => {
     if (!open) ask();
@@ -96,8 +99,13 @@ export function StepInModel({ sid, aid, heading = "MODEL", shown = true }: { sid
   if (!shown) return null;
   return (
     <>
-      <div className="mp-step-in-model" data-testid="map-step-in-model" data-aid={aid}>
-        <b className="mp-step-in-model-head">{heading}</b>
+      <div className="mp-step-in-model" data-testid="map-step-in-model" data-aid={aid} data-room={room.length ? "" : undefined}>
+        {room.length ? (
+          <span className="mp-step-in-model-heads">
+            <b className="mp-step-in-model-head">{heading}</b>
+            {room.map((h) => <b key={h} className="mp-step-in-model-head mp-step-in-model-sizer" aria-hidden="true">{h}</b>)}
+          </span>
+        ) : <b className="mp-step-in-model-head">{heading}</b>}
         <Button size="sm" data-testid="map-step-in-model-toggle" aria-expanded={tp.expanded} aria-controls={id} onClick={toggle}>{tp.word}</Button>
       </div>
       {open && parts && (

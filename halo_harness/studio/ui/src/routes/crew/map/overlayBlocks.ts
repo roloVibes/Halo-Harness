@@ -16,7 +16,7 @@ export type BlockLit = {
 };
 type St = StepRow["state"];
 
-const str = (v: unknown): string => (v == null ? "" : String(v));
+export const str = (v: unknown): string => (v == null ? "" : String(v)); // overlay.ts's too
 const RANK: Record<St, number> = { next: 0, working: 1, done: 2, failed: 2 };
 const further = (a: St, b: St): St => (RANK[b] > RANK[a] ? b : a);
 
