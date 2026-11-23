@@ -117,7 +117,8 @@ def test_a_make_fills_the_form_with_its_model(ctx: Ctx):
     got = driver_got(ctx, "tests.helpers.studio_crew", why="a made-up helper's Save as an agent, in headless Chrome", cache=_RUN,
                      key="made", args=("made",), timeout=420)
     m = got.get("made") or {}
-    want = f"Built from {m.get('helper')} on {m.get('model')}, not saved yet: read it, change what you like, then Save."
+    said = "Auto" if m.get("model") == "auto" else m.get("model")  # 3.6.0.15 O2-8: a body on auto reads "Auto"
+    want = f"Built from {m.get('helper')} on {said}, not saved yet: read it, change what you like, then Save."
     ctx.check(f"the note names the helper and the body's model, got {m}",
               bool(m.get("helper")) and bool(m.get("model")) and m.get("note") == want and m.get("line") == want)
     ctx.check(f"the filled form is his to change and Save, got {m.get('save')}", m.get("save") is True)

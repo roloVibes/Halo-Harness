@@ -122,7 +122,13 @@ def post_from_live(req):
     agent = body_for(srow, arow, cwd=cwd, also=req.cwd, kind=kind, facts=facts)
     return 200, {"agent": agent, "problems": agent_problems(agent),
                  "from": {"session": sid, "agent_id": aid, "name": arow.get("name"), "task": arow.get("task")},
-                 "line": BUILT.format(helper=arow.get("name"), model=agent.get("model"))}
+                 "line": BUILT.format(helper=arow.get("name"), model=_said_model(agent.get("model")))}
+
+
+def _said_model(model) -> str:
+    """How the Make note names the body's model (3.6.0.15 O2-8): `auto` is written "Auto", a model of his as it is;
+    store.ts fillFromLive writes the form's note the same way."""
+    return "Auto" if str(model or "").strip().lower() == "auto" else str(model)
 
 
 ROUTES: list = [("POST", r"^crew/from-live$", owner_only(post_from_live))]

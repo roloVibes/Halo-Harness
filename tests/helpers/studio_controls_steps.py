@@ -135,6 +135,14 @@ def _model_block(c, rig, rows, a: str, b: str, card) -> list:
     helper main made up: the form filled). His `sorter` is dropped after, so no later group sees it."""
     from tests.helpers import studio_sheet_acts_steps as SA
 
+    def shown(aid: str):  # O2-8: the sheet open, its MODEL block closed (one row: MODEL and Change)
+        def setup():
+            SA.his_sorter(rig.state)
+            SA.on_auto(c, rig, rows, a, b, view="session", w=1280, h=800)
+            c.js(f"{SA.box('session', aid)}.scrollIntoView({{block: 'nearest', inline: 'nearest'}}); 1")
+            SA.open_on(c, "session", SA.box("session", aid))
+        return setup
+
     def opened(aid: str):
         def setup():
             SA.his_sorter(rig.state)
@@ -148,6 +156,8 @@ def _model_block(c, rig, rows, a: str, b: str, card) -> list:
 
     try:
         return presses(c, [
+            ("the sheet: MODEL's Change", card("map-step-in-model-toggle"), shown("a1")),
+            ("the sheet: MODEL's Close", card("map-step-in-model-toggle")),
             ("the sheet: Model (its picker)", vis("[data-testid=map-step-in] [data-testid=map-step-in-model-select] [data-testid=model-select]"), opened("a1")),
             ("the sheet: Undo", card("map-step-in-model-undo"), picked),
             ("the sheet: Edit in Agents", card("map-step-in-model-edit")),

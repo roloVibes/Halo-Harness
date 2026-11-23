@@ -11,9 +11,10 @@ tests/helpers/node_ts.py (no browser, no model; runs anywhere).
 3. (O1-2) What folds the sheet (`sheetClose`) and where its unfold starts (`fromInset`, `insetOf`).
 4. (O1-6) Last said: the sheet opens at the GET's answer or at 1 s (`saidOpen`); its words (truthBits.ts `saidLines`,
    `saidParts`, `secsClock`); the one request ends with the sheet (a source check of StepInSaid.tsx).
-5. (3.6.0.15 O2-5) The MODEL block (modelBlock.ts `sheetReady`, `blockParts`, `modelAid`, `refusedLine`): the sheet waits
-   for both reads; each kind's controls and words; a group's sheet has none; its requests end with the sheet (a source
-   check of StepInModel.tsx).
+5. (3.6.0.15 O2-5, O2-8) The MODEL block (modelBlock.ts `toggleParts`, `blockParts`, `modelAid`, `refusedLine`): closed
+   until asked for (one row, "MODEL" and "Change"; its read sent from the open); the sheet waits for Last said alone;
+   each kind's controls and words; a group's sheet has none; its requests end with the sheet (a source check of
+   StepInModel.tsx).
 Every frame here is invented. Run: python -m tests.test_sheet_place
 """
 from __future__ import annotations
@@ -350,15 +351,51 @@ def test_the_said_request_ends_with_the_sheet(ctx: Ctx):
 
 
 @test
-def test_the_sheet_waits_for_both_reads(ctx: Ctx):
-    """O2-5: the sheet opens when Last said's GET and the MODEL GET have both answered; each side is `saidOpen`, so at
-    1 s both are and it opens (the times are given: no clock)."""
-    js = ("const r = [[false, false], [true, false], [false, true], [true, true]].map(([a, b]) => M.mb.sheetReady(a, b));"
-          "const at = (t) => M.mb.sheetReady(M.sp.saidOpen(true, t), M.sp.saidOpen(false, t));"
-          "console.log(JSON.stringify({r, at: [0, 999, 1000].map(at)}));")
+def test_the_sheet_waits_for_last_said_alone(ctx: Ctx):
+    """O2-8 (rewritten from O2-5's "waits for both reads"): the sheet no longer waits for the MODEL read, which is made
+    only when he opens the block: it opens when Last said's GET answers or at 1 s, 3.6.0.14's rule (`saidOpen`; the
+    times are given: no clock). `sheetReady`, `modelAt`, `early` and the block's late form (`data-late`) are gone."""
+    js = ("console.log(JSON.stringify({ready: typeof M.mb.sheetReady, at: [[true, 0], [false, 999], [false, 1000]].map(([a, t]) => M.sp.saidOpen(a, t))}));")
     got = _run(["sp", "mb"], js, None)
-    ctx.check(f"only both answered opens it, got {got.get('r')}", got.get("r") == [False, False, False, True])
-    ctx.check(f"one answered, the other not: closed till 1 s, then open, got {got.get('at')}", got.get("at") == [False, False, True])
+    ctx.check(f"modelBlock.ts has no sheetReady, got {got.get('ready')}", got.get("ready") == "undefined")
+    ctx.check(f"answered: open at once; not answered: closed till 1 s, then open, got {got.get('at')}", got.get("at") == [True, False, True])
+    src = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
+    ctx.check("StepIn.tsx: useSheet(where, t, said.ready, close)", "useSheet(where, t, said.ready, close)" in src)
+    for gone in ("sheetReady(", "modelAt", "early", "data-late", "late={", "useModel("):
+        ctx.check(f"StepIn.tsx has no {gone!r}", gone not in src)
+
+
+@test
+def test_the_model_block_is_closed_until_asked(ctx: Ctx):
+    """O2-8 (the owner's rule: a section he uses rarely is closed by default, opened by its button, and has a close
+    button): the block's toggle reads "Change" closed and "Close" open (`toggleParts`); until the GET answers the opened
+    block is ONE row "Reading this helper's agent..." with no picker and no button; the GET is sent from the open (the
+    toggle's handler calls `ask()`), never at the sheet's mount; while closed nothing of the block but its row is drawn;
+    the row is the body's first child."""
+    js = ("console.log(JSON.stringify({c: M.mb.toggleParts?.(false), o: M.mb.toggleParts?.(true), r: M.mb.blockParts('reading', null)}));")
+    got = _run(["mb"], js, None)
+    ctx.check(f"closed: Change, aria-expanded false, got {got.get('c')}", got.get("c") == {"word": "Change", "expanded": False})
+    ctx.check(f"open: Close, aria-expanded true, got {got.get('o')}", got.get("o") == {"word": "Close", "expanded": True})
+    r = got.get("r") or {}
+    ctx.check(f"reading: ONE row, no picker, no button, got {r}",
+              r.get("rows") == ["Reading this helper's agent..."] and r.get("picker") is False and r.get("btns") is False
+              and r.get("undoRoom") is False and r.get("edit") == r.get("make") == r.get("undo") == "" and r.get("first") == "")
+    p = SRC / "routes/crew/map/StepInModel.tsx"
+    src = p.read_text(encoding="utf-8") if p.is_file() else ""
+    ask = re.search(r"const ask = \(\) => \{(.*?)\n  \};", src, re.S)
+    ctx.check("the one api.get( is inside `ask`", bool(ask) and "api.get" in ask.group(1) and len(re.findall(r"\bapi\.get[<(]", src)) == 1)
+    ctx.check("no effect sends it at mount (no useEffect body holds api.get)",
+              not any("api.get" in m for m in re.findall(r"useEffect\(\(\) => \{(.*?)\n  \}", src, re.S)))
+    ctx.check("the toggle's handler asks on an open (`if (!open) ask();`)", "if (!open) ask();" in src)
+    ctx.check("a second open asks nothing more (`if (live.current) return;` in ask)", bool(ask) and "if (live.current) return;" in ask.group(1))
+    ctx.check("closed at first (`useState(false)`), the content drawn only while open (`{open && `)",
+              "useState(false)" in src and "{open && " in src)
+    ctx.check("the toggle: its test id, aria-expanded, aria-controls the content's id",
+              'data-testid="map-step-in-model-toggle"' in src and "aria-expanded={tp.expanded}" in src and "aria-controls={id}" in src)
+    st = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
+    body = st.split('data-testid="map-step-in-body">', 1)[-1].lstrip()
+    ctx.check("StepIn.tsx: the block's row is the body's first child, on a member's and main's sheet only",
+              body.startswith("{aid && <StepInModel sid={sid} aid={aid} />}") and "const aid = modelAid(t.id)" in st)
 
 
 def _kinds() -> dict:
@@ -408,18 +445,21 @@ console.log(JSON.stringify(out));"""
         ctx.check(f"{k}: no Undo before a pick, got {p.get('undo')!r}", p.get("undo") == "")
         # controls hold still (BUILDER-RULES): the button row is drawn from the first draw whenever it will hold a button,
         # and Undo's room is kept there whenever a pick can bring it, so neither Undo nor the row pushes anything later
+        # O2-8 (a): a pick for main has no Undo (its answer's undo is null), so MAIN keeps no room for one
+        room = bool(g["can"]) and k != "MAIN"
         ctx.check(f"{k}: the button row from the first draw when a button can be in it, got {p.get('btns')!r}",
-                  p.get("btns") is bool(g["can"] or k == "MINE" or k in made))
-        ctx.check(f"{k}: Undo's room held from the first draw when it can pick, got {p.get('undoRoom')!r}", p.get("undoRoom") is g["can"])
-    ctx.check(f"MAIN: its row (Undo's room) is there before a pick, got {got.get('MAIN')}",
-              (got.get("MAIN") or {}).get("btns") is True and (got.get("MAIN") or {}).get("undoRoom") is True)
+                  p.get("btns") is (room or k == "MINE" or k in made))
+        ctx.check(f"{k}: Undo's room held from the first draw when a pick can bring Undo, got {p.get('undoRoom')!r}", p.get("undoRoom") is room)
+    ctx.check(f"MAIN: no hidden Undo and no empty button row, got {got.get('MAIN')}",
+              (got.get("MAIN") or {}).get("btns") is False and (got.get("MAIN") or {}).get("undoRoom") is False)
     ctx.check(f"MINE's two rows, got {got.get('MINE', {}).get('rows')}", got.get("MINE", {}).get("rows") == two)
     e = got.get("error") or {}
     ctx.check(f"a failed GET: its one row, no picker, no button, got {e}",
               e.get("rows") == ["Could not read this helper's agent: no answer"] and e.get("picker") is False
               and e.get("edit") == e.get("make") == e.get("undo") == "" and e.get("heading") == "MODEL"
               and e.get("btns") is False and e.get("undoRoom") is False)
-    ctx.check(f"still reading: no block, got {got.get('reading')}", got.get("reading") is None)
+    ctx.check(f"still reading: its one row, got {got.get('reading')}",
+              (got.get("reading") or {}).get("rows") == ["Reading this helper's agent..."])
     p = got.get("picked") or {}
     ctx.check(f"after a pick: its line replaces the rows, first stays, Undo, got {p}",
               p.get("rows") == ["Made media-reader, an agent of yours on gpu-box:fast: main can start it now, unless it names a model itself."]
@@ -442,26 +482,28 @@ def test_a_groups_sheet_has_no_model_block(ctx: Ctx):
     ctx.check(f"member -> its helper, main -> main, every other -> null, got {got}",
               got == ["k1", "main", None, None, None, None, None])
     src = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
-    ctx.check("StepIn.tsx reads the model of modelAid(t.id), and waits for sheetReady(said, model)",
-              "useModel(sid, modelAid(t.id))" in src and "sheetReady(said.ready, model.ready)" in src)
-    p = SRC / "routes/crew/map/StepInModel.tsx"
-    m = p.read_text(encoding="utf-8") if p.is_file() else ""
-    ctx.check("useModel sends nothing for no agent (`if (!aid) return;`) and is ready at once (`!aid ||`)",
-              "if (!aid) return;" in m and "ready: !aid ||" in m)
+    ctx.check("StepIn.tsx draws the block for modelAid(t.id) only (none, and no request, on a group's sheet)",
+              "const aid = modelAid(t.id)" in src and "{aid && <StepInModel sid={sid} aid={aid} />}" in src)
 
 
 @test
 def test_the_model_request_ends_with_the_sheet(ctx: Ctx):
-    """O2-5: ONE GET of crew/agent-model at the click, aborted and its answer dropped when the sheet goes; one timer,
-    cleared; no interval; its POSTs (the pick, Undo) through `call(` with an abort signal."""
+    """O2-5, O2-8: ONE GET of crew/agent-model, sent at the block's first open (never at the sheet's click), aborted and
+    its answer dropped when the sheet goes; no timer (the 1 s wait went with the sheet's wait for it); no interval; its
+    POSTs (the pick, Undo) through `call(` with an abort signal. A close keeps the answer, the pick's line and Undo's
+    token: they live in StepInModel itself, beside the open state, not in a part a close takes out of the page."""
     p = SRC / "routes/crew/map/StepInModel.tsx"
     src = p.read_text(encoding="utf-8") if p.is_file() else ""
     ctx.check("StepInModel.tsx exists", bool(src))
     ctx.check("one api.get( of crew/agent-model with the session and the agent",
               len(re.findall(r"\bapi\.get[<(]", src)) == 1 and '"crew/agent-model", { session: sid, agent: aid }' in src)
-    ctx.check("its cleanup clears the timer, aborts the request and drops the answer",
-              "clearTimeout(" in src and ".abort(" in src and "dropped" in src)
-    ctx.check("no setInterval(", "setInterval(" not in src)
+    ctx.check("its cleanup aborts the read when the sheet goes, and an aborted answer is dropped",
+              "useEffect(() => () => live.current?.abort(), [])" in src and "ctl.signal.aborted ||" in src)
+    ctx.check("no timer and no interval (no setTimeout(, no setInterval()", "setTimeout(" not in src and "setInterval(" not in src)
+    comp = src.split("export function StepInModel", 1)[-1]
+    ctx.check("the open state, the answer, the pick's line and Undo's token live in StepInModel (a close keeps them)",
+              "useState(false)" in comp and "useModel(sid, aid)" in comp and "useState<After | null>(null)" in comp
+              and comp.count("export function") == 0)
     posts = re.findall(r'\bcall(?:<[^>]*>)?\("POST", "(crew/agent-model(?:/undo)?)"[^;]*?ctl\.signal\)', src)
     ctx.check(f"the pick and Undo POST through call( with the abort signal, got {posts}",
               sorted(posts) == ["crew/agent-model", "crew/agent-model/undo"])

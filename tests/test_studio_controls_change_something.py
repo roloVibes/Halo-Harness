@@ -33,7 +33,7 @@ SESSION = ["the pair: Running", "the pair: Just built", "Zoom out", "the zoom (1
            "the New session form's x", "↓ n more below", "a step row", "the card: Pause", "the card: Resume",
            "the card: steer field (Enter sends)", "the card: Stop", "Stop's confirm: Cancel", "the card: x", "a box",
            "the card: Open in Agents -> Live", "a line", "an off-map line's card: Open the map at main", "[Open in Agents -> Live]",
-           "the sheet: Model (its picker)", "the sheet: Undo", "the sheet: Edit in Agents", "the sheet: Make it an agent"]
+           "the sheet: MODEL's Change", "the sheet: MODEL's Close", "the sheet: Model (its picker)", "the sheet: Undo", "the sheet: Edit in Agents", "the sheet: Make it an agent"]
 MAP = ["[Watch it in Live]", "the map picker", "+ New map", "Make (a name it refuses)", "the error's Dismiss", "the new map's Cancel", "New sessions run on this", f"New sessions run on this ({SEVEN}, his map shop)",
        "Undo (the switch)", "Run a goal", "Lock", "Lock (off again)", "n new, not connected yet", "Undo (the box)", "[Open it]",
        "Zoom out", "the zoom (100%)", "Zoom in", "Fit", "the tab 1 · Agents",

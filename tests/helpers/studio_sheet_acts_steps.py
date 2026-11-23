@@ -15,7 +15,10 @@ The scene: main and one group of seven helpers, one of each kind (MINE `sorter`,
              they open, its note, the agents folder before and after
     door     main's pick through the door, `studio.live_agents_api.forward` stood in for main's three commands: a terminal,
              none, a refused ref, a busy session (what was sent each time)
-    late     the GET held in the page past 1 s: the sheet open without the block, then the block at the body's end
+    closed   (O2-8) the block closed until asked for: a member's sheet opens with ONE row, "MODEL" and [Change], nothing
+             else of the block and NO request for it; Change opens it (the read held in the page: "Reading this helper's
+             agent..."), ONE request; Close folds it, the row and everything above it still; Change again asks nothing;
+             a pick, then Close and Change: the pick's line and Undo kept
     picker   reduced motion: a click in the folded picker and Escape in its search box leave the sheet open; Escape after
              the picker closed folds it
 
@@ -34,7 +37,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
-from tests.helpers.studio_auto_groups_draw import LW, RECT  # noqa: E402
+from tests.helpers.studio_auto_groups_draw import LSCROLL, LW, RECT  # noqa: E402
 from tests.helpers.studio_live_now_steps import LiveNowDriver, frames, go, mk, to_live  # noqa: E402
 from tests.helpers.studio_session_map_down import Rows  # noqa: E402
 from tests.helpers.studio_session_run import M, _main  # noqa: E402
@@ -57,15 +60,31 @@ WRAP = """(() => { const f = window.fetch.bind(window); window.__modelGets = [];
     return f(u, init); };
   window.__modelRelease = () => { window.__modelHold = false; const w = window.__modelWaits; window.__modelWaits = []; w.forEach((r) => r()); return w.length; };
 })()"""
-BLOCK = ("((k) => { const b = k?.querySelector('[data-testid=map-step-in-model]'); if (!b) return null; const q = (t) => b.querySelector(`[data-testid=${t}]`);"
-         " return { kind: b.dataset.kind || '', late: b.hasAttribute('data-late'), head: b.querySelector('.mp-step-in-model-head')?.textContent || '',"
+# the opened block (O2-8: the content under the row `map-step-in-model`; its heading is the row's)
+BLOCK = ("((k) => { const b = k?.querySelector('[data-testid=map-step-in-model-content]'); if (!b) return null; const q = (t) => b.querySelector(`[data-testid=${t}]`);"
+         " return { kind: b.dataset.kind || '', head: k.querySelector('[data-testid=map-step-in-model] .mp-step-in-model-head')?.textContent || '',"
          " first: q('map-step-in-model-first')?.textContent ?? null, rows: [...(q('map-step-in-model-line')?.querySelectorAll(':scope > p') || [])].map((p) => p.textContent),"
          " select: !!q('map-step-in-model-select'), value: q('map-step-in-model-select')?.dataset.value ?? null,"
          " undo: q('map-step-in-model-undo')?.textContent ?? null, edit: q('map-step-in-model-edit')?.textContent ?? null,"
          " make: q('map-step-in-model-make')?.textContent ?? null, inBody: !!b.closest('[data-testid=map-step-in-body]'),"
          " fold: !!b.querySelector('[data-testid=model-select-fold]'), dialog: !!document.querySelector('[data-testid=model-select-dialog]') }; })")
-KIDS = ("((k) => { const b = k?.querySelector('[data-testid=map-step-in-body]'), R = " + RECT + "; return b ? [...b.children].map((e) =>"
-        " [e.dataset.testid || e.className || e.tagName, R(e)]) : null; })")
+# O2-8: the block's ONE row and what of the block is in the page; the rects of the row and of what is above it
+ROW = ("((k) => { const R = " + RECT + ", r = k?.querySelector('[data-testid=map-step-in-model]'), b = k?.querySelector('[data-testid=map-step-in-body]');"
+       " const t = r?.querySelector('[data-testid=map-step-in-model-toggle]'), d = (x) => !!document.querySelector(`[data-testid=${x}]`);"
+       " return r ? { first: b?.firstElementChild === r, head: r.querySelector('.mp-step-in-model-head')?.textContent || '', word: t?.textContent || '',"
+       " expanded: t?.getAttribute('aria-expanded') ?? null, btns: r.querySelectorAll('button').length,"
+       " controls: !!t && !!t.getAttribute('aria-controls'), controlled: !!t && !!document.getElementById(t.getAttribute('aria-controls') || ''),"
+       " content: d('map-step-in-model-content'), picker: d('map-step-in-model-select'), line: d('map-step-in-model-line'),"
+       " buttons: d('map-step-in-model-undo') || d('map-step-in-model-edit') || d('map-step-in-model-make'),"
+       " rect: R(r), headRect: R(k.querySelector('.mp-step-in-head')), actions: R(k.querySelector('[data-testid=map-step-in-actions]')) } : null; })")
+# the page's requests of crew/agent-model: the fetches made (WRAP) and the resources the page loaded
+GETS = "[window.__modelGets.length, performance.getEntriesByType('resource').filter((e) => e.name.includes('crew/agent-model')).length]"
+SIZES = (f"((k) => {{ const d = {LSCROLL}, m = {LW}.querySelector('[data-member=a1]');"
+         " const h = (q) => k?.querySelector(q)?.getBoundingClientRect().height ?? null, b = k?.querySelector('[data-testid=map-step-in-body]');"
+         " return { sheet: k ? k.getBoundingClientRect().height : null, drawing: d ? d.clientHeight : null,"
+         " member: m ? m.getBoundingClientRect().height : null, view: innerHeight, head: h('.mp-step-in-head'),"
+         " actions: h('[data-testid=map-step-in-actions]'), row: h('[data-testid=map-step-in-model]'), tog: h('[data-testid=map-step-in-model-toggle]'), body: b ? [b.clientHeight, b.scrollHeight] : null,"
+         " kids: b ? [...b.children].map((e) => [e.dataset.testid || e.className, Math.round(e.getBoundingClientRect().height)]) : null }; })")
 FORM = ("(() => { const n = document.querySelector('[data-testid=\"crew-name\"]'), a = document.querySelector('[data-testid=agents]');"
         " return { name: n ? n.value : null, shown: !!n && n.getClientRects().length > 0, view: a?.dataset.view ?? null,"
         " note: document.querySelector('[data-testid=\"crew-note\"]')?.innerText ?? null }; })()")
@@ -117,7 +136,36 @@ def box(view: str, aid: str) -> str:
 
 
 def blk(view: str) -> str:
+    """The opened block's content (O2-8: under the row; absent while the block is closed)."""
+    return f"{SHEET[view]}?.querySelector('[data-testid=map-step-in-model-content]')"
+
+
+def row(view: str) -> str:
     return f"{SHEET[view]}?.querySelector('[data-testid=map-step-in-model]')"
+
+
+def toggle(view: str) -> str:
+    return f"{row(view)}?.querySelector('[data-testid=map-step-in-model-toggle]')"
+
+
+def drawn(view: str) -> str:
+    return f"!!{blk(view)}?.dataset.kind && {blk(view)}.querySelectorAll('[data-testid=map-step-in-model-line] > p').length > 0"
+
+
+def reach(c, view: str, expr: str) -> None:
+    """Scroll the sheet's body (and nothing else: a scroll of the drawing folds the sheet) till `expr` is in its sight,
+    as a person's wheel over the body does."""
+    c.js(f"(() => {{ const e = {expr}, b = {SHEET[view]}?.querySelector('[data-testid=map-step-in-body]'); if (!e || !b) return 0;"
+         " const r = e.getBoundingClientRect(), v = b.getBoundingClientRect();"
+         " if (r.bottom > v.bottom) b.scrollTop += r.bottom - v.bottom + 4; else if (r.top < v.top) b.scrollTop -= v.top - r.top + 4; return 1; })()")
+    frames(c, 2)
+
+
+def expand(c, view: str) -> None:
+    """O2-8: the block opened by a press on its row's Change, and its answer drawn."""
+    c.wait(f"!!{toggle(view)} && {toggle(view)}.getAttribute('aria-expanded') === 'false'", 15)
+    c.click_on(toggle(view))
+    c.wait(drawn(view), 20)
 
 
 def block(c, view: str) -> dict:
@@ -125,11 +173,11 @@ def block(c, view: str) -> dict:
 
 
 def open_box(c, view: str, aid: str) -> dict:
-    """The box's sheet open and its MODEL block read (its rows drawn)."""
+    """The box's sheet open, its MODEL block opened by Change (O2-8) and read (its rows drawn)."""
     c.js(f"{box(view, aid)}.scrollIntoView({{block: 'nearest', inline: 'nearest'}}); 1")
     frames(c, 3)
     open_on(c, view, box(view, aid))
-    c.wait(f"!!{blk(view)}?.dataset.kind && {blk(view)}.querySelectorAll('[data-testid=map-step-in-model-line] > p').length > 0", 20)
+    expand(c, view)
     return block(c, view)
 
 
@@ -209,7 +257,7 @@ def kinds(c, rig, rows: Rows, a: str, b: str) -> dict:
         open_on(c, "live", f"{LW}.querySelector('[data-box=\"group:1\"] [data-testid=map-group-name]')")
         c.wait(f"!!{SHEET['live']}?.querySelector('[data-testid=map-step-in-said]')", 15)
         frames(c, 4)
-        out["group"] = {"target": c.js(f"{SHEET['live']}.dataset.target"), "block": c.js(f"!!{blk('live')}"),
+        out["group"] = {"target": c.js(f"{SHEET['live']}.dataset.target"), "block": c.js(f"!!{row('live')}"),
                         "gets": c.js("window.__modelGets.length") - before}
         close(c, "live")
     try:
@@ -270,6 +318,7 @@ def forms(c, rig, rows: Rows, a: str, b: str) -> dict:
             for act, aid, tid, name in (("edit", "a1", "map-step-in-model-edit", "sorter"), ("make", "a5", "map-step-in-model-make", "count-lines-basket")):
                 on_auto(c, rig, rows, a, b, view=view)
                 rec = out[f"{view}_{act}"] = {"before": yours(rig.state), "open": open_box(c, view, aid)}
+                reach(c, view, f"{blk(view)}.querySelector('[data-testid={tid}]')")  # O2-8: the block opens in a body that scrolls
                 c.click_on(f"{blk(view)}.querySelector('[data-testid={tid}]')")
                 c.wait(f"(() => {{ const n = document.querySelector('[data-testid=\"crew-name\"]'); return !!n && n.value === {json.dumps(name)} && n.getClientRects().length > 0; }})()", 20)
                 frames(c, 3)
@@ -322,23 +371,53 @@ def door(c, rig, rows: Rows, a: str, b: str) -> dict:
         la.forward = orig
 
 
-# ---- late: the sheet waits for the model's read at most 1 s ------------------------------------------------------
-def late(c, rig, rows: Rows, a: str, b: str) -> dict:
+# ---- closed: the block is closed until asked for (O2-8) ------------------------------------------------------------
+def _gets(c, at: list) -> list:
+    now = c.js(GETS) or [0, 0]
+    return [now[0] - at[0], now[1] - at[1]]
+
+
+def closed(c, rig, rows: Rows, a: str, b: str) -> dict:
     def run(out: dict) -> None:
+        his_sorter(rig.state)
         on_auto(c, rig, rows, a, b)
-        c.js("window.__modelHold = true; 1")
+        c.js(f"{box('live', 'a1')}.scrollIntoView({{block: 'nearest', inline: 'nearest'}}); 1")
+        frames(c, 3)
+        at = c.js(GETS) or [0, 0]
         open_on(c, "live", box("live", "a1"))
-        frames(c, 4)
-        out["held"] = c.js("window.__modelWaits.length")
-        out["at_open"] = {"block": c.js(f"!!{blk('live')}"), "kids": c.js(f"({KIDS})({SHEET['live']})")}
+        out["at_open"] = {**(c.js(f"({ROW})({SHEET['live']})") or {}), "gets": _gets(c, at)}
+        frames(c, 1)
+        out["frame_later"] = _gets(c, at)
+        out["sizes"] = c.js(f"({SIZES})({SHEET['live']})")
+        c.js("window.__modelHold = true; 1")
+        c.click_on(toggle("live"))
+        c.wait(f"!!{blk('live')}", 10)
+        frames(c, 2)
+        out["reading"] = {**(c.js(f"({ROW})({SHEET['live']})") or {}), "block": block(c, "live"), "gets": _gets(c, at)}
         out["released"] = c.js("window.__modelRelease()")
-        c.wait(f"!!{blk('live')}?.dataset.kind && {blk('live')}.querySelectorAll('[data-testid=map-step-in-model-line] > p').length > 0", 20)
-        frames(c, 4)
-        out["after"] = {"block": block(c, "live"), "kids": c.js(f"({KIDS})({SHEET['live']})"),
-                        "last": c.js(f"{SHEET['live']}.querySelector('[data-testid=map-step-in-body]').lastElementChild === {blk('live')}")}
+        c.wait(drawn("live"), 20)
+        frames(c, 2)
+        out["opened"] = {**(c.js(f"({ROW})({SHEET['live']})") or {}), "block": block(c, "live"), "gets": _gets(c, at)}
+        c.click_on(toggle("live"))
+        c.wait(f"!{blk('live')}", 10)
+        frames(c, 2)
+        out["folded"] = {**(c.js(f"({ROW})({SHEET['live']})") or {}), "gets": _gets(c, at)}
+        c.click_on(toggle("live"))
+        c.wait(drawn("live"), 10)
+        frames(c, 2)
+        out["again"] = {**(c.js(f"({ROW})({SHEET['live']})") or {}), "block": block(c, "live"), "gets": _gets(c, at)}
+        out["ref"] = pick_other(c, "live")
+        c.wait(f"!{line_is('live', 'Picking')} && !{trig('live')}.disabled", 20)
+        out["picked"] = block(c, "live")
+        c.click_on(toggle("live"))
+        c.wait(f"!{blk('live')}", 10)
+        c.click_on(toggle("live"))
+        c.wait(drawn("live"), 10)
+        frames(c, 2)
+        out["kept"] = {"block": block(c, "live"), "gets": _gets(c, at), "open": c.js(is_open("live"))}
         close(c, "live")
     try:
-        return _step("late", run)
+        return _step("closed", run)
     finally:
         c.js("window.__modelRelease && window.__modelRelease(); 1")
 
@@ -369,7 +448,7 @@ def picker(c, rig, rows: Rows, a: str, b: str) -> dict:
         emulate_motion(c, "no-preference")
 
 
-STEPS = (kinds, picks, forms, door, late, picker)
+STEPS = (kinds, picks, forms, door, closed, picker)
 
 
 class SheetActsDriver(LiveNowDriver):

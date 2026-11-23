@@ -101,7 +101,7 @@ export function fillAgent(a: Agent, workflow: string): void {
 export function fillFromLive(a: Agent, helper: string): void {
   const form = clean({ ...blank(unique(a.name || "helper")), ...a, name: unique(a.name || "helper") });
   crew.update(() => ({ open: { name: "", scope: "yours" }, form, saved: null, used: [], asking: "", stale: false, returnTo: "", writable: true,
-    note: `Built from ${helper} on ${form.model}, not saved yet: read it, change what you like, then Save.` }));
+    note: `Built from ${helper} on ${/^auto$/i.test(String(form.model || "")) ? "Auto" : form.model}, not saved yet: read it, change what you like, then Save.` }));
 }
 
 export async function copyFrom(name: string, scope: Scope): Promise<void> {

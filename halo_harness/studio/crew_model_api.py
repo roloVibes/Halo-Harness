@@ -9,15 +9,15 @@ O2-3: a pick saves HIS agent with the Agents form's own PUT (MINE) or makes one 
 BUILT-IN, MADE-UP; the body from crew_live_api.body_for, the builder crew/from-live shares), so package UN's push is
 what makes it count in the running session; never a second path into a session. MAIN runs "/model {ref}" through the
 session's door (or the socket's own `model` with no terminal), refused before the door while main is in a turn (R7).
-PACK and CLAUDE: 409. Undo carries no path: it finds the file by name and acts only while its sha256 holds.
+PACK, CLAUDE and GONE: 409. Undo carries no path: it finds the file by name and acts only while its sha256 holds.
 
-`kind` is one of eight: MAIN (main itself), MINE (an agent of his, yours or the project's), SHIPPED (an agent that
+`kind` is one of nine: MAIN (main itself), MINE (an agent of his, yours or the project's), SHIPPED (an agent that
 ships with Halo), ROUTED (a general helper Auto sent to one of its cards), BUILT-IN (one built into Halo, no file),
-MADE-UP (one main made up for its task), PACK (a pack's), CLAUDE (a Claude Code agent file). `name` is the name a pick
-writes (never a built-in's), `model` what the picker shows ("" = Auto), `first` ROUTED's state line ("" for the rest),
-`line` what a pick does for THIS kind, letter for letter, in its "now" form when the session's row says `use_now`
-(package UN: an agent put to it is taken now) else in its "later" form; `can` False where nothing can be picked (PACK,
-CLAUDE). The facts are the session's row and the helper's (`spawn.source`, `spawn.routed`: O2-1). A read: not owner-only.
+MADE-UP (one main made up for its task), PACK (a pack's), CLAUDE (a Claude Code agent file), GONE (3.6.0.15 O2-8: his
+agent, whose file was deleted after the helper started). `name` is the name a pick writes (never a built-in's), `model`
+what the picker shows ("" = Auto), `first` ROUTED's state line ("" for the rest), `line` what a pick does for THIS
+kind, letter for letter, in its "now" form when the session's row says `use_now` (package UN: an agent put to it is
+taken now) else in its "later" form; `can` False where nothing can be picked (PACK, CLAUDE, GONE). The facts are the session's row and the helper's (`spawn.source`, `spawn.routed`: O2-1). A read: not owner-only.
 No answer carries a scope or the word that names the shipped set.
 """
 
@@ -27,8 +27,9 @@ from halo_harness.config.agents_md import BUILTIN_NAMES
 from halo_harness.crew import store
 from halo_harness.studio.owner_proof import owner_only
 
-MAIN, MINE, SHIPPED, ROUTED, BUILTIN, MADE_UP, PACK, CLAUDE = (
-    "MAIN", "MINE", "SHIPPED", "ROUTED", "BUILT-IN", "MADE-UP", "PACK", "CLAUDE")
+MAIN, MINE, SHIPPED, ROUTED, BUILTIN, MADE_UP, PACK, CLAUDE, GONE = (
+    "MAIN", "MINE", "SHIPPED", "ROUTED", "BUILT-IN", "MADE-UP", "PACK", "CLAUDE", "GONE")
+FIXED = (PACK, CLAUDE, GONE)  # nothing can be picked: no picker, no button, a pick refused 409 with the kind's line
 HIS = ("yours", "project")
 ENDED = ("done", "failed", "stopped")
 
@@ -62,6 +63,7 @@ KEEPS = "This helper keeps {model} until it ends."
 RAN = "It ran on {model}."
 PACK_LINE = "{name} comes with the pack {P}; Halo does not change it here."
 CLAUDE_LINE = "{name} is a Claude Code agent file; Halo reads it and does not change it."
+GONE_LINE = "Your agent {name} is gone: it was deleted after this helper started."
 MAIN_LINE = "Picking a model runs /model in this session."
 
 
@@ -91,8 +93,8 @@ def kind_of(srow: dict, arow: dict, cwd) -> "tuple[str, dict]":
         sc = _scope_of(name, cwd)
         src = f"crew:{sc}" if sc else ""
     routed = spawn.get("routed") if isinstance(spawn.get("routed"), dict) else None
-    if src in ("crew:yours", "crew:project") and _his_file(name, cwd):
-        return MINE, {}
+    if src in ("crew:yours", "crew:project"):  # his agent; its file gone (deleted, or Undo took it back) while it runs
+        return (MINE if _his_file(name, cwd) else GONE), {}
     if src == "crew:pack":
         return PACK, {}
     if src == "crew:starter":
@@ -147,19 +149,21 @@ def answer(srow: dict, arow: dict, cwd, also) -> dict:
     kind, facts = kind_of(srow, arow, cwd)
     name = name_of(kind, facts, srow, arow, cwd, also)
     now = srow.get("use_now") is True
-    out = {"kind": kind, "name": name, "model": "", "first": "", "line": "", "can": kind not in (PACK, CLAUDE), "now": now}
+    out = {"kind": kind, "name": name, "model": "", "first": "", "line": "", "can": kind not in FIXED, "now": now}
     if kind == MAIN:
         return {**out, "model": str(srow.get("model") or ""), "line": MAIN_LINE}
     if kind == PACK:
         return {**out, "line": PACK_LINE.format(name=name, P=name.split("--", 1)[0])}
     if kind == CLAUDE:
         return {**out, "line": CLAUDE_LINE.format(name=name)}
+    if kind == GONE:
+        return {**out, "line": GONE_LINE.format(name=name)}
     if kind in (MINE, SHIPPED):
         body = store.load("agent", name, cwd=cwd) or {}
         model = str(body.get("model") or "")
         out["model"] = "" if model.strip().lower() == "auto" else model
     routed = facts.get("routed") or {}
-    if routed:
+    if kind == ROUTED:  # `first` is "" for every other kind (ruling B): a routed helper whose card's agent is his reads MINE
         out["first"] = FIRST_ROUTED.format(card=routed["card"], word=routed["word"])
     line = LINES[(kind, now)].format(name=name, X=str(arow.get("name") or ""), card=routed.get("card", ""))
     maps = [u[4:] for u in store.used_by(name, cwd=cwd) if u.startswith("map ")]
@@ -282,7 +286,7 @@ def post_agent_model(req):
     kind, facts = kind_of(srow, arow, cwd)
     if kind == MAIN:
         return _main_pick(sid, ref)
-    if kind in (PACK, CLAUDE):
+    if kind in FIXED:
         line = answer(srow, arow, cwd, req.cwd)["line"]
         return 409, {"error": line, "line": line}
     name = name_of(kind, facts, srow, arow, cwd, req.cwd)

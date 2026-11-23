@@ -17,8 +17,10 @@ studio/crew_live_api.py), every figure read from the page.
    it ("Built from {helper} on {model}, ..."), nothing written; from Agents -> Live and from Session's drawer.
 6. test_mains_door (O2-3, ruling R7): a terminal, none, a refused ref ("Not switched: {first line}."), a busy session
    (refused before the door: nothing sent through it).
-7. test_the_sheet_waits_for_the_model_read (O2-5): the GET held past 1 s: the sheet opens without it, the block lands at
-   the body's end with `data-late`, nothing above it moved.
+7. test_the_model_block_is_closed_until_asked (O2-8, rewritten from O2-5's late read): a member's sheet opens with ONE
+   row, "MODEL" and [Change], and no request for the block; Change opens it under the row (the read held: "Reading this
+   helper's agent..."), ONE request; Close folds it, nothing above it moved; Change again asks nothing; a pick's line and
+   Undo are kept over a Close. Every leg above presses Change before it reads the block.
 8. test_the_picker_never_folds_the_sheet (O2-5): a click in the folded picker and Escape in its search box leave the sheet
    open; Escape after the picker closed folds it.
 Run: python -m tests.test_studio_sheet_acts
@@ -183,17 +185,49 @@ def _near(a, b) -> bool:
 
 
 @test
-def test_the_sheet_waits_for_the_model_read(ctx: Ctx):
-    d = _ran(ctx, "late")
-    o, a = d.get("at_open") or {}, d.get("after") or {}
-    ctx.check(f"the sheet opened while the GET was held, without the block, got held {d.get('held')} block {o.get('block')}",
-              d.get("held") == 1 and o.get("block") is False and d.get("released") == 1)
-    blk = a.get("block") or {}
-    ctx.check(f"the block landed at the body's end, data-late, MINE's line, got {blk.get('late')} last {a.get('last')} {blk.get('kind')}",
-              blk.get("late") is True and a.get("last") is True and blk.get("kind") == "MINE")
-    before, after = o.get("kids") or [], (a.get("kids") or [])[:-1]
-    ctx.check(f"nothing above it moved, got {before} -> {after}",
-              len(before) >= 1 and len(before) == len(after) and all(x[0] == y[0] and _near(x[1], y[1]) for x, y in zip(before, after)))
+def test_the_model_block_is_closed_until_asked(ctx: Ctx):
+    """O2-8 (the owner's rule: a section he uses rarely is closed by default, opened by its button, and has a close
+    button). The sizes are read from the page at the rig's own size: no constant."""
+    d = _ran(ctx, "closed")
+    o = d.get("at_open") or {}
+    ctx.check(f"the sheet opens with ONE row first in its body: MODEL and Change, aria-expanded false, got {o}",
+              o.get("first") is True and o.get("head") == "MODEL" and o.get("word") == "Change" and o.get("expanded") == "false"
+              and o.get("btns") == 1 and o.get("controls") is True)
+    ctx.check(f"closed: no picker, no line, no model button, no content in the page, got {o}",
+              o.get("content") is False and o.get("picker") is False and o.get("line") is False and o.get("buttons") is False)
+    ctx.check(f"closed: NO request for the block, at open and a frame later, got {o.get('gets')} {d.get('frame_later')}",
+              o.get("gets") == [0, 0] and d.get("frame_later") == [0, 0])
+    # closed, the block costs the sheet ONE row (a button's height), not the drawing's whole height (OP2's open block
+    # made it 482 of a 498-px drawing): the sheet holds its words unclamped, its body does not scroll. Whether another
+    # member stays reachable beside it is test_studio_sheet's pick leg (its own scene); this scene's figures are recorded.
+    z = d.get("sizes") or {}
+    ctx.check(f"closed: the row is one button's height, the sheet holds its words (not clamped, the body not scrolled), got {z}",
+              bool(z.get("row")) and abs((z.get("row") or 0) - (z.get("tog") or -9)) <= 0.5 and bool(z.get("sheet"))
+              and z["sheet"] < (z.get("view") or 0) - 16 and (z.get("body") or [0, 1])[0] == (z.get("body") or [0, 1])[1])
+    r = d.get("reading") or {}
+    ctx.check(f"Change: open under the row, Close, aria-expanded true, the content it controls, got {r}",
+              r.get("word") == "Close" and r.get("expanded") == "true" and r.get("controlled") is True and r.get("first") is True)
+    ctx.check(f"while the read is held: ONE row \"Reading this helper's agent...\", no picker, no button, ONE request, got {r}",
+              (r.get("block") or {}).get("rows") == ["Reading this helper's agent..."] and r.get("picker") is False
+              and r.get("buttons") is False and (r.get("gets") or [0])[0] == 1 and d.get("released") == 1)
+    op = d.get("opened") or {}
+    blk = op.get("block") or {}
+    ctx.check(f"answered: MINE's block, its picker, exactly ONE request, got {blk.get('kind')} {blk.get('select')} {op.get('gets')}",
+              blk.get("kind") == "MINE" and blk.get("select") is True and blk.get("head") == "MODEL" and (op.get("gets") or [0])[0] == 1)
+    f = d.get("folded") or {}
+    ctx.check(f"Close: the content left the page, the row reads Change again, got {f}",
+              f.get("content") is False and f.get("picker") is False and f.get("word") == "Change" and f.get("expanded") == "false")
+    for k in ("rect", "headRect", "actions"):
+        seen = [(x or {}).get(k) for x in (o, r, op, f)]
+        ctx.check(f"{k}: the row and what is above it never moved (closed, reading, open, folded), got {seen}",
+                  all(_near(seen[0], s) for s in seen[1:]))
+    g = d.get("again") or {}
+    ctx.check(f"Change again: the same block at once, no second request, got {(g.get('block') or {}).get('rows')} {g.get('gets')}",
+              (g.get("block") or {}).get("rows") == blk.get("rows") and (g.get("gets") or [0])[0] == 1)
+    p, k = d.get("picked") or {}, d.get("kept") or {}
+    ctx.check(f"a pick's line and Undo kept over Close and Change, nothing asked, got {p.get('rows')} -> {(k.get('block') or {}).get('rows')}",
+              bool(d.get("ref")) and p.get("undo") == "Undo" and (k.get("block") or {}).get("rows") == p.get("rows")
+              and (k.get("block") or {}).get("undo") == "Undo" and (k.get("gets") or [0])[0] == 1 and k.get("open") is True)
 
 
 @test

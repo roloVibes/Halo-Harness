@@ -12,8 +12,9 @@
 //   an ended one reads "ended at {t}"), main's "Told it can start: {every name}", then the asks that came later, at its end.
 // - LAST SAID (O1-6, StepInSaid.tsx): what the chosen agent last said, read once at the click; the sheet opens when it is
 //   read or at 1 s, and an answer that comes later goes to the body's end, "Reading what it said..." kept in its place.
-// - MODEL (3.6.0.15 O2-5, StepInModel.tsx): on a member's sheet and main's only, what a model pick does for that helper;
-//   read once at the click, the sheet waits for it as for Last said; answered later, it goes to the body's end.
+// - MODEL (3.6.0.15 O2-5, O2-8, StepInModel.tsx): on a member's sheet and main's only, what a model pick does for that
+//   helper; the body's first child, ONE row "MODEL" [Change], closed until asked for: read only when he opens it, so the
+//   sheet waits for Last said alone.
 // A calm sheet (no agent) has the state only and the link. Where it stands, how it unfolds and what folds it (Escape, its
 // x, a pointer-down outside, a wheel or a zoom over the drawing; a second click on the same thing closes it): useSheet.ts.
 // Shared with Agents' Live view: no Session import.
@@ -38,8 +39,8 @@ import { sheetHead } from "./sheetPlace";
 import type { Target, Who } from "./stepInTarget";
 import { askRows, StepInAsks } from "./StepInAsk";
 import { saidWho, StepInSaid, useSaid } from "./StepInSaid";
-import { modelAid, sheetReady } from "./modelBlock";
-import { StepInModel, useModel } from "./StepInModel";
+import { modelAid } from "./modelBlock";
+import { StepInModel } from "./StepInModel";
 import { agentRow, endedAt, openInAgents, openMapAt } from "./truth";
 import { saidParts, type Said } from "./truthBits";
 import { toldEvery, type Told } from "./turnWords";
@@ -78,8 +79,8 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const [pick, setPick] = useState(t.who[0]?.key || "");
   useEffect(() => setPick(t.who[0]?.key || ""), [t]);
   const said = useSaid(sid, saidWho(t));
-  const model = useModel(sid, modelAid(t.id)); // a member's and main's sheet only (ruling F): none on a group's
-  const sheet = useSheet(where, t, sheetReady(said.ready, model.ready), close);
+  const aid = modelAid(t.id); // the MODEL block: a member's and main's sheet only (ruling F): none on a group's
+  const sheet = useSheet(where, t, said.ready, close);
   const attn = usePanels((s) => s.attention);
   const seen = useRef<{ id: string; ids: Set<string> } | null>(null); // the asks present at open: later ones go to the end
   if (!seen.current || seen.current.id !== t.id) seen.current = { id: t.id, ids: new Set(attn.map((r) => r.id)) };
@@ -93,10 +94,6 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const head = sheet.width ? sheetHead(sheet.width, t.text, nw) : null; // its width at open: the head's rows are held from it
   const atOpen = useRef<Said | null>(null); // what Last said read when the sheet was placed
   if (sheet.place && atOpen.current === null) atOpen.current = said.got;
-  const modelAt = useRef<boolean | null>(null); // the model's answer was there when the sheet was placed
-  if (sheet.place && modelAt.current === null) modelAt.current = model.got !== "reading";
-  const early = modelAt.current ?? model.got !== "reading";
-  const block = (late: boolean) => model.got && early !== late && <StepInModel sid={sid} aid={modelAid(t.id) || ""} got={model.got} late={late} />;
   const parts = said.got ? saidParts(atOpen.current ?? said.got, said.got, sid) : { here: [], end: [] };
   const cut = useRef<number | null>(null); // the later asks drawn when a late answer came: it goes after them
   if (parts.end.length && cut.current === null) cut.current = askRows(attn, t.who, "later", seen.current.ids).length;
@@ -142,7 +139,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
         )}
       </div>
       <div className="mp-step-in-body" data-testid="map-step-in-body">
-        {block(false)}
+        {aid && <StepInModel sid={sid} aid={aid} />}
         <StepInAsks who={t.who} part="open" seen={seen.current.ids} />
         {t.who.map((w) => <WhoRow key={w.key} w={w} chosen={w.key === pick} choose={() => setPick(w.key)} />)}
         <StepInSaid lines={parts.here} />
@@ -152,7 +149,6 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
           <StepInSaid lines={parts.end} late />
           <StepInAsks who={t.who} part="later" seen={seen.current.ids} from={cut.current} />
         </>}
-        {block(true)}
       </div>
     </div>
   );

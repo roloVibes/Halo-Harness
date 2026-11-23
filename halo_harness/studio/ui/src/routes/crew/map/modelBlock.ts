@@ -17,9 +17,10 @@ export type BlockParts = { heading: string; label: string; first: string; rows: 
 /** The kinds a pick makes an agent of his from: [Make it an agent] is offered for these. */
 export const MADE = ["SHIPPED", "ROUTED", "BUILT-IN", "MADE-UP"];
 
-/** The sheet opens when Last said's read and the model's read may both open it (each `saidOpen`: answered, or 1 s). */
-export function sheetReady(said: boolean, model: boolean): boolean {
-  return said && model;
+/** 3.6.0.15 O2-8: the block is closed until asked for (the owner's rule: a section he uses rarely is closed by default,
+ *  opened by its button, and has a close button). Its one row's button: "Change" while closed, "Close" while open. */
+export function toggleParts(open: boolean): { word: string; expanded: boolean } {
+  return { word: open ? "Close" : "Change", expanded: open };
 }
 
 /** The agent the MODEL block reads for the sheet of target `id`: a member's own helper, main's "main", else none. */
@@ -35,12 +36,14 @@ export function refusedLine(data: Record<string, unknown> | undefined, error: st
   return line || `${undo ? "Not undone" : "Not saved"}: ${error.replace(/\.$/, "")}.`;
 }
 
-/** The block's parts, letter for letter; null while the GET is still reading (nothing is drawn yet). */
-export function blockParts(got: ModelGot, after: After | null): BlockParts | null {
-  if (got === "reading") return null;
+/** The opened block's parts, letter for letter; while the GET reads, its one row. MAIN keeps no room for Undo: a pick
+ *  for main has none (its answer's `undo` is null). */
+export function blockParts(got: ModelGot, after: After | null): BlockParts {
   const parts: BlockParts = { heading: "MODEL", label: "Model", first: "", rows: [], picker: false, edit: "", make: "", undo: "",
     btns: false, undoRoom: false };
+  if (got === "reading") return { ...parts, rows: ["Reading this helper's agent..."] };
   if ("error" in got) return { ...parts, rows: [`Could not read this helper's agent: ${got.error}`] };
+  const undoRoom = !!got.can && got.kind !== "MAIN";
   const edit = got.kind === "MINE" ? "Edit in Agents" : "";
   const make = MADE.includes(got.kind) ? "Make it an agent" : "";
   return {
@@ -51,7 +54,7 @@ export function blockParts(got: ModelGot, after: After | null): BlockParts | nul
     edit,
     make,
     undo: after && after.undo ? "Undo" : "",
-    btns: !!got.can || !!edit || !!make,
-    undoRoom: !!got.can,
+    btns: undoRoom || !!edit || !!make,
+    undoRoom,
   };
 }

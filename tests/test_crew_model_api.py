@@ -155,6 +155,39 @@ def test_each_kind_reads_its_line_now_and_later(ctx: Ctx):
             rows.rows = [_row(rig, state="done")]
             got = _get(rig, "a2")[1].get("line")
             ctx.check(f"an ended helper: It ran on, got {got!r}", str(got).endswith("\nIt ran on or:vendor/fast."))
+            # O2-8 (d), ruling B: `first` is "" for every kind but ROUTED: a routed helper whose card's agent is now one
+            # of his reads MINE, with no routed state line
+            _his(rig, "media-reader")
+            try:
+                st, got = _get(rig, "a3")
+                ctx.check(f"a routed helper whose card's agent is his: MINE, first \"\", got {st} {got.get('kind')} {got.get('first')!r}",
+                          st == 200 and got.get("kind") == "MINE" and got.get("name") == "media-reader" and got.get("first") == "")
+            finally:
+                (rig.state / "crew" / "agents" / "media-reader.yaml").unlink()
+
+
+@test
+def test_a_helper_whose_agent_is_gone_says_so(ctx: Ctx):
+    """O2-8 (c): a helper whose row says its agent is HIS (`spawn.source` crew:yours or crew:project) but whose file is
+    gone (deleted, or taken back by Undo, while it runs) is its own kind GONE: no picker, no button, its one line letter
+    for letter (not the Claude Code file sentence); a pick for it is refused 409 with the same line, nothing written."""
+    from tests.helpers.crew_rig import CrewRig
+    line = "Your agent sorter is gone: it was deleted after this helper started."
+    with CrewRig() as rig:
+        rig.studio()
+        for src in ("crew:yours", "crew:project"):
+            row = _row(rig)
+            row["agents"][1]["spawn"]["source"] = src
+            with _Rows(row), _Push() as push:
+                st, got = _get(rig, "a1")
+                ctx.check(f"{src}, no file: 200 GONE sorter, can False, first \"\", its line, got {st} {got}",
+                          st == 200 and got.get("kind") == "GONE" and got.get("name") == "sorter" and got.get("can") is False
+                          and got.get("first") == "" and got.get("line") == line)
+                before = _files(rig)
+                st, got = _pick(rig, "a1")
+                ctx.check(f"{src}: a pick is refused 409 with the same line, got {st} {got}",
+                          st == 409 and got.get("line") == line and got.get("error") == line)
+                ctx.check("nothing written, nobody asked", _files(rig) == before and push.calls == [])
 
 
 @test
@@ -324,9 +357,16 @@ def test_a_pick_makes_an_agent_for_each_made_kind(ctx: Ctx):
             for aid in ("a2", "a3", "a4", "a5"):
                 st, live = rig.api("POST", "crew/from-live", {"session": SID, "agent_id": aid})
                 built[aid] = live.get("agent") or {}
+                m = built[aid].get("model")
+                # O2-8 (b): a body on `auto` is written "Auto"; a model of his own as it is
                 ctx.check(f"{aid}: from-live says what it built, got {live.get('line')!r}", live.get("line") == (
-                    f"Built from {_helpers()[int(aid[1:])]['name']} on {built[aid].get('model')}, not saved yet: read it, "
+                    f"Built from {_helpers()[int(aid[1:])]['name']} on {'Auto' if m == 'auto' else m}, not saved yet: read it, "
                     "change what you like, then Save."))
+            ctx.check(f"BUILT-IN Judge's body is on auto, so its line says Auto, got {built['a4'].get('model')!r}",
+                      built["a4"].get("model") == "auto")
+            src = (Path(__file__).resolve().parent.parent / "halo_harness/studio/ui/src/routes/crew/store.ts").read_text(encoding="utf-8")
+            ctx.check("the form's note (store.ts fillFromLive) writes Auto for a body on auto, his model as it is",
+                      '/^auto$/i.test(String(form.model || "")) ? "Auto" : form.model' in src)
             ctx.check("SHIPPED: from-live builds the shipped planner", built["a2"] == _body("planner", "starter"))
             ctx.check("ROUTED: from-live builds the shipped media-reader", built["a3"] == _body("media-reader", "starter"))
             judge = _builtin_specs()["Judge"]

@@ -179,34 +179,13 @@ def closers(c, rig, rows: Rows, a: str, b: str) -> dict:
         c.mouse("mouseMoved", 2, 400)
     open_on(c, "live", mem)
     other = c.js(OTHER)
-    # 3.6.0.15 O2-5: the MODEL block makes the sheet taller. At the rig's 1440 x 900 it takes the drawing's whole height
-    # (at most the view less 16, sheetPlace.ts agentsPlace) and covers the members' one column, so no other member can be
-    # pressed while it is open: recorded as seen (`at_rig`), not asserted (the coordinator rules on it). The leg then gives
-    # the window the sheet's own height more (read from the page), scrolls k1 near the drawing's top while no sheet is open
-    # (nothing folds) and presses another member's middle, as before; the window is put back after.
-    got = {"at_rig": {"other": other, "sheet": c.js(f"{SHEET['live']}?.getBoundingClientRect().height || 0"),
-                      "view": c.js("innerHeight"), "wide": c.js("innerWidth")}}
-    if not other:
-        grow = int(got["at_rig"]["view"] or 0) + int(got["at_rig"]["sheet"] or 0)
-        c.js("document.activeElement?.blur?.(); 1")
-        c.key("Escape")
-        wait_or(c, gone("live"), 20)
-        c.call("Emulation.setDeviceMetricsOverride", width=int(got["at_rig"]["wide"]), height=grow, deviceScaleFactor=1, mobile=False)
-        frames(c, 4)
-        c.js(f"(() => {{ const s = {LSCROLL}, m = {LW}.querySelector('[data-member=k1]'); if (s && m) s.scrollTop += m.getBoundingClientRect().top - s.getBoundingClientRect().top - 24; return 1; }})()")
-        frames(c, 2)
-        open_on(c, "live", mem)
-        other = c.js(OTHER)
-        got["grown_to"] = grow
-    got.update({"other": other, "first": c.js(f"{SHEET['live']}?.dataset.target || ''")})
+    got = {"other": other, "first": c.js(f"{SHEET['live']}?.dataset.target || ''")}
     if other:
         c.click_on(f"{LW}.querySelector('[data-member={other}]')")
         wait_or(c, f"{SHEET['live']}?.dataset.target === 'member:{other}' && {is_open('live')}", 15)
         got["then"] = c.js(f"{SHEET['live']}?.dataset.target || ''")
         got["open"] = c.js(is_open("live"))
         got["sheets"] = c.js(f"document.querySelectorAll('{P} .mp-step-in').length")
-    if "grown_to" in got:
-        c.call("Emulation.setDeviceMetricsOverride", width=int(got["at_rig"]["wide"]), height=int(got["at_rig"]["view"]), deviceScaleFactor=1, mobile=False)
     out["pick"] = got
     return {"closers": out}
 
