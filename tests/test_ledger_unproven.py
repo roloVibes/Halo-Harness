@@ -18,6 +18,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -352,6 +353,12 @@ def test_an_opener_is_kept_out_of_reach_when_the_confirming_look_reads_nothing(c
         C.pid_running = saved
 
 
+def _names_pid(text: str, pid: int) -> bool:
+    """The pid as a whole word. A run's random temp folder once spelled it (`tmp4242o0o8`, a macOS runner, the
+    gate of 3.6.0.11), and a bare text search then saw a pid that no line named."""
+    return re.search(rf"(?<![A-Za-z0-9_]){pid}(?![A-Za-z0-9_])", text) is not None
+
+
 @test
 def test_an_opener_reused_before_its_start_time_is_read_never_reaches_the_plan(ctx: Ctx):
     state = _state()
@@ -382,7 +389,7 @@ def test_an_opener_reused_before_its_start_time_is_read_never_reaches_the_plan(c
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
             code = UD.run_after_exit(state_dir=state, windows=True)
         ctx.check(f"no line names 4242 and the plan has no 4242, got {code} {out.getvalue()!r} {plans}",
-                  code == 0 and "4242" not in out.getvalue() and plans and 4242 not in plans[0]["stop_pids"]
+                  code == 0 and not _names_pid(out.getvalue(), 4242) and plans and 4242 not in plans[0]["stop_pids"]
                   and 4242 not in plans[0].get("stop_starts", {}))
         # checker (batch 1): the confirming list cannot be read while the opener still runs -- never dropped (that
         # would let it be stopped from inside this halo's tree); kept unproven, so Windows /update refuses
@@ -394,7 +401,7 @@ def test_an_opener_reused_before_its_start_time_is_read_never_reaches_the_plan(c
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
             code = UD.run_after_exit(state_dir=state, windows=True)
         ctx.check(f"named as not stopped, refused, no plan, got {code} {out.getvalue()!r} {plans}",
-                  code == 1 and "4242" in out.getvalue() and "not installing" in out.getvalue() and not plans
+                  code == 1 and _names_pid(out.getvalue(), 4242) and "not installing" in out.getvalue() and not plans
                   and "NEW-PROGRAM" not in out.getvalue())
     finally:
         (upd.list_processes, C.start_time, UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.scanned,

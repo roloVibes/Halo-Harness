@@ -5,7 +5,8 @@ The main line is protected: its required checks are the jobs below, and no commi
 version commit to `rc/<version>` and this gate waits for that run:
 
 1. the `push` run of suites.yml on the branch for the EXACT sha is found (it may take a moment to appear) and polled
-   with `gh run view` until it completes (up to 90 minutes);
+   with `gh run view` until it completes (up to 90 minutes); a `gh` read that fails while it waits (a network
+   fault) is asked again, and three failures in a row stop the gate with the last reason (3.6.0.16);
 2. every job in `required_jobs()` must be in it and conclude `success` -- the conclusion VALUE of each job is read,
    never an exit code of a watch command, and a missing or skipped required job fails like a red one; the
    failing jobs are named;
@@ -39,11 +40,16 @@ RETRY_MARK = "driver retried once"
 WAIT_S = 90 * 60
 POLL_S = 30.0
 FIND_WAIT_S = 300.0
+GH_TRIES = 3  # 3.6.0.16: a `gh` read that fails while the gate waits is asked again; this many failures in a row stop it
 _FIELDS = "databaseId,status,conclusion,event,headSha,headBranch,displayTitle,createdAt"
 
 
 class GateError(Exception):
     """A one-line reason the release stops at the gate."""
+
+
+class NoGh(GateError):
+    """`gh` is not on PATH: asking again cannot help."""
 
 
 def required_jobs(*, macos: "bool | None" = None, realcheck: "bool | None" = None) -> "list[str]":
@@ -79,7 +85,7 @@ def _gh(run_fn: Callable, args: list, repo_dir: Path, want_json: bool = True):
         r = run_fn(["gh", *args], cwd=str(repo_dir), capture_output=True, text=True, check=False,
                    encoding="utf-8", errors="replace")
     except FileNotFoundError:
-        raise GateError("the CI gate needs the `gh` CLI on PATH (logged in to github.com)")
+        raise NoGh("the CI gate needs the `gh` CLI on PATH (logged in to github.com)")
     except subprocess.SubprocessError as e:
         raise GateError(f"`gh {' '.join(args[:3])}` failed: {e}")
     if getattr(r, "returncode", 0) != 0:
@@ -90,6 +96,22 @@ def _gh(run_fn: Callable, args: list, repo_dir: Path, want_json: bool = True):
         return json.loads(getattr(r, "stdout", "") or "null")
     except ValueError:
         raise GateError(f"`gh {' '.join(args[:3])}` printed no JSON")
+
+
+def _again(call: Callable, *, sleep_fn: Callable, pause_s: float, log: Callable):
+    """3.6.0.16: `call()` is one `gh` read of the gate's waiting. One that fails (a TLS handshake timeout on the
+    network) used to end the release tool while its run was still going; now it is asked again after `pause_s`.
+    GH_TRIES failures IN A ROW stop the gate with the last reason; a missing `gh` stops it at once."""
+    for n in range(1, GH_TRIES + 1):
+        try:
+            return call()
+        except NoGh:
+            raise
+        except GateError as e:
+            if n == GH_TRIES:
+                raise
+            log(f"release.py: {e}; asking again ({n} of {GH_TRIES - 1})")
+            sleep_fn(pause_s)
 
 
 def branch_runs(sha: str, branch: str, run_fn, repo_dir) -> list:
@@ -139,7 +161,7 @@ def wait_for(run_id, run_fn, repo_dir, *, sleep_fn=time.sleep, clock_fn=time.mon
     """Poll `gh run view` until the run completes; GateError after `wait_s`."""
     deadline = clock_fn() + wait_s
     while True:
-        v = view(run_fn, repo_dir, run_id)
+        v = _again(lambda: view(run_fn, repo_dir, run_id), sleep_fn=sleep_fn, pause_s=poll_s, log=log)
         if v.get("status") == "completed":
             return v
         if clock_fn() >= deadline:
@@ -158,7 +180,8 @@ def candidate_gate(sha: str, *, branch: str, repo_dir: Path, run_fn: Callable, m
     log(f"release.py: waiting for the suites on {branch} at {sha[:12]} (up to {wait_s / 60:.0f} min)")
     found, find_deadline = None, clock_fn() + find_wait_s
     while found is None:
-        runs = branch_runs(sha, branch, run_fn, repo_dir)
+        runs = _again(lambda: branch_runs(sha, branch, run_fn, repo_dir), sleep_fn=sleep_fn,
+                      pause_s=min(poll_s, 10.0), log=log)
         found = runs[0] if runs else None
         if found is None:
             if clock_fn() >= find_deadline:

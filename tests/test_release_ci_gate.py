@@ -17,6 +17,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -236,6 +237,43 @@ def test_a_run_that_never_finishes_never_appears_or_is_for_another_sha_stops_it(
     def no_gh(cmd, **kw):
         raise FileNotFoundError(cmd[0])
     _refused(ctx, no_gh, ["`gh` CLI"], "no gh")
+
+
+class _Flaky:
+    """A `gh` whose calls numbered in `fail_at` (1-based, `gh` calls only) end as a network fault ends them."""
+
+    def __init__(self, inner, fail_at):
+        self.inner, self.fail_at, self.n = inner, set(fail_at), 0
+
+    def __call__(self, cmd, **kw):
+        if list(cmd[:1]) == ["gh"]:
+            self.n += 1
+            if self.n in self.fail_at:
+                return SimpleNamespace(returncode=1, stdout="", stderr="net/http: TLS handshake timeout")
+        return self.inner(cmd, **kw)
+
+
+@test
+def test_a_gh_read_that_fails_while_the_gate_waits_is_asked_again(ctx: Ctx):
+    """3.6.0.16: one failed `gh run view` (a TLS handshake timeout) ended the release tool while its run was still
+    going. A read that fails is asked again after the pause; three failures in a row stop the gate with the last
+    reason; a read that works in between starts the count anew. Red on 602c5df6."""
+    gh = _Flaky(FakeGh(polls=3), {1, 3, 4})  # the look for the run once, then the run's view twice in a row
+    (accepted, _warnings), lines, clock = _gate(gh)
+    ctx.check(f"the gate still accepts the green run, got {accepted}",
+              accepted == [f"suites run 303 on {BRANCH}: all 19 required jobs concluded success for {SHA[:12]}"])
+    again = [ln for ln in lines if "asking again" in ln]
+    ctx.check(f"each failed read is said in one line with its reason and its count, got {again}",
+              len(again) == 3 and all("TLS handshake timeout" in ln for ln in again)
+              and again[0].endswith("asking again (1 of 2)") and again[2].endswith("asking again (2 of 2)"))
+    ctx.check(f"it pauses before it asks again (10 s for the look, 30 s for a view), got {clock.sleeps}",
+              clock.sleeps == [10.0, 30.0, 30.0, 30.0, 30.0])
+    why = _refused(ctx, _Flaky(FakeGh(polls=3), {2, 3, 4}), ["exited 1", "TLS handshake timeout"],
+                   "three failed reads in a row")
+    ctx.check(f"the reason is the last read's own, got {why}", "gh run view 303" in why)
+    (accepted, _warnings), lines, _clock = _gate(_Flaky(FakeGh(polls=4), {2, 3, 5, 6}))
+    ctx.check(f"two failures, a read that works, two more: never three in a row, so it goes on, got {accepted}",
+              bool(accepted) and sum("asking again" in ln for ln in lines) == 4)
 
 
 @test
