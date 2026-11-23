@@ -135,7 +135,10 @@ halo local prompt [<model ref>] [--window N] [--platform win32|linux|darwin] [--
 
 What a model's first turn costs, before you use it: "Halo's own first turn:
 N tokens of W (P %)", the composition line, the reply's room and the window
-it would go out at, then one row per tool (its tokens, offered as core, the
+it would go out at, then the lines a turn's start sends, a row each with
+its tokens and its words: `mode line` (the permission mode a new session in
+this folder starts in) and, for a local main on Auto, `reminder`; the total
+includes them. Then one row per tool (its tokens, offered as core, the
 lineup's square or built-in, or left out and why). Nothing is sent to the
 model; an `ol:` model's window is resolved as a call would (its catalog row,
 the host, a steward profile). `/status` and `halo doctor`'s default-model row

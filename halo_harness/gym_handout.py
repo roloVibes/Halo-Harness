@@ -40,6 +40,7 @@ from halo_harness import gym_handout_fixture as F
 
 ARMS = ("before", "now")
 MODE = "acceptEdits"
+NO_DIGEST = "no digest from this host: a later build of this model overwrites this card"  # 3.6.0.15 F10
 MAX_REQUESTS = 10
 REPLY_TOKENS = 4096
 _SHELLS = ("Bash", "PowerShell")
@@ -356,6 +357,8 @@ def run_model(ref_raw: str, *, trials: int = 3, state_dir, on_trial=None) -> dic
         card["errors"].append(r["error"])
         card["finished_at"] = time.time()
         return card
+    if not r["digest"]:  # 3.6.0.15 F10: a gateway's catalog (or a native row) gave none: the card says what that means
+        card["no_digest"] = NO_DIGEST
     route = r["route"]
     # an ol: ref on Ollama itself: the stub resolves the window as a session; an hf: ref and a gateway (3.6.0.14 GR-1:
     # the stub would ask Ollama's own /api/ps and /api/version) are given the one resolve() found
@@ -539,8 +542,10 @@ def verdict(card: dict) -> str:
 
 
 def report(card: dict) -> str:
-    """What the command and `halo gym show` print for a card: its line, the verdict under it, then its errors."""
-    return _head(card) + "\n" + verdict(card) + _errors(card)
+    """What the command and `halo gym show` print for a card: its line, a card without a digest saying so (3.6.0.15
+    F10), the verdict under it, then its errors."""
+    said = f"\n  {card['no_digest']}" if card.get("no_digest") else ""
+    return _head(card) + said + "\n" + verdict(card) + _errors(card)
 
 
 def trial_line(arm: str, i: int, n: int, trial: dict) -> str:

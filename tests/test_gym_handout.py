@@ -814,6 +814,42 @@ def test_a_gateway_with_the_openai_dialect_is_spoken_to_in_it(ctx: Ctx):
         ctx.check("the key is printed nowhere", KEY not in text + err)
 
 
+NO_DIGEST_WORDS = "no digest from this host: a later build of this model overwrites this card"
+
+
+@test
+def test_a_card_without_a_digest_says_so_and_keeps_its_name(ctx: Ctx):
+    """3.6.0.15 F10: a gateway's catalog gives no digest: the card holds the sentence, the command and `halo gym show`
+    print it on its own line, two spaces in, under the card's line and before the verdict; the file keeps `nodigest`;
+    no new request reaches the host. A native host whose row has a digest: no such key, no such line."""
+    from halo_harness import gym_handout as G
+    steps = [_oai(FOUR), _oai(text="All four done.")] * 2
+    with _Home() as h, Gateway(MODEL, steps) as gw:
+        gateway_home(h, gw)
+        rc, text, err = _cmd(["handout", MOCK_REF, "--trials", "1"])
+        cards = G.iter_cards(h.state)
+        ctx.check(f"exit 0 and one card, got {rc} {err!r} {text[-300:]!r}", rc == 0 and len(cards) == 1)
+        ctx.check(f"the card holds the sentence, got {cards[0].get('no_digest') if cards else None!r}",
+                  bool(cards) and cards[0].get("no_digest") == NO_DIGEST_WORDS)
+        ctx.check(f"the file keeps nodigest, got {_cards(h)}",
+                  [p.rsplit("/", 1)[-1] for p in _cards(h)] == [G.card_path(h.state, "gpu-box", None, MODEL).name]
+                  and _cards(h)[0].rsplit("/", 1)[-1].startswith("handout-nodigest-"))
+        for said, out in (("the command", text), ("halo gym show", _cmd(["show"])[1])):
+            rows = out.splitlines()
+            at = rows.index(f"  {NO_DIGEST_WORDS}") if f"  {NO_DIGEST_WORDS}" in rows else -1
+            ctx.check(f"{said}: the sentence on its own line, under the card's line, before the verdict, got {rows[-4:]!r}",
+                      at > 0 and not rows[at - 1].startswith("  ") and rows[at + 1].startswith("  Verdict:"))
+        ctx.check(f"only the gateway's two paths were asked, got {sorted({r['path'] for r in gw.requests})}",
+                  {r["path"] for r in gw.requests} == {"/v1/models", "/v1/chat/completions"}
+                  and len(gw.chat_bodies()) == 4)
+    with _Home() as h, _Mock(h, [_reply(FOUR), _reply(text="All four done.")] * 2):
+        rc, text, err = _cmd(["handout", MOCK_REF, "--trials", "1"])
+        cards = G.iter_cards(h.state)
+        ctx.check(f"a native host with a digest: no such key, no such line, got {rc} {cards[0].get('digest') if cards else None}",
+                  rc == 0 and cards and cards[0].get("digest") and "no_digest" not in cards[0]
+                  and NO_DIGEST_WORDS not in text + _cmd(["show"])[1])
+
+
 # ---- 3.6.0.14 GR-2: the command tells the truth about its run ---------------------------------------------------------
 def _last_lines(text: str, n: int) -> list:
     return text.rstrip("\n").splitlines()[-n:]

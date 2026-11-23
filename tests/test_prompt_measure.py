@@ -72,6 +72,60 @@ def test_first_turn_says_what_it_is_made_of(ctx: Ctx):
               f"Halo's own first turn: {m['prompt']:,} tokens of 32,768 ({m['share']:.0f} %)")
 
 
+def _start_mode(cwd) -> str:
+    """The mode a new session with no flag starts in, in `cwd`, on the map in use now (crew/map_session's one rule)."""
+    from halo_harness.crew.map_session import configured_mode, start
+    return start(None, cwd=cwd, resolved=configured_mode(cwd))[0]
+
+
+def _turn_start_lines(ref, cwd, mode):
+    """(the mode line, the reminder) a new session's first turn logs, through the loop's own functions."""
+    from halo_harness.agent.helpers_words import remind
+    from halo_harness.agent.mode_notice import mode_line
+    from halo_harness.agent.prompt_measure import new_session
+    return mode_line(mode), remind(new_session(ref, window=32768, platform="linux", cwd=cwd))
+
+
+@test
+def test_first_turn_counts_the_mode_line_and_the_reminder(ctx: Ctx):
+    """3.6.0.15 F9: `halo local prompt` weighs what a first request really sends: the permission mode line always, the
+    reminder for a local main on Auto, each its own named row, the total holding them."""
+    from halo_harness.agent.prompt_composition import tokens_of
+    from halo_harness.agent.prompt_measure import _first_request, first_turn
+    from halo_harness.providers.ollama_wire_estimate import wire_estimate
+    from halo_harness.theme import get_config_value, set_config_value, unset_config_value
+    cwd = _proj()
+    for ref, local in (("ol:qwen3-coder:30b@lan", True), ("ant:claude-opus-5-5", False)):
+        mode = _start_mode(cwd)
+        m = first_turn(ref, window=32768, platform="linux", cwd=cwd)
+        _s, _full, system_text, messages, sent = _first_request(ref, window=32768, platform="linux", cwd=cwd, mode=mode)
+        real = wire_estimate(system_text, messages, sent) - 1024
+        ctx.check(f"{ref}: the prompt is the request built with the turn's start lines, got {m['prompt']} vs {real}",
+                  m["prompt"] == real and m["total"] == m["prompt"] + m["reply_room"])
+        line, reminder = _turn_start_lines(ref, cwd, mode)
+        want = [{"name": "mode line", "tokens": tokens_of(line), "text": line}]
+        if local:
+            ctx.check(f"a local main on Auto has a reminder, got {reminder!r}", bool(reminder))
+            want.append({"name": "reminder", "tokens": tokens_of(reminder), "text": reminder})
+        else:
+            ctx.check(f"a cloud main has none, got {reminder!r}", reminder == "")
+        ctx.check(f"{ref}: the rows, got {m.get('turn_start')!r}", m.get("turn_start") == want
+                  and all(r["tokens"] > 0 for r in want))
+    was = get_config_value("permission_mode", default=None)
+    try:
+        set_config_value("permission_mode", "acceptEdits")
+        m = first_turn("ol:qwen3-coder:30b@lan", window=32768, platform="linux", cwd=cwd)
+        from halo_harness.agent.mode_notice import mode_line
+        got = (m.get("turn_start") or [{}])[0]
+        ctx.check(f"config acceptEdits: the mode line row says that mode, got {got!r}",
+                  got.get("text") == mode_line(_start_mode(cwd)) and "acceptEdits" in got.get("text", ""))
+    finally:
+        if was is None:
+            unset_config_value("permission_mode")
+        else:
+            set_config_value("permission_mode", was)
+
+
 @test
 def test_halo_local_prompt_prints_the_line_and_the_rows(ctx: Ctx):
     from halo_harness.local_cli import cmd_local
@@ -82,11 +136,20 @@ def test_halo_local_prompt_prints_the_line_and_the_rows(ctx: Ctx):
     ctx.check(f"exit 0 and the first-turn line, got {rc} {text[:300]!r}", rc == 0 and "Halo's own first turn:" in text
               and "of 49,152" in text and "reply's room 12,288" in text)
     ctx.check("a row per tool, offered or left out", "  Read " in text and "offered" in text and "left out" in text)
+    # 3.6.0.15 F9: the turn's start lines, each its own row, ending with the line letter for letter
+    line, reminder = _turn_start_lines("ol:qwen3-coder:30b@lan", _proj(), _start_mode(_proj()))
+    rows = text.splitlines()
+    ctx.check(f"the mode line row, got {[r for r in rows if 'mode line' in r]!r}",
+              any(r.startswith("  mode line ") and r.endswith(line) and " sent " in r for r in rows))
+    ctx.check(f"the reminder row, got {[r for r in rows if r.startswith('  reminder')]!r}",
+              bool(reminder) and any(r.startswith("  reminder ") and r.endswith(reminder) for r in rows))
     out = io.StringIO()
     with _In(_proj()), redirect_stdout(out):
         rc = cmd_local(["prompt", "ol:qwen3-coder:30b@lan", "--window", "16384", "--json"])
     got = json.loads(out.getvalue())
     ctx.check(f"--json: the measure, got {sorted(got)[:6]}", rc == 0 and got["sent_window"] == 16384 and got["tools"])
+    ctx.check(f"--json: the turn's start rows, got {got.get('turn_start')!r}",
+              [r.get("name") for r in got.get("turn_start") or []] == ["mode line", "reminder"])
 
 
 @test

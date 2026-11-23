@@ -30,7 +30,10 @@ def render(m: dict) -> str:
              (f"reply's room {m['reply_room']:,} · window {m['window'] or 0:,} -> sent at {m['sent_window'] or 0:,}"
               f" · prompt + room {m['total']:,}"),
              ""]
-    width = max((len(r["name"]) for r in m["tools"]), default=8)
+    turn_start = m.get("turn_start") or []
+    width = max((len(r["name"]) for r in [*m["tools"], *turn_start]), default=8)
+    for r in turn_start:  # 3.6.0.15 F9: the lines a turn's start sends (the mode line, a local main's reminder)
+        lines.append(f"  {r['name']:<{width}}  {r['tokens']:>5,}  {'sent':<8}  {r['text']}")
     for r in m["tools"]:
         mark = "offered " if r["offered"] else "left out"
         lines.append(f"  {r['name']:<{width}}  {r['tokens']:>5,}  {mark}  {r['why']}")

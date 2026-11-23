@@ -166,15 +166,25 @@ def _first_request(ref, **kw) -> tuple:
 
 
 def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-               text: str = "hi", control: Optional[str] = None, builder: bool = False, one_shot: bool = False) -> dict:
+               text: str = "hi", control: Optional[str] = None, builder: bool = False, one_shot: bool = False,
+               mode: Optional[str] = None) -> dict:
+    """A new session's first request weighed (nothing is sent). `mode`: the permission mode its turn starts in; None
+    (3.6.0.15 F9) the mode a new session in `cwd` starts in (crew/map_session.start on configured_mode, the rule
+    start_modes uses), so the mode line and a local main's reminder on Auto are weighed as they are sent; the result's
+    `turn_start` names them, a row each."""
     from halo_harness.agent import prompt_lean as L
     from halo_harness.agent.prompt_composition import compose, composition_line, known_texts
     from halo_harness.agent.prompt_wire import placement_for
     from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted
     from halo_harness.providers.ollama_prompt import window_for
     from halo_harness.providers.ollama_wire_estimate import wire_estimate
+    if mode is None:
+        from halo_harness.crew.map_session import configured_mode, start
+        where = Path(cwd or Path.cwd())
+        mode = start(control, cwd=where, resolved=configured_mode(where))[0]
     session, full, system_text, messages, sent = _first_request(
-        ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder, one_shot=one_shot, text=text)
+        ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder, one_shot=one_shot, text=text,
+        mode=mode)
     ref, plat, window = session.model_ref, session._measure_platform, session._measure_window
     comp = compose(session, messages, sent, system_text, placement=placement_for(session), known=known_texts(session))
     prompt = wire_estimate(system_text, messages, sent) - 1024  # the reply's room counted below, not here
@@ -183,12 +193,16 @@ def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = N
     reply, _w, _sized = fitted(window, prompt, PROVIDER_DEFAULT, first=True)
     sent_window = window_for(prompt + reply, base=window, base_source="measure").num_ctx if window else None
     dropped = list(getattr(session, "_diet_dropped", None) or [])
+    from halo_harness.agent.helpers_words import remind
+    from halo_harness.agent.mode_notice import mode_line
     from halo_harness.agent.prompt_composition import tokens_of
+    turn_start = [{"name": name, "tokens": tokens_of(said), "text": said}
+                  for name, said in (("mode line", mode_line(mode)), ("reminder", remind(session))) if said]
     return {"ref": ref.raw, "platform": plat, "lean": L.active(session), "window": window, "sent_window": sent_window,
             "reply_room": reply, "prompt": prompt, "total": prompt + reply, "system_message": tokens_of(system_text),
             "share": round(100.0 * prompt / sent_window, 1) if sent_window else None, "composition": comp,
             "line": composition_line(comp), "tools": _rows(full, sent, dropped, _why_kept(session, sent)),
-            "left_out": dropped}
+            "left_out": dropped, "turn_start": turn_start}
 
 
 MEASURE_HOST = "http://measure.invalid"  # a name no call reaches: the one-shot's ask is measured, never sent
