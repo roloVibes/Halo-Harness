@@ -8,6 +8,71 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.17] - unreleased
+
+The prompt, one to one. Session's Prompt box in Studio now does with a line what the terminal's prompt does: a
+`!command` or `/command` typed after a space runs as a command, a `/command` runs with an image waiting under the box,
+a refused `!command` shows once and the box empties, and Up and Down move through a long wrapped line a screen line at
+a time. A running `!command` can be stopped from its row in the Feed, and the Agent panel names a running tool as its
+box does.
+
+### Changed
+
+- **A `!command` or `/command` typed after a space or a blank line runs as a command in Studio's Prompt box.** As in
+  the terminal, the line runs in the session with no model turn. Before, Studio sent it to the model as a prompt. A
+  text of two lines and a `!` inside a line are prompts, as before.
+- **A `/command` typed while an image is under the box runs as a command.** The image waits under the box for the next
+  prompt, as the terminal keeps it. Before, the line went to the model with the image.
+- **After a refused `!command` the Prompt box is empty, as the terminal's is.** Up brings the line back. Before,
+  Studio kept the line in the box.
+- **Up and Down on one long prompt that wraps in the box move a screen line at a time first.** Then Up goes to the
+  start and Down to the end, and then through the prompts you sent, as in the terminal. Before, Up on a wrapped line
+  went straight to the start.
+- **`s` on a row of the Feed pins that agent, exactly as the row's "steer ▸" does.** One act, one result; Esc on a row
+  shows everyone again. Before, `s` aimed the steer box without the pin.
+- **The Agent panel's glance line and a pinned agent's small floating panel name a running tool as its box does.** An
+  MCP tool reads as its name alone (`mcp__srv__slow_tool`, not `mcp__srv__slow_tool {"seconds": 30}`), and a built-in
+  reads "Bash ls -la" (before, "Bash: ls -la"). A waiting, paused, queued or finished agent reads as before, and the
+  whole input stays in the tool row's detail.
+
+### Added
+
+- **A running `!command` has its own Stop on its row in the Feed.** The same "Stop" its row in the Prompt panel has,
+  with the same hover: "Stop: ends this command now, and a running turn with it (Esc in the terminal does the same)".
+  A click on it does not open the row, a model's tool rows have none, and when the command ends the Stop goes while
+  the elapsed time keeps its place at the row's end.
+
+### Fixed
+
+- **A `!command` refused by a rule of yours shows once in the Prompt panel.** `!<cmd>` over `denied: <reason>`, not
+  twice. A `!command` refused in the terminal still shows the session's own line in the panel, and Live's journal
+  still records every refusal.
+- **The Feed's steer box keeps its unsent text for each session.** Moving Session to another session shows that
+  session's own text (empty when it has none), so a text written for one session is never sent to another. Before, one
+  text stood for the whole page.
+
+### Known limits
+
+- **A `!command` line from the phone bridge or from voice is still a prompt.** Letting a remote surface run a command
+  is the owner's decision.
+- **Stop ends every running `!command` and a running turn with it;** there is no "end only this command".
+- **The timeline shows a running `!command` only while a turn runs, with no Stop, and Agents -> Live does not show it
+  at all.** The Feed and the Prompt panel are the two places that name it, and both have its Stop.
+- **On a very narrow Feed, where a tool row's first line wraps, the row can wrap differently when the Stop goes.** The
+  result's line arrives under the row at the same moment.
+- **The one row for a refused `!command` is proven in the panel's own rule, not in a browser:** the browser check
+  holds the one row and the emptied box, but its page does not draw the session's own error line, so it could not show
+  two rows either way.
+- **A click on the Feed's Stop was not shown ending a real `!command` in a real session.** The check holds that the
+  click reaches the session's door; the same Stop on the Prompt panel's row is shown ending a real command.
+- **Up and Down on a wrapped line were driven in Chrome on Linux and once on Windows;** each browser makes its own
+  move inside the text, and macOS is CI's part.
+- **Every Known limit of 3.6.0.16 still holds, except this one:** the Agent panel's glance line and a pinned agent's
+  small floating panel no longer write an MCP tool's raw arguments.
+- **Where it was checked.** PROVISIONAL (the coordinator fills this in after the last gate): on the Linux VM all three
+  suites, the browser modules and the full real-use check; on the PC (Windows) every node-backed module and this
+  release's browser modules.
+
 ## [3.6.0.16] - 2026-11-23
 
 Small repairs after 3.6.0.15. Main is now told about an agent you save, delete or undo only when the names it can
