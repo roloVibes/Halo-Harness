@@ -23,6 +23,10 @@ on the Map, `L` on Live and `W` on Workflows. The files live in
 `~/.halo/crew/` ([CREW-FORMATS.md](CREW-FORMATS.md)); the terminal has the first three as `halo agents`, `halo
 workflows` and `halo maps` ([COMMANDS-agents.md](COMMANDS-agents.md)).
 
+An agent that ships with Halo, opened by its name, is read in the form: its fields are off and it has no Save, Discard
+changes or Delete, only Copy, with "{name} ships with Halo: read it here; Copy makes it yours to change." A pack's agent reads
+"From the pack {pack}: read-only here. Copy makes it yours."
+
 **Gone in 3.6.0.0 (R5):** Cast (the lineup canvas, its tiers, Lineups, Bios, the Inspector, Problems, Models), Live
 (the session tree, its plan, its levels and groups), the board of squares (Workflows' squares and their library), the
 blocks library and the lineup and bio forms. What each did lives on the tabs: an agent's form is 1 · Agents, the

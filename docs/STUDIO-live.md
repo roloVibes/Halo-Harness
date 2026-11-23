@@ -28,8 +28,10 @@ A click on a box of a running session's drawing (Agents -> 4 · Live and Session
   is open the drawing holds still and no box under it rings. With reduced motion it comes and goes at once.
 - **The head** holds still: the title and x; the state line, what its box reads at that moment; "Why this model: ...";
   what it does now, in two rows ("a tool · {s}" when the words need more).
-- **One row of actions**: Pause or Resume, Stop, [Open in Agents -> Live] ("Open the map at {sender}" too on a line of an
-  agent that is not on the map), and the steer box of three lines.
+- **One row of actions**: Pause, Stop, [Open in Agents -> Live] ("Open the map at {sender}" too on a line of an agent
+  that is not on the map), and the steer box of three lines. Pause reads "Resume" while a pause you set is in place:
+  from your press until you take it back, also while the helper still waits on you and has not held yet; a press on
+  "Resume" takes the pause back and the button reads "Pause" again.
 - **The body** is the only part that scrolls: the asks with A / R / S; a row per agent still at work (the row you choose
   is the one Pause, Stop and the steer box act on); on main's box "Told it can start: {names}" (+ " and {n} more"); and
   what the agent said last. Asks that arrive while it is open are added at the body's end. In a low window the whole
@@ -38,13 +40,67 @@ A click on a box of a running session's drawing (Agents -> 4 · Live and Session
   slot (which closes it first), and leaving the section. A click on another box opens that box instead; a click on the
   same box closes it.
 - **Last said** is read once, when you click; the sheet opens when the answer comes, or after a second with "Reading
-  what it said..." (the answer is then added at the body's end). It reads "Last said at {hh:mm:ss}: {text}", "Last
-  thought at {hh:mm:ss}: {text}" when its newest words are a thought, "Last said: {text}" or "Last thought: {text}" with
-  no time, "Nothing said yet.", or "Could not read what it said: {error}". A long text ends where the session's reader
-  cut it ("... ({n} more characters)"), and then: "The rest is in the session export: Export on Session's Feed, or halo
-  session export {sid}."
+  what it said..." (the answer is then added at the body's end). It names whose words they are: the agent of the box
+  you clicked, as its row in the sheet shows it (the name stays when you choose another row). It reads "Last said by
+  {name} at {hh:mm:ss}: {text}", "Last thought by {name} at {hh:mm:ss}: {text}" when its newest words are a thought,
+  "Last said by {name}: {text}" or "Last thought by {name}: {text}" with no time. When the sheet has no name for them,
+  the same without it: "Last said at {hh:mm:ss}: {text}", "Last thought at {hh:mm:ss}: {text}", "Last said: {text}" or
+  "Last thought: {text}". Else "Nothing said yet.", or "Could not read what it said: {error}". A long text ends where
+  the session's reader cut it ("... ({n} more characters)"), and then: "The rest is in the session export: Export on
+  Session's Feed, or halo session export {sid}."
 
-It has no model picker in this release.
+### The MODEL block
+
+A helper's sheet and main's start their body with one row: "MODEL" and a button "Change" (a group's sheet has none).
+The block is closed until you press "Change": only then does Studio read the helper's agent ("Reading this helper's
+agent..." until the answer comes). The button then reads "Close", which folds the block again; what it read stays while
+the sheet is open, and a sheet opened anew starts closed.
+
+Open, it holds the picker of your models (you pick, never type) and one line that says what a pick does for this kind
+of helper:
+
+- one of your agents: "Picking a model saves it in your agent {name}: its next start uses it, in this session too,
+  unless main names a model itself."
+- an agent that ships with Halo: "{name} ships with Halo and Auto picks its model per task. Picking a model saves your
+  own {name} on that model: its next start uses it, in this session too, unless main names a model itself."
+- a general helper Auto sent to one of its cards: first "A general helper that Auto sent to its {card} card for the word
+  "{word}".", then "Picking a model saves your own agent {name} on that model: helpers Auto sends to its {card} card
+  start as yours from their next start, in this session too, unless main names a model itself."
+- a helper built into Halo (the Judge, say): "{X} is built into Halo and has no file. Picking a model makes {name}, an
+  agent of yours built from {X}, on that model: main can start {name} from now, in this session too, unless it names a
+  model itself."
+- a helper main made up for its task: "Main made this helper up for its task. Picking a model makes {name}, an agent of
+  yours built from it, on that model: main can start {name} from now, in this session too, unless it names a model
+  itself."
+- no picker, the line alone: a pack's agent, "{name} comes with the pack {P}; Halo does not change it here."; a Claude
+  Code agent file, "{name} is a Claude Code agent file; Halo reads it and does not change it."; an agent of yours
+  deleted after the helper started, "Your agent {name} is gone: it was deleted after this helper started."
+
+These are the forms of a session that takes a new agent at once (on Auto: [CREW-sessions.md](CREW-sessions.md#usable-at-once-auto)).
+In any other session "its next start uses it, in this session too", "from their next start, in this session too" and
+"from now, in this session too" read "from your next session". When a map of yours names the agent, the line adds "
+Your map {M} names {name}: it uses this model from its next session." (" Your map {M} names {name}: it uses yours from
+its next session." for one a pick makes).
+
+Under it: "This helper keeps {model} until it ends." ("It ran on {model}." once it ended). A helper that is running
+keeps its model until it ends; a pick counts from the next start.
+
+- **After a pick** the block says what it did. For one of your agents: "Saved: {name} runs on {model} from its next
+  start, in this session too, unless main names a model itself." when the running session took it, else "Saved: {name}
+  runs on {model} from your next session.". For the others: "Made {name}, an agent of yours on {model}: main can start it
+  now, unless it names a model itself." or "Made {name}, an agent of yours on {model}: main can start it from your next
+  session.". A pick that could not be written: "Not saved: {error}.".
+- **Undo**, while the sheet stays open: "Put back: {name} runs on {old} again." after a save, "Taken back: {name} is
+  gone." after a make, or "Not undone: {name} was changed since." when the agent was changed after the pick.
+- **[Edit in Agents]** on one of your agents opens it in Agents' form. **[Make it an agent]** on a shipped, routed,
+  built-in or made-up helper opens Agents' form filled from it: "Built from {helper} on {model}, not saved yet: read it,
+  change what you like, then Save."
+- **Main's box**: "Picking a model runs /model in this session." A pick switches main: "Switched main to {model} now, as
+  /model in its terminal, and saved for your next launch." for a session in a terminal, "Switched main to {model} for
+  this session; not saved for your next launch." otherwise. While main is in a turn nothing is sent: "Not switched: main
+  is in a turn: pick again when it ends." A pick for main has no Undo.
+
+On Auto, how the groups are laid out, what a group's head counts and when a group folds: [STUDIO-groups.md](STUDIO-groups.md).
 
 ## The glance
 

@@ -207,6 +207,10 @@ seconds, then every 30 seconds, giving up automatically after 10 minutes
 (the row then says so); `r`/`R`/`halo mcp fix --apply` always reset this,
 since asking by hand is itself the reset.
 
+**A helper** (a sub-agent main hands work to) may use a server's tools as main may when the helper starts, within its
+own `tools:` line: it finds a deferred one with ToolSearch or has it at once with `alwaysLoad`. The rules and the one
+gap: [SUBAGENTS.md](SUBAGENTS.md#a-helper-and-an-mcp-servers-tools).
+
 ## claude.ai connectors bridge
 
 When `claude` is installed and logged in with a claude.ai subscription,

@@ -9,7 +9,9 @@ Part of [Halo Studio](STUDIO.md), which lists every part. [Studio: what runs now
 On Auto (the default) main chooses who works. Studio draws main, then each piece of work main hands out as one box with
 a name and a colour of its own: in Session's Live drawer the boxes go top to bottom, in Agents -> 4 · Live left to right
 (main at the left, the groups in the column beside it). A new piece of work gets a new box under the last one; a box
-already drawn does not move.
+already drawn does not move. In Agents -> 4 · Live the lane between main and the column is 96 px wide and the column
+takes the view's width at its zoom less 392 px, at most 760 and at least 352. A group lays its helpers three a row when
+each would be at least 200 px wide, else two a row when each would be at least 160, else one.
 
 - **The name** is the few words main gave the work. When main gave none, it is the words its helpers share; else
   "Task {n}". A saved workflow that runs is its own box, named "workflow {W}", and it shows its steps; two runs of one
@@ -61,6 +63,12 @@ agents · all done · ${cost} · {time}". A helper you stopped keeps the counts 
 done · 1 stopped". Under it, a line says which models were picked and why (for example "3 readers on kimi-k3 for a pdf in
 the task").
 
+A cost reads as the boxes write it: four decimals under $1 ("$0.0024"), two from $1 ("$12.50"), and an amount above
+zero that would round to nothing "<$0.0001"; a group that spent nothing leaves the cost out of its counts line. The
+counts line keeps, from the group's first draw, the rows its longest form needs at the group's width, so nothing under
+it moves when a helper starts waiting, ends or a cost arrives; when the group's width changes (the drawer dragged, the
+column fitted to the view again) that room is taken anew.
+
 Hover the head: its name, "Started by main at {t}", one line per helper ("{who} · {model} · {state}") and the cost. Hover
 a helper: what it does, "{who} on {model}", "Why this model: ..." and its state, cost and time. Click a helper, or the
 head: its box opens in place ([STUDIO-live.md](STUDIO-live.md#the-box-opens-in-place)), with the same "Why this model:
@@ -68,6 +76,11 @@ head: its box opens in place ([STUDIO-live.md](STUDIO-live.md#the-box-opens-in-p
 
 Main's line into a box lights while a helper in it works, then stays as a trace that weighs more the more helpers the
 box had. A line into a box carries no label: the box's head names it.
+
+**A finished group folds.** A group whose helpers all ended done folds to its head 10 s after its last end: its helpers'
+rows are hidden, the head and its counts stay. A failed or a stopped helper keeps it open, so does one still at work.
+Nothing folds while the pointer rests on the drawing or a box is open: the fold waits until the drawing is let go. A
+group that was done before the page opened is drawn folded from the first draw; a helper that joins it opens it again.
 
 ## Work out of sight
 

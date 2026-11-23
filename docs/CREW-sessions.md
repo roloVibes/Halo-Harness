@@ -111,6 +111,29 @@ applies at the next hand-off, and the session says "your map changed: lines and 
 An agent already working keeps what it started with; main's own model, instructions and tools change with the next
 session. A change that leaves the map with a problem keeps the last good one and says the problem once.
 
+## Usable at once (Auto)
+
+On Auto (the default) a new agent counts in the session that is running, from main's next step, with no restart: an
+agent you save in Agents' form (Agents -> 1 · Agents), one the Builder makes in a session, or one a pick in a helper's
+MODEL block makes or saves ([STUDIO-live.md](STUDIO-live.md#the-model-block)).
+
+- **Main is told once** per name, before its next model call: "[Halo] A new helper you can start now: {name} ({words})."
+  ("[Halo] A new helper you can start now: {name}." when the agent's `does` gives no words). When it is taken back (an
+  Undo, the file deleted): "[Halo] Taken back: {name} can no longer be started in this session.", or "[Halo] Taken back:
+  {name} starts as it did when this session began." when the session started with an agent of that name. An edit of an
+  agent the session started with is not told.
+- **The Builder** tells main in its own result instead: "Ready in this session now: the agent {x} (subagent_type
+  `{x}`)." When an agent does NOT take in this session, the result says so: "Saved for your next session: the agent
+  {name} ({why})." with the reason: "this session's list of agents was fixed when it started", "this session keeps the
+  {name} it started with", "it asks for {tool}, which this session's main does not have", "it asks for a mode above this
+  session's" or "a built-in has that name".
+- **A helper already running** keeps what it started with; the change counts from the next start.
+- **Main's hover** on the drawing ends with "Added in this session: {names}", every agent added since the session
+  started.
+- **Your agent takes a card's place.** Once you own an agent named like one of Auto's cards (a file of yours `coder`,
+  say), a general hand-off that Auto sends to that card starts YOUR agent, with your instructions and your model unless
+  main names a model in the call, and the drawing shows it as your agent.
+
 ## A map with a problem
 
 A missing agent or workflow, a file with problems, or a circle: the session does not start half-configured. It says

@@ -107,6 +107,19 @@ The orchestrator's own system prompt (the Agent tool's own guidance
 line, drawn from its `description`) tells the model it may spawn
 several agents in one call this way, and that `/tasks` shows them.
 
+## A helper and an MCP server's tools
+
+A helper may use every tool its parent may use when the helper starts, an MCP server's tools included, within its own
+`tools:` line: `tools: Read` gets no MCP tool, `tools: Read, mcp__<server>__*` gets that server's tools and no other
+server's. A deny rule or `--disallowedTools` holds for a helper as for main; nothing widens a helper beyond its parent.
+The helper finds a deferred tool with `ToolSearch`, or has it at once when the tool or its server says `alwaysLoad`. A
+server that connects after the session started is found too, and a lazy server a helper starts reaches main as well. A
+tool main loads later does not reach a helper already running.
+
+The one gap: a helper whose `tools:` names only `mcp__<server>__*` tools (no `ToolSearch`) gets `ToolSearch` only when
+it has a deferred tool at its start, so a lazy server nobody has started yet stays out of its reach (as it does for a
+main session started with `--tools` that leaves `ToolSearch` out).
+
 ## The shared task board
 
 `TaskCreate`/`TaskUpdate`/`TaskList` -- a small JSON-backed TODO list at
