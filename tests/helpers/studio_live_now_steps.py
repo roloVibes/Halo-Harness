@@ -22,6 +22,10 @@ set they skip, and `window.__step()` runs each once (a step of the clock, never 
     height   one member queued -> running -> a tool -> waiting -> done: its height in Agents -> Live and in Session's
              drawer at its narrowest (last but one: it narrows the drawer)
     s5held   S5: the drawer at its narrowest, a 39-character tool while the pointer is on the drawing, then off, then done
+    seen_ended  F4: a helper whose first row the page reads is already done
+    resthold (3.6.0.15 F11) the drawer opened from the keyboard under a resting pointer, then narrowed by its keys, then a
+             39-character tool: data-held, every rect, then the pointer leaves; then resting on the member (its hover card)
+             and the drawer closed and opened again from the keyboard under it
 
     python -m tests.helpers.studio_live_now_steps [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -596,7 +600,112 @@ def seen_ended(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"seen_ended": out}
 
 
-STEPS = (s2now, rest, reduced, s3slot, s3rings, fold, height, s5held, seen_ended)
+# ---- F11: a pointer that already rests when the drawing's root is bound ------------------------------------------------
+VBTN = "document.querySelector('[data-testid=viewbar-btn][data-panel=session-map]')"
+DRAWER = f"{M}?.closest('[data-testid=stage-drawer]')"
+AT = """((x, y, root) => { const e = document.elementFromPoint(x, y); return {in_root: !!(root && e && root.contains(e)),
+  member: e?.closest?.('[data-member]')?.dataset.member || '', card: !!e?.closest?.('#halo-hover-card')}; })"""
+
+
+def _press(c, key: str, code: str, vk: int, alt: bool = False) -> None:
+    for kind in ("keyDown", "keyUp"):
+        extra = {"text": "\r"} if kind == "keyDown" and key == "Enter" else {}
+        c.call("Input.dispatchKeyEvent", type=kind, key=key, code=code, windowsVirtualKeyCode=vk, modifiers=1 if alt else 0, **extra)
+
+
+def _toggle_drawer(c) -> None:
+    """Session's Live drawer opened or closed from the keyboard (its view-bar button focused, Enter): no pointer event."""
+    c.js(f"{VBTN}?.focus(); 1")
+    _press(c, "Enter", "Enter", 13)
+
+
+def _held_read(c, x: float, y: float) -> dict:
+    return c.js(f"""(() => {{ const r = {M}; return {{held: r?.dataset.held || '', hover: !!r?.matches(':hover'), old: !!r?.__f11old,
+      at: ({AT})({x}, {y}, r), width: Math.round({DRAWER}?.getBoundingClientRect().width || 0)}}; }})()""") or {}
+
+
+def _narrow_by_keys(c) -> list:
+    """The drawer to its least width with the divider's keys (Alt+Left / Alt+Right, focus in the drawer): no pointer event."""
+    side = c.js(f"{DRAWER}?.dataset.side || 'right'")
+    code, vk = ("ArrowRight", 39) if side == "right" else ("ArrowLeft", 37)
+    for _ in range(40):
+        got = c.js(f"[Math.round({DRAWER}?.getBoundingClientRect().width || 0), +({DRAWER}?.querySelector(':scope > [data-testid=stage-splitter]')?.getAttribute('aria-valuemin') || 0)]")
+        if not got or got[0] <= got[1]:
+            break
+        c.js(f"{DRAWER}?.querySelector('[data-testid=panel-title]')?.closest('[tabindex]')?.focus(); 1")  # the panel itself
+        _press(c, code, code, vk, alt=True)
+        frames(c, 2)
+    return c.js(f"[Math.round({DRAWER}?.getBoundingClientRect().width || 0), +({DRAWER}?.querySelector(':scope > [data-testid=stage-splitter]')?.getAttribute('aria-valuemin') || 0), {DRAWER}?.dataset.side || '']")
+
+
+def resthold(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """3.6.0.15 F11: Session's drawer with one working helper. The pointer is put where the drawing will be while the
+    drawer is closed, the drawer opened from the keyboard (its root drawn and bound under the resting pointer, no pointer
+    event on it); then the drawer narrowed to its least width with the divider's keys (the pointer still resting); then
+    the helper's tool needs a third NOW row: every rect while the pointer rests, then the pointer leaves."""
+    out: dict = {}
+    t0 = time.time() - 10
+    main = _main(rows, a, state="running", current="Agent: review the money module", since=t0, started=t0)
+    kids = lambda st: [mk("e1", "reviewer", "check pay.py", "review the money module", 1, st, since=t0)]  # noqa: E731
+    go(c, rig, rows, a, b, [main, *kids("running")])
+    c.wait(f"!!{M}.querySelector('[data-member=e1]')", 20)
+    frames(c, 4)
+    d = c.js(f"(() => {{ const d = {DRAWER}.getBoundingClientRect(), m = {M}.querySelector('[data-member=e1]').getBoundingClientRect();"
+             f" return [d.left, d.right, m.top + m.height / 2, {DRAWER}.dataset.side || 'right']; }})()")
+    x = (d[1] - 40) if d[3] == "right" else (d[0] + 40)  # on the member's row, near the drawer's fixed edge: inside at any width
+    y = d[2]
+    c.js(f"{M}.__f11old = 1; 1")
+    _toggle_drawer(c)
+    out["closed"] = bool(wait_or(c, f"!{M} || !{M}.getClientRects().length", 15))
+    c.mouse("mouseMoved", x, y)  # the pointer rests where the drawing will be: the last pointer event of this step until it leaves
+    frames(c, 4)
+    _toggle_drawer(c)
+    wait_or(c, f"!!{M}?.querySelector('[data-member=e1]') && {M}.getClientRects().length > 0", 20)
+    frames(c, 6)
+    out["drawn"] = _held_read(c, x, y)
+    out["drawer"] = _narrow_by_keys(c)
+    frames(c, 6)
+    out["narrowed"] = _held_read(c, x, y)
+    first = _rects(c, "session")
+    c.js("window.__held = true; 1")
+    try:
+        feed(rig, a, "e1", "tool_use_start", {"id": "t-f11", "name": TOOL})
+        wait_or(c, now_is(M, "e1", "a tool · "), 15)
+        changed: list = []
+        for _ in range(5):
+            c.js("window.__step()")
+            frames(c, 2)
+            got = _rects(c, "session")
+            if got != first:
+                changed.append({k: [first.get(k), got.get(k)] for k in set(first) | set(got) if first.get(k) != got.get(k)})
+                first = got
+        out["changed"] = changed[:4]
+        out["tooled"] = {**_held_read(c, x, y), "now": c.js(f"{M}.querySelector('[data-member=e1] > [data-testid=map-member-now]')?.textContent || ''")}
+        c.mouse("mouseMoved", 2, 400)  # the pointer leaves: on the rail
+        c.js("window.__step(); 1")
+        wait_or(c, now_is(M, "e1", TOOL + " · "), 15)
+        frames(c, 2)
+        out["left"] = {**_held_read(c, 2, 400), "now": c.js(f"{M}.querySelector('[data-member=e1] > [data-testid=map-member-now]')?.textContent || ''")}
+        e1 = f"{M}.querySelector('[data-member=e1]')"
+        rest_on(c, e1)  # on the member itself at the least width, until its hover card shows
+        mx, my, mw, mh = c.rect(e1)
+        out["card_shown"] = bool(wait_or(c, "!!document.getElementById('halo-hover-card')", 10))
+        frames(c, 6)
+        out["on_member"] = _held_read(c, mx + mw / 2 + 4, my + mh / 2)
+        c.js(f"{M}.__f11old = 1; 1")  # the drawer closed and opened again from the keyboard, the pointer resting on e1
+        _toggle_drawer(c)
+        wait_or(c, f"!{M} || !{M}.getClientRects().length", 15)
+        frames(c, 4)
+        _toggle_drawer(c)
+        wait_or(c, f"!!{M}?.querySelector('[data-member=e1]') && {M}.getClientRects().length > 0", 20)
+        frames(c, 6)
+        out["rebound"] = _held_read(c, mx + mw / 2 + 4, my + mh / 2)
+    finally:
+        c.js("window.__held = false; 1")
+    return {"resthold": out}
+
+
+STEPS = (s2now, rest, reduced, s3slot, s3rings, fold, height, s5held, seen_ended, resthold)
 
 
 class LiveNowDriver(MapDownDriver):

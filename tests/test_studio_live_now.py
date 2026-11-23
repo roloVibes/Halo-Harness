@@ -23,6 +23,8 @@ L7b (S3, S5)
    when the pointer leaves, keeps that height through done.
 3.6.0.14 O1-2 ruling (4)
 9. The card open in Agents -> Live, the section left by its key: the sheet closes and none of its listeners is left.
+3.6.0.15 F11
+10. A pointer that already rests where the drawing draws its root holds it (data-held), with no pointer move after.
 Run: python -m tests.test_studio_live_now
 """
 from __future__ import annotations
@@ -235,6 +237,33 @@ def test_s5_held_form_then_one_growth_at_360(ctx: Ctx):
     ctx.check(f"the pointer left: the whole name, the member grown once, got {left}",
               left[0] > first and _is(left[1], rf"mcp__deckcraft__insert_chart_from_range · {S}"))
     ctx.check(f"it keeps that height through done, got {done}", done[0] == left[0] and _is(done[1], rf"done in {SPAN}"))
+
+
+@test
+def test_a_pointer_that_already_rests_holds_the_drawing(ctx: Ctx):
+    """3.6.0.15 F11: the pointer put where the drawing will be while the drawer is closed, the drawer opened from the
+    keyboard (no pointer event after the root was drawn): the root carries data-held; still so once the drawer is
+    narrowed to its least width with the divider's keys; a 39-character tool then moves no rect while the pointer rests
+    and the member takes its row once the pointer leaves; resting on the member (its hover card shown) holds; the drawer
+    closed and opened again from the keyboard under that resting pointer holds (a new root)."""
+    d = _ran(ctx, "resthold")
+    drawn, narrowed, tooled, left = (d.get(k) or {} for k in ("drawn", "narrowed", "tooled", "left"))
+    ctx.check(f"the drawer closed and drew its root again under the resting pointer, got {d.get('closed')} {drawn}",
+              d.get("closed") is True and drawn.get("old") is False and (drawn.get("at") or {}).get("in_root") is True)
+    ctx.check(f"a resting pointer holds the drawing drawn under it, got {drawn}", drawn.get("held") == "1")
+    dr = d.get("drawer") or [0, 0]
+    ctx.check(f"the drawer at its least width by its keys, the pointer still on the drawing, got {dr} {narrowed}",
+              len(dr) >= 2 and dr[0] <= dr[1] and (narrowed.get("at") or {}).get("in_root") is True)
+    ctx.check(f"still held at the least width, got {narrowed}", narrowed.get("held") == "1")
+    ctx.check(f"a third NOW row waits while the pointer rests: no rect moved, the held form, got {d.get('changed')} {tooled}",
+              d.get("changed") == [] and tooled.get("held") == "1" and _is(tooled.get("now", ""), rf"a tool · {S}"))
+    ctx.check(f"the pointer left: the row is taken, got {left}",
+              left.get("held") == "" and _is(left.get("now", ""), rf"mcp__deckcraft__insert_chart_from_range · {S}"))
+    on, again = d.get("on_member") or {}, d.get("rebound") or {}
+    ctx.check(f"resting on the member with its hover card shown, still held, got {d.get('card_shown')} {on}",
+              d.get("card_shown") is True and (on.get("at") or {}).get("member") == "e1" and on.get("held") == "1")
+    ctx.check(f"the drawer closed and opened again under the pointer resting on the member: a new root, held, got {again}",
+              again.get("old") is False and (again.get("at") or {}).get("in_root") is True and again.get("held") == "1")
 
 
 if __name__ == "__main__":

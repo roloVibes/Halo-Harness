@@ -1003,6 +1003,29 @@ console.log(JSON.stringify({
 
 
 @test
+def test_a_running_members_now_is_its_open_tool(ctx: Ctx):
+    """3.6.0.15 F6: NOW of a running member with its tool open is "{tool} · {s}" whatever else is known (a model wait,
+    a newer text line): the one rule for a lone helper and a fan-out child alike; without an open tool and with a model
+    wait it is "waiting for a model reply · {s}" (in node)."""
+    from tests.helpers import node_ts
+    src = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src"
+    js = """const N = await import(%s);
+const now = 200000, tool = { tool: "Bash", t0: 188000 }, wait = { kind: "model", since: 190000 }, last = { kind: "text", t0: 195000 };
+const nw = (x) => N.nowWords(N.nowOf({ raw: "running", started: 180, ended: 0, ...x }, now));
+console.log(JSON.stringify({ tool: nw({ tool }), with_wait: nw({ tool, wait, last }), no_tool: nw({ wait }),
+  queued: N.nowWords(N.nowOf({ raw: "queued", started: 190, ended: 0, tool }, now)) }));""" % json.dumps(
+        (src / "routes/crew/map/nowLine.ts").resolve().as_uri())
+    got = node_ts.run(js)
+    nb = " "
+    ctx.check(f"a running member in a tool reads its tool, got {got.get('tool')!r}", got.get("tool") == f"Bash · 12{nb}s")
+    ctx.check(f"the open tool wins over a model wait and a text line, got {got.get('with_wait')!r}",
+              got.get("with_wait") == f"Bash · 12{nb}s")
+    ctx.check(f"no open tool and a model wait: the wait, got {got.get('no_tool')!r}",
+              got.get("no_tool") == f"waiting for a model reply · 10{nb}s")
+    ctx.check(f"a queued row stays queued, got {got.get('queued')!r}", got.get("queued") == f"queued · 10{nb}s")
+
+
+@test
 def test_an_end_seen_first_as_done_reaches_now(ctx: Ctx):
     """3.6.0.15 F4: a helper the page first saw already done (no doneAt of the page's own) carries its end on its row:
     lib/work/ended.ts endedOf takes the row's `ended` first, the page's doneAt only without one, null for a live state;

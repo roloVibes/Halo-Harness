@@ -24,6 +24,7 @@ Chrome (tests/helpers/studio_auto_groups_draw.py; on the Linux VM, never on the 
    first draw at 1280 x 800 and 1440 x 900, group 1's head in view; on a map of his the released height. A helper's card
    lies inside the drawer and its Send is in view or brought into view by the card's own scroll.
 11. (3.6.0.15 F1) At the drawer's narrowest no box moves when a group's counts take a part (a wait, an end, a cost).
+12. (3.6.0.15 F6) A fan-out (`batch`) child in a tool call reads "{tool} · {s}", as a lone helper does.
 Run: python -m tests.test_studio_auto_groups
 """
 from __future__ import annotations
@@ -449,6 +450,20 @@ def test_no_box_moves_when_a_groups_counts_take_a_part(ctx: Ctx):
         moved = [(s.get("step"), _moved(first, s.get("places") or {})) for s in steps]
         ctx.check(f"({m}) no box moved by more than 1 px as the parts joined (first {first}), moved: {[x for x in moved if x[1]]}",
                   bool(first) and not any(x[1] for x in moved))
+
+
+@test
+def test_a_fanout_childs_now_names_its_tool_like_a_lone_helpers(ctx: Ctx):
+    """3.6.0.15 F6: a batch child (drawn queued first, one step with its siblings) in a tool call reads "{tool} · {s}",
+    as a lone helper in the same tool does; a sibling still queued reads "queued · {s}"."""
+    import re
+    d = _ran(ctx, "fanout")
+    s = r"\d+(?:\s(?:s|min)(?:\s\d+\ss)?)?"
+    nows = {k: (d.get(k) or {}).get("now", "") for k in ("b1", "b2", "l1")}
+    ctx.check(f"the batch child running reads 'Bash · {{s}}', got {d.get('b1')}",
+              (d.get("b1") or {}).get("raw") == "running" and re.fullmatch(rf"Bash · {s}", nows["b1"]) is not None)
+    ctx.check(f"the lone helper reads the same, got {d.get('l1')}", re.fullmatch(rf"Bash · {s}", nows["l1"]) is not None)
+    ctx.check(f"a sibling still queued reads 'queued · {{s}}', got {d.get('b2')}", re.fullmatch(rf"queued · {s}", nows["b2"]) is not None)
 
 
 if __name__ == "__main__":

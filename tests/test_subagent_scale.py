@@ -216,6 +216,86 @@ def test_batch_spawns_per_item_overrides_combined_in_spawn_order(ctx: Ctx):
         mock.stop()
 
 
+def _tool_step(name: str, args: dict, call_id: str) -> list:
+    return [
+        {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+        {"choices": [{"index": 0, "delta": {"tool_calls": [
+            {"index": 0, "id": call_id, "type": "function", "function": {"name": name, "arguments": json.dumps(args)}},
+        ]}}]},
+        {"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]},
+    ]
+
+
+def _a_childs_tool_while_it_runs(ctx: Ctx, label: str, tool_input_of) -> None:
+    """3.6.0.15 F6: one Agent call (lone or a fan-out of one) whose child calls Glob, held on an Event while the
+    checks read the child's registry row and the events the live channel has delivered so far."""
+    from halo_harness.agent.agent_registry import tree_for
+    from halo_harness.tools.base import ToolResult
+    from halo_harness.tools.glob_tool import GlobTool
+    mock = MockUpstream().start()
+    entered, release = threading.Event(), threading.Event()
+    real_run = GlobTool.run
+
+    def held_run(self, input, tctx):
+        entered.set()
+        release.wait(60)
+        return ToolResult("held-glob-done")
+
+    seen: list = []
+    worker = None
+    try:
+        model = f"or:mock/scale-f6-{label}-child"
+        SCENARIOS[f"scale-f6-{label}-child"] = ScriptedTurns([
+            _tool_step("Glob", {"pattern": "*.nothing"}, f"call_glob_{label}"), _text_step(f"f6-{label}-done")])
+        session = _new_session(mock=mock, model=f"or:mock/scale-f6-{label}-parent", agents={"general-purpose": _gp_spec()})
+        GlobTool.run = held_run
+        tu = {"type": "tool_use", "id": f"call_f6_{label}", "name": "Agent", "input": tool_input_of(model)}
+        def drain() -> None:
+            for e in session._dispatch_tools(1, [tu]):
+                seen.append(e)
+
+        worker = threading.Thread(target=drain, daemon=True)
+        worker.start()
+        ctx.check(f"{label}: the child's Glob started", entered.wait(60))
+        deadline = time.monotonic() + 60
+        aid, frame = None, None
+        while time.monotonic() < deadline and frame is None:  # the live channel drains on its own beat: wait for the frame
+            starts = [e for e in list(seen) if e.kind == "subagent_start"]
+            aid = starts[0].agent_id if starts else None
+            frame = next((e for e in list(seen) if e.kind == "tool_use_start" and aid and e.agent_id == aid), None)
+            if frame is None:
+                time.sleep(0.05)
+        ctx.check(f"{label}: a tool_use_start frame tagged with the child's id {aid!r} came while the tool runs, "
+                  f"got kinds {[(e.kind, e.agent_id) for e in list(seen)]}",
+                  frame is not None and (frame.data or {}).get("name") == "Glob")
+        tree = tree_for(session)
+        with tree.lock:
+            row = dict(tree.rows.get(aid) or {})
+        ctx.check(f"{label}: the child's row names its tool and runs, got {row.get('state')!r} {row.get('current')!r}",
+                  row.get("state") == "running" and str(row.get("current") or "").startswith("Glob"))
+    finally:
+        release.set()
+        if worker is not None:
+            worker.join(60)
+        GlobTool.run = real_run
+        mock.stop()
+    ctx.check(f"{label}: the call ended", worker is not None and not worker.is_alive())
+    ctx.check(f"{label}: the child's text came back", any(e.kind == "tool_result" and e.agent_id is None
+                                                           and f"f6-{label}-done" in str((e.data or {}).get("content"))
+                                                           for e in seen))
+
+
+@test
+def test_a_fanout_childs_tool_reaches_its_row_and_its_frames_like_a_lone_helpers(ctx: Ctx):
+    """3.6.0.15 F6: a fan-out (`batch`) child's NOW follows the same facts as a lone helper's: while its tool runs,
+    its registry row says that tool and "running", and a `tool_use_start` frame tagged with its own agent id has
+    reached the live channel. The lone call is the control."""
+    _a_childs_tool_while_it_runs(ctx, "lone", lambda m: {"description": "one", "prompt": "go",
+                                                          "subagent_type": "general-purpose", "model": m})
+    _a_childs_tool_while_it_runs(ctx, "batch", lambda m: {"description": "fan", "subagent_type": "general-purpose",
+                                                           "batch": [{"prompt": "go", "model": m}]})
+
+
 @test
 def test_fanout_combined_result_is_capped_not_megabytes(ctx: Ctx):
     """2.0.2 review finding 27 pin: `AgentTool.result_cap=None` means the

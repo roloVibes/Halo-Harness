@@ -22,6 +22,7 @@ No model is called.
     heights (batch 8) Agents -> Live's slot at 1280x800, at 1280x1400 and back, with no scroll
     mainstill (k/batch02) main through done, a tool, the Agent tool, thinking, waiting on you, done: main's rect and
             group 1's rect in each state
+    fanout  (3.6.0.15 F6) a batch of three (one running, two queued) and a lone helper, each runner in a Bash call: NOW
     longest (batch 7-8, last: it narrows the drawer) Session's slot with the 60-character sample of ordinary letters,
             then a 25-character name, each with a two-digit count, at the default drawer width and at its narrowest
     countsstill (3.6.0.15 F1) the drawer at its narrowest: a group's counts take a part (a wait, an end, a cost) under a
@@ -620,6 +621,45 @@ def mainstill(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"mainstill": out}
 
 
+# 3.6.0.15 F6: a fan-out (`batch`) child's NOW beside a lone helper's, each in a tool call
+NOW_OF = "(aid) => ({M}?.querySelector(`[data-member=\"${{aid}}\"] > [data-testid=map-member-now]`)?.textContent || '')".format(M=M)
+
+
+def _frame(rig, sid: str, aid: str, event: str, data: dict) -> None:
+    from halo_harness.peers.identity import harness
+    rig.server.events.publish({"session_id": sid, "harness": harness()["id"], "event": event, "agent_id": aid, "turn": 1,
+                               "data": data, "ts": time.time()})
+
+
+def fanout(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """3.6.0.15 F6: a batch of three (one call, one step: b1 runs, b2 and b3 queued, drawn queued first as a fan-out's
+    children are) and a lone helper l1; b1 and l1 each get the `tool_use_start` frame of a Bash call (each tagged with its
+    own agent id, as the session sends it): each member's NOW, once it names the tool (the step waits for it)."""
+    t0 = time.time() - 8
+    main = _main(rows, a, state="running", current="Agent: run the tests", since=t0, started=t0)
+
+    def kids(first: str) -> list:
+        out = [member(f"b{i}", "tester", f"run part {i}", "run the tests", 1, state=first if i == 1 else "queued") for i in (1, 2, 3)]
+        out.append(member("l1", "coder", "fix the login form", "fix the login bug", 2, model="glm-5"))
+        for k in out:
+            k.update(since=t0, current="Bash: pytest -q" if k["state"] == "running" else "")
+        return out
+
+    _open(c, rig, rows, a, b, "auto", True, [main, *kids("queued")])
+    c.wait(f"({GROUP})(1)?.querySelectorAll('[data-member]').length === 3 && !!({GROUP})(2)", 20)
+    _set(rows, a, [main, *kids("running")])
+    c.wait(f"{M}.querySelector('[data-member=b1]')?.dataset.raw === 'running'", 20)
+    for aid in ("b1", "l1"):
+        _frame(rig, a, aid, "tool_use_start", {"id": f"t-{aid}", "name": "Bash"})
+    try:
+        c.wait(f"({NOW_OF})('b1').startsWith('Bash · ') && ({NOW_OF})('l1').startsWith('Bash · ')", 15)
+    except TimeoutError:
+        pass  # the reading says what it showed
+    got = {aid: {"now": c.js(f"({NOW_OF})('{aid}')"), "raw": c.js(f"{M}.querySelector('[data-member={aid}]')?.dataset.raw || ''")}
+           for aid in ("b1", "b2", "l1")}
+    return {"fanout": got}
+
+
 class AutoGroupsDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -633,7 +673,7 @@ class AutoGroupsDriver(MapDownDriver):
             rows = Rows(rig)
             collect_page_errors(c)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, heights, mainstill, longest, countsstill)
+            steps = [s for s in (scene, lines, grow, five, hover, slot, focus, scrolls, heights, mainstill, fanout, longest, countsstill)
                      if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
