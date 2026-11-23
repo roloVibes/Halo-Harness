@@ -148,6 +148,39 @@ def test_general_purpose_child_is_made_up(ctx: Ctx):
 
 
 @test
+def test_a_routed_general_call_is_drawn_as_his_agent(ctx: Ctx):
+    """3.6.0.15 OP2 O2-4: on Auto a general call whose words route it to a card whose agent is one of his (crew:yours or
+    crew:project) is the call naming him: the spawn gets his name and the row says a saved agent, never made up. A
+    shipped coder, a call with a `role` or no coder at all keeps today's general-purpose, made-up call."""
+    from halo_harness.crew.map_run import agent_call
+    from halo_harness.crew.spec import agent_spec
+    made_up = {"map": "auto", "box": "main", "agent": "general-purpose", "saved": False, "made_up": True}
+    with PacksHome() as h:
+        for source in ("crew:yours", "crew:project"):
+            rt, calls = default_rt(h), []
+            rt.agents = {"coder": agent_spec({"name": "coder", "does": "writes code"}, source=source)}
+            asked = {"description": "fix the login bug", "prompt": "fix it"}
+            agent_call(spawning(calls, rt), runtime=rt, tool_id="toolu_9", tool_input=asked, tool_name="Agent")
+            crew = row(rt, calls[-1]["aid"]).get("crew")
+            ctx.check(f"{source}: the spawn got his coder, got {calls[-1]['who']!r}", calls[-1]["who"] == "coder")
+            ctx.check(f"{source}: drawn as his saved agent, got {crew}",
+                      crew == {"map": "auto", "box": "main", "agent": "coder", "saved": True})
+            ctx.check(f"main's own call is not changed, got {asked}", "subagent_type" not in asked)
+        cases = (("a shipped coder", {"coder": agent_spec({"name": "coder", "does": "writes code"}, source="crew:starter")}, {}),
+                 ("a call with a role", {"coder": agent_spec({"name": "coder", "does": "writes code"}, source="crew:yours")},
+                  {"role": "reviewer"}),
+                 ("no coder at all", {}, {}))
+        for label, agents, extra in cases:
+            rt, calls = default_rt(h), []
+            rt.agents = agents
+            agent_call(spawning(calls, rt), runtime=rt, tool_id="toolu_9",
+                       tool_input={"description": "fix the login bug", "prompt": "fix it", **extra}, tool_name="Agent")
+            crew = row(rt, calls[-1]["aid"]).get("crew")
+            ctx.check(f"{label}: the spawn got no type, got {calls[-1]['who']!r}", calls[-1]["who"] is None)
+            ctx.check(f"{label}: today's made-up row, got {crew}", crew == made_up)
+
+
+@test
 def test_workflow_tool_run_sends_hop_and_steps(ctx: Ctx):
     with PacksHome() as h:
         rt, calls = default_rt(h), []

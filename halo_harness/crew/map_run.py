@@ -21,6 +21,7 @@ session's cap is checked before every hop.
 
 from __future__ import annotations
 
+import contextlib
 import re
 
 from halo_harness.crew import map_events, map_when
@@ -47,6 +48,26 @@ def _who(runtime, name) -> "tuple[str, bool]":
     if not name or name == "general-purpose":
         return name or "general-purpose", False
     return name, (getattr(runtime, "agents", None) or {}).get(name) is not None
+
+
+def _his_for_card(runtime, mc, tool_input: dict) -> dict:
+    """3.6.0.15 OP2 O2-4: on Auto, a call that names no type (or `general-purpose`) and no `role`, whose words route it
+    to a card whose agent (`starter_of(card)`) is one of his (`crew:yours` / `crew:project`), IS the call naming him:
+    a new dict with his name as `subagent_type` (main's own call is not changed). Anything else: the call as given."""
+    if str(tool_input.get("subagent_type") or "general-purpose").strip() != "general-purpose" or tool_input.get("role"):
+        return tool_input
+    plain = getattr(mc, "plain", None)
+    if plain is None:
+        return tool_input
+    _word, card = mc.route_call(tool_input, str(tool_input.get("description") or ""))
+    if not card:
+        return tool_input
+    his_name = plain.starter_of(card)
+    with getattr(runtime, "lock", None) or contextlib.nullcontext():
+        his = (getattr(runtime, "agents", None) or {}).get(his_name)
+    if his is not None and str(getattr(his, "source", "")) in ("crew:yours", "crew:project"):
+        return {**tool_input, "subagent_type": his_name}
+    return tool_input
 
 
 def _err(text: str):
@@ -238,7 +259,9 @@ def _choose(mc, kind: str, name: str, task: str, files, runtime) -> "tuple[dict 
 def _drawn(inner, runtime, mc, tool_id: str, tool_input: dict, tool_name: str, on_event, on_child):
     """The default map (crew/compile.py is_default): the call runs exactly as a plain session's did -- nothing refused,
     routed, capped or added to its result -- and the Map draws it: on main's line to a starter box when the starter's
-    own agent runs, else as an agent main started (beside main)."""
+    own agent runs, else as an agent main started (beside main). A routed general call whose card's agent is one of
+    his is first made the call naming him (`_his_for_card`, O2-4)."""
+    tool_input = _his_for_card(runtime, mc, tool_input)
     name = str(tool_input.get("subagent_type") or "").strip()
     spec = (getattr(runtime, "agents", None) or {}).get(name) if name else None
     h = mc.line_to("agent", name) if spec is not None and str(getattr(spec, "source", "")) == "crew:starter" else None
