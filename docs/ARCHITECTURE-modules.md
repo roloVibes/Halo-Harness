@@ -107,7 +107,12 @@ the Map tab's maps, a map, its save and `use`) and `studio/builder_api.py` (`bui
 + `crew/tools_show.py` (the builder's map tools and studio_show), `crew/session_tool.py` (the same tools offered to main).
 3.6.0.0 R4: `crew/map_events.py` (what a session on a map says as it runs: the `map_hop` / `map_step` / `map_card` frames,
 the same in its log, each spawned row's `crew` box) and `studio/crew_live_api.py` (`crew/from-live`: Save as an agent
-from a helper a session made up); the lit Map's overlay is Studio's `routes/crew/map/overlay.ts`. 3.6.0.0 R5b: `crew/plain.py` (what a session with no map answers, from `templates/crew/plain/session.yaml`),
+from a helper a session made up); the lit Map's overlay is Studio's `routes/crew/map/overlay.ts`. 3.6.0.15:
+`crew/use_now.py` (an agent put into a session that is running, taken at main's next model call),
+`crew/kinds_note.py` (what main is told about it), `studio/crew_push.py` (Studio's push to the running sessions
+after a save in the Agents form) and `studio/crew_model_api.py` (`crew/agent-model`: what a model pick in a helper's
+box does, the pick and its Undo). 3.6.0.0 R5b: `crew/plain.py` (what a session with no map answers, from
+`templates/crew/plain/session.yaml`),
 `crew/in_use.py` (what the rest of Halo asks about the agents a session runs: the map in use, its model table, its local
 lanes, an agent file), `crew/checks.py` (an answer's check, the model table's doctor rows), `crew/agents_doctor.py`
 (`halo doctor --agents`), `crew/preflight.py` (the run-start preflight on a goal's map) and `yamlfile.py` (the YAML
