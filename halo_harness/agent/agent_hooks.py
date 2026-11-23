@@ -115,12 +115,28 @@ def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], 
         # 3.1.9.0 R2: under the default lineup only a child on one of its cards is a member
         member = team_control is not None and (entry is not None or not getattr(team_control, "default", False))
         spawn = (tree.row(agent_id) or {}).get("spawn") or spawn_of(tree, agent_key(parent), task_text)  # a queued job keeps its step
+        # 3.6.0.15 OP2 O2-1: the row names the source of the spec it runs (the spec's own value, never re-derived)
+        spawn = {**spawn, "source": str(getattr(spec, "source", "") or "")}
         groups.add_in_group(tree, agent_id, agent_key(parent), spawn, task=group_task, workflow=group_workflow,
                             session=child, parent=agent_key(parent), name=spec.name,
                             role=role, bio=bio, lineup=getattr(team_control, "name", None), model=model, state="queued",
                             kind="background" if background else ("member" if member else "subagent"),
                             transcript=_log_path(child), model_reason=model_reason,
                             opt_ins=getattr(child, "opt_ins", None))
+    except Exception:
+        pass
+
+
+def mark_routed(parent, agent_id: str, word: str, card: str) -> None:
+    """3.6.0.15 OP2 O2-1: a child Auto routed says why on its row: `spawn.routed` {word, card}, written by
+    run_agent_call (route_call's caller) right after the child is built, before it runs. Studio reads it at a click."""
+    try:
+        tree = tree_for(parent)
+        with tree.lock:
+            row = tree.row(agent_id)
+            if row is None:
+                return
+            tree.update(agent_id, spawn={**(row.get("spawn") or {}), "routed": {"word": str(word), "card": str(card)}})
     except Exception:
         pass
 

@@ -88,3 +88,7 @@ def post_from_live(req):
 
 
 ROUTES: list = [("POST", r"^crew/from-live$", owner_only(post_from_live))]
+
+from halo_harness.studio.crew_model_api import ROUTES as _MODEL  # noqa: E402  3.6.0.15 OP2: the sheet's MODEL block
+
+ROUTES += _MODEL

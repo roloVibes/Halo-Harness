@@ -1888,9 +1888,11 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # fan-outs (returned from above) skip routing by design: they already
     # name their own per-child roles.
     team_stage = None
+    routed = None  # 3.6.0.15 OP2 O2-1: (word, card) when the team routed this call; the child's row says so
     if team_control is not None:
         team_kind, team_target = team_control.route_call(tool_input, description)
         if team_target and not role_override:
+            routed = (team_kind, team_target)
             # The routed target is one of THIS team's aliases/roles (the
             # template's own resolved table may never have been persisted
             # -- `--team` runs without touching config), so validate
@@ -1930,6 +1932,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
             background=background, role_override=role_override, effort_override=effort_override,
             task_text=f"{description}\n{prompt}", group_task=_group_task(tool_input),
         )
+        if routed is not None:
+            _agent_tree.mark_routed(parent, agent_id, *routed)
     except Exception as e:
         # 2.0.2 review finding 4 (major): this module's own docstring says
         # "Never raises" -- an unresolvable model (a bad bio `model:`, or
