@@ -13,7 +13,8 @@ import { TryIt } from "./TryIt";
 import { estimateFor, useTry } from "./tryStore";
 import { Careful, Uses } from "./Uses";
 
-const AUTO = { label: "Auto", model: "", text: "Auto: Halo picks the model per task" };
+/** The model field's inherited row: Auto (also the step-in sheet's MODEL block's, StepInModel.tsx). */
+export const AUTO = { label: "Auto", model: "", text: "Auto: Halo picks the model per task" };
 
 function Empty() {
   const n = useCrew((s) => s.agents.length);

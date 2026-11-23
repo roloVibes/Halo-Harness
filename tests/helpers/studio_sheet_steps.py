@@ -144,9 +144,13 @@ EMPTY = f"""(() => {{ const s = {LSCROLL}, v = s.getBoundingClientRect();
     if (e && s.contains(e) && !e.closest('[data-box], [data-member], .mp-label, .mp-hit, .mp-step-in, a, button, path, [data-testid=live-more-below]')) return [x, y]; }}
   return null; }})()"""
 # another member whose middle a pointer reaches (not under the sheet)
+# (3.6.0.15 O2-5: the sheet's MODEL block makes it taller, so a member's middle may be under it: any point of the member a
+# pointer reaches, scanned every 8 px, as a person presses the part he sees)
 OTHER = f"""(() => {{ for (const m of {LW}.querySelectorAll('[data-member]')) {{ if (m.dataset.member === 'k1') continue;
-  const r = m.getBoundingClientRect(), e = r.height ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
-  if (e && m.contains(e)) return m.dataset.member; }} return null; }})()"""
+  const r = m.getBoundingClientRect();
+  for (let y = r.top + 4; y < r.bottom - 3; y += 8) for (let x = r.left + 4; x < r.right - 3; x += 8) {{
+    const e = x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight ? document.elementFromPoint(x, y) : null;
+    if (e && m.contains(e)) return [m.dataset.member, x, y]; }} }} return null; }})()"""
 
 
 def closers(c, rig, rows: Rows, a: str, b: str) -> dict:
@@ -173,15 +177,32 @@ def closers(c, rig, rows: Rows, a: str, b: str) -> dict:
         got["gone"] = bool(wait_or(c, gone("live"), 20))
         out[how] = got
         c.mouse("mouseMoved", 2, 400)
-    open_on(c, "live", mem)
-    other = c.js(OTHER)
+    # 3.6.0.15 O2-5: the sheet's MODEL block makes it taller; in a short view it takes the view's whole height (at most the
+    # view less 16) and covers the members' one column. So its member is first scrolled near the drawing's top (the sheet
+    # is not open: nothing folds), and while no other member is in reach the window is made taller (read from the page,
+    # put back to 1440 x 900 after)
+    hit = None
+    for hh in (900, 1300, 1800):
+        c.call("Emulation.setDeviceMetricsOverride", width=1440, height=hh, deviceScaleFactor=1, mobile=False)
+        frames(c, 4)
+        c.js(f"(() => {{ const s = {LSCROLL}, m = {LW}.querySelector('[data-member=k1]'); if (s && m) s.scrollTop += m.getBoundingClientRect().top - s.getBoundingClientRect().top - 24; return 1; }})()")
+        frames(c, 2)
+        open_on(c, "live", mem)
+        hit = c.js(OTHER)
+        if hit:
+            break
+        c.js("document.activeElement?.blur?.(); 1")
+        c.key("Escape")
+        wait_or(c, gone("live"), 20)
+    other = hit[0] if hit else None
     got = {"other": other, "first": c.js(f"{SHEET['live']}?.dataset.target || ''")}
     if other:
-        c.click_on(f"{LW}.querySelector('[data-member={other}]')")
+        c.click(hit[1], hit[2])
         wait_or(c, f"{SHEET['live']}?.dataset.target === 'member:{other}' && {is_open('live')}", 15)
         got["then"] = c.js(f"{SHEET['live']}?.dataset.target || ''")
         got["open"] = c.js(is_open("live"))
         got["sheets"] = c.js(f"document.querySelectorAll('{P} .mp-step-in').length")
+    c.call("Emulation.setDeviceMetricsOverride", width=1440, height=900, deviceScaleFactor=1, mobile=False)
     out["pick"] = got
     return {"closers": out}
 
