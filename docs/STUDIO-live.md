@@ -52,9 +52,10 @@ A click on a box of a running session's drawing (Agents -> 4 · Live and Session
 **Session's drawer head holds still.** While the pointer rests on the drawing (or a sheet is open), the head of
 Session's Live drawer (the truth block, the status line, [Open in Agents -> Live] and the zoom) keeps the height it had
 when the hold began: a longer status line shows in the room the line already had (hover the status words for the
-whole line; a button of the head keeps its own hover) and no box moves; once the pointer leaves, the head takes the
-rows it needs. The slot under the drawing holds the same way (3.6.0.16): the wait link's words change in place, and a
-link that needs another row takes it when the pointer leaves. The status line names a running tool in a few words,
+whole line; the rest of the head does not show it) and no box moves; once the pointer leaves, the head takes the
+rows it needs. The slot under the drawing holds the same way (3.6.0.16): the wait link's words change in place, a
+link that arrives or grows shows as many rows as the slot had (its hover holds the whole text), and it takes its
+rows when the pointer leaves. The status line names a running tool in a few words,
 and a tool written with raw arguments (an MCP tool's `{"seconds": 30}`) by its name alone, as its box does, on Auto
 and on a map of your own: "main working on mcp__srv__slow_tool · $0.00". A built-in tool reads as before
 ("Bash ls -la").

@@ -49,8 +49,9 @@ now, on Windows, macOS and Linux.
   Session's drawing, or a card is open, the slot under the drawing keeps the height it had: the link's words change in
   place, and a link that needs another row takes it when the pointer leaves. Before, a long tool name gave the link a
   second row and the drawing got shorter under the pointer.
-- **The buttons in the head of Session's drawing keep their own hover.** When the status line is held short, its whole
-  text is the hover of the status words, not of the whole head, so a button in the head says what it does again.
+- **The whole status line is the hover of the status words only.** While the status line in the head of Session's
+  drawing is held short, only the status words show the whole line as their hover; pointing at the rest of the head
+  (the truth lines, the link to Agents -> Live) no longer shows it.
 - **Choosing a row on a group's card never moves the rows.** The "MODEL of {name}" row is as tall as its longest
   member's name needs from the moment the card opens: choosing a helper with a long name and then one with a short
   name moves neither "Change" nor any row, and no name is cut. A single helper's card and main's are unchanged.
@@ -70,8 +71,11 @@ now, on Windows, macOS and Linux.
   They show the helper's line as it is.
 - **Two presses of Pause and Resume that cross leave the row true, but their two updates can reach an open page in
   either order.** The page then shows the older one until that helper's next update.
-- **While you point at the drawing, the wait link's row is held; the line that says more lies below was not checked
-  for a text that needs a second row.**
+- **While you point at the drawing, a wait link that arrives or grows shows only as many rows as the slot had.** Its
+  whole text is its hover, and it takes its rows when the pointer leaves. The line that says more lies below was not
+  checked for a text that needs a second row.
+- **With Windows' font the long wait link of the browser check fits the rows the slot has,** so on Windows that check
+  proves only that nothing moves; that the slot holds back a row is proven on Linux.
 - **`live-scene` had run by hand on Linux and Windows only.** CI is the first to run it on macOS and on its own
   Windows runners.
 - **Driven in a browser on Linux only.** The box's words, the wait link, the head's hover and the group card's rows
@@ -82,9 +86,14 @@ now, on Windows, macOS and Linux.
 - **Every Known limit of 3.6.0.15 still holds, except these:** `live-scene` is in a plain run of the real-use check;
   on a map of your own a box's line names a tool without its raw arguments; and the wait link under Session's drawing
   holds while the pointer rests.
-- **Where it was checked.** PROVISIONAL (the coordinator fills this in after the last gate): on the Linux VM all three
-  suites, the browser modules and the full real-use check; on the PC (Windows) every node-backed module and the plain
-  modules of this release.
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
+  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), then, on the final
+  code, the browser modules of Session's drawing, of the card, of Live and of Auto's groups (the card's three times),
+  and the full real-use check, twenty of twenty steps with `live-scene` among them; named alone, `live-scene` passed
+  twice more. On the PC (Windows), one at a time: every node-backed module, the card's two browser modules, the plain
+  modules of this release, and `live-scene` once. One reviewer read the whole diff and found nothing that must be
+  fixed; one sentence of these notes was wrong and is corrected. Browsers on macOS are CI's part, and nothing was run
+  on macOS by hand.
 
 ## [3.6.0.15] - 2026-11-23
 
