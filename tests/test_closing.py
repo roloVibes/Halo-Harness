@@ -1159,8 +1159,9 @@ def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" 
     """tui/launch.py run_tui (and, for /update's restart exit, cli._run_full_screen with its hand-off) on a stand-in
     app and controller, in a 'real halo' (closing installed) whose hard_exit is armed for real with its timer never
     started. Returns the ordered events: the app's run and unmount, the controller's quit (with stop_asked() at that
-    moment), launch.py's last line, close(), each hard exit armed (with its code, its grace and the injected clock),
+    moment), launch.py's last line, the exit hooks run on the main path, each hard exit armed (with its code, its grace and the injected clock),
     and the hand-off's end on that clock (it takes `hand_off_s` there, no real sleep)."""
+    import atexit
     import contextlib
     import io
     from types import SimpleNamespace
@@ -1227,6 +1228,7 @@ def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" 
                 mock.patch.object(console_mode, "install", lambda: SimpleNamespace(restore=lambda: None)), \
                 mock.patch.object(privateio, "tighten_state_tree", lambda _p: 0), \
                 mock.patch.object(closing, "close", lambda **_kw: events.append("close") or []), \
+                mock.patch.object(atexit, "_run_exitfuncs", lambda: events.append("exit hooks")), \
                 mock.patch.object(closing, "hard_exit", hard_exit), \
                 mock.patch.object(closing, "threading", _NoTimer(timers)), \
                 mock.patch.object(update_detached, "run_after_exit", hand_off), \
@@ -1243,24 +1245,24 @@ def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" 
 @test
 def test_z3_the_terminal_apps_bound_comes_last_with_its_code(ctx: Ctx):
     """3.6.0.17 Z3-1 (b): the terminal app's way out arms closing.hard_exit at its END: after controller.quit and
-    after launch.py's own last line, right after the closing procedure ran on the main path, with the app's code and
+    after launch.py's own last line, right after the exit hooks ran on the main path in the normal exit's order, with the app's code and
     the plain grace: one timer. An exception escaping app.run leaves with Python's 1, its quit run before stop is
     asked."""
     from halo_harness import closing
     quit_ = _terminal_way_out(0)
     ev = quit_["events"]
     ctx.check(f"a quit: nothing is armed before the app's way out is done, the bound is the last thing, with code 0 "
-              f"and the grace, after close(), got {ev}",
-              ev[-2:] == ["close", ("hard_exit", 0, closing.EXIT_GRACE_S, 0.0)]
+              f"and the grace, after the exit hooks, got {ev}",
+              ev[-2:] == ["exit hooks", ("hard_exit", 0, closing.EXIT_GRACE_S, 0.0)]
               and [e for e in ev if isinstance(e, tuple) and e[0] == "hard_exit"] == [ev[-1]]
-              and "last line" in ev and ev.index("last line") < ev.index("close"))
+              and "last line" in ev and ev.index("last line") < ev.index("exit hooks") and "close" not in ev)
     ctx.check(f"a quit: one timer, got {quit_['timers']}", quit_["timers"] == ["halo-hard-exit"])
     err = _terminal_way_out(None, raises=True)
     ev = err["events"]
     ctx.check(f"an exception exit: the error still goes up, got {err}", err.get("raised") == "the driver failed")
     ctx.check(f"an exception exit: its quit runs before any stop is asked, got {ev}", ("quit", False) in ev)
-    ctx.check(f"an exception exit: the bound comes last, after close(), with Python's 1, got {ev}",
-              ev[-2:] == ["close", ("hard_exit", 1, closing.EXIT_GRACE_S, 0.0)] and ev.index(("quit", False)) < len(ev) - 2)
+    ctx.check(f"an exception exit: the bound comes last, after the exit hooks, with Python's 1, got {ev}",
+              ev[-2:] == ["exit hooks", ("hard_exit", 1, closing.EXIT_GRACE_S, 0.0)] and ev.index(("quit", False)) < len(ev) - 2)
 
 
 @test
@@ -1277,8 +1279,8 @@ def test_z3_the_restart_exits_bound_comes_after_the_hand_off_to_the_updater(ctx:
     ctx.check(f"the process leaves with the hand-off's code, got {row.get('code')}", row.get("code") == 0)
     ctx.check(f"no bound is armed before the hand-off returned (one armed earlier fires inside it), got {ev}",
               bounds and all(b[3] >= 8.0 for b in bounds))
-    ctx.check(f"one bound, last, after close(), with the hand-off's code and the plain grace, got {ev}",
-              bounds == [ev[-1]] and ev[-2:] == ["close", ("hard_exit", 0, closing.EXIT_GRACE_S, 8.0)])
+    ctx.check(f"one bound, last, after the exit hooks, with the hand-off's code and the plain grace, got {ev}",
+              bounds == [ev[-1]] and ev[-2:] == ["exit hooks", ("hard_exit", 0, closing.EXIT_GRACE_S, 8.0)])
     ctx.check(f"the quit ran before any stop was asked, got {ev}", ("quit", False) in ev)
     ctx.check(f"one timer, got {row['timers']}", row["timers"] == ["halo-hard-exit"])
 
@@ -1301,6 +1303,66 @@ def test_z3_hard_exit_armed_with_0_holds(ctx: Ctx):
         _closing_state_back(saved)
     ctx.check(f"one timer, got {timers}", timers == ["halo-hard-exit"])
     ctx.check(f"it leaves with the first code 0, got {code}", code == 0)
+
+
+# A halo stand-in: closing installed first (as cli.main does), then an exit hook registered later that stops its own
+# child politely (as a pack policy's `stop_all` does: imported at session build, EOF on stdin). Mode "bound" ends the
+# way the terminal app's quit now ends (launch.bound_the_end), mode "plain" as 3.6.0.16's normal exit.
+_LATER_HOOK = r"""
+import atexit, json, subprocess, sys
+from halo_harness import closing
+closing.install(sweep_at_start=False)
+from halo_harness import subprocess_safe  # a pack policy starts its process this way: the marker scan arms
+child = subprocess_safe.Popen([sys.executable, "-c", "import sys; sys.stdin.read()"], stdin=subprocess.PIPE)
+from halo_harness.bg_run import process_start_time
+with open(sys.argv[2], "w") as f:
+    json.dump({"pid": child.pid, "start": process_start_time(child.pid)}, f)
+def stop_all():
+    print(f"hook: close already ran={closing._STATE['closed']}", flush=True)
+    child.stdin.close()
+    child.wait(timeout=30)
+atexit.register(stop_all)
+if sys.argv[1] == "bound":
+    from halo_harness.tui.launch import bound_the_end
+    bound_the_end(0)
+"""
+
+
+@test
+def test_z3_the_bound_runs_the_exit_hooks_in_the_normal_exits_order(ctx: Ctx):
+    """3.6.0.17 Z3-1 (c), after its check: the end of the terminal app's way out runs the exit hooks exactly as a
+    normal exit runs them (last registered first, the closing procedure last), never `close()` ahead of them. A hook
+    registered after closing (a pack policy's `stop_all`) stops its child its own way first, and the marker scan then
+    finds nothing to end: no false 'halo: ended ..., left running by a tool command' line, the same lines as 3.6.0.16."""
+    tmp = Path(tempfile.mkdtemp(prefix="halo-z3-hooks-"))
+    kids: list = []
+    runs: dict = {}
+    try:
+        for mode in ("plain", "bound"):
+            home = tmp / mode / "home"
+            home.mkdir(parents=True)
+            info = tmp / mode / "child.json"
+            try:
+                r = subprocess.run([sys.executable, "-c", _LATER_HOOK, mode, str(info)], env=_env(home),
+                                   cwd=str(tmp / mode), capture_output=True, text=True, encoding="utf-8",
+                                   errors="replace", timeout=120, stdin=subprocess.DEVNULL)
+                runs[mode] = r
+            finally:
+                if info.exists():
+                    kids.append(json.loads(info.read_text(encoding="utf-8")))
+        plain, bound = runs["plain"], runs["bound"]
+        ctx.check(f"3.6.0.16's exit: the hook runs before close, got {plain.stdout!r} {plain.stderr[-300:]!r}",
+                  "hook: close already ran=False" in plain.stdout and plain.returncode == 0)
+        ctx.check(f"the bound: no false 'halo: ended' line, got {bound.stderr[-400:]!r}", "halo: ended" not in bound.stderr)
+        ctx.check(f"the bound: the later hook runs before close, as at a normal exit, got {bound.stdout!r}",
+                  "hook: close already ran=False" in bound.stdout and bound.returncode == 0)
+        ctx.check(f"the bound: the same last lines as 3.6.0.16's exit, got {bound.stderr[-400:]!r} vs {plain.stderr[-400:]!r}",
+                  bound.stderr == plain.stderr and bound.stdout == plain.stdout)
+        ctx.check(f"both children are gone, got {kids}", len(kids) == 2 and not any(_same(k['pid'], k['start']) for k in kids))
+    finally:
+        for k in kids:
+            _end_tree_we_started(k["pid"], k["start"])
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 @test

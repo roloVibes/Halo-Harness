@@ -122,15 +122,18 @@ def run_tui(args) -> int:
 
 def bound_the_end(code: int) -> None:
     """3.6.0.17 Z3-1: the end of the terminal app's way out, where the process has nothing left to do but leave (a
-    real halo only, never a test's app). The closing procedure runs here on the main path exactly as the normal exit
-    runs it from atexit (`closing.close()`, its own `say`; the exit's later call is a no-op), so the lines a quit
-    prints at its close ("halo: left running on purpose: ...") are printed also when a thread worker is stuck in a
-    network read (the interpreter joins that thread before atexit). Then `closing.hard_exit(code)` with its own grace:
-    only the interpreter's own ending is inside it, and a stuck thread is abandoned, never joined."""
+    real halo only, never a test's app). The exit hooks run here on the main path exactly as the normal exit runs them
+    (`atexit._run_exitfuncs()`: last registered first, so a hook registered after closing, a pack policy's `stop_all`,
+    stops its own child its own way before the closing procedure, which runs last with its own `say`; Python then
+    clears them, so the exit runs none twice). The lines a quit prints at its close ("halo: left running on purpose:
+    ...") are so printed also when a thread worker is stuck in a network read (the interpreter joins that thread
+    before atexit). Then `closing.hard_exit(code)` with its own grace: only the interpreter's own ending is inside it,
+    and a stuck thread is abandoned, never joined."""
+    import atexit
     from halo_harness import closing
     if not closing._STATE.get("installed"):
         return
-    closing.close()
+    atexit._run_exitfuncs()
     closing.hard_exit(code)
 
 
