@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.15] - unreleased
+## [3.6.0.15] - 2026-11-23
 
 The box acts, and what you make can be used at once. An agent you save in Agents, one the Builder makes in a session,
 or one a model pick in a helper's box makes can be started by main in the session that is running on Auto, from main's
