@@ -538,8 +538,9 @@ console.log(JSON.stringify(r ? {member: r("member:k1", [], ["sorter"]), main: r(
     ctx.check(f"a helper joins: its heading added; one leaves: kept (never shrinks), got {got.get('joined')} {got.get('left')}",
               got.get("joined") == ["MODEL of sorter", "MODEL of Judge"] and got.get("left") == ["MODEL of sorter", "MODEL of Judge"])
     src = (SRC / "routes/crew/map/StepInModel.tsx").read_text(encoding="utf-8")
-    ctx.check("StepInModel.tsx: the sizers are hidden from the reader (aria-hidden) in the heading's cell",
-              "mp-step-in-model-sizer" in src and 'aria-hidden="true"' in src)
+    sizer = [ln for ln in src.splitlines() if "room.map(" in ln]  # 3.6.0.17 N3: on the sizer itself, not anywhere in the file
+    ctx.check(f"StepInModel.tsx: the sizers are hidden from the reader (aria-hidden) in the heading's cell, got {sizer}",
+              len(sizer) == 1 and re.search(r'<b\b[^>]*mp-step-in-model-sizer[^>]*aria-hidden="true"', sizer[0]) is not None)
 
 
 @test
@@ -551,7 +552,8 @@ console.log(JSON.stringify(h ? [h(null), h("reading"), h({error: "busy"}), h(a)]
     got = _run(["mb"], js, None)
     ctx.check(f"null, reading and an error hold nothing; an answer holds its rows' height, got {got}", got == [False, False, False, True])
     src = (SRC / "routes/crew/map/StepInModel.tsx").read_text(encoding="utf-8")
-    ctx.check("StepInModel.tsx keeps the height only of an answer's draw (`holdsRoom(got)`)", "holdsRoom(got)" in src)
+    ctx.check("StepInModel.tsx keeps the height only of an answer's draw (`holdsRoom(got)` guards the write of the kept height)",
+              re.search(r"holdsRoom\(got\)\)\s*held\.current\s*=", src) is not None)
 
 
 @test

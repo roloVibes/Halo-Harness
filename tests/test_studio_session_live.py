@@ -24,6 +24,7 @@ mid-work) plus three extra agents and scripted feed frames
 8. (3.6.0.0 R5: the capture tool's DOM count of both scenes went with the Roles scene.)
 9. (3.1.7.0 R1) Fleet's time and KIND lead a tool, a text and a state row,
    stacked under 440 px; a click opens a tool row's whole result.
+10. (3.6.0.17 N2) a running `!` command's row carries its own Stop; a model's tool row none.
 Run: python -m tests.test_studio_session_live
 """
 from __future__ import annotations
@@ -127,6 +128,28 @@ def test_a_tool_row_click_opens_its_whole_result(ctx: Ctx):
     ctx.check(f"a landed row with more than one line opens: both lines, got {got.get('tool_more')} {got.get('full')!r}",
               got.get("tool_more") is True and "M basket.py" in str(got.get("full")) and "?? notes.md" in str(got.get("full")))
     ctx.check(f"a second click closes it, got {got.get('full_closed')!r}", got.get("full_closed") == "closed")
+
+
+@test
+def test_a_running_bang_row_carries_stop(ctx: Ctx):
+    """3.6.0.17 N2 (a thing that runs needs a way to stop it in every view that shows it): a running `!` command's row in
+    the Feed carries its own Stop, as its row in the Prompt panel does (tests/helpers/studio_session_insight.py bang_stop)."""
+    r, got = _driver("live")
+    _ran(ctx, r, got)
+    ctx.check(f"a model's Bash row (toolu_1) carries no Stop, got {got.get('model_row_stops')}", got.get("model_row_stops") == 0)
+    ctx.check(f"the running `!` row reads Stop with its title, got {got.get('bang_stop')} {got.get('bang_error', '')}",
+              got.get("bang_stop") == ["Stop", "Stop: ends this command now, and a running turn with it (Esc in the terminal does the same)"])
+    ctx.check(f"a click asks this session's interrupt, once, got {got.get('bang_calls')}", got.get("bang_calls") == [[got.get("sid"), "interrupt"]])
+    ctx.check(f"... and opens nothing, got {got.get('bang_opened')}", got.get("bang_opened") is False)
+    run, end = got.get("bang_running") or {}, got.get("bang_ended") or {}
+    s, ru = run.get("stop") or {}, run.get("runs") or {}
+    ctx.check(f"the Stop is of text height (no taller than the row's words), got {s} {ru}",
+              bool(s) and bool(ru) and s.get("height", 99) <= ru.get("height", 0) + 0.5)
+    ctx.check(f"when the result lands the Stop is gone, got {end.get('stop')}", bool(end) and end.get("stop") is None)
+    same = lambda a, b, *k: bool(a) and bool(b) and all(abs(a[x] - b[x]) <= 0.5 for x in k)  # noqa: E731
+    ctx.check(f"the row's first line keeps its height and the elapsed time its place, got {run} {end}",
+              same(run.get("runs"), end.get("runs"), "top", "bottom")
+              and same(run.get("elapsed"), end.get("elapsed"), "top", "bottom", "right"))
 
 
 @test

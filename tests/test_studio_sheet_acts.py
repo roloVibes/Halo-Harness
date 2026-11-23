@@ -328,12 +328,16 @@ def test_after_a_failed_read_the_rows_hold_the_answers_height(ctx: Ctx):
     failed read, Close, Change and an answer, the kept height is the answer's own. Red on 602c5df6: the error row's."""
     from tests.helpers.studio_sheet_acts_steps import FAIL_WHY
     d = _ran(ctx, "failread")
-    e, a = d.get("refused") or {}, d.get("answer") or {}
+    e, a, p = d.get("refused") or {}, d.get("answer") or {}, d.get("after_pick") or {}
     ctx.check(f"the failed read's row, holding nothing, got {e}",
               (e.get("text") or "").startswith("Could not read this helper's agent: ") and FAIL_WHY in (e.get("text") or "") and e.get("kept") == "")
-    ctx.check(f"the answer's rows keep the answer's own height, got {a}",
-              not (a.get("text") or "").startswith("Could not") and bool(a.get("own"))
-              and (a.get("kept") == "" or abs(float(str(a.get("kept")).rstrip("px") or 0) - a["own"]) <= 0.5) and abs(a.get("h", 0) - a["own"]) <= 0.5)
+    ctx.check(f"the answer's rows are drawn at the answer's own height, got {a}",
+              not (a.get("text") or "").startswith("Could not") and bool(a.get("own")) and abs(a.get("h", 0) - a["own"]) <= 0.5)
+    # 3.6.0.17 N3: the kept height is applied at the draw AFTER the answer's (no `kept == ''` escape): after a pick it is
+    # there and it is the answer's own height, never the error row's
+    kept = str(p.get("kept") or "")
+    ctx.check(f"after a pick the rows hold the answer's height, got {p} (answer {a.get('own')}) {d.get('error', '')}",
+              kept.endswith("px") and bool(a.get("own")) and abs(float(kept[:-2]) - a["own"]) <= 0.5)
 
 
 if __name__ == "__main__":

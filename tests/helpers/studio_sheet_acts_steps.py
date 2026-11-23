@@ -603,6 +603,13 @@ def failread(c, rig, rows: Rows, a: str, b: str) -> dict:
         c.wait(drawn("live"), 20)
         frames(c, 2)
         out["answer"] = c.js(LINES) or {}
+        # 3.6.0.17 N3: right after the answer the kept height is not applied yet (it is set after that draw and used at
+        # the next): a pick in the block, as `picks` makes one, draws again, and the rows then hold the answer's height
+        unfold(c, "live")
+        pick_other(c, "live")
+        c.wait(f"!{line_is('live', 'Picking')} && !{trig('live')}.disabled", 20)
+        frames(c, 2)
+        out["after_pick"] = c.js(LINES) or {}
         close(c, "live")
     try:
         return _step("failread", run)

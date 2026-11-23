@@ -361,6 +361,31 @@ console.log(JSON.stringify({box: curs.map(said), one: t.toolWords === tw.toolWor
 
 
 @test
+def test_the_glance_and_the_pip_name_a_tool_as_a_box_does(ctx: Ctx):
+    """3.6.0.17 N1: the Agent panel's glance line and the pinned agent's panel (fleet/Agent.tsx, fleet/Pip.tsx: nowText,
+    crew/live/nowWords.ts, re-exported by nodeBits.ts) name a running tool with the ONE rule a box's NOW uses (toolWords):
+    no raw JSON arguments, "Bash ls -la"; a waiting, paused, queued or finished row keeps its own words."""
+    live = TS.parent.parent / "live"
+    js = """const w = await import(%s), tw = await import(%s);
+const curs = %s;
+const run = curs.map((c) => w.nowText({agent_id: 'c1', name: 'coder', state: 'running', current: c}));
+const box = curs.map((c) => tw.toolWords(c));
+const rest = [w.nowText({state: 'waiting', current: 'Bash: ls -la'}), w.nowText({state: 'paused', current: 'Bash: ls -la'}),
+  w.nowText({state: 'queued'}), w.nowText({state: 'done', last_text: 'all green'}), w.nowText({state: 'running', task: 'list the repo'})];
+console.log(JSON.stringify({run, box, rest}));"""
+    curs = ['mcp__srv__slow_tool {"seconds": 30}', "Bash: ls -la", 'mcp__srv__many ["a"]', "Bash: [ -f x ]"]
+    got = _node(js, (live / "nowWords.ts").resolve().as_uri(), (TS.parent / "truthToolWords.ts").resolve().as_uri(), curs)
+    want = ["mcp__srv__slow_tool", "Bash ls -la", "mcp__srv__many", "Bash [ -f x ]"]
+    ctx.check(f"the glance and the Pip read a box's words for a running tool, got {got.get('run')}", got.get("run") == want)
+    ctx.check(f"... and those are toolWords' own, got {got.get('box')}", got.get("box") == got.get("run"))
+    ctx.check(f"a waiting, paused, queued, done and plain running row keep today's words, got {got.get('rest')}",
+              got.get("rest") == ["waits on you", "paused: holds at its next step", "queued", "done: all green", "list the repo"])
+    bits = (live / "nodeBits.ts").read_text(encoding="utf-8")
+    ctx.check("nodeBits.ts re-exports the one nowText (no second copy)",
+              'export { nowText } from "./nowWords"' in bits and "function nowText" not in bits)
+
+
+@test
 def test_when_words_object_known_and_unknown(ctx: Ctx):
     """mapTypes.ts whenWords, also used by Agents -> Map (MapCanvas.tsx, WhenCard.tsx): a When object, a known word, and a
     word this Studio does not know (a hand-edited file), which is shown as written and never throws (P3 batch 5)."""

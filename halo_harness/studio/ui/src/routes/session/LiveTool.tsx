@@ -5,11 +5,15 @@
 // opens the whole result under it, up to the first 4000 characters, and
 // closes it again; only rows with more than that first line open.
 // 3.3.10.0 R2: a call a pack's policy answered carries the verdict line under it.
+// 3.6.0.17 N2: a running `!` command's row carries its own Stop (as its row in the Prompt panel does), just before the
+// elapsed time, so the time keeps its place at the row's end when the Stop goes; a model's tool rows have none.
 import { useState } from "react";
 import { short } from "../orchestra/format";
-import { useNow } from "../fleet/store";
+import { parseKey, useNow } from "../fleet/store";
 import type { LiveLine } from "../shared/liveFeed";
 import { BrowserShot } from "./BrowserShot";
+import { BANG_STOP, BANG_STOP_TITLE, isBang } from "./promptWords";
+import { stopBang } from "./promptSend";
 
 /** 4s, 1m 05s. */
 export function dur(ms: number): string {
@@ -31,6 +35,10 @@ export function ToolRow({ l }: { l: LiveLine }) {
         <span className="slv-runs">runs</span>
         <span className="slv-tool-name mono">{l.tool}</span>
         {l.target && <span className="slv-target mono" title={l.target}>{short(l.target, 90)}</span>}
+        {isBang(l.id) && !l.ended && (
+          <button type="button" className="og-link" data-testid="session-live-bang-stop" title={BANG_STOP_TITLE}
+                  onKeyDown={(e) => e.stopPropagation()} onClick={(e) => (e.stopPropagation(), void stopBang(parseKey(l.key).s))}>{BANG_STOP}</button>
+        )}
         <span className="slv-elapsed mono" data-testid="session-live-elapsed">{l.ended ? took : dur(now - l.t0)}</span>
         {l.policy && <div className="slv-policy mono" data-testid="session-live-policy" data-verdict={/^policy(?: after)?: (\w+)/.exec(l.policy)?.[1]}>{l.policy}</div>}
         {l.result !== undefined && (

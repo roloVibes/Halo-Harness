@@ -6,22 +6,13 @@ import { useEffect, useRef, useState } from "react";
 import { startLive, useOpenTool } from "../../shared/liveFeed";
 import { toolOf, useNow } from "../../fleet/store";
 import type { Activity, AgentRow, SessionRow } from "../../fleet/types";
+export { nowText } from "./nowWords";
 
 /** A session's project: the repo (or folder) and its branch, `*` when dirty (the session node, People's row). */
 export function projectLabel(s: SessionRow): string {
   const p = s.project || {};
   const name = String(p.repo || p.root || s.cwd || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "no project";
   return p.branch ? `${name} · ${p.branch}${p.dirty ? "*" : ""}` : name;
-}
-
-/** One line: what the agent does now (waits on you, paused, queued, its tool, how it ended, else its task). */
-export function nowText(a: AgentRow): string {
-  if (a.state === "waiting") return "waits on you";
-  if (a.state === "paused") return "paused: holds at its next step";
-  if (a.state === "queued") return "queued";
-  if (a.current) return a.current;
-  if (a.state === "done" || a.state === "failed" || a.state === "stopped") return `${a.state}${a.last_text ? ": " + a.last_text : ""}`;
-  return a.task || "";
 }
 
 /** A number that counts up to `value` over ~600 ms (the cost ticker). */

@@ -95,6 +95,8 @@ def live(c, rig) -> dict:
     lv.state("docs", state="done", last_text="CHANGES.md: the discount applies before tax")
     out["output_line"] = c.wait(f"{LINES}.filter((l) => l.dataset.kind === 'output' && l.querySelector('.slv-name').textContent === 'docs').map((l) => [l.querySelector('.slv-name').textContent, "
                                 "l.querySelector('.slv-out-text').textContent]).pop()", 10)
+    from tests.helpers.studio_session_insight import bang_stop  # 3.6.0.17 N2: a running `!` row's own Stop
+    out.update(bang_stop(c, lv))
     out.update(flood(c, lv))
     return out
 
