@@ -140,6 +140,17 @@ def _live_call(agent: str, task: str, kids: list) -> dict:
 
 
 LIVE_REPLY = [("Agent", _live_call(*call), f"call_rc_live{i}") for i, call in enumerate(LIVE_CALLS, 1)]
+# 3.6.0.15 K1 (made-at-once, steps_made.py): main starts the built-in Judge (held at the gate while he picks its model
+# in the box's MODEL block), then, after its result, `judge` (the agent that pick made); RC-NOTED is a turn that only
+# carries what main is told (N1 / N2). JUDGE_MODEL is the second model the step lists for its own run: the pick is never
+# main's own model.
+MADE_PROMPT, MADE_DONE = "RC-MADE: judge the draft, then again", "RC-MADE-DONE"
+NOTED_PROMPT, NOTED_DONE = "RC-NOTED: anything new?", "RC-NOTED-DONE"
+JUDGE_MODEL = "mock/realcheck-judge"
+MADE_CALLS = [("Agent", {"subagent_type": "Judge", "description": "judge the draft", "prompt": "RC-MADEJ1: judge the draft"},
+               "call_rc_made1"),
+              ("Agent", {"subagent_type": "judge", "description": "judge it again", "prompt": "RC-MADEJ2: judge it again"},
+               "call_rc_made2")]
 # a child's tool calls before its answer, in order: an MCP tool is deferred (its schema loads by ToolSearch first, as
 # the tool error itself tells a model)
 _LIVE_CALLS = {"RC-LIVETOOL": [("Bash", {"command": LIVE_SLEEP, "description": "rc live tool"})],
@@ -245,6 +256,24 @@ class Provider:
             self.hung.clear()
             self.tests_seen = 0
 
+    def with_model(self, model: str):
+        """List `model` ("mock/<name>") beside mock/realcheck and play the same script for it; returns the function that
+        puts back EXACTLY what it found (the models list and the scenario of that name), for a step's `finally`."""
+        name = model.split("/", 1)[1]
+        was_models, was_scenario = self.mock.models_response, self._scenarios.get(name, self._MISSING)
+        rows = list((was_models or {}).get("data") or [])
+        self.mock.models_response = {**(was_models or {}), "data": rows + [{**rows[0], "id": model, "name": name}]}
+        self._scenarios[name] = self._answer
+
+        def put_back() -> None:
+            self.mock.models_response = was_models
+            if self._scenarios.get(name) == self._answer:  # another owner took the name since: theirs now
+                if was_scenario is self._MISSING:
+                    self._scenarios.pop(name, None)
+                else:
+                    self._scenarios[name] = was_scenario
+        return put_back
+
     def requests_with(self, marker: str) -> list:
         """The model calls whose user messages say `marker` (the text as typed: no JSON escaping)."""
         out = []
@@ -295,6 +324,17 @@ class Provider:
             if done_here in _AUTOGROUPS_AT:
                 return _finish(h, tool_step(*AUTOGROUPS_REPLIES[_AUTOGROUPS_AT[done_here]]))
             return _finish(h, text_step(AUTOGROUPS_DONE))
+        if "RC-MADE:" in turn:
+            if done_here < len(MADE_CALLS):
+                return _finish(h, tool_step(MADE_CALLS[done_here]))
+            return _finish(h, text_step(MADE_DONE))
+        if "RC-MADEJ1" in last:
+            self._hold("RC-MADEHOLD")  # running while he picks its model; release() lets it answer
+            return _finish(h, text_step(SUB_DONE))
+        if "RC-MADEJ2" in last:
+            return _finish(h, text_step(SUB_DONE))
+        if "RC-NOTED:" in turn:
+            return _finish(h, text_step(NOTED_DONE))
         if "RC-LIVESCENE" in turn:
             if done_here == 0:
                 return _finish(h, tool_step(*LIVE_REPLY))

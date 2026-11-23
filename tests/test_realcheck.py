@@ -53,20 +53,22 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         rc = m.main(["--list"])
     lines = out.getvalue().splitlines()
     names = [line.split()[0] for line in lines]
-    ctx.check(f"the nineteen steps in order, got {names}", rc == 0 and names == [
+    ctx.check(f"the twenty steps in order, got {names}", rc == 0 and names == [
         "starts", "first-run", "theme", "question", "turn", "copy-drag", "studio", "prompt", "session-map",
-        "auto-groups", "auto-ready-lines", "live-scene", "browser", "packs", "local", "update", "closing", "no-reuse",
-        "idle-cpu"])
+        "auto-groups", "auto-ready-lines", "live-scene", "made-at-once", "browser", "packs", "local", "update", "closing",
+        "no-reuse", "idle-cpu"])
     # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`; 3.6.0.5: the two Auto steps after `session-map`;
     # 3.6.0.7: `copy-drag` (a drag over an earlier answer in a terminal session) after `turn`; 3.6.0.8: `browser`,
     # the built-in Browser tool, after the two Auto steps; 3.6.0.14 K1: `live-scene` (the drawing of a running session
-    # on Auto) after them, before `browser`; K2: idle-cpu measures its minute with Agents -> Live open
+    # on Auto) after them, before `browser`; K2: idle-cpu measures its minute with Agents -> Live open; 3.6.0.15 K1:
+    # `made-at-once` (a pick in a running helper's box acts at once) right after live-scene
     win = sys.platform == "win32"
     for step, want, words in (("copy-drag", "120s" if win else "60s", "120 s on Windows, 60 s elsewhere"),
                               ("session-map", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
                               ("auto-groups", "150s" if win else "90s", "150 s on Windows, 90 s elsewhere"),
                               ("auto-ready-lines", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
                               ("live-scene", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
+                              ("made-at-once", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
                               ("browser", "180s" if win else "120s", "180 s on Windows, 120 s elsewhere"),
                               ("idle-cpu", "240s" if win else "180s", "240 s on Windows, 180 s elsewhere")):
         budget = next((line.split()[1] for line in lines if line.split()[0] == step), "")
@@ -86,8 +88,9 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         m.main([])
         m.main(["--only", "live-scene"])
         m.main(["--only", "starts", "live-scene"])
-    ctx.check(f"a plain run is the other eighteen steps, got {ran[:1]}",
-              len(ran) == 3 and ran[0] == [n for n in names if n != "live-scene"] and len(ran[0]) == 18)
+    ctx.check(f"a plain run is every step not in ON_REQUEST (the other nineteen, made-at-once among them), got {ran[:1]}",
+              len(ran) == 3 and ran[0] == [n for n in names if n not in m.ON_REQUEST] and len(ran[0]) == 19
+              and "made-at-once" in ran[0])
     ctx.check(f"--only live-scene runs it, alone or with others, got {ran[1:]}",
               ran[1:] == [["live-scene"], ["starts", "live-scene"]])
 
@@ -1672,6 +1675,246 @@ def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
           f"const exprs = {json.dumps(exprs)}; const out = {{}};"
           "for (const [k, e] of Object.entries(exprs)) { const p = pages[k] || []; for (const [i, d] of p.entries()) {"
           "  const v = new Function('document', 'return (' + e + ');')(d);"
+          "  out[k + (i ? ' / not drawn' : ' / drawn')] = JSON.parse(JSON.stringify(v === undefined ? null : v)); } }"
+          "process.stdout.write(JSON.stringify(out));")
+    r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=60)
+    ctx.check(f"node ran the expressions, got {r.returncode}: {r.stderr[-300:]}", r.returncode == 0)
+    got = json.loads(r.stdout or "{}")
+    for k in exprs:
+        ctx.check(f"{k}: true when drawn, got {got.get(k + ' / drawn')!r}", got.get(k + " / drawn") is True)
+        ctx.check(f"{k}: false when not drawn, got {got.get(k + ' / not drawn')!r}", got.get(k + " / not drawn") is False)
+
+
+def _steps_made():
+    from realcheck import steps_made
+    return steps_made
+
+
+@test
+def test_made_at_once_step_is_a_skip_with_browser_none_before_any_halo(ctx: Ctx):
+    """3.6.0.15 K1: the step made-at-once opens a browser, so --browser none makes it ONE counted SKIP naming the switch,
+    and no `halo` and no Chrome is started or looked for first."""
+    _no_halo_skip(ctx, "made-at-once")
+
+
+@test
+def test_the_fake_provider_plays_made_at_once(ctx: Ctx):
+    """3.6.0.15 K1: RC-MADE: one Agent call of the built-in Judge, after its result one of `judge`, after that MADE_DONE;
+    the Judge's child (RC-MADEJ1) is held until `release()`, judge's (RC-MADEJ2) answers at once; RC-NOTED: NOTED_DONE
+    (a later turn: RC-MADE is not played again); `with_model` lists the second model and plays the script for it, and
+    its put-back (and `stop`) leave the models list and the scenario table as they were."""
+    from tests.helpers.mock_openai import SCENARIOS
+    keys = ("model", "realcheck", "realcheck-judge")
+    before = {k: SCENARIOS.get(k, "<none>") for k in keys}
+    p = fakes.Provider().start()
+    try:
+        prompt = getattr(fakes, "MADE_PROMPT", None)
+        ctx.check(f"the markers exist, got {prompt!r}", prompt == "RC-MADE: judge the draft, then again"
+                  and getattr(fakes, "MADE_DONE", "") == "RC-MADE-DONE" and getattr(fakes, "NOTED_PROMPT", "") ==
+                  "RC-NOTED: anything new?" and getattr(fakes, "NOTED_DONE", "") == "RC-NOTED-DONE"
+                  and getattr(fakes, "JUDGE_MODEL", "") == "mock/realcheck-judge")
+        if prompt is None:
+            return
+        msgs = [{"role": "user", "content": prompt}]
+        said, calls = _ask(p, msgs)
+        ctx.check(f"first: one Agent call of the built-in Judge, got {said!r} {calls}", calls == [("Agent", {
+            "subagent_type": "Judge", "description": "judge the draft", "prompt": "RC-MADEJ1: judge the draft"})])
+        msgs = _called(msgs, calls, 1)
+        said, calls = _ask(p, msgs)
+        ctx.check(f"after one result: one Agent call of judge, got {said!r} {calls}", calls == [("Agent", {
+            "subagent_type": "judge", "description": "judge it again", "prompt": "RC-MADEJ2: judge it again"})])
+        msgs = _called(msgs, calls, 1)
+        said, calls = _ask(p, msgs)
+        ctx.check(f"after two results: MADE_DONE, got {said!r} {calls}", not calls and said == fakes.MADE_DONE)
+        said, calls = _ask(p, msgs + [{"role": "assistant", "content": said},
+                                      {"role": "user", "content": fakes.NOTED_PROMPT}])
+        ctx.check(f"a later RC-NOTED turn: NOTED_DONE, got {said!r} {calls}", not calls and said == fakes.NOTED_DONE)
+        out: list = []
+        held = _live_ask(p, [{"role": "user", "content": "RC-MADEJ1: judge the draft"}], out)
+        end = time.monotonic() + 30
+        while time.monotonic() < end and "RC-MADEHOLD" not in p.hung:
+            time.sleep(0.05)
+        ctx.check(f"RC-MADEJ1 is held at the gate, got {p.hung}", p.hung == ["RC-MADEHOLD"] and held.is_alive())
+        said, calls = _ask(p, [{"role": "user", "content": "RC-MADEJ2: judge it again"}])
+        ctx.check(f"RC-MADEJ2 answers SUB_DONE at once, got {said!r}", not calls and said == fakes.SUB_DONE)
+        p.release()
+        held.join(30)
+        ctx.check(f"release(): RC-MADEJ1 answers SUB_DONE, got {out}", not held.is_alive() and out
+                  and out[0][0] == fakes.SUB_DONE)
+        models = p.mock.models_response
+        put_back = p.with_model(fakes.JUDGE_MODEL)
+        ids = [m.get("id") for m in p.mock.models_response.get("data") or []]
+        ctx.check(f"with_model lists the second model beside the first, got {ids}",
+                  ids == ["mock/realcheck", "mock/realcheck-judge"] and SCENARIOS.get("realcheck-judge") == p._answer)
+        said, calls = _stream(_post(p.base_url, {"model": fakes.JUDGE_MODEL, "stream": True, "messages": [
+            {"role": "user", "content": "RC-MADEJ2: judge it again"}]}))
+        ctx.check(f"a call on the second model plays the same script, got {said!r}", said == fakes.SUB_DONE)
+        put_back()
+        ctx.check("the put-back leaves the models list and the scenario as they were",
+                  p.mock.models_response is models and SCENARIOS.get("realcheck-judge", "<none>") == before["realcheck-judge"])
+    finally:
+        p.stop()
+    after = {k: SCENARIOS.get(k, "<none>") for k in keys}
+    ctx.check(f"the scenario table holds what it held before, got {after}", after == before)
+
+
+@test
+def test_made_at_once_reads_the_words_that_ship(ctx: Ctx):
+    """3.6.0.15 K1: every line the step judges is the product's own, letter for letter (studio/crew_model_api.py for a
+    BUILT-IN in a session that takes it now, crew/kinds_note.py N1 / N2); the name a Judge pick writes in an empty home
+    is `judge`. If these differ, the step's words are wrong, never the product's."""
+    import shutil
+    from unittest import mock
+    from halo_harness.crew import kinds_note as kn
+    from halo_harness.crew.spec import agent_spec
+    from halo_harness.studio import crew_model_api as cm
+    d = _steps_made()
+    ref = "or:mock/realcheck-judge"
+    ctx.check("LINE_NOW is the BUILT-IN line of a session that takes it now",
+              d.LINE_NOW == cm.LINES[(cm.BUILTIN, True)].format(X="Judge", name="judge", card=""))
+    ctx.check("KEEPS is the product's, and KEEPS_RE reads it with any model",
+              d.KEEPS == cm.KEEPS and d.KEEPS_RE.fullmatch(cm.KEEPS.format(model="or:mock/realcheck")) is not None)
+    ctx.check("MADE is MADE_NOW for judge", d.MADE.format(ref=ref) == cm.MADE_NOW.format(name="judge", model=ref))
+    ctx.check("TAKEN is TAKEN_BACK for judge", d.TAKEN == cm.TAKEN_BACK.format(name="judge"))
+    sorter = agent_spec({"format": "agent/1", "name": "sorter", "does": d.SORTER_DOES, "model": "auto"})
+    ctx.check(f"N1_SORTER is n1 for sorter, got {kn.n1('sorter', sorter)!r}", d.N1_SORTER == kn.n1("sorter", sorter))
+    ctx.check("N2_JUDGE is N2_GONE for judge", d.N2_JUDGE == kn.N2_GONE.format(name="judge"))
+    ctx.check("N1_JUDGE_RE reads N1 and N1_BARE for judge, not another name",
+              d.N1_JUDGE_RE.fullmatch(kn.N1.format(name="judge", words="pass or fail a result")) is not None
+              and d.N1_JUDGE_RE.fullmatch(kn.N1_BARE.format(name="judge")) is not None
+              and not d.N1_JUDGE_RE.search(kn.N1_BARE.format(name="judge-2")))
+    tmp = Path(tempfile.mkdtemp(prefix="rc-made-"))
+    try:
+        (tmp / "state").mkdir()
+        (tmp / "proj").mkdir()
+        with mock.patch.dict(os.environ, {"BRIDGE_STATE_DIR": str(tmp / "state")}):
+            name = cm.name_of(cm.BUILTIN, {}, {}, {"name": "Judge"}, tmp / "proj", tmp / "proj")
+        ctx.check(f"a Judge pick in an empty home writes judge, got {name!r}", name == "judge")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _made_req(model: str, users: list, tools: bool = True) -> dict:
+    body = {"model": model, "messages": [{"role": "user", "content": u} for u in users]}
+    if tools:
+        body["tools"] = [{"type": "function", "function": {"name": "Agent"}}]
+    return {"method": "POST", "path": "/chat/completions", "body": body}
+
+
+@test
+def test_made_at_once_judges_what_it_read(ctx: Ctx):
+    """3.6.0.15 K1: the step's judges are pure: a read as built gives no line; each fault gives exactly its own line."""
+    d = _steps_made()
+    ref = "or:mock/realcheck-judge"
+    block = {"kind": "BUILT-IN", "before": [d.LINE_NOW, "This helper keeps or:mock/realcheck until it ends."],
+             "after": [d.MADE.format(ref=ref)], "undo_word": "Undo", "ref": ref, "file": True, "file_model": ref}
+    ctx.check(f"(a) as built: nothing, got {d.judge_made_block(block)}", d.judge_made_block(block) == [])
+    for change, head in (({"kind": "ROUTED"}, "(a) the block's kind is 'ROUTED'"),
+                         ({"before": [d.LINE_NOW]}, "(a) before the pick the block reads"),
+                         ({"after": ["Not saved: no."]}, "(a) after the pick the block reads"),
+                         ({"undo_word": ""}, "(a) no Undo after the pick"),
+                         ({"file": False}, "(a) judge.yaml was not written as his agent on " + ref),
+                         ({"file_model": "auto"}, "(a) judge.yaml was not written as his agent on " + ref)):
+        got = d.judge_made_block({**block, **change})
+        ctx.check(f"(a) {change}: exactly its line, got {got}", len(got) == 1 and got[0].startswith(head))
+    n1 = "[Halo] A new helper you can start now: judge (pass or fail a result)."
+    main = fakes.MADE_PROMPT
+
+    def raw(first_main=(main, n1), early=(main,), j2="mock/realcheck-judge", title=False) -> list:
+        out = [_made_req("x/main", list(early)), _made_req("x/main", ["RC-MADEJ1: judge the draft"])]
+        if title:
+            out.append(_made_req("x/main", [main], tools=False))  # a call with no tools (a title): not main's turn
+        out.append(_made_req("x/main", list(first_main)))
+        if j2:
+            out.append(_made_req(j2, ["RC-MADEJ2: judge it again"]))
+        return out
+    reqs = d.made_reqs(raw(), 2)
+    ctx.check(f"made_reqs tags main, the Judge's and judge's calls and the pick's mark, got "
+              f"{[(r['who'], r['after']) for r in reqs]}",
+              [(r["who"], r["after"]) for r in reqs] == [("main", False), ("j1", False), ("main", True), ("j2", True)])
+    ctx.check(f"(b) as built: nothing, got {d.judge_made_requests(reqs, ref)}", d.judge_made_requests(reqs, ref) == [])
+    titled = d.made_reqs(raw(title=True), 2)
+    ctx.check("(b) a call with no tools is not main's", d.judge_made_requests(titled, ref) == []
+              and [r["who"] for r in titled][2] == "")
+    for kw, head in (({"early": (main, n1)}, "(b) a request before the pick carried N1 for judge"),
+                     ({"first_main": (main,)}, "(b) main's first request after the pick does not carry N1 for judge"),
+                     ({"first_main": (main, n1, n1)}, "(b) main's first request after the pick carries N1 for judge 2 times"),
+                     ({"j2": ""}, "(b) main never started judge (no request of RC-MADEJ2)"),
+                     ({"j2": "x/main"}, "(b) judge's request went to 'x/main', not the picked 'or:mock/realcheck-judge'")):
+        got = d.judge_made_requests(d.made_reqs(raw(**kw), 2), ref)
+        ctx.check(f"(b) {kw}: exactly its line, got {got}", len(got) == 1 and got[0].startswith(head))
+    n2 = "[Halo] Taken back: judge can no longer be started in this session."
+    undo = {"rows": [d.TAKEN], "file": False, "reqs": d.made_reqs([_made_req("x/main", [main, n1, fakes.NOTED_PROMPT, n2])], 0)}
+    ctx.check(f"(d) as built: nothing, got {d.judge_made_undo(undo)}", d.judge_made_undo(undo) == [])
+    for change, head in (({"rows": ["Not undone: no."]}, "(d) after Undo the block reads"),
+                         ({"file": True}, "(d) judge.yaml is still there after Undo"),
+                         ({"reqs": d.made_reqs([_made_req("x/main", [main, fakes.NOTED_PROMPT])], 0)},
+                          "(d) main's first request after Undo does not carry N2 for judge"),
+                         ({"reqs": d.made_reqs([_made_req("x/main", [main, n2, n2])], 0)},
+                          "(d) main's first request after Undo carries N2 for judge 2 times")):
+        got = d.judge_made_undo({**undo, **change})
+        ctx.check(f"(d) {list(change)}: exactly its line, got {got}", len(got) == 1 and got[0].startswith(head))
+    save = {"note": "Saved sorter.", "live": [{"session_id": "s-1", "took": True, "why": ""}],
+            "reqs": d.made_reqs([_made_req("x/main", [main, fakes.NOTED_PROMPT, d.N1_SORTER])], 0)}
+    ctx.check(f"(c) as built: nothing, got {d.judge_made_save(save, 's-1')}", d.judge_made_save(save, "s-1") == [])
+    for change, head in (({"note": "Not saved yet."}, '(c) the form did not say "Saved sorter."'),
+                         ({"live": [{"session_id": "s-1", "took": False, "why": "unreached"}]},
+                          "(c) the save's answer does not say this session took sorter"),
+                         ({"live": [{"session_id": "s-2", "took": True, "why": ""}]},
+                          "(c) the save's answer does not say this session took sorter"),
+                         ({"reqs": d.made_reqs([_made_req("x/main", [main, fakes.NOTED_PROMPT])], 0)},
+                          "(c) main's first request after the save does not carry N1 for sorter")):
+        got = d.judge_made_save({**save, **change}, "s-1")
+        ctx.check(f"(c) {list(change)}: exactly its line, got {got}", len(got) == 1 and got[0].startswith(head))
+
+
+@test
+def test_made_at_once_waits_end_only_on_a_true_value(ctx: Ctx):
+    """3.6.0.15 K1: every wait expression of made-at-once gives true against a page stand-in where its state is drawn and
+    false where it is not (an element comes back through returnByValue as {}, which never ends a wait), the wait for the
+    picker's row of the second model among them (its rows come from a live read, after the search box)."""
+    import shutil
+    from tests.helpers.runner import SkipTest
+    node = shutil.which("node")
+    if not node:
+        raise SkipTest("no node on this box")
+    exprs = _steps_made().waits()
+    ctx.check(f"the picker's row wait and the form's waits are listed, got {sorted(exprs)}",
+              {"member", "open", "toggle", "content", "listed", "row", "changed", "gone", "new", "form", "note", "saved"} <= set(exprs))
+    js = ("const el = (o = {}) => ({dataset: o.dataset || {}, textContent: o.text ?? '', value: o.value ?? '',"
+          " querySelector: (x) => (o.q || {})[x] ?? null, querySelectorAll: (x) => (o.all || {})[x] ?? [],"
+          " closest: (x) => (o.up || {})[x] ?? null});"
+          "const doc = (q) => ({querySelector: (x) => q[x] ?? null});"
+          "const ROOT = '[data-testid=session-lit-map]', K = '[data-testid=map-step-in][data-open]';"
+          "const mem = (raw, line) => el({dataset: {raw, member: 'a1'}, q: {'[data-testid=map-member-line]': el({text: line})}});"
+          "const lines = (xs) => el({all: {'[data-testid=map-step-in-model-line] p': xs.map((t) => el({text: t}))}});"
+          "const content = (kind, xs) => Object.assign(lines(xs), {dataset: kind ? {kind} : {}});"
+          "const row = el({dataset: {ref: 'or:mock/realcheck-judge'}});"
+          "const field = (r, fresh = null) => { const f = el({q: {'[data-testid$=\"-row\"][data-ref$=\"realcheck-judge\"]': r,"
+          " '[data-testid=model-select-refresh]:not([disabled])': fresh}}); f.closest = (x) => (x === '.msel' ? f : null); return f; };"
+          "const sheet = (o = {}) => el({q: {'[data-testid=map-step-in-model-toggle]': o.toggle ?? null,"
+          " '[data-testid=map-step-in-model-content]': o.content ?? null, '[data-testid=map-step-in-model-select]': o.field ?? null}});"
+          "const win = (calls) => ({__rcm: {calls}});"
+          "const post = (body) => ({method: 'POST', path: '/api/crew/agent/sorter', status: 200, body});"
+          "const pages = {"
+          " member: [doc({[ROOT]: el({all: {'[data-member]': [mem('running', 'Judge: judge the draft')]}})}),"
+          "  doc({[ROOT]: el({all: {'[data-member]': [mem('done', 'Judge: judge the draft')]}})})],"
+          " open: [doc({[K]: sheet()}), doc({})],"
+          " toggle: [doc({[K]: sheet({toggle: el()})}), doc({[K]: sheet()})],"
+          " content: [doc({[K]: sheet({content: content('BUILT-IN', ['a', 'b'])})}),"
+          "  doc({[K]: sheet({content: content('', [\"Reading this helper's agent...\"])})})],"
+          " row: [doc({[K]: sheet({field: field(row)})}), doc({[K]: sheet({field: field(null, el())})})],"
+          " listed: [doc({[K]: sheet({field: field(null, el())})}), doc({[K]: sheet({field: field(null)})})],"
+          " changed: [doc({[K]: sheet({content: content('BUILT-IN', ['y'])})}), doc({[K]: sheet({content: content('BUILT-IN', ['x'])})})],"
+          " gone: [doc({}), doc({'.mp-step-in': el()})],"
+          " new: [doc({'[data-testid=crew-empty-new]': el()}), doc({})],"
+          " form: [doc({'[data-testid=crew-form]': el()}), doc({})],"
+          " note: [doc({'[data-testid=crew-note]': el({text: 'Saved sorter.'})}), doc({'[data-testid=crew-note]': el({text: 'Not saved yet.'})})],"
+          " saved: [[doc({}), win([post({live: []})])], [doc({}), win([post(null)])]]};"
+          f"const exprs = {json.dumps(exprs)}; const out = {{}};"
+          "for (const [k, e] of Object.entries(exprs)) { const p = pages[k] || []; for (const [i, d] of p.entries()) {"
+          "  const [dd, w] = Array.isArray(d) ? d : [d, {}];"
+          "  let v; try { v = new Function('document', 'window', 'return (' + e + ');')(dd, w); } catch (err) { v = 'threw: ' + err; }"
           "  out[k + (i ? ' / not drawn' : ' / drawn')] = JSON.parse(JSON.stringify(v === undefined ? null : v)); } }"
           "process.stdout.write(JSON.stringify(out));")
     r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=60)

@@ -49,7 +49,7 @@ ON_REQUEST_NOTE = "  [runs only with --only: it fails today on product faults it
 def _steps() -> list:
     """(name, budget seconds, what it checks, the function)."""
     from realcheck import steps_a as A, steps_b as B, steps_c as C, steps_close as Z, steps_map as M, steps_prompt as P
-    from realcheck import steps_auto as S, steps_browser as W, steps_copy as K, steps_live as L
+    from realcheck import steps_auto as S, steps_browser as W, steps_copy as K, steps_live as L, steps_made as D
     return [
         ("starts", 20, "`halo --version` and `--help` answer in 2 s; --help names every command", A.starts),
         ("first-run", 120, "`halo init` in a fresh home: address, page, Setup's read, no beep, instrument", A.first_run),
@@ -75,6 +75,10 @@ def _steps() -> list:
          "most four rings and none hidden, nothing moves under a resting pointer, a long tool's held form and its one "
          "growth in Session's drawer at its narrowest, the box that opens in place, no animation under reduced motion",
          L.live_scene),
+        ("made-at-once", 180 if sys.platform == "win32" else 120, "a pick in a running helper's box acts at once: the "
+         "built-in Judge's model picked in its MODEL block makes judge, main is told and starts it on that model; Undo "
+         "takes it back and main is told; an agent saved in Agents' form reaches the running session; nothing left",
+         D.made_at_once),
         ("browser", 180 if sys.platform == "win32" else 120, "the built-in Browser tool: a real `halo -p` opens a real page "
          "in this system's browser, presses its button, takes its picture; no listener; nothing left after a normal "
          "and a hard end", W.browser),
