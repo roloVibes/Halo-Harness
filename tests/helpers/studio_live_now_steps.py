@@ -576,7 +576,27 @@ def s5held(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"s5held": out}
 
 
-STEPS = (s2now, rest, reduced, s3slot, s3rings, fold, height, s5held)
+# ---- F4: an end the page never saw happen --------------------------------------------------------------------------
+def seen_ended(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """3.6.0.15 F4: the page's FIRST row of `e1` is its done row with its own `ended` (it never saw it run); a running
+    sibling in its group keeps the group open (an all-done group folds). Reads each view's NOW of e1 once it is drawn."""
+    t0 = time.time() - 30
+    main = _main(rows, a, state="running", current="Agent: write the notes", since=t0, started=t0)
+    done = {**mk("e1", "writer", "note the release", "write the notes", 1, "done", since=t0), "ended": t0 + 12.6}
+    kids = [done, mk("e2", "writer", "note the fixes", "write the notes", 1, since=t0)]
+    out: dict = {"want": f"done in {round(done['ended'] - done['since'])} s"}
+    go(c, rig, rows, a, b, [main, *kids])
+    c.wait(f"{M}.querySelectorAll('[data-member]').length === 2", 20)
+    for view, root in (("session", M), ("live", LW)):
+        if view == "live":
+            to_live(c, 1)
+        nw = f"({root}?.querySelector('[data-member=e1] > [data-testid=map-member-now]')?.textContent || '')"
+        wait_or(c, f"{nw} === {json.dumps(out['want'])}", 15)
+        out[view] = c.js(nw)
+    return {"seen_ended": out}
+
+
+STEPS = (s2now, rest, reduced, s3slot, s3rings, fold, height, s5held, seen_ended)
 
 
 class LiveNowDriver(MapDownDriver):

@@ -47,7 +47,8 @@ FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind"
           "square",  # 3.3.16.0 R3: {name, engine, does} on a square's agent or node (workflows/receipts.py)
           "spawn",  # 3.3.16.3: {step, description, lead} -- the parent's step that started it (agent_hooks.spawn_of)
           "crew",  # 3.6.0.0 R4: {map, box, line?, made_up?} -- the map box it runs for (crew/map_events.py tag)
-          "turn", "turn_total")  # 3.6.0.10 M10, main's row only: {n, helpers, tools, ended}, {helpers, tools}
+          "turn", "turn_total",  # 3.6.0.10 M10, main's row only: {n, helpers, tools, ended}, {helpers, tools}
+          "ended")  # 3.6.0.15 F4, a helper row only: time.time() of its end, sent with the end state
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()

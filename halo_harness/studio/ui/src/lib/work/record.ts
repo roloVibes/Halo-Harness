@@ -9,12 +9,13 @@
 // in the session's own order (the registry's: parents before their children). `parent` is the id the agent
 // names; `orphan` says that id is not in the record (a background job that never announced: the views hang it
 // under "unknown parent", never drop it); `edges` join only the parents that are in it. `ended` is when it
-// finished (seconds; the feed's done time, else null). `row` is the frame's own agent row, for the views that
+// finished (seconds; the row's own end, else the feed's done time, else null: lib/work/ended.ts). `row` is the frame's own agent row, for the views that
 // draw more of it (the Map's node). Readers: the Session Map (routes/fleet/layoutTree.ts) and Roles Live
 // (routes/roles/liveModel.ts).
 import { useMemo } from "react";
 import { keyOf, localId, sessionTitle, useFleet, type FleetState } from "../../routes/fleet/store";
 import type { AgentRow, Harness, SessionRow } from "../../routes/fleet/types";
+import { endedOf, FINISHED } from "./ended";
 
 export type RecordAgent = {
   id: string; key: string; parent: string | null; name: string; role: string; model: string; state: string; reason: string;
@@ -30,7 +31,6 @@ export type WorkRecord = {
 export type RecordRef = { harness: string; id: string; title: string; local: boolean; kind: string; started: number; live: number };
 
 const num = (v: unknown): number | null => (typeof v === "number" && isFinite(v) ? v : null);
-const FINISHED = ["done", "failed", "stopped"];
 
 /** The record of one session row (`doneAt`: the feed's done times by agent key, ms). */
 export function recordOf(h: Harness, s: SessionRow, doneAt: Record<string, number> = {}): WorkRecord {
@@ -40,9 +40,10 @@ export function recordOf(h: Harness, s: SessionRow, doneAt: Record<string, numbe
     const key = keyOf(h.id, s.session_id, a.agent_id);
     const parent = a.parent && a.parent !== a.agent_id ? String(a.parent) : null;
     const state = String(a.state || "");
+    // F4: a helper's row carries its own `ended`; the cast is the one place (FY may add `ended` to AgentRow)
     return {
       id: a.agent_id, key, parent, name: String(a.name || a.agent_id), role: String(a.role || ""), model: String(a.model || ""), state,
-      reason: String(a.model_reason || ""), started: num(a.since), ended: FINISHED.includes(state) ? (doneAt[key] ? doneAt[key] / 1000 : null) : null,
+      reason: String(a.model_reason || ""), started: num(a.since), ended: endedOf(state, (a as AgentRow & { ended?: number | null }).ended, doneAt[key]),
       task: String(a.task || ""), current: String(a.current || ""), cost: num(a.cost_usd), lineup: String(a.lineup || ""), bio: String(a.bio || ""),
       orphan: !!parent && !ids.has(parent), row: a,
     };

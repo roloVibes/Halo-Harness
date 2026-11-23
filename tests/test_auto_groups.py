@@ -1002,6 +1002,44 @@ console.log(JSON.stringify({
               got.get("told_none") == got.get("told_plain") and got.get("before_none") == got.get("g5"))
 
 
+@test
+def test_an_end_seen_first_as_done_reaches_now(ctx: Ctx):
+    """3.6.0.15 F4: a helper the page first saw already done (no doneAt of the page's own) carries its end on its row:
+    lib/work/ended.ts endedOf takes the row's `ended` first, the page's doneAt only without one, null for a live state;
+    nowOf rounds the run, so "done in 0 s" is written only under half a second (in node)."""
+    from tests.helpers import node_ts
+    src = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src"
+    url = lambda p: json.dumps((src / p).resolve().as_uri())  # noqa: E731
+    js = """const E = await import(%s), N = await import(%s);
+const nw = (raw, started, ended) => N.nowWords(N.nowOf({ raw, started, ended }, 200000));
+console.log(JSON.stringify({
+  row_only: E.endedOf("done", 100.7, undefined), row_first: E.endedOf("done", 100.7, 105000),
+  done_at: E.endedOf("failed", null, 105000), stopped_row: E.endedOf("stopped", 101, undefined),
+  none: E.endedOf("done", undefined, undefined), not_a_number: E.endedOf("done", "100.7", undefined),
+  live: E.endedOf("running", 100.7, 105000), queued: E.endedOf("queued", null, 105000),
+  seen_done: nw("done", 100, E.endedOf("done", 100.7, undefined) || 0),
+  short: nw("done", 100, 100.4), half: nw("done", 100, 100.5), stopped: nw("stopped", 100, 100.7),
+  failed: nw("failed", 100, 100.2), whole: nw("done", 100, 142),
+}));""" % (url("lib/work/ended.ts"), url("routes/crew/map/nowLine.ts"))
+    got = node_ts.run(js)
+    ctx.check(f"the row's own end, got {got.get('row_only')}", got.get("row_only") == 100.7)
+    ctx.check(f"the row's end wins over the page's doneAt, got {got.get('row_first')}", got.get("row_first") == 100.7)
+    ctx.check(f"the page's doneAt only without the row's, got {got.get('done_at')}", got.get("done_at") == 105)
+    ctx.check(f"stopped takes the row's end, got {got.get('stopped_row')}", got.get("stopped_row") == 101)
+    ctx.check(f"no end known: null, got {got.get('none')} {got.get('not_a_number')}",
+              got.get("none") is None and got.get("not_a_number") is None)
+    ctx.check(f"a live state has no end, got {got.get('live')} {got.get('queued')}",
+              got.get("live") is None and got.get("queued") is None)
+    nb = " "
+    ctx.check(f"a helper first seen done reads done in 1 s for 0.7 s, got {got.get('seen_done')!r}",
+              got.get("seen_done") == f"done in 1{nb}s")
+    ctx.check(f"0.4 s reads done in 0 s, got {got.get('short')!r}", got.get("short") == f"done in 0{nb}s")
+    ctx.check(f"0.5 s reads done in 1 s, got {got.get('half')!r}", got.get("half") == f"done in 1{nb}s")
+    ctx.check(f"stopped and failed round the same way, got {got.get('stopped')!r} {got.get('failed')!r}",
+              got.get("stopped") == f"stopped after 1{nb}s" and got.get("failed") == f"failed after 0{nb}s")
+    ctx.check(f"whole seconds as today, got {got.get('whole')!r}", got.get("whole") == f"done in 42{nb}s")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

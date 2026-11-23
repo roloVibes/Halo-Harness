@@ -2,7 +2,8 @@
 // branch that applies, built from the word functions that already exist (never a second copy of a word):
 //   waiting -> "waiting for you · {s}"; paused -> "paused"; queued -> "queued · {s}" (from the row's since);
 //   stopped / done / failed -> "stopped after {span}" / "done in {span}" / "failed after {span}" -- the blank kept line
-//   when Studio never saw the end (the end or the start is 0: the state line already says it);
+//   when Studio never saw the end (the end or the start is 0: the state line already says it); the run is rounded
+//   to the nearest second (3.6.0.15 F4: "done in 0 s" only for a run under half a second);
 //   an open tool -> "{tool} · {s}" (its raw name, as the Feed draws it); a tool only the row knows -> "{tool}" alone;
 //   the newest line a thought -> "thinking · {s}"; writing -> "writing · {s}" (from the newest text line);
 //   else "waiting for a model reply · {s}" (from the wait's own since); nothing known -> "" (the blank kept line).
@@ -32,7 +33,8 @@ export function nowOf(x: NowIn, nowMs: number): Now {
     const secs = secsWords(t0, nowMs);
     return secs ? { text: words, secs, kind } : { text: words.replace(SEP_END, ""), secs: "", kind };
   };
-  const ran = (words: string): Now => (x.started > 0 && x.ended > 0 ? { text: `${words} ${span(x.ended - x.started)}`, secs: "", kind: "" } : NO_NOW);
+  const ran = (words: string): Now =>
+    (x.started > 0 && x.ended > 0 ? { text: `${words} ${span(Math.round(x.ended - x.started))}`, secs: "", kind: "" } : NO_NOW);
   switch (x.raw) {
     case "waiting": return at(waitClock(waitWhat("you"), ""), w?.since ?? null, "wait");
     case "paused": return { text: "paused", secs: "", kind: "" };

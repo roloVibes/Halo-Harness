@@ -93,6 +93,16 @@ def test_s2_each_now_kind(ctx: Ctx):
 
 
 @test
+def test_a_helper_that_ended_before_the_page_saw_it_reads_done_in(ctx: Ctx):
+    """3.6.0.15 F4: a helper whose first row the page reads is already done (with the row's own `ended`) reads
+    "done in {n} s", n = round(ended - since), in Session's drawer and in Agents -> Live (the text stays)."""
+    d = _ran(ctx, "seen_ended")
+    for view in ("session", "live"):
+        ctx.check(f"{view}: NOW of a helper first seen done, want {d.get('want')!r}, got {d.get(view)!r}",
+                  bool(d.get("want")) and d.get(view) == d.get("want"))
+
+
+@test
 def test_member_height_holds_from_queued_to_done(ctx: Ctx):
     d = _ran(ctx, "height")
     want = [("queued", rf"queued · {S}"), ("running", rf"waiting for a model reply · {S}"), ("tool", rf"Read · {S}"),

@@ -21,6 +21,8 @@ becomes `thinking_chunk` frames (fleet/think.py `ThinkFeed`), one id per thought
 
 from __future__ import annotations
 
+import time
+
 from halo_harness.agent.agent_transcript import LiveText, first_line, tool_label
 from halo_harness.live.think import ThinkFeed
 
@@ -49,6 +51,8 @@ class ObserveMixin:
                 row["state"] = "running"
             model = getattr(getattr(session, "model_ref", None), "raw", None)
             row["current"], row["model"] = "thinking", model or row.get("model")
+            if aid != self.root_id:  # 3.6.0.15 F4: a resumed helper is live again
+                row["ended"] = None
             self._reason.pop(aid, None)
             self._inflight.pop(aid, None)
             self._sessions[aid] = self._ref(session)
@@ -109,6 +113,8 @@ class ObserveMixin:
             stopped = self.controls.stop_record(aid) is not None
             row["state"] = "stopped" if stopped else END_STATE.get(self._reason.pop(aid, None), "done")
             row["current"] = ""
+            if aid != self.root_id:  # 3.6.0.15 F4: the end time goes out with the end state (not main: since = session)
+                row["ended"] = time.time()
             self._inflight.pop(aid, None)
             live = self._live.get(aid)
             entries = live.flush() if live is not None else []

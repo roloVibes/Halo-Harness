@@ -221,6 +221,50 @@ def test_agent_put_and_gone_over_the_socket(ctx: Ctx):
         ctx.check("a peer cannot send either", not {"agent_put", "agent_gone"} & set(FLEET_CMDS))
 
 
+@test
+def test_a_helper_that_ends_in_its_first_frame_carries_its_end_time(ctx: Ctx):
+    """3.6.0.15 F4: a helper that started and ended inside one quiet window reaches the views with its end time:
+    its row carries `ended` (time.time() of the end, >= `since`) in the end's own frame and in public_rows();
+    a resumed helper is live again (`ended` None); main's row never carries one (its `since` is the session's)."""
+    from halo_harness.agent.agent_registry import FIELDS, QUIET_S, AgentTree
+
+    class _Root:
+        agent_id = None
+        model_ref = None
+        log = None
+
+    class _Child:
+        agent_id = "helper-1"
+        model_ref = None
+
+    tree = AgentTree(_Root())
+    frames: list = []
+    tree.add_listener(lambda kind, aid, data: frames.append((kind, aid, dict(data))) if kind == "agent_state" else None)
+    child = _Child()
+    tree.add("helper-1", session=child, parent=tree.root_id, name="writer", kind="subagent")
+    t0 = time.monotonic()
+    tree.started("helper-1", child, "write the note")
+    tree.ended("helper-1")
+    ctx.check(f"started and ended inside one quiet window ({QUIET_S} s)", time.monotonic() - t0 < QUIET_S)
+    ctx.check("`ended` is an agent row field", "ended" in FIELDS)
+    last = [d for k, a, d in frames if a == "helper-1"][-1]
+    ctx.check(f"the end's frame is done and carries `ended`, got {last.get('state')} {last.get('ended')}",
+              last.get("state") == "done" and isinstance(last.get("ended"), float)
+              and last["ended"] >= last["since"])
+    row = next(r for r in tree.public_rows() if r["agent_id"] == "helper-1")
+    ctx.check(f"public_rows carries the same end, got {row.get('ended')}", row.get("ended") == last.get("ended"))
+    tree.started("helper-1", child, "go on")
+    again = [d for k, a, d in frames if a == "helper-1"][-1]
+    ctx.check(f"a resumed helper is live again: no end, got {again.get('state')} {again.get('ended')}",
+              again.get("state") == "running" and again.get("ended") is None)
+    tree.ended("helper-1")
+    ctx.check("its next end carries `ended` again", isinstance(tree.row("helper-1").get("ended"), float))
+    tree.started(tree.root_id, _Root(), "main's task")
+    tree.ended(tree.root_id)
+    main = next(r for r in tree.public_rows() if r["agent_id"] == tree.root_id)
+    ctx.check(f"main's row never carries `ended`, got {main.get('ended')}", main.get("ended") is None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
