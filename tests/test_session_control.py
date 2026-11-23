@@ -170,6 +170,57 @@ def _child_nodes(rig, session, agent_id: str) -> list:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+SORTER = {"format": "agent/1", "name": "sorter", "does": "Sorts the files it is given by kind.", "uses": ["read"],
+          "careful": "ask-changes", "model": "auto"}
+
+
+@test
+def test_agent_put_and_gone_over_the_socket(ctx: Ctx):
+    """3.6.0.15 UN U2: `agent_put` answers {took, why} from crew/use_now.put, `agent_gone` {queued}; bad input answers
+    its line; main's transcript records each command without the body."""
+    with SessionRig() as rig:
+        session = rig.session(rig.script("put-main", [text_step("main done")]))
+        from halo_harness.agent.helpers_words import on_auto
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.crew.map_session import prepare
+        if not on_auto(session):  # the rig's session is bare: give it Auto's control, as a top session's start does
+            session.team_control = control_for(prepare(None, rig.cwd)[0], cwd=rig.cwd, session=session)
+        ctx.check("the session is on Auto", on_auto(session))
+        from halo_harness.remote import runtime
+        act = runtime.start_for_controller(rig.controller(session))
+        c = rig.client(act)
+        sha = "0123456789abcdef" * 4
+        r = c.call("agent_put", name="sorter", body=SORTER, scope="yours", sha256=sha, **BY)
+        ctx.check(f"agent_put took, got {r}", r.get("ok") and r["result"] == {"took": True, "why": ""})
+        gp = dict(SORTER, name="general-purpose")
+        r = c.call("agent_put", name="general-purpose", body=gp, scope="yours", sha256=sha, **BY)
+        ctx.check(f"a built-in's name: refused, got {r}", r.get("ok") and r["result"] == {"took": False, "why": "built-in"})
+        r = c.call("agent_gone", name="sorter", scope="yours", **BY)
+        ctx.check(f"agent_gone queued, got {r}", r.get("ok") and r["result"] == {"queued": True})
+        r = c.call("agent_gone", name="never", scope="yours", **BY)
+        ctx.check(f"agent_gone of a name it never had, got {r}", r.get("ok") and r["result"] == {"queued": False})
+        for label, fields, line in (
+                ("a body that is not a mapping", {"name": "sorter", "body": "x", "scope": "yours", "sha256": sha},
+                 "body must be an agent mapping"),
+                ("a scope of neither", {"name": "sorter", "body": SORTER, "scope": "starter", "sha256": sha},
+                 "scope must be yours or project"),
+                ("a short sha256", {"name": "sorter", "body": SORTER, "scope": "yours", "sha256": "abc"},
+                 "sha256 must be 64 hex characters"),
+                ("another name", {"name": "tidy", "body": SORTER, "scope": "yours", "sha256": sha},
+                 "the body's name must be the name")):
+            r = c.call("agent_put", **fields, **BY)
+            ctx.check(f"{label}: refused with its line, got {r}", r.get("ok") is False and line in str(r.get("error")))
+        metas = [n.get("control") for n in session.log.nodes() if n.get("type") == "meta" and n.get("control")]
+        puts = [m for m in metas if m.get("cmd") in ("agent_put", "agent_gone")]
+        ctx.check(f"main's transcript: one record per command that ran, got {puts}",
+                  [(m["cmd"], m["name"]) for m in puts] == [("agent_put", "sorter"), ("agent_put", "general-purpose"),
+                                                             ("agent_gone", "sorter"), ("agent_gone", "never")]
+                  and puts[0]["via"] == "Studio" and puts[0]["took"] is True and puts[2]["queued"] is True)
+        ctx.check("no record carries the body", not [m for m in puts if "body" in m or "does" in json.dumps(m)])
+        from halo_harness.peers.protocol import FLEET_CMDS
+        ctx.check("a peer cannot send either", not {"agent_put", "agent_gone"} & set(FLEET_CMDS))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

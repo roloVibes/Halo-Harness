@@ -7,6 +7,9 @@
     PUT    crew/agent/<name> {agent}   save it (422 with the problem lines; a starter answers 409: Copy makes yours;
                                        3.6.0.6 P: so does an enabled pack's, and POST / DELETE of its name)
     DELETE crew/agent/<name>           delete yours (409 while a workflow or a map names it, saying which)
+                                       3.6.0.15 UN U3: a 200 of POST, PUT or DELETE carries `live`, what each running
+                                       top session that sees the scope answered (studio/crew_push.py): POST and PUT
+                                       [{session_id, took, why}], DELETE [{session_id, queued}]
     crew/maps, crew/map/<name>, crew/map/<name>/use: studio/crew_map_api.py (3.6.0.0 R3)
     crew/workflows, crew/workflow/<name>, crew/workflow-cost: studio/crew_flow_api.py (3.6.0.0 R2)
     GET    crew/estimate?model=<ref>   {usd, line}: one typical task on that model, said before a Try it
@@ -24,6 +27,7 @@ import re
 
 from halo_harness.crew import store, trial
 from halo_harness.crew.formats import agent_problems
+from halo_harness.studio import crew_push
 from halo_harness.studio.owner_proof import owner_only
 
 ROW_KEYS = ("name", "does", "model", "needs", "uses", "careful", "instructions", "more")
@@ -80,8 +84,9 @@ def post_agent(req):
     if store.find("agent", name, cwd=req.cwd, state_dir=req.state_dir, scope="yours"):
         return 409, {"error": f"you have an agent named {name} already: pick another name", "problems": []}
     path = store.path_for("agent", name, state_dir=req.state_dir)
-    store.write_text(path, store.dump(raw))
-    return 200, {"ok": True, "path": str(path), "agent": raw}
+    text = store.dump(raw)
+    store.write_text(path, text)
+    return 200, {"ok": True, "path": str(path), "agent": raw, "live": crew_push.put_live(req, name, raw, "yours", text)}
 
 
 def put_agent(req):
@@ -96,8 +101,10 @@ def put_agent(req):
         return 409, {"error": f"{name} ships with Halo: Copy makes it yours", "problems": []}
     project = bool(found and found[1] == "project")
     path = store.path_for("agent", name, cwd=req.cwd, state_dir=req.state_dir, project=project)
-    store.write_text(path, store.dump(raw))
-    return 200, {"ok": True, "path": str(path), "agent": raw}
+    text = store.dump(raw)
+    store.write_text(path, text)
+    return 200, {"ok": True, "path": str(path), "agent": raw,
+                 "live": crew_push.put_live(req, name, raw, "project" if project else "yours", text)}
 
 
 def delete_agent(req):
@@ -109,7 +116,7 @@ def delete_agent(req):
     if used:
         return 409, {"error": f"{name} is used by {', '.join(used)}: take it out there first", "problems": used}
     store.write_text(found[0], None)
-    return 200, {"ok": True}
+    return 200, {"ok": True, "live": crew_push.gone_live(req, name, "yours")}
 
 
 def get_kind(kind: str):

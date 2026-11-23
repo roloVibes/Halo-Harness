@@ -10,6 +10,8 @@ commands (Halo 3.0.5.0 "Fleet" round R1). Wire shapes:
     resume       {agent_id?}               -> {resumed, was_paused}
     shutdown     {reason?}                 -> {shutdown: true}           the session ends after the current tool call
     agent_follow {agent_id, on=true}       -> {agent_id, following}      agent_event frames for it while on
+    agent_put {name, body, scope, sha256} -> {took, why}  a validated agent body into this session's agents at main's next step (crew/use_now.py)
+    agent_gone {name, scope}               -> {queued}                   take it back at main's next step
 
 Rows and entries: agent/agent_registry.py, agent/agent_transcript.py.
 "main" (or the session id) is the main agent, `job:<id>` a background Bash
@@ -28,7 +30,8 @@ from halo_harness.agent import agent_registry
 from halo_harness.agent.agent_transcript import first_line, one_line
 from halo_harness.remote.base import HandleError
 
-AGENT_CMDS = ("agents", "agent_tail", "agent_steer", "agent_stop", "pause", "resume", "shutdown", "agent_follow")
+AGENT_CMDS = ("agents", "agent_tail", "agent_steer", "agent_stop", "pause", "resume", "shutdown", "agent_follow",
+              "agent_put", "agent_gone")  # 3.6.0.15 UN U2: an agent saved while the session runs
 STEER_MODES = ("nudge", "redirect")
 FINISHED = ("done", "failed", "stopped")
 
@@ -204,9 +207,50 @@ def cmd_shutdown(handle, tree, req: dict, conn=None) -> dict:
     return {"shutdown": True}
 
 
+_HEX = frozenset("0123456789abcdef")
+
+
+def _put_args(req: dict) -> "tuple[str, str]":
+    name, scope = _str(req, "name"), _str(req, "scope")
+    if scope not in ("yours", "project"):
+        raise HandleError("scope must be yours or project")
+    return name, scope
+
+
+def cmd_put(handle, tree, req: dict) -> dict:
+    """3.6.0.15 UN U2: a validated agent body into this session's agents at main's next step (crew/use_now.put; main
+    is told of it there, note N1). The body is never recorded."""
+    from halo_harness.crew import use_now
+    body = req.get("body")
+    if not isinstance(body, dict):
+        raise HandleError("body must be an agent mapping")
+    name, scope = _put_args(req)
+    sha = req.get("sha256")
+    if not isinstance(sha, str) or len(sha) != 64 or not set(sha) <= _HEX:
+        raise HandleError("sha256 must be 64 hex characters")
+    if body.get("name") != name:
+        raise HandleError("the body's name must be the name")
+    took, why = use_now.put(handle.session, body, scope, sha)
+    _record(handle, tree, tree.root_id, "agent_put", _caller(req), name=name, scope=scope, took=took, why=why)
+    return {"took": took, "why": why}
+
+
+def cmd_gone(handle, tree, req: dict) -> dict:
+    """3.6.0.15 UN U2: take an agent whose file was deleted out of this session's agents at main's next step."""
+    from halo_harness.crew import use_now
+    name, scope = _put_args(req)
+    queued = use_now.gone(handle.session, name, scope)
+    _record(handle, tree, tree.root_id, "agent_gone", _caller(req), name=name, scope=scope, queued=queued)
+    return {"queued": queued}
+
+
 def run(handle, req: dict, conn=None) -> dict:
     cmd = req.get("cmd")
     tree = _tree(handle)
+    if cmd == "agent_put":
+        return cmd_put(handle, tree, req)
+    if cmd == "agent_gone":
+        return cmd_gone(handle, tree, req)
     if cmd == "agents":
         return {"agents": tree.public_rows()}
     if cmd == "agent_tail":  # remote/agent_tail.py (3.0.5.0 R4: split out to keep this file small)
