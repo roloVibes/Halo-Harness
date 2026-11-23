@@ -350,7 +350,11 @@ def waited(c, lv, where: str) -> dict:
     try:
         lv.state(name, state="waiting")
         lv.ask(name)
-        c.wait(f"{row}?.querySelector('[data-testid=run-clock-secs]')?.textContent", 10)
+        try:  # the row already shows a clock ("waiting for a model reply"): wait for the one that waits for him
+            c.wait(f"{row}?.querySelector('[data-testid=run-clock]')?.dataset.wait === 'you' && "
+                   f"!!{row}?.querySelector('[data-testid=run-clock-secs]')?.textContent", 10)
+        except TimeoutError:
+            pass  # `reads` and `kind` below say what the row showed instead
         s0, s1, moved = ticks(c, where, row)
         return {"reads": [s0, s1], "moved": moved, "kind": c.js(f"{row}.querySelector('[data-testid=run-clock]').dataset.wait || ''")}
     finally:

@@ -37,7 +37,7 @@ from tests.helpers.studio_session_step_in import sheet_rule  # noqa: E402
 test, TESTS = new_registry()
 _RUNS: dict = {}
 S = r"\d+(?:\s(?:s|min)(?:\s\d+\ss)?)?"  # "{s}"
-CLOCK = r"\d\d:\d\d:\d\d"
+CLOCK = r"\d{1,2}[:.]\d\d[:.]\d\d(?:\s?[AaPp]\.?\s?[Mm]\.?)?"  # the locale's time with its seconds (R41)
 SAID = [rf"Last said at {CLOCK}: .+", r"Last said: .+", rf"Last thought at {CLOCK}: .+", r"Last thought: .+", r"Nothing said yet\.",
         r"Reading what it said\.\.\.", r"Could not read what it said: .+"]
 REST = r"The rest is in the session export: Export on Session's Feed, or halo session export \S+\."

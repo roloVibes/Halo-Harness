@@ -253,11 +253,11 @@ REST = "The rest is in the session export: Export on Session's Feed, or halo ses
 
 @test
 def test_last_said_words(ctx: Ctx):
-    """O1-6: `saidLines(got, sid)` letter for letter, each `ts` in seconds and its hh:mm:ss two digits each, 24-hour, local
-    (compared with this process's own Date parts, never a zone of this machine); `saidParts` puts a late answer at the
-    body's end with "Reading what it said..." kept where it was."""
-    js = r"""const T = 1700000000, hms = (t) => { const d = new Date(t * 1000);
-  return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, "0")).join(":"); };
+    """O1-6: `saidLines(got, sid)` letter for letter, each `ts` in seconds read with its seconds by the one locale-aware
+    formatter (R41; compared with this process's own locale time, never a zone or a locale of this machine: "14:02:11",
+    or "2:02:11 PM"); `saidParts` puts a late answer at the body's end with "Reading what it said..." kept where it was."""
+    js = r"""const T = 1700000000;
+const hms = (t) => new Date(t * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
 const E = (kind, text, ts) => ts == null ? {kind, text} : {kind, text, ts};
 const cut = "a".repeat(2000) + "... (1234 more characters)";
 const G = {
@@ -268,15 +268,15 @@ const G = {
   none: {events: []}, empty: {}, reading: "reading", error: {error: "no answer"}, cut: {events: [E("text", cut, T)]}};
 const out = {lines: {}, want: {mixed: hms(T + 9), handback: hms(T + 30), thought: hms(T + 61), cut: hms(T)}, cut};
 for (const [k, g] of Object.entries(G)) out.lines[k] = M.tb.saidLines(g, "S-1");
-out.clock = [M.tb.secsClock(T), hms(T)];
+out.clock = [M.tb.secsClock(T), hms(T), /^\d{1,2}[:.]\d{2}[:.]\d{2}(\s?[AaPp]\.?\s?[Mm]\.?)?$/u.test(M.tb.secsClock(T)), M.tb.secsClock(0)];
 out.late = M.tb.saidParts("reading", G.thought, "S-1");
 out.atOpen = M.tb.saidParts(G.thought, G.thought, "S-1");
 out.still = M.tb.saidParts("reading", "reading", "S-1");
 console.log(JSON.stringify(out));"""
     got = _run(["tb"], js, None)
     L, W = got.get("lines") or {}, got.get("want") or {}
-    ctx.check(f"secsClock is hh:mm:ss from Date's own parts, got {got.get('clock')}",
-              bool(got.get("clock")) and got["clock"][0] == got["clock"][1] and len(got["clock"][0]) == 8)
+    ctx.check(f"secsClock is this locale's time with its seconds (no time gives ''), got {got.get('clock')}",
+              bool(got.get("clock")) and got["clock"][0] == got["clock"][1] and got["clock"][2] is True and got["clock"][3] == "")
     ctx.check(f"the newest text, after a later thought, got {L.get('mixed')}", L.get("mixed") == [f"Last said at {W.get('mixed')}: new words"])
     ctx.check(f"a done helper's handback is what it said, got {L.get('handback')}",
               L.get("handback") == [f"Last said at {W.get('handback')}: done: 3 files changed"])

@@ -10,8 +10,10 @@ export const WAS = { live: "(was Map)", feed: "(was Live)" } as const;
 export type Act = "new-session" | "watch-live" | "open-it" | "open-workflows" | "open-agents-live";
 export type Line = { text: string; act?: Act; label?: string };
 
-/** R41: the one locale-aware formatter for every {t} (epoch seconds; "" for no time). */
-export const clock = (t: number): string => (t ? new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
+/** R41: the one locale-aware formatter for every {t} (epoch seconds; "" for no time); `secs`: with its seconds
+ *  (3.6.0.14, the sheet's Last said). */
+export const clock = (t: number, secs = false): string => (t
+  ? new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", ...(secs ? { second: "2-digit" } : {}) }) : "");
 
 /** 3.6.0.5 (decisions J1 M1): `auto`, `starter` and no map set are ONE map, the default, everywhere the page compares map
  *  names: the ONE test of a default's name (as crew/store.py is_auto). A session row carries no scope (it always ran the

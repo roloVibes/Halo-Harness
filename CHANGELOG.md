@@ -34,11 +34,12 @@ host that needs a key, says what it does while it runs and says whether a model 
   click, a row per live agent (a click on its words aims Pause, Stop and the steer box at it; an ended one reads
   "ended at {t}"), what the card's agent said last, on main's card "Told it can start: {every name}", then asks that
   arrive later.
-- **Last said.** Under its rows the card shows what its agent said last: "Last said at 14:02:11: ..." (for a helper
-  that answered and ended: its answer), else "Last thought at ...: ...", else "Nothing said yet."; "Could not read
-  what it said: ..." on an error. It is read once, at the click, for the agent chosen then (a group's first row, else
-  the helper, else main): the card opens when that read answers or after one second, and an answer that comes later is
-  added to the body. A card closed before the answer stops the read quietly.
+- **Last said.** Under its rows the card shows what its agent said last: "Last said at 14:02:11: ..." (the time as
+  your locale writes it, with its seconds) (for a helper that answered and ended: its answer), else "Last thought at
+  ...: ...", else "Nothing said yet."; "Could not read what it said: ..." on an error. It is read once, at the click,
+  for the agent chosen then (a group's first row, else the helper, else main): the card opens when that read answers
+  or after one second, and an answer that comes later is added to the body. A card closed before the answer stops the
+  read quietly.
 - **Ways to close the card, in both drawings:** Escape (outside a text field), its x, a click anywhere outside it, a
   wheel over the drawing or a zoom. A wheel over the card scrolls its body. Escape in the Stop confirm closes the
   confirm only. The Stop confirm and the slot under the drawing do not close it by a press; the slot's own press still
