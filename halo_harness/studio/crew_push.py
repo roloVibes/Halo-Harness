@@ -47,12 +47,14 @@ def put_live(req, name: str, body: dict, scope: str, text: str) -> list:
         out: list = []
         for row in targets(req, scope):
             sid = row["session_id"]
-            status, got = forward(sid, "agent_put", {"name": name, "body": body, "scope": scope, "sha256": sha,
-                                                      **caller()})
-            if status == 200:
-                out.append({"session_id": sid, "took": bool(got.get("took")), "why": str(got.get("why") or "")})
-            else:
-                out.append({"session_id": sid, "took": False, "why": "unreached"})
+            try:  # one session's bad answer is that session's alone: the others' answers stay
+                status, got = forward(sid, "agent_put", {"name": name, "body": body, "scope": scope, "sha256": sha,
+                                                          **caller()})
+                item = ({"took": bool(got.get("took")), "why": str(got.get("why") or "")} if status == 200
+                        else {"took": False, "why": "unreached"})
+            except Exception:
+                item = {"took": False, "why": "unreached"}
+            out.append({"session_id": sid, **item})
         return out
     except Exception:  # a push never fails the save
         return []
@@ -64,8 +66,12 @@ def gone_live(req, name: str, scope: str) -> list:
         out: list = []
         for row in targets(req, scope):
             sid = row["session_id"]
-            status, got = forward(sid, "agent_gone", {"name": name, "scope": scope, **caller()})
-            out.append({"session_id": sid, "queued": status == 200 and bool(got.get("queued"))})
+            try:
+                status, got = forward(sid, "agent_gone", {"name": name, "scope": scope, **caller()})
+                queued = status == 200 and bool(got.get("queued"))
+            except Exception:
+                queued = False
+            out.append({"session_id": sid, "queued": queued})
         return out
     except Exception:
         return []

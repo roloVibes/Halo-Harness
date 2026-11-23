@@ -162,7 +162,8 @@ def p_lines(answer) -> list:
     if not answer:
         return []
     out = []
-    items = [P1_ITEM.format(W=w) for w in answer.get("ready") or []] +         [P1_AGENT.format(x=x) for x in answer.get("ready_agents") or []]
+    items = ([P1_ITEM.format(W=w) for w in answer.get("ready") or []]
+             + [P1_AGENT.format(x=x) for x in answer.get("ready_agents") or []])
     if items:
         out.append(P1.format(items=", ".join(items)))
     for it in answer.get("later") or []:

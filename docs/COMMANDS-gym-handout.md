@@ -52,10 +52,10 @@ A scratch copy of a small project, removed at the end, and one card per model un
 - **A model sent the same words in both arms** (it takes no tools, or today's words do not fit its window) is not
   measured, gets no card and prints why.
 - **The cards** lie under `~/.halo/gym-handout/<host>/handout-<digest>.json`, one per model and host; when the
-  host gives no digest (a gateway) the file is `handout-nodigest-<model>.json` and the card and the report say "no
-  digest from this host: a later build of this model overwrites this card". A new run replaces it. They are kept apart from the battery's cards, so the `/model` picker's score and
-  `halo gym propose` never read them. `halo gym show` prints the cards after the battery's, under
-  "Main hands work out (halo gym handout):".
+  host gives no digest the file is `handout-nodigest-<model>.json` and the card and the report say "no
+  digest from this host: a later build of this model overwrites this card". A new run replaces it. They are
+  kept apart from the battery's cards, so the `/model` picker's score and `halo gym propose` never read them.
+  `halo gym show` prints the cards after the battery's, under "Main hands work out (halo gym handout):".
 
 It counts hand-outs, not whether the work is better. A model passes when "now" hands out at least one part more
 than "before" (the mean of the trials), names a helper right in at least 90 % of the calls that name one, and
