@@ -576,6 +576,28 @@ console.log(JSON.stringify({g3: M.gw.g3Lines(gs[0]), at: M.tw.clock(gs[0].first)
 
 
 @test
+def test_an_all_done_groups_card_lists_every_member(ctx: Ctx):
+    """3.6.0.15 O2-9: a group whose members are ALL done folds to its head (L8: its members' boxes hidden), so its card is
+    the one door to them: it has a row per member, in start order, so one can be chosen and given a model (the MODEL block
+    is the chosen row's). A group with a member still live keeps a row per LIVE member; one with a failed or stopped
+    member (it never folds: its boxes stay) keeps today's rows."""
+    def grp(states: list) -> list:
+        return [MAIN, *[kid(f"k{i}", i, step="1", task="tidy", key="task:tidy", n=len(states), desc=f"part {i}", name=f"w{i}", state=s)
+                        for i, s in enumerate(states, 1)]]
+    cases = {"done": grp(["done", "done"]), "live": grp(["done", "running"]), "stopped": grp(["done", "stopped"])}
+    js = """const out = {};
+for (const [k, rows] of Object.entries(D.cases)) {
+  const gs = M.og.autoGroups(rows, {});
+  out[k] = M.sit.stepIn({kind: "group", n: gs[0].n, text: "2 agents"}, D.rec[k], null, gs).who.map((w) => [w.aid, w.name]);
+}
+console.log(JSON.stringify(out));"""
+    got = _run(["og", "sit"], js, {"cases": cases, "rec": {k: _rec(v) for k, v in cases.items()}})
+    ctx.check(f"all done: a row per member, in start order, got {got.get('done')}", got.get("done") == [["k1", "w1"], ["k2", "w2"]])
+    ctx.check(f"one still live: its row only, got {got.get('live')}", got.get("live") == [["k2", "w2"]])
+    ctx.check(f"done and stopped (never folds): no row, as before, got {got.get('stopped')}", got.get("stopped") == [])
+
+
+@test
 def test_g5_lists_the_start_agents(ctx: Ctx):
     names = [f"a{i}" for i in range(1, 15)]
     js = "console.log(JSON.stringify({a: M.gw.g5Lines('glm-5', D), b: M.gw.g5Lines('glm-5', []), c: M.gw.g5Lines('glm-5', D.slice(0, 2))}));"

@@ -3,8 +3,8 @@
 // (the owner's rule: a section he uses rarely is closed by default, opened by its button, and has a close button): the
 // body's first child is ONE row, "MODEL" and [Change]; a press opens the block in place under the row and, the first
 // time in this sheet's life, sends the ONE `GET crew/agent-model` (studio/crew_model_api.py: what a pick does for THIS
-// kind of helper); [Close] takes it out of the page and keeps what it held. Drawn on a member's sheet and on main's only
-// (the coordinator's ruling F). The shared picker folds IN PLACE (a dialog in document.body would be "outside" and fold
+// kind of helper); [Close] takes it out of the page and keeps what it held. Drawn on a member's sheet, on main's and (O2-9)
+// on a group's for its CHOSEN row. The shared picker folds IN PLACE (a dialog in document.body would be "outside" and fold
 // the sheet); a pick POSTs crew/agent-model (his agent saved, or one made, through the Agents form's own routes; main's
 // through /model), its answer's line replaces the rows, and [Undo] sends its token back. [Edit in Agents] opens his agent
 // in the form; [Make it an agent] is the face's "Save as an agent" (LitBits.tsx saveAsAgent). When the sheet goes, every
@@ -41,8 +41,11 @@ export function useModel(sid: string, aid: string): { got: ModelGot | null; ask:
 
 type Answer = { line?: string; undo?: unknown };
 
-export function StepInModel({ sid, aid }: { sid: string; aid: string }) {
+/** O2-9: on a group's card StepIn keeps one per helper the card named (keyed by its agent id): what it read, a pick's line
+ *  and Undo's token stay while the card lives; only the chosen row's is `shown`, under `heading` ("MODEL of {name}"). */
+export function StepInModel({ sid, aid, heading = "MODEL", shown = true }: { sid: string; aid: string; heading?: string; shown?: boolean }) {
   const [open, setOpen] = useState(false); // a sheet opened anew starts closed
+  if (!shown && open) setOpen(false); // another row chosen closes it, and asks nothing
   const { got, ask } = useModel(sid, aid);
   const [after, setAfter] = useState<After | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
@@ -90,10 +93,11 @@ export function StepInModel({ sid, aid }: { sid: string; aid: string }) {
   };
   const edit = () => void openAgent(info?.name || "").then(() => goSection("agents", "crew"));
   const make = () => void saveAsAgent(sid, aid).then((ok) => { if (ok) goSection("agents", "crew"); });
+  if (!shown) return null;
   return (
     <>
-      <div className="mp-step-in-model" data-testid="map-step-in-model">
-        <b className="mp-step-in-model-head">MODEL</b>
+      <div className="mp-step-in-model" data-testid="map-step-in-model" data-aid={aid}>
+        <b className="mp-step-in-model-head">{heading}</b>
         <Button size="sm" data-testid="map-step-in-model-toggle" aria-expanded={tp.expanded} aria-controls={id} onClick={toggle}>{tp.word}</Button>
       </div>
       {open && parts && (

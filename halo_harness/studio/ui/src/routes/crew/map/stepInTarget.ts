@@ -10,6 +10,7 @@
 import type { OvRow, Overlay } from "./overlay";
 import { runningStep } from "./overlayBlocks";
 import type { AutoGroup } from "./overlayGroups";
+import { isAllDone } from "./groupWords";
 import { groupId } from "./litView";
 import { whyThisModel } from "./truthBits";
 
@@ -55,8 +56,9 @@ export function stepIn(h: Hit, rows: RecRow[], ov: Overlay | null, groups?: Auto
   }
   if (h.kind === "group") {
     const g = groups?.find((x) => x.n === h.n), ids = (g?.members || []).map((m) => m.aid);
-    const live = ids.map((id) => rows.find((r) => r.id === id)).filter((a): a is RecRow => !!a && isLive(a));
-    return { ...base, title: g?.name || `Task ${h.n}`, who: live.map(who) };
+    const all = ids.map((id) => rows.find((r) => r.id === id)).filter((a): a is RecRow => !!a);
+    // 3.6.0.15 O2-9: an all-done group folds to its head (its boxes hidden): its card is their door, a row per member
+    return { ...base, title: g?.name || `Task ${h.n}`, who: (g && isAllDone(g) ? all : all.filter(isLive)).map(who) };
   }
   if (h.kind === "box") {
     const ids = new Set([...(ov?.kids[h.box] || []).map((k) => k.aid), ...(ov?.boxes[h.box]?.agents || [])]);

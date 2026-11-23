@@ -8,7 +8,8 @@ studio/crew_live_api.py), every figure read from the page.
    member's sheet (main from main's): the line letter for letter in the now form (`use_now` true, reduced motion) and the
    later form (false, no preference); ROUTED's first line; PACK and CLAUDE with no picker; Edit for MINE, Make for the
    made kinds.
-2. test_a_groups_sheet_draws_no_model_block (the coordinator's ruling F): no block, no MODEL request.
+2. test_a_groups_sheet_has_the_chosen_rows_model_row (O2-9, rewritten from ruling F's "no block"): the chosen row's
+   closed row "MODEL of {name}", no MODEL request.
 3. test_a_pick_saves_and_undo_puts_back (O2-3, MINE): the picker folds open IN the body, a pick reads "Saved: ...", the
    file holds the pick; Undo reads "Put back: ...", the file byte-equal to before.
 4. test_a_pick_makes_and_undo_takes_back (O2-3, BUILT-IN Judge): "Made judge, ..."; Undo: "Taken back: judge is gone.",
@@ -23,6 +24,8 @@ studio/crew_live_api.py), every figure read from the page.
    Undo are kept over a Close. Every leg above presses Change before it reads the block.
 8. test_the_picker_never_folds_the_sheet (O2-5): a click in the folded picker and Escape in its search box leave the sheet
    open; Escape after the picker closed folds it.
+9. test_a_folded_groups_helper_can_still_be_given_a_model (O2-9): a folded group's card; the chosen row's block, read
+   once per helper, closed when another row is chosen; a pick gives its helper a model.
 Run: python -m tests.test_studio_sheet_acts
 """
 from __future__ import annotations
@@ -103,10 +106,18 @@ def test_each_kind_reads_its_line(ctx: Ctx):
 
 
 @test
-def test_a_groups_sheet_draws_no_model_block(ctx: Ctx):
+def test_a_groups_sheet_has_the_chosen_rows_model_row(ctx: Ctx):
+    """Rewritten to O2-9 (it was ruling F's test_a_groups_sheet_draws_no_model_block): a group's card has the CHOSEN
+    row's MODEL row, "MODEL of {name}" and Change, closed, and no MODEL request."""
     g = _ran(ctx, "kinds").get("group") or {}
-    ctx.check(f"a group's sheet open, with no MODEL block and no MODEL request, got {g}",
-              g.get("target") == "group:1" and g.get("block") is False and g.get("gets") == 0)
+    r, who = g.get("row") or {}, g.get("who") or []
+    chosen = next((w for w in who if w[2]), None)
+    ctx.check(f"a group's sheet open, its first row chosen, got {g.get('target')} {who}",
+              g.get("target") == "group:1" and len(who) == 7 and chosen == who[0])
+    ctx.check(f"its MODEL row: 'MODEL of {{the chosen row's name}}', Change, closed, first in the body, got {r}",
+              bool(chosen) and r.get("head") == f"MODEL of {chosen[1]}" and r.get("word") == "Change" and r.get("expanded") == "false"
+              and r.get("first") is True and r.get("content") is False)
+    ctx.check(f"no MODEL request, got {g.get('gets')}", g.get("gets") == 0)
 
 
 @test
@@ -238,6 +249,56 @@ def test_the_picker_never_folds_the_sheet(ctx: Ctx):
               c.get("open") is True and c.get("fold") is True and c.get("focus") is True)
     ctx.check(f"Escape in its search box closed the picker, not the sheet, got {e}", e.get("open") is True and e.get("fold") is False)
     ctx.check(f"Escape after the picker closed folded the sheet, got {d.get('escape_after')}", (d.get("escape_after") or {}).get("gone") is True)
+
+
+@test
+def test_a_folded_groups_helper_can_still_be_given_a_model(ctx: Ctx):
+    """O2-9 (the coordinator's ruling): a group of two finished helpers folds to its head (L8: their boxes hidden); its
+    card is the door to them. The MODEL row is the CHOSEN row's, "MODEL of {name}"; Change reads THAT helper, once;
+    choosing another row closes it and asks nothing; what each helper's block read, a pick's line and Undo are kept per
+    helper while the card lives."""
+    d = _ran(ctx, "grouprow")
+    maps = d.get("maps")
+
+    def line(aid: str) -> list:  # a finished helper: its kind's line, then "It ran on {model}."
+        return [want(aid, True, maps)["rows"][0], K.RAN.format(model=RUN)]
+    ctx.check(f"the group folded, its members' boxes hidden, got {d.get('folded')}", d.get("folded") == [True, 0])
+    o = d.get("opened") or {}
+    r, who = o.get("row") or {}, o.get("who") or []
+    ctx.check(f"its head opened the group's card: a row per finished helper, the first chosen, got {o.get('target')} {who}",
+              o.get("target") == "group:1" and [w[0] for w in who] == ["a1", "a4"] and [w[2] for w in who] == [True, False])
+    ctx.check(f"the body's first row: 'MODEL of {{the first row's name}}' and Change, closed, got {r}",
+              bool(who) and r.get("head") == f"MODEL of {who[0][1]}" and r.get("word") == "Change" and r.get("first") is True
+              and r.get("content") is False)
+    ctx.check(f"no request for crew/agent-model yet, got {o.get('gets')}", o.get("gets") == [0, 0])
+    f = d.get("first") or {}
+    fb = f.get("block") or {}
+    ctx.check(f"Change: THAT helper's line (MINE sorter), one request for a1, got {fb.get('kind')} {fb.get('rows')} {f.get('gets')} {f.get('url')!r}",
+              fb.get("kind") == "MINE" and fb.get("rows") == line("a1") and (f.get("gets") or [0])[0] == 1 and "agent=a1" in (f.get("url") or ""))
+    s = d.get("second") or {}
+    sr = s.get("row") or {}
+    second = next((w[1] for w in s.get("who") or [] if w[0] == "a4"), None)
+    ctx.check(f"the second row chosen: the block closed, the row names it, no request, got {sr} {s.get('gets')}",
+              bool(second) and sr.get("head") == f"MODEL of {second}" and sr.get("word") == "Change" and sr.get("content") is False
+              and (s.get("gets") or [0])[0] == 1)
+    so = d.get("second_open") or {}
+    sb = so.get("block") or {}
+    ctx.check(f"Change: the second helper's line (BUILT-IN Judge), one request for a4, got {sb.get('kind')} {sb.get('rows')} {so.get('gets')} {so.get('url')!r}",
+              sb.get("kind") == "BUILT-IN" and sb.get("rows") == line("a4") and (so.get("gets") or [0])[0] == 2 and "agent=a4" in (so.get("url") or ""))
+    bk, bo = d.get("back") or {}, d.get("back_open") or {}
+    ctx.check(f"back to the first row: closed, its heading, no request, got {bk.get('row')} {bk.get('gets')}",
+              (bk.get("row") or {}).get("head") == f"MODEL of {who[0][1] if who else '?'}" and (bk.get("row") or {}).get("content") is False
+              and (bk.get("gets") or [0])[0] == 2)
+    ctx.check(f"Change: its line again at once, NO new request, got {(bo.get('block') or {}).get('rows')} {bo.get('gets')}",
+              (bo.get("block") or {}).get("rows") == line("a1") and (bo.get("gets") or [0])[0] == 2)
+    ref, p = d.get("ref") or "", d.get("picked") or {}
+    saved = (K.SAVED_NOW if d.get("took") else K.SAVED_LATER).format(name="sorter", model=ref)
+    ctx.check(f"a pick gives the folded group's helper sorter a model: {saved!r}, Undo, the file, got {p.get('rows')} {p.get('undo')!r} {d.get('file_model')!r}",
+              bool(ref) and p.get("rows") == [saved] and p.get("undo") == "Undo" and d.get("file_model") == ref)
+    k = d.get("kept") or {}
+    ctx.check(f"another row chosen and back: the pick's line and Undo kept, nothing asked, got {(k.get('block') or {}).get('rows')} {k.get('gets')}",
+              (k.get("block") or {}).get("rows") == p.get("rows") and (k.get("block") or {}).get("undo") == "Undo"
+              and (k.get("gets") or [0])[0] == 2 and k.get("open") is True)
 
 
 if __name__ == "__main__":

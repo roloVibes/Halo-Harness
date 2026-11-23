@@ -12,9 +12,9 @@
 //   an ended one reads "ended at {t}"), main's "Told it can start: {every name}", then the asks that came later, at its end.
 // - LAST SAID (O1-6, StepInSaid.tsx): what the chosen agent last said, read once at the click; the sheet opens when it is
 //   read or at 1 s, and an answer that comes later goes to the body's end, "Reading what it said..." kept in its place.
-// - MODEL (3.6.0.15 O2-5, O2-8, StepInModel.tsx): on a member's sheet and main's only, what a model pick does for that
-//   helper; the body's first child, ONE row "MODEL" [Change], closed until asked for: read only when he opens it, so the
-//   sheet waits for Last said alone.
+// - MODEL (3.6.0.15 O2-5, O2-8, StepInModel.tsx): on a member's sheet and main's, and (O2-9) on a group's for its CHOSEN
+//   row ("MODEL of {name}"), what a model pick does for that helper; the body's first child, ONE row "MODEL" [Change],
+//   closed until asked for: read only when he opens it, so the sheet waits for Last said alone.
 // A calm sheet (no agent) has the state only and the link. Where it stands, how it unfolds and what folds it (Escape, its
 // x, a pointer-down outside, a wheel or a zoom over the drawing; a second click on the same thing closes it): useSheet.ts.
 // Shared with Agents' Live view: no Session import.
@@ -39,7 +39,7 @@ import { sheetHead } from "./sheetPlace";
 import type { Target, Who } from "./stepInTarget";
 import { askRows, StepInAsks } from "./StepInAsk";
 import { saidWho, StepInSaid, useSaid } from "./StepInSaid";
-import { modelAid } from "./modelBlock";
+import { headingOf, modelFor } from "./modelBlock";
 import { StepInModel } from "./StepInModel";
 import { agentRow, endedAt, openInAgents, openMapAt } from "./truth";
 import { saidParts, type Said } from "./truthBits";
@@ -79,7 +79,6 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const [pick, setPick] = useState(t.who[0]?.key || "");
   useEffect(() => setPick(t.who[0]?.key || ""), [t]);
   const said = useSaid(sid, saidWho(t));
-  const aid = modelAid(t.id); // the MODEL block: a member's and main's sheet only (ruling F): none on a group's
   const sheet = useSheet(where, t, said.ready, close);
   const attn = usePanels((s) => s.attention);
   const seen = useRef<{ id: string; ids: Set<string> } | null>(null); // the asks present at open: later ones go to the end
@@ -88,7 +87,10 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const steerLive = !!a && isLive(a);
   const own = t.id.startsWith("member:") ? t.id.slice("member:".length) : "";
   const chosen = t.who.find((w) => w.key === pick);
-  const m = groups?.flatMap((g) => g.members).find((x) => x.aid === (own || chosen?.aid));
+  const aid = modelFor(t.id, chosen?.aid || null); // the MODEL block: a member's, main's, a group's CHOSEN row's (O2-9)
+  const met = useRef<string[]>([]); // every helper the block named on this card: each keeps its own while the card lives
+  if (aid && !met.current.includes(aid)) met.current.push(aid);
+  const m =groups?.flatMap((g) => g.members).find((x) => x.aid === (own || chosen?.aid));
   const state = own && m ? [memberLine(m), memberState(m)].join(" · ") : t.text;
   const nw = useNowOf(m ? m.aid : chosen?.aid || "", m ? m.raw : String(a?.state || ""), m ? m.started : Number(a?.since) || 0, m ? m.ended : 0);
   const head = sheet.width ? sheetHead(sheet.width, t.text, nw) : null; // its width at open: the head's rows are held from it
@@ -139,7 +141,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
         )}
       </div>
       <div className="mp-step-in-body" data-testid="map-step-in-body">
-        {aid && <StepInModel sid={sid} aid={aid} />}
+        {met.current.map((x) => <StepInModel key={x} sid={sid} aid={x} shown={x === aid} heading={headingOf(t.id, chosen?.name || "")} />)}
         <StepInAsks who={t.who} part="open" seen={seen.current.ids} />
         {t.who.map((w) => <WhoRow key={w.key} w={w} chosen={w.key === pick} choose={() => setPick(w.key)} />)}
         <StepInSaid lines={parts.here} />

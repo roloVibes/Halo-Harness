@@ -1,8 +1,8 @@
 // The MODEL block's pure rules (3.6.0.15 O2-5, "the box acts"): what the sheet's MODEL block draws for the GET
 // crew/agent-model's answer (studio/crew_model_api.py: {kind, name, model, first, line, can, now}) and for what a pick
 // or Undo answered. No React, no DOM, no store: node runs it (tests/test_sheet_place.py), as sheetPlace.ts beside
-// useSheet.ts; StepInModel.tsx draws it. The block is the sheet's OWN box's (the coordinator's ruling F): a member's
-// sheet (that helper) and main's sheet (MAIN) only; a group's sheet has none and asks nothing.
+// useSheet.ts; StepInModel.tsx draws it. The block is a member's sheet's (that helper), main's (MAIN) and, O2-9, a
+// group's sheet's CHOSEN row's ("MODEL of {name}"); a workflow block's and a line label's sheet have none and ask nothing.
 
 export type ModelAnswer = { kind: string; name: string; model: string; first: string; line: string; can: boolean; now: boolean };
 /** "reading": the GET has not answered yet. */
@@ -27,6 +27,18 @@ export function toggleParts(open: boolean): { word: string; expanded: boolean } 
 export function modelAid(id: string): string | null {
   if (id.startsWith("member:")) return id.slice("member:".length) || null;
   return id === "box:main" ? "main" : null;
+}
+
+/** 3.6.0.15 O2-9: the block belongs to the card's CHOSEN agent, as Pause, Stop and the steer box do: on a GROUP's card
+ *  (opened from its head, folded or open) the chosen row's agent `pickAid`, none without one; a member's and main's card
+ *  as before (`modelAid`); a workflow block's, a step's, a line label's: none. */
+export function modelFor(id: string, pickAid: string | null): string | null {
+  return id.startsWith("group:") ? pickAid || null : modelAid(id);
+}
+
+/** The block's row heading: "MODEL" on a member's and main's card, "MODEL of {name}" on a group's (the chosen row's name). */
+export function headingOf(id: string, name: string): string {
+  return id.startsWith("group:") ? `MODEL of ${name}` : "MODEL";
 }
 
 /** What a refused pick or Undo reads: the route's own line, else the page's "Not saved: {error}." (a pick) or, for Undo,

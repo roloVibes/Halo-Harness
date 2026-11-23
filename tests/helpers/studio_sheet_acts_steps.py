@@ -7,8 +7,8 @@ The scene: main and one group of seven helpers, one of each kind (MINE `sorter`,
 `planner`; ROUTED, a general helper Auto sent to its `media` card; BUILT-IN `Judge`; MADE-UP; PACK; CLAUDE).
 
     kinds    every kind's MODEL block from its member's sheet (main's from main's), the now form (`use_now` true, reduced
-             motion) then the later form (false, no preference); a group's sheet: no block, no MODEL request; the
-             rig's maps that name each name a pick writes (`store.used_by`: the line's map sentence)
+             motion) then the later form (false, no preference); a group's sheet: the chosen row's closed row "MODEL of
+             {name}" (O2-9), no MODEL request; the rig's maps that name each name a pick writes (`store.used_by`)
     picks    MINE: the picker folds open in the body, a pick, the line and the file's model; Undo, the line, the file's
              bytes. BUILT-IN Judge: a pick makes `judge`, Undo takes it back (the file gone)
     forms    Edit in Agents (MINE) and Make it an agent (MADE-UP) from Agents -> Live, then from Session's drawer: the form
@@ -21,6 +21,10 @@ The scene: main and one group of seven helpers, one of each kind (MINE `sorter`,
              a pick, then Close and Change: the pick's line and Undo kept
     picker   reduced motion: a click in the folded picker and Escape in its search box leave the sheet open; Escape after
              the picker closed folds it
+    grouprow (O2-9) two finished helpers of one group, folded: the head's card has a row each; its MODEL row is the
+             chosen row's ("MODEL of {name}"), nothing asked; Change reads THAT helper; another row closes it, asks
+             nothing; Change reads the second; back to the first, Change: its block at once, no read; a pick gives the
+             folded group's helper a model; its line and Undo kept over another row's choice
 
     python -m tests.helpers.studio_sheet_acts_steps [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -257,8 +261,9 @@ def kinds(c, rig, rows: Rows, a: str, b: str) -> dict:
         open_on(c, "live", f"{LW}.querySelector('[data-box=\"group:1\"] [data-testid=map-group-name]')")
         c.wait(f"!!{SHEET['live']}?.querySelector('[data-testid=map-step-in-said]')", 15)
         frames(c, 4)
-        out["group"] = {"target": c.js(f"{SHEET['live']}.dataset.target"), "block": c.js(f"!!{row('live')}"),
-                        "gets": c.js("window.__modelGets.length") - before}
+        # O2-9 (rewritten from ruling F's "no block"): the group's card has the CHOSEN row's MODEL row, closed, nothing asked
+        out["group"] = {"target": c.js(f"{SHEET['live']}.dataset.target"), "row": c.js(f"({ROW})({SHEET['live']})"),
+                        "who": c.js(WHO), "gets": c.js("window.__modelGets.length") - before}
         close(c, "live")
     try:
         return _step("kinds", run)
@@ -448,7 +453,77 @@ def picker(c, rig, rows: Rows, a: str, b: str) -> dict:
         emulate_motion(c, "no-preference")
 
 
-STEPS = (kinds, picks, forms, door, closed, picker)
+# ---- grouprow: a folded group's card gives its helpers a model (O2-9) ---------------------------------------------
+# the sheet's rows: [aid, the name as the row shows it, chosen]
+WHO = (f"[...({SHEET['live']}?.querySelectorAll('[data-testid=map-step-in-row]') || [])].map((r) => [(r.dataset.key || '').split('|').pop(),"
+       " (r.querySelector('[data-testid=map-step-in-row-text]')?.textContent || '').split(' · ')[0], r.hasAttribute('data-chosen')])")
+LAST_GET = "(window.__modelGets.slice(-1)[0] || '')"
+
+
+def _choose(c, aid: str) -> None:
+    c.click_on(f"[...{SHEET['live']}.querySelectorAll('[data-testid=map-step-in-row]')].find((r) => r.dataset.key.endsWith('|{aid}'))"
+               ".querySelector('[data-testid=map-step-in-row-text]')")
+    c.wait(f"{row('live')}?.dataset.aid === '{aid}'", 10)
+    frames(c, 2)
+
+
+def grouprow(c, rig, rows: Rows, a: str, b: str) -> dict:
+    def run(out: dict) -> None:
+        from halo_harness.crew import store
+        sorter = his_sorter(rig.state)
+        out["maps"] = {n: [u[4:] for u in store.used_by(n, cwd=rig.proj) if u.startswith("map ")] for n in ("sorter", "judge")}
+        t0 = time.time() - 60
+        main = _main(rows, a, state="running", current="Agent: tidy the basket module", since=t0, started=t0)
+        kids = []
+        for aid in ("a1", "a4"):  # two finished helpers of one group: MINE sorter, BUILT-IN Judge
+            name, src, more = KINDS[aid]
+            k = mk(aid, name, TASK, GROUP_TASK, 1, state="done", model=RUN, since=t0)
+            k["spawn"] = {**k["spawn"], "source": src, **more}
+            kids.append(k)
+        go(c, rig, rows, a, b, [main, *kids])
+        rows.set(a, use_now=True)
+        c.wait(f"{M}.querySelectorAll('[data-member]').length >= 2", 20)
+        to_live(c, 1)
+        c.wait(f"!!{LW}.querySelector('[data-box=\"group:1\"]')?.hasAttribute('data-folded')", 30)  # folded (L8)
+        frames(c, 4)
+        out["folded"] = c.js(f"[{LW}.querySelector('[data-box=\"group:1\"]').hasAttribute('data-folded'),"
+                             f" {LW}.querySelector('[data-member=a1]')?.getClientRects().length ?? -1]")
+        at = c.js(GETS) or [0, 0]
+        open_on(c, "live", f"{LW}.querySelector('[data-box=\"group:1\"] [data-testid=map-group-name]')")
+        out["opened"] = {"target": c.js(f"{SHEET['live']}.dataset.target"), "who": c.js(WHO),
+                         "row": c.js(f"({ROW})({SHEET['live']})") or {}, "gets": _gets(c, at)}
+        c.click_on(toggle("live"))
+        c.wait(drawn("live"), 20)
+        frames(c, 2)
+        out["first"] = {"block": block(c, "live"), "gets": _gets(c, at), "url": c.js(LAST_GET)}
+        _choose(c, "a4")
+        out["second"] = {"row": c.js(f"({ROW})({SHEET['live']})") or {}, "who": c.js(WHO), "gets": _gets(c, at)}
+        c.click_on(toggle("live"))
+        c.wait(drawn("live"), 20)
+        frames(c, 2)
+        out["second_open"] = {"block": block(c, "live"), "gets": _gets(c, at), "url": c.js(LAST_GET)}
+        _choose(c, "a1")
+        out["back"] = {"row": c.js(f"({ROW})({SHEET['live']})") or {}, "gets": _gets(c, at)}
+        c.click_on(toggle("live"))
+        c.wait(drawn("live"), 10)
+        frames(c, 2)
+        out["back_open"] = {"block": block(c, "live"), "gets": _gets(c, at)}
+        out["ref"] = pick_other(c, "live")  # a model given to the folded group's helper sorter
+        c.wait(f"!{line_is('live', 'Picking')} && !{trig('live')}.disabled", 20)
+        out["picked"] = block(c, "live")
+        out["file_model"] = next((ln[7:].strip() for ln in sorter.read_text(encoding="utf-8").splitlines() if ln.startswith("model: ")), None)
+        out.update(_took(rig, "sorter"))
+        _choose(c, "a4")
+        _choose(c, "a1")
+        c.click_on(toggle("live"))
+        c.wait(drawn("live"), 10)
+        frames(c, 2)
+        out["kept"] = {"block": block(c, "live"), "gets": _gets(c, at), "open": c.js(is_open("live"))}
+        close(c, "live")
+    return _step("grouprow", run)
+
+
+STEPS = (kinds, picks, forms, door, closed, picker, grouprow)
 
 
 class SheetActsDriver(LiveNowDriver):

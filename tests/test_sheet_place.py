@@ -13,8 +13,9 @@ tests/helpers/node_ts.py (no browser, no model; runs anywhere).
    `saidParts`, `secsClock`); the one request ends with the sheet (a source check of StepInSaid.tsx).
 5. (3.6.0.15 O2-5, O2-8) The MODEL block (modelBlock.ts `toggleParts`, `blockParts`, `modelAid`, `refusedLine`): closed
    until asked for (one row, "MODEL" and "Change"; its read sent from the open); the sheet waits for Last said alone;
-   each kind's controls and words; a group's sheet has none; its requests end with the sheet (a source check of
-   StepInModel.tsx).
+   each kind's controls and words; its requests end with the sheet (a source check of StepInModel.tsx). O2-9: on a
+   group's card it is the CHOSEN row's ("MODEL of {name}", `modelFor`, `headingOf`), kept per helper; a workflow
+   block's card and a line label's have none.
 Every frame here is invented. Run: python -m tests.test_sheet_place
 """
 from __future__ import annotations
@@ -394,8 +395,8 @@ def test_the_model_block_is_closed_until_asked(ctx: Ctx):
               'data-testid="map-step-in-model-toggle"' in src and "aria-expanded={tp.expanded}" in src and "aria-controls={id}" in src)
     st = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
     body = st.split('data-testid="map-step-in-body">', 1)[-1].lstrip()
-    ctx.check("StepIn.tsx: the block's row is the body's first child, on a member's and main's sheet only",
-              body.startswith("{aid && <StepInModel sid={sid} aid={aid} />}") and "const aid = modelAid(t.id)" in st)
+    ctx.check("StepIn.tsx: the block's row is the body's first child (a member's, main's, a group's chosen row's: O2-9)",
+              body.startswith("{met.current.map((x) => <StepInModel ") and "const aid = modelFor(t.id, " in st)
 
 
 def _kinds() -> dict:
@@ -474,16 +475,50 @@ console.log(JSON.stringify(out));"""
 
 
 @test
-def test_a_groups_sheet_has_no_model_block(ctx: Ctx):
-    """O2-5, the coordinator's ruling (F): the MODEL block is drawn on a member's sheet (that helper) and on main's sheet
-    only; a group's sheet (and every other target) reads no agent for it: no block and no request, its wait Last said's."""
+def test_a_workflow_or_line_card_has_no_model_block(ctx: Ctx):
+    """O2-5, rewritten to O2-9 (it was ruling F's "a group's sheet has none"): `modelAid(id)` is still a member's own helper
+    and main's "main"; a workflow block's card, a step's, a line label's (main's line into a group included) and a box of a
+    drawn map read no agent for it, whatever row is chosen: no block and no request, their wait Last said's."""
     ids = ["member:k1", "box:main", "group:1", "box:coder", "step:w:1", "head:w", "line:main>group:1"]
-    got = _run(["mb"], "console.log(JSON.stringify(D.map((i) => M.mb.modelAid(i))));", ids)
-    ctx.check(f"member -> its helper, main -> main, every other -> null, got {got}",
-              got == ["k1", "main", None, None, None, None, None])
-    src = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
-    ctx.check("StepIn.tsx draws the block for modelAid(t.id) only (none, and no request, on a group's sheet)",
-              "const aid = modelAid(t.id)" in src and "{aid && <StepInModel sid={sid} aid={aid} />}" in src)
+    js = "console.log(JSON.stringify({own: D.map((i) => M.mb.modelAid(i)), picked: M.mb.modelFor ? D.map((i) => M.mb.modelFor(i, 'k9')) : 'missing'}));"
+    got = _run(["mb"], js, ids)
+    ctx.check(f"modelAid: member -> its helper, main -> main, every other -> null, got {got.get('own')}",
+              got.get("own") == ["k1", "main", None, None, None, None, None])
+    ctx.check(f"modelFor with row k9 chosen: only a group's card takes the chosen row, got {got.get('picked')}",
+              got.get("picked") == ["k1", "main", "k9", None, None, None, None])
+
+
+@test
+def test_a_groups_card_has_the_chosen_rows_model_block(ctx: Ctx):
+    """3.6.0.15 O2-9 (the coordinator's ruling): the MODEL block belongs to the CHOSEN agent of the card, as Pause, Stop
+    and the steer box do. `modelFor(id, pickAid)`: a member's card its own helper, main's "main" (the chosen row changes
+    neither), a GROUP's card the chosen row's agent, none with no row chosen. `headingOf(id, name)`: "MODEL" on a member's
+    and main's card, "MODEL of {name}" on a group's. StepIn.tsx passes the chosen row; a block per helper the card named,
+    keyed by its agent id (what it read, a pick's line and Undo's token kept while the card lives), the chosen one shown,
+    another row chosen closes it."""
+    js = """const f = M.mb.modelFor, h = M.mb.headingOf;
+console.log(JSON.stringify(f && h ? {
+  member: [f("member:k1", null), f("member:k1", "k2")], main: [f("box:main", null), f("box:main", "k2")],
+  group: [f("group:1", "k2"), f("group:1", null), f("group:1", "")],
+  heads: [h("member:k1", "sorter"), h("box:main", "main"), h("group:1", "sorter"), h("group:3", "Judge")]} : {}));"""
+    got = _run(["mb"], js, None)
+    ctx.check(f"a member's card: its own helper, whatever row is chosen, got {got.get('member')}", got.get("member") == ["k1", "k1"])
+    ctx.check(f"main's card: main, got {got.get('main')}", got.get("main") == ["main", "main"])
+    ctx.check(f"a group's card: the chosen row's agent, none without one, got {got.get('group')}", got.get("group") == ["k2", None, None])
+    ctx.check(f"the heading: MODEL, MODEL, 'MODEL of {{name}}' on a group's, got {got.get('heads')}",
+              got.get("heads") == ["MODEL", "MODEL", "MODEL of sorter", "MODEL of Judge"])
+    st = (SRC / "routes/crew/map/StepIn.tsx").read_text(encoding="utf-8")
+    ctx.check("StepIn.tsx: the block's agent from the card and its CHOSEN row (`modelFor(t.id, chosen?.aid`)",
+              "const aid = modelFor(t.id, chosen?.aid" in st and "modelAid(" not in st)
+    body = st.split('data-testid="map-step-in-body">', 1)[-1].lstrip()
+    ctx.check("StepIn.tsx: a block per helper the card named, keyed by its id, the chosen one shown, its heading headingOf",
+              body.startswith("{met.current.map((x) => <StepInModel key={x} sid={sid} aid={x} shown={x === aid}")
+              and "heading={headingOf(t.id, chosen?.name" in body)
+    src = (SRC / "routes/crew/map/StepInModel.tsx").read_text(encoding="utf-8")
+    ctx.check("StepInModel.tsx: another row chosen closes it (`if (!shown && open) setOpen(false)`), nothing drawn while not shown",
+              "if (!shown && open) setOpen(false);" in src and "if (!shown) return null;" in src)
+    ctx.check("StepInModel.tsx: the row's heading is the one given (`{heading}`)",
+              '<b className="mp-step-in-model-head">{heading}</b>' in src)
 
 
 @test
