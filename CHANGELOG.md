@@ -8,6 +8,84 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.16] - unreleased
+
+Small repairs after 3.6.0.15. Main is now told about an agent you save, delete or undo only when the names it can
+start change, so a model you pick on one of Auto's boxes no longer reads to main as "a new helper". On a map of your
+own a box names a running tool without its raw arguments. Nothing under Session's drawing moves while you point at it,
+and choosing a row on a group's card never moves the rows. The real-use check runs its `live-scene` step in every run
+now, on Windows, macOS and Linux.
+
+### Changed
+
+- **Main is told about a saved agent only when the names it can start change.** A new name is told as before: "[Halo]
+  A new helper you can start now: {name} ({words}).", and a delete as before: "[Halo] Taken back: {name} can no longer
+  be started in this session.". Main is no longer told anything when only what stands behind a name it can already
+  start changes: your own agent taking the place of one the session started with (a model you pick on one of Auto's
+  boxes saves such an agent), a project's save over an agent of yours, an edit, and the Undo or the delete that puts
+  the start back. Before, the first two read "A new helper you can start now" and were listed under "Added in this
+  session", and their undo read "[Halo] Taken back: {name} starts as it did when this session began.". That line is
+  now told only when an Undo brings back an agent main had been told it can no longer start. No word of any line
+  changed, and a session in which nothing is saved, deleted or undone sends exactly what 3.6.0.15 sent.
+- **The real-use check runs `live-scene` in every run (for developers).** `python scripts/realcheck.py` runs all
+  twenty steps; 3.6.0.14 and 3.6.0.15 ran `live-scene` only with `--only live-scene`. CI runs it on Windows, macOS and
+  Linux. The step now fails, with a line of its own, when the page has no drawer head to read; before, it passed
+  without checking the head.
+- **The release tool asks GitHub again when one read fails (for developers).** While `scripts/release.py` waits for
+  the suites, a `gh` read that fails on the network is asked again after its pause, and three failures in a row stop
+  it with the last reason. Before, one failed read ended the tool while the run was still going.
+
+### Fixed
+
+- **An agent the session started with, deleted and then saved again, is told to main as startable again.** Main had
+  read "[Halo] Taken back: {name} can no longer be started in this session." and was told nothing when you saved the
+  agent again, so it kept believing it could not start it. It is now told "[Halo] A new helper you can start now:
+  {name} ({words})." once. The name is not listed under "Added in this session": main could start it when the session
+  began.
+- **On a map of your own a box names a tool without its raw arguments.** A helper that ran an MCP tool read
+  `mcp__srv__slow_tool {"seconds": 30}` in its box; it now reads `mcp__srv__slow_tool`, as Session's status line and
+  the wait link do. A built-in reads in its short form, as before.
+- **The wait link under Session's drawing holds still while you point at the drawing.** While the pointer rests on
+  Session's drawing, or a card is open, the slot under the drawing keeps the height it had: the link's words change in
+  place, and a link that needs another row takes it when the pointer leaves. Before, a long tool name gave the link a
+  second row and the drawing got shorter under the pointer.
+- **The buttons in the head of Session's drawing keep their own hover.** When the status line is held short, its whole
+  text is the hover of the status words, not of the whole head, so a button in the head says what it does again.
+- **Choosing a row on a group's card never moves the rows.** The "MODEL of {name}" row is as tall as its longest
+  member's name needs from the moment the card opens: choosing a helper with a long name and then one with a short
+  name moves neither "Change" nor any row, and no name is cut. A single helper's card and main's are unchanged.
+- **After a failed read the MODEL block's rows keep the answer's height.** After "Could not read this helper's agent:
+  {error}", then Close, Change and a read that works, the rows hold the answer's height and not the error row's, so a
+  pick's shorter line moves nothing under them.
+- **Pause and Resume pressed at nearly the same moment leave the helper's row true.** Two presses that crossed could
+  leave the row saying the opposite of what was set, and the button then offered the wrong press.
+- **A helper's own deny on MCP tools, and what a helper's helper does to its parent's tools, are held by tests (for
+  developers).** Nothing changed in what a helper can use: the test of the deny now fails when the helper's own filter
+  is taken out, and the docs of the read say truly that a helper's helper, when it searches, may grow its parent
+  helper's own list of tools it may ask for; nothing is loaded and main's tools never change.
+
+### Known limits
+
+- **The Agent panel's glance line and a pinned agent's small floating panel still write an MCP tool's raw arguments.**
+  They show the helper's line as it is.
+- **Two presses of Pause and Resume that cross leave the row true, but their two updates can reach an open page in
+  either order.** The page then shows the older one until that helper's next update.
+- **While you point at the drawing, the wait link's row is held; the line that says more lies below was not checked
+  for a text that needs a second row.**
+- **`live-scene` had run by hand on Linux and Windows only.** CI is the first to run it on macOS and on its own
+  Windows runners.
+- **Driven in a browser on Linux only.** The box's words, the wait link, the head's hover and the group card's rows
+  were driven in headless Chrome on Linux against a page whose session rows are stood in, not in a real session with a
+  real MCP tool; browsers on Windows and macOS are CI's part, and nothing was run on macOS by hand.
+- **What main is told was not read in a real model's session.** It is held by the session's own tests and by a real
+  session with Studio's real server taking a save and a delete; no model was asked what it understood.
+- **Every Known limit of 3.6.0.15 still holds, except these:** `live-scene` is in a plain run of the real-use check;
+  on a map of your own a box's line names a tool without its raw arguments; and the wait link under Session's drawing
+  holds while the pointer rests.
+- **Where it was checked.** PROVISIONAL (the coordinator fills this in after the last gate): on the Linux VM all three
+  suites, the browser modules and the full real-use check; on the PC (Windows) every node-backed module and the plain
+  modules of this release.
+
 ## [3.6.0.15] - 2026-11-23
 
 The box acts, and what you make can be used at once. An agent you save in Agents, one the Builder makes in a session,
