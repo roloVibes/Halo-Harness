@@ -128,6 +128,8 @@ MODEL block makes or saves ([STUDIO-live.md](STUDIO-live.md#the-model-block)).
   {name} it started with", "it asks for {tool}, which this session's main does not have", "it asks for a mode above this
   session's" or "a built-in has that name".
 - **A helper already running** keeps what it started with; the change counts from the next start.
+- **A session on a map of your own** takes nothing and loses nothing: a save waits for your next session, and an agent
+  you delete stays in that session as it started with it.
 - **Main's hover** on the drawing ends with "Added in this session: {names}", every agent added since the session
   started.
 - **Your agent takes a card's place.** Once you own an agent named like one of Auto's cards (a file of yours `coder`,
