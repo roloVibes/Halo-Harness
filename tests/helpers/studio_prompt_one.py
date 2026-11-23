@@ -121,7 +121,11 @@ def p72(c, rig, gate) -> dict:
     long = "a long prompt he would rather not scoot through with the left key, word by word"
     typed(c, long)
     c.wait(f"{INPUT}.value.length === {len(long)} && 'typed'", 10)
-    press(c, "ArrowUp", "ArrowUp", 38)
+    # 3.6.0.17 P3: where the box wraps it, each Up moves a screen line first (as many as this machine's box draws)
+    for _ in range(12):
+        _arrow(c, "ArrowUp")
+        if c.js(f"{INPUT}.selectionStart") == 0:
+            break
     out["up_once"] = c.js(f"[{INPUT}.value.length, {INPUT}.selectionStart, {INPUT}.selectionEnd]")
     press(c, "ArrowUp", "ArrowUp", 38)
     try:
@@ -289,8 +293,9 @@ def bang(c, rig, gate) -> dict:
     own ask card, and its Allow runs the command. The fake session's engine allows `echo` and asks for the rest."""
     from halo_harness.permissions import Decision
     eng, had = rig.session.permission_engine, rig.session.permission_engine.__dict__.get("decide")
-    eng.decide = lambda name, inp, tool=None: Decision(
-        "allow" if str((inp or {}).get("command", "")).startswith("echo") else "ask", "asks first")
+    said = lambda inp: str((inp or {}).get("command", ""))  # noqa: E731
+    eng.decide = lambda name, inp, tool=None: (Decision("deny", "blocked for the test") if said(inp).startswith("rm") else Decision(
+        "allow" if said(inp).startswith("echo") else "ask", "asks first"))
     sel = lambda q: f"[...document.querySelectorAll('{q}')]"  # noqa: E731
     tools, feed = sel("[data-testid=prompt-line][data-kind=tool]"), sel("[data-testid=session-live-line][data-kind=tool]")
     last = f"{OUTS}.at(-1)?.querySelector('[data-testid=\"prompt-slash-lines\"]')?.textContent"
@@ -326,12 +331,98 @@ def bang(c, rig, gate) -> dict:
         c.click_on(stop)
         out["stopped"] = bool(c.wait(f"!{stop} && {tools}.filter((t) => t.querySelector('[data-running]')).length === 0", 30))
         out["stop_turns"] = rig.session.turn_count - turns
+        out.update(one_to_one(c, rig, last))
     finally:
         if had is None:
             eng.__dict__.pop("decide", None)
         else:
             eng.decide = had
     return {"bang": out}
+
+
+PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+CHIP = "document.querySelector('[data-testid=\"prompt-image\"]')"
+
+
+def one_to_one(c, rig, last: str) -> dict:
+    """3.6.0.17 P1, P2: the box does with a line what the terminal's prompt does. A `!` line after a space runs; a `/`
+    line with an image chip runs and the chip waits for the next prompt; a refused `!` shows once and leaves the box
+    empty, Up bringing it back (the session's engine refuses commands that start with `rm`)."""
+    out: dict = {}
+    turns, n0 = rig.session.turn_count, c.js(f"{OUTS}.length")
+    typed(c, " !echo BANG-SPACE")
+    enter(c)
+    out["space_lines"] = c.wait(f"{OUTS}.length > {n0} && ({last} || '').includes('BANG-SPACE') && {last}.split('\\n')", 15)
+    out["space_box"] = settled(c)
+    c.js(f"(() => {{ const bin = atob('{PNG_1PX}'); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) "
+         "u[i] = bin.charCodeAt(i); const dt = new DataTransfer(); dt.items.add(new File([u], 'dot.png', {type: 'image/png'})); "
+         f"{INPUT}.focus(); {INPUT}.dispatchEvent(new ClipboardEvent('paste', {{clipboardData: dt, bubbles: true, cancelable: true}})); return 1; }})()")
+    out["chip_set"] = bool(c.wait(f"{CHIP} && !{CHIP}.dataset.error && 'chip'", 10))
+    n1 = c.js(f"{OUTS}.length")
+    typed(c, "/effort high")
+    enter(c)
+    out["chip_slash"] = c.wait(f"{OUTS}.length > {n1} && {OUTS}.at(-1).querySelector('.spp-out-cmd').textContent", 15)
+    out["chip_box"] = settled(c)
+    out["chip_kept"] = bool(c.js(f"!!{CHIP}"))
+    out["one_turns"] = rig.session.turn_count - turns
+    c.click_on(f"document.querySelector('[data-testid=\"prompt-image-clear\"]')")
+    n2 = c.js(f"{OUTS}.length")
+    typed(c, "!rm bang-refused.txt")
+    enter(c)
+    out["denied"] = c.wait(f"{OUTS}.length > {n2} && {last}", 15)
+    time.sleep(1.0)  # the session's own error line would have landed by now
+    rows = "[...document.querySelectorAll('[data-testid=\"prompt-slash-out\"], [data-testid=\"prompt-line\"]')]"
+    out["denied_rows"] = c.js(f"{rows}.filter((r) => r.textContent.includes('denied')).length")
+    out["denied_box"] = settled(c)
+    press(c, "ArrowUp", "ArrowUp", 38)
+    out["denied_up"] = c.wait(f"{INPUT}.value", 10)
+    empty_box(c)
+    return out
+
+
+def _arrow(c, key: str) -> int:
+    """One Up or Down (with the editing command the key carries, so each system's Chrome makes its own move), then the
+    caret once the box's zero-delay check has run."""
+    before = c.js(f"{INPUT}.selectionStart")
+    press(c, key, key, 38 if key == "ArrowUp" else 40, commands=["moveUp" if key == "ArrowUp" else "moveDown"])
+    try:
+        c.wait(f"{INPUT}.selectionStart !== {before} && 'moved'", 3)
+    except TimeoutError:
+        pass
+    time.sleep(0.2)
+    return c.js(f"{INPUT}.selectionStart")
+
+
+def wrapped(c, rig, gate) -> dict:
+    """3.6.0.17 P3: Up and Down on one long wrapped line move a screen line first, as in the terminal; at the start
+    (the end) the next Up (Down) walks the prompt history."""
+    text = ("wrapped " * 125).strip()
+    out: dict = {"n": len(text)}
+    empty_box(c)
+    typed(c, text)
+    c.wait(f"{INPUT}.value.length === {len(text)} && 'typed'", 10)
+    out["lines"] = c.js(f"Math.round({INPUT}.scrollHeight / (parseFloat(getComputedStyle({INPUT}).lineHeight) || 16))")
+    out["up_first"] = _arrow(c, "ArrowUp")
+    ups = [out["up_first"]]
+    while ups[-1] != 0 and len(ups) < 80:
+        ups.append(_arrow(c, "ArrowUp"))
+    out["ups"], out["up_text"] = ups, c.js(f"{INPUT}.value === {text!r}")
+    out["down_first"] = _arrow(c, "ArrowDown")
+    downs = [out["down_first"]]
+    while downs[-1] != len(text) and len(downs) < 80:
+        downs.append(_arrow(c, "ArrowDown"))
+    out["downs"], out["down_text"] = downs, c.js(f"{INPUT}.value === {text!r}")
+    back = 0
+    while c.js(f"{INPUT}.selectionStart") != 0 and back < 80:
+        back += 1
+        _arrow(c, "ArrowUp")
+    press(c, "ArrowUp", "ArrowUp", 38)
+    try:
+        out["older"] = c.wait(f"{INPUT}.value !== {text!r} && {INPUT}.value", 10)
+    except TimeoutError:
+        out["older"] = None
+    empty_box(c)
+    return {"wrapped": out}
 
 
 class PromptOneDriver(Driver):
@@ -344,7 +435,8 @@ class PromptOneDriver(Driver):
             gate = Gate()
             try:
                 yield ((opened, (c, rig)), (p72, (c, rig, gate)), (steer, (c, rig, gate)), (bare_model, (c, rig, gate)),
-                       (interrupted, (c, rig, gate)), (answered_elsewhere, (c, rig, gate)), (bang, (c, rig, gate)))
+                       (interrupted, (c, rig, gate)), (answered_elsewhere, (c, rig, gate)), (bang, (c, rig, gate)),
+                       (wrapped, (c, rig, gate)))
             finally:
                 gate.close()
 

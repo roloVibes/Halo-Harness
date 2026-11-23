@@ -57,8 +57,14 @@ def keys(c, lv) -> dict:
     press(c, "s", "KeyS", 83)
     out["s_key"] = c.wait(f"{TARGET_KEY} === '{impl}' && document.activeElement === {AREA} && {TARGET_KEY}", 5)
     out["s_text"] = c.js(f"{AREA}?.value ?? null")  # `s` opened the box again: the text typed before Escape is there
+    out["s_pinned"] = c.js(f"{COL}.dataset.pinned || ''")  # 3.6.0.17 P4: `s` pins, as the row's "steer ▸" does
     out["impl_key"] = impl
     press(c, "Escape", "Escape", 27)
+    if c.js(f"{COL}.dataset.pinned || ''"):  # Esc on a row shows everyone again (the pin is put back as it was)
+        c.wait(f"!{BOX} && 'closed'", 5)
+        c.js(f"(() => {{ const r = {row}; if (r) r.focus(); return 1; }})()")
+        press(c, "Escape", "Escape", 27)
+        c.wait(f"!{COL}.dataset.pinned && 'all'", 5)
     return out
 
 

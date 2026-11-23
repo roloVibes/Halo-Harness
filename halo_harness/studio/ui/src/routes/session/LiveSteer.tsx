@@ -45,7 +45,7 @@ const onBlur = (e: FocusEvent<HTMLDivElement>) => inField(e) && setComposing(fal
 
 const FINISHED = ["done", "failed", "stopped"];
 const CLOSE = "Close the steer box (Esc)";
-// the text typed and not sent (pick.ts steerText): it survives a close and is there on the next open; a send clears it
+// the text typed and not sent (pick.ts steerText, per session): it survives a close and is there on the next open; a send clears it
 
 export function LiveSteer() {
   const t = useSteerTarget();
@@ -58,6 +58,7 @@ export function LiveSteer() {
     e.preventDefault();
     void takeFile(f, ss.session_id, ss.model, from);
   };
+  const sid = ss?.session_id || ""; // 3.6.0.17 P4: the unsent text is this session's; another session remounts the field with its own
   const send = (text: string) => (steerImage.get().img && ss ? sendWithImage(hid, ss.session_id, text) : null);
   const over = (e: DragEvent<HTMLDivElement>) => {
     if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
@@ -103,7 +104,8 @@ export function LiveSteer() {
          onKeyDown={onKeys} onFocus={onFocus} onBlur={onBlur} onPaste={(e) => take(e, "paste")} onDrop={(e) => take(e, "drop")}
          onDragOver={over}>
       <TargetLine t={t} name={name} />
-      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} send={send} initial={steerText()} onText={noteSteerDraft} />
+      <Steer key={sid} k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} send={send} initial={steerText(sid)}
+             onText={(text) => noteSteerDraft(sid, text)} />
       <LiveImage />
     </div>
   );

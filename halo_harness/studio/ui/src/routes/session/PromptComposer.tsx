@@ -1,5 +1,6 @@
 // The Prompt panel's box (3.3.11.0 R1): it behaves like the terminal's prompt. Enter sends, Shift+Enter is a new
-// line, Up / Down go to the start / end of the prompt first (promptKeys.ts, the terminal's rule), then
+// line, Up / Down go to the start / end of the prompt first (a wrapped line: a screen line at a time; promptKeys.ts,
+// the terminal's rule), then
 // walk this session's history (kept in this browser);
 // `/` opens the slash list (the TUI's own table and the session's custom commands: name, arguments, one line of
 // help) filtered as you type, Up / Down move in it, Tab (or Enter on a name not yet complete) completes, Esc
@@ -18,7 +19,7 @@ import { resolveBusy, send } from "./promptSend";
 import { editStart } from "./promptWords";
 import { imageFile, kb, readImage } from "./steerImage";
 import { PromptEnded } from "./PromptEnded";
-import { arrowMove, isWalking } from "./promptKeys";
+import { afterNative, arrowMove, isWalking } from "./promptKeys";
 
 const BARE_MODEL = /^\s*\/model\s*$/; // 3.6.0.2 P69: Enter on a bare `/model` opens the model picker
 
@@ -44,6 +45,8 @@ export function PromptComposer({ sid, off, ended = false }: { sid: string; off: 
   const before = useRef(""); // the draft Up walked away from; Down past the newest entry brings it back (as the terminal)
   // 3.6.0.2 P72: the coming edit's kind and selection start (beforeinput; a composition from where it began)
   const editAt = useRef<{ type: string; at: number } | null>(null);
+  const settle = useRef(0); // P3: the zero-delay look after the browser's own Up / Down; cleared when the box goes
+  useEffect(() => () => window.clearTimeout(settle.current), []);
   useEffect(() => void loadSlash(sid), [sid]);
   useEffect(() => {
     const el = box.current;
@@ -93,9 +96,17 @@ export function PromptComposer({ sid, off, ended = false }: { sid: string; off: 
     const el = e.currentTarget, h = history(sid);
     const move = arrowMove(e.key, el.value, el.selectionStart, el.selectionEnd, isWalking(el.value, el.selectionStart, el.selectionEnd, h[hist]));
     if (move === "native") return;
+    if (move === "start" || move === "end") { // 3.6.0.17 P3: the browser's own move (a screen line), then judged
+      const key = e.key, from = move === "start" ? el.selectionStart : el.selectionEnd;
+      window.clearTimeout(settle.current);
+      settle.current = window.setTimeout(() => {
+        if (!el.isConnected) return;
+        const to = afterNative(key, from, el.selectionStart, el.value.length);
+        if (to !== null) el.setSelectionRange(to, to);
+      }, 0);
+      return;
+    }
     e.preventDefault();
-    const at = move === "start" ? 0 : el.value.length;
-    if (move === "start" || move === "end") return void el.setSelectionRange(at, at);
     const next = hist < 0 ? (move === "older" ? h.length - 1 : -1) : hist + (move === "older" ? -1 : 1);
     if (next < 0) return; // nothing older to recall, or Down with nothing recalled: nothing moves
     if (hist < 0) before.current = draft;

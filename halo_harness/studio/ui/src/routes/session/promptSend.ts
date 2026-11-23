@@ -1,8 +1,9 @@
 // What the Prompt panel sends (3.3.11.0 R1), all to this harness's session over its control socket
 // (POST sessions/<sid>/command, studio/sessions_prompt_api.py):
-// * a line starting with `/` (one line) is `slash`: its output comes back as the lines the TUI would print;
+// * a line starting with `/` (one line, judged stripped as the terminal judges it: 3.6.0.17 P1) is `slash`: its output
+//   comes back as the lines the TUI would print;
 // * a one-line `!command` is `slash` too (3.6.0.12 BS), busy or not, an image chip or not (the chip waits for the
-//   next prompt, as the terminal's does): the session runs it as its
+//   next prompt, as the terminal's does, beside a `/` line too): the session runs it as its
 //   terminal does (no turn, no receipt) and the panel's answer line says ran / asks first / denied / still running;
 // * anything else is `submit` with `when_busy: refuse` and a fresh `client_id` (the receipt's idempotency key: a
 //   retry of the same send returns the stored row, never a second turn). Told the session is busy, the panel
@@ -35,26 +36,27 @@ async function post(sid: string, body: Record<string, unknown>): Promise<{ statu
   }
 }
 
-/** A `/command` line: run it in the session, its output as lines here. */
+/** A `/command` line: run it in the session, its output as lines here. 3.6.0.17 P1: the session gets the stripped
+ * line (the terminal's), the box's record and the prompts Up walks keep `line` as typed (tui/app.py keeps it raw too). */
 export async function runSlash(sid: string, line: string): Promise<boolean> {
+  const cmd = line.trim();
   prompt.update(() => ({ sending: true }));
-  const r = await post(sid, { cmd: "slash", line });
+  const r = await post(sid, { cmd: "slash", line: cmd });
   prompt.update(() => ({ sending: false }));
   const result = (r.data.result || {}) as { lines?: string[]; output?: string; ran?: boolean };
   if (r.status !== 200) {
     dropSent();
-    addOut(sid, line, [r.data.error || "the session did not answer"], true);
+    addOut(sid, cmd, [r.data.error || "the session did not answer"], true);
     return false;
   }
   pushHistory(sid, line);
-  if (line.startsWith("!")) { // 3.6.0.12 BS: the answer line; a denied one stays in the box, an ask runs on its Allow
-    addOut(sid, line, bangLines(result as BangAnswer));
-    if ((result as BangAnswer).state === "denied") dropSent();
-    else takeSent(line);
+  if (cmd.startsWith("!")) { // 3.6.0.12 BS: the answer line; an ask runs on its Allow. 3.6.0.17 P2: a denied one leaves
+    addOut(sid, cmd, bangLines(result as BangAnswer)); // the box too, as the terminal's does (Up brings it back)
+    takeSent(line);
     return true;
   }
   const lines = Array.isArray(result.lines) ? result.lines : String(result.output || "").split(/\r?\n/);
-  addOut(sid, line, lines.length && lines.some((l) => l.trim()) ? lines : ["(no output: the command ran, or became the next turn)"]);
+  addOut(sid, cmd, lines.length && lines.some((l) => l.trim()) ? lines : ["(no output: the command ran, or became the next turn)"]);
   if (result.ran === false) dropSent(); // nothing ran: the line stays in the box
   else takeSent(line);
   return true;
@@ -98,9 +100,9 @@ export async function submit(sid: string, text: string, when: "refuse" | "queue"
 export async function send(sid: string, raw: string): Promise<boolean> {
   const text = raw.replace(/\s+$/, "");
   if (!sid || (!text.trim() && !prompt.get().img) || prompt.get().sending) return false;
-  if (routeOf(text, !!prompt.get().img) === "slash") { // a `/` or `!` line, busy or not (promptWords.ts)
+  if (routeOf(text) === "slash") { // a `/` or `!` line, busy or not, an image chip or not (promptWords.ts)
     recordSent(text, null);
-    return runSlash(sid, text.trim());
+    return runSlash(sid, text);
   }
   recordSent(text, prompt.get().img);
   return submit(sid, text, "refuse");

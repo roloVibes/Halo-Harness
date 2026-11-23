@@ -45,7 +45,7 @@ import { LiveSteer } from "./LiveSteer";
 import { LivePreflight } from "./LivePreflight";
 import { LiveEyes } from "./LiveImage";
 import { useFollow } from "./follow";
-import { chooseTarget, followAgain, openSteer, pauseFollow, setPin, targetRow, useStripScope, useSteerTarget } from "./steer";
+import { chooseTarget, followAgain, pauseFollow, setPin, steerAgent, targetRow, useStripScope, useSteerTarget } from "./steer";
 import { chosenSession, sess, useSession } from "./store";
 import { feedOf } from "./pick";
 import { TraceExport } from "./TraceExport";
@@ -109,8 +109,8 @@ export function LiveDetail() {
     const row = (e.target as HTMLElement).closest<HTMLElement>(".slv-line");
     const ask = ["a", "r", "s", "o"].includes(k) ? [...shown].reverse().find((l) => l.kind === "ask") : undefined;
     if (k === "s" && row?.dataset.key) {
-      chooseTarget(row.dataset.key, Number(row.dataset.n) || 0); // `s` on a focused row: steer it (the box opens on it)
-      openSteer();
+      steerAgent(row.dataset.key); // `s` on a focused row: the row's "steer ▸" (3.6.0.17 P4: it pins, the box opens on it),
+      chooseTarget(row.dataset.key, Number(row.dataset.n) || 0); // held on the row the key was pressed on
     } else if (k === "Escape" && sess.get().pin) setPin(sess.get().pin);
     else if (!(ask && answerAsk(ask.key, k, true))) return; // A / R / S / O: the newest ask card in the column
     e.preventDefault();

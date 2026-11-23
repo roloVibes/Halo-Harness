@@ -193,7 +193,7 @@ function onChange(): void {
       autoSeen = s.listReads;
       const ss = sess.get();
       if (hisAgent(harness, sel, ownSel, ss.pin, ss.target)) byHand = true; // an agent he chose, a pin, a steer target
-      const typing = !!prompt.get().draft.trim() || (ss.steer && !!steerText().trim()); // the Prompt box, the open Steer box
+      const typing = !!prompt.get().draft.trim() || (ss.steer && !!steerText(session).trim()); // the Prompt box, the open Steer box
       const to = autoPick(localSessions(s), session, byHand, typing);
       if (to !== session) (session = to, noteAutoMove(to), own(s, pickAgent(s, to)));
     }

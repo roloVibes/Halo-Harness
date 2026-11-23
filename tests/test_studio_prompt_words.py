@@ -342,7 +342,10 @@ BANG_ROUTES = [  # (text, an image rides along) -> the door
     ("!ls -la", False, "slash"),
     ("/cost", False, "slash"),
     ("!echo hi", True, "slash"),          # an image chip beside it waits for the next prompt, as in the terminal
-    ("/cost", True, "submit"),            # a `/` line with an image is a prompt here, as before
+    ("/cost", True, "slash"),             # 3.6.0.17 P1: so does a `/` line's (tui/app.py keeps the chip for the next prompt)
+    (" !echo hi", False, "slash"),        # 3.6.0.17 P1: the terminal judges the stripped line: a space before it
+    (" /cost", False, "slash"),
+    ("\n!echo hi", False, "slash"),       # ...or a blank line before it
     ("!echo hi\nand more", False, "submit"),  # a second line: a prompt
     ("echo hi", False, "submit"),
     ("say !this", False, "submit"),
@@ -377,6 +380,78 @@ def test_a_bang_line_goes_through_the_slash_door_and_its_answer_words(ctx: Ctx):
     ctx.check(f"still running, word for word, got {got.get('running')}",
               got.get("running") == ["still running: Stop is on its row; its output shows in the Feed"])
     ctx.check(f"Stop belongs on a ! command's own row only, got {got.get('stop')}", got.get("stop") == [True, False, False, "Stop"])
+
+
+JS_DENIED = """
+const r = await import(%s);
+const key = 'h|S|main', t = 1000;
+const err = (ts, type, sid) => ({key: 'h|' + sid + '|main', kind: 'error', text: 'refused, in any words', ts, n: ts, errType: type});
+const out = (ts, sid) => ({n: ts, sid, ts, line: '!rm x', lines: ['denied: blocked']});
+const said = (x) => x.out ? 'out:' + x.out.line : x.line.kind + ':' + (x.line.errType || '');
+const rows = (lines, outs) => r.feedRows([], lines, outs, 'S', key, 240).map(said);
+console.log(JSON.stringify({
+  studio: rows([err(t + 1, 'inline_shell_denied', 'S')], [out(t, 'S')]),
+  terminal: rows([err(t + 1, 'inline_shell_denied', 'S')], []),
+  two_one_out: rows([err(t + 1, 'inline_shell_denied', 'S'), err(t + 5, 'inline_shell_denied', 'S')], [out(t, 'S')]),
+  other_error: rows([err(t + 1, 'api_error', 'S')], [out(t, 'S')]),
+  far: rows([err(t + 500, 'inline_shell_denied', 'S')], [out(t, 'S')]),
+}));
+"""
+
+
+@test
+def test_a_refused_bang_shows_once(ctx: Ctx):
+    """3.6.0.17 P2: a `!` refused from Studio drew two rows in the Prompt panel (the panel's own `denied:` answer and the
+    session's error line); the terminal draws one. Told apart by the error's TYPE (the Controller's
+    `inline_shell_denied`), never by its words: a refusal in the terminal still shows the session's line."""
+    from tests.helpers import node_ts
+    got = node_ts.run(JS_DENIED % json.dumps(ROWS_TS.resolve().as_uri())) or {}
+    ctx.check(f"refused from Studio: the panel's own row once, got {got.get('studio')}", got.get("studio") == ["out:!rm x"])
+    ctx.check(f"refused in the terminal: the session's line, got {got.get('terminal')}",
+              got.get("terminal") == ["error:inline_shell_denied"])
+    ctx.check(f"one answer row takes out one error line, got {got.get('two_one_out')}",
+              got.get("two_one_out") == ["out:!rm x", "error:inline_shell_denied"])
+    ctx.check(f"another error is never taken out, got {got.get('other_error')}", got.get("other_error") == ["out:!rm x", "error:api_error"])
+    ctx.check(f"a refusal minutes away is another one, got {got.get('far')}", got.get("far") == ["out:!rm x", "error:inline_shell_denied"])
+
+
+@test
+def test_the_feeds_error_entry_carries_its_type(ctx: Ctx):
+    """3.6.0.17 P2: the feed's error entry carries the error's own type (live and from the transcript file, which holds
+    it already: agent/log.py), so Studio tells the rows apart without reading words."""
+    from halo_harness import events
+    from halo_harness.agent.agent_transcript import entries_from_nodes, entry_from_event
+    live = entry_from_event(events.error("!rm x -- denied: blocked", err_type="inline_shell_denied")) or {}
+    ctx.check(f"live: the type rides on the entry, got {live}", live.get("kind") == "error" and live.get("err_type") == "inline_shell_denied")
+    kept = entries_from_nodes([{"type": "error", "message": "boom", "err_type": "inline_shell_denied", "ts": 1}])
+    ctx.check(f"from the transcript file: the same, got {kept}", [e.get("err_type") for e in kept] == ["inline_shell_denied"])
+    plain = entry_from_event(events.error("boom")) or {}
+    ctx.check(f"an error with no own type is as before, got {plain}", "err_type" not in plain)
+    src = (WORDS.parent.parent / "shared" / "liveFeed.ts").read_text(encoding="utf-8")
+    ctx.check("the feed's error line keeps the entry's type (liveFeed.ts fromEntry)", "errType" in src.split('e.kind === "error"', 1)[-1].split("\n", 1)[0])
+
+
+AFTER_NATIVE = [  # (key, caret before, caret after the browser's own move, length) -> where the caret ends (None: kept)
+    ("ArrowUp", 400, 320, 400, None),   # up a screen line of a wrapped prompt: kept
+    ("ArrowUp", 50, 50, 400, 0),        # on its first screen line the browser did nothing: to the start
+    ("ArrowUp", 50, 0, 400, 0),         # ...or went to 0 itself: the same end
+    ("ArrowDown", 0, 80, 400, None),    # down a screen line: kept
+    ("ArrowDown", 350, 350, 400, 400),  # on the last screen line: to the end
+    ("ArrowDown", 350, 400, 400, 400),
+]
+
+
+@test
+def test_up_and_down_on_a_wrapped_line_move_a_screen_line_first(ctx: Ctx):
+    """3.6.0.17 P3: Up on one long wrapped prompt jumped to its start; the terminal moves one screen line first
+    (tui/widgets/input.py action_cursor_up). The browser makes the move; `afterNative` judges where it landed."""
+    from tests.helpers import node_ts
+    js = (f"const k = await import({KEYS.resolve().as_uri()!r}); const cs = {json.dumps([c[:4] for c in AFTER_NATIVE])};"
+          " console.log(JSON.stringify(cs.map(([key, b, a, n]) => typeof k.afterNative === 'function' ? k.afterNative(key, b, a, n) : 'missing')))")
+    got = node_ts.run(js) or []
+    for case, to in zip(AFTER_NATIVE, got):
+        ctx.check(f"{case[:4]} -> {case[4]!r}, got {to!r}", to == case[4])
+    ctx.check(f"every case answered, got {len(got)}", len(got) == len(AFTER_NATIVE))
 
 
 @test

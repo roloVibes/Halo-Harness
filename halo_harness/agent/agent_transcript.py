@@ -16,7 +16,7 @@ code path:
     {"kind": "control",     "cmd", "via", ...}    a command recorded from Studio or the CLI (3.6.0.2: no user name)
     {"kind": "note",        "text"}               a one-line notice (a child steered, stopped, paused)
     {"kind": "ask",         "what", "name"?}      a permission card, question or plan review opened
-    {"kind": "error",       "text"} / {"kind": "done", "reason"}
+    {"kind": "error",       "text", "err_type"?} / {"kind": "done", "reason"}
 
 Every entry carries `ts` when the source had one. Long text is capped.
 """
@@ -127,7 +127,7 @@ def entries_from_nodes(nodes: list, *, final: bool = False) -> list:
         elif kind == "meta" and isinstance(node.get("control_note", node.get("fleet_note")), str):
             out.append({"kind": "note", "text": node.get("control_note", node.get("fleet_note")), "ts": ts})
         elif kind == "error":
-            out.append({"kind": "error", "text": _cap(node.get("message") or ""), "ts": ts})
+            out.append({"kind": "error", "text": _cap(node.get("message") or ""), "ts": ts, **_err_type(node)})
     if final:
         for entry in reversed(out):
             if entry["kind"] == "text":
@@ -144,6 +144,13 @@ def _policy(p) -> dict:
 
 
 _PICTURE = re.compile(r'(?:^Picture: |Screenshot saved at |"path": ")([^\n"]*?page-\d+\.png)', re.M)
+
+
+def _err_type(src: dict) -> dict:
+    """3.6.0.17 P2: an error's own type (`inline_shell_denied`: a `!` command refused), when it has one: Studio tells a
+    row by it, never by the words. The default `error` adds nothing."""
+    t = src.get("err_type")
+    return {"err_type": str(t)} if t and t != "error" else {}
 
 
 def _picture(content) -> dict:
@@ -176,7 +183,7 @@ def entry_from_event(ev) -> Optional[dict]:
     if kind in ("permission_request", "question", "plan_review"):
         return {"kind": "ask", "what": kind, "name": data.get("name"), "ts": ts}
     if kind == "error":
-        return {"kind": "error", "text": _cap(data.get("message") or ""), "ts": ts}
+        return {"kind": "error", "text": _cap(data.get("message") or ""), "ts": ts, **_err_type(data)}
     if kind in ("notification", "system_note"):
         return {"kind": "note", "text": _cap(data.get("text") or ""), "ts": ts}
     if kind == "turn_done":

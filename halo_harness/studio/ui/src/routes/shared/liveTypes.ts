@@ -30,6 +30,8 @@ export type LiveLine = {
   /** When its result landed (ms); a text or a thought: its last piece. */
   ended?: number;
   error?: boolean;
+  /** 3.6.0.17 P2: an error line's own type from its entry (`inline_shell_denied`: a `!` command refused). */
+  errType?: string;
   /** 3.3.10.0 R2: the packs' verdicts on the call, one line (`policy: deny -- fence: outside the project`). */
   policy?: string;
   ask?: string;

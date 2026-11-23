@@ -193,7 +193,8 @@ console.log(JSON.stringify({
   his_row: m.hisAgent('h', 'h|A|w1', 'h|A|main', '', ''), own_sel: m.hisAgent('h', 'h|A|main', 'h|A|main', '', ''),
   other_h: m.hisAgent('h', 'x|A|main', '', '', ''), none: m.hisAgent('h', '', '', '', ''),
   pin: m.hisAgent('h', 'h|A|main', 'h|A|main', 'h|A|main', ''), target: m.hisAgent('h', 'h|A|main', 'h|A|main', '', 'h|A|main'),
-  steer: (m.noteSteerDraft('wait'), m.steerText()),
+  steer: (m.noteSteerDraft('A', 'wait'), [m.steerText('A'), m.steerText('B')]),
+  steer_sent: (m.noteSteerDraft('A', ''), m.steerText('A')),
   feed_a: lines.filter(m.feedOf('h', 'A')).map((l) => l.key), feed_none: lines.filter(m.feedOf('h', '')).map((l) => l.key),
 }));"""
 
@@ -222,7 +223,9 @@ def test_auto_pick_follows_the_newest_session_he_starts(ctx: Ctx):
     ctx.check(f"his selection of an agent here, a pin or a steer target is his pick; the store's own selection, another "
               f"harness's or none is not, got {p}",
               [p.get(k) for k in ("his_row", "own_sel", "other_h", "none", "pin", "target")] == [True, False, False, False, True, True])
-    ctx.check(f"the Steer box's unsent text is kept where the store reads it, got {p.get('steer')!r}", p.get("steer") == "wait")
+    # 3.6.0.17 P4: one text for the page went with Session to another session (a Send then reached B's agent): per session now
+    ctx.check(f"the Steer box's unsent text is kept per session where the store reads it, got {p.get('steer')!r} {p.get('steer_sent')!r}",
+              p.get("steer") == ["wait", ""] and p.get("steer_sent") == "")
     ctx.check(f"the Feed of A: A's lines only (not B's, not another harness's, not a session 'AB'), got {p.get('feed_a')}",
               p.get("feed_a") == ["h|A|main", "h|A|w1"])
     ctx.check(f"no session shown: every line of this harness, got {p.get('feed_none')}",

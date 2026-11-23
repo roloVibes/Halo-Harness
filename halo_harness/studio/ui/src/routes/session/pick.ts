@@ -147,9 +147,11 @@ export const talkedTo = (r: SessionRow): boolean => !["print", "orchestra-worker
 export const hisAgent = (here: string, sel: string, own: string, pin: string, target: string): boolean =>
   !!pin || !!target || (!!sel && sel !== own && sel.startsWith(`${here}|`));
 
-let steerDraft = ""; // the Feed's Steer box's unsent text (LiveSteer.tsx): kept for the next open; while the box is open it holds a move
-export const noteSteerDraft = (t: string): void => void (steerDraft = t);
-export const steerText = (): string => steerDraft;
+// the Feed's Steer box's unsent text (LiveSteer.tsx), per session (3.6.0.17 P4: one text for the page went with Session to
+// another session): kept for the next open; while the box is open it holds a move; an empty text (a Send) drops it
+const steerDrafts = new Map<string, string>();
+export const noteSteerDraft = (sid: string, t: string): void => void (t ? steerDrafts.set(sid, t) : steerDrafts.delete(sid));
+export const steerText = (sid: string): string => steerDrafts.get(sid) || "";
 
 let autoTo = ""; // the session autoPick last moved Session to (the Feed's head says the move: FeedSession.tsx)
 export const noteAutoMove = (sid: string): void => void (autoTo = sid);

@@ -135,7 +135,8 @@ def test_answer_never_wipes_what_he_typed_after_enter(ctx: Ctx):
         got = p.get(name) or {}
         ctx.check(f"{name}: nothing taken out while in flight ({during!r}), then {after!r}, got {got}",
                   got.get("during") == during and got.get("after") == after)
-    ctx.check(f"3.6.0.11: a long prompt, Up: the text stays and the caret is at 0, got {p.get('up_once')}",
+    ctx.check(f"3.6.0.11: a long prompt, Up (3.6.0.17 P3: once per screen line the box wraps it into): the text stays "
+              f"and the caret is at 0, got {p.get('up_once')}",
               p.get("up_once") == [79, 0, 0])
     ctx.check(f"3.6.0.11: Up again: the older prompt, got {p.get('up_twice')!r}", p.get("up_twice") == "plain send")
     ctx.check(f"the slash ran and its 'nothing was run' line shows, got {p.get('slash_ran')} {p.get('ran_false_line')}",
@@ -210,6 +211,39 @@ def test_a_bang_line_runs_in_the_session_with_no_turn(ctx: Ctx):
               and b.get("stop_label") == "Stop" and b.get("running_rows") == 1)
     ctx.check(f"Stop ends it (the command would have run 90 s) and starts no turn, got {b.get('stopped')} {b.get('stop_turns')}",
               b.get("stopped") is True and b.get("stop_turns") == 0)
+
+
+@test
+def test_the_box_does_with_a_line_what_the_terminal_does(ctx: Ctx):
+    """3.6.0.17 P1, P2 (the owner, 2026-11-17: Session's Prompt box and the terminal's prompt do the same with the same
+    line): the terminal judges the stripped line, keeps an image chip for the next prompt beside a `/` line, shows a
+    refused `!` once and empties its box (Up brings it back)."""
+    b = _one(ctx).get("bang") or {}
+    ctx.check(f"' !echo ...' runs in the session, got {b.get('space_lines')} {b.get('space_box')!r}",
+              (b.get("space_lines") or [None])[0] == "ran" and "BANG-SPACE" in (b.get("space_lines") or [])[1:] and b.get("space_box") == "")
+    ctx.check(f"a `/` line with an image chip runs; the chip waits under the box, got {b.get('chip_set')} {b.get('chip_slash')!r} "
+              f"{b.get('chip_box')!r} {b.get('chip_kept')}", b.get("chip_set") is True and b.get("chip_slash") == "/effort high"
+              and b.get("chip_box") == "" and b.get("chip_kept") is True)
+    ctx.check(f"neither is a model turn, got {b.get('one_turns')}", b.get("one_turns") == 0)
+    ctx.check(f"a refused ! says so once, got {b.get('denied')!r} in {b.get('denied_rows')} row(s)",
+              b.get("denied") == "denied: blocked for the test" and b.get("denied_rows") == 1)
+    ctx.check(f"a refused ! leaves the box empty, as the terminal's; Up brings it back, got {b.get('denied_box')!r} {b.get('denied_up')!r}",
+              b.get("denied_box") == "" and b.get("denied_up") == "!rm bang-refused.txt")
+
+
+@test
+def test_up_and_down_on_a_wrapped_line_move_a_screen_line_first(ctx: Ctx):
+    """3.6.0.17 P3: Up on one long wrapped prompt jumped to its start; the terminal moves one screen line first."""
+    w = _one(ctx).get("wrapped") or {}
+    n, ups, downs = w.get("n") or 0, w.get("ups") or [], w.get("downs") or []
+    ctx.check(f"the prompt wraps in the box, got {w.get('lines')} lines", (w.get("lines") or 0) >= 3)
+    ctx.check(f"the first Up moves one screen line, not to the start, got {w.get('up_first')} of {n}", 0 < (w.get("up_first") or 0) < n)
+    ctx.check(f"each further Up moves up until the start, the text kept, got {ups} {w.get('up_text')}",
+              ups[-1:] == [0] and all(a > b for a, b in zip(ups, ups[1:])) and w.get("up_text") is True)
+    ctx.check(f"the first Down moves one screen line, not to the end, got {w.get('down_first')}", 0 < (w.get("down_first") or 0) < n)
+    ctx.check(f"each further Down moves down until the end, the text kept, got {downs} {w.get('down_text')}",
+              downs[-1:] == [n] and all(a < b for a, b in zip(downs, downs[1:])) and w.get("down_text") is True)
+    ctx.check(f"at the start the next Up walks the prompt history, got {w.get('older')!r}", bool(w.get("older")))
 
 
 # -- 3.6.0.2 P6 P27-P29, P31, P32: tests/helpers/studio_prompt_pick.py, which session the box types into -------------

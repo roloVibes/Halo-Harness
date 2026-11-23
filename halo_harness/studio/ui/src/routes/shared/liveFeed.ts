@@ -147,8 +147,14 @@ export function fromEntry(key: AgentKey, e: Entry, at = false): void {
   if (e.kind === "spawn") return addLine({ key, kind: "spawn", ts, text: label || `${name}: ${e.task || ""}` }, at);
   if (e.kind === "handback") return at || !talkedBack(key) ? addLine({ key, kind: "output", ts, text: keepEnd(String(e.text || "")) }, at) : undefined;
   if (e.kind === "user") return addLine({ key, kind: e.you ? "you" : "asked", ts, text: keepEnd(String(e.text || "")) }, at);
-  if (e.kind === "error") return addLine({ key, kind: "error", ts, text: String(e.text || e.reason || "error").slice(0, 300) }, at);
+  if (e.kind === "error") return addLine({ key, kind: "error", ts, text: String(e.text || e.reason || "error").slice(0, 300), ...errTypeOf(e) }, at);
 }
+
+/** 3.6.0.17 P2: the error's own type the entry carries (agent_transcript.py `err_type`), kept on its line. */
+const errTypeOf = (e: Entry): { errType?: string } => {
+  const t = (e as { err_type?: unknown }).err_type;
+  return t ? { errType: String(t) } : {};
+};
 
 /** A backlog result: the tool row it belongs to (by id) takes it. */
 function backlogResult(key: AgentKey, e: Entry): void {

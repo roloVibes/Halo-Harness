@@ -126,6 +126,8 @@ def test_tab_cycles_the_target_and_escape_follows_again(ctx: Ctx):
     ctx.check(f"s on a focused row opens the box on its agent, the field focused, got {got.get('row_focused')} {got.get('s_key')}",
               got.get("row_focused") is True and got.get("s_key") == got.get("impl_key"))
     ctx.check(f"the text typed before Escape is there again, got {got.get('s_text')!r}", got.get("s_text") == "KEEP")
+    ctx.check(f"3.6.0.17 P4: s on a row pins its agent, as the row's steer does, got {got.get('s_pinned')!r}",
+              got.get("s_pinned") == got.get("impl_key"))
 
 
 @test
