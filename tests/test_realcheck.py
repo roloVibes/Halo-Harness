@@ -1642,7 +1642,8 @@ def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
     if not node:
         raise SkipTest("no node on this box")
     s = _steps_live()
-    exprs = s.waits()
+    # 3.6.0.15 K4 (b): the wait for the server's note is read on the terminal (TERMINAL), not on a page
+    exprs = {k: v for k, v in s.waits().items() if k not in s.TERMINAL}
     ctx.check(f"(1) waits for the done member's NOW as drawn (the done time may reach the page after the done state), "
               f"got {sorted(exprs)}", "done_now" in exprs)
     ctx.check(f"3.6.0.15 K2 (a): the wait for the writer's all-done group to fold is listed, got {sorted(exprs)}",
@@ -1683,6 +1684,97 @@ def test_live_scene_waits_end_only_on_a_true_value(ctx: Ctx):
     for k in exprs:
         ctx.check(f"{k}: true when drawn, got {got.get(k + ' / drawn')!r}", got.get(k + " / drawn") is True)
         ctx.check(f"{k}: false when not drawn, got {got.get(k + ' / not drawn')!r}", got.get(k + " / not drawn") is False)
+
+
+@test
+def test_live_scene_hands_the_chart_out_after_the_server_connected(ctx: Ctx):
+    """3.6.0.15 K4 (b): the scene's one task (it hands the chart out) is typed only once the terminal said its MCP server
+    is in, in the words halo_harness/mcp/manager.py writes; the wait is listed in waits() and read on the terminal; a run
+    where the note never came fails with that as its named reason and types nothing (never "Unknown tool")."""
+    from types import SimpleNamespace
+    s = _steps_live()
+    exprs = s.waits()
+    ctx.check(f"the server's wait is listed and read on the terminal, got {exprs.get('server')!r} / {getattr(s, 'TERMINAL', None)}",
+              exprs.get("server") == "mcp: 1 server(s) connected" and "server" in s.TERMINAL)
+    src = (REPO / "halo_harness" / "mcp" / "manager.py").read_text(encoding="utf-8")
+    ctx.check("the words are the manager's note", "line = (f\"mcp: {len(out['connected'])} server(s) connected\"" in src)
+    ctx.check("the note read in a terminal's text, wrapped or not",
+              s.server_in("halo\nmcp: 1 server(s) connected\n") and s.server_in("mcp: 1\n server(s) connected")
+              and not s.server_in("mcp: 0 server(s) connected, 1 failed"))
+
+    class Term:
+        def __init__(self, text: str):
+            self.text, self.waited, self.started_at = text, [], time.monotonic()
+
+        def wait_for(self, pred, timeout: float) -> bool:
+            self.waited.append(timeout)
+            return bool(pred(self.text))
+
+        def plain(self) -> str:
+            return self.text  # no way to type: a step that typed here would raise
+    t, ev, bad = Term("halo · Auto · ready"), {}, []
+    try:
+        s._scene(SimpleNamespace(provider=None), None, t, ev, bad)
+        raised = ""
+    except Exception as e:
+        raised = f"{type(e).__name__}: {e}"
+    ctx.check(f"no note: one failure naming it, nothing typed, got {bad} / {raised}",
+              not raised and len(bad) == 1 and "never said 'mcp: 1 server(s) connected'" in bad[0]
+              and "Unknown tool" not in bad[0] and ev.get("server_s") is None and t.waited == [s.SERVER_WAIT_S])
+    ctx.check("the note said: the wait ends with its seconds", s.server_wait(Term("mcp: 1 server(s) connected")) is not None)
+
+
+@test
+def test_auto_groups_reads_a_folded_groups_members_from_its_card(ctx: Ctx):
+    """3.6.0.15 K4 (a): (6) takes, per member, "Why this model:" read in its hover (an open group) OR in its group's card,
+    its row chosen (a folded group: LW folds an all-done group to its head, OP4's card lists every member), and names
+    where; a member read nowhere is a failure that says so; every wait (6) makes ends only on a true value."""
+    import shutil
+    s = _steps_auto()
+    why = "Why this model: code work"
+    card = ["fix the login bug", "2 agents · all done · $0.0180 · 40 s", why]
+    seen = {"m0": {"group": "1", "hover": "researcher · glm-5 · working\n" + why},
+            "m1": "researcher · glm-5 · working\n" + why,
+            **{f"m{i}": {"group": "2", "card": card} for i in range(2, 7)}}
+    ctx.check(f"hover or card: no failure, got {s.judge_why(seen)}", s.judge_why(seen) == [])
+    where = {k: s.why_where(v) for k, v in seen.items()}
+    ctx.check(f"each member says where it was read, got {where}",
+              where == {"m0": "hover", "m1": "hover", **{f"m{i}": "card" for i in range(2, 7)}})
+    got = s.judge_why(dict(seen, m3={"group": "2", "card": card[:2]}))
+    ctx.check(f"a folded member whose card has no such line: one failure naming it and the card, got {got}",
+              len(got) == 1 and "m3" in got[0] and "folded group 2" in got[0] and "card" in got[0])
+    got = s.judge_why(dict(seen, m3={"group": "2", "card": ["the reviewer said: " + why]}))
+    ctx.check(f"the words inside another line are not the card's line, got {got}", len(got) == 1 and "m3" in got[0])
+    got = s.judge_why(dict(seen, m4={"group": "2", "card_note": "no card opened in 5 s at a click on the group's head"}))
+    ctx.check(f"a card that never opened is named, got {got}", len(got) == 1 and "no card opened" in got[0])
+    got = s.judge_why(dict(seen, m0={"group": "1", "hover": ""}))
+    ctx.check(f"an open member with an empty hover is named, got {got}", len(got) == 1 and "the hover of the member m0" in got[0])
+    node = shutil.which("node")
+    if not node:
+        return
+    exprs = s.why_waits()
+    js = ("const el = (o = {}) => ({dataset: o.dataset || {}, hasAttribute: (a) => (o.attrs || []).includes(a),"
+          " querySelector: (x) => (o.q || {})[x] ?? null, querySelectorAll: (x) => (o.all || {})[x] ?? []});"
+          "const doc = (q) => ({querySelector: (x) => q[x] ?? null});"
+          "const MAP = '[data-testid=session-lit-map]', G1 = '[data-testid=session-map-group][data-group=\"1\"]',"
+          " K = '[data-testid=map-step-in][data-open]', R = '[data-testid=map-step-in-row]';"
+          "const map = (g) => el({q: {[G1]: g}}), card = (rows) => el({all: {[R]: rows}});"
+          "const pages = {folded: [doc({[MAP]: map(el({attrs: ['data-folded']}))}), doc({[MAP]: map(el())})],"
+          " open: [doc({[K]: el()}), doc({})],"
+          " chosen: [doc({[K]: card([el({dataset: {key: 'h|s|a0'}}), el({dataset: {key: 'h|s|a1'}, attrs: ['data-chosen']})])}),"
+          "  doc({[K]: card([el({dataset: {key: 'h|s|a0'}, attrs: ['data-chosen']}), el({dataset: {key: 'h|s|a1'}})])})],"
+          " gone: [doc({}), doc({'.mp-step-in': el()})]};"
+          f"const exprs = {json.dumps(exprs)}; const out = {{}};"
+          "for (const [k, e] of Object.entries(exprs)) { for (const [i, d] of (pages[k] || []).entries()) {"
+          "  const v = new Function('document', 'return (' + e + ');')(d);"
+          "  out[k + (i ? ' / not drawn' : ' / drawn')] = JSON.parse(JSON.stringify(v === undefined ? null : v)); } }"
+          "process.stdout.write(JSON.stringify(out));")
+    r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=60)
+    ctx.check(f"node ran the expressions, got {r.returncode}: {r.stderr[-300:]}", r.returncode == 0)
+    out = json.loads(r.stdout or "{}")
+    for k in exprs:
+        ctx.check(f"{k}: true when drawn, got {out.get(k + ' / drawn')!r}", out.get(k + " / drawn") is True)
+        ctx.check(f"{k}: false when not drawn, got {out.get(k + ' / not drawn')!r}", out.get(k + " / not drawn") is False)
 
 
 def _steps_made():

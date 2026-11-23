@@ -11,7 +11,8 @@ auto-groups (a fresh home: no workflow of his, no crew.map):
       within GROUP_FIRST_S of the first spawn frame reaching the page (the page's own clock)
   (4) four groups, named, in their own colours (never a state's), in start order, group 1 never moved
   (5) each line from main into a group was drawn live while a member worked, then a trace with at least one hand-off
-  (6) every member's hover card says "Why this model:"
+  (6) every member says "Why this model:" where a person reads it: a member of an open group in its hover card, a
+      member of a folded group (all done: it folds to its head) in its group's card, its row chosen
   (7) no text under 12 px in the drawer, nothing cut inside a group
   (8) Agents -> Live draws the same four groups right of main; nothing left running after quit
 
@@ -431,36 +432,133 @@ def judge_lines(records: list, last: dict, n: int) -> list:
     return out
 
 
-def _why(c, ev: dict, bad: list) -> None:
-    """(6) each member's hover card says WHY."""
-    aids = c.js(f"[...{M}.querySelectorAll('[data-member]')].map((m) => m.dataset.member)") or []
-    seen = {}
+# 3.6.0.15 K4 (a): a group whose members are all done folds to its head 10 s after its last end (LW, foldRule.ts; its
+# boxes hidden, never unfolded), so (6) reads a folded group's members in the group's card (OP4: a row per member)
+CARD = "document.querySelector('[data-testid=map-step-in][data-open]')"
+CARD_OPEN = f"!!{CARD}"
+CARD_GONE = "!document.querySelector('.mp-step-in')"
+CARD_WAIT_S = 10.0 if WIN else 5.0  # the card opens when its one GET answers, at the latest 1 s after the click
+CARD_LINES = f"[...({CARD}?.querySelectorAll('.mp-step-in-head p') || [])].map((p) => p.innerText)"
+MEMBERS = f"""[...{M}.querySelectorAll('[data-member]')].map((m) => {{ const g = m.closest('[data-testid=session-map-group]');
+  return {{aid: m.dataset.member, n: g ? g.dataset.group || '' : '', folded: !!g && g.hasAttribute('data-folded')}}; }})"""
+
+
+def group_of(n: str) -> str:
+    return f"{M}.querySelector('[data-testid=session-map-group][data-group=\"{n}\"]')"
+
+
+def row_of(aid: str) -> str:
+    """The card's row of the helper `aid` (its key is the fleet key `hid|sid|aid`)."""
+    return (f"[...({CARD}?.querySelectorAll('[data-testid=map-step-in-row]') || [])]"
+            f".find((r) => (r.dataset.key || '').endsWith('|{aid}'))")
+
+
+def group_folded(n: str) -> str:
+    return f"!!({group_of(n)})?.hasAttribute('data-folded')"
+
+
+def row_chosen(aid: str) -> str:
+    return f"!!({row_of(aid)})?.hasAttribute('data-chosen')"
+
+
+def why_waits() -> dict:
+    """Every wait (6) makes, by the state it names (tests/test_realcheck.py evaluates each against a page stand-in)."""
+    return {"folded": group_folded("1"), "open": CARD_OPEN, "chosen": row_chosen("a1"), "gone": CARD_GONE}
+
+
+def _hover(c, aid: str) -> str:
+    """A member's hover card (G4), the pointer moved onto the member for real."""
+    el = f"{M}.querySelector('[data-member=\"{aid}\"]')"
+    c.js(f"{el}.scrollIntoView({{block: 'center'}}); 1")
+    time.sleep(0.2)
+    x, y, w, hh = c.rect(el)
+    for dx in (0, 2, 4):  # a real move onto it (the hover starts on the first move, then rests)
+        c.call("Input.dispatchMouseEvent", type="mouseMoved", x=x + w / 2 + dx, y=y + hh / 2, button="none", buttons=0)
+        time.sleep(0.05)
+    card = ("(() => { const h = document.getElementById('halo-hover-card'); return h && h.getClientRects().length "
+            f"&& (h.dataset.for || '').endsWith(':{aid}') ? h.innerText : ''; }})()")
+    _wait(c, f"({card}).includes({WHY!r})", 2)
+    text = c.js(card) or ""
+    _off(c)
+    time.sleep(0.2)
+    return text
+
+
+def _card(c, n: str, aids: list) -> dict:
+    """The folded group `n`'s card, as a person opens it: a click on the group's head, then each member's row chosen
+    and the card head's lines read; the card closed (×) and gone before the next group. {aid: {"card": [lines]} or
+    {"card_note": what did not happen}}."""
+    out: dict = {}
+    _off(c)
+    c.click_on(f"{group_of(n)}.querySelector('[data-testid=map-group-head]')")
+    if not _wait(c, CARD_OPEN, CARD_WAIT_S):
+        return {aid: {"card_note": f"no card opened in {CARD_WAIT_S:.0f} s at a click on the group's head"} for aid in aids}
     for aid in aids:
-        el = f"{M}.querySelector('[data-member=\"{aid}\"]')"
-        c.js(f"{el}.scrollIntoView({{block: 'center'}}); 1")
-        time.sleep(0.2)
-        x, y, w, hh = c.rect(el)
-        for dx in (0, 2, 4):  # a real move onto it (the hover starts on the first move, then rests)
-            c.call("Input.dispatchMouseEvent", type="mouseMoved", x=x + w / 2 + dx, y=y + hh / 2, button="none", buttons=0)
-            time.sleep(0.05)
-        card = ("(() => { const h = document.getElementById('halo-hover-card'); return h && h.getClientRects().length "
-                f"&& (h.dataset.for || '').endsWith(':{aid}') ? h.innerText : ''; }})()")
-        _wait(c, f"({card}).includes({WHY!r})", 2)
-        seen[aid] = c.js(card) or ""
-        _off(c)
-        time.sleep(0.2)
-    ev["why"] = {k: _fold(v)[:120] for k, v in seen.items()}
+        if not c.js(f"!!({row_of(aid)})"):
+            out[aid] = {"card_note": "the group's card has no row for it", "rows": c.js(
+                f"[...({CARD}?.querySelectorAll('[data-testid=map-step-in-row]') || [])].map((r) => r.dataset.key || '')") or []}
+            continue
+        if not c.js(row_chosen(aid)):
+            c.click_on(f"({row_of(aid)}).querySelector('[data-testid=map-step-in-row-text]')")
+        if not _wait(c, row_chosen(aid), CARD_WAIT_S):
+            out[aid] = {"card_note": f"its row was not chosen in {CARD_WAIT_S:.0f} s"}
+            continue
+        out[aid] = {"card": c.js(CARD_LINES) or []}
+    c.click_on(f"{CARD}.querySelector('[data-testid=map-step-in-close]')")
+    if not _wait(c, CARD_GONE, CARD_WAIT_S):
+        for v in out.values():
+            v["left_open"] = True
+    _off(c)
+    return out
+
+
+def _why(c, ev: dict, bad: list) -> None:
+    """(6) "Why this model:" where a person reads it now: a member of an OPEN group in its hover (G4), a member of a
+    FOLDED group in its group's card, its row chosen. A group that folds while its members are hovered is read in its
+    card too, so the step never races the fold's 10 s."""
+    members = c.js(MEMBERS) or []
+    seen = {m.get("aid", ""): {"group": m.get("n", "")} for m in members}
+    for n in dict.fromkeys(m.get("n", "") for m in members):
+        aids = [m.get("aid", "") for m in members if m.get("n") == n]
+        if not c.js(group_folded(n)):
+            for aid in aids:
+                seen[aid]["hover"] = _hover(c, aid)
+        left = [a for a in aids if WHY not in seen[a].get("hover", "")]
+        if left and n and c.js(group_folded(n)):
+            for aid, read in _card(c, n, left).items():
+                seen[aid].update(read)
+    ev["why"] = {aid: {"where": why_where(v), "group": v.get("group"), "hover": _fold(v.get("hover", ""))[:120],
+                       **{k: v[k] for k in ("card", "card_note", "rows", "left_open") if k in v}} for aid, v in seen.items()}
     bad.extend(judge_why(seen))
 
 
+def why_where(read) -> str:
+    """Where a member's "Why this model:" was read: "hover", "card" (a line of its group's card head that starts with
+    it, its row chosen), or "" (nowhere). A plain string is a hover's text."""
+    v = {"hover": read} if isinstance(read, str) else (read or {})
+    if WHY in (v.get("hover") or ""):
+        return "hover"
+    if any(_fold(x).startswith(WHY) for x in v.get("card") or []):
+        return "card"
+    return ""
+
+
 def judge_why(seen: dict) -> list:
-    """(6) seven members, each hover holding WHY."""
+    """(6) seven members, each read where a person reads it: its hover (an open group), else its group's card (a
+    folded group); a member read nowhere is named with what was read."""
     out = []
     if len(seen) != 7:
         out.append(f"(6) the drawer holds {len(seen)} member(s), not 7")
-    for aid, text in (seen or {}).items():
-        if WHY not in (text or ""):
-            out.append(f"(6) the hover of the member {aid} does not say {WHY!r}: " + excerpt(_fold(text), 80))
+    for aid, read in (seen or {}).items():
+        if why_where(read):
+            continue
+        v = {"hover": read} if isinstance(read, str) else (read or {})
+        if "card" in v or "card_note" in v:
+            said = v.get("card_note") or "its head reads " + excerpt(" | ".join(_fold(x) for x in v.get("card") or []), 160)
+            out.append(f"(6) the member {aid} of the folded group {v.get('group')}: its group's card, its row chosen, has "
+                       f"no line {WHY!r} ({said})")
+        else:
+            out.append(f"(6) the hover of the member {aid} does not say {WHY!r}: " + excerpt(_fold(v.get("hover")), 80))
     return out
 
 

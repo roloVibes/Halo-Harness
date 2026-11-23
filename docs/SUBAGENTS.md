@@ -116,6 +116,14 @@ The helper finds a deferred tool with `ToolSearch`, or has it at once when the t
 server that connects after the session started is found too, and a lazy server a helper starts reaches main as well. A
 tool main loads later does not reach a helper already running.
 
+A helper that started before a server connected (the terminal connects its servers behind the first paint, and a
+stdio server starts slower on Windows) finds that server's tools with `ToolSearch`: its search looks at what main can
+find at that moment, within the helper's own `tools:` line, and loads what it asked for. Such a tool is not pushed into
+the running helper, `alwaysLoad` or not, so a direct call before the search answers "Unknown tool
+'mcp__<server>__<tool>'. If this is a real MCP tool that just isn't loaded in this conversation yet, call ToolSearch
+with query "select:mcp__<server>__<tool>" to load it, then call it again". A helper started after the server connected
+has its `alwaysLoad` tools at once. The terminal says when its servers are in: "mcp: {n} server(s) connected".
+
 The one gap: a helper whose `tools:` names only `mcp__<server>__*` tools (no `ToolSearch`) gets `ToolSearch` only when
 it has a deferred tool at its start, so a lazy server nobody has started yet stays out of its reach (as it does for a
 main session started with `--tools` that leaves `ToolSearch` out).

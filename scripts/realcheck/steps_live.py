@@ -16,7 +16,8 @@ runs four at once, so two of the batch wait queued), headless Chrome at
       and two start: no box moves (0.5 px) and the box under the pointer does not ring
   (5) the long tool (42 characters) reads "a tool · {s}" while held, its whole name once the pointer left: one growth,
       no second, no other member's height changed; the chart's helper was given the tool at once (alwaysLoad) with
-      ToolSearch in its first request, and the tool ran ("slept 30.0s")
+      ToolSearch in its first request, and the tool ran ("slept 30.0s"); the scene's one task is typed only once the
+      terminal said "mcp: 1 server(s) connected" (never said: the scene is not run, and says so)
   (6) every ring of the no-preference parts: in view, not under the pointer, not under the open box, at most four in one
       frame, never main's box
   (7) the box opens in place in Agents -> Live: it unfolds from its box, its corner at its box (or the view's clamp),
@@ -39,9 +40,9 @@ import time
 from types import SimpleNamespace
 
 from realcheck import fakes, screen  # noqa: F401  (screen: the terminal helpers the step's imports share)
-from realcheck.core import Fail, browser  # noqa: F401
+from realcheck.core import Fail, browser, excerpt  # noqa: F401
 from realcheck.steps_b import WATCH
-from realcheck.steps_map import BTN, HOOK, WIDE, _alone, _away, _say, _wide_chrome, alt
+from realcheck.steps_map import BTN, HOOK, WIDE, _alone, _away, _flat, _say, _wide_chrome, alt
 from realcheck.steps_auto import _fail, _open, _quit, _session
 
 WIN = sys.platform == "win32"
@@ -49,6 +50,11 @@ LIVE_WAIT_S = 30.0 if WIN else 15.0
 FOLD_S = 10.0  # routes/crew/map/foldRule.ts FOLD_S: an all-done group folds this long after its last end
 FOLD_WAIT_S = FOLD_S + LIVE_WAIT_S  # the scene's wait for that fold: the fold's own time, then the step's wait
 TURN_WAIT_S = 120.0 if WIN else 60.0  # the seven drawn: a real session's first turn on Auto
+# the terminal's note once its deferred MCP servers connected (halo_harness/mcp/manager.py complete_deferred_start), for
+# the scene's one server; read on the terminal's screen, never on the page (TERMINAL)
+SERVER_IN = "mcp: 1 server(s) connected"
+SERVER_WAIT_S = 60.0 if WIN else 30.0  # a stdio server's start is slower on Windows
+TERMINAL = ("server",)
 W, H = WIDE
 DRAWER = "!!document.querySelector('[data-testid=session-lit-map]')"
 OPEN = "!!document.querySelector('[data-testid=map-step-in][data-open]')"
@@ -163,8 +169,9 @@ def folded_wait(root: str, aid: str) -> str:
 
 
 def waits(root: str = "document.querySelector('#root')", scroll: str = "document.querySelector('#scroll')") -> dict:
-    """Every wait expression of the step (tests/test_realcheck.py evaluates each against a page stand-in)."""
-    return {"drawn": members_wait(root), "done_now": done_now_wait(root), "live": live_wait(root), "drawer": DRAWER, "open": OPEN, "gone": GONE,
+    """Every wait of the step: page expressions (tests/test_realcheck.py evaluates each against a page stand-in) and,
+    under TERMINAL's keys, the words waited for on the terminal's screen."""
+    return {"server": SERVER_IN, "drawn": members_wait(root), "done_now": done_now_wait(root), "live": live_wait(root), "drawer": DRAWER, "open": OPEN, "gone": GONE,
             "folded": folded_wait(root, "a1"), "held": now_wait(root, "a1", HELD_JS), "whole": now_wait(root, "a1", WHOLE_JS),
             "raw": raw_wait(root, "a1", "done"), "seen": seen_wait(root, scroll, "a1"), "resume": pause_wait("Resume"),
             "pause": pause_wait("Pause")}
@@ -650,7 +657,27 @@ def live_scene(ctx):
             "the held tool and its one growth, the rings, the box in place, reduced motion; nothing left"), ev
 
 
+def server_in(text: str) -> bool:
+    """The terminal said its one MCP server is in (`waits()["server"]`, read on the terminal's screen)."""
+    return _flat(SERVER_IN) in _flat(text)
+
+
+def server_wait(t, wait_s: float = SERVER_WAIT_S):
+    """Seconds from the terminal's start until it said SERVER_IN, None when it did not within `wait_s`."""
+    if not t.wait_for(server_in, wait_s):
+        return None
+    return round(time.monotonic() - t.started_at, 1)
+
+
 def _scene(ctx, c, t, ev: dict, bad: list) -> None:
+    # 3.6.0.15 K4 (b): the chart's helper is handed out only once the terminal said its MCP server is in (a helper that
+    # starts before finds the tool with ToolSearch, but a direct call before that is "Unknown tool": FM, as ruled)
+    ev["server_s"] = server_wait(t)
+    if ev["server_s"] is None:
+        bad.append(f"(1)-(8) not run: the terminal never said {SERVER_IN!r} in {SERVER_WAIT_S:.0f} s, so no task was "
+                   "handed out (the chart's helper would start before its MCP server is in): "
+                   + excerpt(_flat(t.plain())[-200:], 200))
+        return
     V = _views()
     _away(c, "live")
     _say(t, fakes.LIVESCENE_PROMPT)

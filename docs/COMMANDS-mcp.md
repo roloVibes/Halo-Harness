@@ -208,7 +208,11 @@ seconds, then every 30 seconds, giving up automatically after 10 minutes
 since asking by hand is itself the reset.
 
 **A helper** (a sub-agent main hands work to) may use a server's tools as main may when the helper starts, within its
-own `tools:` line: it finds a deferred one with ToolSearch or has it at once with `alwaysLoad`. The rules and the one
+own `tools:` line: it finds a deferred one with ToolSearch or has it at once with `alwaysLoad`. A helper that started
+before a server connected (the terminal's note "mcp: {n} server(s) connected" comes after the first paint) finds that
+server's tools with ToolSearch too; a direct call before that answers "Unknown tool 'mcp__<server>__<tool>'. If this is
+a real MCP tool that just isn't loaded in this conversation yet, call ToolSearch with query
+"select:mcp__<server>__<tool>" to load it, then call it again". The rules and the one
 gap: [SUBAGENTS.md](SUBAGENTS.md#a-helper-and-an-mcp-servers-tools).
 
 ## claude.ai connectors bridge

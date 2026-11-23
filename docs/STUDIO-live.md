@@ -49,9 +49,19 @@ A click on a box of a running session's drawing (Agents -> 4 · Live and Session
   the session's reader cut it ("... ({n} more characters)"), and then: "The rest is in the session export: Export on
   Session's Feed, or halo session export {sid}."
 
+**Session's drawer head holds still.** While the pointer rests on the drawing (or a sheet is open), the head of
+Session's Live drawer (the truth block, the status line, [Open in Agents -> Live] and the zoom) keeps the height it had
+when the hold began: a longer status line shows in the room the line already had (hover the head for the whole line)
+and no box moves; once the pointer leaves, the head takes the rows it needs. The status line names a running tool in a
+few words, and a tool written with raw arguments (an MCP tool's `{"seconds": 30}`) by its name alone, as its box does:
+"main working on mcp__srv__slow_tool · $0.00". A built-in tool reads as before ("Bash ls -la").
+
 ### The MODEL block
 
-A helper's sheet and main's start their body with one row: "MODEL" and a button "Change" (a group's sheet has none).
+A helper's sheet and main's start their body with one row: "MODEL" and a button "Change". A group's sheet has the row
+of the helper you chose in it: "MODEL of {name}" and "Change"; choosing another row closes the block again, and the row
+then names that helper. A group whose helpers have all finished as done (it folds to its head) lists every helper as a
+row, each "ended at {hh:mm:ss}", so a helper of a folded group can still be given a model from its group's sheet.
 The block is closed until you press "Change": only then does Studio read the helper's agent ("Reading this helper's
 agent..." until the answer comes). The button then reads "Close", which folds the block again; what it read stays while
 the sheet is open, and a sheet opened anew starts closed.
