@@ -37,6 +37,8 @@ PHASE = {"typing": "writing", "tool": "tool", "waiting": "waiting"}
 def money(v: Optional[float]) -> str:
     if v is None:
         return "unknown"
+    if 0 < v < 0.00005:
+        return "<$0.0001"  # 3.6.0.15: no amount above zero reads as zero, as Studio's cost() writes it
     return f"${v:.2f}" if v >= 1 else f"${v:.4f}"  # Studio's cost() (orchestra/format.ts)
 
 

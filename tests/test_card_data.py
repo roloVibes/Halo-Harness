@@ -384,6 +384,17 @@ def _task_fits(got: str, want: str, user: str, machine: str, home_firsts: str = 
 
 
 @test
+def test_money_writes_no_amount_above_zero_as_zero(ctx: Ctx):
+    """3.6.0.15 (F5): the card's `money` mirrors Studio's `cost()` (routes/orchestra/format.ts), its smallest case too."""
+    from halo_harness.live.card_data import money
+    got = [money(v) for v in (None, 0, 0.00001, 0.00005, 0.0024, 0.5, 1, 12.5)]
+    want = ["unknown", "$0.0000", "<$0.0001", "$0.0001", "$0.0024", "$0.5000", "$1.00", "$12.50"]
+    ctx.check(f"money over the small amounts, got {got}", got == want)
+    src = (ROOT / "halo_harness/studio/ui/src/routes/orchestra/format.ts").read_text(encoding="utf-8")
+    ctx.check("Studio's cost() writes the same smallest case", '"<$0.0001"' in src and "0.00005" in src)
+
+
+@test
 def test_the_task_check_accepts_exactly_the_documented_cuts(ctx: Ctx):
     """The judge of `_private` itself, fed every landing place of the cut (it used to refuse a cut one or two letters
     into the name, so the test went red whenever a temp folder's length put the cut there)."""

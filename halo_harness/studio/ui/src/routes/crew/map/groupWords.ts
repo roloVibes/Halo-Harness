@@ -54,7 +54,7 @@ export function doneLine(g: AutoGroup): string {
   const start = Math.min(...g.members.map((m) => m.started || Infinity));
   const end = Math.max(...g.members.map((m) => m.ended || m.started || 0));
   const t = isFinite(start) && end > start ? end - start : 0;
-  return `${agents(g.members.length)} · all done · ${money(cost(g))} · ${span(t)}`;
+  return `${agents(g.members.length)} · all done · ${money(cost(g))} · ${span(Math.round(t))}`; // an ended run rounds, as a member's "done in"
 }
 
 /** The head's second line: the all-done form when every member is done, else the counts. */
@@ -105,7 +105,7 @@ export function g3Lines(g: AutoGroup): string[] {
  *  and, 3.6.0.13 L2a, what it does now in whole words ("Now: ..."; `nowWords` "" leaves it out). */
 export function g4Lines(m: Member, now = 0, nowWords = ""): string[] {
   const end = m.ended || (m.state === "working" || m.state === "waiting" ? now : 0);
-  const time = m.started && end >= m.started ? span(end - m.started) : "";
+  const time = m.started && end >= m.started ? span(m.ended ? Math.round(end - m.started) : end - m.started) : "";
   return [m.description || m.who, m.model ? `${m.who} on ${m.model}` : m.who, whyThisModel(m.reason),
     [memberWord(m), money(m.cost), time].filter(Boolean).join(" · "),
     !nowWords ? "" : m.raw === "queued" ? `Now: ${nowWords}: it starts when a running helper ends.` : `Now: ${nowWords}`].filter((x) => x !== "");
