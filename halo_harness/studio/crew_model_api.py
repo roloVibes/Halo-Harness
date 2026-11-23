@@ -342,6 +342,8 @@ def post_agent_model_undo(req):
         line = NOT_UNDONE.format(name=name)
         return 409, {"error": line, "line": line}
     if tok.get("made") is True:
+        if scope != "yours":  # a pick makes an agent of YOURS: no other scope's file is checked while yours is deleted
+            return 422, {"error": NOT_AN_UNDO}
         st, out = crew_api.delete_agent(_sub(req, name, None, cwd))
         if st != 200:
             return st, {**out, "line": str(out.get("error") or "")}
@@ -352,7 +354,7 @@ def post_agent_model_undo(req):
     st, out = crew_api.put_agent(_sub(req, name, {"agent": old}, cwd))
     if st != 200:
         error = str(out.get("error") or "")
-        return st, {**out, "line": NOT_SAVED.format(error=error.rstrip("."))}
+        return st, {**out, "line": f"Not undone: {error.rstrip('.')}."}  # Undo's own head, as the page's fallback
     return 200, {"line": PUT_BACK.format(name=name, old=str(old.get("model") or "auto"))}
 
 

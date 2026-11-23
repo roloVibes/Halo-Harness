@@ -113,7 +113,7 @@ def _slash_answer(result, conn) -> dict:
         return {"output": "" if result is None else str(result), "ran": True}
     out = {"output": str(result.get("output") or ""), "ran": result.get("ran") is not False}
     out["terminal"] = True  # 3.6.0.15 OP2 (O2-3): a terminal's own table answered (Studio's pick says "as /model")
-    then =result.get("then")
+    then = result.get("then")
     if callable(then):
         if conn is not None:
             conn.then = then

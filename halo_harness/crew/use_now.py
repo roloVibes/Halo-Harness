@@ -109,11 +109,13 @@ def put(session, body: dict, scope: str, sha256: str, *, note: bool = True) -> "
 
 
 def gone(session, name: str, scope: str) -> bool:
+    if not can_take(session):
+        return False  # a session that takes nothing (a map of his, roles off) is left as it started
     runtime = session.agent_runtime
     with runtime.lock:
         pending = (getattr(session, "_kinds_pending", None) or {}).get(name)
         cur = runtime.agents.get(name)
-        if not (pending and pending.get("op") == "put") and \
+        if not (pending and pending.get("op") == "put" and pending.get("scope") == scope) and \
                 (cur is None or str(getattr(cur, "source", "") or "") != f"crew:{scope}"):
             return False  # the deleted file is not what this session runs
         _queue(session, name, {"op": "gone", "scope": scope})
@@ -126,6 +128,8 @@ def _changed(session, name: str) -> bool:
 
 
 def back(session, name: str) -> bool:
+    if not can_take(session):
+        return False
     with session.agent_runtime.lock:
         pending = (getattr(session, "_kinds_pending", None) or {}).get(name)
         if not (_changed(session, name) or (pending and pending.get("op") == "put")):

@@ -446,6 +446,46 @@ def _fresh_home(home: Path) -> None:
     (home / "proj").mkdir()
 
 
+@test
+def test_a_session_that_takes_nothing_loses_nothing(ctx: Ctx):
+    """3.6.0.15 (the review's must): a session that is not on Auto (a map of his, roles off) takes no put, and a
+    delete in Studio or a Builder undo takes nothing out of it either: its agent stays, nothing is queued and main
+    is told nothing. A delete of yours does not cancel a project's save that waits for the take."""
+    def run(home):
+        from halo_harness.crew import kinds_note, store, use_now
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.providers.config import default_state_dir
+        for label in ("a map of his", "roles off"):
+            s = _session(home, agents={"sorter": _spec(_body(), "crew:yours")})
+            if label == "roles off":
+                s.team_control = None
+            else:
+                state = Path(default_state_dir())
+                raw = store.read(store.SHIPPED / "maps" / "auto.yaml")
+                mine = state / "crew" / "maps" / "shop.yaml"
+                mine.parent.mkdir(parents=True, exist_ok=True)
+                store.write_text(mine, store.dump({"format": raw["format"], "name": "shop",
+                                                   "main": raw.get("main") or {"agent": "main"},
+                                                   "boxes": raw["boxes"], "lines": raw["lines"]}))
+                s.team_control = control_for(compile_map("shop", cwd=home / "proj", state_dir=state),
+                                             cwd=home / "proj", state_dir=state)
+            ctx.check(f"{label}: the session takes nothing", use_now.can_take(s) is False)
+            ctx.check(f"{label}: a delete queues nothing, got {use_now.gone(s, 'sorter', 'yours')}",
+                      use_now.gone(s, "sorter", "yours") is False)
+            ctx.check(f"{label}: a Builder undo queues nothing", use_now.back(s, "sorter") is False)
+            said = kinds_note.step(s)
+            ctx.check(f"{label}: main is told nothing and the agent stays, got {said!r}",
+                      not said and "sorter" in s.agent_runtime.agents and not getattr(s, "_kinds_pending", None))
+        s = _session(home)
+        took = use_now.put(s, _body(), "project", SHA1)
+        ctx.check(f"on Auto a project's save waits for the take, got {took}", took == (True, ""))
+        ctx.check("a delete of YOURS does not cancel it", use_now.gone(s, "sorter", "yours") is False)
+        use_now.take(s)
+        ctx.check("the project's agent is in the session after the take", "sorter" in s.agent_runtime.agents)
+    _scoped(run)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

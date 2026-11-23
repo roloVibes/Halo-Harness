@@ -66,7 +66,7 @@ def body_for(srow: dict, arow: dict, cwd=None, also=None, kind: str = "MADE-UP",
         built = _built(kind, facts or {}, srow, arow, cwd, also)
         if built is not None:
             return built
-    task =str(arow.get("task") or "").strip()
+    task = str(arow.get("task") or "").strip()
     first = next((x.strip() for x in task.splitlines() if x.strip()), "") or "a task main handed it"
     main = _main_of(str((arow.get("crew") or {}).get("map") or srow.get("map") or ""), cwd)
     folders = [cwd] + ([also] if also is not None and str(also) != str(cwd) else [])  # the session's, then Studio's
