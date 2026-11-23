@@ -17,7 +17,8 @@ MADE-UP (one main made up for its task), PACK (a pack's), CLAUDE (a Claude Code 
 agent, whose file was deleted after the helper started). `name` is the name a pick writes (never a built-in's), `model`
 what the picker shows ("" = Auto), `first` ROUTED's state line ("" for the rest), `line` what a pick does for THIS
 kind, letter for letter, in its "now" form when the session's row says `use_now` (package UN: an agent put to it is
-taken now) else in its "later" form; `can` False where nothing can be picked (PACK, CLAUDE, GONE). The facts are the session's row and the helper's (`spawn.source`, `spawn.routed`: O2-1). A read: not owner-only.
+taken now) else in its "later" form; `can` False where nothing can be picked (PACK, CLAUDE, GONE). The facts are the
+session's row and the helper's (`spawn.source`, `spawn.routed`: O2-1). A read: not owner-only.
 No answer carries a scope or the word that names the shipped set.
 """
 

@@ -30,7 +30,11 @@ export function useModel(sid: string, aid: string): { got: ModelGot | null; ask:
     live.current = ctl;
     setGot("reading");
     api.get<ModelAnswer>("crew/agent-model", { session: sid, agent: aid }, ctl.signal)
-      .then((r) => ctl.signal.aborted || setGot(r), (e) => ctl.signal.aborted || setGot({ error: e instanceof Error ? e.message : String(e) }));
+      .then((r) => ctl.signal.aborted || setGot(r), (e) => {
+        if (ctl.signal.aborted) return;
+        live.current = null; // a read that failed is asked again at the next open (Close, then Change)
+        setGot({ error: e instanceof Error ? e.message : String(e) });
+      });
   };
   return { got, ask };
 }
