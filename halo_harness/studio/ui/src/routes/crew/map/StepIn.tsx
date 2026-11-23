@@ -90,7 +90,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const aid = modelFor(t.id, chosen?.aid || null); // the MODEL block: a member's, main's, a group's CHOSEN row's (O2-9)
   const met = useRef<string[]>([]); // every helper the block named on this card: each keeps its own while the card lives
   if (aid && !met.current.includes(aid)) met.current.push(aid);
-  const m =groups?.flatMap((g) => g.members).find((x) => x.aid === (own || chosen?.aid));
+  const m = groups?.flatMap((g) => g.members).find((x) => x.aid === (own || chosen?.aid));
   const state = own && m ? [memberLine(m), memberState(m)].join(" · ") : t.text;
   const nw = useNowOf(m ? m.aid : chosen?.aid || "", m ? m.raw : String(a?.state || ""), m ? m.started : Number(a?.since) || 0, m ? m.ended : 0);
   const head = sheet.width ? sheetHead(sheet.width, t.text, nw) : null; // its width at open: the head's rows are held from it

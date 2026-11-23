@@ -14,6 +14,7 @@
 import type { LiveNode } from "./liveModel";
 import type { OpenTool } from "../../shared/liveFeed";
 import type { LiveLine } from "../../shared/liveTypes";
+import { toolWords } from "../map/truth"; // 3.6.0.15 F12: one rule: a tool with raw JSON arguments is named alone
 
 export type WaitKind = "you" | "agent" | "tool" | "model" | "nothing";
 /** `tool` (3.6.0.13 L1): on a tool's or an agent's wait, the tool's own name (the feed's, else the row's `current` up to
@@ -42,7 +43,6 @@ export function recentOf(lines: LiveLine[], keys: Set<string>): Map<string, Rece
 }
 
 /** "Bash: pytest -q" -> "Bash pytest -q" (a row's `current` in words). */
-const toolWords = (cur: string) => cur.replace(/^([A-Za-z_]+):\s*/, "$1 ").trim();
 
 export function waitOf(n: LiveNode, open: OpenTool | null, r: Recent | undefined, kids: LiveNode[], now: number): Wait | null {
   if (!LIVE.includes(n.state) || n.virtual || n.kind || n.run) return null;
