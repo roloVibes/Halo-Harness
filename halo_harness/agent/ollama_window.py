@@ -136,7 +136,7 @@ def first_refused_line(session, prompt_tokens=None) -> Optional[str]:
     tokens = prompt_tokens if isinstance(prompt_tokens, int) and not isinstance(prompt_tokens, bool) \
         and prompt_tokens > 0 else prompt_part(last.get("estimate") or 1)
     return (f"{host_name} refused the first request ({fmt_tokens(tokens)} tokens) and its window cannot grow: "
-            "nothing earlier to compact, stopped")
+            "nothing earlier to compact")
 
 
 def _session_spill_cap(session, host, ref) -> Optional[int]:
@@ -234,7 +234,7 @@ def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handle
         from halo_harness.providers.ollama_prompt import stands_line
         if not answered:
             return "error", None, (f"{host_name} trimmed the first request ({fmt_tokens(prompt_part(estimate or 1))} "
-                                   "tokens) and its window cannot grow: nothing earlier to compact, stopped")
+                                   "tokens) and its window cannot grow: nothing earlier to compact")
         return "stands", None, stands_line(host_name, seen, estimate, window=current_num_ctx, reserve=reserve,
                                            cut_at=cut_at)
     if st["trim_turn"] == turn_no:

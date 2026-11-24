@@ -940,9 +940,9 @@ def test_a_first_request_judged_to_fit_then_refused_by_the_server_is_never_compa
                   "compact" not in out.replace("nothing earlier to compact", "") and "summarises" not in out)
         said = [ln.replace("\x1b[2m", "").replace("\x1b[0m", "").strip() for ln in out.splitlines()
                 if "nothing earlier to compact" in ln and ln.lstrip("\x1b[2m").startswith("◼")]  # the stop line
-        ctx.check(f"one line: refused, its window cannot grow, nothing earlier to compact, stopped; got {said}",
+        ctx.check(f"one line: refused, its window cannot grow, nothing earlier to compact; got {said}",
                   len(said) == 1 and said[0].startswith("◼ stopped: gpu-box refused the first request (")
-                  and said[0].endswith("tokens) and its window cannot grow: nothing earlier to compact, stopped"))
+                  and said[0].endswith("tokens) and its window cannot grow: nothing earlier to compact"))
         ctx.check(f"the turn stopped with no answer: exit 1, one turn, got {rc} {ended}", rc == 1 and ended == 1)
     finally:
         fake.stop()
