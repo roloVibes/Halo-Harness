@@ -276,7 +276,7 @@ def test_halo_local_prompt_counts_the_other_tool_servers_from_halos_cache(ctx: C
         text = out.getvalue()
         ctx.check(f"the two lines word for word, got {text[:600]!r}", rc == 0 and
                   "other tool servers: 2, 120 tools (from Halo's cache of their tool lists; none was started)" in text
-                  and "not counted: the tools of 1 other tool servers (gpu-box-tools); a session's /status counts them"
+                  and "not counted: the tools of 1 other tool server (gpu-box-tools); a session's /status counts them"
                   in text)
         out = io.StringIO()
         with _In(proj), redirect_stdout(out):

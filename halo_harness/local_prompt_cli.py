@@ -34,7 +34,8 @@ def render(m: dict) -> str:
         lines.append(f"other tool servers: {others['servers']}, {others['tools']} tools (from Halo's cache of their "
                      f"tool lists; none was started)")
     if others.get("not_counted"):
-        lines.append(f"not counted: the tools of {len(others['not_counted'])} other tool servers "
+        n = len(others["not_counted"])  # "1 other tool server", "2 other tool servers"
+        lines.append(f"not counted: the tools of {n} other tool server{'' if n == 1 else 's'} "
                      f"({', '.join(others['not_counted'])}); a session's /status counts them")
     lines.append("")
     turn_start = m.get("turn_start") or []
