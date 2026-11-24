@@ -242,8 +242,10 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         fits = _pos(t.get("fits"))
         cap, cap_source = max(_below(spill), fits if fits and fits < spill else 0), "known to spill"
     many = own and many_turns(session)
-    kept = _pos((st.get("spill_cap") or {}).get(key)) if many else None
-    if kept and cap > kept:  # 3.6.0.19 LM: a session of more turns stays at the window a spill lowered it to
+    # 3.6.0.19 LM: a session of more turns stays at the window a spill lowered it to, its helper calls on the same
+    # model too (its compaction): a call larger than it never reloads the model onto the spilling window and back
+    kept = _pos((st.get("spill_cap") or {}).get(key)) if many_turns(session) else None
+    if kept and cap > kept:
         cap, cap_source = kept, "known to spill"
     st.setdefault("cap", {})[key] = cap
     _raw, prompt0 = prompt_estimate(state_dir, host.url, ref.model, *request)
@@ -310,7 +312,8 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         return cap, cap_source, False
 
     window, source, hold = _choose()
-    if recent and recent > window and _ok(recent) and not (many and cap_source == "known to spill" and recent > cap):
+    if recent and recent > window and _ok(recent) \
+            and not ((kept or (many and cap_source == "known to spill")) and recent > cap):
         # F5: another call of this process asked for a larger window a moment ago (it may still be loading): asking
         # for less would reload the model back and forth
         window, source, hold = recent, "asked here", True

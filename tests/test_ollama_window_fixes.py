@@ -439,19 +439,26 @@ def test_a_session_under_the_spill_is_sent_the_window_the_line_names_every_turn(
     """3.6.0.19 LM: a session of more turns (stream-json) on the spilling fake preloaded at 32,768, its first turn
     over half of 16,384 (Halo's own prompt): every turn is sent the cap the spill lowered (16,384), one load there,
     so "reloaded at 16k" is true; the reply's room is said once, sized by 16,384 (it was 32,768 on every turn). A
-    helper call of the session (its compaction) leaves the session's cap as it is."""
+    helper call of the session (its compaction) leaves the session's cap as it is. The fourth turn (about 3,500
+    tokens more) takes the session past 80 % of 16,384: its compaction's calls are sent 16,384 too (they were sent
+    32,768, a reload onto the spilling window and back), the conversation cut to fit that window."""
     fake = _spilling_fake()
     try:
         fh = L._home(fake)
         fake.preload(MODEL, 32768)
         turns = [_user("Reply with exactly one word: ready"),
                  _user("Context follows. " + "word " * int(4000 * 3.5 / 5) + "Reply with exactly one word: ready"),
-                 _user("Reply with exactly one word: done")]
-        rc, ended, out = _session_said(fh, fake, turns)
-        ctx.check(f"a three-turn session: exit 0 and three turns ended, got {rc} {ended}", rc == 0 and ended == 3)
-        sent = [o.get("num_ctx") for o in _opts(fake)]
-        # three turns (and, as the session grows past 80 % of 16,384, its compaction's calls): every one at 16,384
-        ctx.check(f"every call is sent 16,384, got {sent}", len(sent) >= 3 and all(n == 16384 for n in sent))
+                 _user("Reply with exactly one word: done"),
+                 _user("More context. " + "token " * int(3500 * 3.5 / 6) + "Reply with exactly one word: fine")]
+        rc, ended, out = _session_said(fh, fake, turns, timeout=400)
+        ctx.check(f"a four-turn session: exit 0 and four turns ended, got {rc} {ended}", rc == 0 and ended == 4)
+        chats = [r["body"] or {} for r in fake.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
+        sent = [(b.get("options") or {}).get("num_ctx") for b in chats]
+        cut = [ln.strip() for ln in out.splitlines() if "it summarises a transcript cut to fit" in ln]
+        ctx.check(f"the session compacted within 16,384 and says so, got {cut} {out[-900:]!r}",
+                  bool(cut) and all("window (16,384)" in ln for ln in cut))
+        # four turns and, as the session grows past 80 % of 16,384, its compaction's calls: every one at 16,384
+        ctx.check(f"every call is sent 16,384, got {sent}", len(sent) >= 4 and all(n == 16384 for n in sent))
         ctx.check(f"one load, at 16,384, got {fake.loads}", [x["num_ctx"] for x in fake.loads] == [16384])
         ctx.check(f"the line names 16k, got {out[-900:]!r}", "reloaded at 16k, the largest known to fit the card" in out)
         ctx.check(f"the reply's room is said once, sized by 16,384, got {out[-900:]!r}",

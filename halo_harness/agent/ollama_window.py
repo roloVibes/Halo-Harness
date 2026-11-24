@@ -75,13 +75,26 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
 
 
 def _session_spill_cap(session, host, ref) -> Optional[int]:
-    """3.6.0.19 LM: the cap a spill lowered, for the main call of a session of more turns (ollama_window_truth.
-    start_window keeps it every turn): the prompt floor never raises the window past it; a one-shot is unchanged."""
-    from halo_harness.agent.ollama_window_truth import is_main_call, many_turns
+    """3.6.0.19 LM: the cap a spill lowered, for every call of a session of more turns on that model (its main call
+    and its helper calls, its compaction: ollama_window_truth.start_window keeps it every turn): the prompt floor never
+    raises the window past it; a one-shot is unchanged."""
+    from halo_harness.agent.ollama_window_truth import many_turns
     from halo_harness.agent.reply_room import _spill_cap
-    if not (is_main_call(session, ref) and many_turns(session)):
+    if not many_turns(session):
         return None
     return _spill_cap(session, host, ref)
+
+
+def session_spill_window(session, ref) -> Optional[int]:
+    """3.6.0.19 LM: the window a spill holds this session of more turns at, when `ref` is the model its last Ollama
+    call ran on (compaction's summary call is checked against it: model_switch_paths.summary_window); else None."""
+    from halo_harness.agent.ollama_window_truth import many_turns
+    st = getattr(session, "_ollama_window_state", None) or {}
+    last = st.get("last") or {}
+    if not (many_turns(session) and last.get("model") and last.get("model") == getattr(ref, "model", None)):
+        return None
+    got = (st.get("spill_cap") or {}).get((last.get("host_url"), last.get("model")))
+    return got if isinstance(got, int) and not isinstance(got, bool) and got > 0 else None
 
 
 def last_estimate(session) -> Optional[int]:

@@ -114,4 +114,12 @@ def summary_window(session, system_text: str, messages, tools, *, always: bool =
     except Exception:
         w = {"tokens": None}
     session._switch_fitted_for = getattr(ref, "model", None)
-    return w.get("tokens"), est
+    tokens = w.get("tokens")
+    try:  # 3.6.0.19 LM: a session a spill holds at a smaller window summarises within that window (it is sent it)
+        from halo_harness.agent.ollama_window import session_spill_window
+        held = session_spill_window(session, ref)
+    except Exception:
+        held = None
+    if held and not (isinstance(tokens, int) and 0 < tokens <= held):
+        tokens = held
+    return tokens, est
