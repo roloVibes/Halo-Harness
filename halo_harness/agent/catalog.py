@@ -32,6 +32,29 @@ DEFAULT_DATABRICKS_CAP = 32
 DEFAULT_OPENROUTER_CAP = 128
 DEFERRED_LRU_MAX = 100  # D5: "LRU of 100 loaded deferred tools"
 
+# the deferred tools' block a new session, /clear and a compaction log (agent/loop.py), a measure too
+# (agent/prompt_measure.py); a lean request's wire copy leaves it out (agent/prompt_wire.py, 3.6.0.20 P)
+DEFERRED_HEAD = ("The following deferred tools are now available via ToolSearch. Their schemas "
+                 "are NOT loaded -- calling them directly will fail with InputValidationError. Use "
+                 "ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before "
+                 "calling them:\n")
+
+
+def deferred_reminder(names) -> str:
+    """The block of the deferred tools' names (`names` as given, one a line, after DEFERRED_HEAD)."""
+    return DEFERRED_HEAD + "\n".join(names)
+
+
+def deferred_counts(text: str) -> "dict[str, int]":
+    """{a server's name as its tools carry it: its tool count} of one deferred tools' block (its `mcp__` names)."""
+    from halo_harness.mcp.manager import split_mcp_tool_name
+    out: dict = {}
+    for name in (text or "")[len(DEFERRED_HEAD):].splitlines():
+        parts = split_mcp_tool_name(name.strip())
+        if parts:
+            out[parts[0]] = out.get(parts[0], 0) + 1
+    return out
+
 # ---- finding 12: ToolSearch keyword-search ranking -------------------------
 # Old behaviour: `haystack.count(t)` over "name description" -- a raw
 # substring COUNT, so a long, wordy description that happens to repeat a

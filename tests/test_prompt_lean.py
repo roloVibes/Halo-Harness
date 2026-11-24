@@ -98,6 +98,28 @@ def test_the_memory_cap_keeps_the_newest_and_says_the_cut(ctx: Ctx):
     ctx.check("under the cap nothing changes", cap_memory(text, 100000) == text)
 
 
+@test
+def test_a_lean_server_line_is_its_first_sentence(ctx: Ctx):
+    """3.6.0.20 P entry 1: a server's line in the lean system text is its first sentence, at most 160 characters
+    (prompt_lean._sentence, which ends a cut with "..."); a server with no words keeps its line; the full text keeps
+    the whole line."""
+    from halo_harness.agent.prompt import build_system_prompt
+    from halo_harness.agent.prompt_lean_system import lean_system_text
+    long_line = "Keeps the team's notes " + "and links them to every page you open in it " * 20
+    plain = "Notes. They are kept for you."
+    servers = [{"name": "notes", "instructions": long_line + "\nSecond line."}, {"name": "kb", "instructions": ""},
+               {"name": "plain", "instructions": plain}]
+    full = build_system_prompt(model_label="ol:example-model:30b", cwd="/work", family="generic", mcp_servers=servers,
+                               tool_definitions=[{"name": "Read", "description": "Reads a file."}])
+    lean = lean_system_text(_session("ol:example-model:30b", 16384), full)
+    rows = {ln.split("`")[1]: ln for ln in lean.splitlines() if ln.startswith("  - `")}
+    ctx.check(f"the long line cut at 160 characters, got {len(rows.get('notes', ''))}: {rows.get('notes', '')[-40:]!r}",
+              rows.get("notes", "").endswith("...") and len(rows["notes"].split("`: ", 1)[1]) <= 160)
+    ctx.check(f"a first sentence kept whole, got {rows.get('plain')!r}", rows.get("plain") == "  - `plain`: Notes.")
+    ctx.check(f"no words: today's line, got {rows.get('kb')!r}", rows.get("kb") == "  - `kb`: (no server-provided description)")
+    ctx.check("the full text keeps the whole line", f"  - `notes`: {long_line.strip()}" in full)
+
+
 def _tools(names) -> list:
     return [{"name": n, "description": f"{n} tool", "input_schema": {"type": "object"}} for n in names]
 

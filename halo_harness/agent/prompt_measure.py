@@ -105,9 +105,68 @@ def _builder_wanted(settings, cwd, one_shot: bool) -> bool:
     return wanted(bare=False, print_mode=one_shot, deny_rules=deny)
 
 
+def other_servers(ref, cwd, settings, registry) -> dict:
+    """3.6.0.20 P: the other tool servers a session in `cwd` has (mcp_setup.server_configs, as a session someone answers
+    reads them), each counted from Halo's own cache of its tool lists (mcp/tools_cache.py) when the cache was made for
+    its settings now; nothing is started (never build_manager: its manager makes a thread). Their tools pass the one
+    filter (catalog.mcp_survivors) and the ones a session preloads (`alwaysLoad`, `mcpPreload`) join `registry` as a
+    session's do (headless.build_session). Returns {servers: [{name, instructions}], tools: N, deferred: [names],
+    not_counted: [names]}."""
+    out = {"servers": [], "tools": 0, "deferred": [], "not_counted": []}
+    from halo_harness.mcp import available
+    if not available():
+        return out
+    from halo_harness.agent.catalog import host_cap, mcp_survivors, select_preload
+    from halo_harness.config.claude_json import is_trusted, load_claude_json
+    from halo_harness.mcp import tools_cache
+    from halo_harness.mcp.manager import mcp_tool_name
+    from halo_harness.mcp_setup import server_configs
+    claude_json = load_claude_json()
+    trusted = is_trusted(cwd, claude_json)
+    configs = server_configs(cwd=cwd, claude_json=claude_json, settings=settings, trusted=trusted)[0]
+    triples = []
+    for name, cfg in configs.items():
+        if cfg.disabled_reason is not None or cfg.pending_approval:
+            continue  # a session starts neither (mcp/manager.McpServerHandle)
+        entry = tools_cache.read_cache(name)
+        if entry is None or entry.get("hash") != tools_cache.config_cache_key(cfg):
+            out["not_counted"].append(name)
+            continue
+        out["servers"].append({"name": name, "instructions": entry.get("instructions")})
+        triples += [(name, mcp_tool_name(name, d.get("name", "")), tools_cache.tool_from_dict(d))
+                    for d in entry.get("tools") or []]
+    triples.sort(key=lambda t: t[1])
+    try:
+        from halo_harness.permissions import build_rules_from_settings
+        deny = build_rules_from_settings(settings, cwd=Path(cwd))[0]
+    except Exception:
+        deny = []
+    survivors = mcp_survivors(triples, deny_rules=deny)
+    try:
+        from halo_harness.providers.ollama_hw import resolve_context_decision
+        tools_max = resolve_context_decision(ref).tools_max if ref.provider == "ollama" else None
+    except Exception:
+        tools_max = None
+    from halo_harness.theme import load_config as load_rolo_config
+    preload, deferred = select_preload(
+        survivors, preload_names=set(load_rolo_config().get("mcpPreload") or []),
+        always_load_servers={n for n, cfg in configs.items() if getattr(cfg, "always_load", False)},
+        cap_budget=max(0, host_cap(ref.provider, tools_max) - len(registry.names())))
+    if preload:
+        from halo_harness.providers.profiles import model_family
+        from halo_harness.tools.mcp_tool import McpTool
+        for server, _wire, sdk_tool in preload:
+            registry.add_tool(McpTool(server, sdk_tool, None, family=model_family(ref.model)))
+    if deferred and registry.get("ToolSearch") is None:
+        from halo_harness.tools.tool_search import ToolSearchTool
+        registry.add_tool(ToolSearchTool())
+    out["tools"], out["deferred"] = len(survivors), sorted(deferred)
+    return out
+
+
 def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
                 control: Optional[str] = None, builder: Optional[bool] = None, one_shot: bool = False,
-                helpers_off: bool = False):
+                helpers_off: bool = False, servers: bool = False):
     """The session a measure runs on: a NEW top session in `cwd` (3.6.0.10 M1b): the built-in tools of `platform`,
     the Builder when `builder` (as headless.build_session adds it for a session someone answers; None, 3.6.0.19 LM:
     the session a person really gets, by tools/builder_tool.wanted -- a one-shot is print mode), and the state a
@@ -131,6 +190,12 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
         from halo_harness.tools.builder_tool import BuilderTool
         registry.add_tool(BuilderTool())
         ctx = SessionContext(cwd=cwd, model_label=ref.raw, model_family=model_family(ref.model), tool_registry=registry)
+    others = None
+    if servers:  # 3.6.0.20 P: `halo local prompt`: the other tool servers, from Halo's cache of their tool lists
+        others = other_servers(ref, cwd, ctx.settings, registry)
+        if others["servers"]:  # the system text names them; a preloaded tool or ToolSearch joined the registry
+            ctx = SessionContext(cwd=cwd, model_label=ref.raw, model_family=model_family(ref.model),
+                                 tool_registry=registry, mcp_servers=others["servers"])
     window = window or _window_for_ref(ref, getattr(ctx.settings, "effective_env", None))
     session = SimpleNamespace(model_ref=ref, model_profile=SimpleNamespace(context_tokens=window), log=_Nodes(),
                               session_context=ctx, tool_registry=registry, state_dir=bridge_home(),
@@ -143,6 +208,8 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
         session.many_turns = False
     if helpers_off:
         session._helpers_off = True
+    if others is not None:
+        session._other_servers = others
     return new_session_state(session, cwd=cwd, control=control)
 
 
@@ -170,6 +237,10 @@ def _first_request(ref, **kw) -> tuple:
                        ("environment", ctx.environment_snapshot_text(ref.raw)), ("roster", roster)):
         if snap:
             log.add(type="snapshot", kind=kind, content=[{"type": "text", "text": snap}])
+    deferred = (getattr(session, "_other_servers", None) or {}).get("deferred")
+    if deferred:  # 3.6.0.20 P: the block a new session logs (agent/loop.py), the same text
+        from halo_harness.agent.catalog import deferred_reminder
+        log.add(type="snapshot", kind="deferred_tools", content=[{"type": "text", "text": deferred_reminder(deferred)}])
     log.add(type="user", content=[{"type": "text", "text": text}])
     if mode:
         from halo_harness.agent.mode_notice import turn_line
@@ -183,42 +254,57 @@ def _first_request(ref, **kw) -> tuple:
 
 def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
                text: str = "hi", control: Optional[str] = None, builder: Optional[bool] = None, one_shot: bool = False,
-               mode: Optional[str] = None) -> dict:
+               mode: Optional[str] = None, servers: bool = False) -> dict:
     """A new session's first request weighed (nothing is sent). `mode`: the permission mode its turn starts in; None
     (3.6.0.15 F9) the mode a new session in `cwd` starts in (crew/map_session.start on configured_mode, the rule
     start_modes uses), so the mode line and a local main's reminder on Auto are weighed as they are sent; the result's
-    `turn_start` names them, a row each."""
-    from halo_harness.agent import prompt_lean as L
-    from halo_harness.agent.prompt_composition import compose, composition_line, known_texts
-    from halo_harness.agent.prompt_wire import placement_for
-    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted
-    from halo_harness.providers.ollama_prompt import window_for
-    from halo_harness.providers.ollama_wire_estimate import wire_estimate
+    `turn_start` names them, a row each. `servers` (3.6.0.20 P, `halo local prompt`): the other tool servers counted
+    from Halo's cache of their tool lists (other_servers); the result's `other_servers` says {servers, tools,
+    not_counted}."""
     if mode is None:
         from halo_harness.crew.map_session import configured_mode, start
         where = Path(cwd or Path.cwd())
         mode = start(control, cwd=where, resolved=configured_mode(where))[0]
     session, full, system_text, messages, sent = _first_request(
         ref, window=window, platform=platform, cwd=cwd, control=control, builder=builder, one_shot=one_shot, text=text,
-        mode=mode)
-    ref, plat, window = session.model_ref, session._measure_platform, session._measure_window
+        mode=mode, servers=servers)
+    out = _measured(session, full, (system_text, messages, sent), session._measure_window,
+                    list(getattr(session, "_diet_dropped", None) or []))
+    from halo_harness.agent.helpers_words import remind
+    from halo_harness.agent.mode_notice import mode_line
+    from halo_harness.agent.prompt_composition import tokens_of
+    out["turn_start"] = [{"name": name, "tokens": tokens_of(said), "text": said}
+                         for name, said in (("mode line", mode_line(mode)), ("reminder", remind(session))) if said]
+    others = getattr(session, "_other_servers", None)
+    if others is not None:
+        out["other_servers"] = {"servers": len(others["servers"]), "tools": others["tools"],
+                                "not_counted": list(others["not_counted"])}
+    return out
+
+
+def _measured(session, full: list, request: tuple, window: Optional[int], dropped: list) -> dict:
+    """The Measure of one shaped request (system, messages, the tools sent) of `session` for `window` (first_turn; a
+    live session's own first request, for_session)."""
+    from halo_harness.agent import prompt_lean as L
+    from halo_harness.agent.prompt_composition import compose, composition_line, known_texts, tokens_of
+    from halo_harness.agent.prompt_wire import placement_for
+    from halo_harness.agent.reply_room import PROVIDER_DEFAULT, fitted
+    from halo_harness.providers.ollama_prompt import window_for
+    from halo_harness.providers.ollama_wire_estimate import wire_estimate
+    system_text, messages, sent = request[0], request[1], list(request[2] or [])
+    ref = session.model_ref
+    plat = getattr(session, "_measure_platform", None) or sys.platform
     comp = compose(session, messages, sent, system_text, placement=placement_for(session), known=known_texts(session))
     prompt = wire_estimate(system_text, messages, sent) - 1024  # the reply's room counted below, not here
     named = comp["system"]["tokens"] + comp["user"]["tokens"]  # the wire's total; its JSON framing in history
     comp = {**comp, "total": prompt, "history": {**comp["history"], "tokens": max(0, prompt - named)}}
     reply, _w, _sized = fitted(window, prompt, PROVIDER_DEFAULT, first=True)
     sent_window = window_for(prompt + reply, base=window, base_source="measure").num_ctx if window else None
-    dropped = list(getattr(session, "_diet_dropped", None) or [])
-    from halo_harness.agent.helpers_words import remind
-    from halo_harness.agent.mode_notice import mode_line
-    from halo_harness.agent.prompt_composition import tokens_of
-    turn_start = [{"name": name, "tokens": tokens_of(said), "text": said}
-                  for name, said in (("mode line", mode_line(mode)), ("reminder", remind(session))) if said]
     return {"ref": ref.raw, "platform": plat, "lean": L.active(session), "window": window, "sent_window": sent_window,
             "reply_room": reply, "prompt": prompt, "total": prompt + reply, "system_message": tokens_of(system_text),
             "share": round(100.0 * prompt / sent_window, 1) if sent_window else None, "composition": comp,
             "line": composition_line(comp), "tools": _rows(full, sent, dropped, _why_kept(session, sent)),
-            "left_out": dropped, "turn_start": turn_start}
+            "left_out": dropped}
 
 
 MEASURE_HOST = "http://measure.invalid"  # a name no call reaches: the one-shot's ask is measured, never sent
@@ -292,23 +378,31 @@ def _local(ref) -> bool:
 
 
 def for_session(session) -> Optional[dict]:
-    """The session's own model measured once per window (`/status`), None for a cloud model or on a failure."""
+    """`/status`: the session's OWN first request (3.6.0.20 P), None for a cloud model or on a failure: the one its
+    conversation's first main request was shaped to (prompt_wire.first_turn_seen: kept by `_shape`; after /clear or a
+    compaction the new conversation's), else (no request yet, or none at the model it is on now) the preview of the
+    request its own log, registry and snapshots make now. No request is sent and nothing is kept."""
     ref = getattr(session, "model_ref", None)
     if ref is None or not _local(ref):
         return None
-    from halo_harness.agent.prompt_diet import call_window
-    window = call_window(session)
-    cache = getattr(session, "_first_turn_measure", None) or {}
-    key = (getattr(ref, "raw", None), window)
-    if key not in cache:
+    try:
+        from halo_harness.agent.prompt_wire import first_turn_seen
+        seen = first_turn_seen(session)
+        if seen is not None:
+            return _measured(session, seen["full"], seen["request"], seen["window"], seen["dropped"])
+        from halo_harness.agent.derive import derive_request
+        from halo_harness.agent.prompt_diet import call_window
+        from halo_harness.agent.prompt_wire import shape
+        system_text, messages, full = derive_request(session.log, tools=None)
+        was = getattr(session, "_diet_dropped", None)
         try:
-            registry = getattr(session, "tool_registry", None)  # 3.6.0.19 LM: the session's own Builder, or none
-            has = getattr(registry, "get", lambda _n: None)("Builder") is not None if registry is not None else None
-            cache = {key: first_turn(ref, window=window, cwd=getattr(session, "cwd", None), builder=has)}
-        except Exception:
-            cache = {key: None}
-        session._first_turn_measure = cache
-    return cache[key]
+            request = shape(session, system_text, messages, list(full or []), purpose="preview")
+            dropped = list(getattr(session, "_diet_dropped", None) or [])
+        finally:
+            session._diet_dropped = was
+        return _measured(session, list(full or []), request, call_window(session), dropped)
+    except Exception:
+        return None
 
 
 def composition_text(session, *, first: bool = False) -> str:

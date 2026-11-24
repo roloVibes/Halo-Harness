@@ -158,9 +158,30 @@ say the same line for a local model, and Studio's Local -> a model's card
 has the row "Halo's first turn: N tokens (P % of the window)". Since 3.6.0.19
 the session measured is the one you get: a session someone answers has the
 Builder tool (about 400 tokens from a 32,768 window on; one rule decides it
-for the session and for the measure), and `/status` measures with the
-Builder when the session has it. Not counted: the names of the tools of your other MCP servers,
-which a session in this folder also sends.
+for the session and for the measure).
+
+Since 3.6.0.20 it also counts your other tool servers (the MCP servers a
+session in this folder reads from your settings) from Halo's own cache of
+their tool lists, and starts none of them: their lines in the system text
+and their tools as a session sends them. A local model (the lean prompt)
+gets one line per server with its tool count; a model that is not lean gets
+the list of their tool names, shown in the composition line as its own part
+("other servers' tools N"). It then says "other tool servers: N, M tools
+(from Halo's cache of their tool lists; none was started)", and for a server
+whose cache is missing or was made for other settings "not counted: the
+tools of N other tool servers (<names>); a session's /status counts them".
+`--json` carries the same facts (`other_servers`). `/status` in a session
+says that session's own first request: the one its conversation's first
+request was sent as (after `/clear` or a compaction, the new
+conversation's), or, before any request, the one its own log, tools and
+servers make now. Studio's card and `halo doctor` measure a new session
+without the other tool servers.
+
+On a local model a session no longer sends the list of every other server's
+tool names: each server's line says how many tools it has (its words cut to
+their first sentence, at most 160 characters) and ToolSearch finds a tool by
+words. The session's log keeps the list, so a switch to a cloud model with a
+large window sends it again as before.
 
 ## The budget test
 

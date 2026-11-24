@@ -1554,13 +1554,8 @@ class Session:
             # this), so it never shifts the cache prefix turn to turn even
             # as `session_catalog.deferred` itself later shrinks/grows.
             if self.session_catalog is not None and self.session_catalog.deferred:
-                deferred_names = sorted(self.session_catalog.deferred)
-                reminder = (
-                    "The following deferred tools are now available via ToolSearch. Their schemas "
-                    "are NOT loaded -- calling them directly will fail with InputValidationError. Use "
-                    "ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before "
-                    "calling them:\n" + "\n".join(deferred_names)
-                )
+                from halo_harness.agent.catalog import deferred_reminder  # 3.6.0.20 P: the one text (bytes unchanged)
+                reminder = deferred_reminder(sorted(self.session_catalog.deferred))
                 self.log.append_snapshot([{"type": "text", "text": reminder}], kind="deferred_tools")
             self._fire_session_start("startup")
             self._fire_directory_added_at_start()
@@ -2510,13 +2505,8 @@ class Session:
         self.log.append_snapshot([{"type": "text", "text": env_text}], kind="environment")
         self._append_roster_snapshot()
         if self.session_catalog is not None and self.session_catalog.deferred:
-            deferred_names = sorted(self.session_catalog.deferred)
-            reminder = (
-                "The following deferred tools are now available via ToolSearch. Their schemas "
-                "are NOT loaded -- calling them directly will fail with InputValidationError. Use "
-                "ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before "
-                "calling them:\n" + "\n".join(deferred_names)
-            )
+            from halo_harness.agent.catalog import deferred_reminder  # 3.6.0.20 P: the one text (bytes unchanged)
+            reminder = deferred_reminder(sorted(self.session_catalog.deferred))
             self.log.append_snapshot([{"type": "text", "text": reminder}], kind="deferred_tools")
         _map_facts.cleared(self)  # 3.6.0.2 R38: the new conversation's first turn is a first turn (no note)
         _kinds_note.cleared(self)  # 3.6.0.15 U5: the added names are told once more
@@ -5514,13 +5504,8 @@ class Session:
             self.log.append_snapshot([{"type": "text", "text": env_text}], kind="environment")
         self._append_roster_snapshot()
         if self.session_catalog is not None and self.session_catalog.deferred:
-            deferred_names = sorted(self.session_catalog.deferred)
-            reminder = (
-                "The following deferred tools are now available via ToolSearch. Their schemas "
-                "are NOT loaded -- calling them directly will fail with InputValidationError. Use "
-                "ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before "
-                "calling them:\n" + "\n".join(deferred_names)
-            )
+            from halo_harness.agent.catalog import deferred_reminder  # 3.6.0.20 P: the one text (bytes unchanged)
+            reminder = deferred_reminder(sorted(self.session_catalog.deferred))
             self.log.append_snapshot([{"type": "text", "text": reminder}], kind="deferred_tools")
         if self.permission_engine.mode == "plan" and self.permission_engine.plan_file is not None:
             plan_note = PLAN_MODE_NOTE

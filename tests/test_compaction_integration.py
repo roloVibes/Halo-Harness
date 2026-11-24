@@ -631,6 +631,18 @@ def test_h5b_f18_environment_and_deferred_tools_and_plan_reinjected_after_compac
         ctx.check("deferred-tool-names reminder re-injected", "mcp__kb__kb_search" in all_text)
         ctx.check("the active plan note is re-attached", "Plan mode is active" in all_text)
         ctx.check("the plan file's own content is re-attached", "Do the thing." in all_text)
+        # 3.6.0.20 P entry 0: the block is the one text (agent/catalog.deferred_reminder), and this session's lean
+        # wire copy (a window under LEAN_WINDOW) leaves it out after the compaction, its server's count in the system
+        import json as _json
+        from halo_harness.agent.catalog import deferred_reminder
+        from halo_harness.agent.prompt_lean import active
+        from halo_harness.agent.prompt_wire import shape
+        ctx.check("the block re-logged byte for byte", any(b.get("text") == deferred_reminder(["mcp__kb__kb_search"])
+                                                           for m in messages for b in (m.get("content") or [])
+                                                           if isinstance(b, dict)))
+        wire_system, wire, _t = shape(session, _system, messages, _tools, purpose="preview")
+        ctx.check(f"the lean wire copy leaves the block out, its count in the system, got {wire_system[-300:]!r}",
+                  active(session) and "mcp__kb__kb_search" not in _json.dumps(wire) and "`kb` (1 tool)" in wire_system)
     finally:
         mock.stop()
         os.environ.pop("BRIDGE_TEST_HOME", None)

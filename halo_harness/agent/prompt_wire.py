@@ -153,6 +153,30 @@ def _replace_memory(messages: list, known: dict, fn) -> list:
     return out
 
 
+def _take_deferred(messages: list) -> tuple:
+    """3.6.0.20 P (a lean request's wire copy; the log keeps it): every deferred tools' block (agent/catalog.
+    DEFERRED_HEAD) taken out of the user messages; returns (messages, {server: its tool count} of the newest block, or
+    None when there was none). A message left with nothing is left out."""
+    from halo_harness.agent.catalog import DEFERRED_HEAD, deferred_counts
+    out, counts = [], None
+    for msg in messages:
+        content = msg.get("content") if isinstance(msg, dict) and msg.get("role") == "user" else None
+        if not isinstance(content, list):
+            out.append(msg)
+            continue
+        keep = []
+        for b in content:
+            if isinstance(b, dict) and b.get("type") == "text" and str(b.get("text") or "").startswith(DEFERRED_HEAD):
+                counts = deferred_counts(b.get("text"))
+            else:
+                keep.append(b)
+        if len(keep) == len(content):
+            out.append(msg)
+        elif keep:
+            out.append({**msg, "content": keep})
+    return out, counts
+
+
 def _front_of_first_user(messages: list, text: str) -> list:
     for i, msg in enumerate(messages):
         if isinstance(msg, dict) and msg.get("role") == "user":
@@ -242,7 +266,8 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
     lean = L.active(session)
     placement = placement_for(session)
     if lean:
-        system_text = L.lean_system(session, system_text)  # 3.3.16.1: the instructions, not the reference prose
+        messages, counts = _take_deferred(messages)  # 3.6.0.20 P: the other servers' names out, their counts kept
+        system_text = L.lean_system(session, system_text, counts)  # 3.3.16.1: the instructions, not the reference prose
         messages = _replace_memory(messages, known, lambda t: L.lean_memory_block(session, t))
         known = {**known, "memory": set(known.get("memory", ())) | {L.lean_memory_block(session, t)
                                                                      for t in known.get("memory", ())}}
@@ -283,7 +308,49 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
         from halo_harness.agent.model_window import kind_of
         if lean and kind_of(getattr(session, "model_ref", None)) == "ollama":  # 3.6.0.19 LM: its one reader's calls
             session._turn_raw = (raw, tools)  # 3.6.0.12 OS: what `one_shot_shaper` shapes again for the window asked
+        _keep_first(session, raw, (system_text, messages, tools))
     return system_text, messages, tools
+
+
+def _conversation(session):
+    """(the log, the seq of its newest compaction marker): a new value after /clear (a new log) or a compaction."""
+    log = getattr(session, "log", None)
+    try:
+        nodes = log.nodes() if log is not None else []
+    except Exception:
+        nodes = []
+    mark = max((n.get("seq", 0) for n in nodes if isinstance(n, dict) and n.get("type") == "compacted"), default=-1)
+    return log, mark
+
+
+def _keep_first(session, raw: tuple, request: tuple) -> None:
+    """3.6.0.20 P (`/status`, prompt_measure.for_session): the request a conversation's first main request was shaped
+    to, kept on a local model; shaped again for the same call (the same messages: a window asked again, a retry) it is
+    the newest shape; a later request of the conversation never moves it."""
+    from halo_harness.agent.prompt_lean import is_local
+    ref = getattr(session, "model_ref", None)
+    if not is_local(ref):
+        return
+    log, mark = _conversation(session)
+    n = len(raw[1] or [])
+    seen = getattr(session, "_first_turn_seen", None)
+    if isinstance(seen, dict) and seen.get("log") is log and seen.get("mark") == mark and seen.get("n") != n:
+        return
+    from halo_harness.agent.prompt_lean import call_window
+    session._first_turn_seen = {"log": log, "mark": mark, "n": n, "ref": getattr(ref, "raw", None),
+                                "window": call_window(session), "request": request, "full": list(raw[2] or []),
+                                "dropped": list(getattr(session, "_diet_dropped", None) or [])}
+
+
+def first_turn_seen(session):
+    """The kept first request of the session's conversation now at the model it is on now, else None."""
+    seen = getattr(session, "_first_turn_seen", None)
+    if not isinstance(seen, dict):
+        return None
+    log, mark = _conversation(session)
+    ok = seen.get("log") is log and seen.get("mark") == mark \
+        and seen.get("ref") == getattr(getattr(session, "model_ref", None), "raw", None)
+    return seen if ok else None
 
 
 def one_shot_shaper(session, ref, request, *, raw=None, post=None, purpose: str = "turn"):

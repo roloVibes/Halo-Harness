@@ -279,9 +279,6 @@ def build_manager(
     if not available():
         return None, [NOT_AVAILABLE_NOTICE]
 
-    from halo_harness.mcp.manager import McpManager, resolve_server_configs
-    from halo_harness.providers.config import tool_child_env
-
     dynamic: dict = {}
     if chrome:
         cfg, err = chrome_server_config(bypass_mode=bypass_mode)
@@ -298,6 +295,23 @@ def build_manager(
         elif err:
             notices.append(err)
 
+    base_env = settings.effective_env if settings is not None else dict(os.environ)
+    configs, resolve_notices = server_configs(
+        cwd=cwd, claude_json=claude_json, settings=settings, print_mode=print_mode, mcp_config_flag=mcp_config_flag,
+        strict_mcp_config=strict_mcp_config, dynamic=dynamic, trusted=trusted, extra_plugin_roots=extra_plugin_roots)
+    notices.extend(resolve_notices)
+    return _manager_for(configs, notices, base_env=base_env, cwd=cwd, trusted=trusted, dynamic=dynamic, start=start)
+
+
+def server_configs(*, cwd: Path, claude_json: dict, settings=None, print_mode: bool = False,
+                   mcp_config_flag: Optional[list] = None, strict_mcp_config: bool = False,
+                   dynamic: Optional[dict] = None, trusted: bool = True, extra_plugin_roots: Optional[list] = None):
+    """(name -> McpServerConfig, notices): the servers a session in `cwd` has, read from the settings and the
+    installed plugins, nothing started (build_manager's first half; 3.6.0.20 P: `halo local prompt` reads them too,
+    agent/prompt_measure.other_servers)."""
+    from halo_harness.mcp.manager import resolve_server_configs
+    from halo_harness.providers.config import tool_child_env
+    notices: list = []
     base_env = settings.effective_env if settings is not None else dict(os.environ)
 
     from halo_harness.config.plugins import discover_plugin_mcp_servers
@@ -322,6 +336,13 @@ def build_manager(
         plugin_servers=plugin_servers, trusted=trusted,
     )
     notices.extend(resolve_notices)
+    return configs, notices
+
+
+def _manager_for(configs: dict, notices: list, *, base_env: dict, cwd: Path, trusted: bool, dynamic: dict, start: bool):
+    """build_manager's second half: the manager of `configs` (started, or seeded from the cache)."""
+    from halo_harness.mcp.manager import McpManager
+    from halo_harness.providers.config import tool_child_env
 
     # finding 13 must-do: server-level "mcpLazy" -- connect on first tool
     # use instead of at start_all() time (parsed into McpServerConfig.lazy

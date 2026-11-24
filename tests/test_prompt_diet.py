@@ -246,6 +246,57 @@ def test_the_lean_system_text_keeps_the_instructions(ctx: Ctx):
               tokens_of(lean) < 800 < 3000 < tokens_of(text))
 
 
+def _servers_request(session_ref: str, window: int, *, helper: bool = False):
+    """3.6.0.20 P: 16 stand-in tool servers of 60 tools each, their names in the block as agent/loop.py logs it
+    (agent/catalog.deferred_reminder) before the user's words; `helper`: a helper's system text (its own words, no
+    server lines). Returns (system, messages, tools, the request shaped)."""
+    from halo_harness.agent.catalog import deferred_reminder
+    from halo_harness.agent.prompt import build_system_prompt
+    from halo_harness.agent.prompt_wire import shape
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    defs = ToolRegistry(default_tools()).definitions()
+    servers = [{"name": f"srv{s:02d}-craft", "instructions": f"Craft app {s} for drawings. It opens, edits and saves."}
+               for s in range(16)]
+    text = ("You review code for the main agent." if helper else
+            build_system_prompt(model_label=session_ref, cwd="/work", tool_definitions=defs, family="generic",
+                                mcp_servers=servers))
+    names = sorted(f"mcp__srv{s:02d}-craft__tool_action_{t:02d}" for s in range(16) for t in range(60))
+    msgs = [{"role": "user", "content": [{"type": "text", "text": deferred_reminder(names)},
+                                         {"type": "text", "text": "hi"}]}]
+    return text, msgs, defs, shape(_session(session_ref, window), text, msgs, defs, purpose="measure")
+
+
+@test
+def test_a_lean_request_leaves_the_other_servers_tool_names_out(ctx: Ctx):
+    """3.6.0.20 P entry 0: the block of every other tool server's tool names is left out of a lean request's wire copy
+    (the log keeps it) and each server's line says how many tools it has, counted from the block's own names; a cloud
+    model with a large window is sent its messages byte for byte; a helper's lean request the same, its servers' lines
+    added to its own words."""
+    import json
+    from halo_harness.agent.catalog import DEFERRED_HEAD
+    from halo_harness.agent.prompt_composition import tokens_of
+    text, msgs, defs, (lean, out, _t) = _servers_request("ol:example-model:30b", 16384)
+    wire = json.dumps(out)
+    ctx.check("the block's head and names are not on the wire", DEFERRED_HEAD[:40] not in wire
+              and "tool_action_" not in wire and "tool_action_" not in lean)
+    ctx.check(f"the user's own words stay, got {out!r}"[:200], out[-1]["content"][-1]["text"] == "hi")
+    at = lean.find("- MCP servers this session")
+    part = lean[at:]
+    ctx.check(f"a line per server with its count, got {part[:300]!r}",
+              at >= 0 and "  - `srv00-craft` (60 tools): Craft app 0 for drawings." in part
+              and part.count(" (60 tools): ") == 16)
+    ctx.check("one ToolSearch line", part.count("- ToolSearch \"<words>\" finds a server's tool, or call it by its name.") == 1)
+    ctx.check(f"the servers' part is small, got {tokens_of(part)} tokens", tokens_of(part) <= 600)
+    ctx.check("the input (the log's copy) keeps the block", msgs[0]["content"][0]["text"].startswith(DEFERRED_HEAD))
+    text, msgs, defs, (cloud, out, tools) = _servers_request("ant:claude-opus-5-5", 200000)
+    ctx.check("a cloud model with a large window: messages, system and tools byte for byte",
+              json.dumps(out) == json.dumps(msgs) and cloud == text and tools == defs)
+    text, msgs, defs, (helper, out, _t) = _servers_request("ol:example-model:30b", 16384, helper=True)
+    ctx.check(f"a helper's lean request: no block, its servers counted, got {helper[-400:]!r}",
+              "tool_action_" not in json.dumps(out) + helper and helper.startswith("You review code")
+              and helper.count(" (60 tools)") == 16 and "finds a server's tool" in helper)
+
+
 @test
 def test_a_cloud_model_with_a_large_window_gets_todays_bytes(ctx: Ctx):
     from halo_harness.agent.prompt import build_system_prompt

@@ -157,10 +157,11 @@ def call_window(session) -> Optional[int]:
     return _call_window(session)
 
 
-def lean_system(session, system_text: str) -> str:
-    """3.3.16.1: Halo's own system text cut to what a local model needs to act (`agent/prompt_lean_system.py`)."""
+def lean_system(session, system_text: str, counts: Optional[dict] = None) -> str:
+    """3.3.16.1: Halo's own system text cut to what a local model needs to act (`agent/prompt_lean_system.py`);
+    `counts` (3.6.0.20 P): the other tool servers' tool counts of the block the wire copy left out."""
     from halo_harness.agent.prompt_lean_system import lean_system_text
-    return lean_system_text(session, system_text)
+    return lean_system_text(session, system_text, counts)
 
 
 def _builtin_names() -> list:

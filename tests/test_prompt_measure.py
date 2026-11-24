@@ -91,8 +91,9 @@ def test_the_measure_is_the_session_a_person_really_gets(ctx: Ctx):
     ctx.check("the one rule: a session someone answers", wanted() is True and wanted(tools="default") is True)
     ctx.check("bare, print mode, --disallowedTools Builder, --tools without it: none",
               not any((wanted(bare=True), wanted(print_mode=True), wanted(disallow=["Builder"]), wanted(tools="Read,Bash"))))
-    for has in (False, True):
-        s = new_session(ref, window=32768, cwd=cwd, builder=has)
+    from halo_harness.agent.prompt_measure import _first_request
+    for has in (False, True):  # 3.6.0.20 P: /status reads the session's own log (here a new session's, before a request)
+        s = _first_request(ref, window=32768, cwd=cwd, builder=has)[0]
         s.cwd = cwd
         got = for_session(s)
         names = [r["name"] for r in (got or {}).get("tools") or []]
@@ -187,8 +188,9 @@ def test_status_and_doctor_say_the_first_turn_on_a_local_model(ctx: Ctx):
     comp = {"system": {"tokens": 1, "parts": {"harness": 1, "claude_md": 0, "memory": 0, "topic_index": 0, "tools_schema": 0}},
             "history": {"tokens": 0, "turns": 0}, "user": {"tokens": 1, "parts": {"text": 1, "memory": 0, "topic_index": 0,
                                                                                    "attachments": 0}}, "total": 2}
-    local = SimpleNamespace(model_ref=parse_model_ref("ol:qwen3-coder:30b@lan"), _prompt_composition=comp,
-                            _measure_window=49152, cwd=_proj())
+    from halo_harness.agent.prompt_measure import _first_request  # 3.6.0.20 P: /status reads the session's own log
+    local = _first_request("ol:qwen3-coder:30b@lan", window=49152, cwd=_proj())[0]
+    local._prompt_composition, local.cwd = comp, _proj()
     text = composition_text(local, first=True)
     ctx.check(f"/status on a local model: the composition, then the first turn, got {text!r}",
               text.startswith("prompt 2:") and "\nHalo's own first turn: " in text and "of 49,152" in text)
@@ -198,6 +200,167 @@ def test_status_and_doctor_say_the_first_turn_on_a_local_model(ctx: Ctx):
     note = doctor_note(parse_model_ref("ol:qwen3-coder:30b@lan"), _proj())
     ctx.check(f"halo doctor's default-model row on a local model, got {note!r}", note.startswith(" · Halo's own first turn: "))
     ctx.check("and nothing on a cloud model", doctor_note(parse_model_ref("ant:claude-opus-5-5"), _proj()) == "")
+
+
+def _children() -> int:
+    try:
+        import psutil
+        return len(psutil.Process().children(recursive=True))
+    except Exception:
+        return 0
+
+
+def _cached_tools(server: str, n: int) -> list:
+    from halo_harness.mcp.tools_cache import tool_from_dict
+    return [tool_from_dict({"name": f"page_action_{i:02d}", "description": f"{server}: action {i} on a page.",
+                            "input_schema": {"type": "object", "properties": {"page": {"type": "string"}}}})
+            for i in range(n)]
+
+
+@test
+def test_halo_local_prompt_counts_the_other_tool_servers_from_halos_cache(ctx: Ctx):
+    """3.6.0.20 P entry 2: `halo local prompt` weighs what a session in this folder sends: the other tool servers'
+    lines and their tools from Halo's own cache of their tool lists (mcp/tools_cache.py), nothing started (no thread,
+    no process); a lean model gets the lines with their counts, a model that is not lean the block of names; a server
+    with no usable cache (none, or one made for other settings) is named as not counted."""
+    import threading
+    from halo_harness.agent.catalog import deferred_reminder
+    from halo_harness.agent.prompt_composition import tokens_of
+    from halo_harness.agent.prompt_measure import _first_request, first_turn
+    from halo_harness.config.claude_json import load_claude_json
+    from halo_harness.local_cli import cmd_local
+    from halo_harness.mcp import tools_cache
+    from halo_harness.mcp_setup import server_configs
+    from tests.helpers.fake_home import build_fake_home
+    was = os.environ.get("BRIDGE_TEST_HOME")
+    fh = build_fake_home()
+    stand_ins = {n: {"type": "stdio", "command": "python", "args": ["-c", "pass"]} for n in ("gpu-box-tools", "kb", "notes")}
+    (fh["home"] / ".claude.json").write_text(json.dumps({"mcpServers": stand_ins}), encoding="utf-8")
+    os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+    try:
+        proj, ref = fh["proj"], "ol:example-model:30b"
+        configs = server_configs(cwd=proj, claude_json=load_claude_json())[0]
+        for name in ("kb", "notes"):
+            tools_cache.write_cache(name, key=tools_cache.config_cache_key(configs[name]), tools=_cached_tools(name, 60),
+                                    instructions=f"Keeps {name} pages. Reads them back.")
+        tools_cache.write_cache("gpu-box-tools", key="made-for-other-settings", tools=_cached_tools("gpu", 60),
+                                instructions="A stale cache.")
+        before = first_turn(ref, window=16384, platform="linux", cwd=proj)
+        threads, kids = threading.active_count(), _children()
+        m = first_turn(ref, window=16384, platform="linux", cwd=proj, servers=True)
+        ctx.check(f"no thread and no process made, got {threading.active_count()} {_children()} (was {threads} {kids})",
+                  (threading.active_count(), _children()) == (threads, kids))
+        ctx.check(f"the facts, got {m.get('other_servers')!r}",
+                  m.get("other_servers") == {"servers": 2, "tools": 120, "not_counted": ["gpu-box-tools"]})
+        _s, _f, lean, msgs, _t = _first_request(ref, window=16384, platform="linux", cwd=proj, servers=True)
+        ctx.check(f"lean: the lines with their counts, got {lean[lean.find('- MCP servers'):][:300]!r}",
+                  "  - `kb` (60 tools): Keeps kb pages." in lean and "  - `notes` (60 tools): Keeps notes pages." in lean
+                  and "gpu-box-tools" not in lean and "page_action_" not in json.dumps(msgs))
+        ctx.check(f"lean: the prompt grows by the lines, got {before['prompt']:,} -> {m['prompt']:,}",
+                  0 < m["prompt"] - before["prompt"] <= 600)
+        cloud = "ant:claude-opus-5-5"
+        _s, _f, _sys, msgs, _t = _first_request(cloud, window=200000, platform="linux", cwd=proj, servers=True)
+        names = sorted(f"mcp__{s}__page_action_{i:02d}" for s in ("kb", "notes") for i in range(60))
+        block = deferred_reminder(names)
+        ctx.check("not lean: the block of the 120 names, as a session logs it",
+                  any(b.get("text") == block for msg in msgs for b in msg.get("content") or [] if isinstance(b, dict)))
+        a = first_turn(cloud, window=200000, platform="linux", cwd=proj)
+        b = first_turn(cloud, window=200000, platform="linux", cwd=proj, servers=True)
+        ctx.check(f"not lean: the prompt grows by the block and the lines, got {a['prompt']:,} -> {b['prompt']:,}",
+                  b["prompt"] - a["prompt"] >= tokens_of(block))
+        ctx.check(f"the composition names the block as its own part, got {b['line']!r}",
+                  f"other servers' tools {tokens_of(block):,}" in b["line"])
+        out = io.StringIO()
+        with _In(proj), redirect_stdout(out):
+            rc = cmd_local(["prompt", ref, "--window", "16384", "--platform", "linux"])
+        text = out.getvalue()
+        ctx.check(f"the two lines word for word, got {text[:600]!r}", rc == 0 and
+                  "other tool servers: 2, 120 tools (from Halo's cache of their tool lists; none was started)" in text
+                  and "not counted: the tools of 1 other tool servers (gpu-box-tools); a session's /status counts them"
+                  in text)
+        out = io.StringIO()
+        with _In(proj), redirect_stdout(out):
+            rc = cmd_local(["prompt", ref, "--window", "16384", "--json"])
+        got = json.loads(out.getvalue())
+        ctx.check(f"--json carries the same facts, got {got.get('other_servers')!r}",
+                  got.get("other_servers") == {"servers": 2, "tools": 120, "not_counted": ["gpu-box-tools"]})
+    finally:
+        if was is None:
+            os.environ.pop("BRIDGE_TEST_HOME", None)
+        else:
+            os.environ["BRIDGE_TEST_HOME"] = was
+
+
+def _figure(text: str) -> int:
+    import re
+    m = re.search(r"Halo's own first turn: ([\d,]+) tokens", text or "")
+    return int(m.group(1).replace(",", "")) if m else -1
+
+
+@test
+def test_status_says_the_sessions_own_first_request(ctx: Ctx):
+    """3.6.0.20 P entry 3: `/status` in a live session says the session's OWN first request: before any request the
+    preview of its own log, registry and snapshots (here: `--tools` left four tools, 16 stand-in servers' block); kept
+    when the conversation's first main request is shaped, not moved by a later one; after `/clear` or a compaction the
+    NEW conversation's first request; on a model switch with no request at the new model, the preview again."""
+    from halo_harness.agent.catalog import deferred_reminder
+    from halo_harness.agent.derive import derive_request
+    from halo_harness.agent.prompt_composition import compose, known_texts
+    from halo_harness.agent.prompt_measure import _Nodes, composition_text, first_turn, new_session
+    from halo_harness.agent.prompt_wire import placement_for, shape
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers.ollama_wire_estimate import wire_estimate
+    ref, cwd = "ol:example-model:30b", _proj()
+    s = new_session(ref, window=16384, platform="linux", cwd=cwd)
+    s.cwd = cwd
+    s.tool_registry = s.tool_registry.filtered(["Read", "Grep", "Bash", "ToolSearch"])
+    names = sorted(f"mcp__srv{n:02d}-craft__tool_action_{t:02d}" for n in range(16) for t in range(60))
+
+    def _start(log, words="hi"):
+        log.add(type="meta", model=ref, tools=s.tool_registry.definitions())
+        log.add(type="system", text=s.session_context.system_prompt)
+        log.add(type="snapshot", kind="environment", content=[{"type": "text", "text": "Platform: linux"}])
+        log.add(type="snapshot", kind="deferred_tools", content=[{"type": "text", "text": deferred_reminder(names)}])
+        log.add(type="user", content=[{"type": "text", "text": words}])
+
+    def _own(purpose="measure"):  # the request shaped as the loop shapes it, weighed by the measure's own rule
+        out = shape(s, *derive_request(s.log), purpose=purpose)
+        total = compose(s, out[1], out[2], out[0], placement=placement_for(s), known=known_texts(s))["total"]
+        weighed = wire_estimate(*out) - 1024
+        ctx.check(f"the measure's rule is the composition's within 3 %, got {weighed} vs {total}",
+                  abs(weighed - total) <= 0.03 * total)
+        return weighed
+
+    _start(s.log)
+    want = _own()
+    default = first_turn(ref, window=16384, platform="linux", cwd=cwd)["prompt"]
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"before any request: the session's own preview, got {got:,} want {want:,} (a new default session's "
+              f"{default:,})", got == want and abs(default - want) > 0.05 * want)
+    first = _own("turn")
+    s.log.add(type="assistant", content=[{"type": "text", "text": "ok"}])
+    s.log.add(type="user", content=[{"type": "text", "text": "and now a long ask " * 600}])
+    _own("turn")
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"a later request does not move it, got {got:,} want {first:,}", got == first)
+    s.log = _Nodes()  # /clear: a new log (agent/loop.py's clear)
+    _start(s.log, "a new conversation " * 300)
+    fresh = _own("turn")
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"after /clear: the new conversation's first request, got {got:,} want {fresh:,}",
+              got == fresh and abs(fresh - first) > 0.05 * first)
+    s.log.add(type="assistant", content=[{"type": "text", "text": "ok"}])
+    s.log.add(type="compacted", trigger="manual")
+    s.log.add(type="user", content=[{"type": "text", "text": "<compacted-summary>short</compacted-summary>"}])
+    s.log.add(type="snapshot", kind="deferred_tools", content=[{"type": "text", "text": deferred_reminder(names)}])
+    after = _own("turn")
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"after a compaction: the new conversation's first request, got {got:,} want {after:,}",
+              got == after and abs(after - fresh) > 0.05 * fresh)
+    s.model_ref = parse_model_ref("ol:other-model:8b")
+    want = _own()
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"a model switch with no request yet: the preview, got {got:,} want {want:,}", got == want)
 
 
 @test

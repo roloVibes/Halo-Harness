@@ -144,6 +144,7 @@ def compose(session, messages, tools, system, *, placement: str = "user", known:
             duplicates: Optional[list] = None) -> dict:
     """See the module docstring. `system` is the system text as it will be sent
     (with the memory block in it when `placement` is "system")."""
+    from halo_harness.agent.catalog import DEFERRED_HEAD
     from halo_harness.providers.ollama_prompt import estimate_request_tokens, reply_reserve
     known = known if known is not None else known_texts(session)
     sp = {"harness": 0, "claude_md": 0, "memory": 0, "topic_index": 0, "tools_schema": 0}
@@ -178,6 +179,8 @@ def compose(session, messages, tools, system, *, placement: str = "user", known:
                     up["topic_index"] += tokens_of(top)
                 elif part == "claude_md":
                     sp["claude_md"] += tokens_of(text)
+                elif part == "harness" and text.startswith(DEFERRED_HEAD):  # 3.6.0.20 P: the other servers' names
+                    sp["other_servers"] = sp.get("other_servers", 0) + tokens_of(text)
                 elif part == "harness":
                     sp["harness"] += tokens_of(text)
                 elif mi == last and part == "text":
@@ -200,9 +203,12 @@ def ledger_fields(comp: Optional[dict]) -> Optional[dict]:
     if not comp:
         return None
     sp, up = comp["system"]["parts"], comp["user"]["parts"]
-    return {"system": sp["harness"] + sp["claude_md"], "memory": sp["memory"] + up["memory"],
-            "topic_index": sp["topic_index"] + up["topic_index"], "tools_schema": sp["tools_schema"],
-            "history": comp["history"]["tokens"], "user": up["text"] + up["attachments"], "total": comp["total"]}
+    out = {"system": sp["harness"] + sp["claude_md"], "memory": sp["memory"] + up["memory"],
+           "topic_index": sp["topic_index"] + up["topic_index"], "tools_schema": sp["tools_schema"],
+           "history": comp["history"]["tokens"], "user": up["text"] + up["attachments"], "total": comp["total"]}
+    if sp.get("other_servers"):  # 3.6.0.20 P: the other tool servers' block of names, when one was sent
+        out["other_servers"] = sp["other_servers"]
+    return out
 
 
 def composition_line(comp: Optional[dict]) -> str:
@@ -210,7 +216,8 @@ def composition_line(comp: Optional[dict]) -> str:
     f = ledger_fields(comp)
     if not f:
         return "prompt: nothing sent yet"
-    bits = [("system", f["system"]), ("memory", f["memory"]), ("topics", f["topic_index"]),
+    bits = [("system", f["system"])] + ([("other servers' tools", f["other_servers"])] if f.get("other_servers") else [])
+    bits += [("memory", f["memory"]), ("topics", f["topic_index"]),
             ("tools", f["tools_schema"]), ("history", f["history"]), ("you", f["user"])]
     line = f"prompt {f['total']:,}: " + " · ".join(f"{k} {v:,}" for k, v in bits)
     dups = comp.get("duplicates") or []

@@ -28,8 +28,15 @@ def render(m: dict) -> str:
              first_turn_line(m),
              m["line"],
              (f"reply's room {m['reply_room']:,} · window {m['window'] or 0:,} -> sent at {m['sent_window'] or 0:,}"
-              f" · prompt + room {m['total']:,}"),
-             ""]
+              f" · prompt + room {m['total']:,}")]
+    others = m.get("other_servers") or {}
+    if others.get("servers"):  # 3.6.0.20 P: what a session in this folder carries of the other tool servers
+        lines.append(f"other tool servers: {others['servers']}, {others['tools']} tools (from Halo's cache of their "
+                     f"tool lists; none was started)")
+    if others.get("not_counted"):
+        lines.append(f"not counted: the tools of {len(others['not_counted'])} other tool servers "
+                     f"({', '.join(others['not_counted'])}); a session's /status counts them")
+    lines.append("")
     turn_start = m.get("turn_start") or []
     width = max((len(r["name"]) for r in [*m["tools"], *turn_start]), default=8)
     for r in turn_start:  # 3.6.0.15 F9: the lines a turn's start sends (the mode line, a local main's reminder)
@@ -58,7 +65,7 @@ def cmd_prompt(argv: list) -> int:
         return 2
     from halo_harness.agent.prompt_measure import first_turn
     try:
-        m = first_turn(ref, window=args.window, platform=args.platform)
+        m = first_turn(ref, window=args.window, platform=args.platform, servers=True)
     except Exception as e:
         print(f"halo local prompt: could not measure {ref}: {e}")
         return 1
