@@ -83,6 +83,11 @@ left by a reboot or a hard kill is cleared and said, never signalled.
    - an `isolation: user` worker carries the lead's owner variables through sudo and ends itself with the lead.
 3. **The sweep at start**: every `halo` launch first stops what an earlier Halo left with no living owner, with one
    line: "halo: stopped a Studio server left from 2026-11-14 22:10".
+4. **The Halo process itself** never waits on the network to leave. A terminal session's background checks (who is
+   signed in, the model catalog, your balances, whether an update is out) are given two seconds at a quit, all of
+   them together; a check still waiting then is left behind, and the process ends half a second after its last
+   line. The update check's `git` runs in a group of its own and ends with everything it started the moment Halo
+   leaves. A quit where nothing is stuck does not wait at all.
 
 Every child carries `HALO_OWNER=<id>` in its environment, so a stray is always findable.
 

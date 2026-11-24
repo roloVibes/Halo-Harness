@@ -10,17 +10,19 @@ version.
 
 ## [3.6.0.17] - unreleased
 
-The prompt, one to one. Session's Prompt box in Studio now does with a line what the terminal's prompt does: a
-`!command` or `/command` typed after a space runs as a command, a `/command` runs with an image waiting under the box,
-a refused `!command` shows once and the box empties, and Up and Down move through a long wrapped line a screen line at
-a time. A running `!command` can be stopped from its row in the Feed, and the Agent panel names a running tool as its
-box does.
+Closed means gone, also while the network hangs; and the prompt, one to one. A terminal Halo you quit no longer stays
+alive behind a background check that waits on a network that does not answer. Session's Prompt box in Studio now does
+with a line what the terminal's prompt does: a `!command` or `/command` typed after a space runs as a command, a
+`/command` runs with an image waiting under the box, a refused `!command` shows once and the box empties, and Up and
+Down move through a long wrapped line a screen line at a time. A running `!command` can be stopped from its row in the
+Feed, and the Agent panel names a running tool as its box does. 3.6.0.16 was not published on its own: its release run
+found the closing fault repaired here, so this is the first release that holds what both sections say.
 
 ### Changed
 
 - **A `!command` or `/command` typed after a space or a blank line runs as a command in Studio's Prompt box.** As in
   the terminal, the line runs in the session with no model turn. Before, Studio sent it to the model as a prompt. A
-  text of two lines and a `!` inside a line are prompts, as before.
+  text of two lines that both have words and a `!` inside a line are prompts, as before.
 - **A `/command` typed while an image is under the box runs as a command.** The image waits under the box for the next
   prompt, as the terminal keeps it. Before, the line went to the model with the image.
 - **After a refused `!command` the Prompt box is empty, as the terminal's is.** Up brings the line back. Before,
@@ -39,11 +41,33 @@ box does.
 
 - **A running `!command` has its own Stop on its row in the Feed.** The same "Stop" its row in the Prompt panel has,
   with the same hover: "Stop: ends this command now, and a running turn with it (Esc in the terminal does the same)".
-  A click on it does not open the row, a model's tool rows have none, and when the command ends the Stop goes while
-  the elapsed time keeps its place at the row's end.
+  A click on it does not open the row, a model's tool rows and a session of another machine's Halo have none, and when
+  the command ends the Stop goes while the elapsed time keeps its place at the row's end.
 
 ### Fixed
 
+- **A Halo you quit is gone, also while the network hangs.** A terminal session starts a few checks in the background
+  when it opens: who is signed in, the model catalog, your balances, whether an update is out. When you quit while one
+  of them waited on a network that did not answer, the Halo process stayed alive until that wait gave up by itself:
+  seconds for most, minutes for the catalog (30 seconds a provider), and the update check's `git` and git's https
+  helper stayed with it. 3.6.0.16's release run saw exactly that on Windows: five seconds after Ctrl+C a `python.exe`,
+  a `git.exe` and a `git-remote-https.exe` were still running. Now a quit waits for them at most two seconds, all of
+  them together. Halo then saves the session and prints its last lines as before, and when a check is still stuck it
+  is gone half a second after the last line, whatever that check waits for: 2.7 seconds from the quit to gone,
+  measured on Windows and on Linux, against 0.2 to 0.4 seconds with nothing stuck. Every way out of the terminal has
+  this bound: Ctrl+C and its confirm, `/quit`, an error that ends the app, and `/update`'s restart, where it starts
+  only after the hand-off to the updater has returned, never during it. A quit where nothing is stuck leaves as it
+  did: the same lines, the same exit code, the same saved session.
+- **The update check's git ends with Halo.** The check's `git ls-remote` runs in a group of its own and is ended with
+  everything it started, the https helper included, the moment Halo leaves, and at its five-second limit while Halo
+  runs. Before, the limit ended git alone and then waited on the helper, which held git's output open. A check that a
+  quit cut short is not remembered as "no network": the next launch asks again. A catalog refresh asks no further
+  provider once Halo is leaving.
+- **A thing you asked Halo to leave running is named in every quit.** "halo: left running on purpose: ..." is printed
+  also when a background check is stuck; the lines of a stuck quit are those of any other quit.
+- **On Windows a command ended at its time limit no longer holds Halo.** After Halo ended a command that ran over its
+  limit, it waited without limit for the command's output to close, and a helper the command had started could hold it
+  open. Halo now waits at most one second for the rest of the output.
 - **A `!command` refused by a rule of yours shows once in the Prompt panel.** `!<cmd>` over `denied: <reason>`, not
   twice. A `!command` refused in the terminal still shows the session's own line in the panel, and Live's journal
   still records every refusal.
@@ -53,9 +77,27 @@ box does.
 
 ### Known limits
 
+- **A background check that is stuck is left behind, not ended.** Its thread is abandoned when the process leaves half
+  a second after the quit's last line; what it was reading is not saved. A check of Halo's own that runs a program
+  longer than the two-second wait (the launch's `claude auth status` on a quit in its first seconds) has that program
+  ended by the closing procedure, which on Linux and macOS names it "left running by a tool command". Print mode,
+  Studio's server and `halo local serve` are as they were: this bound is the terminal app's.
+- **A Ctrl+C during `/update`'s hand-off to the updater leaves without the bound,** as 3.6.0.16 did. When an error
+  ends the app, Halo's last lines now print before the error's traceback.
+- **The closing repairs were not run by hand on macOS.** CI's macOS legs run their tests and the real-use check's
+  `closing` step.
+- **On one loaded Windows machine the real-use check's Ctrl+C step fails in about half its runs** (seen while this
+  release was built): the Ctrl+C keys the checker sends do not all reach Halo, so no quit is asked. It passes on Linux
+  and on CI's Windows runners. Whether the checker's key sending or Halo's console input loses them is not yet known;
+  it is the next thing looked at.
 - **A `!command` line from the phone bridge or from voice is still a prompt.** Letting a remote surface run a command
   is the owner's decision.
-- **Stop ends every running `!command` and a running turn with it;** there is no "end only this command".
+- **Stop ends every running `!command` and a running turn with it;** there is no "end only this command". A click on a
+  row whose command has just ended, before the page has its result, ends whatever turn runs then.
+- **A prompt pasted with a space before a path now takes the command door, as in the terminal.** ` /home/me/notes.txt
+  explain this` answers "Unknown command: /home/me/notes.txt (try /help)" and the line stays in the box. A line of
+  only spaces and a `!` shows an error row and keeps the line, where the terminal empties its box without a word.
+- **The steer box's image chip is still one for the page:** only its text is kept per session.
 - **The timeline shows a running `!command` only while a turn runs, with no Stop, and Agents -> Live does not show it
   at all.** The Feed and the Prompt panel are the two places that name it, and both have its Stop.
 - **On a very narrow Feed, where a tool row's first line wraps, the row can wrap differently when the Stop goes.** The
@@ -69,9 +111,19 @@ box does.
   move inside the text, and macOS is CI's part.
 - **Every Known limit of 3.6.0.16 still holds, except this one:** the Agent panel's glance line and a pinned agent's
   small floating panel no longer write an MCP tool's raw arguments.
-- **Where it was checked.** PROVISIONAL (the coordinator fills this in after the last gate): on the Linux VM all three
-  suites, the browser modules and the full real-use check; on the PC (Windows) every node-backed module and this
-  release's browser modules.
+- **Where it was checked.** On the Linux VM, on the final code: all three suites (the module runner's four shards, the
+  bridge suite and the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), the
+  browser modules of the Prompt box, the Feed, the steer box, Session's drawing and the card, the closing and update
+  modules, and the full real-use check, twenty of twenty steps; named alone, its `closing` step (all 28 ways out left
+  nothing) and its `update` step passed three more times each. On the PC (Windows), one at a time, on the final code:
+  every node-backed module, this release's four browser modules, the closing modules (the ones that start a real Halo
+  three times), every update module and the terminal app's quit tests. The real-use check's `closing` step was not
+  used as a gate on the PC: see the limit above. Three reviewers read this release: one the Prompt box and the Feed
+  (nothing that must be fixed; two sentences of these notes were corrected), one the first closing repair (nothing
+  that must be fixed; it named what still held a quit, which became the second), and one the quit's bound, who found
+  that a healthy quit on Linux and macOS could end a short program of one of Halo's own checks and print a false
+  "halo: ended" line; that was repaired and its test fails on the code before. Browsers on macOS are CI's part, and
+  nothing was run on macOS by hand.
 
 ## [3.6.0.16] - 2026-11-23
 
