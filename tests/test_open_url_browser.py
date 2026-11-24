@@ -20,7 +20,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
@@ -201,7 +200,7 @@ def test_a_threaded_browser_start_sees_a_stop_and_a_close_does_not_wait_for_it(c
         ctx.check("the threaded start is the Windows path only", True)
         return
     saved = (subprocess_safe.Popen, closing._in_a_job, closing.breakaway_frees, os.environ.get("BROWSER"),
-             closing.stop_asked, dict(closing._STATE), real_sp.run)
+             closing.stop_asked, dict(closing._STATE), closing._run_wmi)
     real_stop = closing.stop_asked
     gate, entered = threading.Event(), threading.Event()
 
@@ -270,12 +269,12 @@ def test_a_threaded_browser_start_sees_a_stop_and_a_close_does_not_wait_for_it(c
         closing._STATE.update(saved[5])
         calls: list = []
 
-        def fake_run(*a, **k):
-            calls.append(a)
+        def fake_wmi(cmdline, cwd, wait_s, stop):  # 3.6.0.18: the WMI create's PowerShell is closing._run_wmi
+            calls.append(cmdline)
             closing._STATE["owner_gone"] = True
-            return SimpleNamespace(stdout="0\n", stderr="", returncode=0)
+            return "0\n"
 
-        real_sp.run = fake_run
+        closing._run_wmi = fake_wmi
         closing._OPENING.cancel_on_stop = True
         before = set(tmp.glob("halo-kept-*"))
         try:
@@ -305,7 +304,7 @@ def test_a_threaded_browser_start_sees_a_stop_and_a_close_does_not_wait_for_it(c
         for th in take():
             th.join(5)
         (subprocess_safe.Popen, closing._in_a_job, closing.breakaway_frees, b, closing.stop_asked, st,
-         real_sp.run) = saved
+         closing._run_wmi) = saved
         closing._STATE.clear()
         closing._STATE.update(st)
         os.environ.pop("BROWSER", None) if b is None else os.environ.__setitem__("BROWSER", b)

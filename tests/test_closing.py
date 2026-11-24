@@ -1955,8 +1955,11 @@ tool = subprocess_safe.Popen(LONG, stdin=subprocess_safe.DEVNULL, stdout=subproc
                              stderr=subprocess_safe.DEVNULL)
 
 def found():
-    reaper = closing._STATE.get("reaper")
-    return sorted(p for p in closing.marker_pids(closing.marker()) if not reaper or p != reaper.pid)
+    # exactly the two stand-ins: the tool's command by its pid, the check by its mark. (Never "every pid with the
+    # marker": on macOS the scan's own `ps` inherits the marker and lists itself, gone a moment later.)
+    own = set()
+    pids = closing.marker_pids(closing.marker(), own=own)
+    return ([tool.pid] if tool.pid in pids else []) + sorted(p for p in own if p != tool.pid)
 end = time.monotonic() + 60
 while len(found()) < 2 and time.monotonic() < end:
     time.sleep(0.05)
