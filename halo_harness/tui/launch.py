@@ -170,9 +170,11 @@ def join_the_pool(app) -> bool:
 
 
 def _code_of(exc) -> int:
-    """3.6.0.17 Z4-1: the exit code cli.main gives an exit that raises `exc` out of run_tui: a Ctrl+C 130 (cli.main's
-    own for a Ctrl+C, 128 + SIGINT), SystemExit its code, a config file that does not parse or a file in Halo's own
-    folders 2 (cli.main's one line), anything else Python's 1 (a traceback)."""
+    """3.6.0.17 Z4-1: the exit code an exit that raises `exc` out of run_tui leaves with: a Ctrl+C 130 (cli.main does
+    not catch it on the terminal app's path: 130 is what a shell reads when Python itself ends on one on POSIX,
+    128 + SIGINT; on Windows Python's own code for it is the console's Ctrl+C status, so the bound's 130 differs there
+    when a worker is stuck), SystemExit its code, a config file that does not parse or a file in Halo's own folders 2
+    (cli.main's one line), anything else Python's 1 (a traceback)."""
     if isinstance(exc, KeyboardInterrupt):
         return 130
     if isinstance(exc, SystemExit):
