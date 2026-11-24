@@ -68,7 +68,9 @@ class LoadCountingOllama(MockUpstream):
         self.count_ratio = 1.0
         self.reply_tokens = 2         # the reply's length in tokens ("ready")
         self.cuts: list = []          # {"model", "num_ctx", "real", "count"}: a prompt the window cut
-        self.cut_shape = None         # None: the real server's shapes; "edge" / "half" / ("drop", N) forced
+        self.cut_shape = None         # None: the real server's shapes; "edge" / "half" / ("drop", N) forced;
+        #                               "reject": a 400 "exceeds the available context size" instead (3.6.0.20 E7)
+        self.rejects: list = []       # {"model", "num_ctx", "real"}: a request answered with that 400
         self.replies: list = []       # scripted assistant messages, one per chat, before "ready"
         self.vram = {}              # model -> callable(num_ctx) -> (size, size_vram)
         for name in models:
@@ -160,6 +162,14 @@ class LoadCountingOllama(MockUpstream):
         opts = body.get("options") if isinstance(body.get("options"), dict) else {}
         num_ctx = int(opts.get("num_ctx") or DEFAULT_CTX)
         real = max(1, int(_real_prompt_count(body) * self.count_ratio))
+        if self.cut_shape == "reject" and real > num_ctx:  # 3.6.0.20 E7: the 400 a server answers instead of a cut
+            from tests.helpers.mock_ollama import send_json
+            with self._lock:
+                self.rejects.append({"model": body.get("model"), "num_ctx": num_ctx, "real": real})
+            send_json(handler, 400, {"error": {
+                "code": 400, "message": f"request ({real} tokens) exceeds the available context size ({num_ctx} tokens)",
+                "type": "exceed_context_size_error", "n_prompt_tokens": real, "n_ctx": num_ctx}})
+            return
         count = self._cut(body, real, num_ctx) if real > num_ctx else real
         with self._lock:
             if real > num_ctx:

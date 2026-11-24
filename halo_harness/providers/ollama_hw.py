@@ -376,6 +376,8 @@ def reset_local_gpu_cache() -> None:
     with _HW_LOCK:
         _HW_CACHE = None
         _HW_CACHE_MULTI = None
+    with _VRAM_LOCK:
+        _VRAM_AT_READING.clear()
 
 
 _SSH_HW_LOCK = threading.Lock()
@@ -606,9 +608,9 @@ def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=N
             return None
         cards = [get_ssh_gpu_memory(ssh_target, runner=runner)]
         cards = [c for c in cards if c is not None]
-        return _fit_from_gpu_cards(host, row, ps_models, cards)
+        return _fit_from_gpu_cards(host, row, ps_models, cards, ps_read=rows is not None)
     cards = get_local_gpu_memories(runner=runner)
-    return _fit_from_gpu_cards(host, row, ps_models, cards)
+    return _fit_from_gpu_cards(host, row, ps_models, cards, ps_read=rows is not None)
 
 
 def _ollama_gpu_overhead_bytes(env=None) -> int:
@@ -651,7 +653,35 @@ def host_fit_settings(host) -> dict:
     return {"kv_cache_type": kv or "f16", "parallel": parallel if isinstance(parallel, int) and parallel > 0 else 1}
 
 
-def _fit_from_gpu_cards(host, row: dict, ps_models: list, cards: list, *, forced: bool = True):
+_VRAM_AT_READING: dict = {}  # host url -> (the reading's card objects, the /api/ps size_vram sum seen with it)
+_VRAM_LOCK = threading.Lock()
+_ROOM = threading.local()  # (host url, free + reclaimable) of this thread's last estimate (resolve_context_decision)
+
+
+def _vram_at_reading(host_url, cards: list, ps_models: list, *, ps_read: bool = True) -> int:
+    """3.6.0.20 E1: the `size_vram` of the models loaded when this card reading was taken (the first estimate that
+    uses it), never the ones loaded since: a reading kept 60 s from before a load plus the load's `size_vram` counted
+    the load twice. The same objects are the same (cached) reading; a fresh probe makes new ones. A failed /api/ps
+    read binds nothing."""
+    now = sum(e.get("size_vram") for e in ps_models if isinstance(e.get("size_vram"), int))
+    reading = tuple(c for c in (cards or []) if c is not None)
+    with _VRAM_LOCK:
+        got = _VRAM_AT_READING.get(host_url)
+        if got is not None and len(got[0]) == len(reading) and all(a is b for a, b in zip(got[0], reading)):
+            return got[1]
+        if ps_read:
+            _VRAM_AT_READING[host_url] = (reading, now)
+    return now
+
+
+def last_card_room(host_url) -> Optional[int]:
+    """The card's free bytes plus what the loaded models would give back, as this thread's last estimate for
+    `host_url` read them (3.6.0.20 E2), or None."""
+    got = getattr(_ROOM, "value", None)
+    return got[1] if got and got[0] == host_url else None
+
+
+def _fit_from_gpu_cards(host, row: dict, ps_models: list, cards: list, *, forced: bool = True, ps_read: bool = True):
     """Shared by `estimate_fit_for_host`'s local and ssh-remote branches.
     Halo 3.3.4.0 R3 (knowledge/memory.md): the corrected arithmetic of
     `providers.ollama_fit_parts.fit_window` -- the KV cache of the layers
@@ -669,7 +699,8 @@ def _fit_from_gpu_cards(host, row: dict, ps_models: list, cards: list, *, forced
         return None
     from halo_harness.providers.ollama_fit_parts import fit_window, projector_for
     settings = host_fit_settings(host)
-    reclaimable = sum(e.get("size_vram") for e in ps_models if isinstance(e.get("size_vram"), int))
+    reclaimable = _vram_at_reading(host.url, cards, ps_models, ps_read=ps_read)
+    _ROOM.value = (host.url, sum(free_cards) + reclaimable)
     # Only ever meaningful on a LOCAL host -- see _ollama_gpu_overhead_bytes' own docstring.
     overhead = _ollama_gpu_overhead_bytes() if is_local_host(host) else 0
     metal = any(getattr(c, "vendor", None) == "apple" for c in cards if c is not None)
@@ -733,6 +764,9 @@ class OllamaContextDecision:
     # (`ollama_steward/profiles.py`), when there is one: its window is the
     # `fit_estimate` above (held under the learned cap and max_ctx).
     profile: Optional[dict] = None
+    # 3.6.0.20 E2: "learned cap" / "seen to fit" when an observation of this model raised `fit_estimate` (the
+    # estimate's floor, `observed_floor`), else "fit estimate"
+    fit_source: str = "fit estimate"
 
 
 _FITS_TTL_S = 60.0
@@ -842,6 +876,32 @@ def _gpu_fits_up_to(fit, learned_cap) -> Optional[int]:
     return max(values) if values else None
 
 
+def observed_floor(state_dir, host_url: str, model: str, *, digest, learned_cap, room) -> "Optional[tuple]":
+    """3.6.0.20 E2: `(window, source)`, an observation of this very model on this very server that bounds the memory
+    estimate from below while the card has the room it had then (`room`: its free bytes plus what the loaded models
+    would give back, now), or None. B: a measured cap (`learned_cap`: this digest and Ollama version) while `room` is
+    at least the measurement's `tight_vram` (an entry without one gives no floor). D: a window a call saw wholly on
+    the card (`window_truth` `fits` of this digest) while `room` is at least that load's own `size` (a record from
+    before 3.6.0.20 has none: no floor). The larger of the two; the card has less room now: None (the estimate
+    stands, the reason the measured cap stopped replacing it)."""
+    def _p(v):
+        return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+    if not _p(room):
+        return None
+    found = []
+    if _p(learned_cap):
+        from halo_harness.providers.ollama_calibrate import lookup_tight
+        tight = _p((lookup_tight(state_dir, host_url=host_url, model=model) or {}).get("tight_vram"))
+        if tight and room >= tight:
+            found.append((learned_cap, "learned cap"))
+    from halo_harness.agent.ollama_window_truth import truth
+    t = truth(state_dir, host_url, model)
+    fits, size = _p(t.get("fits")), _p(t.get("fits_size"))
+    if fits and size and digest and t.get("digest") == digest and room >= size:
+        found.append((fits, "seen to fit"))
+    return max(found, key=lambda f: f[0]) if found else None  # a tie: the measurement names it
+
+
 def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaContextDecision:
     """ONE per-ref entry point for everything round 3 (and, as of round
     5b, the learned-cap/remote-default precedence) needs to know about an
@@ -864,6 +924,7 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
     cpu_only = False
     supports_thinking = True
     gpu_layers = None
+    fit_source = "fit estimate"
     if host is not None:
         host_max_ctx = host.max_ctx
         remote = not is_local_host(host)
@@ -886,6 +947,7 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
         except Exception:
             log.debug("ollama_hw: catalog read failed for %s", model_ref.model, exc_info=True)
         try:
+            _ROOM.value = None
             fit = estimate_fit_for_host(host, model_ref.model, catalog, runner=hw_runner) if catalog else None
         except Exception:
             log.debug("ollama_hw: fit estimate failed for %s", model_ref.model, exc_info=True)
@@ -926,14 +988,19 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             # through toward trained_context/the hard cap).
             recorded_does_not_fit = has_recorded_does_not_fit(state_dir, host_url=host.url, model=model_ref.model,
                                                                 digest=digest, ollama_version=ollama_version)
+            floor = observed_floor(state_dir, host.url, model_ref.model, digest=digest, learned_cap=learned_cap,
+                                   room=last_card_room(host.url))
+            if floor and floor[0] > (fit if isinstance(fit, int) and not isinstance(fit, bool) else 0):
+                fit, fit_source = floor
         except Exception:
             log.debug("ollama_hw: learned-cap lookup failed for %s", model_ref.model, exc_info=True)
     gpu_fits = _gpu_fits_up_to(fit, learned_cap)
-    profile, fit = _apply_profile(host, model_ref.model, fit, learned_cap=learned_cap, host_max_ctx=host_max_ctx,
-                                  trained=trained_context)
+    profile, profiled = _apply_profile(host, model_ref.model, fit, learned_cap=learned_cap,
+                                       host_max_ctx=host_max_ctx, trained=trained_context)
+    fit_source, fit = (fit_source if profiled == fit else "fit estimate"), profiled
     num_ctx, source = resolve_num_ctx_and_source(trained_context, host_max_ctx, fit, learned_cap=learned_cap,
                                                   remote=remote, recorded_does_not_fit=recorded_does_not_fit,
-                                                  cpu_only=cpu_only)
+                                                  cpu_only=cpu_only, fit_source=fit_source)
     if profile and profile.get("num_ctx") == num_ctx:
         source = "steward profile"
     tools_max = resolve_ollama_tools_max(num_ctx)
@@ -946,7 +1013,8 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
                                   learned_cap=learned_cap, remote=remote, source=source, offloaded=offloaded,
                                   recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only,
                                   supports_thinking=supports_thinking, host_max_ctx=host_max_ctx,
-                                  gpu_layers=gpu_layers, gpu_fits_up_to=gpu_fits, profile=profile)
+                                  gpu_layers=gpu_layers, gpu_fits_up_to=gpu_fits, profile=profile,
+                                  fit_source=fit_source)
 
 
 def _apply_profile(host, model: str, fit, *, learned_cap, host_max_ctx, trained):

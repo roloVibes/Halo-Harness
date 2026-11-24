@@ -37,6 +37,30 @@ def _state(session) -> dict:
     return st
 
 
+def window_reason(session, host, ref, decision, choice) -> Optional[str]:
+    """3.6.0.20 E5: WHY the window sent is that size, for compact_budget.fixed_line: "memory estimate" (the memory
+    estimate, nothing measured, no load seen), "steward profile", "host max_ctx", else the source as it is. A window
+    the prompt floor raised to its ceiling is named by what holds the ceiling."""
+    try:
+        source, w = choice.source, choice.num_ctx
+        if source == "prompt floor":
+            if w != choice.ceiling:
+                return source
+            profile = getattr(decision, "profile", None) or {}
+            fit = decision.fit_estimate if isinstance(decision.fit_estimate, int) else None
+            bounds = [(profile.get("num_ctx"), "steward profile"), (getattr(host, "max_ctx", None), "host max_ctx"),
+                      (fit, getattr(decision, "fit_source", "fit estimate")),
+                      (decision.trained_context, "trained context")]
+            source = next((label for v, label in bounds if v == w), "hard cap")
+        if source == "fit estimate" and not getattr(decision, "learned_cap", None):
+            from halo_harness.agent.ollama_window_truth import truth
+            if not truth(getattr(session, "state_dir", None), host.url, ref.model).get("fits"):
+                return "memory estimate"
+        return source
+    except Exception:
+        return None
+
+
 def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_source: str,
                    system_text: str, messages, tools, auto_calibrate: bool,
                    reply_tokens=None) -> "tuple[int, float]":
@@ -73,7 +97,8 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
                       "model": ref.model, "tool_tokens": tool_output_tokens(messages),
                       "gpu_fits_up_to": getattr(decision, "gpu_fits_up_to", None), "reserve": reserve,
                       "profile": profile, "first": _first_request(messages) and is_main_call(session, ref),
-                      "parts": (system_text, tools)}
+                      "parts": (system_text, tools),
+                      "window_source": window_reason(session, host, ref, decision, choice)}
         from halo_harness.agent.ollama_window_steward import note_prepared
         note_prepared(st, estimate, reserve, session)
     return estimate, factor
@@ -167,8 +192,11 @@ def gpu_fits_up_to(session) -> Optional[int]:
 
 def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handled: bool,
                   current_num_ctx: Optional[int], cut_at: Optional[int] = None,
-                  full_at: Optional[int] = None, shape: Optional[dict] = None) -> "tuple[str, Optional[int], str]":
-    """`("resend", num_ctx, line)` -- raise the window and send again;
+                  full_at: Optional[int] = None, shape: Optional[dict] = None,
+                  answered: bool = True) -> "tuple[str, Optional[int], str]":
+    """`("stands", None, line)` -- 3.6.0.20 E8: a first request's answer stands (`answered` False: the 500 carried
+    none, "error");
+    `("resend", num_ctx, line)` -- raise the window and send again;
     `("compact", None, line)` -- compact, then send again; `("error",
     None, line)` -- a second trim in this turn, or no room left at all.
     3.6.0.0 R8 fix pass: `full_at` -- the window Ollama cut the prompt in
@@ -183,7 +211,20 @@ def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handle
     estimate = last.get("estimate") or 0
     reserve = last.get("reserve") or 1024
     host_name = last.get("host_name") or "the Ollama host"
+    # 3.6.0.20 E8: a FIRST request (no earlier answer) is never compacted: its answer stands once the window cannot
+    # grow (a raise is still taken first); with no answer (the 500) it stops
+    first = no_earlier_turn(session)
+
+    def _first_stands():
+        from halo_harness.providers.ollama_prompt import stands_line
+        if not answered:
+            return "error", None, (f"{host_name} trimmed the first request ({fmt_tokens(prompt_part(estimate or 1))} "
+                                   "tokens) and its window cannot grow: nothing earlier to compact, stopped")
+        return "stands", None, stands_line(host_name, seen, estimate, window=current_num_ctx, reserve=reserve,
+                                           cut_at=cut_at)
     if st["trim_turn"] == turn_no:
+        if first and answered:
+            return _first_stands()
         seen_part = f"{fmt_tokens(seen)} of " if isinstance(seen, int) and seen > 0 else ""
         return "error", None, (f"{host_name} trimmed the request again ({seen_part}"
                                f"{fmt_tokens(prompt_part(estimate or 1))} tokens) in this turn: stopped")
@@ -202,6 +243,8 @@ def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handle
             st["factor"][(last["host_url"], last["model"])] = TRIM_RESEND_FACTOR
         return "resend", target, trim_line(host_name, seen, estimate, window=target, reserve=reserve, cut_at=cut_at,
                                            full_at=full_at, shape=shape)
+    if first:
+        return _first_stands()
     if not overflow_handled:
         return "compact", None, trim_line(host_name, seen, estimate, reserve=reserve, cut_at=cut_at, full_at=full_at,
                                          shape=shape)

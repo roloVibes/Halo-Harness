@@ -249,6 +249,43 @@ def test_the_wait_says_it_is_loading_in_stream_json(ctx: Ctx):
         fake.stop()
 
 
+@test
+def test_a_profiles_window_loaded_by_the_first_request_is_not_reloaded_by_the_second(ctx: Ctx):
+    """3.6.0.20 E4: a steward profile sets the window (32,768); the first request of a turn goes without `num_gpu`
+    (Halo did not know the window fits the card), and before the second (after a tool step) the window becomes known
+    to fit (here a measurement lands in the home; in real use a fresher card reading): the model is resident at the
+    window sent, so the second request keeps the runner's options. ONE load (it was two: `num_gpu` then sent)."""
+    fake = _fake()
+    try:
+        fh = _home(fake)
+        halo = Path(fh["home"]) / ".halo"
+        cfg = halo / "config.json"
+        data = json.loads(cfg.read_text(encoding="utf-8"))
+        data["ollama"]["profiles"] = {f"gpu-box|{MODEL}": {"num_ctx": 32768}}
+        cfg.write_text(json.dumps(data), encoding="utf-8")
+        target = Path(fh["proj"]) / "a.txt"
+        target.write_text("one line\n", encoding="utf-8")
+        fake.replies = [{"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "Read", "arguments": {"file_path": str(target)}}}]}]
+        seen = fake.observe
+
+        def observe(method, path, body):
+            seen(method, path, body)
+            if path == "/api/chat" and len(fake.loads) == 1 and not (halo / "ollama-fit.json").exists():
+                from halo_harness.providers.ollama_calibrate import record_calibration
+                record_calibration(halo, host_url=fake.base_url, model=MODEL, digest=None, max_full_gpu_ctx=32768,
+                                   ollama_version=None)
+        fake.observe = observe
+        result = _run(fh, fake, "Read a.txt, then reply with exactly one word: ready")
+        _ok(ctx, result, "a turn with one tool step")
+        sent = [(b.get("options") or {}) for b in _turn_chats(fake)]
+        ctx.check(f"two requests at the profile's 32,768, got {[o.get('num_ctx') for o in sent]}",
+                  len(sent) == 2 and all(o.get("num_ctx") == 32768 for o in sent))
+        ctx.check(f"one load, got {fake.loads}", len(fake.loads) == 1)
+    finally:
+        fake.stop()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

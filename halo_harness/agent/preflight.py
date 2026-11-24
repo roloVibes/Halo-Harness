@@ -151,13 +151,14 @@ def _fixed_part_line(session, turn_no: int):
     try:
         from halo_harness.agent.compact_budget import budget, fixed_line
         from halo_harness.agent.ollama_window import _state
-        parts = (_state(session).get("last") or {}).get("parts")
+        last = _state(session).get("last") or {}
+        parts = last.get("parts")
         b = budget(session, *parts) if parts else None
     except Exception:
         log.debug("preflight: the fixed part could not be measured", exc_info=True)
-        b = None
+        b, last = None, None
     if b and b["target"] <= 0:
-        yield events.turn_marker("preflight", fixed_line(b), turn=turn_no)
+        yield events.turn_marker("preflight", fixed_line(b, last), turn=turn_no)
 
 
 def run(session, turn_no: int):

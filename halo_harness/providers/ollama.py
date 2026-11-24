@@ -432,7 +432,8 @@ def resolve_num_ctx_and_source(trained_context: Optional[int], host_max_ctx: Opt
                                 fallback_when_unknown: int = FALLBACK_NUM_CTX,
                                 learned_cap: Optional[int] = None, remote: bool = False,
                                 remote_unknown_ceiling: int = REMOTE_UNKNOWN_DEFAULT_NUM_CTX,
-                                recorded_does_not_fit: bool = False, cpu_only: bool = False):
+                                recorded_does_not_fit: bool = False, cpu_only: bool = False,
+                                fit_source: str = "fit estimate"):
     """Round 2/3's context-ownership rule, extended by round 5b with a
     learned calibration cap and a conservative remote-unknown ceiling,
     and by the review fix pass (findings 5/6) below -- returns `(num_ctx,
@@ -513,7 +514,8 @@ def resolve_num_ctx_and_source(trained_context: Optional[int], host_max_ctx: Opt
     if has_host_max:
         candidates.append((host_max_ctx, "host max_ctx"))
     if fit_candidate is not None:
-        candidates.append((fit_candidate, "fit estimate"))
+        # 3.6.0.20 E2: `fit_source` names an observation that raised the estimate (ollama_hw.observed_floor)
+        candidates.append((fit_candidate, fit_source if fit_source in ("learned cap", "seen to fit") else "fit estimate"))
     if has_learned:
         candidates.append((learned_cap, "learned cap"))
     if nothing_known:
@@ -524,7 +526,7 @@ def resolve_num_ctx_and_source(trained_context: Optional[int], host_max_ctx: Opt
     if trained_context is None or does_not_fit:
         candidates.append((fallback_when_unknown, "fallback"))
     value = min(v for v, _ in candidates)
-    priority = ("learned cap", "fit estimate", "host max_ctx", "fallback", "trained context",
+    priority = ("learned cap", "seen to fit", "fit estimate", "host max_ctx", "fallback", "trained context",
                 "remote default", "conservative default", "hard cap")
     label = min((l for v, l in candidates if v == value), key=priority.index)
     return max(1, value), label

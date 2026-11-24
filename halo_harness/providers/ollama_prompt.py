@@ -48,6 +48,7 @@ _SOURCE_WORDS = {
     # a window seen spilling to the CPU
     "loaded": "loaded", "request size": "request", "known to spill": "spill",
     "last used": "last",  # fix pass S2: /api/ps unreadable, the window last used (most likely resident)
+    "seen to fit": "seen",  # 3.6.0.20 E2: a window a call saw wholly on the card (ollama_hw.observed_floor)
 }
 
 
@@ -249,6 +250,20 @@ def trim_line(host_name: str, seen: Optional[int], estimate: int, *, window: Opt
     part = fmt_tokens(prompt_part(estimate, reserve))
     of = f"{fmt_tokens(seen)} of {part} tokens" if _pos_int(seen) else f"{part} tokens"
     return f"{host_name} trimmed the request ({of}): {done}"
+
+
+def stands_line(host_name: str, seen: Optional[int], estimate: int, *, window: Optional[int] = None,
+                reserve: int = REPLY_RESERVE_TOKENS, cut_at: Optional[int] = None) -> str:
+    """3.6.0.20 E8: the one line when a FIRST request (no earlier answer) was cut and the cut stands (nothing earlier
+    to compact): its reply cut at the window (`cut_at`), or its prompt trimmed in a window (`window`) that cannot
+    grow. The figures and formats are `trim_line`'s."""
+    if cut_at:
+        return (f"{host_name} cut the reply at the window ({fmt_tokens(seen or 0)} of {fmt_window(cut_at)} tokens): "
+                "nothing earlier to compact, the reply stands as it is")
+    part = fmt_tokens(prompt_part(estimate, reserve))
+    of = f"{fmt_tokens(seen)} of {part}" if _pos_int(seen) else part
+    return (f"{host_name} read {of} tokens of the first request (its window is {fmt_window(window or 0)}): "
+            "nothing earlier to compact, the answer stands")
 
 
 PROMPT_SPEED_MIN_TOKENS = 256

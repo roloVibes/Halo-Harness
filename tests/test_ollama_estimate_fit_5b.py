@@ -171,6 +171,102 @@ def test_estimate_fit_for_host_remote_without_ssh_unchanged(ctx: Ctx):
         ollama_mod.fetch_ps = old_fetch_ps
 
 
+# ---- 3.6.0.20 E2: an observation of this model bounds a too-low estimate from below ------------------------------
+
+_E2_MODEL, _E2_DIGEST = "example-model:30b", "sha256:e2digest"
+_E2_INFO = {"examplemoe.block_count": 48, "examplemoe.attention.head_count_kv": 4,  # an invented 30B shape
+            "examplemoe.attention.key_length": 128, "examplemoe.attention.value_length": 128,
+            "examplemoe.embedding_length": 2048, "examplemoe.context_length": 131072}
+
+
+def _e2_decide(free_bytes: int, prepare) -> tuple:
+    """(the decision, the prompt floor's ceiling) for `_E2_MODEL` on a mock host, the card reading injected
+    (`free_bytes`), a scratch state dir that `prepare(state_dir, host_url)` fills first."""
+    import os
+    import tempfile
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers import ollama_hw
+    from halo_harness.providers.ollama import reset_catalog_cache, reset_ollama_version_cache
+    from halo_harness.providers.ollama_prompt import window_for
+    mock = MockUpstream(ps_response={"models": []}).start()
+    mock.tags_response = {"models": [{"name": _E2_MODEL, "model": _E2_MODEL, "size": 17_000_000_000,
+                                       "digest": _E2_DIGEST, "details": {}}]}
+    mock.show_responses = {_E2_MODEL: {"modelfile": "", "parameters": "", "template": "", "details": {},
+                                       "capabilities": ["completion", "tools"], "model_info": _E2_INFO}}
+    d = tempfile.mkdtemp(prefix="ol-e2-floor-")
+    old_dir, old_cards = os.environ.get("BRIDGE_STATE_DIR"), ollama_hw.get_local_gpu_memories
+    os.environ["BRIDGE_STATE_DIR"] = d
+    card = [ollama_hw.GpuMemory(vendor="nvidia", name="a 24 GB card", total_bytes=24_000_000_000,
+                                free_bytes=free_bytes)]
+    ollama_hw.get_local_gpu_memories = lambda **_kw: card
+    _reset()
+    reset_catalog_cache()
+    reset_ollama_version_cache()
+    try:
+        prepare(d, mock.base_url)
+        decision = ollama_hw.resolve_context_decision(parse_model_ref(f"ol:{_E2_MODEL}"), {"OLLAMA_HOST": mock.base_url})
+        return decision, window_for(120_000, decision).ceiling
+    finally:
+        ollama_hw.get_local_gpu_memories = old_cards
+        if old_dir is None:
+            os.environ.pop("BRIDGE_STATE_DIR", None)
+        else:
+            os.environ["BRIDGE_STATE_DIR"] = old_dir
+        _reset()
+        reset_catalog_cache()
+        reset_ollama_version_cache()
+        mock.stop()
+
+
+def _measured(tight_vram):
+    def prepare(d, url):
+        from halo_harness.providers.ollama_calibrate import record_calibration
+        record_calibration(d, host_url=url, model=_E2_MODEL, digest=_E2_DIGEST, max_full_gpu_ctx=32768,
+                           ollama_version="0.1.0-mock", tight_ctx=65536 if tight_vram else None,
+                           tight_vram=tight_vram, gpu_total=24_000_000_000)
+    return prepare
+
+
+@test
+def test_a_measured_cap_is_a_floor_of_the_estimate_while_the_card_has_the_room_it_had(ctx: Ctx):
+    nothing, _c = _e2_decide(19_500_000_000, lambda d, url: None)
+    est = nothing.fit_estimate
+    ctx.check(f"the estimate alone is below the measured 32,768 (made too low on purpose), got {est}",
+              isinstance(est, int) and est < 32768 and nothing.source == "fit estimate")
+    room, ceiling = _e2_decide(19_500_000_000, _measured(19_000_000_000))
+    ctx.check(f"the card has the measurement's room: 32,768 'learned cap', got {room.num_ctx} {room.source!r}",
+              room.num_ctx == 32768 and room.source == "learned cap")
+    ctx.check(f"the prompt floor may raise to it too: ceiling 32,768, got {ceiling}", ceiling == 32768)
+    busy, ceiling = _e2_decide(18_500_000_000, _measured(19_000_000_000))
+    ctx.check(f"the card is busier than when measured: the estimate wins, got {busy.num_ctx} {busy.source!r}",
+              busy.num_ctx < 32768 and busy.source == "fit estimate" and ceiling == busy.num_ctx)
+    old, _c = _e2_decide(19_500_000_000, _measured(None))
+    ctx.check(f"a measurement with no tight_vram gives no floor, got {old.num_ctx}", old.num_ctx < 32768)
+
+
+def _seen(size, *, keep_size=True, digest=_E2_DIGEST):
+    def prepare(d, url):
+        from halo_harness.agent.ollama_window_truth import _key, _update, record_truth
+        record_truth(d, url, _E2_MODEL, num_ctx=65536, size=size, size_vram=size, digest=digest)
+        if not keep_size:  # a record written before 3.6.0.20
+            _update(d, "window_truth", _key(url, _E2_MODEL), lambda old: {k: v for k, v in old.items()
+                                                                         if k != "fits_size"})
+    return prepare
+
+
+@test
+def test_a_load_seen_wholly_on_the_card_is_a_floor_while_the_card_has_its_size(ctx: Ctx):
+    seen, ceiling = _e2_decide(19_500_000_000, _seen(19_000_000_000))
+    ctx.check(f"a load seen at 65,536 on the card: 65,536 'seen to fit', got {seen.num_ctx} {seen.source!r}",
+              seen.num_ctx == 65536 and seen.source == "seen to fit" and ceiling == 65536)
+    busy, _c = _e2_decide(18_500_000_000, _seen(19_000_000_000))
+    ctx.check(f"less room than that load took: the estimate wins, got {busy.num_ctx}", busy.num_ctx < 32768)
+    old, _c = _e2_decide(19_500_000_000, _seen(19_000_000_000, keep_size=False))
+    ctx.check(f"a record without the load's size gives no floor, got {old.num_ctx}", old.num_ctx < 32768)
+    other, _c = _e2_decide(19_500_000_000, _seen(19_000_000_000, digest="sha256:another"))
+    ctx.check(f"a load of another digest gives no floor, got {other.num_ctx}", other.num_ctx < 32768)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

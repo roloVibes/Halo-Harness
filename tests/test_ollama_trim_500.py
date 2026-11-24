@@ -65,6 +65,9 @@ def test_ollama_500_no_user_query_raises_once_then_one_error_line(ctx: Ctx):
 
 @test
 def test_ollama_500_no_user_query_compacts_when_the_window_cannot_grow(ctx: Ctx):
+    """3.6.0.20 E8 (rewritten to the truth): `halo -p "hi"` is a FIRST request, never compacted (nothing earlier to
+    summarise; it was: 500, compaction, answer): the degradation ladder's smaller ask is the re-send, and it is
+    answered. A later request is still compacted (tests/test_ollama_trim_recovery.py, trim_recovery's own test)."""
     trained = _no_room_trained()
     fh = build_fake_home()
     mock = _mock_with("q-tight", trained)
@@ -75,8 +78,9 @@ def test_ollama_500_no_user_query_compacts_when_the_window_cannot_grow(ctx: Ctx)
         out = result.stdout + result.stderr
         chats = _chats(mock)
         ctx.check(f"exit 0, got {result.returncode} out={out[-600:]!r}", result.returncode == 0)
-        ctx.check(f"500, compaction, answer: got {_shape(chats)}", _shape(chats).startswith("ACA"))
-        ctx.check(f"the line, got {out[-600:]!r}", "compacted and re-sent" in out)
+        ctx.check(f"500, the ladder's re-send, no compaction: got {_shape(chats)} {out[-600:]!r}",
+                  _shape(chats) == "AA" and "compacted" not in out)
+        ctx.check("the answer printed", "the answer" in result.stdout)
     finally:
         mock.stop()
 

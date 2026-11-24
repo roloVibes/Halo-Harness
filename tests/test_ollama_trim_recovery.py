@@ -105,8 +105,9 @@ def test_trimmed_prompt_eval_count_resends_with_a_larger_window(ctx: Ctx):
 
 @test
 def test_trimmed_with_no_room_compacts_and_resends(ctx: Ctx):
-    """COMPACT path: the window is already at the trained context, so the
-    trim is answered by compacting, then the request goes again."""
+    """COMPACT path: the window is already at the trained context. 3.6.0.20 E8 (rewritten to the truth): a FIRST
+    request has nothing to compact (`halo -p "hi"` is one): its answer stands, one line says so, one call. A request
+    with an earlier answer still compacts and re-sends: trim_recovery's own test below."""
     trained = _no_room_trained()
     fh = build_fake_home()
     mock = _mock_with("tight-model", trained)
@@ -119,11 +120,43 @@ def test_trimmed_with_no_room_compacts_and_resends(ctx: Ctx):
         chats = _chats(mock)
         ctx.check(f"exit 0, got {result.returncode} out={out[-600:]!r}", result.returncode == 0)
         ctx.check(f"the window sent is the trained context, got {_num_ctx(chats[0])}", _num_ctx(chats[0]) == trained)
-        ctx.check(f"the line, got {out[-600:]!r}", "default trimmed the request (300 of" in out
-                  and "compacted and re-sent" in out)
-        ctx.check(f"answer, compaction, answer: got {_shape(chats)}", _shape(chats).startswith("ACA"))
+        ctx.check(f"one line, the answer stands, got {out[-600:]!r}",
+                  "default read 300 of" in out and "tokens of the first request (its window is" in out
+                  and "nothing earlier to compact, the answer stands" in out and "compacted" not in out)
+        ctx.check(f"one call, got {_shape(chats)}", _shape(chats) == "A")
+        ctx.check("its answer printed", "half" in result.stdout)
     finally:
         mock.stop()
+
+
+@test
+def test_trim_recovery_compacts_a_later_request_and_lets_a_first_one_stand(ctx: Ctx):
+    """3.6.0.20 E8, the decision itself: at a window that cannot grow, a request with an earlier answer is compacted
+    and re-sent (today's line); a first request's answer stands (one line); a first request with no answer (the 500)
+    stops; a window that can grow is raised first either way."""
+    from types import SimpleNamespace as NS
+    from halo_harness.agent.ollama_window import trim_recovery
+    from halo_harness.providers.ollama_prompt import WindowChoice
+
+    def decide(first: bool, *, ceiling=8192, **kw):
+        s = NS(_ollama_window_state={"factor": {}, "trim_turn": None, "cap": {}, "last": {
+            "estimate": 6000, "reserve": 1024, "host_name": "gpu-box", "host_url": "http://gpu-box:11434",
+            "model": "example-model:30b", "first": first, "choice": WindowChoice(8192, "x", 6000, ceiling, True)}})
+        return trim_recovery(s, 1, 3000, overflow_handled=False, current_num_ctx=8192, **kw)
+    kind, _n, line = decide(False)
+    ctx.check(f"a later request: compact, got {kind} {line!r}", kind == "compact" and "compacted and re-sent" in line)
+    kind, _n, line = decide(True)
+    ctx.check(f"a first request: stands, got {kind} {line!r}", kind == "stands" and line ==
+              "gpu-box read 3k of 5k tokens of the first request (its window is 8k): nothing earlier to compact, "
+              "the answer stands")
+    kind, _n, line = decide(True, cut_at=8192)
+    ctx.check(f"a first request's cut reply: stands, got {kind} {line!r}", kind == "stands" and line ==
+              "gpu-box cut the reply at the window (3k of 8k tokens): nothing earlier to compact, the reply stands as "
+              "it is")
+    kind, _n, _line = decide(True, answered=False)
+    ctx.check(f"a first request with no answer (the 500): error, got {kind}", kind == "error")
+    kind, n, _line = decide(True, ceiling=32768)
+    ctx.check(f"room to grow: raised first, got {kind} {n}", kind == "resend" and n and n > 8192)
 
 
 # ---- after the send: a reply cut at the window's end -------------------
@@ -143,8 +176,9 @@ def _cut_at_window(handler, body):
 
 @test
 def test_a_reply_cut_at_the_window_compacts_and_resends_once(ctx: Ctx):
-    """COMPACT path: the window is already the trained context; the cut
-    reply is never kept, the line says so, one re-send after compaction."""
+    """COMPACT path: the window is already the trained context. 3.6.0.20 E8 (rewritten to the truth): a FIRST
+    request's cut reply stands (nothing earlier to compact), one line, one call; a later request's cut is compacted
+    (trim_recovery's own test above)."""
     trained = _no_room_trained()
     fh = build_fake_home()
     mock = _mock_with("cut-model", trained)
@@ -155,10 +189,11 @@ def test_a_reply_cut_at_the_window_compacts_and_resends_once(ctx: Ctx):
         out = result.stdout + result.stderr
         chats = _chats(mock)
         ctx.check(f"exit 0, got {result.returncode} out={out[-600:]!r}", result.returncode == 0)
-        ctx.check(f"the line, got {out[-800:]!r}", "default cut the reply at the window (" in out
-                  and "compacted and re-sent" in out)
-        ctx.check(f"cut, compaction, answer: got {_shape(chats)}", _shape(chats).startswith("ACA"))
-        ctx.check("the final answer printed", "the answer" in result.stdout)
+        ctx.check(f"one line, the reply stands, got {out[-800:]!r}", "default cut the reply at the window (" in out
+                  and "tokens): nothing earlier to compact, the reply stands as it is" in out
+                  and "compacted" not in out)
+        ctx.check(f"one call, got {_shape(chats)}", _shape(chats) == "A")
+        ctx.check("the cut reply printed", "half a rep" in result.stdout)
     finally:
         mock.stop()
 

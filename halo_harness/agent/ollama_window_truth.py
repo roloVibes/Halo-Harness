@@ -142,12 +142,14 @@ def record_truth(state_dir, host_url: str, model: str, *, num_ctx: int, size, si
         out = {**old, "num_ctx": num_ctx, "num_gpu": num_gpu, "digest": digest or old.get("digest"), "at": time.time()}
         if kind == "fits":
             out["fits"] = max(num_ctx, _pos(old.get("fits")) or 0)
+            if out["fits"] == num_ctx:  # 3.6.0.20 E2: the load's own size at `fits` (ollama_hw.observed_floor)
+                out["fits_size"] = size
             if _pos(old.get("spills")) and old["spills"] <= num_ctx:
                 out["spills"] = None  # the card has more room now than when it spilled
         else:
             out["spills"] = min(num_ctx, _pos(old.get("spills")) or num_ctx)
             if _pos(old.get("fits")) and old["fits"] >= num_ctx:
-                out["fits"] = None
+                out["fits"], out["fits_size"] = None, None
         return out
     _update(state_dir, "window_truth", _key(host_url, model), _fold)
     return kind
@@ -360,11 +362,13 @@ def first_block(session, host, ref, before) -> Optional[int]:
         return None
     sent = getattr((st.get("last") or {}).get("choice"), "num_ctx", None)
     shaped = getattr(session, "_shape_window", None) if getattr(session, "_shape_model", None) == ref.raw else None
-    if not _pos(sent) or sent == (_pos(shaped) or before):
+    if not _pos(sent):
         return None
+    # 3.6.0.20 E3: kept ALWAYS, also when the window sent is the one shaped for: a later move of the resolved window
+    # (the card's free memory fell) never changes the block in the middle of a session
     st.setdefault("block", {})[key] = sent
     session._shape_window, session._shape_model = sent, ref.raw
-    return sent
+    return None if sent == (_pos(shaped) or before) else sent
 
 
 def _live_fit(row) -> Optional[bool]:
@@ -408,9 +412,14 @@ def process_asked(host_url: str, model: str) -> Optional[int]:
 def resident_options(session, host, model: str, body: dict, source: str) -> dict:
     """A call that uses the loaded window sends `num_gpu` the way the runner was loaded: the last call's own when
     Halo loaded it at that window, else none (another client's load); any other `num_gpu` reloads it."""
-    if source not in ("loaded", "last used"):
-        return body
     opts = dict(body.get("options") or {})
+    if source not in ("loaded", "last used"):
+        # 3.6.0.20 E4: whatever the window's source (a steward profile's, the memory estimate's), a model /api/ps shows
+        # resident at the window being sent keeps the runner's options: another num_gpu would reload it
+        from halo_harness.providers.ollama_hw import last_ps_entry
+        known, row = last_ps_entry(host.url, model)
+        if not (known and _pos(opts.get("num_ctx")) and _pos((row or {}).get("context_length")) == opts["num_ctx"]):
+            return body
     t = truth(getattr(session, "state_dir", None), host.url, model)
     if t.get("num_ctx") == opts.get("num_ctx") and _pos(t.get("num_gpu")):
         opts["num_gpu"] = t["num_gpu"]

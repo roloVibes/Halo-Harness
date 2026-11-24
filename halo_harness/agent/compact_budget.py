@@ -101,10 +101,22 @@ def budget(session, system_text: str, tools) -> Optional[dict]:
             "summary_max": summary_max, "tail_max": max(0, target - summary_max)}
 
 
-def fixed_line(b: dict) -> str:
-    """The line when the budget's fixed part alone (`target` 0) is more than the window holds."""
-    return (f"↳ the system prompt, the memory and the tools alone are {b['fixed']:,} tokens, more than this "
-            f"{b['window']:,} window holds with the reply's {b['reserve']:,}: a bigger-window model holds them")
+def fixed_line(b: dict, last: "dict | None" = None) -> str:
+    """The line when the budget's fixed part alone (`target` 0) is more than the window holds. 3.6.0.20 E5: what
+    follows the colon says WHY the window is that size (`last`: ollama_window.prepare_window's record of the call,
+    its `window_source`, `model`, `host_name`)."""
+    head = (f"↳ the system prompt, the memory and the tools alone are {b['fixed']:,} tokens, more than this "
+            f"{b['window']:,} window holds with the reply's {b['reserve']:,}: ")
+    last = last or {}
+    why, model, host = last.get("window_source"), last.get("model"), last.get("host_name")
+    if why == "memory estimate" and model and host:
+        return head + (f"that window is Halo's memory estimate for {model} on {host}; `halo local measure {model}` "
+                       "measures what the card holds")
+    if why == "steward profile" and model and host:
+        return head + f"the profile of {model} on {host} sets that window (`halo ollama profile`)"
+    if why == "host max_ctx":
+        return head + "the host's max_ctx sets that window"
+    return head + "a bigger-window model holds them"
 
 
 def again_lines(session, turn_no: int):
@@ -116,7 +128,8 @@ def again_lines(session, turn_no: int):
         return
     prompt, b = got
     if b["target"] <= 0:
-        yield events.turn_marker("preflight", fixed_line(b), turn=turn_no)
+        last = (getattr(session, "_ollama_window_state", None) or {}).get("last")
+        yield events.turn_marker("preflight", fixed_line(b, last), turn=turn_no)
         return
     yield events.turn_marker("resend", f"↳ the compacted request ({prompt:,} tokens) is still past the window's "
                              "budget: compacting once more", turn=turn_no)

@@ -152,6 +152,46 @@ def test_the_steward_skips_a_cut_that_was_chosen(ctx: Ctx):
         ctx.check(f"the same trim, not chosen, is one, got {rules}", "window-asked-small" in rules)
 
 
+@test
+def test_the_line_for_a_first_request_over_its_window_says_why_the_window_is_that_size(ctx: Ctx):
+    """3.6.0.20 E5: the first part word for word; after the colon, WHY the window is that size (the memory estimate
+    with nothing measured and no load seen, a steward profile, the host's max_ctx, else today's words)."""
+    import tempfile
+    from types import SimpleNamespace as NS
+    from halo_harness.agent.compact_budget import fixed_line
+    from halo_harness.agent.ollama_window import window_reason
+    from halo_harness.providers.ollama_prompt import WindowChoice
+    b = {"fixed": 5200, "window": 4096, "reserve": 1024}
+    head = ("↳ the system prompt, the memory and the tools alone are 5,200 tokens, more than this 4,096 window holds "
+            "with the reply's 1,024: ")
+    host, ref = NS(name="gpu-box", url="http://gpu-box:11434", max_ctx=None), NS(model="example-model:30b")
+    session = NS(state_dir=tempfile.mkdtemp(prefix="e5-why-"))
+
+    def why(source="prompt floor", **kw):
+        d = dict(trained_context=202752, fit_estimate=4096, learned_cap=None, profile=None, fit_source="fit estimate")
+        d.update(kw)
+        choice = WindowChoice(4096, source, 6000, 4096, False)
+        return window_reason(session, kw.pop("host", host), ref, NS(**d), choice)
+    last = {"model": "example-model:30b", "host_name": "gpu-box"}
+    got = fixed_line(b, {**last, "window_source": why()})
+    ctx.check(f"the memory estimate, nothing measured: {got!r}", got == head + (
+        "that window is Halo's memory estimate for example-model:30b on gpu-box; `halo local measure "
+        "example-model:30b` measures what the card holds"))
+    got = fixed_line(b, {**last, "window_source": why("fit estimate")})
+    ctx.check("the same when the estimate is the window as it is (not raised)", "memory estimate for" in got)
+    got = fixed_line(b, {**last, "window_source": why(learned_cap=4096)})
+    ctx.check(f"a measurement exists: today's words, got {got!r}", got == head + "a bigger-window model holds them")
+    got = fixed_line(b, {**last, "window_source": why(profile={"num_ctx": 4096})})
+    ctx.check(f"a profile: {got!r}", got == head + "the profile of example-model:30b on gpu-box sets that window "
+                                                   "(`halo ollama profile`)")
+    got = fixed_line(b, {**last, "window_source": why(fit_estimate=None, host=NS(name="gpu-box", url=host.url,
+                                                                                    max_ctx=4096))})
+    ctx.check(f"the host's max_ctx: {got!r}", got == head + "the host's max_ctx sets that window")
+    got = fixed_line(b, {**last, "window_source": why(fit_estimate=None, trained_context=4096)})
+    ctx.check(f"the trained window: today's words, got {got!r}", got == head + "a bigger-window model holds them")
+    ctx.check("no record: today's words", fixed_line(b) == head + "a bigger-window model holds them")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

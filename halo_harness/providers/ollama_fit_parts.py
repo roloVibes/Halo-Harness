@@ -129,6 +129,12 @@ def _per_head(model_info: dict) -> Optional[float]:
 
 def kv_bytes(model_info: dict, bytes_per_elem: float = 2.0) -> Optional[float]:
     """KV cache bytes per token of the main model (the draft layer apart)."""
+    rank, rope = _num(model_info, ".attention.kv_lora_rank"), _num(model_info, ".rope.dimension_count")
+    blocks = _num(model_info, ".block_count")
+    if rank and rope and blocks:
+        # 3.6.0.20 E0: a latent-attention model: the server caches per layer one latent row of kv_lora_rank + the
+        # rope part and no V tensor (llama.cpp's `has_v = !is_mla`), whatever head count the keys name.
+        return (int(blocks) - draft_layers(model_info)) * (rank + rope) * bytes_per_elem
     hc, per_head = head_counts(model_info), _per_head(model_info)
     if not hc or not per_head:
         return None

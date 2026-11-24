@@ -404,9 +404,10 @@ def test_a_one_shot_over_half_of_the_spill_window_is_sent_the_window_the_line_na
         fake.stop()
 
 
-def _session_said(fh, fake, turns: list, timeout: float = 300) -> "tuple[int, int, str]":
+def _session_said(fh, fake, turns: list, timeout: float = 300, between=None) -> "tuple[int, int, str]":
     """`_session`'s client with `--output-format text --verbose`, so the `↳` lines a person reads are printed: each
-    user line after the previous turn's end line (`◼ ...`). Returns (exit code, turns ended, everything printed)."""
+    user line after the previous turn's end line (`◼ ...`). Returns (exit code, turns ended, everything printed).
+    `between(i)`, when given, runs after turn i (from 1) ended, before the next line is sent."""
     cmd = [sys.executable, "-m", "tests.helpers.halo_turn_net", "-p", "--input-format", "stream-json",
            "--output-format", "text", "--verbose", "--model", f"ol:{MODEL}@gpu-box", "--cwd", str(fh["proj"]),
            "--permission-mode", "auto"]
@@ -418,6 +419,8 @@ def _session_said(fh, fake, turns: list, timeout: float = 300) -> "tuple[int, in
     ended, out = 0, []
     try:
         for line in turns:
+            if between is not None and ended:
+                between(ended)
             proc.stdin.write(line + "\n")
             proc.stdin.flush()
             for got in proc.stdout:
@@ -532,6 +535,35 @@ def test_a_session_under_the_spill_is_sent_the_window_the_line_names_every_turn(
 
 
 @test
+def test_a_session_held_at_a_spill_cap_answered_exceeds_the_context_is_never_resent_past_its_cap(ctx: Ctx):
+    """3.6.0.20 E7 (3.6.0.19 built the cap with no test of its own): a session of more turns held at the cap a spill
+    lowered (16,384); before its second turn the server starts counting the prompt larger than Halo's estimate, and it
+    answers a request past the window with the 400 "exceeds the available context size" (not a cut). The
+    "prompt exceeds num_ctx" retry never re-sends past the cap: no load above 16,384, every request at or under it."""
+    fake = _spilling_fake()
+    try:
+        fh = L._home(fake)
+        fake.preload(MODEL, 32768)
+        fake.cut_shape = "reject"
+
+        def count_more(_turn):
+            fake.count_ratio = 1.6
+        turns = [_user("Reply with exactly one word: ready"),
+                 _user("Context follows. " + "word " * int(8000 * 3.5 / 5) + "Reply with exactly one word: ready")]
+        rc, ended, out = _session_said(fh, fake, turns, timeout=400, between=count_more)
+        sent = [(b.get("options") or {}).get("num_ctx") for b in _chats(fake)]
+        said = [ln.replace("\x1b[2m", "").replace("\x1b[0m", "").strip() for ln in out.splitlines()
+                if "↳" in ln or "rror" in ln]
+        print(f"  rc {rc} ended {ended} sent {sent} rejects {fake.rejects} said {said[-3:]}")
+        ctx.check(f"the server answered a request with the 400, got {fake.rejects}", bool(fake.rejects))
+        ctx.check(f"no load above the cap, got {fake.loads}", all(x["num_ctx"] <= 16384 for x in fake.loads))
+        ctx.check(f"every request at or under 16,384, got {sent}", bool(sent) and all(n <= 16384 for n in sent))
+        ctx.check(f"both turns end, got {rc} {ended}", ended == 2)
+    finally:
+        fake.stop()
+
+
+@test
 def test_a_session_with_no_spill_is_sent_the_tool_block_of_its_window_every_turn(ctx: Ctx):
     """3.6.0.19 LM batch 2: a session of more turns on the plain fake (no spill): every request's tool names are those
     the product's own measure gives at the resolved window (the host's max_ctx), as before this batch: nothing is
@@ -555,6 +587,107 @@ def test_a_session_with_no_spill_is_sent_the_tool_block_of_its_window_every_turn
                       [n for n in got if n not in w] == [n for n in names[0] if n not in want[0]])
     finally:
         fake.stop()
+
+
+@test
+def test_a_session_whose_resolved_window_moves_after_its_first_turn_keeps_its_first_tool_block(ctx: Ctx):
+    """3.6.0.20 E3: the window a session resolves moves between turn 1 and turn 2 (here the host's max_ctx is lowered
+    in the home's config; in real use the card's free memory falls) while the model stays loaded at the first window:
+    turn 2 is sent the loaded window AND turn 1's tool names (it was: the block of the window resolved now)."""
+    fake = L._fake()
+    try:
+        fh = L._home(fake)
+        cfg = Path(fh["home"]) / ".halo" / "config.json"
+
+        def lower(_turn):
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+            data["ollama"]["hosts"][0]["max_ctx"] = 16384
+            cfg.write_text(json.dumps(data), encoding="utf-8")
+        texts = ["Reply with exactly one word: ready", "Reply with exactly one word: done"]
+        rc, ended, _out = _session_said(fh, fake, [_user(t) for t in texts], timeout=300, between=lower)
+        ctx.check(f"a two-turn session: exit 0 and two turns ended, got {rc} {ended}", rc == 0 and ended == 2)
+        sent = [(b.get("options") or {}).get("num_ctx") for b in L._turn_chats(fake)]
+        ctx.check(f"both turns are sent the loaded {CAP:,}, got {sent}", bool(sent) and set(sent) == {CAP})
+        names = _chat_tool_names(fake)
+        ctx.check(f"two requests with tools, the same names, got {[len(n) for n in names]}",
+                  len(names) == 2 and names[0] == names[1])
+        small = _measured_names(fh, 16384, texts[1])
+        ctx.check(f"the test sees a difference: the block at 16,384 is smaller ({len(small)} tools)",
+                  len([n for n in names[0] if n in small]) == len(small) and len(small) < len(names[0]))
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_first_call_whose_block_raises_the_window_again_and_again_is_shaped_for_the_window_sent(ctx: Ctx):
+    """3.6.0.20 E6: a session's first call whose tool block, shaped for each window, needs the next power of two four
+    times (8,192 -> 131,072, the ceiling): the rounds run until the window sent stops rising, so the request is shaped
+    for the window it is sent (it was three rounds: shaped for 65,536, sent at 131,072). In process: the session's
+    shaper, start_window and the decision are stand-ins (restored after); first_block and prepare_window are the
+    product's."""
+    import tempfile as _tf
+    from types import SimpleNamespace as NS
+    import halo_harness.agent.loop as loop_mod
+    import halo_harness.agent.ollama_window_truth as truth_mod
+    import halo_harness.agent.prompt_wire as wire_mod
+    import halo_harness.agent.reply_room as room_mod
+    import halo_harness.providers.ollama_hw as hw_mod
+    from halo_harness.agent.ollama_window import _state
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.profiles import resolve_profile
+    from halo_harness.providers.routing import Route
+    from tests.helpers.mock_ollama import MockUpstream
+    from tests.test_ollama_calibrate import _minimal_session
+    mock = MockUpstream().start()
+    session = _minimal_session(_tf.mkdtemp(prefix="e6-rounds-"), mock)
+    session.many_turns = True
+    shaped: list = []
+
+    def tools_for(w):  # a block of about 1.2 x the window it is shaped for
+        return [{"name": "Big", "description": "word " * int(w * 1.2 * 3.5 / 5),
+                 "input_schema": {"type": "object", "properties": {}}}]
+
+    def shaper(_session, ref, request, **_kw):
+        def reshape(window=None):
+            w = window or getattr(session, "_shape_window", None) or reshape.before
+            shaped.append(w)
+            return request[0], request[1], tools_for(w)
+        reshape.before = 8192
+        return reshape
+
+    def start(_session, *, host, ref, cap, cap_source, **_kw):
+        _state(session)["first_call"] = (host.url, ref.model)
+        return 8192, "fit estimate", False
+    decision = NS(num_ctx=8192, source="fit estimate", trained_context=131072, fit_estimate=None, learned_cap=None,
+                  remote=False, recorded_does_not_fit=False, cpu_only=False, profile=None, gpu_layers=None,
+                  gpu_fits_up_to=None, supports_thinking=False, host_max_ctx=None, offloaded=None,
+                  fit_source="fit estimate", tools_max=99)
+    saved = (loop_mod.resolve_ollama_host, wire_mod.one_shot_shaper, truth_mod.start_window, room_mod.for_call,
+             hw_mod.resolve_context_decision)
+    loop_mod.resolve_ollama_host = lambda name, env: OllamaHost(name="gpu-box", url=mock.base_url)
+    wire_mod.one_shot_shaper, truth_mod.start_window = shaper, start
+    room_mod.for_call = lambda _s, _ref, window, requested, *_a, **_k: (requested, window)
+    hw_mod.resolve_context_decision = lambda *_a, **_k: decision
+    try:
+        ref = parse_model_ref("ol:plain-text")
+        session.model_ref = ref
+        route = Route(provider="ollama", upstream_model="plain-text", dialect="ollama")
+        body = session._build_ollama_body_for_ref(
+            ref=ref, route=route, profile=resolve_profile(route), system_text="sys",
+            messages=[{"role": "user", "content": [{"type": "text", "text": "hi"}]}], tools=tools_for(8192),
+            tool_choice=None, effort=None, requested_max_tokens=256)
+        sent = (body.get("options") or {}).get("num_ctx")
+        ctx.check(f"the windows it was shaped for rise to the ceiling, got {shaped}", 131072 in shaped)
+        ctx.check(f"sent at 131,072, got {sent}", sent == 131072)
+        desc = ((body.get("tools") or [{}])[0].get("function") or {}).get("description", "")
+        ctx.check(f"the block sent is the one shaped for the window sent ({sent}), got the block of "
+                  f"{[w for w in shaped if tools_for(w)[0]['description'] == desc]}",
+                  desc == tools_for(sent or 0)[0]["description"])
+    finally:
+        (loop_mod.resolve_ollama_host, wire_mod.one_shot_shaper, truth_mod.start_window, room_mod.for_call,
+         hw_mod.resolve_context_decision) = saved
+        mock.stop()
 
 
 # ---- 3.6.0.19 LM batch 3: a new session on a model Halo never measured -------------------------------------------
@@ -710,6 +843,23 @@ def test_a_first_request_larger_than_the_window_is_never_compacted(ctx: Ctx):
 
 
 @test
+def test_a_first_request_over_a_max_ctx_window_names_the_max_ctx(ctx: Ctx):
+    """3.6.0.20 E5: the host's max_ctx (4,096) holds the window below Halo's own first request: the line says that, not
+    "a bigger-window model" (the trained window, the test above, keeps those words)."""
+    fake = _unmeasured_fake()
+    try:
+        fh = L._home(fake, max_ctx=4096)
+        rc, ended, out = _session_said(fh, fake, [_user(FIRST)], timeout=400)
+        ctx.check(f"one turn: exit 0 and it ended, got {rc} {ended}", rc == 0 and ended == 1)
+        line = next((ln.replace("\x1b[2m", "").replace("\x1b[0m", "").strip() for ln in out.splitlines()
+                     if "alone are" in ln), "")
+        ctx.check(f"the line names the max_ctx, got {line!r}",
+                  "this 4,096 window holds" in line and line.endswith(": the host's max_ctx sets that window"))
+    finally:
+        fake.stop()
+
+
+@test
 def test_a_first_request_sent_anyway_whose_reply_fills_the_window_is_not_compacted_after_it(ctx: Ctx):
     """3.6.0.19 (its review): the first request is sent anyway (the test above); the reply then uses its whole room and
     ends at the window (done_reason "length"). Before: "cut the reply at the window: compacted and re-sent", a
@@ -729,6 +879,39 @@ def test_a_first_request_sent_anyway_whose_reply_fills_the_window_is_not_compact
                       len(chats) == 1 and _carries(chats[0], "Question one"))
             ctx.check(f"cut shape {shape}: no line says it compacts or summarises, got {out[-900:]!r}",
                       "compact" not in out and "summarises" not in out)
+        finally:
+            fake.stop()
+
+
+@test
+def test_a_first_request_judged_to_fit_then_cut_by_the_server_stands_with_one_true_line(ctx: Ctx):
+    """3.6.0.20 E8: a first request the pre-send check judged to fit (so nothing announced "sending anyway"), at a
+    window that cannot grow (the host's max_ctx 16,384): (a) the server counts it larger and cuts it to half the window;
+    (b) its reply runs to the window's end. Neither is compacted (a conversation with no earlier answer has nothing to
+    summarise; it was: "compacted and re-sent"); the answer stands and one line says so."""
+    cases = (("trimmed", 1.6, 2, "half", "gpu-box read 8.2k of "),  # half the window + 2, trim_line's format
+             ("cut reply", 1.3, 100000, None, "gpu-box cut the reply at the window ("))  # read whole, less room
+    for name, ratio, reply, shape, head in cases:
+        fake = L._fake()
+        try:
+            fh = L._home(fake, max_ctx=16384)
+            fake.count_ratio, fake.reply_tokens, fake.cut_shape = ratio, reply, shape
+            text = "Context follows. " + "word " * int(6000 * 3.5 / 5) + FIRST
+            rc, ended, out = _session_said(fh, fake, [_user(text)], timeout=400)
+            print(f"  {name}: cuts {fake.cuts} sent {[(b.get('options') or {}).get('num_ctx') for b in _chats(fake)]}")
+            chats = _chats(fake)
+            ctx.check(f"{name}: one turn, exit 0, one call, got {rc} {ended} {len(chats)}",
+                      rc == 0 and ended == 1 and len(chats) == 1)
+            ctx.check(f"{name}: no line says it compacts or summarises, got {out[-700:]!r}",
+                      "compact" not in out.replace("nothing earlier to compact", "") and "summarises" not in out)
+            said = [ln.replace("\x1b[2m", "").replace("\x1b[0m", "").strip()[2:] for ln in out.splitlines()
+                    if "nothing earlier to compact" in ln]
+            tail = ("of the first request (its window is 16k): nothing earlier to compact, the answer stands"
+                    if shape else "16k tokens): nothing earlier to compact, the reply stands as it is")
+            ctx.check(f"{name}: one line, word for word, got {said}",
+                      len(said) == 1 and said[0].startswith(head) and said[0].endswith(tail))
+            ctx.check(f"{name}: no 'sending anyway' line (the check judged it to fit), got {out[-700:]!r}",
+                      "sending anyway" not in out)
         finally:
             fake.stop()
 

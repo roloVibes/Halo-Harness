@@ -138,6 +138,7 @@ Any attempt to use tools is a critical violation. Respond with text ONLY."""
 # through to `_step`'s own ordinary terminal-error branch instead of
 # looping forever.
 _OVERFLOW_NEEDS_COMPACTION = object()
+_TRIM_STANDS = object()  # 3.6.0.20 E8: a first request's trimmed prompt or cut reply stands (Session._ollama_trimmed)
 
 
 def _composition_fields(session) -> Optional[dict]:
@@ -2951,7 +2952,10 @@ class Session:
             exact(self, log_trim)
         kind, num_ctx, line = trim_recovery(self, turn_no, seen, overflow_handled=overflow_handled,
                                             current_num_ctx=current, cut_at=cut_at, full_at=full_at,
-                                            shape=shape)
+                                            shape=shape, answered=raw_message is None)
+        if kind == "stands":  # 3.6.0.20 E8: a first request: nothing earlier to compact, its answer stands
+            yield events.turn_marker("resend", f"↳ {line}", turn=turn_no)
+            return _TRIM_STANDS
         if log_trim and kind in ("resend", "compact"):
             from halo_harness.agent.ollama_log_recovery import trim_said
             line = trim_said(log_trim, kind, num_ctx, (self._ollama_window_state.get("last") or {}).get("host_name")
@@ -3114,7 +3118,8 @@ class Session:
         from halo_harness.agent.reply_room import for_call as _reply_room  # 3.3.16.1: the room follows the window
         base_num_ctx, base_source = resolve_num_ctx_and_source(
             decision.trained_context, host.max_ctx, decision.fit_estimate, learned_cap=effective_learned_cap,
-            remote=decision.remote, recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only)
+            remote=decision.remote, recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only,
+            fit_source=getattr(decision, "fit_source", "fit estimate"))  # 3.6.0.20 E2: an observation's name
         base_source = "steward profile" if decision.profile and base_num_ctx == decision.profile.get("num_ctx") else base_source
         # Halo 3.6.0.0 R8: the `min()` above is the most the call may ask for; it asks for what the request needs
         # on the ladder, or for the window the model is already loaded at when that holds it (nobody's model is
@@ -3135,9 +3140,12 @@ class Session:
             reply_tokens=requested_max_tokens)
         if _reshape is not None:  # 3.6.0.19 LM: a session's tool block is the one of the window its first call is sent
             from halo_harness.agent.ollama_window_truth import first_block
-            for _ in range(3):  # shaped once more for the window sent (a larger block may raise the window once more)
-                if not first_block(self, host, ref, _reshape.before):
+            _shaped_at: set = set()  # 3.6.0.20 E6: until the window sent stops rising (bounded by the cap), never three
+            while True:  # shaped once more for the window sent (a larger block may raise the window once more)
+                _sent = first_block(self, host, ref, _reshape.before)
+                if not _sent or _sent in _shaped_at:
                     break
+                _shaped_at.add(_sent)
                 system_text, messages, tools = _reshape(None)
                 prompt_tokens, window_factor = prepare_window(
                     self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
@@ -4448,6 +4456,8 @@ class Session:
                     # 3.6.0.19 (its review): a FIRST request that was sent anyway has nothing to compact: a reply cut at
                     # the window stands as the answer, as a chosen cut of the prompt does below. (Before: "compacted and
                     # re-sent", a compaction of a conversation with no earlier answer, then the ladder and an error.)
+                    # 3.6.0.20 E8: one not announced stands too, after a raise it may get, with one line
+                    # (ollama_window.trim_recovery's "stands")
                     from halo_harness.agent.ollama_window import no_earlier_turn
                     if no_earlier_turn(self):
                         _cut = False
@@ -4464,6 +4474,8 @@ class Session:
                         turn_no, _trim["limit"] if _trim else (_seen + _eval) if _cut else _seen, body, overflow_handled,
                         cut_at=_opts.get("num_ctx") if _cut and not _trim else None, log_trim=_trim,
                         full_at=_opts.get("num_ctx") if _full else None, shape=_full)
+                    if _recovery is _TRIM_STANDS:  # 3.6.0.20 E8: a first request's answer stands, its line said
+                        break
                     if _recovery is None or _recovery is _OVERFLOW_NEEDS_COMPACTION:
                         return _recovery
                     body, req = _recovery

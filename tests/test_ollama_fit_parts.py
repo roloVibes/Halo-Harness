@@ -61,6 +61,49 @@ def test_a_per_layer_head_count_list_counts_its_attention_layers(ctx: Ctx):
     ctx.check(f"10 attention layers x 8 heads x 128 x 1.0625, got {got}", got == 10 * 8 * 128 * Q8)
 
 
+# 3.6.0.20 E0: a latent-attention model (an invented architecture word; the public key shape of such a family). The
+# server caches per layer ONE latent row of kv_lora_rank + the rope part and no V tensor.
+MLA = {"examplearch.block_count": 47, "examplearch.attention.head_count": 20,
+       "examplearch.attention.head_count_kv": 20, "examplearch.attention.key_length": 256,
+       "examplearch.attention.value_length": 256, "examplearch.attention.key_length_mla": 576,
+       "examplearch.attention.value_length_mla": 512, "examplearch.attention.kv_lora_rank": 512,
+       "examplearch.rope.dimension_count": 64, "examplearch.embedding_length": 2048}
+W_MLA = 17_500_000_000
+
+
+@test
+def test_a_latent_attention_model_caches_one_latent_row_a_layer(ctx: Ctx):
+    from halo_harness.providers.ollama_fit_parts import kv_bytes, load_parts
+    got = kv_bytes(MLA, 2.0)
+    ctx.check(f"47 layers x (512 + 64) x 2 bytes, got {got}", got == 47 * 576 * 2)
+    for window in (4096, 65536):
+        kv = load_parts(MLA, weight_bytes=W_MLA, window=window, bytes_per_elem=Q8)["kv"]
+        ctx.check(f"the cache at {window} is 47 x 576 x 1.0625 x {window}, got {kv}", kv == 47 * 576 * Q8 * window)
+    llama = {"examplearch.block_count": 47, "examplearch.attention.head_count_kv": 1,
+             "examplearch.attention.key_length": 576, "examplearch.attention.value_length": 512,
+             "examplearch.attention.kv_lora_rank": 512, "examplearch.rope.dimension_count": 64,
+             "examplearch.embedding_length": 2048}
+    ctx.check("the same model in llama.cpp's convention (one head, K 576, V 512): the same cache",
+              kv_bytes(llama, 2.0) == 47 * 576 * 2)
+    draft = dict(MLA, **{"examplearch.nextn_predict_layers": 1})
+    ctx.check("a draft layer is not counted in the main cache", kv_bytes(draft, 2.0) == 46 * 576 * 2)
+    no_rope = {k: v for k, v in MLA.items() if not k.endswith(".rope.dimension_count")}
+    ctx.check("without the rope part the old formula stands", kv_bytes(no_rope, 2.0) == 47 * 20 * 512 * 2)
+
+
+@test
+def test_a_card_of_a_given_size_answers_the_window_a_latent_attention_models_parts_add_up_to(ctx: Ctx):
+    from halo_harness.providers.ollama_fit_parts import fit_window, need_bytes
+    for window in (16384, 65536):
+        free = need_bytes(MLA, weight_bytes=W_MLA, window=window, bytes_per_elem=Q8)
+        ctx.check(f"{window} needs the weights and under 5 GB more (once 30 GB of cache), got {free - W_MLA:.0f}",
+                  free - W_MLA < 5e9)
+        got = fit_window(MLA, weight_bytes=W_MLA, free_bytes=free, bytes_per_elem=Q8)
+        ctx.check(f"a card whose free bytes are what {window} needs answers {window}, got {got}", got == window)
+        got = fit_window(MLA, weight_bytes=W_MLA, free_bytes=free - 1, bytes_per_elem=Q8)
+        ctx.check(f"one byte less answers the window below it, got {got}", got == window // 2)
+
+
 @test
 def test_the_recurrent_state_and_the_draft(ctx: Ctx):
     from halo_harness.providers.ollama_fit_parts import load_parts, recurrent_bytes

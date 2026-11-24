@@ -540,6 +540,55 @@ def test_resolve_context_decision_supports_thinking_reflects_catalog_capabilitie
         reset_local_gpu_cache()
 
 
+# ---- 3.6.0.20 E1: a cached card reading never counts a load twice ----------
+
+_E1_INFO = {"examplearch.block_count": 47, "examplearch.attention.head_count_kv": 20,
+            "examplearch.attention.key_length": 256, "examplearch.attention.value_length": 256,
+            "examplearch.attention.kv_lora_rank": 512, "examplearch.rope.dimension_count": 64,
+            "examplearch.embedding_length": 2048}
+
+
+def _e1_estimate(cards_seq: list, ps_seq: list, *, ssh: bool = False) -> list:
+    """Each estimate reads the next card list (the SAME objects = the cached reading) and the next /api/ps; `ssh`:
+    a remote host read over ssh (its own cached reading)."""
+    from types import SimpleNamespace
+    from halo_harness.providers import ollama_hw
+    host = SimpleNamespace(name="gpu-box", url="http://gpu-box:11434" if ssh else "http://127.0.0.1:9",
+                           kv_cache_type="q8_0", num_parallel_hint=1, ssh="me@gpu-box" if ssh else None, max_ctx=None)
+    catalog = {"models": [{"model": "example-model:30b", "name": "example-model:30b", "size": 17_500_000_000,
+                           "model_info": _E1_INFO}]}
+    old, old_ssh = ollama_hw.get_local_gpu_memories, ollama_hw.get_ssh_gpu_memory
+    feed = iter(cards_seq)
+    ollama_hw.get_local_gpu_memories = lambda **_kw: next(feed)
+    ollama_hw.get_ssh_gpu_memory = lambda _target, **_kw: next(feed)[0]
+    ollama_hw.reset_local_gpu_cache()
+    try:
+        return [ollama_hw.estimate_fit_for_host(host, "example-model:30b", catalog, ps=ps) for ps in ps_seq]
+    finally:
+        ollama_hw.get_local_gpu_memories, ollama_hw.get_ssh_gpu_memory = old, old_ssh
+        ollama_hw.reset_local_gpu_cache()
+
+
+@test
+def test_a_reading_from_before_a_load_does_not_count_the_load_twice(ctx: Ctx):
+    from halo_harness.providers.ollama_hw import GpuMemory
+    before = [GpuMemory(vendor="nvidia", name="a 24 GB card", total_bytes=24_000_000_000,
+                        free_bytes=22_500_000_000)]
+    loaded = {"models": [{"name": "example-model:30b", "model": "example-model:30b", "size": 20_000_000_000,
+                          "size_vram": 20_000_000_000, "context_length": 65536}]}
+    first, again = _e1_estimate([before, before], [{"models": []}, loaded])
+    ctx.check(f"the estimate after the load (the reading cached) is the one before it: {first} then {again}",
+              isinstance(first, int) and again == first)
+    after = [GpuMemory(vendor="nvidia", name="a 24 GB card", total_bytes=24_000_000_000,
+                       free_bytes=2_500_000_000)]
+    fresh, = _e1_estimate([after], [loaded])
+    ctx.check(f"a fresh reading after the load gives the same: {fresh}", fresh == first)
+    remote = _e1_estimate([before, before], [{"models": []}, loaded], ssh=True)
+    ctx.check(f"the same over ssh: {remote}", remote == [first, first])
+    unread = _e1_estimate([before, before, before], [None, {"models": []}, loaded])
+    ctx.check(f"a failed /api/ps read binds nothing: {unread}", unread == [first, first, first])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
