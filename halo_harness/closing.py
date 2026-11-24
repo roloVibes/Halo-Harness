@@ -64,6 +64,7 @@ _LOCK = threading.RLock()
 QUIT_BUDGET_S = 4.0              # fx jb8: the whole way out of a halo (quit's waits, close()'s waits) shares this
 _BROWSERS: list = []             # fx jb8: browser starts handed to a thread (open_url); close() waits for them
 _OPENING = threading.local()     # join: this thread's last open_url went to such a thread (True said "handed on")
+_OUTSIDE: dict = {}              # 3.6.0.18 S: start_outside_job's starts in flight (folder -> state); a way out marks them
 
 
 # -- who this process is -------------------------------------------------------------------------------------------
@@ -248,18 +249,27 @@ def _python_browser(url: str, stubbed: bool, setup_door) -> bool:
 
 
 def _browsers_at_exit() -> None:
-    arm_close_deadline()
-    wait_for_browsers(time_left(QUIT_BUDGET_S))
+    try:
+        arm_close_deadline()
+        if stop_asked():  # 3.6.0.18 S: a way out: the outside starts in flight are taken back before the wait
+            mark_outside_starts()
+        wait_for_browsers(time_left(QUIT_BUDGET_S))
+    except KeyboardInterrupt:
+        pass  # 3.6.0.18 S: a second Ctrl+C ends this wait, silently; close() still sees the start (and marks it)
 
 
 def wait_for_browsers(seconds: float) -> None:
-    """fx jb8: the browser starts open_url handed to a thread finish (at most `seconds` in all)."""
+    """fx jb8: the browser starts open_url handed to a thread finish (at most `seconds` in all). A thread leaves the
+    list only once its join has returned (3.6.0.18 S: an interrupted wait loses none)."""
     end = time.monotonic() + max(0.0, seconds)
     while _BROWSERS:
-        th = _BROWSERS.pop(0)
-        if stop_asked() and not getattr(th, "halo_in_command", False):
-            continue  # jb10: not at its command yet: it sees the stop at its next check and starts nothing
-        th.join(max(0.0, end - time.monotonic()))
+        th = _BROWSERS[0]
+        if not stop_asked() or getattr(th, "halo_in_command", False):
+            th.join(max(0.0, end - time.monotonic()))
+        # jb10: else not at its command yet: it sees the stop at its next check and starts nothing
+        with _LOCK:
+            if _BROWSERS and _BROWSERS[0] is th:
+                _BROWSERS.pop(0)
 
 
 def stop_asked() -> bool:
@@ -393,38 +403,96 @@ def start_kept(args, *, what: str, shown=None, **kw):
     its command returns): kept_kwargs, then a ledger row marked kept (`shown`: the argv to record, a key redacted).
     Returns the Popen. Windows: out of every Job; see subprocess_safe.Popen for an outer Job that forbids that."""
     from halo_harness import subprocess_safe as sp
-    proc = sp.Popen(args, **kept_kwargs(kw))
+    try:
+        proc = sp.Popen(args, **kept_kwargs(kw))
+    except BaseException as exc:  # 3.6.0.18 S: a Ctrl+C in an outside start: a program that DID start is named
+        if getattr(exc, "halo_started_pid", None):
+            from halo_harness import children
+            children.register(exc.halo_started_pid, what, list(shown if shown is not None else args), keep=True)
+        raise
     register_kept(proc, what, list(shown if shown is not None else args))
     return proc
 
 
 _OUTSIDE_RUNNER = r'''
-import json, os, subprocess, sys
-spec_path = sys.argv[1]
-try:  # take the spec first: a caller that gave up has taken it back, and then nothing may start
-    os.rename(spec_path, spec_path + ".taken")
-except OSError:
-    sys.exit(0)
-with open(spec_path + ".taken", encoding="utf-8") as fh:
-    s = json.load(fh)
-os.remove(spec_path + ".taken")
-def sink(p):
-    return open(p, "ab") if p else subprocess.DEVNULL
-r = {}
-try:
-    out = sink(s["stdout"])
-    err = subprocess.STDOUT if s["stderr"] == "=stdout" else sink(s["stderr"])
-    kw = dict(env=s["env"], cwd=s["cwd"], stdin=subprocess.DEVNULL, stdout=out, stderr=err, close_fds=True)
+import json, os, shutil, subprocess, sys
+
+def starter_start(pid):
+    """The creation time of `pid` while it still runs (Windows' FILETIME, as closing.me() gives it); None when gone."""
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.WinDLL("kernel32")
+    k.OpenProcess.restype = wintypes.HANDLE
+    k.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+    k.GetProcessTimes.argtypes = (wintypes.HANDLE,) + (ctypes.POINTER(wintypes.FILETIME),) * 4
+    k.CloseHandle.argtypes = (wintypes.HANDLE,)
+    h = k.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return None
     try:
-        p = subprocess.Popen(s["argv"], creationflags=s["flags"], **kw)
-    except PermissionError:
-        p = subprocess.Popen(s["argv"], creationflags=s["flags"] & ~0x01000000, **kw)
-    r = {"pid": p.pid}
-except OSError as e:
-    r = {"error": str(e)}
-with open(s["result"] + ".tmp", "w", encoding="utf-8") as fh:
-    json.dump(r, fh)
-os.replace(s["result"] + ".tmp", s["result"])
+        code, t = wintypes.DWORD(), [wintypes.FILETIME() for _ in range(4)]
+        if not k.GetExitCodeProcess(h, ctypes.byref(code)) or code.value != 259:  # STILL_ACTIVE
+            return None
+        if not k.GetProcessTimes(h, *[ctypes.byref(x) for x in t]):
+            return None
+        return str((t[0].dwHighDateTime << 32) | t[0].dwLowDateTime)
+    finally:
+        k.CloseHandle(h)
+
+def may_start(taken, want, now):
+    """Right before the start: the starter still runs (`now`, its creation time read now, is the one the orders
+    carry), the orders are still held, and the folder holds no stop mark (a way out of the starter wrote it)."""
+    return (now is not None and want is not None and str(now) == str(want) and os.path.exists(taken)
+            and not os.path.exists(os.path.join(os.path.dirname(taken), "stop")))
+
+def answer(s, r):
+    with open(s["result"] + ".tmp", "w", encoding="utf-8") as fh:
+        json.dump(r, fh)
+    os.replace(s["result"] + ".tmp", s["result"])
+
+def main(spec_path):
+    folder, taken = os.path.dirname(spec_path), spec_path + ".taken"
+    try:  # take the spec first: a caller that gave up has taken it back, and then nothing may start
+        os.rename(spec_path, taken)
+    except OSError:
+        shutil.rmtree(folder, ignore_errors=True)
+        return
+    with open(taken, encoding="utf-8") as fh:
+        s = json.load(fh)
+    pid, want = (s.get("starter") or [0, None])[:2]
+    now = starter_start(pid) if pid else None
+    if not may_start(taken, want, now):
+        try:
+            os.remove(taken)
+        except OSError:
+            pass
+        try:
+            answer(s, {"stopped": True})
+        except OSError:
+            pass
+        if now is None:  # its starter is gone: nobody else removes this folder
+            shutil.rmtree(folder, ignore_errors=True)
+        return
+    os.remove(taken)
+    def sink(p):
+        return open(p, "ab") if p else subprocess.DEVNULL
+    r = {}
+    try:
+        out = sink(s["stdout"])
+        err = subprocess.STDOUT if s["stderr"] == "=stdout" else sink(s["stderr"])
+        kw = dict(env=s["env"], cwd=s["cwd"], stdin=subprocess.DEVNULL, stdout=out, stderr=err, close_fds=True)
+        try:
+            p = subprocess.Popen(s["argv"], creationflags=s["flags"], **kw)
+        except PermissionError:
+            p = subprocess.Popen(s["argv"], creationflags=s["flags"] & ~0x01000000, **kw)
+        r = {"pid": p.pid}
+    except OSError as e:
+        r = {"error": str(e)}
+    answer(s, r)
+
+if __name__ == "__main__":
+    main(sys.argv[1])
 '''
 
 _WMI_CREATE = (
@@ -450,11 +518,13 @@ def _stdio_path(value) -> "tuple[bool, Optional[str]]":
 STARTED_UNKNOWN = 0  # start_outside_job: the runner took the spec (the program is starting) but gave no pid
 
 
-def _outside_answer(result: Path, wait_s: float) -> "tuple[bool, Optional[int]]":
-    """(the runner answered, the pid -- None when it could not start the program) within `wait_s`."""
+def _outside_answer(result: Path, wait_s: float, stop: Optional[Callable[[], bool]] = None
+                    ) -> "tuple[bool, Optional[int]]":
+    """(the runner answered, the pid -- None when it could not start the program or would not) within `wait_s`;
+    `stop`: a way out marked this start (the take-back then asks the runner again)."""
     import json
     deadline = time.monotonic() + wait_s
-    while time.monotonic() < deadline:
+    while time.monotonic() < deadline and not (stop and stop()):
         try:
             got = json.loads(result.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -470,6 +540,90 @@ class StartCancelled(RuntimeError):
 
 def _start_cancelled() -> bool:
     return bool(getattr(_OPENING, "cancel_on_stop", False)) and stop_asked()
+
+
+def _outside_marked(folder: Path) -> bool:
+    return bool((_OUTSIDE.get(folder) or {}).get("marked"))
+
+
+def _mark_outside(folder: Path) -> None:
+    """3.6.0.18 S: the take-back of one outside start: its spec renamed to spec.void while it is still there (no runner
+    takes it then), else a stop file the runner reads right before it would start the program."""
+    if (folder / "spec.void").exists():
+        return
+    try:
+        (folder / "spec.json").rename(folder / "spec.void")
+        return
+    except OSError:
+        pass
+    try:
+        (folder / "stop").write_text("this halo is leaving\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def mark_outside_starts() -> int:
+    """3.6.0.18 S: every way out marks ALL the outside starts in flight before it waits for anything: a start that
+    has not happened does not happen. The count marked."""
+    with _LOCK:
+        fresh = [f for f, st in _OUTSIDE.items() if not st.get("marked")]
+        for folder in fresh:
+            _OUTSIDE[folder]["marked"] = True
+            _mark_outside(folder)
+    if fresh:
+        trace(f"outside starts taken back: {len(fresh)}")
+    return len(fresh)
+
+
+def wait_for_outside_starts(seconds: float) -> None:
+    """3.6.0.18 S: the outside starts in flight return (each was marked: taken back, or started and so named)."""
+    end = time.monotonic() + max(0.0, seconds)
+    while _OUTSIDE and time.monotonic() < end:
+        time.sleep(0.05)
+
+
+def _take_back(folder: Path) -> "tuple[bool, Optional[int], bool]":
+    """(taken back, the pid when it was not, the runner answered): this start's mark, then what its runner made of
+    it. Not answered: it may still come, and the folder (with its stop mark) must stay for it."""
+    _mark_outside(folder)
+    if (folder / "spec.void").exists():
+        return True, None, True
+    answered, pid = _outside_answer(folder / "result.json", 10.0)
+    if not answered:
+        return False, STARTED_UNKNOWN, False
+    return pid is None, pid, True
+
+
+def _run_wmi(cmdline: str, cwd: str, wait_s: float, stop: Callable[[], bool]) -> Optional[str]:
+    """3.6.0.18 S: the WMI create's PowerShell: a plain child (never the kept way) in this process's strict Job from
+    its first instruction (started suspended, adopted, only then resumed), so it ends with this process on every way
+    out, a hard kill included. Its output; None when it could not be held (it never ran), was stopped (`stop`: a way
+    out marked this start) or ran out of `wait_s`. Ended by its own handle on any way out of here."""
+    import ctypes
+    import subprocess as _sp
+    ps = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "WindowsPowerShell", "v1.0",
+                      "powershell.exe")
+    proc = _sp.Popen([ps, "-NoProfile", "-NonInteractive", "-Command", _WMI_CREATE], stdin=_sp.DEVNULL,
+                     stdout=_sp.PIPE, stderr=_sp.PIPE, text=True,
+                     env={**os.environ, "HALO_KEPT_CMDLINE": cmdline, "HALO_KEPT_CWD": cwd},
+                     creationflags=0x08000000 | 0x4)  # CREATE_NO_WINDOW | CREATE_SUSPENDED
+    try:
+        if not adopt(proc) or ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle))) != 0:
+            return None
+        end = time.monotonic() + wait_s
+        while True:
+            try:
+                return proc.communicate(timeout=0.2)[0]
+            except _sp.TimeoutExpired:
+                if stop() or time.monotonic() >= end:
+                    return None
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                pass
 
 
 def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
@@ -504,7 +658,10 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
             pass
     folder = Path(tempfile.mkdtemp(prefix="halo-kept-"))
     runner, spec, result = folder / "runner.py", folder / "spec.json", folder / "result.json"
-    written = False
+    written, keep = False, False
+    stop = lambda: _outside_marked(folder) or _start_cancelled()  # noqa: E731
+    with _LOCK:  # 3.6.0.18 S: in flight: a way out marks it (close(), the exit hooks' browser wait)
+        _OUTSIDE[folder] = {"marked": False}
     try:
         try:
             runner.write_text(_OUTSIDE_RUNNER, encoding="utf-8")
@@ -513,34 +670,43 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
             spec.write_text(json.dumps({"argv": [str(a) for a in args],
                                         "env": {str(k): str(v) for k, v in env.items()}, "cwd": cwd,
                                         "flags": int(kw.get("creationflags") or 0), "stdout": out, "stderr": err,
-                                        "result": str(result)}), encoding="utf-8")
+                                        "result": str(result), "starter": list(me())}), encoding="utf-8")
             written = True
             cmdline = _sp.list2cmdline([sys.executable, "-I", "-S", str(runner), str(spec)])
-            ps = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "WindowsPowerShell",
-                              "v1.0", "powershell.exe")
-            r = _sp.run([ps, "-NoProfile", "-NonInteractive", "-Command", _WMI_CREATE], capture_output=True,
-                        text=True, timeout=wait_s, env={**os.environ, "HALO_KEPT_CMDLINE": cmdline,
-                                                        "HALO_KEPT_CWD": cwd},
-                        stdin=_sp.DEVNULL, creationflags=0x08000000)  # CREATE_NO_WINDOW
-            if (r.stdout or "").strip() == "0" and not _start_cancelled():
-                answered, pid = _outside_answer(result, wait_s)
-                if answered:
+            if not stop() and (_run_wmi(cmdline, cwd, wait_s, stop) or "").strip() == "0" and not stop():
+                answered, pid = _outside_answer(result, wait_s, stop)
+                if answered and (pid is not None or not stop()):
                     return pid
         except Exception:
             pass
+        except BaseException as exc:  # a Ctrl+C in this thread: taken back, or a program that did start is named
+            if written:
+                back, pid, answered = _take_back(folder)
+                keep = not answered  # its stop mark stays for a runner still to come
+                if not back:
+                    exc.halo_started_pid = pid  # start_kept registers it, then the Ctrl+C goes on
+            raise
         if not written:
             return None
-        try:  # take the spec back: then no runner, however late, starts the program
-            spec.rename(folder / "spec.void")
-            if _start_cancelled():  # jb10: nothing started and this process is closing: no start in the Job either
+        back, pid, answered = _take_back(folder)  # then no runner, however late, starts the program
+        if back:
+            if stop():  # jb10 / S: nothing started and this process is closing: no start in the Job either
                 raise StartCancelled("this process is closing")
             return None
-        except OSError:
-            pass  # the runner took it: the program is started or starting, never start it a second time
-        answered, pid = _outside_answer(result, 10.0)
-        return pid if answered else STARTED_UNKNOWN
+        keep = not answered  # its stop mark stays for a runner still to come
+        return pid  # the runner took it: the program is started or starting, never start it a second time
     finally:
-        shutil.rmtree(folder, ignore_errors=True)
+        with _LOCK:
+            _OUTSIDE.pop(folder, None)
+        if not keep:
+            shutil.rmtree(folder, ignore_errors=True)
+        else:  # only the stop mark stays (the spec and its keys go): a runner still to come reads it and starts nothing
+            for f in list(folder.iterdir()):
+                if f.name != "stop":
+                    try:
+                        f.unlink()
+                    except OSError:
+                        pass
 
 
 def say_held_in_job(pid, args, env=None) -> None:
@@ -1099,6 +1265,7 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         if _STATE["closed"]:
             return []
         _STATE["closed"] = True
+    mark_outside_starts()  # 3.6.0.18 S: before any wait: a start in flight that has not happened does not happen
     trace("close: start", stacks=True)
     t0 = time.monotonic()
     arm_close_deadline()  # fx jb8: one deadline for the whole way out; a quit that came first set it already
@@ -1111,11 +1278,10 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         except BaseException:
             pass
     lines: list = []
+    ended: list = []
     try:
         rows = [e for e in _entries(state_dir) if _mine(e)]
         stop_entries([e for e in rows if not kept(e)], state_dir=state_dir, polite_s=polite_s, hard_s=hard_s)
-        lines = [f"halo: left running on purpose: {_label(e)} (pid {e['pid']}); `{_stop_line(e)}` stops it"
-                 for e in rows if kept(e)]
     except Exception:
         pass
     if os.name != "nt" and _STATE["spawned"] and os.environ.get(MARKER) == my_ident():
@@ -1124,9 +1290,16 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         kill_marked(marker(), exclude=(reaper.pid,) if reaper else (), bound_s=min(left, 2.0))
         line = ended_line(_STATE.pop("ended", None) or {})
         if line:
-            lines.append(line)
+            ended.append(line)
     trace(f"close: stops done after {time.monotonic() - t0:.2f} s")
     wait_for_browsers(time_left(QUIT_BUDGET_S))
+    wait_for_outside_starts(time_left(QUIT_BUDGET_S))
+    try:  # 3.6.0.18 S: named AFTER the wait: a kept start that happened before the mark and was registered in it
+        lines = [f"halo: left running on purpose: {_label(e)} (pid {e['pid']}); `{_stop_line(e)}` stops it"
+                 for e in _entries(state_dir) if _mine(e) and kept(e)]
+    except Exception:
+        pass
+    lines += ended
     _stop_reaper()
     trace(f"close: end after {time.monotonic() - t0:.2f} s", done=True)
     out = say if say is not None else _say

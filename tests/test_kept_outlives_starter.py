@@ -574,14 +574,14 @@ def test_the_outer_job_starters_never_put_a_site_packages_folder_ahead_of_the_st
 
 
 def _fake_wmi(take: bool, seen: list):
-    """Stands in for subprocess.run of the WMI call: answers "created" (0); `take`: the runner has taken the spec
-    (renamed it, as the real runner does first) but gives no pid in time."""
-    def run(argv, **kw):
-        spec = Path(kw["env"]["HALO_KEPT_CMDLINE"].rsplit(" ", 1)[-1].strip('"'))
+    """Stands in for closing._run_wmi (the WMI call's PowerShell): answers "created" (0); `take`: the runner has taken
+    the spec (renamed it, as the real runner does first) but gives no pid in time."""
+    def run(cmdline, cwd, wait_s, stop):
+        spec = Path(cmdline.rsplit(" ", 1)[-1].strip('"'))
         seen.append(spec)
         if take:
             spec.rename(str(spec) + ".taken")
-        return subprocess.CompletedProcess(argv, 0, "0", "")
+        return "0"
     return run
 
 
@@ -595,23 +595,30 @@ def test_a_slow_runner_never_leads_to_a_second_start(ctx: Ctx):
     argv = [sys.executable, "-I", "-c", f"open({str(tally)!r}, 'a').write('ran\\n')"]
     kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
           "env": dict(os.environ), "cwd": str(tmp)}
-    real = subprocess.run
+    real = closing._run_wmi
     try:
         seen: list = []
-        subprocess.run = _fake_wmi(True, seen)
+        closing._run_wmi = _fake_wmi(True, seen)
         got = closing.start_outside_job(argv, kw, wait_s=0.3)
         ctx.check(f"a runner that took the spec counts as started (never None: the caller would start it again), "
                   f"got {got!r}", got is not None)
+        took = seen[0].parent
+        ctx.check(f"and only its stop mark stays for that runner (no spec, no keys), got "
+                  f"{sorted(p.name for p in took.iterdir()) if took.exists() else None}",
+                  took.exists() and [p.name for p in took.iterdir()] == ["stop"])
+        import shutil
+        shutil.rmtree(took, ignore_errors=True)
         seen.clear()
-        subprocess.run = _fake_wmi(False, seen)
+        closing._run_wmi = _fake_wmi(False, seen)
         got = closing.start_outside_job(argv, kw, wait_s=0.3)
         ctx.check(f"a runner that never took the spec counts as not started, got {got!r}", got is None)
         ctx.check("and its spec was taken back, so a late runner finds nothing", seen and not seen[0].exists())
     finally:
-        subprocess.run = real
+        closing._run_wmi = real
     runner = tmp / "runner.py"
     runner.write_text(closing._OUTSIDE_RUNNER, encoding="utf-8")
-    late = real([sys.executable, "-I", "-S", str(runner), str(seen[0])], capture_output=True, text=True, timeout=30)
+    late = subprocess.run([sys.executable, "-I", "-S", str(runner), str(seen[0])], capture_output=True, text=True,
+                          timeout=30)
     ctx.check(f"a runner that comes late starts nothing, got rc={late.returncode} {late.stderr[-300:]!r}",
               late.returncode == 0 and not tally.exists())
     leftovers = [p for p in Path(tempfile.gettempdir()).glob("halo-kept-*") if p in [s.parent for s in seen]]
@@ -631,6 +638,321 @@ def test_the_held_in_a_job_line_says_asked_only_when_a_person_asked(ctx: Ctx):
         ctx.check(f"one line naming the program, got {line!r}", line.count("\n") == 1 and "llama-server" in line)
         ctx.check(f"'asked to keep' only for a kept one (asked={asked}), got {line!r}",
                   ("asked to keep" in line) == asked)
+
+
+# -- 3.6.0.18 S: a quit while a kept start is in flight -------------------------------------------------------------
+# At a quit, a start that has not happened does not happen; one that did is named (kept) or is the person's (the
+# browser). The WMI create's PowerShell is held in Halo's strict Job; the runner starts only for a starter that still
+# runs (its pid AND creation time) and a folder with no stop mark; every way out marks the starts in flight first.
+
+def _runner_ns() -> "dict | None":
+    """The outside runner's functions, loaded without running it (None when it has no decision to test)."""
+    from halo_harness import closing
+    if "def may_start" not in closing._OUTSIDE_RUNNER:
+        return None
+    ns: dict = {"__name__": "halo_kept_runner_under_test"}
+    exec(compile(closing._OUTSIDE_RUNNER, "<halo-kept runner>", "exec"), ns)
+    return ns
+
+
+@test
+def test_the_kept_runner_starts_only_for_its_running_starter_and_no_stop_mark(ctx: Ctx):
+    ns = _runner_ns()
+    ctx.check("the runner decides from state right before the start (may_start)", ns is not None)
+    if ns is None:
+        return
+    import shutil
+    tmp = Path(tempfile.mkdtemp(prefix="fx-kept-decide-"))
+    try:
+        taken = tmp / "spec.json.taken"
+        taken.write_text("{}", encoding="utf-8")
+        may = ns["may_start"]
+        ctx.check("the starter runs with the creation time the orders carry: it starts", may(str(taken), "77", "77"))
+        ctx.check("the starter is gone: nothing starts", not may(str(taken), "77", None))
+        ctx.check("the pid is another process now (another creation time): nothing starts",
+                  not may(str(taken), "77", "78"))
+        ctx.check("orders with no identity: nothing starts", not may(str(taken), None, "77"))
+        (tmp / "stop").write_text("x", encoding="utf-8")
+        ctx.check("a stop mark is there: nothing starts", not may(str(taken), "77", "77"))
+        (tmp / "stop").unlink()
+        taken.unlink()
+        ctx.check("its orders were removed (the folder taken back): nothing starts", not may(str(taken), "77", "77"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if WIN:  # the identity the runner reads is the one closing.me() gives
+        from halo_harness import closing
+        ctx.check("a running starter reads as its own creation time", ns["starter_start"](os.getpid()) == closing.me()[1])
+        done = subprocess.Popen([sys.executable, "-c", "pass"])
+        done.wait(timeout=60)  # its handle stays open here: the pid is not reused, the process has ended
+        ctx.check("an ended starter reads as gone", ns["starter_start"](done.pid) is None)
+
+
+@test
+def test_a_second_ctrl_c_in_the_browser_wait_prints_nothing_and_loses_no_start(ctx: Ctx):
+    import contextlib
+    import io
+    import threading
+    from halo_harness import closing
+    release = threading.Event()
+
+    class _Held(threading.Thread):
+        interrupted = False
+
+        def join(self, timeout=None):
+            if not self.interrupted:
+                self.interrupted = True
+                raise KeyboardInterrupt  # the second Ctrl+C, inside the wait
+            return super().join(timeout)
+
+    th = _Held(target=release.wait, name="halo-browser-start", daemon=True)
+    th.halo_in_command = True
+    saved_browsers, saved_deadline = list(closing._BROWSERS), closing._STATE.get("deadline")
+    th.start()
+    buf, raised = io.StringIO(), None
+    try:
+        closing._BROWSERS[:] = [th]
+        with contextlib.redirect_stderr(buf):
+            try:
+                closing._browsers_at_exit()
+            except KeyboardInterrupt as e:
+                raised = e
+        ctx.check("the wait ends without a KeyboardInterrupt (no traceback at exit)", raised is None)
+        ctx.check(f"and prints nothing, got {buf.getvalue()!r}", buf.getvalue() == "")
+        ctx.check("the start is still in the list, so a later close() sees it", th in closing._BROWSERS)
+    finally:
+        release.set()
+        th.interrupted = True
+        th.join(30)
+        closing._BROWSERS[:] = saved_browsers
+        closing._STATE["deadline"] = saved_deadline
+
+
+@test
+def test_a_kept_start_registered_during_closes_wait_is_named(ctx: Ctx):
+    import shutil
+    import threading
+    from halo_harness import children, closing
+    sd = Path(tempfile.mkdtemp(prefix="fx-kept-named-"))
+    go = threading.Event()
+
+    def start() -> None:  # a start in flight at the quit; its program had started before the mark
+        if go.wait(60):
+            children.register(os.getpid(), "pool", [sys.executable, "-m", "gpu-box-server"], keep=True, state_dir=sd)
+
+    th = threading.Thread(target=start, name="halo-browser-start", daemon=True)
+    th.halo_in_command = True
+    saved, saved_browsers = dict(closing._STATE), list(closing._BROWSERS)
+    try:
+        closing._STATE.update(closed=False, callbacks=[go.set], spawned=False, reaper=None, deadline=None,
+                              hard_exit=None, owner_gone=False)
+        closing._BROWSERS[:] = [th]
+        th.start()
+        lines = closing.close(state_dir=sd, say=lambda _l: None)
+        ctx.check(f"close() names the kept program registered inside its wait, got {lines}",
+                  any(f"(pid {os.getpid()})" in line and "halo pool stop" in line for line in lines))
+    finally:
+        go.set()
+        th.join(30)
+        closing._STATE.clear()
+        closing._STATE.update(saved)
+        closing._BROWSERS[:] = saved_browsers
+        shutil.rmtree(sd, ignore_errors=True)
+
+
+@test
+def test_a_ctrl_c_in_a_kept_outside_start_takes_it_back_or_names_what_did_start(ctx: Ctx):
+    if not WIN:
+        raise SkipTest("Windows only: the WMI way out of a Job")
+    from halo_harness import children, closing
+    real_wmi, real_reg, real_mark = closing._run_wmi, children.register, closing._mark_outside
+    had_frees, saved_frees = "frees" in closing._STATE, closing._STATE.get("frees")
+    for started in (False, True):
+        folders: list = []
+        named: list = []
+        stops: list = []
+
+        def wmi(cmdline, cwd, wait_s, stop):
+            spec = Path(cmdline.rsplit(" ", 1)[-1].strip('"'))
+            folders.append(spec.parent)
+            if started:  # the runner took the spec and started the program, then the Ctrl+C came
+                spec.rename(str(spec) + ".taken")
+                (spec.parent / "result.json").write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
+            raise KeyboardInterrupt
+
+        def mark(folder):
+            real_mark(folder)
+            stops.append((folder / "stop").exists() or (folder / "spec.void").exists())
+
+        raised = False
+        try:
+            closing._run_wmi, closing._mark_outside = wmi, mark
+            children.register = lambda pid, what, cmd, **kw: named.append((pid, what, kw.get("keep")))
+            closing._STATE["frees"] = False  # an outer Job that forbids breakaway
+            try:
+                closing.start_kept([sys.executable, "-c", "pass"], what="pool", stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except KeyboardInterrupt:
+                raised = True
+        finally:
+            closing._run_wmi, closing._mark_outside, children.register = real_wmi, real_mark, real_reg
+            if had_frees:
+                closing._STATE["frees"] = saved_frees
+            else:
+                closing._STATE.pop("frees", None)
+        ctx.check(f"started={started}: the Ctrl+C goes on", raised)
+        ctx.check(f"started={started}: the start was marked (a void spec or a stop file), got {stops}",
+                  stops and all(stops))
+        want = [(os.getpid(), "pool", True)] if started else []
+        ctx.check(f"started={started}: a program that did start is in the ledger as kept, else nothing, got {named}",
+                  named == want)
+        ctx.check(f"started={started}: its folder is gone", folders and not folders[0].exists())
+
+
+_QUIT_MID_START = r'''
+import json, os, sys, time
+from halo_harness import closing
+closing.install(sweep_at_start=False)
+{hold}
+ok = closing.open_url("http://127.0.0.1:9/quit-mid-start")
+print(json.dumps({{"ok": ok, "unsure": closing.open_unsure()}}), flush=True)
+while not os.path.exists({held!r}):
+    time.sleep(0.05)
+if {way!r} == "close":
+    closing.close()
+    os._exit(0)
+if {way!r} == "hard_exit":
+    closing.hard_exit(0, 0)
+time.sleep(600)
+'''
+
+
+def _held_pid(path: Path, seconds: float) -> "int | None":
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        try:
+            return int(path.read_text(encoding="utf-8", errors="replace").strip().lstrip("﻿"))
+        except (OSError, ValueError):
+            time.sleep(0.1)
+    return None
+
+
+def _gone(pairs: list, seconds: float) -> bool:
+    """Every (pid, start) here has ended, waited for within `seconds`."""
+    end = time.monotonic() + seconds
+    while any(_same(*p) for p in pairs):
+        if time.monotonic() >= end:
+            return False
+        time.sleep(0.1)
+    return True
+
+
+def _kept_folders(temp: Path) -> list:
+    return sorted(temp.glob("halo-kept-*"))
+
+
+def _settle(temp: Path, opened: Path, seconds: float) -> None:
+    """A runner that took a spec has answered, and the browser it started has written its line."""
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        busy = [f for f in _kept_folders(temp) if (f / "spec.json").exists() or (f / "spec.json.taken").exists()]
+        started = [f for f in _kept_folders(temp) if "pid" in ((_wait_file(f / "result.json", 0.1) or {}))]
+        if not busy and (not started or (opened.exists() and opened.read_text(encoding="utf-8").strip())):
+            return
+        time.sleep(0.1)
+
+
+def _quit_mid_start(ctx: Ctx, held_part: str, way: str) -> None:
+    """A starter (in a Job that forbids breakaway) opens the stand-in browser; its outside start is held at
+    `held_part` ("powershell": before the WMI create; "runner": the create done, the runner before its spec); the
+    starter leaves `way` ("close": close() then os._exit; "hard_exit": hard_exit(0, 0); "kill": a hard kill)."""
+    import ctypes
+    import shutil
+    sys.path.insert(0, str(REPO / "scripts"))
+    from realcheck import fakes
+    base = getattr(sys, "_base_executable", None) or sys.executable
+    tmp = Path(tempfile.mkdtemp(prefix="fx-kept-quit-"))
+    temp = tmp / "t"
+    temp.mkdir()
+    held, go = tmp / "held", tmp / "go"
+    browser, opened = fakes.browser_command(tmp)
+    if held_part == "powershell":
+        ps = (f"Set-Content -LiteralPath '{held}' -Value $PID; "
+              f"while (-not (Test-Path -LiteralPath '{go}')) {{ Start-Sleep -Milliseconds 100 }}; ")
+        hold = f"closing._WMI_CREATE = {ps!r} + closing._WMI_CREATE"
+    else:
+        py = (f"import os as _o, time as _t\nopen({str(held) + '.tmp'!r}, 'w').write(str(_o.getpid()))\n"
+              f"_o.replace({str(held) + '.tmp'!r}, {str(held)!r})\n"
+              f"while not _o.path.exists({str(go)!r}):\n    _t.sleep(0.05)\n")
+        hold = f"closing._OUTSIDE_RUNNER = {py!r} + closing._OUTSIDE_RUNNER"
+    env = _env(tmp / "home")
+    env.pop("HALO_NO_BROWSER", None)
+    env.update(BROWSER=browser, TEMP=str(temp), TMP=str(temp))
+    code = _base_starter_code(_QUIT_MID_START.format(hold=hold, held=str(held), way=way))
+    k32, job = _no_breakaway_job()
+    proc = _starter(tmp, code, env, python=base, flags=0x4)  # CREATE_SUSPENDED: in the Job before it runs
+    helper: tuple = (None, None)
+    kids: list = []
+    what = f"{held_part} held, {way}"
+    try:
+        ctx.check(f"{what}: the starter is in the test's Job", k32.AssignProcessToJobObject(job, int(proc._handle)))
+        ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle)))
+        ready = _ready_line(proc, 120.0)
+        ctx.check(f"{what}: the browser start was handed on, got {ready}", ready.get("ok") and ready.get("unsure"))
+        pid = _held_pid(held, 120.0)
+        ctx.check(f"{what}: the outside start reached its hold", pid)
+        helper = (pid, _start_time(pid))
+        if held_part == "powershell":
+            from halo_harness import closing
+            kids = [(k, _start_time(k)) for k, parent in closing._parent_map_windows().items() if parent == pid]
+        if way == "kill":
+            proc.kill()
+        proc.wait(timeout=120)
+        alive_at_go = False
+        if held_part == "powershell":
+            ctx.check(f"{what}: the helper PowerShell (and its console host) ended with Halo, before it could create "
+                      f"anything", _gone([helper] + kids, 60.0))
+            alive_at_go = _same(*helper)
+        go.write_text("go", encoding="utf-8")
+        if held_part == "runner" or alive_at_go:
+            ctx.check(f"{what}: the held helper has finished", _gone([helper], 120.0))
+            _settle(temp, opened, 60.0)
+        lines = opened.read_text(encoding="utf-8").strip() if opened.exists() else ""
+        ctx.check(f"{what}: no browser started after Halo had gone, got {lines!r}", not lines)
+        left = [(f.name, sorted(p.name for p in f.iterdir())) for f in _kept_folders(temp)]
+        if held_part == "powershell" and way == "kill":  # a hard kill runs no code: its spec stays, never taken
+            ctx.check(f"{what}: no runner took its spec, got {left}",
+                      all("spec.json" in names and "result.json" not in names for _n, names in left))
+        else:
+            ctx.check(f"{what}: no halo-kept folder is left, got {left}", not left)
+    finally:
+        try:
+            go.write_text("go", encoding="utf-8")
+        except OSError:
+            pass
+        if proc.poll() is None:
+            proc.kill()
+        if job:
+            k32.CloseHandle(job)
+        for pair in [helper] + kids:
+            _end(*pair)
+        _gone([helper], 60.0)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_a_quit_while_the_helper_powershell_is_held_starts_nothing_and_leaves_nothing(ctx: Ctx):
+    if not WIN:
+        raise SkipTest("Windows only: the outside-the-Job start runs only inside a Job that forbids breakaway")
+    for way in ("close", "hard_exit", "kill"):
+        _quit_mid_start(ctx, "powershell", way)
+
+
+@test
+def test_a_quit_while_the_runner_is_held_starts_no_browser_and_leaves_nothing(ctx: Ctx):
+    if not WIN:
+        raise SkipTest("Windows only: the outside-the-Job start runs only inside a Job that forbids breakaway")
+    for way in ("close", "hard_exit", "kill"):
+        _quit_mid_start(ctx, "runner", way)
 
 
 if __name__ == "__main__":
