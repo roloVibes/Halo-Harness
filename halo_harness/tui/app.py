@@ -13,6 +13,8 @@ widget, so nothing here is ever called from another thread.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+import functools
 import inspect
 import logging
 import os
@@ -65,6 +67,26 @@ _METHOD_ACTIONS = {
 }
 
 _PASTE_PLACEHOLDER_RE = re.compile(r"\[Pasted text #(\d+) \+\d+ lines\]")
+
+#: 3.6.0.18 L: Ctrl+Q's backstop: the whole budget its path had in 3.6.0.17 (the browsers' end 3 s, stop_for_quit
+#: 1 s, controller.quit's join 2 s, then its own 2.5 s timer). Past it, with the way out not begun (a wedged loop),
+#: the backstop ends halo through closing.hard_exit.
+CTRL_Q_BACKSTOP_S = 8.5
+
+
+class _RunsNothing(concurrent.futures.ThreadPoolExecutor):
+    """3.6.0.18 L: the loop's default executor once the way out began (`BridgeApp._bound_the_way_out`). `submit` hands
+    back an already cancelled Future, so a thread worker started late (a call posted while Unmount ran) never runs:
+    Textual takes the CancelledError as CANCELLED (no exit code), a Windows timer's sleep ends at once. `shutdown`
+    returns at once: asyncio's join at the end of `app.run()` waits on nothing. Never a thread of its own."""
+
+    def submit(self, fn, /, *args, **kwargs):
+        future: concurrent.futures.Future = concurrent.futures.Future()
+        future.cancel()
+        return future
+
+    def shutdown(self, wait=True, *, cancel_futures=False):
+        return None
 
 # Halo 2.0.1 W2b (liveness-tips-brief Part B2): "every 15s while the input
 # is empty and no turn is running" -- a module-level seam (same convention
@@ -706,19 +728,23 @@ class BridgeApp(App):
         `bound_the_end`, for /update's restart exit in cli.py after the hand-off to the updater), so nothing a quit
         still has to do (`controller.quit`, its last lines, the hand-off) is ever inside its grace.
         3.6.0.17 Z4-1: the pool taken from the loop is kept (`_pool_at_unmount`): run_tui joins it FIRST, within one
-        bound (tui/launch.py `join_the_pool`), so a worker only in flight ends with its child before the way out runs."""
+        bound (tui/launch.py `join_the_pool`), so a worker only in flight ends with its child before the way out runs.
+        3.6.0.18 L: the loop is handed an executor that RUNS NOTHING (`_RunsNothing`): a thread worker a call posted
+        while Unmount ran starts after this is cancelled (Textual marks it CANCELLED, the quit's code is unchanged), so
+        asyncio's join at the end of `app.run()` has nothing to wait on. And the way out has begun (Ctrl+Q's backstop
+        then leaves the end to `bound_the_end`)."""
+        self._way_out_begun = True
         from halo_harness import closing
         closing.arm_close_deadline()
         if not closing._STATE.get("installed"):
             return
         import asyncio
-        import concurrent.futures
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
         self._pool_at_unmount = getattr(loop, "_default_executor", None)  # None: no thread worker ever ran
-        loop.set_default_executor(concurrent.futures.ThreadPoolExecutor())
+        loop.set_default_executor(_RunsNothing())
 
     def _git_branch(self) -> str:
         try:
@@ -2798,7 +2824,22 @@ class BridgeApp(App):
 
     def _force_quit_worker(self) -> None:
         import threading
+        from halo_harness import closing
         from halo_harness.controller import _end_browsers
+        # 3.6.0.18 L: ONE rule for the end. At the press the way out's deadline is armed, and the backstop BEFORE
+        # anything here that can block: past CTRL_Q_BACKSTOP_S, if the way out has not begun (a wedged loop never
+        # unmounts), it ends halo through closing.hard_exit (close(), the exit hooks, the lines), never a raw
+        # os._exit. Once unmount ran, tui/launch.py `bound_the_end` is the only end and the backstop does nothing.
+        closing.arm_close_deadline()
+        result = {"code": 0, "returned": False}
+
+        def _backstop() -> None:
+            if getattr(self, "_way_out_begun", False):
+                return
+            closing.hard_exit(result["code"] if result["returned"] else 1)
+        timer = threading.Timer(CTRL_Q_BACKSTOP_S, _backstop)
+        timer.daemon = True
+        timer.start()
         _end_browsers()  # 3.6.0.6 W: the browser ends the orderly way (3 s at most) before any other stop
         # 1.0.1 part 2 (reviewer minor): killed HERE, unconditionally,
         # before the quit sequence below even starts -- `Controller.quit()`
@@ -2820,12 +2861,12 @@ class BridgeApp(App):
                 self.controller.stopped_line = line
         except Exception:
             pass
-        result = {"code": 0}
 
         def _run_quit() -> None:
             quit_fn = getattr(self.controller, "quit", None)
             try:
                 result["code"] = quit_fn() if callable(quit_fn) else 0
+                result["returned"] = True
             except Exception:
                 import logging
                 logging.getLogger("bridge").exception("controller.quit() raised during force-quit")
@@ -2834,18 +2875,20 @@ class BridgeApp(App):
         t.start()
         t.join(timeout=2.0)  # deliberately never longer -- see action_force_quit's docstring
         message = self._exit_message()
-        self.call_from_thread(self.exit, return_code=result["code"], message=message)
-        # 1.0.1 fixpass finding 5: self.exit() alone is not a guarantee --
-        # it goes through Textual's own asyncio.run(...), whose
-        # shutdown_default_executor() joins every thread=True worker still
-        # alive (a hung _quit_worker from an EARLIER double-Ctrl+C/`/quit`,
-        # or an unrelated `/models refresh`/`/improve` worker mid-request)
-        # before the process can actually exit -- forever on 3.10/3.11, up
-        # to 300s on 3.12+. A daemon timer force-kills the whole process
-        # 2.5s later regardless of what Textual/asyncio is still waiting on.
-        timer = threading.Timer(2.5, os._exit, args=(result["code"],))
-        timer.daemon = True
-        timer.start()
+        # 3.6.0.18 L: posted, never waited for (a wedged loop never runs it; the backstop above is the end then)
+        self._post_exit(return_code=result["code"], message=message)
+
+    def _post_exit(self, **kw) -> None:
+        """3.6.0.18 L: `self.exit(**kw)` posted to the app's loop from any thread WITHOUT waiting for the loop to run
+        it (`call_from_thread` blocks until it has). Nothing when the loop is gone or closed: the way out is done or
+        under way."""
+        loop = getattr(self, "_loop", None)
+        if loop is None:
+            return
+        try:
+            loop.call_soon_threadsafe(functools.partial(self.exit, **kw))
+        except RuntimeError:
+            pass
 
     def _build_scrollback_message(self) -> Optional[str]:
         if self.tui_setting is not None and self.tui_setting != "fullscreen":

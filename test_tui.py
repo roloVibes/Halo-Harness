@@ -2203,20 +2203,27 @@ def test_force_quit_uses_its_own_flag_independent_of_quitting(ctx: Ctx):
 
 
 @test
-def test_force_quit_worker_arms_an_os_exit_timer_after_calling_self_exit(ctx: Ctx):
+def test_force_quit_worker_posts_self_exit_and_arms_one_backstop_never_an_os_exit(ctx: Ctx):
     """`self.exit()` alone is not a guarantee -- it goes through Textual's
     own asyncio shutdown, which can join a still-hung `thread=True` worker
-    forever (3.10/3.11) or up to 300s (3.12+). A daemon `os._exit()` timer
-    is armed 2.5s later regardless. Exercised directly against
-    `_force_quit_worker` (never a real running app) so the timer's target
-    can be observed without ever letting the real `os._exit` fire here."""
+    forever (3.10/3.11) or up to 300s (3.12+). Rewritten to the truth by
+    3.6.0.18 L: `exit` is POSTED to the loop (never waited for), and ONE
+    backstop timer of CTRL_Q_BACKSTOP_S is armed, whose end is
+    closing.hard_exit, never a raw `os._exit` (that skipped close(), the exit
+    hooks and their lines). Exercised directly against `_force_quit_worker`
+    (never a real running app); the timer is captured, never started."""
     import threading as threading_mod
     import halo_harness.tui.app as app_mod
+
+    class _Loop:  # a healthy loop: runs what is posted
+        def call_soon_threadsafe(self, fn, *a):
+            fn(*a)
 
     class _StubApp:
         def __init__(self):
             self.controller = FakeController()
             self.return_code = None
+            self._loop = _Loop()
 
         def _build_scrollback_message(self):
             return None
@@ -2224,8 +2231,8 @@ def test_force_quit_worker_arms_an_os_exit_timer_after_calling_self_exit(ctx: Ct
         def _exit_message(self):  # 3.2.2.0 R3: the real one adds the "stopped: ..." line; not this test's subject
             return None
 
-        def call_from_thread(self, fn, **kw):
-            fn(**kw)
+        def _post_exit(self, **kw):
+            app_mod.BridgeApp._post_exit(self, **kw)
 
         def exit(self, return_code=0, message=None):
             self.return_code = return_code
@@ -2245,15 +2252,108 @@ def test_force_quit_worker_arms_an_os_exit_timer_after_calling_self_exit(ctx: Ct
     try:
         stub = _StubApp()
         app_mod.BridgeApp._force_quit_worker(stub)
-        ctx.check(f"self.exit() was called with the controller's own return code, got {stub.return_code}",
+        ctx.check(f"self.exit() was posted with the controller's own return code, got {stub.return_code}",
                   stub.return_code == 0)
-        ctx.check(f"exactly one os._exit timer armed, got {timers}", len(timers) == 1)
+        ctx.check(f"exactly one backstop timer armed, got {timers}", len(timers) == 1)
         interval, function, args = timers[0]
-        ctx.check(f"armed for 2.5s, got {interval}", interval == 2.5)
-        ctx.check(f"targets os._exit with the same return code, got function={function}, args={args}",
-                  function is app_mod.os._exit and args == (0,))
+        ctx.check(f"armed for CTRL_Q_BACKSTOP_S, got {interval}", interval == app_mod.CTRL_Q_BACKSTOP_S)
+        ctx.check(f"never a raw os._exit, got function={function}", function is not os._exit)
     finally:
         threading_mod.Timer = real_timer_cls
+
+
+@test
+def test_ctrl_q_on_a_wedged_loop_arms_its_backstop_first_and_it_ends_through_hard_exit_until_the_way_out(ctx: Ctx):
+    """3.6.0.18 L: Ctrl+Q exists for a wedged loop. Its thread arms the backstop before anything that can block and
+    POSTS `exit` without waiting, so on a loop that never runs the posted call the thread still ends (3.6.0.17: it
+    blocked in call_from_thread and no end was armed at all). The backstop, fired by the test itself, asks
+    closing.hard_exit exactly once: with controller.quit()'s code when it returned, else 1. Once the way out began
+    (`_bound_the_way_out`, at unmount) a fired backstop asks nothing: bound_the_end is the only end."""
+    import threading as threading_mod
+    from unittest import mock
+    import halo_harness.tui.app as app_mod
+    from halo_harness import closing
+    wedged = threading_mod.Event()  # a loop that never runs what is posted to it (set only in the finally)
+    let_quit_go = threading_mod.Event()
+
+    class _WedgedLoop:
+        def __init__(self):
+            self.posted: list = []
+
+        def call_soon_threadsafe(self, fn, *a):
+            self.posted.append(fn)  # never run
+
+    class _HungController:
+        stopped_line = ""
+
+        def quit(self):
+            let_quit_go.wait(120)
+            return 0
+
+    class _StubApp:
+        def __init__(self, controller):
+            self.controller, self.return_code, self._loop = controller, None, _WedgedLoop()
+
+        def _exit_message(self):
+            return None
+
+        def call_from_thread(self, fn, **kw):  # 3.6.0.17's way: it waited for the loop, which never runs it
+            wedged.wait(120)
+            fn(**kw)
+
+        def _post_exit(self, **kw):
+            app_mod.BridgeApp._post_exit(self, **kw)
+
+        def exit(self, return_code=0, message=None):
+            self.return_code = return_code
+
+    timers: list = []
+    asked: list = []
+
+    class _CapturingTimer:
+        def __init__(self, interval, function, args=None, kwargs=None):
+            self.interval, self.function, self.args = interval, function, args or ()
+            self.daemon = False
+            timers.append(self)
+
+        def start(self) -> None:
+            pass  # the test fires it itself
+
+    def fire() -> None:
+        for t in timers:
+            if t.function is not os._exit:  # 3.6.0.17's raw os._exit is never fired in this process
+                t.function(*t.args)
+    rows: dict = {}
+    try:
+        with mock.patch.object(threading_mod, "Timer", _CapturingTimer), \
+                mock.patch.object(closing, "hard_exit", lambda code, *a, **k: asked.append(code)), \
+                mock.patch("halo_harness.controller._end_browsers", lambda *a, **k: None), \
+                mock.patch("halo_harness.children_stop.stop_for_quit", lambda *a, **k: ""):
+            for name, controller in (("quit returned", FakeController()), ("quit hung", _HungController())):
+                timers.clear()
+                asked.clear()
+                stub = _StubApp(controller)
+                worker = threading_mod.Thread(target=app_mod.BridgeApp._force_quit_worker, args=(stub,), daemon=True)
+                worker.start()
+                worker.join(60)
+                ended = not worker.is_alive()
+                fire()
+                first = list(asked)
+                app_mod.BridgeApp._bound_the_way_out(stub)  # the way out begins (unmount)
+                fire()
+                rows[name] = (ended, len(timers), list(stub._loop.posted), first, list(asked))
+    finally:
+        wedged.set()
+        let_quit_go.set()
+    ended, n, posted, first, after = rows.get("quit returned", (False, 0, [], [], []))
+    ctx.check(f"the thread ended on a wedged loop, exit posted once, got {rows}", ended and len(posted) == 1)
+    ctx.check(f"one backstop armed, got {n}", n == 1)
+    ctx.check(f"the backstop asked hard_exit once with controller.quit's 0, got {first}", first == [0])
+    ctx.check(f"once the way out began, a fired backstop asks nothing, got {after}", after == [0])
+    ended, n, posted, first, after = rows.get("quit hung", (False, 0, [], [], []))
+    ctx.check(f"controller.quit hung: the thread still ended, one backstop, got {rows.get('quit hung')}",
+              ended and n == 1 and len(posted) == 1)
+    ctx.check(f"controller.quit hung: the backstop asked hard_exit once with 1, got {first}", first == [1])
 
 
 @test
@@ -4068,14 +4168,16 @@ def test_effort_still_opens_normally_with_nothing_pending(ctx: Ctx):
 
 
 # ============================================================================
-# 1.0.1 part 2 (reviewer minor): Ctrl+Q kills background jobs BEFORE
-# arming its os._exit timer, not only deep inside the ordinary
-# controller.quit() path it exists to route around when THAT is wedged.
+# 1.0.1 part 2 (reviewer minor): Ctrl+Q kills background jobs itself, not
+# only deep inside the ordinary controller.quit() path it exists to route
+# around when THAT is wedged. 3.6.0.18 L (rewritten to the truth): its
+# backstop is armed FIRST, before the kill or anything else that can block.
 # ============================================================================
 
 @test
-def test_force_quit_kills_background_jobs_before_arming_the_exit_timer(ctx: Ctx):
+def test_force_quit_kills_background_jobs_with_its_backstop_armed_first(ctx: Ctx):
     import threading as threading_mod
+    order: list = []
 
     class _FakeJobRegistry:
         def __init__(self):
@@ -4083,6 +4185,7 @@ def test_force_quit_kills_background_jobs_before_arming_the_exit_timer(ctx: Ctx)
 
         def kill_all(self):
             self.killed = True
+            order.append("jobs killed")
 
     class _FakeSession:
         def __init__(self):
@@ -4107,7 +4210,7 @@ def test_force_quit_kills_background_jobs_before_arming_the_exit_timer(ctx: Ctx)
             _FakeTimer.instances.append(self)
 
         def start(self):
-            pass
+            order.append("backstop armed")
 
     async def body():
         fake = FakeController()
@@ -4116,16 +4219,16 @@ def test_force_quit_kills_background_jobs_before_arming_the_exit_timer(ctx: Ctx)
             await pilot.pause(0.05)
             app.controller = _FakeForceQuitController()
             calls: list = []
-            app.call_from_thread = lambda fn, *a, **kw: calls.append((fn, a, kw))
+            app._post_exit = lambda **kw: calls.append(kw)
             real_timer_cls = threading_mod.Timer
             threading_mod.Timer = _FakeTimer
             try:
                 app._force_quit_worker()
                 ctx.check("job_registry.kill_all() was actually called",
                           app.controller.session.job_registry.killed is True)
-                ctx.check(f"an exit timer was armed afterward too, got {len(_FakeTimer.instances)}",
-                          len(_FakeTimer.instances) == 1)
-                ctx.check(f"self.exit() was scheduled via call_from_thread, got {calls}", len(calls) == 1)
+                ctx.check(f"one backstop, armed before the jobs were killed, got {order}",
+                          len(_FakeTimer.instances) == 1 and order == ["backstop armed", "jobs killed"])
+                ctx.check(f"self.exit() was posted once, got {calls}", len(calls) == 1)
             finally:
                 threading_mod.Timer = real_timer_cls
     asyncio.run(body())
@@ -4171,7 +4274,7 @@ def test_force_quit_kills_background_jobs_even_if_controller_quit_raises(ctx: Ct
         async with app.run_test(size=(100, 40)) as pilot:
             await pilot.pause(0.05)
             app.controller = _RaisingController()
-            app.call_from_thread = lambda fn, *a, **kw: None
+            app._post_exit = lambda **kw: None  # 3.6.0.18 L: exit is posted, no longer waited for via call_from_thread
             real_timer_cls = threading_mod.Timer
             threading_mod.Timer = _FakeTimer
             try:

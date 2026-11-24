@@ -108,7 +108,8 @@ def test_every_orderly_way_out_ends_the_browser_first_and_within_3_s(ctx: Ctx):
     from halo_harness.tui import app as A
     order.clear()
     me = SimpleNamespace(controller=SimpleNamespace(session=sess, state_dir=None, quit=lambda: 0, stopped_line=""),
-                         _exit_message=lambda: None, call_from_thread=lambda *a, **k: None, exit=lambda **k: None)
+                         _exit_message=lambda: None, call_from_thread=lambda *a, **k: None, exit=lambda **k: None,
+                         _post_exit=lambda **k: None)  # 3.6.0.18 L: Ctrl+Q posts exit, never waits for the loop
     with mock.patch.object(B, "end_browsers", lambda *a, **k: order.append("browser"), create=True), \
             mock.patch("halo_harness.children_stop.stop_for_quit", lambda *a, **k: order.append("children") or ""), \
             mock.patch("threading.Timer", lambda *a, **k: SimpleNamespace(start=lambda: None, daemon=True)):

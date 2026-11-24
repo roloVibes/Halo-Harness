@@ -1393,12 +1393,15 @@ def test_z4_the_bound_is_armed_whatever_the_way_outs_end_raises(ctx: Ctx):
             ("a Ctrl+C in the stopped line's print", _terminal_way_out(0, fail="line-kbi"), 130, "KeyboardInterrupt"),
             ("an error in the stopped line's print", _terminal_way_out(0, fail="line-error"), 1, "OSError"),
             ("an error in controller.quit", _terminal_way_out(0, fail="quit-error"), 0, None),
+            # 3.6.0.18 L (rewritten to the truth): run_tui's caller (cli._run_full_screen) takes that Ctrl+C once
+            # the bound is armed: cli.main's one line and 130 returned, no exception goes on
             ("the restart exit, a Ctrl+C in controller.quit",
-             _terminal_way_out(RESTART_EXIT_CODE, restart_code=RESTART_EXIT_CODE, fail="quit-kbi"), 130,
-             "KeyboardInterrupt"),
+             _terminal_way_out(RESTART_EXIT_CODE, restart_code=RESTART_EXIT_CODE, fail="quit-kbi"), 130, None),
             ("a Ctrl+C in the pool's join", _terminal_way_out(None, pool="join-kbi"), 130, "KeyboardInterrupt")):
         ev = row["events"]
         ctx.check(f"{name}: the exception goes on, got {row.get('raised_type')}", row.get("raised_type") == raised)
+        if raised is None and code == 130:
+            ctx.check(f"{name}: run_tui's caller returns 130, got {row.get('code')}", row.get("code") == 130)
         ctx.check(f"{name}: the bound is armed last, after the exit hooks, with code {code}, got {ev}",
                   ev[-2:] == ["exit hooks", ("hard_exit", code, g, 0.0)])
         if name == "a Ctrl+C in the pool's join":
@@ -1527,6 +1530,174 @@ def test_z3_the_bound_runs_the_exit_hooks_in_the_normal_exits_order(ctx: Ctx):
         for k in kids:
             _end_tree_we_started(k["pid"], k["start"])
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# 3.6.0.18 L: a halo stand-in (closing installed first, as cli.main does) whose Ctrl+C comes in /update's hand-off
+# ("hand-off") or escapes the terminal app ("app-held": the pool the unmount kept has a worker in a read that does not
+# answer; "app-none": no worker). The held worker lets go only once the test writes the file argv[2].
+_CTRL_C_WAY_OUT = r"""
+import concurrent.futures, os, sys, time
+from types import SimpleNamespace
+from halo_harness import closing
+closing.install(sweep_at_start=False)
+from halo_harness import cli, privateio, theme, update_detached
+from halo_harness.tui import app as A
+from halo_harness.tui import console_mode, launch
+mode, release = sys.argv[1], sys.argv[2]
+
+def held():
+    while not os.path.exists(release):
+        time.sleep(0.05)
+
+def held_pool():
+    pool = concurrent.futures.ThreadPoolExecutor()
+    pool.submit(held)
+    return pool
+
+def ctrl_c(**_kw):
+    raise KeyboardInterrupt
+
+if mode == "hand-off":
+    update_detached.run_after_exit = ctrl_c  # a Ctrl+C in the hand-off's scans, its pin or the updater's start
+    held_pool().shutdown(wait=False, cancel_futures=True)  # the worker the pool's join gave up on
+    sys.exit(cli._apply_update_and_relaunch([]))
+
+class Controller:
+    quit_called, stopped_line, stopped_line_shown = True, "", False
+    def quit(self):
+        return 0
+
+class App:
+    def __init__(self, controller, **_kw):
+        self.controller, self.return_code = controller, None
+    def run(self):
+        self._pool_at_unmount = held_pool() if mode == "app-held" else None  # what the unmount kept
+        raise KeyboardInterrupt  # a Ctrl+C that escapes the app
+
+A.BridgeApp = App
+launch._build_demo_controller = lambda _a: (Controller(), None, None, None)
+theme.load_persisted_theme = lambda: None
+theme.removed_theme_notice = lambda *_a, **_k: ""
+console_mode.install = lambda: SimpleNamespace(restore=lambda: None)
+privateio.tighten_state_tree = lambda _p: 0
+args = SimpleNamespace(demo=True, cwd=None, stress=0, theme=None, prompt=None, no_inline_images=False, no_intro=True)
+sys.exit(cli._run_full_screen(args, ["--demo"]))
+"""
+_CTRL_C_BUDGET_S = 90.0  # a ceiling for the slowest runner, never a margin: what is read is the order of the events
+
+
+def _ctrl_c_way_out(mode: str) -> dict:
+    """The stand-in above in a child: its exit code, its stderr, and whether it was gone while its worker was still
+    held (the test writes the release file only after the child is gone, or once the ceiling passed)."""
+    tmp = Path(tempfile.mkdtemp(prefix="halo-l-ctrl-c-"))
+    home = tmp / "home"
+    home.mkdir()
+    release = tmp / "release"
+    proc = subprocess.Popen([sys.executable, "-c", _CTRL_C_WAY_OUT, mode, str(release)], env=_env(home),
+                            cwd=str(tmp), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, encoding="utf-8", errors="replace")
+    row: dict = {}
+    try:
+        try:
+            _out, err = proc.communicate(timeout=_CTRL_C_BUDGET_S)
+            row["gone_while_held"] = not release.exists()
+        except subprocess.TimeoutExpired:
+            row["gone_while_held"] = False
+            release.write_text("go", encoding="utf-8")
+            _out, err = proc.communicate(timeout=_CTRL_C_BUDGET_S)
+        row.update(code=proc.returncode, err=err)
+    finally:
+        if not release.exists():
+            release.write_text("go", encoding="utf-8")
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=30)
+        shutil.rmtree(tmp, ignore_errors=True)
+    return row
+
+
+@test
+def test_l_a_ctrl_c_in_the_update_hand_off_still_ends_through_the_bound_with_one_line_and_130(ctx: Ctx):
+    """3.6.0.18 L (entry 1): a Ctrl+C while /update hands over to the updater (its process scans, its pin, the
+    updater's start) reaches `bound_the_end` as every other way out of `_apply_update_and_relaunch` does: the process
+    is gone with 130 and one line while a worker the pool's join gave up on is still held (before: no bound, and the
+    interpreter's own join of that worker kept halo alive as long as the worker was)."""
+    row = _ctrl_c_way_out("hand-off")
+    err = row.get("err") or ""
+    line = ("halo: interrupted while starting the update. `halo --version` shows what is installed; "
+            "`halo update` starts it again.")
+    ctx.check(f"gone while the worker was still held, got {row}", row.get("gone_while_held") is True)
+    ctx.check(f"left with 130, got {row.get('code')}", row.get("code") == 130)
+    ctx.check(f"the one line, once, and no traceback, got {err[-600:]!r}",
+              err.count(line) == 1 and "Traceback" not in err)
+
+
+@test
+def test_l_a_ctrl_c_out_of_the_terminal_app_leaves_with_one_line_and_130(ctx: Ctx):
+    """3.6.0.18 L (entry 2): a Ctrl+C that escapes the terminal app leaves with cli.main's own line for a Ctrl+C and
+    130 on every system, stuck or not, and no traceback (before: Python's own code for an uncaught Ctrl+C and a
+    traceback; 130 only when a stuck worker let the bound's grace end it)."""
+    from halo_harness import cli
+    line = getattr(cli, "INTERRUPTED_LINE", "\nhalo: interrupted").strip()
+    for mode in ("app-held", "app-none"):
+        row = _ctrl_c_way_out(mode)
+        err = row.get("err") or ""
+        ctx.check(f"{mode}: gone while the worker was still held, got {row}", row.get("gone_while_held") is True)
+        ctx.check(f"{mode}: left with 130, got {row.get('code')}", row.get("code") == 130)
+        ctx.check(f"{mode}: cli.main's one line, once, and no traceback, got {err[-600:]!r}",
+                  err.count(line) == 1 and "Traceback" not in err)
+
+
+@test
+def test_l_a_thread_worker_posted_while_unmount_runs_never_holds_app_run(ctx: Ctx):
+    """3.6.0.18 L (entry 4): a call posted to the loop while Unmount runs (a worker thread's call_from_thread) that
+    starts a thread worker after the way out began: the loop's executor then runs nothing, so `app.run()` returns while
+    that worker would still be held (before: the fresh pool ran it and asyncio's join at the end of `app.run()` waited
+    for it, without limit on 3.10 and 3.11), and the quit's code is unchanged by the refused worker."""
+    import asyncio
+    import threading
+    from textual.app import App
+    from halo_harness import closing
+    from halo_harness.tui.app import BridgeApp
+    gate = threading.Event()
+    seen: list = []
+
+    def held():
+        seen.append("worker started")
+        gate.wait(_CTRL_C_BUDGET_S)
+        seen.append("worker let go")
+
+    class Late(App):
+        _bound_the_way_out = BridgeApp._bound_the_way_out
+
+        def on_mount(self) -> None:
+            self.call_later(self.exit)
+
+        def on_unmount(self) -> None:
+            loop = asyncio.get_running_loop()
+
+            async def start_late():  # what a worker's call_from_thread posts
+                self.run_worker(held, thread=True, exit_on_error=True, name="late")
+            poster = threading.Thread(target=lambda: asyncio.run_coroutine_threadsafe(start_late(), loop))
+            poster.start()
+            poster.join()
+            self._bound_the_way_out()
+    saved = _closing_state_saved()
+    closing._STATE.update(installed=True, deadline=None, closed=False)
+    app = Late()
+    try:
+        app.run(headless=True)
+        seen.append("app.run returned")
+    finally:
+        gate.set()
+        _closing_state_back(saved)
+        old = getattr(app, "_pool_at_unmount", None)
+        if old is not None:
+            old.shutdown(wait=True)
+    ctx.check(f"app.run returned while the late worker would still be held, got {seen}",
+              "app.run returned" in seen and "worker let go" not in seen[:seen.index("app.run returned")])
+    ctx.check(f"the late worker never ran, got {seen}", "worker started" not in seen)
+    ctx.check(f"the quit's code is unchanged by the refused worker, got {app.return_code}", app.return_code == 0)
 
 
 @test

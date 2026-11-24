@@ -422,15 +422,30 @@ def _apply_update_and_relaunch(argv: list) -> int:
     still runs, reinstalls and logs to `~/.halo/update.log`; this prints
     where that log is and how to pick the session up again, and exits."""
     from halo_harness.update_detached import run_after_exit
+    from halo_harness.tui.launch import _code_of, bound_the_end
     hint = " ".join(["halo", "--continue", *_relaunch_flags(argv)])
+    code = 1
     try:
         code = run_after_exit(resume_hint=hint)
+    except KeyboardInterrupt:  # 3.6.0.18 L: a Ctrl+C in the hand-off: 130 as every Ctrl+C, one line, no traceback
+        code = 130
+        print(HAND_OFF_INTERRUPTED_LINE, file=sys.stderr)
     except Exception as e:
         print(f"halo: the update did not start: {e}; run `halo update` from a shell", file=sys.stderr)
         code = 1
-    from halo_harness.tui.launch import bound_the_end
-    bound_the_end(code)  # 3.6.0.17 Z3-1: the hand-off is done (or failed): the bound comes last
+    except BaseException as e:  # 3.6.0.18 L: a SystemExit goes on, with the bound armed for its code
+        code = _code_of(e)
+        raise
+    finally:
+        bound_the_end(code)  # 3.6.0.17 Z3-1: the hand-off is done (or failed): the bound comes last, on EVERY way out
     return code
+
+
+#: 3.6.0.18 L: the one line of a Ctrl+C that ends halo (print mode's turn, the terminal app)
+INTERRUPTED_LINE = "\nhalo: interrupted"
+#: 3.6.0.18 L: the one line of a Ctrl+C during /update's hand-off to the updater
+HAND_OFF_INTERRUPTED_LINE = ("halo: interrupted while starting the update. `halo --version` shows what is installed; "
+                             "`halo update` starts it again.")
 
 
 def _relaunch_flags(argv: list) -> list:
@@ -473,7 +488,11 @@ def _relaunch_flags(argv: list) -> list:
 def _run_full_screen(args, argv: list) -> int:
     """The full-screen session: `run_tui(args)`, then `/update`'s restart exit code handed to the detached updater."""
     from halo_harness.tui.launch import run_tui
-    code = run_tui(args)
+    try:
+        code = run_tui(args)
+    except KeyboardInterrupt:  # 3.6.0.18 L: run_tui's finally armed the bound with 130: one line, 130, no traceback
+        print(INTERRUPTED_LINE, file=sys.stderr)
+        return 130
     from halo_harness.update import RESTART_EXIT_CODE
     if code == RESTART_EXIT_CODE:
         return _apply_update_and_relaunch(argv)
@@ -882,7 +901,7 @@ def _main(argv: Optional[list] = None) -> int:
     except KeyboardInterrupt:
         # Ctrl+C during a print-mode turn: POSIX exit-code convention
         # (128 + SIGINT's 2 = 130), never an uncaught-traceback exit 1.
-        print("\nhalo: interrupted", file=sys.stderr)
+        print(INTERRUPTED_LINE, file=sys.stderr)
         if closing._STATE.get("installed"):  # 3.6.0.0 R10: a sub-agent's call in flight never holds the exit up
             closing.hard_exit(130)
         return 130
