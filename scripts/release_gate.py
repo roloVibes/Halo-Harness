@@ -137,21 +137,34 @@ def failing(run_view: dict, required: "list[str]") -> "list[str]":
     return [f"{name}: {got.get(name) or 'missing'}" for name in required if got.get(name) != "success"]
 
 
+def never_ran(run_view: dict, required: "list[str]") -> set:
+    """The required jobs that were cancelled before any step ran (the view says `steps: []`): no runner took them."""
+    return {str(j.get("name", "")) for j in run_view.get("jobs") or []
+            if isinstance(j, dict) and j.get("name") in required and j.get("conclusion") == "cancelled"
+            and j.get("steps") == []}
+
+
 def retried_lines(run_fn, repo_dir, run_id, *, limit: int = 20) -> "list[str]":
     """Each "driver retried once" line of the run's log, as `<job>: <the line>` (the log is read once)."""
     try:
         text = _gh(run_fn, ["run", "view", str(run_id), "--log"], repo_dir, want_json=False)
     except GateError:
         return ["(the run's log could not be read, so its retries were not counted)"]
-    out = []
+    out, seen = [], set()
     for line in (text or "").splitlines():
-        if RETRY_MARK not in line:
+        # 3.6.0.20: only a TEST's own line is a retry ("[PASS] <test> (...) (driver retried once: why)"), once per
+        # job and test. The workflow's own script, echoed by the runner, names the mark too, and its summary step
+        # prints the test's line again and a `::warning`: two releases printed fifty false warnings from those.
+        if RETRY_MARK not in line or "[PASS]" not in line:
             continue
         parts = line.split("\t")
         job = parts[0].strip() if len(parts) >= 3 else "?"
         tail = line[line.index(RETRY_MARK):].strip()
         what = parts[-1].strip() if len(parts) >= 3 else line.strip()
-        test = what.split("[PASS]", 1)[-1].split("(", 1)[0].strip() if "[PASS]" in what else ""
+        test = what.split("[PASS]", 1)[-1].split("(", 1)[0].strip()
+        if (job, test) in seen:
+            continue
+        seen.add((job, test))
         out.append(f"{job}: {test + ' -- ' if test else ''}{tail}"[:300])
     return out[:limit] + ([f"... and {len(out) - limit} more"] if len(out) > limit else [])
 
@@ -194,8 +207,13 @@ def candidate_gate(sha: str, *, branch: str, repo_dir: Path, run_fn: Callable, m
         raise GateError(f"the suites run {run_id} is for {str(v.get('headSha'))[:12]}, not {sha[:12]}")
     bad = failing(v, required)
     if bad:
+        hint = ""
+        if never_ran(v, required) == {b.rsplit(": ", 1)[0] for b in bad}:
+            # 3.6.0.20: a job cancelled with no step is not a result of the code (no runner took it)
+            hint = (f" (none of these ran: no runner took them. `gh run rerun {run_id} --failed`, then start the "
+                    f"release again: it takes up the candidate branch)")
         raise GateError(f"the suites run {run_id} on {branch} for {sha[:12]} is not green -- failing jobs: "
-                        + "; ".join(bad))
+                        + "; ".join(bad) + hint)
     warnings = retried_lines(run_fn, repo_dir, run_id)
     return [f"suites run {run_id} on {branch}: all {len(required)} required jobs concluded success for {sha[:12]}"], \
         warnings

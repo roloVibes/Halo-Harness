@@ -22,6 +22,7 @@ sys.path.insert(0, str(REPO))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 
+SLOW_S = 20  # the budget of a wait that follows a click, set for the hosted Windows and macOS runners
 COL = "document.querySelector('[data-testid=\"session-live-detail\"]')"
 LINES = "[...document.querySelectorAll('[data-testid=\"session-live-line\"]')]"
 SCROLL = "document.querySelector('[data-testid=\"session-live-scroll\"]')"
@@ -132,11 +133,13 @@ def timeline(c, lv) -> dict:
     later = c.js(f"[...{lane}.querySelectorAll('[data-phase=\"thinking\"]')].map((e) => e.getBoundingClientRect().left).filter((v) => v > {x}).sort((a, b) => a - b)[0] || 0")
     px, py = (x + min(x + w, later or x + w)) / 2, y + h / 2  # inside its own segment, left of the next thought's (drawn on top)
     c.mouse("mouseMoved", px, py)
-    out["tip"] = c.wait("document.querySelector('[data-testid=\"fleet-timeline-tip\"]')?.textContent", 5)
+    out["tip"] = c.wait("document.querySelector('[data-testid=\"fleet-timeline-tip\"]')?.textContent", SLOW_S)
     out["hit"] = c.js(f"(() => {{ const e = document.elementFromPoint({px}, {py}); return e?.dataset?.phase === 'thinking' && e.dataset.n === '{n}' ? 'thinking' : e?.outerHTML?.slice(0, 120) || ''; }})()")
     c.click(px, py)
-    out["paused"] = c.wait(f"!{COL}.dataset.follow && 'paused'", 5)
-    out["scrolled_to"] = c.wait(vis, 5)
+    # 3.6.0.20: a slow runner needs more than 5 s to bring the row in after the click (red once on the hosted
+    # Windows runner, five tests from this one read); `wait` answers as soon as the state is there
+    out["paused"] = c.wait(f"!{COL}.dataset.follow && 'paused'", SLOW_S)
+    out["scrolled_to"] = c.wait(vis, SLOW_S)
     out["overflow"] = overflow(c, "think")
     return out
 

@@ -277,6 +277,24 @@ def test_a_gh_read_that_fails_while_the_gate_waits_is_asked_again(ctx: Ctx):
 
 
 @test
+def test_a_job_no_runner_took_is_named_as_one_with_what_to_do(ctx: Ctx):
+    """3.6.0.20: a required job cancelled before any step ran stops the release as every job that is not a success
+    does, and the line says it never ran and what to do; a job that ran and was cancelled gets no such words."""
+    mac = "realcheck (macos)"
+    gh = FakeGh(conclusions={mac: "cancelled"})
+    gh.never_ran = {mac}
+    _refused(ctx, gh, [f"{mac}: cancelled", "no runner took them", "gh run rerun", "--failed"], "a job that never ran")
+    ran = FakeGh(conclusions={mac: "cancelled"})
+    try:
+        _gate(ran)
+        said = ""
+    except Exception as e:  # noqa: BLE001
+        said = str(e)
+    ctx.check(f"a job that ran and was cancelled: no such words, got {said!r}",
+              f"{mac}: cancelled" in said and "no runner" not in said)
+
+
+@test
 def test_driver_retries_come_back_as_warnings(ctx: Ctx):
     gh = FakeGh(retried=[("suites (windows, py3.12, shard 1/4)", "test_studio_local"),
                          ("suites (linux, py3.12, shard 3/4)", "test_studio_map")])

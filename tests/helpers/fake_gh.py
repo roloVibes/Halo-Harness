@@ -91,7 +91,9 @@ class FakeGh:
         sha = self.head_sha or self.sha
         if self._views < self.polls:
             return {"databaseId": RUN_ID, "status": "in_progress", "conclusion": None, "headSha": sha, "jobs": []}
-        jobs = [{"name": n, "conclusion": self.conclusions.get(n, "success")} for n in self.jobs
+        never = getattr(self, "never_ran", ())  # 3.6.0.20: jobs no runner took (cancelled, `steps: []`)
+        jobs = [{"name": n, "conclusion": self.conclusions.get(n, "success"),
+                 "steps": [] if n in never else [{"name": "Set up job"}]} for n in self.jobs
                 if not (n in self.conclusions and self.conclusions[n] is None)]
         overall = "success" if all(j["conclusion"] == "success" for j in jobs) else "failure"
         return {"databaseId": RUN_ID, "status": "completed", "conclusion": overall, "headSha": sha,
@@ -99,7 +101,17 @@ class FakeGh:
 
     def _log(self) -> str:
         lines = ["suites (linux, py3.12, shard 0/4)\tSet up job\t2026-11-15T08:00:01.0000000Z Current runner version"]
+        # 3.6.0.20: a real log also holds the workflow's OWN script, echoed by the runner (it names the mark several
+        # times), and for a retry the summary step's copy of the test's line and its `::warning`: none is a retry
+        echo = "suites (linux, py3.12, shard 0/4)\tsuites\t2026-11-15T08:09:00.0000000Z \x1b[36;1m"
+        lines += [echo + "retried=$(grep -c 'driver retried once' \"$RUNNER_TEMP/run_all.log\" 2>/dev/null || true)\x1b[0m",
+                  echo + "/driver retried once/ { t = $0; sub(/^ *\\[PASS\\] /, \"\", t); name = t }\x1b[0m",
+                  echo + "printf \"::warning title=Chrome driver retried once::%s.%s passed only on its retry\"\x1b[0m"]
         for job, test in self.retried:
             lines.append(f"{job}\ttests/run_all.py\t2026-11-15T08:10:00.0000000Z   [PASS] {test} (12.30s) "
                          f"(driver retried once: Runtime.evaluate timed out)")
+            lines.append(f"{job}\tsuites\t2026-11-15T08:11:00.0000000Z       [PASS] {test} (12.30s) "
+                         f"(driver retried once: Runtime.evaluate timed out)")
+            lines.append(f"{job}\tsuites\t2026-11-15T08:11:01.0000000Z ##[warning]tests.{test}.{test} passed only on "
+                         f"its retry; first try: Runtime.evaluate timed out (Chrome driver retried once)")
         return "\n".join(lines) + "\n"
