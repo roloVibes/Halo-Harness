@@ -177,7 +177,9 @@ conversation's), or, before any request, the one its own log, tools and
 servers make now. Studio's card and `halo doctor` measure a new session
 without the other tool servers.
 
-On a local model a session no longer sends the list of every other server's
+A lean request (a local model, any model with a window under 65,536, their
+helpers, the smaller request after a failed answer, the lean prompt switched
+on) no longer sends the list of every other server's
 tool names: each server's line says how many tools it has (its words cut to
 their first sentence, at most 160 characters) and ToolSearch finds a tool by
 words. The session's log keeps the list, so a switch to a cloud model with a

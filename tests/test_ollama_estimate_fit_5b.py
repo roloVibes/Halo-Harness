@@ -241,11 +241,11 @@ def test_a_measured_cap_is_a_floor_of_the_estimate_while_the_card_has_the_room_i
     est = nothing.fit_estimate
     ctx.check(f"the estimate alone is below the measured 32,768 (made too low on purpose), got {est}",
               isinstance(est, int) and est < 32768 and nothing.source == "fit estimate")
-    room, ceiling = _e2_decide(19_500_000_000, _measured(19_000_000_000))
+    room, ceiling = _e2_decide(19_500_000_000, _measured(19_200_000_000))
     ctx.check(f"the card has the measurement's room: 32,768 'learned cap', got {room.num_ctx} {room.source!r}",
               room.num_ctx == 32768 and room.source == "learned cap")
     ctx.check(f"the prompt floor may raise to it too: ceiling 32,768, got {ceiling}", ceiling == 32768)
-    busy, ceiling = _e2_decide(18_500_000_000, _measured(19_000_000_000))
+    busy, ceiling = _e2_decide(18_500_000_000, _measured(19_200_000_000))
     ctx.check(f"the card is busier than when measured: the estimate wins, got {busy.num_ctx} {busy.source!r}",
               busy.num_ctx < 32768 and busy.source == "fit estimate" and ceiling == busy.num_ctx)
     old, _c = _e2_decide(19_500_000_000, _measured(None))
@@ -264,14 +264,14 @@ def _seen(size, *, keep_size=True, digest=_E2_DIGEST):
 
 @test
 def test_a_load_seen_wholly_on_the_card_is_a_floor_while_the_card_has_its_size(ctx: Ctx):
-    seen, ceiling = _e2_decide(19_500_000_000, _seen(19_000_000_000))
+    seen, ceiling = _e2_decide(19_500_000_000, _seen(19_200_000_000))
     ctx.check(f"a load seen at 65,536 on the card: 65,536 'seen to fit', got {seen.num_ctx} {seen.source!r}",
               seen.num_ctx == 65536 and seen.source == "seen to fit" and ceiling == 65536)
-    busy, _c = _e2_decide(18_500_000_000, _seen(19_000_000_000))
+    busy, _c = _e2_decide(18_500_000_000, _seen(19_200_000_000))
     ctx.check(f"less room than that load took: the estimate wins, got {busy.num_ctx}", busy.num_ctx < 32768)
-    old, _c = _e2_decide(19_500_000_000, _seen(19_000_000_000, keep_size=False))
+    old, _c = _e2_decide(19_500_000_000, _seen(19_200_000_000, keep_size=False))
     ctx.check(f"a record without the load's size gives no floor, got {old.num_ctx}", old.num_ctx < 32768)
-    other, _c = _e2_decide(19_500_000_000, _seen(19_000_000_000, digest="sha256:another"))
+    other, _c = _e2_decide(19_500_000_000, _seen(19_200_000_000, digest="sha256:another"))
     ctx.check(f"a load of another digest gives no floor, got {other.num_ctx}", other.num_ctx < 32768)
 
 
@@ -280,9 +280,9 @@ def test_the_panel_says_the_window_the_session_decides_after_an_observation(ctx:
     """3.6.0.20 E2 after the check: `halo ollama`, `/ollama` and Studio's Models list print the window a session
     is sent, the observation's floor included (they ran their own resolve on the raw estimate and said 32,768
     'memory' while the session asked for 65,536)."""
-    cases = (("measured", 19_500_000_000, _measured(19_000_000_000)), ("seen", 19_500_000_000, _seen(19_000_000_000)),
-             ("busy, measured", 18_500_000_000, _measured(19_000_000_000)),
-             ("busy, seen", 18_500_000_000, _seen(19_000_000_000)), ("nothing", 19_500_000_000, lambda d, url: None))
+    cases = (("measured", 19_500_000_000, _measured(19_200_000_000)), ("seen", 19_500_000_000, _seen(19_200_000_000)),
+             ("busy, measured", 18_500_000_000, _measured(19_200_000_000)),
+             ("busy, seen", 18_500_000_000, _seen(19_200_000_000)), ("nothing", 19_500_000_000, lambda d, url: None))
     for label, free, prepare in cases:
         decision, (window, source) = _e2_decide(free, prepare, panel=True)
         ctx.check(f"{label}: the panel says the session's {decision.num_ctx} {decision.source!r}, "

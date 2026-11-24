@@ -286,6 +286,30 @@ def test_a_profiles_window_loaded_by_the_first_request_is_not_reloaded_by_the_se
         fake.stop()
 
 
+@test
+def test_a_resident_load_that_spills_is_not_kept_by_a_window_of_another_source(ctx: Ctx):
+    """3.6.0.20 (its review): E4 keeps the resident runner's options at the window sent whatever the window's source.
+    A resident load that runs partly on the CPU is NOT kept: the call sends its own `num_gpu`, so the model is
+    reloaded onto the card, as before E4."""
+    import tempfile
+    from types import SimpleNamespace
+    from unittest import mock
+
+    from halo_harness.agent import ollama_window_truth as T
+    from halo_harness.providers import ollama_hw
+    host = SimpleNamespace(url="http://gpu-box:11434")
+    body = {"options": {"num_ctx": 32768, "num_gpu": 48}}
+    with tempfile.TemporaryDirectory() as td:
+        session = SimpleNamespace(state_dir=Path(td))
+        for name, row, want in (("wholly on the card", {"context_length": 32768, "size": 20, "size_vram": 20}, None),
+                                ("partly on the CPU", {"context_length": 32768, "size": 20, "size_vram": 15}, 48),
+                                ("at another window", {"context_length": 16384, "size": 20, "size_vram": 20}, 48)):
+            with mock.patch.object(ollama_hw, "last_ps_entry", lambda url, model, _r=row: (True, _r)):
+                got = T.resident_options(session, host, "tiny:1b", body, "steward profile")
+            ctx.check(f"{name}: the num_gpu sent is {want}, got {got['options'].get('num_gpu')}",
+                      got["options"].get("num_gpu") == want)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

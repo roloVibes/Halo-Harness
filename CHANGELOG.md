@@ -20,11 +20,12 @@ of it was checked with real sessions on a real Ollama.
 ### Fixed
 
 - **The memory estimate of a latent-attention model.** A model that keeps one small latent row a layer in its cache
-  (its `/api/show` names `kv_lora_rank`) was estimated as if every head kept its full key and value: about eighteen
-  times too much. A 30B model of that kind was held at 4k, where it sits wholly on its card at 65,536. The estimate
-  now counts what the server keeps. Checked against five real loads of one model: it is never below a real load. A
-  new session on that model now starts at 65,536 with one load and one tool list; 3.6.0.19 started it at 4k, cut
-  its first request and reloaded on the second turn.
+  (its `/api/show` names `key_length_mla` and `value_length_mla`) was estimated as if every head kept its full key
+  and value: about eighteen times too much. (An older file of the same family names neither; the server runs it
+  with every head's full cache, and it keeps the estimate it had.) A 30B model of that kind was held at 4k, where
+  it sits wholly on its card at 65,536. The estimate now counts what the server keeps. Checked against five real
+  loads of one model: it is never below a real load. A new session on that model now starts at 65,536 with one
+  load and one tool list; 3.6.0.19 started it at 4k, cut its first request and reloaded on the second turn.
 - **A reading of the card no longer counts a load twice.** Halo keeps a reading of the card's free memory for a
   minute and adds back what its own loaded models hold; right after a load that counted the model twice, and the
   second request of a session asked for a window four times the first (a reload, and with the estimate now right,
@@ -39,6 +40,8 @@ of it was checked with real sessions on a real Ollama.
 - **A session's tool list never changes in the middle of it.** The list is the one of the window the first request
   is sent at (3.6.0.19), but it was kept only when that window differed from the one Halo first resolved; when the
   resolved window moved later (the card got busier), the list changed between two turns. It is always kept now.
+  So a session that started at a small window keeps that window's list also when its window grows later (a
+  profile, a measurement, a freed card); a new session, or a switch of the model, gets the larger one.
 - **With a window of your own (a profile), the first turn loads the model once.** It loaded twice ("loading ...",
   then "loading ... again at a 32k window").
 - **The line for a first request that is over its window says why the window is that small.** After "the system
@@ -57,11 +60,12 @@ of it was checked with real sessions on a real Ollama.
   conversation with no answer in it, then more calls, then an error. From the second turn on nothing changes.
 - **A local session no longer carries the names of every tool of your other tool servers.** Every session logs a
   list of the tools it can load on demand, and that list rode in every request, outside every budget: with sixteen
-  servers of sixty tools about 9,400 tokens, more than half of a 16,384 window. A lean request (a local model, or
-  any model with a window under 65,536, and its helpers) now leaves the list out; each server's line says how many
+  servers of sixty tools about 9,400 tokens, more than half of a 16,384 window. A lean request (a local model, any
+  model with a window under 65,536, their helpers, the smaller request Halo makes after a model's answer failed,
+  and any session with the lean prompt switched on) now leaves the list out; each server's line says how many
   tools it has, ``- `<server>` (60 tools): <what it is for>``, and one line says that ToolSearch finds a server's
   tool. ToolSearch searches the tools itself and never needed the list. A session on a large-window model is sent
-  what it was sent before, byte for byte.
+  what it was sent before, byte for byte (only that smaller request after a failed answer is lean).
 - **A server's line in a local model's system text is its first sentence,** 160 characters at most. One server's
   whole first line of more than 900 characters rode in every request.
 - **`halo local prompt` counts the other tool servers.** It reads the servers a session in this folder has and
@@ -77,11 +81,12 @@ of it was checked with real sessions on a real Ollama.
 ### Changed
 
 What a model is sent changes in these cases only; a session on a model with a large window (65,536 and up) is sent
-byte for byte what 3.6.0.19 sent (the request bodies were compared across both).
+byte for byte what 3.6.0.19 sent (the request bodies were compared across both), except the smaller request Halo
+makes after a failed answer, which is lean.
 
 - A latent-attention model: a larger window, and the tool list of that window.
 - A lean request: no list of the other servers' tool names; the servers' lines with their counts, each its first
-  sentence; one ToolSearch line.
+  sentence; one ToolSearch line. A helper's own system text gets those lines too when its request held the list.
 - A first request the server cut, trimmed or refused: no compaction request follows.
 - A session whose resolved window moves after its first request: the first request's tool list on every later one.
 - After `halo local measure`, or after a load seen wholly on the card: the observed window when it is larger than

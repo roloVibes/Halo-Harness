@@ -81,10 +81,21 @@ def test_a_latent_attention_model_caches_one_latent_row_a_layer(ctx: Ctx):
         ctx.check(f"the cache at {window} is 47 x 576 x 1.0625 x {window}, got {kv}", kv == 47 * 576 * Q8 * window)
     llama = {"examplearch.block_count": 47, "examplearch.attention.head_count_kv": 1,
              "examplearch.attention.key_length": 576, "examplearch.attention.value_length": 512,
+             "examplearch.attention.key_length_mla": 192, "examplearch.attention.value_length_mla": 128,
              "examplearch.attention.kv_lora_rank": 512, "examplearch.rope.dimension_count": 64,
              "examplearch.embedding_length": 2048}
     ctx.check("the same model in llama.cpp's convention (one head, K 576, V 512): the same cache",
               kv_bytes(llama, 2.0) == 47 * 576 * 2)
+    # the review of 3.6.0.20: an OLDER file of the family names the rank and the rope part but neither `_mla`
+    # length; the server runs it with every head's full K and V, so the old formula is the right one for it
+    legacy = {"examplearch.block_count": 27, "examplearch.attention.head_count_kv": 16,
+              "examplearch.attention.key_length": 192, "examplearch.attention.value_length": 128,
+              "examplearch.attention.kv_lora_rank": 512, "examplearch.rope.dimension_count": 64,
+              "examplearch.embedding_length": 2048}
+    ctx.check(f"an older file without the two _mla lengths keeps every head's K and V, got {kv_bytes(legacy, 2.0)}",
+              kv_bytes(legacy, 2.0) == 27 * 16 * (192 + 128) * 2)
+    one = dict(legacy, **{"examplearch.attention.key_length_mla": 192})
+    ctx.check("one _mla length alone is not the server's test either", kv_bytes(one, 2.0) == 27 * 16 * 320 * 2)
     draft = dict(MLA, **{"examplearch.nextn_predict_layers": 1})
     ctx.check("a draft layer is not counted in the main cache", kv_bytes(draft, 2.0) == 46 * 576 * 2)
     no_rope = {k: v for k, v in MLA.items() if not k.endswith(".rope.dimension_count")}

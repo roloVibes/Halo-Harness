@@ -420,6 +420,9 @@ def resident_options(session, host, model: str, body: dict, source: str) -> dict
         known, row = last_ps_entry(host.url, model)
         if not (known and _pos(opts.get("num_ctx")) and _pos((row or {}).get("context_length")) == opts["num_ctx"]):
             return body
+        size, on_card = _pos((row or {}).get("size")), _pos((row or {}).get("size_vram"))
+        if not (size and on_card and on_card >= size):  # the review: a resident load that SPILLS is not kept: the
+            return body                                 # call sends its own num_gpu and reloads it onto the card
     t = truth(getattr(session, "state_dir", None), host.url, model)
     if t.get("num_ctx") == opts.get("num_ctx") and _pos(t.get("num_gpu")):
         opts["num_gpu"] = t["num_gpu"]
