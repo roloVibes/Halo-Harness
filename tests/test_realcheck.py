@@ -1836,6 +1836,13 @@ def test_the_fake_provider_plays_made_at_once(ctx: Ctx):
         said, calls = _ask(p, msgs + [{"role": "assistant", "content": said},
                                       {"role": "user", "content": fakes.NOTED_PROMPT}])
         ctx.check(f"a later RC-NOTED turn: NOTED_DONE, got {said!r} {calls}", not calls and said == fakes.NOTED_DONE)
+        # 3.6.0.19: the turn after the save has its own words; (d)'s done word is never the answer of (c)'s turn
+        said, calls = _ask(p, msgs + [{"role": "assistant", "content": fakes.MADE_DONE},
+                                      {"role": "user", "content": fakes.NOTED_PROMPT},
+                                      {"role": "assistant", "content": fakes.NOTED_DONE},
+                                      {"role": "user", "content": getattr(fakes, "SAVED_PROMPT", "RC-SAVED: missing")}])
+        ctx.check(f"a RC-SAVED turn after it: SAVED_DONE, its own word, got {said!r} {calls}",
+                  not calls and said == getattr(fakes, "SAVED_DONE", None) and fakes.NOTED_DONE not in said)
         out: list = []
         held = _live_ask(p, [{"role": "user", "content": "RC-MADEJ1: judge the draft"}], out)
         end = time.monotonic() + 30

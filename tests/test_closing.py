@@ -2013,6 +2013,58 @@ def _own_check_at_close(ctx: Ctx) -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+@test
+def test_the_macos_marker_scan_leaves_its_own_ps_out_and_reads_odd_bytes(ctx: Ctx):
+    """3.6.0.19: on macOS the scan's `ps` inherits the marker and listed itself, a pid that is gone a moment later; it
+    is started with Popen and its own pid is left out. Its output is read with odd bytes replaced (before, one byte
+    that is no UTF-8 in any process's command raised and the scan answered {}), and a `ps` that hangs is ended."""
+    from unittest import mock
+
+    from halo_harness import closing
+    started: list = []
+    killed: list = []
+
+    class _Ps:
+        pid = 4242
+        hang = False
+
+        def __init__(self, argv, **kw):
+            started.append((list(argv), kw))
+            self.calls = 0
+
+        def communicate(self, timeout=None):
+            self.calls += 1
+            if self.hang and self.calls == 1:
+                raise subprocess.TimeoutExpired("ps", timeout)
+            return ("4242 /bin/ps -E -ww -A -o pid=,command= PATH=/bin HALO_OWNER=m1 LC_ALL=C\n"
+                    "5000 sleep 30 PATH=/bin HALO_OWNER=m1 HALO_OWN_CHECK=1\n"
+                    "5001 tool � HALO_OWNER=m1 X=1\n"
+                    "5002 other HALO_OWNER=m2\n", None)
+
+        def kill(self):
+            killed.append(self.pid)
+
+    real_isdir = os.path.isdir
+
+    def scan() -> "tuple[dict, set]":
+        own: set = set()
+        with mock.patch.object(sys, "platform", "darwin"), \
+                mock.patch.object(os.path, "isdir", lambda p: False if str(p) == "/proc" else real_isdir(p)), \
+                mock.patch.object(subprocess, "Popen", _Ps):
+            return closing.marker_pids("m1", own=own), own
+
+    got, own = scan()
+    ctx.check(f"the scan's own ps (pid 4242) is left out, the two marked programs are listed, got {got}",
+              got == {5000: "m1", 5001: "m1"})
+    ctx.check(f"Halo's own check is named as one, got {own}", own == {5000})
+    kw = started[0][1] if started else {}
+    ctx.check(f"ps is read with odd bytes replaced and reads no keyboard, got {kw.get('errors')!r} {kw.get('stdin')!r}",
+              kw.get("errors") == "replace" and kw.get("stdin") == subprocess.DEVNULL)
+    _Ps.hang = True
+    got, own = scan()
+    ctx.check(f"a ps that hangs is ended and the scan answers nothing, got {got} {killed}", got == {} and killed == [4242])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -143,9 +143,12 @@ LIVE_REPLY = [("Agent", _live_call(*call), f"call_rc_live{i}") for i, call in en
 # 3.6.0.15 K1 (made-at-once, steps_made.py): main starts the built-in Judge (held at the gate while he picks its model
 # in the box's MODEL block), then, after its result, `judge` (the agent that pick made); RC-NOTED is a turn that only
 # carries what main is told (N1 / N2). JUDGE_MODEL is the second model the step lists for its own run: the pick is never
-# main's own model.
+# main's own model. RC-SAVED is the same kind of turn with its own words (3.6.0.19): the step asks it after RC-NOTED in
+# the same session, and the terminal draws RC-NOTED's answer again when the next prompt is sent, so a second wait for
+# the same done word was true before main had asked anything.
 MADE_PROMPT, MADE_DONE = "RC-MADE: judge the draft, then again", "RC-MADE-DONE"
 NOTED_PROMPT, NOTED_DONE = "RC-NOTED: anything new?", "RC-NOTED-DONE"
+SAVED_PROMPT, SAVED_DONE = "RC-SAVED: anything new?", "RC-SAVED-DONE"
 JUDGE_MODEL = "mock/realcheck-judge"
 MADE_CALLS = [("Agent", {"subagent_type": "Judge", "description": "judge the draft", "prompt": "RC-MADEJ1: judge the draft"},
                "call_rc_made1"),
@@ -335,6 +338,8 @@ class Provider:
             return _finish(h, text_step(SUB_DONE))
         if "RC-NOTED:" in turn:
             return _finish(h, text_step(NOTED_DONE))
+        if "RC-SAVED:" in turn:
+            return _finish(h, text_step(SAVED_DONE))
         if "RC-LIVESCENE" in turn:
             if done_here == 0:
                 return _finish(h, tool_step(*LIVE_REPLY))

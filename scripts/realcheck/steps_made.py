@@ -436,12 +436,14 @@ def _save(ctx, c, t, sid: str, agents: str, start: int, ev: dict, bad: list) -> 
     _wait(c, note_wait())
     call = next((x for x in _calls(c) if x.get("method") == "POST" and x.get("path") == SORTER_PATH), {})
     note = c.js(f"{NOTE}?.textContent || ''") or ""
-    noted = _turn(t, fakes.NOTED_PROMPT, fakes.NOTED_DONE)
+    # its own words, not (d)'s: the terminal draws (d)'s answer again when this prompt is sent, and a wait for the same
+    # done word was true before main's request had reached the provider ("main sent no request after the save")
+    noted = _turn(t, fakes.SAVED_PROMPT, fakes.SAVED_DONE)
     reqs = made_reqs(p.mock.requests, mark, start)
     live = (call.get("body") or {}).get("live")
     ev["c"] = {"note": note, "status": call.get("status"), "live": live, "noted": noted,
                "requests": _summary([r for r in reqs if r["after"]])}
     if not noted:
-        bad.append(f"(c) main never answered the turn after the save ({fakes.NOTED_DONE}) in {TURN_WAIT_S:.0f} s")
+        bad.append(f"(c) main never answered the turn after the save ({fakes.SAVED_DONE}) in {TURN_WAIT_S:.0f} s")
     bad.extend(judge_made_save({"note": note, "live": live, "reqs": reqs}, sid))
 

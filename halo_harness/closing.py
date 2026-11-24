@@ -1123,16 +1123,28 @@ def marker_pids(mark: Optional[str] = None, *, prefix: bool = False, own: Option
                     break
         return out
     if sys.platform == "darwin":
+        # 3.6.0.19: the `ps` inherits the marker and listed ITSELF, a pid that is gone a moment later: started with
+        # Popen so its own pid is known and left out. Bytes that are no UTF-8 (in any process's command or
+        # environment) are replaced: before, one such byte raised here and the whole scan answered {}.
         try:
             import subprocess as _sp
-            r = _sp.run(["/bin/ps", "-E", "-ww", "-A", "-o", "pid=,command="], capture_output=True, text=True,
-                        timeout=10, env={**os.environ, "LC_ALL": "C"}, stdin=_sp.DEVNULL)
+            ps = _sp.Popen(["/bin/ps", "-E", "-ww", "-A", "-o", "pid=,command="], stdout=_sp.PIPE, stderr=_sp.DEVNULL,
+                           stdin=_sp.DEVNULL, text=True, errors="replace", env={**os.environ, "LC_ALL": "C"})
         except Exception:
             return out
+        try:
+            listing = ps.communicate(timeout=10)[0]
+        except Exception:
+            try:
+                ps.kill()
+                ps.communicate(timeout=3)
+            except Exception:
+                pass
+            return out
         key = f" {MARKER}="
-        for line in (r.stdout or "").splitlines():
+        for line in (listing or "").splitlines():
             head, _sp2, rest = line.strip().partition(" ")
-            if not head.isdigit() or key not in " " + rest:
+            if not head.isdigit() or int(head) == ps.pid or key not in " " + rest:
                 continue
             value = (" " + rest).split(key, 1)[1].split(" ", 1)[0]
             take(int(head), value, f" {OWN_CHECK}=1 " in f" {rest} ")
