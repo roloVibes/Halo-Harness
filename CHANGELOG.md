@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.19] - unreleased
+## [3.6.0.19] - 2026-11-24
 
 Local models: the session you really get. A session on a local model is now sent the window Halo names, with the
 tool block of the window its first request is sent at (where the two can still part is in the Known limits). A new

@@ -1,5 +1,132 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.19] - 2026-11-24
+
+Local models: the session you really get. A session on a local model is now sent the window Halo names, with the
+tool block of the window its first request is sent at (where the two can still part is in the Known limits). A new
+conversation is not compacted before it has an answer (on one real model that compaction threw the first question
+away). `halo local prompt` measures the session you get, and with Copilot set up main keeps the Builder. This
+release was checked with real sessions on a real Ollama, which also showed what it does not fix yet:
+read the Known limits.
+
+### Fixed
+
+- **A session on a model whose larger window runs partly on the CPU stays at the window Halo names.** When another
+  program left the model loaded at a window that spills to the CPU, a session of more turns said "reloaded at 16k,
+  the largest known to fit the card" and then sent the larger window on every turn: nothing was reloaded and the
+  model ran partly on the CPU for the whole session. Now every call of that session is sent the window the line
+  names, the model is loaded there once, and the session compacts within it: its compaction calls are held at that
+  window too, and a conversation larger than it is summarised from a transcript cut to fit ("the conversation (N
+  tokens) is larger than <model>'s window (16,384): it summarises a transcript cut to fit"). A `halo -p` run already
+  did this since 3.6.0.12; a session did not.
+- **A new conversation is not compacted before it has an answer.** On a model whose window Halo puts below Halo's
+  own first request, a new session said "this will be cut: compacting first", summarised a conversation that had
+  no history, and the summary replaced the question you had just typed: asked later what the first question was,
+  the model named the second one. Now a request with no earlier answer is not compacted before it is sent, and
+  nothing is asked. When it cannot fit the window you read "prompt N tokens · window W · usable U · ...: sending
+  anyway (the tail is kept)", and before it, when the system prompt, the memory and the tools alone are already
+  more than the window holds, the line that says so ("... alone are N tokens, more than this W window holds ...").
+  It goes out as "send anyway" sends it, and a reply that is then cut at the window stands as the answer (before,
+  that started a compaction too). The same holds for a helper's first request and for a `halo -p` run. From the
+  second turn on nothing changes.
+- **One window in every line, and the tool block of that window.** The tool block of a session is the block of the
+  window its first request is sent at, and it stays that for the session. Three cases said one window and sent
+  another: a model held at a smaller window because the larger one spills (the line beside "reloaded at 16k" said
+  "(window 65,536)" and the session carried that window's 28 tools); a model Halo has not
+  measured, whose first request is raised over the default (the line said "(window 8,192)", 16,384 was sent); and a
+  model another program left loaded at a larger window that Halo holds (65,536 was sent with the 16,384 block and
+  "(window 16,384)"). Each now reads "N tools not offered to <model> (window W)" with the window the first request
+  is sent at.
+- **"the largest known to fit the card" is said only of a window that is known.** With nothing measured, a model
+  loaded at a spilling window was "reloaded at 8k, the largest known to fit the card": the 8k was a default, never
+  measured and never sent. Now that line is said only when the window comes from a spill Halo saw or from a
+  measurement; otherwise you read the load line, "loading <model> on <host> again at a 16k window", which names the
+  window that is sent.
+- **The reply's room is said once.** A reload under a spill printed it on two lines.
+- **`halo local prompt` measures the session you get.** It measured a session without the Builder tool, so from a
+  32,768 window on its figure was about 400 tokens lower than what a session someone answers really sends. It now
+  uses the same rule a session uses for the Builder, and so do `/status` (with the Builder when the session has
+  it), Studio's model card ("Halo's first turn: N tokens") and `halo doctor`. Nothing a model is sent changes by
+  this.
+- **With Copilot set up, main keeps the Builder.** `copilot_ask` took the last room of the 4,500-token tool budget,
+  so at a 32,768 or 49,152 window the Builder was left out and main never read the words that let it propose a
+  helper or a workflow. `copilot_ask` now rides on top of that budget (150 tokens) and is not counted in the tool
+  count either: both are sent, and every other tool is in or out exactly as in a home without Copilot. So with
+  Copilot set up, another tool ranked after it that did not fit before (a pack's, another server's) can be sent
+  now too.
+- **macOS: the closing procedure's look for left-over programs no longer lists its own `ps`,** a process that is
+  gone a moment later, and one byte that is no UTF-8 in any program's command line no longer makes the whole look
+  answer "nothing".
+
+### Added
+
+- **`halo gym handout <model> --diet`.** Does a local model do as well with fewer tools? It runs the gym's fixed
+  four-part job three times with every tool the model's own window takes and three times with the 16,384 block
+  (13 tools, the rest by name), both with today's words and at the same window, and ends with one line: "Verdict:
+  the 16,384 block does as well (finished A of N, with every tool B; parts handed out C of P, with every tool D)."
+  or "Verdict: the 16,384 block does worse: it finishes A of N (with every tool B)." A model whose own window takes
+  no more tools than that block prints "not measured" and saves no card. Free and local; about two minutes per
+  model on a GPU. On the first real model it read "does as well (finished 3 of 3, with every tool 2 ...)". See
+  [COMMANDS-gym-handout.md](docs/COMMANDS-gym-handout.md).
+
+### Changed
+
+What a model is sent changes in these cases only. A session on a model with a large window (65,536 and up: the
+cloud models Halo ships with), and a local session or `halo -p` run on a measured model with no spill whose
+requests fit, are sent byte for byte what 3.6.0.18 sent (the request bodies were compared across both).
+
+- A session held at a window because the larger one spills: that window on every call (also its compaction's), and
+  the tool block of that window from the first request on (at 16,384: 13 tools instead of 28, the others by name).
+- A session whose first request is sent another window than Halo resolved (raised over a default, or a larger
+  loaded window that is held): the tool block of the window sent.
+- A first request that cannot fit its window (a session's, a `halo -p` run's, a helper's): sent as "send anyway"
+  sends it, where a compaction ran before.
+- With Copilot set up, at windows over 16,384 and under 65,536 (a local model or a small-window cloud one):
+  `copilot_ask` no longer takes room from the others, so the tools ranked after it that now fit are sent too, the
+  Builder's definition (about 400 tokens) first.
+
+### Tests
+
+- The real-use step `made-at-once` asked two turns in one session with the same words and waited for the same
+  answer; the terminal draws the first answer again when the second prompt is sent, so the second wait could be
+  true before main had asked anything (red once on macOS in 3.6.0.18's CI). The second turn has its own words.
+- The two real-halo tests of a quit with a stuck read now time the stuck quit against a healthy quit on the same
+  machine: it may take twice the healthy one plus the product's own bound and three seconds (on one Windows machine:
+  0.3 s healthy, 2.1 s stuck). Before, they asked only "gone within 15 s".
+- The prompt pins measure the session with the Builder (32,768: 8,263 -> 8,666 tokens on Windows); no bound moved.
+
+### Known limits
+
+- **A model Halo has not measured can be held at a window that is far too small.** Halo's memory estimate counts
+  about thirty times too much for one family of models (latent attention). Seen on a real 30B model: the estimate
+  says 4k, while the model sits wholly on its card at 65,536. A new session on it then reads "... more than this
+  4,096 window holds ...: a bigger-window model holds them" (for this model untrue: it is the estimate that is
+  small) and "sending anyway", is sent at 4k, and from the second turn runs at a larger window with a reload and
+  another tool block, which can change once more on a later turn (the estimate moves while the model is loaded).
+  Measuring does not help yet: `halo local measure <model>` found a far larger window safe for that model and the
+  next session still started at 4k, because the smaller of the estimate and the measurement wins. What does help
+  today is a window of your own for that model: `halo ollama profile set <host> <model> num_ctx 32768`; a new
+  session then starts at 32,768 with one window in every line (checked on the real model). The estimate itself is
+  the next release's first job.
+- The names of the tools of your other MCP servers are in every request of a local session, and `halo local
+  prompt` does not count them. With many servers that is thousands of tokens.
+- A spill found only after a session's first call (nothing loaded at the start, the first load spills): the window
+  steps down turn by turn and the tool block stays the first window's; the reload lines name each window as it is
+  sent, the "tools not offered" line still names the first.
+- When another program later reloads the model at a larger window that fits, the session keeps its tool block and
+  is sent the larger window, with no new line.
+- A first request that cannot fit its window is sent at once: the card that offers a bigger-window model is not
+  shown for it (the line says a bigger-window model holds it; `/model` switches).
+- The tool steps of a FIRST turn can still be compacted when their output does not fit, and so can a first
+  request that Halo judged to fit and that the server then cuts.
+- A session held at a window is now held there too when Ollama answers "prompt exceeds num_ctx" (it compacts
+  instead of being re-sent at a larger window). That one path was changed after the review and has no test of
+  its own yet.
+- A reload with nothing known says only "loading <model> on <host> again at a Wk window", not why.
+- The real sessions were run on Windows with one Ollama and one card; the same code paths run with a stand-in
+  server in the tests on Windows, macOS and Linux. The macOS fix above was not run by hand on a Mac.
+- Every Known limit of 3.6.0.18 still holds.
+
 ## [3.6.0.18] - 2026-11-24
 
 A Ctrl+C always reaches Halo, and the last ways a quit could leave something behind are closed. On Windows a Ctrl+C
@@ -1339,77 +1466,3 @@ picture of the page, and you can have a window you can watch. The limits that re
   was red before, and this release's own CI run passed on both runners with them. Not run: a person's Mac, a browser
   shown as a window, Edge beyond starting and answering, Brave and Chromium at all, and quitting the terminal app with
   a browser open on any system.
-
-## [3.6.0.7] - 2026-11-21
-
-Copying out of a session works. In the terminal app the words you drag over are the words you get, the moment you let
-go. In Studio a drag across Live rows copies the rows' own words, without the clock, labels, tags or buttons, and
-every reply has a Copy button, as does every code block of a Live text row and of the Prompt feed. The limits that
-remain are at the end of this section.
-
-### Added
-
-- **In the terminal app a drag copies the moment you let go.** No key is needed: the line "Copied the selection (N
-  characters)" shows, and the usual second line says which program took it. So pressing the terminal's own copy key
-  out of habit (it has nothing to copy while Halo owns the mouse) leaves the dragged words on the clipboard, and a
-  paste gives them. Every new drag copies again. A plain click copies nothing and says nothing.
-- **In Studio every reply has a Copy button**, in Session's Live column and in the Prompt panel's feed, and so does
-  every code block of a Live text row and of the Prompt feed. It shows when the row is hovered or the button has the
-  keyboard. It reads "Copy"; a press puts the text as the agent wrote it on the clipboard (a code block's button: the
-  code only, its indentation and line breaks kept) and reads "Copied" for two seconds in the same place. When the
-  browser refuses the clipboard it reads "Select and copy it yourself" and selects the text, so Ctrl+C copies it.
-  Nothing moves when a button shows or its word changes.
-
-### Changed
-
-- **Ctrl+C says what it copied.** With a selection: "Copied the selection (N characters)"; it copies the same words
-  again and never opens "Quit Halo?". With nothing selected: "Copied the last reply (N characters)"; a second press
-  within three seconds still asks "Quit Halo?".
-- **Code blocks in a reply are drawn as blocks in Live's text rows and in the Prompt feed**, in a fixed-width face
-  with a rule at their left, their fence lines kept as written.
-- **F1 help has a row "Drag"**: "Drag over text to copy it; Ctrl+C copies the selection again, or the last reply when
-  nothing is selected."
-
-### Fixed
-
-- **A drag over part of an answer copied the whole last answer.** In the terminal app, a drag over a few words of any
-  answer but the last, or of a code block, then Ctrl+C, gave the last answer; a drag over one word of a one-line row
-  gave the whole line. The words you drag over are now the words you get. A drag over a whole answer still copies its
-  source text.
-- **A click on a tool's card took the keyboard.** What you typed next went to the card: "/copy" after such a click
-  opened the card's pager and copied the card. It now goes to the chat box. Tab still reaches a card, and its keys
-  work once the keyboard is there.
-- **In Studio's Live column a drag across rows carried everything on the rows.** The paste held the clock, the kind
-  label, the agent's tag, "why?" and the Steer box's words. It now holds the rows' own words, one row a line.
-- **Selecting text in a Live row changed who you were steering.** A drag that selects words now leaves the steer
-  target where it was; a plain click on a row still chooses it.
-
-### Known limits
-
-- **A tool's output has no Copy button.** In Live a click on a tool row that shows "▸" opens the result under the row,
-  up to its first 4,000 characters, and it can be selected there; the Prompt feed shows its one-line preview only.
-- **In Live an agent's "DONE · ITS LAST WORDS" and "HANDS BACK" rows draw their code blocks as plain text**, with no
-  Copy of their own; the row's Copy copies the whole text.
-- **The Copy button shows on hover or keyboard focus**, so not on a touch screen.
-- **A drag in the terminal app does not set the Linux middle-click selection**; it sets the clipboard.
-- **A drag that starts on the blank cell before a word copies that leading space**: it copies what is highlighted.
-- **The once-a-session hint still says to hold Shift to select with the terminal itself**, which is not the key in
-  every terminal (iTerm2 uses Option).
-- **When the browser refuses the clipboard on a "DONE · ITS LAST WORDS" row**, the text selected for you is the
-  shortened one the row shows, not the whole.
-- **Every Known limit of 3.6.0.6 still holds.**
-- **Where it was checked.** On the Linux VM: the whole test suite, its browser modules included (on a copy with no git
-  history: the few tests that need it run in CI), and the full real-use check, seventeen of seventeen steps. Its new
-  step starts a real Halo in a terminal, drags over words of the first answer with the terminal's own mouse sequences
-  and reads what reached a stand-in clipboard program: those words on release, on a second drag and on Ctrl+C, then
-  the last answer when nothing is selected. A real drag in a real terminal window there (a private display) put the
-  dragged words on the real clipboard. The whole suite found the Copy button 6 px from "why?" where two controls are
-  never closer than 8; it stands 8 px away now. On the PC (Windows): the changed plain modules and the node checks;
-  the same real-use step in a real pseudoconsole, with a second clipboard program lying in the project folder that
-  must never be started (it was not); and, in a headless Chrome, the copy module (three of its six tests failed until
-  the test compared line ends alike: Windows' clipboard hands text back with its own; then six of six) and the module
-  of the room rules. The release gate's first run then showed, in the terminal app's own suite on all three systems,
-  that a reply selected as a whole widget (not by a drag) had been left out of the copy; it is copied again, and that
-  suite passes on the Linux VM. Not run: macOS locally (CI runs it at the release gate), Firefox and Safari, Wayland,
-  a copy over SSH into an outer terminal, the plain Windows console host, and a drag over a reply that is still being
-  written.
