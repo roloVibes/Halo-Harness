@@ -499,12 +499,14 @@ bottom if it stopped following new output, and answering a card that
 scrolled the view away from the bottom (a tall card, on a short terminal)
 now re-anchors it automatically too, as long as you were following before
 the card appeared (finding 15). If `Ctrl+C` twice doesn't exit (or gets
-stuck itself), `Ctrl+Q` force-quits on its OWN timer -- a 2s head start for
-a clean shutdown, then the process exits unconditionally 2.5s after that
-regardless of what's still hung (finding 5; it no longer shares a flag
-with `Ctrl+C`'s own quit path, so it still works even when THAT is the
+stuck itself), `Ctrl+Q` force-quits on its OWN path: its end is armed at
+the press, the session gets at most 2s for a clean shutdown, then the app
+is asked to close. When the app does not close (a screen that no longer
+answers), Halo ends itself about ten seconds after the press, through its
+closing procedure, so what it started ends with it (3.6.0.18; it shares no
+flag with `Ctrl+C`'s own quit path, so it still works even when THAT is the
 thing that's stuck); Ctrl+Q also kills every background job
-(`job_registry.kill_all()`) before that timer is even armed, so a
+(`job_registry.kill_all()`) on its way, so a
 backgrounded `!cmd`/Bash job never outlives the process either, win or
 lose on the ordinary quit path. Run with `--debug` and send `bridge.log`
 if none of this explains what you're seeing.

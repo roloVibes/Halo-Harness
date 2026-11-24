@@ -37,7 +37,15 @@ started in the background. On Linux and macOS Halo names each one it ends on the
 N), left running by a tool command ..."). A tmux server started that way also ends the sessions you opened in it
 later. To keep one past Halo, the command starts it with a kept marker, for example
 `HALO_OWNER=kept-tmux tmux new-session -d -s work`; `halo ps` then lists it as kept and you stop it yourself. On
-Windows such a daemon is in Halo's Job object and ends with it.
+Windows such a daemon is in Halo's Job object and ends with it. A short check of Halo's own that still runs at
+the quit (the status line's command, `claude auth status`, `claude mcp list`, the git branch look) is ended
+without a line (3.6.0.18): nobody started it and nobody can keep it.
+
+**While the terminal app is up, no program Halo starts reads your keyboard** (3.6.0.18): its input is the null
+device, so it cannot take a key you typed for Halo. Your editor (Ctrl+E, `/editor`, `/improve`'s edit, the `/mcp`
+dialog's editor) has the keyboard while it is open. **Once Halo's closing procedure has run, nothing new
+starts**: a background worker that answers late and then tries to start a program through Halo's own process
+layer is refused. What you asked Halo to keep still starts.
 
 **The browser the Browser tool drives is the session's child** (3.6.0.6): Halo starts one Chrome, Chromium, Edge or
 Brave per session on the first Browser call, talks to it over a pipe (no network port), and ends it with the session

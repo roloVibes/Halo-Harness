@@ -50,7 +50,8 @@ keep this key for their own copy, and `/copy draft` does the same from the
 chat box), `Ctrl+D`
 (quit when the prompt is empty, else forward-delete), `Ctrl+Q` (1.0.1:
 force quit -- exits even if the session is wedged; waits at most 2s for a
-clean shutdown, then exits regardless), `Esc` (interrupt), `Shift+Tab` (cycle
+clean shutdown, then asks the app to close; 3.6.0.18: a screen that no
+longer answers is ended about ten seconds after the press), `Esc` (interrupt), `Shift+Tab` (cycle
 permission mode through `default` -> `acceptEdits` -> `plan` -> `auto` ->
 back to `default`; 1.0.1: if a permission card is still pending when the
 mode lands on `auto`/`bypassPermissions` it's resolved as allowed right

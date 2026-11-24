@@ -8,6 +8,126 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.18] - unreleased
+
+A Ctrl+C always reaches Halo, and the last ways a quit could leave something behind are closed. On Windows a Ctrl+C
+typed in the first moments of a terminal session could do nothing: a program Halo itself had started took the key.
+That is found and repaired, and it was Halo's fault, not the keyboard's. A quit while Halo is still opening your
+browser no longer opens it after Halo has gone, Ctrl+Q ends a session whose screen is stuck, a Ctrl+C during
+`/update`'s hand-off ends Halo, and once Halo's closing procedure has run nothing new starts behind it.
+
+### Fixed
+
+- **A Ctrl+C in a session's first moments is no longer lost (Windows).** When a session starts, Halo asks `claude
+  auth status` who is signed in. That program shared the terminal's keyboard with Halo, so it could take a key you
+  typed. And when its `.cmd` wrapper ended, Windows switched the console back to turning Ctrl+C into a signal for
+  0.1 to 0.3 seconds, longer on a busy PC; Halo swallowed that signal, so a Ctrl+C typed then did nothing. Now no
+  program Halo starts for itself gets the keyboard while the terminal app is up (see Changed), and when the console
+  does turn a Ctrl+C into a signal Halo treats it as the key: the first press stops the turn, the second opens the
+  quit card. This is the limit 3.6.0.17 named ("on one loaded Windows machine the real-use check's Ctrl+C step fails
+  in about half its runs"): the keys were lost by Halo, not by the checker.
+- **A quit while Halo is still opening your browser no longer opens it after Halo has gone (Windows).** Inside a
+  Job that lets nothing leave (a CI runner, a service) Halo starts a browser or a kept program through a small
+  helper. When you quit in the first seconds of `halo init`, `/studio` or a sign-in, that helper stayed behind and
+  opened the browser seconds after Halo had left. Now the helper that makes the start is held in Halo's own Job
+  and ends with it on every way out (Ctrl+C, a closed terminal, a hard kill). The start's last step, a tiny runner
+  outside every Job, starts the program only while the Halo that asked is still running and its closing procedure
+  has not marked the start; otherwise it starts nothing and removes its files. A kept program whose start was
+  under way when Halo closed either does not start, or, when it answers within the quit's wait, is named in
+  "halo: left running on purpose" as before.
+- **A second Ctrl+C while `halo init` waits for its browser prints no traceback.**
+- **A Ctrl+C during `/update`'s hand-off to the updater ends Halo.** It prints "halo: interrupted while starting
+  the update. `halo --version` shows what is installed; `halo update` starts it again." and leaves with 130.
+  Before, Halo left without its bound there: a background check stuck on the network kept it alive, and the Ctrl+C
+  printed a traceback.
+- **A Ctrl+C that ends the terminal app from outside leaves with one line and 130.** The line is print mode's
+  "halo: interrupted", on Windows, macOS and Linux, stuck check or not. Before, a traceback and Python's own exit
+  code.
+- **Ctrl+Q ends a session whose screen is stuck.** Ctrl+Q is the key for a session that no longer answers. On a
+  screen that had stopped taking events its own thread waited for that screen without limit and no end was armed at
+  all. Now the end is armed at the press, before anything that can wait: when the app does not close, Halo ends
+  itself about ten seconds after the press, through its closing procedure, so everything it started ends with it.
+  A session that does close leaves as before.
+- **A late background worker of Halo's own no longer holds the quit.** A call that arrived as the app closed
+  could start one more of Halo's internal workers (a refresh, a check), and the process stayed alive until that
+  worker ended: without limit on Python 3.10 and 3.11, up to 300 seconds on 3.12 and later. Such a worker is now
+  never run. Your own background commands are not what this is about.
+- **Once Halo's closing procedure has run, nothing new starts behind it.** A background worker that answers late
+  and then tries to start a program through Halo's own process layer is refused, on Windows, macOS and Linux. What
+  you asked Halo to keep (the updater's hand-off, a `--keep` server) still starts, and so does what the closing
+  procedure itself needs.
+- **A program whose start was under way at the instant Halo closed is still ended (Linux and macOS).** When Halo's
+  end is forced because a background check is stuck, it looks once more right before it leaves and ends what it
+  finds, with the usual "halo: ended ..." line. Before, such a program outlived Halo.
+- **Quitting while one of Halo's own short checks runs prints no false line (Linux and macOS).** The status line's
+  command, `claude auth status`, `claude mcp list` and the git branch look are ended silently. Before, a quit could
+  print "halo: ended sh (pid N), sleep (pid N), left running by a tool command; ..." for a check nobody started and
+  nobody can keep. A tool command's leftover still gets that line.
+- **The OpenRouter balance refresh asks nothing more once a quit has begun.** Before, its second request could
+  still go out, with your key, after you had quit.
+- **A kept start that begins after Halo's closing procedure has run is taken back at once (Windows).** No helper
+  runs and no file holding the environment is written.
+
+### Changed
+
+- **While the terminal app is up, a program Halo starts gets no keyboard input.** Its input is the null device: a
+  tool's command that asks a question on its input reads "end of input" at once, where before it shared the
+  keyboard with Halo and could take the keys you typed. Your editor is the one exception: while Ctrl+E, `/editor`,
+  `/improve`'s edit or the `/mcp` dialog's editor is open, the editor has the keyboard, and only the editor.
+  `halo -p` and Halo's other commands are unchanged.
+- **Ctrl+Q has one end.** Its last resort no longer leaves by a raw exit that skipped the closing procedure. On a
+  stuck screen the end comes about ten seconds after the press (before: never on a wedged screen, 2.5 seconds
+  after the app was asked to close otherwise).
+- **The real-use check's closing step keeps the checker's own notes in a file of their own**
+  (`close-trace-checker.txt` beside Halo's `close-trace.txt`), so no line is lost when both write at once.
+
+### Known limits
+
+- **One Ctrl+C can still be swallowed in a window of milliseconds (Windows).** Halo puts the console's setting back
+  twice a second. When that happens between the console turning a Ctrl+C into a signal and Halo reading the
+  setting, that one press counts as a program's signal and does nothing. Press again.
+- **The keyboard rule is the terminal app's.** `halo init` and the other commands start their programs as before,
+  sharing the terminal's input; that was not looked at.
+- **A quit in the instants between the runner's last check and its start still lets that one program start
+  (Windows).** It is then your browser, or a kept program: named when it answers within the quit's wait, else
+  listed by `halo ps` as kept without a line at the quit. The same holds for a start made between the quit and
+  the closing procedure.
+- **After a hard kill of Halo during such a start, a file with the start's environment (your keys included) can
+  stay in your own temp folder** until the next such start removes folders older than ten minutes.
+- **A kept program can go unnamed** when a quit reads the list in the few instructions between its start and its
+  entry in the list, or when its starter is a caller that keeps a program without Halo's own kept start.
+- **Ctrl+Q on a stuck screen does not print the quit's usual lines** (what was stopped, what was left running on
+  purpose): the terminal is still the app's then. On Linux and macOS a "halo: ended ..." line of the last look can
+  still appear. Halo's end there was proven with a stand-in screen that never answers, not with a really wedged
+  terminal.
+- **The last look for a start under way runs only on the forced end (Linux and macOS),** which is where a worker
+  can still answer late. The refusal covers what Halo starts through its own process layer: a program a library
+  starts by itself is not refused, and a thread that itself runs the closing procedure may still start one.
+- **When the closing procedure ran first on another thread (a forced end, a closed console window), a stop the
+  main thread still tries is refused too.** The closing procedure has done the stops by then; an exit hook of a
+  pack that starts a program there can print "Exception ignored in atexit callback".
+- **A Ctrl+C typed during a real `/update` hand-off, and a Ctrl+C escaping the app in a real terminal, were not
+  produced by hand.** Both are driven by tests that run the real code in a child process.
+- **The Windows repairs were driven in a pseudoconsole, not in a real console window.** The kept-start repair's
+  real-use run (a real `halo init` inside a Job that lets nothing leave) was the PC's only; CI's Windows runners
+  run its tests. Nothing was run on macOS by hand: CI's macOS legs run the tests and the real-use check's
+  `closing` step.
+- **Every Known limit of 3.6.0.17 still holds, except these three:** the lost Ctrl+C on a loaded Windows machine,
+  the Ctrl+C during `/update`'s hand-off, and the false "left running by a tool command" line for a check of
+  Halo's own.
+- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge
+  suite and the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), and on
+  the final code the terminal app's suite again, the browser modules of the Prompt box, the Feed, the steer box,
+  Session's drawing and the card, the closing and update modules, and the full real-use check, twenty of twenty
+  steps; named alone, its `closing` step (all 28 ways out left nothing) and its `update` step passed three more
+  times each. On the PC (Windows), one at a time: every node-backed module, the closing modules three times each
+  and once more after the review's repairs, every update module, the terminal app's quit, Ctrl+Q and editor tests,
+  and the real-use check's `closing` step eleven times while this release was built, the last three on the final
+  code: eleven passes, on the machine where it failed in about half its runs before. One reviewer read the whole
+  release: nothing that must be fixed; six sentences of these notes were corrected, five small things repaired
+  (among them: a Ctrl+C typed in your editor no longer makes Halo change the console's setting under the editor,
+  and Ctrl+Q's last resort ends a real Halo only) and three tests tightened. Nothing was run on macOS by hand.
+
 ## [3.6.0.17] - 2026-11-23
 
 Closed means gone, also while the network hangs; and the prompt, one to one. A terminal Halo you quit no longer stays
