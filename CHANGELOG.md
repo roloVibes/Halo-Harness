@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.18] - unreleased
+## [3.6.0.18] - 2026-11-24
 
 A Ctrl+C always reaches Halo, and the last ways a quit could leave something behind are closed. On Windows a Ctrl+C
 typed in the first moments of a terminal session could do nothing: a program Halo itself had started took the key.
