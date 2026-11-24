@@ -196,6 +196,53 @@ def test_the_rule_leaves_a_tests_replacement_of_the_standard_function_the_call_a
 
 
 @test
+def test_while_the_app_is_suspended_the_persons_editor_has_the_terminals_input(ctx: Ctx):
+    """3.6.0.18 K repair: the person's editor runs inside `with app.suspend():` (Ctrl+E, /editor, /improve's edit, the
+    /mcp dialog's editor) as `sp.run(cmd, shell=True, env=scrubbed_env())`, naming no stdin. While the app is suspended
+    the person has the terminal: run_tui's hand-over switches the rule off for the suspend and puts it back after."""
+    import tempfile
+    from halo_harness import subprocess_safe as sp
+    from halo_harness.closing import scrubbed_env
+    from halo_harness.tui import launch
+    hand_over = getattr(launch, "give_the_terminal_on_suspend", None)
+    ctx.check("launch has give_the_terminal_on_suspend", callable(hand_over))
+    if not callable(hand_over):
+        return
+    seen: list = []
+
+    class App:  # Textual's App.suspend is a context-manager method of the same shape
+        @contextlib.contextmanager
+        def suspend(self):
+            seen.append("suspend")
+            yield
+            seen.append("resume")
+
+    app, was = App(), sp.terminal_app_is_up()
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            sp.set_terminal_app(True)
+            hand_over(app)
+            with app.suspend():
+                ctx.check("suspended: the rule reads OFF", sp.terminal_app_is_up() is False)
+                got = _read_by_child("run", Path(d) / "editor.txt", env=scrubbed_env())
+                ctx.check(f"suspended: the editor-shaped child inherits the input (3), got {got}", got == len(_HOLDS))
+            ctx.check(f"the app's own suspend ran around it, got {seen}", seen == ["suspend", "resume"])
+            ctx.check("resumed: the rule reads ON again", sp.terminal_app_is_up() is True)
+            got = _read_by_child("run", Path(d) / "after.txt", env=scrubbed_env())
+            ctx.check(f"resumed: the same call gets the null device (0), got {got}", got == 0)
+            sp.set_terminal_app(False)
+            with app.suspend():
+                pass
+            ctx.check("a suspend while the rule is off leaves it off", sp.terminal_app_is_up() is False)
+            hand_over(object())  # a stand-in app without suspend (the closing tests' fake) is left as it is
+        finally:
+            sp.set_terminal_app(was)
+    src = (Path(__file__).resolve().parent.parent / "halo_harness" / "tui" / "launch.py").read_text(encoding="utf-8")
+    ctx.check("run_tui hands the terminal over on a suspend before app.run()",
+              0 <= src.find("give_the_terminal_on_suspend(app)") < src.find("app.run()"))
+
+
+@test
 def test_launch_switches_the_rule_on_around_the_app_and_off_in_its_finally(ctx: Ctx):
     src = (Path(__file__).resolve().parent.parent / "halo_harness" / "tui" / "launch.py").read_text(encoding="utf-8")
     on, run, off = (src.find("set_terminal_app(True)"), src.find("app.run()"), src.find("set_terminal_app(False)"))

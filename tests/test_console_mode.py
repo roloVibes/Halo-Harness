@@ -221,6 +221,12 @@ def test_the_launchers_hand_posts_one_ctrl_c_key_the_app_routes_as_the_key(ctx: 
             await pilot.pause()
     asyncio.run(drive())
     ctx.check(f"the app's ctrl+c binding ran once, got {app.hits}", app.hits == 1)
+    # Textual keeps `_driver` after the app has run: run_tui takes the hand away the moment app.run() returns, before
+    # the way out (join_the_pool) and long before the guard is restored, so no key is posted to a closed loop
+    src = (Path(__file__).resolve().parent.parent / "halo_harness" / "tui" / "launch.py").read_text(encoding="utf-8")
+    run, gone, join = (src.find("app.run()"), src.find("console_guard.on_ctrl_c = None"),
+                       src.find("join_the_pool(app)"))
+    ctx.check("run_tui clears the guard's hand after app.run() and before the way out", 0 <= run < gone < join)
 
 
 # -- Windows only: a real pseudoconsole (scripts/realcheck/conpty.py) --------------------------------------------------

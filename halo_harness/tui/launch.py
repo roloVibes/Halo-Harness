@@ -6,6 +6,7 @@ above it, so `import halo_harness` and `-p` stay dependency-free.
 
 from __future__ import annotations
 
+import contextlib
 import sys
 import time
 from pathlib import Path
@@ -91,11 +92,13 @@ def run_tui(args) -> int:
     # 3.6.0.18 K: while the app has the terminal no child inherits its input (subprocess_safe._quiet_stdin); off again
     # at the end of the finally below, on every way out of it
     from halo_harness import subprocess_safe
+    give_the_terminal_on_suspend(app)
     subprocess_safe.set_terminal_app(True)
     try:
         app.run()
         returned = True
     finally:
+        console_guard.on_ctrl_c = None  # 3.6.0.18 K: Textual keeps its driver after run(): no key posts to a gone loop
         from halo_harness import closing
         closing.trace("app.run returned")  # fx jb12: HALO_CLOSE_TRACE (nothing when unset)
         # 3.6.0.17 Z4-1: an exception escaping app.run leaves with the code cli.main gives it; a step below that
@@ -148,12 +151,35 @@ def run_tui(args) -> int:
 def post_ctrl_c_key(app) -> None:
     """3.6.0.18 K: ONE Ctrl+C key to the app, posted from any thread the way the Windows driver's reader thread posts
     the keys it reads (`Driver.process_message`: thread-safe onto the app's loop), so focus and screens decide what it
-    does exactly as for the key itself. Nothing while the app has no driver (not yet running, or gone)."""
+    does exactly as for the key itself. Nothing while the app has no driver yet. Textual keeps the driver after
+    `app.run()` returns, so run_tui takes this hand away (`console_guard.on_ctrl_c = None`) the moment it does."""
     driver = getattr(app, "_driver", None)
     if driver is None:
         return
     from textual import events
     driver.process_message(events.Key("ctrl+c", "\x03"))
+
+
+def give_the_terminal_on_suspend(app) -> None:
+    """3.6.0.18 K: while the app is suspended (`with app.suspend():` around the person's editor: Ctrl+E, /editor,
+    /improve's edit, the /mcp dialog) the person has the terminal, so subprocess_safe's rule (no child inherits the
+    terminal's input) is off for the suspend and put back as it was after. An app without `suspend` is left as it is."""
+    suspend = getattr(app, "suspend", None)
+    if not callable(suspend):
+        return
+    from halo_harness import subprocess_safe
+
+    @contextlib.contextmanager
+    def suspended(*args, **kw):
+        with suspend(*args, **kw):
+            was = subprocess_safe.terminal_app_is_up()
+            subprocess_safe.set_terminal_app(False)
+            try:
+                yield
+            finally:
+                subprocess_safe.set_terminal_app(was)
+
+    app.suspend = suspended
 
 
 STUCK_GRACE_S = 0.5  # 3.6.0.17 Z4-1: hard_exit's grace once the pool's join gave up on a stuck worker
