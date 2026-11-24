@@ -77,7 +77,19 @@ only then, so the user asked for it), then the built-ins in the registry's order
 tools) by relevance to the task. The block is held to a token budget of the
 window the call gets: 2,200 up to 16,384, 4,500 under 65,536. A tool left out
 stays callable by name and ToolSearch shows its schema, exactly as a deferred
-tool; one line of the system message names them.
+tool; one line of the system message names them. Since 3.6.0.19 a set-up
+`copilot_ask` rides on top of the 4,500 budget (its 150 tokens are not counted
+there), so it never takes the Builder's room and every other tool is in or
+out exactly as in a home without Copilot.
+
+**The window the block is shaped for (3.6.0.19).** A session's tool block is
+the block of the window its first request is SENT at, and it stays that for
+the session: the line "N tools not offered to <model> (window W)" names the
+window that is sent. That matters where Halo sends another window than the
+one it first resolved: a model held at a smaller window because the larger
+one runs partly on the CPU, a first request raised over a default, a larger
+window another program loaded and Halo holds. A switch to another model
+starts over.
 
 **The system text, lean** (`agent/prompt_lean_system.py`). On the lean
 profile the wire copy of Halo's system prompt keeps what a local model needs
@@ -143,13 +155,19 @@ lineup's square or built-in, or left out and why). Nothing is sent to the
 model; an `ol:` model's window is resolved as a call would (its catalog row,
 the host, a steward profile). `/status` and `halo doctor`'s default-model row
 say the same line for a local model, and Studio's Local -> a model's card
-has the row "Halo's first turn: N tokens (P % of the window)".
+has the row "Halo's first turn: N tokens (P % of the window)". Since 3.6.0.19
+the session measured is the one you get: a session someone answers has the
+Builder tool (about 400 tokens from a 32,768 window on; one rule decides it
+for the session and for the measure), and `/status` measures the session's
+own tools. Not counted: the names of the tools of your other MCP servers,
+which a session in this folder also sends.
 
 ## The budget test
 
 `tests/test_prompt_budget_pins.py` pins the first turn of the five cases
 above as upper bounds, on Windows and on Linux: the prompt, the lean tool
-block (4,500; 2,200 at 16,384), the window sent, and for the unknown remote
+block (4,500; 2,200 at 16,384; 4,500 plus `copilot_ask`'s size with Copilot
+set up), the window sent, and for the unknown remote
 model prompt plus room at or under 26,000 of 32,768 and the lean system
 message at or under 4,000. A new tool or new prompt text that crosses one
 fails with what to do: give it a lean description, defer it, or raise the

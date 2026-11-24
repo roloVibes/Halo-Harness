@@ -255,7 +255,18 @@ the CPU is reloaded at the largest window known to fit the card when its
 request and the reply's room fit there, and that window is the one sent,
 even when the prompt is more than half of it (a second line then says how
 many tokens the reply has); when the request does not fit there, the
-larger window is kept and the line says so. Ollama cuts a prompt longer than the window and answers anyway:
+larger window is kept and the line says so. Since 3.6.0.19 a session that
+takes more turns on such a model is held at that window too, on every call
+(its compaction's as well: a conversation larger than it is summarised from
+a transcript cut to fit), and "the largest known to fit the card" is said
+only of a window Halo saw spill above or measured; with nothing known the
+line is "loading <model> on <host> again at a 16k window", the window that
+is sent. A conversation with no earlier answer is never compacted: a first
+request that cannot fit its window says so in two lines and goes out as
+"send anyway" sends it. A model can be held at a window Halo's memory
+estimate puts too low (the smaller of the estimate and a measurement wins);
+a window of your own for it is `halo ollama profile set HOST MODEL num_ctx
+32768`, and a session then starts there. Ollama cuts a prompt longer than the window and answers anyway:
 one long message to half the window (`prompt_eval_count` = `num_ctx / 2 +
 2`), a chat by dropping whole messages from the front. A count at that
 half, a count reaching into the room kept for the reply, a count smaller
