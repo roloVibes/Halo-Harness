@@ -99,6 +99,110 @@ def test_check_output_input_none_never_hands_the_child_halos_own_stdin(ctx: Ctx)
     ctx.check(f"an empty pipe: the child read 0 characters and ended, got {out}", out == ("ok", "0"))
 
 
+_COUNT = "import sys; open(sys.argv[1], 'w').write(str(len(sys.stdin.buffer.read())))"
+_HOLDS = b"abc"  # what this process's own stdin holds: a child that inherits it reads 3 bytes, the null device 0
+
+
+@contextlib.contextmanager
+def _stdin_holds(data: bytes):
+    """fd 0 is a pipe holding `data` and then its end: a child that inherits it reads `data`."""
+    r, w = os.pipe()
+    os.write(w, data)
+    os.close(w)
+    saved = os.dup(0)
+    os.dup2(r, 0)
+    try:
+        yield
+    finally:
+        os.dup2(saved, 0)
+        for fd in (saved, r):
+            os.close(fd)
+
+
+def _read_by_child(door: str, out: Path, **kw) -> int:
+    """How many bytes a REAL child started through `door` of subprocess_safe read from its stdin."""
+    from halo_harness import subprocess_safe as sp
+    argv = [sys.executable, "-I", "-S", "-c", _COUNT, str(out)]
+    with _stdin_holds(_HOLDS):
+        if door == "Popen":
+            p = sp.Popen(argv, stdout=subprocess.DEVNULL, **kw)
+            try:
+                p.communicate(timeout=_BOUND_S)  # a stdin=PIPE is closed empty
+            finally:
+                if p.poll() is None:
+                    p.kill()
+                    p.wait(_BOUND_S)
+        elif door == "check_output":
+            sp.check_output(argv, timeout=_BOUND_S, **kw)
+        else:
+            getattr(sp, door)(argv, stdout=subprocess.DEVNULL, timeout=_BOUND_S, **kw)
+    return int(out.read_text())
+
+
+@test
+def test_while_the_terminal_app_is_up_a_child_gets_the_null_device_unless_its_stdin_is_named(ctx: Ctx):
+    """3.6.0.18 K: while the terminal app has the terminal no child inherits its input (a `claude auth status` took the
+    person's Ctrl+C); a caller that names stdin (None too: inherit on purpose) or gives input is left as written; with
+    the switch off nothing changes."""
+    import tempfile
+    from halo_harness import subprocess_safe as sp
+    switch = getattr(sp, "set_terminal_app", None)
+    ctx.check("subprocess_safe has the switch (set_terminal_app / terminal_app_is_up)",
+              callable(switch) and callable(getattr(sp, "terminal_app_is_up", None)))
+    if not callable(switch):
+        return
+    was = sp.terminal_app_is_up()
+    with tempfile.TemporaryDirectory() as d:
+        n = iter(range(100))
+        try:
+            switch(True)
+            ctx.check("the switch reads ON", sp.terminal_app_is_up() is True)
+            for door in ("run", "call", "check_call", "check_output", "Popen"):
+                got = _read_by_child(door, Path(d) / f"{next(n)}.txt")
+                ctx.check(f"ON, {door}, no stdin named: the null device (0 bytes), got {got}", got == 0)
+                got = _read_by_child(door, Path(d) / f"{next(n)}.txt", stdin=None)
+                ctx.check(f"ON, {door}, stdin=None named: inherited as written (3), got {got}", got == len(_HOLDS))
+            for door in ("run", "check_output", "Popen"):
+                kw = dict(input=b"zz") if door != "Popen" else dict(stdin=subprocess.PIPE)
+                got = _read_by_child(door, Path(d) / f"{next(n)}.txt", **kw)
+                want = 2 if door != "Popen" else 0
+                ctx.check(f"ON, {door}, {list(kw)} given: as written ({want}), got {got}", got == want)
+            switch(False)
+            ctx.check("the switch reads OFF", sp.terminal_app_is_up() is False)
+            for door in ("run", "call", "check_call", "check_output", "Popen"):
+                got = _read_by_child(door, Path(d) / f"{next(n)}.txt")
+                ctx.check(f"OFF, {door}: inherited as written (3), got {got}", got == len(_HOLDS))
+        finally:
+            switch(was)
+
+
+@test
+def test_the_rule_leaves_a_tests_replacement_of_the_standard_function_the_call_as_written(ctx: Ctx):
+    from halo_harness import subprocess_safe as sp
+    switch = getattr(sp, "set_terminal_app", None)
+    if not callable(switch):
+        ctx.check("subprocess_safe has the switch", False)
+        return
+    was, real = sp.terminal_app_is_up(), subprocess.run
+    seen: list = []
+    try:
+        switch(True)
+        subprocess.run = lambda args, **kw: seen.append(dict(kw))
+        sp.run(["x"], capture_output=True)
+    finally:
+        subprocess.run = real
+        switch(was)
+    ctx.check(f"the replacement got the call as written, got {seen}", seen == [{"capture_output": True}])
+
+
+@test
+def test_launch_switches_the_rule_on_around_the_app_and_off_in_its_finally(ctx: Ctx):
+    src = (Path(__file__).resolve().parent.parent / "halo_harness" / "tui" / "launch.py").read_text(encoding="utf-8")
+    on, run, off = (src.find("set_terminal_app(True)"), src.find("app.run()"), src.find("set_terminal_app(False)"))
+    ctx.check("run_tui turns the rule ON before app.run()", 0 <= on < run)
+    ctx.check("... and OFF after it (in its finally)", run < off and src.rfind("finally:", run, off) > run)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -15,6 +15,13 @@ holding `git.exe` ran it the moment Halo asked git for the branch. Three parts c
 3. (3.6.0.0) on Windows `guard_cwd_search()` also makes `shutil.which` this module's `which` (PATH folders only):
    Python 3.10 / 3.11's own answered `.\\rg.CMD` from the current folder, and callers run the path it answers.
 
+4. (3.6.0.18 K) while the terminal app has the terminal (`set_terminal_app(True)`, tui/launch.py's run_tui) no child
+   inherits the terminal's input: a spawn whose caller named neither `stdin` nor `input` gets the null device
+   (`_quiet_stdin`). A child sharing the input took a person's key (`claude auth status` at a session's start), and a
+   `.cmd`'s cmd.exe switched the console's processed input back on as it left. A caller that names `stdin` (None too:
+   the person's editor, which is meant to have the terminal) or gives `input` is left as written; with the switch off
+   nothing changes.
+
 A test that replaced the standard function (`subprocess.run = fake`) still gets the call, unchanged. A name not found
 on PATH is passed as it was (the first part keeps Windows from looking in the current folder for it). Anything else is
 the standard module's (`__getattr__`).
@@ -117,10 +124,31 @@ class Probe(dict):
     for a run that executes the person's programs (a login shell, a tool)."""
 
 
+_TERMINAL_APP = {"up": False}  # 3.6.0.18 K: the terminal app has the terminal (tui/launch.py run_tui)
+
+
+def set_terminal_app(on: bool) -> None:
+    """The terminal app has the terminal (True) or not (False): while it has, no child inherits the terminal's input."""
+    _TERMINAL_APP["up"] = bool(on)
+
+
+def terminal_app_is_up() -> bool:
+    return _TERMINAL_APP["up"]
+
+
+def _quiet_stdin(kw: dict, positional: int = 0) -> dict:
+    """`kw` with `stdin=DEVNULL` while the terminal app is up and the caller named neither `stdin` nor `input` (nor
+    `stdin` by position: Popen's fourth argument); otherwise `kw` as written."""
+    if not _TERMINAL_APP["up"] or positional >= 3 or "stdin" in kw or "input" in kw:
+        return kw
+    return dict(kw, stdin=_sp.DEVNULL)
+
+
 def _call(name: str, args, kw: dict):
     fn = getattr(_sp, name)
     if fn is not _ORIG[name]:  # a test replaced the standard function: it gets the call as written
         return fn(args, **kw)
+    kw = _quiet_stdin(kw)
     if isinstance(kw.get("env"), Probe):
         return fn(resolve(args, kw), **kw)
     from halo_harness import closing
@@ -231,7 +259,7 @@ class Popen(_sp.Popen):
         # may not break away from an outer Job starts from outside every Job (closing.start_outside_job); when even
         # that cannot be done it starts inside that Job and Halo says so in one line (never a silent pretence).
         from halo_harness import closing, selfexec
-        kw = closing.before_spawn(selfexec.fix_kw(args, kw))
+        kw = closing.before_spawn(selfexec.fix_kw(args, _quiet_stdin(kw, len(a))))
         try:
             if (os.name == "nt" and int(kw.get("creationflags") or 0) & closing._BREAKAWAY
                     and not closing.breakaway_frees()):  # 3.6.0.0 fx: a Job would hold it silently: as if refused

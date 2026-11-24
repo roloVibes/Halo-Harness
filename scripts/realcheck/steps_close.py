@@ -13,10 +13,12 @@
     (the page's live interval timers counted before Live, with it, with the box open, closed, and after the minute)."""
 from __future__ import annotations
 
+import heapq
 import json
 import re
 import sys
 import time
+from pathlib import Path
 
 from realcheck import screen
 from realcheck.core import URL, Fail, Skip, browser, excerpt, wait_address
@@ -120,26 +122,50 @@ def serve_alone(ctx) -> dict:
 TRACE_LINES = 200  # of a row's close trace kept in its evidence (the phases and a stack dump of every thread)
 
 
+def notes_path(trace_path) -> Path:
+    """3.6.0.18 K: the check's own lines go to a file of their own beside Halo's trace: ONE writer per file (two
+    processes appending to one file lost lines)."""
+    p = Path(trace_path)
+    return p.with_name(p.stem + "-checker" + p.suffix)
+
+
 def _noter(path):
-    """Writes the check's own keys into the row's close trace, on the same clock as Halo's lines."""
+    """Writes the check's own keys beside the row's close trace (`notes_path`), on the same clock as Halo's lines."""
     def note(line: str) -> None:
         try:
-            with open(path, "a", encoding="utf-8") as fh:
+            with open(notes_path(path), "a", encoding="utf-8") as fh:
                 fh.write(f"{time.time():.3f} {line}\n")
         except OSError:
             pass
     return note
 
 
+def _stamped(path) -> list:
+    """(stamp, line) for each line of a trace file; a line with no stamp (a stack dump) takes the one before it."""
+    out, at = [], 0.0
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return out
+    for ln in text.splitlines():
+        if not ln.strip():
+            continue
+        try:
+            at = float(ln.split(None, 1)[0])
+        except ValueError:
+            pass
+        out.append((at, ln))
+    return out
+
+
 def leftover_evidence(trace_path, shown: str) -> dict:
     """fx jb12: what a row that left something running carries, so a CI run names the cause: the close trace Halo
-    wrote under HALO_CLOSE_TRACE (its phases, the check's keys, the keys its console read under HALO_INPUT_TRACE, and
-    every thread's stack when the close was still running 4 s on) and the last screen of its terminal (the final 600
+    wrote under HALO_CLOSE_TRACE (its phases, the keys its console read under HALO_INPUT_TRACE, and every thread's
+    stack when the close was still running 4 s on) merged by wall-clock stamp with the check's own keys (`notes_path`;
+    each file keeps its own order), then cut to the last TRACE_LINES; and the last screen of its terminal (the final 600
     characters, control sequences stripped). No trace line at all says Halo never saw a key of the way out."""
-    try:
-        lines = [ln for ln in open(trace_path, encoding="utf-8", errors="replace").read().splitlines() if ln.strip()]
-    except OSError:
-        lines = []
+    merged = heapq.merge(_stamped(trace_path), _stamped(notes_path(trace_path)), key=lambda pair: pair[0])
+    lines = [ln for _, ln in merged]
     return {"close_trace": lines[-TRACE_LINES:], "last_screen": excerpt(shown, 600)}
 
 

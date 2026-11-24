@@ -17,9 +17,16 @@ middle of a Halo session.
   1. clears `ENABLE_PROCESSED_INPUT` on the input handle (and `reassert()`
      clears it again if something flipped it back -- the app calls that on
      a timer), so Ctrl+C is only ever a key;
-  2. registers a control handler that swallows `CTRL_C_EVENT` (and tells the
-     C runtime's SIGINT to stand down), so an event sent by another process
-     (`GenerateConsoleCtrlEvent`) cannot end the session either.
+  2. registers a control handler that takes every `CTRL_C_EVENT` (and tells
+     the C runtime's SIGINT to stand down), so no event ends the session.
+     When processed input is ON at that moment, a child switched it back on
+     (a `.cmd`'s cmd.exe does as it leaves) and the console made the
+     person's key press this event (3.6.0.18 K): the handler clears the flag
+     at once and hands the app ONE Ctrl+C key through `Guard.on_ctrl_c`
+     (tui/launch.py sets it once the app exists; it posts the key the way
+     the Windows driver's reader thread posts its events). When the flag is
+     OFF the event was a program's (`GenerateConsoleCtrlEvent`): swallowed,
+     nothing else.
 `Guard.restore()` puts the saved mode back, removes the handler and the
 SIGINT disposition; the launcher calls it from a `finally`, and an
 `atexit` hook covers a crash that skips it. A CTRL_BREAK still ends the
@@ -97,6 +104,16 @@ class Guard:
         self.active = k32 is not None
         self._restored = False
         self._write = write  # the terminal's writer (a real run only; a fake console never writes to the tests' own)
+        self.on_ctrl_c = None  # 3.6.0.18 K: hands the app one Ctrl+C key (tui/launch.py sets it)
+
+    def ctrl_c_event(self) -> None:
+        """A CTRL_C_EVENT: the console made it from a key press when processed input is on now (a child switched it
+        back on): the flag is cleared and the app gets the key. A program's event (flag off) is only swallowed."""
+        if not self.reassert():
+            return
+        hand = self.on_ctrl_c
+        if hand is not None:
+            hand()
 
     def _mode(self) -> Optional[int]:
         if self._k32 is None or self._handle is None:
@@ -170,7 +187,13 @@ def install(*, kernel32: Any = None, platform: Optional[str] = None,
             if ctrl_type == CTRL_BREAK_EVENT:  # it still ends the process; the terminal is put back first
                 guard.on_break()
                 return False
-            return ctrl_type == CTRL_C_EVENT  # True = handled, nobody else sees it
+            if ctrl_type != CTRL_C_EVENT:
+                return False
+            try:
+                guard.ctrl_c_event()
+            except Exception:
+                pass
+            return True  # handled, nobody else sees it: the process never ends by it
 
         guard._handler = _handler_type()(_on_ctrl)
         k32.SetConsoleCtrlHandler(guard._handler, True)

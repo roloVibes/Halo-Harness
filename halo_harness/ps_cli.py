@@ -69,7 +69,7 @@ def _of_home(pid: int, home: str) -> bool:
         try:
             import subprocess as _sp
             r = _sp.run(["/bin/ps", "-E", "-ww", "-o", "command=", "-p", str(pid)], capture_output=True, text=True,
-                        timeout=5)
+                        timeout=5, stdin=_sp.DEVNULL)  # 3.6.0.18 K: never the terminal's input
         except Exception:
             return False
         env = dict(tok.split("=", 1) for tok in (r.stdout or "").split() if "=" in tok and tok[0].isupper())

@@ -399,6 +399,42 @@ def test_a_row_that_leaves_something_carries_the_trace_and_the_last_screen(ctx: 
               "[trace: 1.001 mono=5.0 pid=7 [MainThread] quit asked; screen: " in detail and "Esc stays]" in detail)
 
 
+@test
+def test_the_checkers_notes_have_a_file_of_their_own_and_the_evidence_merges_both_by_stamp(ctx: Ctx):
+    """3.6.0.18 K: two processes appending to one trace lost the checker's own 'sent Ctrl+C' lines (2 runs of 3 on
+    the PC). One writer per file: the notes go beside the trace, and the evidence merges both by their stamps."""
+    import time
+    from realcheck import steps_close
+    d = Path(tempfile.mkdtemp(prefix="halo-k-"))
+    trace = d / "close-trace.txt"
+    note = steps_close._noter(trace)
+    with open(trace, "a", encoding="utf-8") as fh:
+        for i in range(4):
+            note("realcheck: sent Ctrl+C")
+            fh.write(f"{time.time():.3f} mono=1.{i} pid=7 [MainThread] Ctrl+C key\n")
+            fh.flush()
+            if i == 1:
+                fh.write("Thread 0x01 (most recent call first):\n")
+                fh.flush()
+    ctx.check("the trace file holds only Halo's lines", "realcheck" not in trace.read_text(encoding="utf-8"))
+    ev = steps_close.leftover_evidence(trace, "")
+    lines = ev["close_trace"]
+    ctx.check(f"every note written is in the evidence, got {lines}",
+              sum("realcheck: sent Ctrl+C" in ln for ln in lines) == 4 and len(lines) == 9)
+    stamps = [float(ln.split()[0]) for ln in lines if ln[:1].isdigit()]
+    ctx.check(f"in stamp order, got {stamps}", stamps == sorted(stamps))
+    at = next((i for i, ln in enumerate(lines) if ln.startswith("Thread 0x01")), -1)
+    ctx.check("a line with no stamp (a stack dump) stays right after Halo's line before it",
+              at > 0 and "mono=1.1" in lines[at - 1])
+    many = d / "many.txt"
+    many.write_text("".join(f"{1000 + i}.000 mono=1 pid=7 line {i}\n" for i in range(steps_close.TRACE_LINES + 50)),
+                    encoding="utf-8")
+    steps_close._noter(many)("realcheck: the last note")
+    cut = steps_close.leftover_evidence(many, "")["close_trace"]
+    ctx.check("cut to the last lines AFTER the merge: the newest note is kept",
+              len(cut) == steps_close.TRACE_LINES and cut[-1].endswith("realcheck: the last note"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

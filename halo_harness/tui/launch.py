@@ -69,6 +69,7 @@ def run_tui(args) -> int:
     # for the TUI's lifetime (inert on POSIX); restored in the `finally`.
     from halo_harness.tui import console_mode
     console_guard = console_mode.install()
+    console_guard.on_ctrl_c = lambda: post_ctrl_c_key(app)  # 3.6.0.18 K: a key the console made an event
     app.console_guard = console_guard
     # 2.0.10 finding 24: an existing ~/.halo tree is made owner-only once;
     # the TUI says so in one notification (print mode stays silent).
@@ -87,6 +88,10 @@ def run_tui(args) -> int:
         _earlier = getattr(app, "startup_notice", None)
         app.startup_notice = f"{_earlier}\n{_theme_notice}" if _earlier else _theme_notice
     returned = False
+    # 3.6.0.18 K: while the app has the terminal no child inherits its input (subprocess_safe._quiet_stdin); off again
+    # at the end of the finally below, on every way out of it
+    from halo_harness import subprocess_safe
+    subprocess_safe.set_terminal_app(True)
     try:
         app.run()
         returned = True
@@ -129,6 +134,7 @@ def run_tui(args) -> int:
             code, raised = _code_of(e), True
             raise
         finally:
+            subprocess_safe.set_terminal_app(False)
             # 3.6.0.17 Z3-1: the bound comes last. /update's restart exit still hands over to the updater (cli.py
             # `_apply_update_and_relaunch` arms it after that) unless a step here raised: then there is no hand-off.
             from halo_harness.update import RESTART_EXIT_CODE
@@ -137,6 +143,17 @@ def run_tui(args) -> int:
             if raised or code != RESTART_EXIT_CODE:
                 bound_the_end(code)
     return app.return_code if app.return_code is not None else 0
+
+
+def post_ctrl_c_key(app) -> None:
+    """3.6.0.18 K: ONE Ctrl+C key to the app, posted from any thread the way the Windows driver's reader thread posts
+    the keys it reads (`Driver.process_message`: thread-safe onto the app's loop), so focus and screens decide what it
+    does exactly as for the key itself. Nothing while the app has no driver (not yet running, or gone)."""
+    driver = getattr(app, "_driver", None)
+    if driver is None:
+        return
+    from textual import events
+    driver.process_message(events.Key("ctrl+c", "\x03"))
 
 
 STUCK_GRACE_S = 0.5  # 3.6.0.17 Z4-1: hard_exit's grace once the pool's join gave up on a stuck worker
