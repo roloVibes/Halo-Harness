@@ -179,9 +179,10 @@ _E2_INFO = {"examplemoe.block_count": 48, "examplemoe.attention.head_count_kv": 
             "examplemoe.embedding_length": 2048, "examplemoe.context_length": 131072}
 
 
-def _e2_decide(free_bytes: int, prepare) -> tuple:
+def _e2_decide(free_bytes: int, prepare, *, panel: bool = False) -> tuple:
     """(the decision, the prompt floor's ceiling) for `_E2_MODEL` on a mock host, the card reading injected
-    (`free_bytes`), a scratch state dir that `prepare(state_dir, host_url)` fills first."""
+    (`free_bytes`), a scratch state dir that `prepare(state_dir, host_url)` fills first. `panel`: the panel's
+    (window, source) for that model in place of the ceiling."""
     import os
     import tempfile
     from halo_harness.model import parse_model_ref
@@ -205,6 +206,13 @@ def _e2_decide(free_bytes: int, prepare) -> tuple:
     try:
         prepare(d, mock.base_url)
         decision = ollama_hw.resolve_context_decision(parse_model_ref(f"ol:{_E2_MODEL}"), {"OLLAMA_HOST": mock.base_url})
+        if panel:  # what `halo ollama`, `/ollama` and Studio's Models list print for the same model
+            from halo_harness.providers.ollama import OllamaHost
+            from halo_harness.providers.ollama_panel import analyze_host
+            _reset()
+            rows = analyze_host(OllamaHost(name="gpu-box", url=mock.base_url), state_dir=d, force=True).catalog_fits
+            row = next(r for r in rows if r.name == _E2_MODEL)
+            return decision, (row.what_fits, row.source)
         return decision, window_for(120_000, decision).ceiling
     finally:
         ollama_hw.get_local_gpu_memories = old_cards
@@ -265,6 +273,20 @@ def test_a_load_seen_wholly_on_the_card_is_a_floor_while_the_card_has_its_size(c
     ctx.check(f"a record without the load's size gives no floor, got {old.num_ctx}", old.num_ctx < 32768)
     other, _c = _e2_decide(19_500_000_000, _seen(19_000_000_000, digest="sha256:another"))
     ctx.check(f"a load of another digest gives no floor, got {other.num_ctx}", other.num_ctx < 32768)
+
+
+@test
+def test_the_panel_says_the_window_the_session_decides_after_an_observation(ctx: Ctx):
+    """3.6.0.20 E2 after the check: `halo ollama`, `/ollama` and Studio's Models list print the window a session
+    is sent, the observation's floor included (they ran their own resolve on the raw estimate and said 32,768
+    'memory' while the session asked for 65,536)."""
+    cases = (("measured", 19_500_000_000, _measured(19_000_000_000)), ("seen", 19_500_000_000, _seen(19_000_000_000)),
+             ("busy, measured", 18_500_000_000, _measured(19_000_000_000)),
+             ("busy, seen", 18_500_000_000, _seen(19_000_000_000)), ("nothing", 19_500_000_000, lambda d, url: None))
+    for label, free, prepare in cases:
+        decision, (window, source) = _e2_decide(free, prepare, panel=True)
+        ctx.check(f"{label}: the panel says the session's {decision.num_ctx} {decision.source!r}, "
+                  f"got {window} {source!r}", window == decision.num_ctx and source == decision.source)
 
 
 if __name__ == "__main__":

@@ -902,6 +902,17 @@ def observed_floor(state_dir, host_url: str, model: str, *, digest, learned_cap,
     return max(found, key=lambda f: f[0]) if found else None  # a tie: the measurement names it
 
 
+def floored_estimate(state_dir, host_url: str, model: str, *, digest, learned_cap, fit) -> tuple:
+    """`(fit, fit_source)`: the estimate `fit` this thread just made for `host_url`, raised to `observed_floor` when
+    an observation is above it (its source then names it), else `(fit, "fit estimate")`. The one place the session
+    (`resolve_context_decision`) and the panel (`ollama_panel._model_fit_info`) floor an estimate."""
+    floor = observed_floor(state_dir, host_url, model, digest=digest, learned_cap=learned_cap,
+                           room=last_card_room(host_url))
+    if floor and floor[0] > (fit if isinstance(fit, int) and not isinstance(fit, bool) else 0):
+        return floor
+    return fit, "fit estimate"
+
+
 def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaContextDecision:
     """ONE per-ref entry point for everything round 3 (and, as of round
     5b, the learned-cap/remote-default precedence) needs to know about an
@@ -988,10 +999,8 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             # through toward trained_context/the hard cap).
             recorded_does_not_fit = has_recorded_does_not_fit(state_dir, host_url=host.url, model=model_ref.model,
                                                                 digest=digest, ollama_version=ollama_version)
-            floor = observed_floor(state_dir, host.url, model_ref.model, digest=digest, learned_cap=learned_cap,
-                                   room=last_card_room(host.url))
-            if floor and floor[0] > (fit if isinstance(fit, int) and not isinstance(fit, bool) else 0):
-                fit, fit_source = floor
+            fit, fit_source = floored_estimate(state_dir, host.url, model_ref.model, digest=digest,
+                                               learned_cap=learned_cap, fit=fit)
         except Exception:
             log.debug("ollama_hw: learned-cap lookup failed for %s", model_ref.model, exc_info=True)
     gpu_fits = _gpu_fits_up_to(fit, learned_cap)

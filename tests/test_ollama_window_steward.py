@@ -92,7 +92,7 @@ def _squeezed_cut(handler, body):
 
 
 @test
-def test_a_reply_cut_at_the_squeezed_room_is_never_kept_or_resent(ctx: Ctx):
+def test_a_first_reply_cut_at_the_squeezed_room_stands_as_it_is(ctx: Ctx):
     """3.6.0.20 E8 (rewritten to the truth): `halo -p "hi"` is a FIRST request: its squeezed cut stands (nothing earlier
     to compact; it was: cut, compaction, answer), one line says so, one call. A later request's cut is still compacted
     (tests/test_ollama_trim_recovery.py, trim_recovery's own test)."""

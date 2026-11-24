@@ -917,6 +917,77 @@ def test_a_first_request_judged_to_fit_then_cut_by_the_server_stands_with_one_tr
 
 
 @test
+def test_a_first_request_judged_to_fit_then_refused_by_the_server_is_never_compacted(ctx: Ctx):
+    """3.6.0.20 E8 after the check: the same first request at a window that cannot grow (max_ctx 16,384), answered
+    with the 400 "exceeds the available context size" (a server that refuses rather than trims). It was compacted: "the
+    conversation (N tokens) is larger than ...'s window: it summarises a transcript cut to fit" (nothing earlier
+    exists), then "compaction could not free enough room", exit 1. Now: no compaction request, one line that says why
+    it stopped, exit 1 (there is no answer to keep)."""
+    fake = L._fake()
+    try:
+        fh = L._home(fake, max_ctx=16384)
+        fake.count_ratio, fake.cut_shape = 1.6, "reject"
+        text = "Context follows. " + "word " * int(6000 * 3.5 / 5) + FIRST
+        rc, ended, out = _session_said(fh, fake, [_user(text)], timeout=400)
+        chats = _chats(fake)
+        sent = [(b.get("options") or {}).get("num_ctx") for b in chats]
+        print(f"  rc {rc} ended {ended} sent {sent} rejects {len(fake.rejects)}")
+        ctx.check(f"the server refused it, got {fake.rejects}", bool(fake.rejects))
+        ctx.check(f"every call carries the first question (no compaction request), at the 16,384 window, got "
+                  f"{sent} {[_carries(b, 'Question one') for b in chats]}",
+                  chats and all(_carries(b, "Question one") for b in chats) and set(sent) == {16384})
+        ctx.check(f"no line says it compacts or summarises, got {out[-700:]!r}",
+                  "compact" not in out.replace("nothing earlier to compact", "") and "summarises" not in out)
+        said = [ln.replace("\x1b[2m", "").replace("\x1b[0m", "").strip() for ln in out.splitlines()
+                if "nothing earlier to compact" in ln and ln.lstrip("\x1b[2m").startswith("◼")]  # the stop line
+        ctx.check(f"one line: refused, its window cannot grow, nothing earlier to compact, stopped; got {said}",
+                  len(said) == 1 and said[0].startswith("◼ stopped: gpu-box refused the first request (")
+                  and said[0].endswith("tokens) and its window cannot grow: nothing earlier to compact, stopped"))
+        ctx.check(f"the turn stopped with no answer: exit 1, one turn, got {rc} {ended}", rc == 1 and ended == 1)
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_later_request_trimmed_cut_or_refused_after_the_send_is_still_compacted(ctx: Ctx):
+    """3.6.0.20 E8 after the check: from the second turn on nothing changes. The same request as the two tests above,
+    now the SECOND turn of a session (the first answered at the server's count 1.0, so the pre-send check judges the
+    second to fit), at the window that cannot grow: trimmed, its reply cut, or refused with the 400, it goes to the
+    compaction after the send (the loop's compact-and-resend: today's lines), never to a 'nothing earlier' line."""
+    cases = (("trimmed", 1.6, 2, "half", "about half the 16k window, where Ollama cuts a prompt longer than the "
+                                         "window; compacted and re-sent"),
+             ("cut reply", 1.3, 100000, None, "gpu-box cut the reply at the window (16k of 16k tokens): compacted and "
+                                              "re-sent"),
+             ("refused", 1.6, 2, "reject", None))
+    for name, ratio, reply, shape, line in cases:
+        fake = L._fake()
+        try:
+            fh = L._home(fake, max_ctx=16384)
+            fake.__class__ = type("LaterRatio", (type(fake),), {"count_ratio": property(  # this fake object only
+                lambda s, r=ratio: r if len(_chats(s)) > 1 else 1.0, lambda s, v: None)})
+            fake.reply_tokens, fake.cut_shape = reply, shape
+            text = "Context follows. " + "word " * int(6000 * 3.5 / 5) + FIRST
+            rc, ended, out = _session_said(fh, fake, [_user("Reply with exactly one word: ready"), _user(text)],
+                                           timeout=400)
+            said = [ln.replace("\x1b[2m", "").replace("\x1b[0m", "").strip() for ln in out.splitlines()]
+            sent = [(b.get("options") or {}).get("num_ctx") for b in _chats(fake)]
+            print(f"  {name}: rc {rc} ended {ended} sent {sent}")
+            ctx.check(f"{name}: two turns ended, got {ended}", ended == 2)
+            ctx.check(f"{name}: never a 'nothing earlier' line, got {out[-700:]!r}",
+                      "nothing earlier to compact" not in out)
+            if line:
+                ctx.check(f"{name}: today's line, got {[s for s in said if 'compacted' in s]}",
+                          any(s.endswith(line) for s in said))
+            ctx.check(f"{name}: the compaction after the send ran, got {out[-700:]!r}",
+                      any("it summarises a transcript cut to fit" in s for s in said) and
+                      not any("compacting first" in s for s in said))
+            if shape == "reject":
+                ctx.check(f"{name}: the server refused the second turn, got {fake.rejects}", bool(fake.rejects))
+        finally:
+            fake.stop()
+
+
+@test
 def test_a_one_shot_too_large_for_the_spill_window_is_sent_the_larger_one_and_says_so(ctx: Ctx):
     # 3.6.0.12 OS: a prompt of about 12,000 tokens does not fit 16,384 with the reply's room: the larger window is
     # sent, and no line claims a reload at 16k

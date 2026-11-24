@@ -200,9 +200,14 @@ def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, 
     name = row.get("model") or row.get("name") or "?"
     trained = trained_context_for(catalog, name)
     learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=name, digest=row.get("digest"))
+    from halo_harness.providers import ollama_hw
+    ollama_hw._ROOM.value = None  # the room this row's own estimate reads, never an earlier one's
     fit = estimate_fit_for_host(host, name, catalog, runner=hw_runner, ps=ps)  # 3.6.0.0 R14: analyze_host's one read
+    # 3.6.0.20 E2: the same floor a session's decision puts under the estimate (a measurement, a load seen on the card)
+    fit, fit_source = ollama_hw.floored_estimate(state_dir, host.url, name, digest=row.get("digest"),
+                                                 learned_cap=learned_cap, fit=fit)
     what_fits, source = resolve_num_ctx_and_source(trained, host.max_ctx, fit, learned_cap=learned_cap,
-                                                    remote=remote)
+                                                    remote=remote, fit_source=fit_source)
     throughput = get_last_turn_throughput(state_dir, host_url=host.url, model=name)
     floor = (throughput or {}).get("prompt_floor")
     floor = floor if isinstance(floor, int) and not isinstance(floor, bool) and floor > 0 else None

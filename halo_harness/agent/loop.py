@@ -3915,6 +3915,15 @@ class Session:
                     # hit context_overflow" check, below -- a second
                     # overflow after the compaction retry still counts).
                     self._turn_context_overflow_count += 1
+                    if not overflow_handled and self.route.dialect == "ollama":
+                        # 3.6.0.20 E8 after the check: a first request is never compacted (nothing earlier exists)
+                        from halo_harness.agent.ollama_window import first_refused_line
+                        _refused = first_refused_line(self, e.prompt_tokens)
+                        if _refused:
+                            self._log_call_failure("overflow", retries=attempts - 1)
+                            yield events.error(_refused, turn=turn_no, err_type="context_overflow",
+                                               category=CONTEXT_WINDOW_EXCEEDED)
+                            return None
                     if not overflow_handled:
                         # H5 scope B: signal the caller (_turn_body) to run
                         # one compaction pass and retry this SAME step once

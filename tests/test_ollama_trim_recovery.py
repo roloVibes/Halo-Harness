@@ -104,10 +104,11 @@ def test_trimmed_prompt_eval_count_resends_with_a_larger_window(ctx: Ctx):
 
 
 @test
-def test_trimmed_with_no_room_compacts_and_resends(ctx: Ctx):
-    """COMPACT path: the window is already at the trained context. 3.6.0.20 E8 (rewritten to the truth): a FIRST
-    request has nothing to compact (`halo -p "hi"` is one): its answer stands, one line says so, one call. A request
-    with an earlier answer still compacts and re-sends: trim_recovery's own test below."""
+def test_trimmed_with_no_room_a_first_answer_stands_and_a_later_request_compacts(ctx: Ctx):
+    """COMPACT path: the window is already at the trained context. 3.6.0.20 E8: a FIRST request has nothing to compact
+    (`halo -p "hi"` is one): its answer stands, one line says so, one call. A request with an earlier answer is
+    compacted and re-sent, as before: trim_recovery's own test below, and end to end tests/test_ollama_window_fixes.py
+    `test_a_later_request_trimmed_cut_or_refused_after_the_send_is_still_compacted`."""
     trained = _no_room_trained()
     fh = build_fake_home()
     mock = _mock_with("tight-model", trained)
@@ -156,7 +157,14 @@ def test_trim_recovery_compacts_a_later_request_and_lets_a_first_one_stand(ctx: 
     kind, _n, _line = decide(True, answered=False)
     ctx.check(f"a first request with no answer (the 500): error, got {kind}", kind == "error")
     kind, n, _line = decide(True, ceiling=32768)
-    ctx.check(f"room to grow: raised first, got {kind} {n}", kind == "resend" and n and n > 8192)
+    ctx.check(f"a trimmed first request with room to grow: raised first, got {kind} {n}",
+              kind == "resend" and n and n > 8192)
+    kind, n, _line = decide(True, ceiling=32768, cut_at=8192)
+    ctx.check(f"a first request's cut reply with room to grow: stands (never thrown away for a raise), got {kind} {n}",
+              kind == "stands" and n is None)
+    kind, n, _line = decide(False, ceiling=32768, cut_at=8192)
+    ctx.check(f"a later request's cut reply with room to grow: raised, got {kind} {n}",
+              kind == "resend" and n and n > 8192)
 
 
 # ---- after the send: a reply cut at the window's end -------------------
@@ -175,10 +183,10 @@ def _cut_at_window(handler, body):
 
 
 @test
-def test_a_reply_cut_at_the_window_compacts_and_resends_once(ctx: Ctx):
-    """COMPACT path: the window is already the trained context. 3.6.0.20 E8 (rewritten to the truth): a FIRST
-    request's cut reply stands (nothing earlier to compact), one line, one call; a later request's cut is compacted
-    (trim_recovery's own test above)."""
+def test_a_reply_cut_at_the_window_stands_first_and_a_later_one_compacts_once(ctx: Ctx):
+    """COMPACT path: the window is already the trained context. 3.6.0.20 E8: a FIRST request's cut reply stands
+    (nothing earlier to compact), one line, one call; a later request's cut is compacted and re-sent once, as
+    before (trim_recovery's own test above; end to end in tests/test_ollama_window_fixes.py)."""
     trained = _no_room_trained()
     fh = build_fake_home()
     mock = _mock_with("cut-model", trained)
@@ -199,7 +207,10 @@ def test_a_reply_cut_at_the_window_compacts_and_resends_once(ctx: Ctx):
 
 
 @test
-def test_a_reply_cut_at_the_window_raises_the_window_when_there_is_room(ctx: Ctx):
+def test_a_reply_cut_at_the_window_with_room_stands_first_and_raises_the_window_later(ctx: Ctx):
+    """3.6.0.20 E8 after the check (rewritten to the truth): a FIRST request's reply cut at the window stands even
+    when the window could grow (a re-send would throw the reply away; it was: re-sent at twice the window), one line,
+    one call. A later request's cut is re-sent at a larger window, as before (trim_recovery's own test above)."""
     fh = build_fake_home()
     mock = _mock_with("cut-room", None)
     mock.start()
@@ -209,9 +220,10 @@ def test_a_reply_cut_at_the_window_raises_the_window_when_there_is_room(ctx: Ctx
         out = result.stdout + result.stderr
         chats = _chats(mock)
         ctx.check(f"exit 0, got {result.returncode} out={out[-600:]!r}", result.returncode == 0)
-        ctx.check(f"two sends, the second with twice the window, got {[_num_ctx(c) for c in chats]}",
-                  len(chats) == 2 and _num_ctx(chats[1]) >= 2 * _num_ctx(chats[0]))
-        ctx.check(f"the line, got {out[-800:]!r}", "cut the reply at the window (" in out and "re-sent with a" in out)
+        ctx.check(f"one send, got {[_num_ctx(c) for c in chats]}", len(chats) == 1)
+        ctx.check(f"the line, got {out[-800:]!r}", "default cut the reply at the window (" in out
+                  and "tokens): nothing earlier to compact, the reply stands as it is" in out and "re-sent" not in out)
+        ctx.check("the cut reply printed", "half a rep" in result.stdout)
     finally:
         mock.stop()
 

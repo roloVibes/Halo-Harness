@@ -64,7 +64,7 @@ def test_ollama_500_no_user_query_raises_once_then_one_error_line(ctx: Ctx):
 
 
 @test
-def test_ollama_500_no_user_query_compacts_when_the_window_cannot_grow(ctx: Ctx):
+def test_ollama_500_no_user_query_on_a_first_request_is_never_compacted(ctx: Ctx):
     """3.6.0.20 E8 (rewritten to the truth): `halo -p "hi"` is a FIRST request, never compacted (nothing earlier to
     summarise; it was: 500, compaction, answer): the degradation ladder's smaller ask is the re-send, and it is
     answered. A later request is still compacted (tests/test_ollama_trim_recovery.py, trim_recovery's own test)."""

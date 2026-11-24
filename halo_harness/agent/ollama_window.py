@@ -124,6 +124,21 @@ def no_earlier_turn(session) -> bool:
     return (_state(session).get("last") or {}).get("first") is True
 
 
+def first_refused_line(session, prompt_tokens=None) -> Optional[str]:
+    """3.6.0.20 E8 after the check: the line that ends a FIRST request the server refused (the 400 "exceeds the
+    available context size") once the retry ladder could not grow its window, or None for a later request (which
+    compacts as before). Nothing earlier exists to summarise and no answer exists to keep."""
+    if not no_earlier_turn(session):
+        return None
+    from halo_harness.providers.ollama_prompt import fmt_tokens, prompt_part
+    last = _state(session).get("last") or {}
+    host_name = last.get("host_name") or "the Ollama host"
+    tokens = prompt_tokens if isinstance(prompt_tokens, int) and not isinstance(prompt_tokens, bool) \
+        and prompt_tokens > 0 else prompt_part(last.get("estimate") or 1)
+    return (f"{host_name} refused the first request ({fmt_tokens(tokens)} tokens) and its window cannot grow: "
+            "nothing earlier to compact, stopped")
+
+
 def _session_spill_cap(session, host, ref) -> Optional[int]:
     """3.6.0.19 LM: the cap a spill lowered, for every call of a session of more turns on that model (its main call
     and its helper calls, its compaction: ollama_window_truth.start_window keeps it every turn): the prompt floor never
@@ -229,6 +244,8 @@ def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handle
         return "error", None, (f"{host_name} trimmed the request again ({seen_part}"
                                f"{fmt_tokens(prompt_part(estimate or 1))} tokens) in this turn: stopped")
     st["trim_turn"] = turn_no
+    if first and answered and cut_at is not None:
+        return _first_stands()  # E8 after the check: a cut REPLY stands as it is, never thrown away for a raise
     choice = last.get("choice")
     ceiling = choice.ceiling if choice is not None else 0
     # Ollama read less than the window held, so the real prompt is larger
