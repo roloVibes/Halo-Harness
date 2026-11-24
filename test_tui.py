@@ -2325,11 +2325,21 @@ def test_ctrl_q_on_a_wedged_loop_arms_its_backstop_first_and_it_ends_through_har
                 t.function(*t.args)
     rows: dict = {}
     held: dict = {}
+    not_installed: list = ["not run"]
     try:
         with mock.patch.object(threading_mod, "Timer", _CapturingTimer), \
                 mock.patch.object(closing, "hard_exit", lambda code, *a, **k: asked.append(code)), \
                 mock.patch("halo_harness.controller._end_browsers", lambda *a, **k: None), \
-                mock.patch("halo_harness.children_stop.stop_for_quit", lambda *a, **k: ""):
+                mock.patch("halo_harness.children_stop.stop_for_quit", lambda *a, **k: ""), \
+                mock.patch.dict(closing._STATE, {"installed": True}):  # a real halo, for the rows below
+            # not a real halo (the closing procedure was never installed): a fired backstop ends nothing
+            with mock.patch.dict(closing._STATE, {"installed": False}):
+                stub = _StubApp(FakeController())
+                worker = threading_mod.Thread(target=app_mod.BridgeApp._force_quit_worker, args=(stub,), daemon=True)
+                worker.start()
+                worker.join(60)
+                fire()
+                not_installed = list(asked)
             for name, controller in (("quit returned", FakeController()), ("quit hung", _HungController())):
                 timers.clear()
                 asked.clear()
@@ -2350,6 +2360,7 @@ def test_ctrl_q_on_a_wedged_loop_arms_its_backstop_first_and_it_ends_through_har
     finally:
         wedged.set()
         let_quit_go.set()
+    ctx.check(f"not a real halo: a fired backstop asks nothing, got {not_installed}", not_installed == [])
     ended, n, posted, first, after = rows.get("quit returned", (False, 0, [], [], []))
     ctx.check(f"the thread ended on a wedged loop, exit posted once, got {rows}", ended and len(posted) == 1)
     ctx.check(f"one backstop armed, got {n}", n == 1)

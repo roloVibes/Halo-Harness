@@ -627,6 +627,12 @@ def _run_wmi(cmdline: str, cwd: str, wait_s: float, stop: Callable[[], bool]) ->
                 proc.wait(timeout=5)
             except Exception:
                 pass
+        for pipe in (proc.stdout, proc.stderr):  # closed here on every way out, not left to the collector
+            try:
+                if pipe is not None:
+                    pipe.close()
+            except Exception:
+                pass
 
 
 def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
@@ -708,7 +714,11 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
         if not keep:
             shutil.rmtree(folder, ignore_errors=True)
         else:  # only the stop mark stays (the spec and its keys go): a runner still to come reads it and starts nothing
-            for f in list(folder.iterdir()):
+            try:
+                rest = list(folder.iterdir())
+            except OSError:  # the runner removed the folder already (it read its starter as gone)
+                rest = []
+            for f in rest:
                 if f.name != "stop":
                     try:
                         f.unlink()

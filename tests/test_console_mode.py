@@ -297,6 +297,7 @@ def test_windows_a_typed_ctrl_c_under_processed_input_reaches_the_app_as_one_key
             end = __import__("time").monotonic() + 60
             while not out.exists() and term.poll() is None and __import__("time").monotonic() < end:
                 __import__("time").sleep(0.05)
+            __import__("time").sleep(1.0)  # a second delivery of the one press would be written right after the first
             got = out.read_text().count("ctrl+c key") if out.exists() else 0
             ctx.check(f"the guard's callable ran once for the one typed Ctrl+C, got {got}", got == 1)
         finally:

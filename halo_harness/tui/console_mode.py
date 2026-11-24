@@ -108,12 +108,13 @@ class Guard:
 
     def ctrl_c_event(self) -> None:
         """A CTRL_C_EVENT: the console made it from a key press when processed input is on now (a child switched it
-        back on): the flag is cleared and the app gets the key. A program's event (flag off) is only swallowed."""
-        if not self.reassert():
-            return
+        back on): the flag is cleared and the app gets the key. A program's event (flag off) is only swallowed. With
+        nobody to hand the key to (`on_ctrl_c` None: the person's editor has the terminal, or the app is not up) the
+        event is only swallowed too and the console's setting is left as it is: it is the editor's then."""
         hand = self.on_ctrl_c
-        if hand is not None:
-            hand()
+        if hand is None or not self.reassert():
+            return
+        hand()
 
     def _mode(self) -> Optional[int]:
         if self._k32 is None or self._handle is None:
@@ -133,6 +134,11 @@ class Guard:
         if mode is None or not mode & ENABLE_PROCESSED_INPUT:
             return False
         self._k32.SetConsoleMode(self._handle, mode & ~ENABLE_PROCESSED_INPUT)
+        if self._restored and self._saved_mode is not None:
+            # 3.6.0.18: restore() ran meanwhile on another thread (this can be the console's handler thread): the
+            # mode the session found stands, never this one. No lock: the handler thread must not wait on the main one.
+            self._k32.SetConsoleMode(self._handle, self._saved_mode)
+            return False
         return True
 
     def on_break(self) -> None:

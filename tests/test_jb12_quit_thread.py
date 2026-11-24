@@ -89,8 +89,8 @@ def test_the_quit_cards_enter_reaches_the_quit_while_every_pool_thread_is_busy(c
 @test
 def test_ctrl_q_reaches_the_quit_while_every_pool_thread_is_busy(ctx: Ctx):
     async def body():
-        # the force quit's 2.5 s os._exit guard is not this test's to fire: no real Timer while its thread may run
-        with _Env(), mock.patch("threading.Timer") as timer:
+        # the force quit's backstop is not this test's to fire: no real Timer while its thread may run
+        with _Env(), mock.patch("threading.Timer"):
             fake, app = _app()
             async with app.run_test(size=(100, 30)) as pilot:
                 await pilot.pause(0.2)
@@ -103,8 +103,10 @@ def test_ctrl_q_reaches_the_quit_while_every_pool_thread_is_busy(ctx: Ctx):
                 finally:
                     gate.set()
                 end = time.monotonic() + 5
-                while not timer.called and time.monotonic() < end:  # its thread is done: the guard was (not) armed
+                while app.return_code is None and time.monotonic() < end:  # its thread posted the exit: it is done
                     await asyncio.sleep(0.05)
+                ctx.check(f"the force quit's thread posted the exit with the quit's code, got {app.return_code}",
+                          app.return_code == 0)
                 await pilot.pause(0.3)
     asyncio.run(body())
 
