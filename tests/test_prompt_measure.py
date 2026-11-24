@@ -72,6 +72,34 @@ def test_first_turn_says_what_it_is_made_of(ctx: Ctx):
               f"Halo's own first turn: {m['prompt']:,} tokens of 32,768 ({m['share']:.0f} %)")
 
 
+@test
+def test_the_measure_is_the_session_a_person_really_gets(ctx: Ctx):
+    """3.6.0.19 LM: `halo local prompt` (and /status, Studio's card, halo doctor) measures the session a person really
+    gets: a top session someone answers has the Builder (tools/builder_tool.wanted, the one rule headless.build_session
+    applies), a one-shot (print mode) has none, and /status measures the session's own registry."""
+    from halo_harness.agent.prompt_measure import first_turn, for_session, new_session
+    from halo_harness.tools.builder_tool import wanted
+    cwd = _proj()
+    ref = "ol:qwen3-coder:30b@lan"
+    m = first_turn(ref, window=32768, platform="linux", cwd=cwd)
+    real = first_turn(ref, window=32768, platform="linux", cwd=cwd, builder=True)
+    rows = {r["name"]: r for r in m["tools"]}
+    ctx.check(f"a Builder row, offered, got {rows.get('Builder')}", rows.get("Builder", {}).get("offered") is True)
+    ctx.check(f"the prompt is the real session's, got {m['prompt']:,} vs {real['prompt']:,}", m["prompt"] == real["prompt"])
+    one = first_turn(ref, window=32768, platform="linux", cwd=cwd, one_shot=True)
+    ctx.check("a one-shot (print mode) has no Builder", "Builder" not in [r["name"] for r in one["tools"]])
+    ctx.check("the one rule: a session someone answers", wanted() is True and wanted(tools="default") is True)
+    ctx.check("bare, print mode, --disallowedTools Builder, --tools without it: none",
+              not any((wanted(bare=True), wanted(print_mode=True), wanted(disallow=["Builder"]), wanted(tools="Read,Bash"))))
+    for has in (False, True):
+        s = new_session(ref, window=32768, cwd=cwd, builder=has)
+        s.cwd = cwd
+        got = for_session(s)
+        names = [r["name"] for r in (got or {}).get("tools") or []]
+        ctx.check(f"/status measures the session's own registry (Builder {has}), got {'Builder' in names}",
+                  got is not None and ("Builder" in names) == has)
+
+
 def _start_mode(cwd) -> str:
     """The mode a new session with no flag starts in, in `cwd`, on the map in use now (crew/map_session's one rule)."""
     from halo_harness.crew.map_session import configured_mode, start

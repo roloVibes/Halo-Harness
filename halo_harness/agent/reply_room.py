@@ -78,7 +78,8 @@ def _ceiling(decision, host) -> Optional[int]:
 
 def _spill_cap(session, host, ref) -> Optional[int]:
     """3.6.0.12 OS: the cap `ollama_window_truth.start_window` lowered for a spill, when this one-shot call was sent
-    it and the request (a 15 % margin) and the reply's room at it fit: the window is never raised past it."""
+    it and the request (a 15 % margin) and the reply's room at it fit (3.6.0.19 LM: and every main call of a session
+    of more turns sent it): the window is never raised past it."""
     if host is None:
         return None
     try:

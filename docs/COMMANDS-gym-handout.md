@@ -31,6 +31,13 @@ A scratch copy of a small project, removed at the end, and one card per model un
   copy, and a helper is never started (each part gets a fixed answer). A path or a pattern that leaves the copy is
   refused before the system is asked anything about it.
 - **`--trials N`**: trials per arm (default 3; at least 1). The arms take turns: before 1, now 1, before 2, ...
+- **`--diet`** (3.6.0.19): two other arms, both with today's words: "full" sends every tool the model's own window
+  takes, "diet" the 16,384 block (fewer tools; the rest by name), both sent at the same window, so only the tool block
+  differs. Same job, same time. Its verdict is one of
+  `Verdict: the 16,384 block does as well (finished A of N, with every tool B; parts handed out C of P, with every tool D).`
+  and `Verdict: the 16,384 block does worse: it finishes A of N (with every tool B).` ("as well": it finishes at least
+  as many trials). Its card is `handout-diet-<digest>.json`, beside the model's handout card. A model whose own window
+  takes no more tools than the 16,384 block is not measured and gets no card.
 - **Local models only**: `ol:`, `hf:local/` and `hf:mlx/` refs. Any other ref prints
   `{ref}: the gym runs local models only.` and sends nothing; with no local model left the command exits 1. A local
   model whose host is not found, or whose host answers no request of an arm, prints

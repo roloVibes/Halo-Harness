@@ -16,6 +16,8 @@
         before 2, ...; the model unloaded at the end (keep_alive 0) on the Ollama route (a gateway with the OpenAI
         dialect cannot unload it: the card's errors say so); stopped after the first two trials when neither was
         answered; `on_trial(arm, i, n, trial)` as each trial ends (3.6.0.14 GR-2)
+    run_model(..., arms=DIET_ARMS)  3.6.0.19 LM (`halo gym handout --diet`): both arms with today's words, "full" the
+        block of the model's own window, "diet" the tool block shaped at 16,384 (sent at the same window); verdict_diet
     answered, not_measured, verdict, report, trial_line (3.6.0.14 GR-2)
         what the command prints: a trial answered at all, the causes of a run that is not a measurement, the verdict
         under a card's line, the line + verdict + errors, the line printed as a trial ends
@@ -39,6 +41,7 @@ from typing import Optional
 from halo_harness import gym_handout_fixture as F
 
 ARMS = ("before", "now")
+DIET_ARMS, DIET_WINDOW = ("full", "diet"), 16384  # 3.6.0.19 LM: every tool against the 16,384 block, today's words
 MODE = "acceptEdits"
 NO_DIGEST = "no digest from this host: a later build of this model overwrites this card"  # 3.6.0.15 F10
 MAX_REQUESTS = 10
@@ -48,9 +51,10 @@ _MAX_LINES = 400
 
 
 def start(ref, arm: str, folder, *, window: Optional[int] = None, platform: Optional[str] = None) -> tuple:
-    if arm not in ARMS:
-        raise ValueError(f"an arm is one of {ARMS}, not {arm!r}")
+    if arm not in ARMS + DIET_ARMS:
+        raise ValueError(f"an arm is one of {ARMS + DIET_ARMS}, not {arm!r}")
     from halo_harness.agent.prompt_measure import _first_request
+    window = DIET_WINDOW if arm == "diet" else window  # shaped at 16,384 only: the send is the decision's window
     return _first_request(ref, window=window, platform=platform, cwd=Path(folder), control="auto", builder=True,
                           text=F.TASK, helpers_off=(arm == "before"), mode=MODE)
 
@@ -345,14 +349,15 @@ GATEWAY_UNLOAD = ("unload: {host} is a gateway that speaks the OpenAI dialect: t
                   "it; it stays loaded until that host's keep-alive ends.")
 
 
-def run_model(ref_raw: str, *, trials: int = 3, state_dir, on_trial=None) -> dict:
+def run_model(ref_raw: str, *, trials: int = 3, state_dir, on_trial=None, arms: tuple = ARMS) -> dict:
     """`on_trial(arm, i, n, trial)` (3.6.0.14 GR-2) is called as each trial ends; without it nothing is printed. When
     the first trial of both arms got no answer the run stops there (it is not a measurement)."""
     from halo_harness.gym_run import _scratch_dir
     started = time.monotonic()
     r = resolve(ref_raw, state_dir=state_dir)
     card = {"model": r["model"], "model_ref": ref_raw, "host_name": r["host_name"], "digest": r["digest"],
-            "trials": trials, "window": r["window"], "finished_at": None, "before": [], "now": [], "errors": []}
+            "trials": trials, "window": r["window"], "finished_at": None, **{a: [] for a in arms}, "errors": [],
+            **({"diet_run": True} if arms == DIET_ARMS else {})}
     if r["error"]:
         card["errors"].append(r["error"])
         card["finished_at"] = time.time()
@@ -365,12 +370,14 @@ def run_model(ref_raw: str, *, trials: int = 3, state_dir, on_trial=None) -> dic
     window = r["window"] if route.dialect == "openai-chat" else None
     with _scratch_dir(None) as folder:
         F.write(folder)
-        first = {arm: start(ref_raw, arm, folder, window=window) for arm in ARMS}
-        if first["before"][2] == first["now"][2] and first["before"][4] == first["now"][4]:
-            return {"model": r["model"], "model_ref": ref_raw, "host_name": r["host_name"], "same_words": True}
+        first = {arm: start(ref_raw, arm, folder, window=window) for arm in arms}
+        same = first[arms[0]][2] == first[arms[1]][2] and first[arms[0]][4] == first[arms[1]][4]
+        if same or (arms == DIET_ARMS and len(first["full"][4]) <= len(first["diet"][4])):  # no more tools to compare
+            return {"model": r["model"], "model_ref": ref_raw, "host_name": r["host_name"], "same_words": True,
+                    **({"diet_run": True} if arms == DIET_ARMS else {})}
         try:
             for i in range(trials):
-                for arm in ARMS:
+                for arm in arms:
                     t0 = time.monotonic()
                     try:
                         got = trial(ref_raw, arm, folder, host=r["host"], route=route, profile=r["profile"],
@@ -384,7 +391,7 @@ def run_model(ref_raw: str, *, trials: int = 3, state_dir, on_trial=None) -> dic
                         card["errors"].append(f"{arm} {i + 1}: {got['error']}")
                     if on_trial is not None:
                         on_trial(arm, i + 1, trials, got)
-                if i == 0 and not any(answered(card[arm][0]) for arm in ARMS):
+                if i == 0 and not any(answered(card[arm][0]) for arm in arms):
                     break  # nobody answered the first trial of either arm: no more requests
         finally:
             if route.provider == "ollama" and route.dialect == "openai-chat":
@@ -407,17 +414,23 @@ HANDOUT_DIR_NAME = "gym-handout"  # never under gym/: gym.iter_results and model
 HEAD = "Main hands work out (halo gym handout):"
 SAME_WORDS = ("{model}: not measured: this model is sent the same words before and today (it takes no tools, or "
               "today's words do not fit its window), so there is nothing to compare.")
+SAME_BLOCK = ("{model}: not measured: its own window takes no more tools than the 16,384 block, so the two arms would "
+              "be the same.")  # 3.6.0.19 LM: --diet
 
 
 def _times(n: int) -> str:
     return "three times" if n == 3 else f"{n} time{'' if n == 1 else 's'}"
 
 
-def facts(trials: int = 3) -> list:
+def facts(trials: int = 3, diet: bool = False) -> list:
     """The four facts (what, cost, time, writes), one sentence each, printed before the first request."""
-    return [f"Runs one fixed four-part job with each local model you name as main, {_times(trials)} with the words main "
+    what = (f"Runs one fixed four-part job with each local model you name as main, {_times(trials)} with every tool its "
+            f"window takes and {_times(trials)} with the 16,384 block (fewer tools), both with today's words, and "
+            "counts the trials it finishes and the parts it hands to helpers." if diet else
+            f"Runs one fixed four-part job with each local model you name as main, {_times(trials)} with the words main "
             f"had before 3.6.0.10 and {_times(trials)} with today's, and counts the parts it hands to helpers, not "
-            "whether the work is better. Helpers are not run: each gets a fixed answer.",
+            "whether the work is better.")
+    return [what + " Helpers are not run: each gets a fixed answer.",
             "Free: local models only; nothing is sent to a cloud.",
             "About 2 minutes per model with three trials when the model runs on a GPU (five real runs took 9 minutes "
             "together); a model that runs on the CPU takes much longer.",
@@ -425,12 +438,13 @@ def facts(trials: int = 3) -> list:
             "~/.halo/gym-handout/<host>/."]
 
 
-def card_path(state_dir, host_name, digest, model=None) -> Path:
+def card_path(state_dir, host_name, digest, model=None, diet: bool = False) -> Path:
     """<state>/gym-handout/<host>/handout-<the name gym.result_path gives the digest>.json: one card per model and
     host; a new run replaces it."""
     from halo_harness import gym
     name = gym.result_path(state_dir, host_name, digest, model).stem
-    return Path(state_dir) / HANDOUT_DIR_NAME / gym.host_slug(host_name) / f"handout-{name}.json"
+    kind = "diet-" if diet else ""  # 3.6.0.19 LM: a --diet card beside the model's handout card
+    return Path(state_dir) / HANDOUT_DIR_NAME / gym.host_slug(host_name) / f"handout-{kind}{name}.json"
 
 
 def save_card(state_dir, card: dict) -> Path:
@@ -438,7 +452,7 @@ def save_card(state_dir, card: dict) -> Path:
     import json
     import os
     import threading
-    path = card_path(state_dir, card.get("host_name"), card.get("digest"), card.get("model"))
+    path = card_path(state_dir, card.get("host_name"), card.get("digest"), card.get("model"), bool(card.get("diet_run")))
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.{os.getpid()}-{threading.get_ident()}.tmp")
     tmp.write_text(json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -541,10 +555,25 @@ def verdict(card: dict) -> str:
     return f"  Verdict: passes. Today's words make it hand out {_num(float(a - b))} more of 4 parts."
 
 
+def verdict_diet(card: dict) -> str:
+    """3.6.0.19 LM: a --diet card's verdict: "as well" when the 16,384 block finishes at least as many trials."""
+    n = int(card.get("trials") or 0)
+    done = {a: sum(1 for t in card.get(a) or [] if t.get("finished")) for a in DIET_ARMS}
+    parts = {a: sum(_parts(t) for t in card.get(a) or []) for a in DIET_ARMS}
+    if done["diet"] >= done["full"]:
+        return (f"  Verdict: the 16,384 block does as well (finished {done['diet']} of {n}, with every tool "
+                f"{done['full']}; parts handed out {parts['diet']} of {4 * n}, with every tool {parts['full']}).")
+    return f"  Verdict: the 16,384 block does worse: it finishes {done['diet']} of {n} (with every tool {done['full']})."
+
+
 def report(card: dict) -> str:
     """What the command and `halo gym show` print for a card: its line, a card without a digest saying so (3.6.0.15
-    F10), the verdict under it, then its errors."""
+    F10), the verdict under it, then its errors. A --diet card (3.6.0.19 LM): its own head and verdict."""
     said = f"\n  {card['no_digest']}" if card.get("no_digest") else ""
+    if card.get("diet_run"):
+        n = int(card.get("trials") or 0)
+        return (f"{card.get('model')}: the 16,384 block against every tool, {n} trial{'' if n == 1 else 's'} each (a "
+                f"diet run){said}\n" + verdict_diet(card) + _errors(card))
     return _head(card) + said + "\n" + verdict(card) + _errors(card)
 
 
@@ -567,19 +596,20 @@ def not_measured(card: dict) -> "Optional[str]":
     """3.6.0.14 GR-2: None when both arms have an answered trial; else the causes, each distinct error text once (its
     `before 1: ` label off) in the order first seen, ` ({k} trials)` after one that k > 1 trials ended on, an
     `unload: ...` text last as it is."""
-    if all(any(answered(t) for t in card.get(arm) or []) for arm in ARMS):
+    if all(any(answered(t) for t in card.get(arm) or []) for arm in (DIET_ARMS if card.get("diet_run") else ARMS)):
         return None
     texts, unload = {}, []
     for e in card.get("errors") or []:
         if e.startswith("unload: "):
             unload.append(e)
             continue
-        text = re.sub(r"^(?:before|now) \d+: ", "", e)
+        text = re.sub(r"^(?:before|now|full|diet) \d+: ", "", e)
         texts[text] = texts.get(text, 0) + 1
     causes = [f"{t} ({k} trials)" if k > 1 else t for t, k in texts.items()] + unload
     return "; ".join(causes) or "no trial ran"
 
 
-__all__ = ["ARMS", "GATEWAY_UNLOAD", "HANDOUT_DIR_NAME", "HEAD", "MAX_REQUESTS", "MODE", "REPLY_TOKENS", "SAME_WORDS",
+__all__ = ["ARMS", "DIET_ARMS", "DIET_WINDOW", "GATEWAY_UNLOAD", "HANDOUT_DIR_NAME", "HEAD", "MAX_REQUESTS", "MODE",
+           "REPLY_TOKENS", "SAME_WORDS",
            "answered", "card_path", "facts", "iter_cards", "line", "not_measured", "report", "resolve", "run_model",
-           "save_card", "start", "trial", "trial_line", "verdict"]
+           "SAME_BLOCK", "save_card", "start", "trial", "trial_line", "verdict", "verdict_diet"]

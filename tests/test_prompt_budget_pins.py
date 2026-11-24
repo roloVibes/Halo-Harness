@@ -32,6 +32,13 @@ test, TESTS = new_registry()
 #   an unknown remote model 8,014 / 7,975; 16,384 6,272 / 6,269; 49,152 8,012 / 7,973; 65,536 (lean) 8,012 / 7,973;
 #   a 200k cloud model 17,255 / 16,905 (17,310 / 16,961 measured so: the lineup line on the Agent and Task tools; the
 #   lean cases are byte-equal, the lean copies drop that line).
+# 3.6.0.19 LM: `first_turn` measures the session a person really gets (tools/builder_tool.wanted: a top session someone
+# answers has the Builder), so the lean cases now carry it. Measured 2026-11-24 in this module's home on 099d5d9c (the
+# released 3.6.0.18) -> with the Builder, win32 / linux, prompt (tool block): 32,768 8,263 / 8,224 (3,980) -> 8,666 /
+# 8,626 (4,383); 16,384 6,521 / 6,518 (2,195) -> 6,524 / 6,520 (2,195, the Builder named on the by-name line only);
+# 49,152 and 65,536 8,260 / 8,221 (3,980) -> 8,663 / 8,624 (4,383). Every bound holds. The 200k cloud row stays a
+# measure WITHOUT the Builder (17,582 / 17,233): with it, 18,882 / 18,533 passes this row's 18,000, and that session is
+# REAL_CASES' pin below (18,000 + the Builder's 1,024), so no bound moved.
 # (label, model ref, window, prompt bound, tool block bound, sent window)
 CASES = (("an unknown remote model", "ol:room-model", 32768, 9000, 4500, 32768),
          ("a 16,384 window", "ol:tiny:3b@lan", 16384, 7000, 2200, 16384),
@@ -58,6 +65,7 @@ NO_BUILDER = (("a 16,384 window", "ol:tiny:3b@lan", 16384),)
 # other tools sent are the same. (label, model ref, window, prompt bound, tool block bound): the CASES' own bounds.
 LEAN_BUILDER = tuple((label, ref, window, prompt_max, tools_max) for label, ref, window, prompt_max, tools_max, _s in CASES
                      if window in (32768, 49152))
+COPILOT_BLOCK = 4533  # 3.6.0.19 LM: a top Auto session's tool block at 32,768 / 49,152 with Copilot set up
 BY_NAME_MAX = 40  # "Other tools you can call by name (...): Builder." where no such line was (linux), else ", Builder"
 AUTO_SEVEN = ("planner", "researcher", "coder", "reviewer", "writer", "media-reader", "ops")
 UNKNOWN_TOTAL = 26000
@@ -85,7 +93,7 @@ def _measure(ref: str, window: int, platform: str, **kw) -> dict:
 
 def _pins(ctx: Ctx, platform: str) -> None:
     for label, ref, window, prompt_max, tools_max, sent in CASES:
-        m = _measure(ref, window, platform)
+        m = _measure(ref, window, platform, **({"builder": False} if window >= 200000 else {}))  # see above CASES
         tools = sum(r["tokens"] for r in m["tools"] if r["offered"])
         ctx.check(f"{platform}, {label}: the first turn is {m['prompt']:,} tokens -- " + why("the first turn", prompt_max),
                   m["prompt"] <= prompt_max)
@@ -293,7 +301,7 @@ def test_at_16384_the_real_session_sends_no_builder_and_at_32768_and_49152_its_s
     tools plus the Builder in its short words, inside the same bounds (on the base it sent no Builder there)."""
     for platform in ("win32", "linux"):
         for label, ref, window, prompt_max, tools_max in LEAN_BUILDER:
-            old = _measure(ref, window, platform)
+            old = _measure(ref, window, platform, builder=False)  # 3.6.0.19 LM: the default has it now
             new = _measure(ref, window, platform, control="auto", builder=True)
             sent_old = [(r["name"], r["tokens"]) for r in old["tools"] if r["offered"]]
             sent_new = [(r["name"], r["tokens"]) for r in new["tools"] if r["offered"]]
@@ -308,7 +316,7 @@ def test_at_16384_the_real_session_sends_no_builder_and_at_32768_and_49152_its_s
                       + why("the lean system message", SYSTEM_LEAN), new["system_message"] <= SYSTEM_LEAN)
     for platform in ("win32", "linux"):
         for label, ref, window in NO_BUILDER:
-            old = _measure(ref, window, platform)
+            old = _measure(ref, window, platform, builder=False)
             new = _measure(ref, window, platform, control="auto", builder=True)
             sent_old = [(r["name"], r["tokens"]) for r in old["tools"] if r["offered"]]
             sent_new = [(r["name"], r["tokens"]) for r in new["tools"] if r["offered"]]
@@ -441,6 +449,15 @@ def test_copilot_set_up_grows_the_lean_first_turn_by_its_lean_size_at_most(ctx: 
                       "copilot_ask" in names and "copilot_ask" not in [r["name"] for r in before["tools"]])
             ctx.check(f"{platform}, {label}: the first turn grew {after['prompt'] - before['prompt']:,} tokens, "
                       f"at most the tool's lean {size:,}", after["prompt"] - before["prompt"] <= size)
+            # 3.6.0.19 LM (the coordinator's ruling): copilot_ask rides on top of the 4,500 budget, so the Builder and
+            # copilot_ask are both sent. Measured 2026-11-24 (this home, both platforms): the tool block 4,533 (on
+            # 099d5d9c 4,130: the Builder left out); the first turn 8,815 / 8,776 at 32,768, 8,813 / 8,774 at 49,152.
+            sent = {r["name"]: r["tokens"] for r in after["tools"] if r["offered"]}
+            block = sum(sent.values())
+            ctx.check(f"{platform}, {label}: the Builder and copilot_ask are sent, got {sorted(sent)}",
+                      "Builder" in sent and "copilot_ask" in sent)
+            ctx.check(f"{platform}, {label}: the tool block is {block:,} tokens (measured {COPILOT_BLOCK:,}) -- "
+                      + why("the tool block with Copilot set up", 4500 + size), block <= 4500 + size)
 
 
 if __name__ == "__main__":

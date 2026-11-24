@@ -757,6 +757,66 @@ def test_a_model_sent_the_same_words_is_not_measured(ctx: Ctx):
         ctx.check("no chat request", _chats(mock) == [])
 
 
+DIET_AS_WELL = ("  Verdict: the 16,384 block does as well (finished 1 of 1, with every tool 1; parts handed out 0 of 4, with "
+                "every tool 0).")
+
+
+@test
+def test_diet_compares_every_tool_with_the_16384_block_on_todays_words(ctx: Ctx):
+    """3.6.0.19 LM: `halo gym handout --diet`: two arms with today's words, "full" the block of the model's own window,
+    "diet" the block shaped at 16,384, both sent at the same window (only the tool block differs); its own verdict
+    line, word for word; a card marked as a diet run beside the handout's."""
+    from halo_harness import gym_handout as G
+    from halo_harness import gym_handout_fixture as F
+    with _Home() as h:
+        F.write(h.copy)
+        full = G.start(REF, "full", h.copy, window=32768, platform="linux")
+        diet = G.start(REF, "diet", h.copy, window=32768, platform="linux")
+        now = G.start(REF, "now", h.copy, window=32768, platform="linux")
+        small = G.start(REF, "now", h.copy, window=16384, platform="linux")
+        names = lambda r: [t.get("name") for t in r[4]]  # noqa: E731
+        ctx.check("full: today's request at the model's own window", full[2] == now[2] and names(full) == names(now))
+        ctx.check(f"diet: the 16,384 block, today's words, got {names(diet)}",
+                  diet[2] == small[2] and names(diet) == names(small) and len(names(diet)) < len(names(full)))
+        ctx.check("the same messages in both arms", diet[3] == full[3])
+    with _Home() as h, _Mock(h, [_reply(text="ok")]) as mock:
+        rc, text, err = _cmd(["handout", MOCK_REF, "--diet", "--trials", "1"])
+        ctx.check(f"a model whose own window takes no more tools (the fake's 8,192): not measured, no card, no chat, "
+                  f"got {rc} {text[-200:]!r}", rc == 0 and text.endswith(G.SAME_BLOCK.format(model=MODEL) + "\n")
+                  and _cards(h) == [] and _chats(mock) == [])
+    from halo_harness.agent import prompt_measure as PM
+    real = PM._window_for_ref
+    with _Home() as h, _Mock(h, [_reply(text="ok")]) as mock:
+        PM._window_for_ref = lambda ref, env=None: 32768  # the model's own window: 32,768 (a card that holds it)
+        try:
+            rc, text, err = _cmd(["handout", MOCK_REF, "--diet", "--trials", "1"])
+        finally:
+            PM._window_for_ref = real
+        chats = _chats(mock)
+        ctx.check(f"exit 0, two chat requests, got {rc} {len(chats)} {err!r}", rc == 0 and len(chats) == 2)
+        if len(chats) == 2:
+            ctx.check("both sent at the same window",
+                      (chats[0].get("options") or {}).get("num_ctx") == (chats[1].get("options") or {}).get("num_ctx"))
+            ctx.check(f"full first, then the smaller block, got {len(chats[0].get('tools') or [])} and "
+                      f"{len(chats[1].get('tools') or [])} tools",
+                      len(chats[1].get("tools") or []) < len(chats[0].get("tools") or []))
+        ctx.check(f"the facts say what runs, a line per arm, then the verdict, got {text!r}",
+                  "with the 16,384 block (fewer tools), both with today's words" in text and "  full 1 of 1: " in text
+                  and "  diet 1 of 1: " in text and text.endswith(DIET_AS_WELL + "\n"))
+        ctx.check(f"a card marked as a diet run, beside the handout's, got {_cards(h)}",
+                  _cards(h) == ["gym-handout/gpu-box/handout-diet-feed01.json"])
+        card = json.loads((h.state / "gym-handout" / "gpu-box" / "handout-diet-feed01.json").read_text(encoding="utf-8"))
+        ctx.check("the card says it is a diet run, a trial per arm",
+                  card.get("diet_run") is True and len(card["full"]) == 1 and len(card["diet"]) == 1)
+    worse = {"model": MODEL, "trials": 3, "diet_run": True, "errors": [],
+             "full": [{"finished": True, "parts": ["a"]}] * 3, "diet": [{"finished": True}, {}, {}]}
+    ctx.check(f"worse, word for word, got {G.verdict_diet(worse)!r}",
+              G.verdict_diet(worse) == "  Verdict: the 16,384 block does worse: it finishes 1 of 3 (with every tool 3).")
+    rc, text, _err = _cmd(["handout", "--help"])
+    ctx.check(f"--help names --diet in one plain line with the time, got {text[-500:]!r}",
+              "--diet" in text and "16,384 block" in text and "about 2 minutes per model" in text)
+
+
 # ---- 3.6.0.14 GR-1: the gym reaches a host the way a session does -------------------------------------------------
 FOUR = [("Agent", {"description": "find the readers", "prompt": "List every function that reads SHOP_MODE."}),
         ("Agent", {"description": "add docs", "prompt": "Add a one-line docstring to every function."}),

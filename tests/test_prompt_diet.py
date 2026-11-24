@@ -328,7 +328,7 @@ def _first(one_shot: bool, platform: str = "linux", text: str = SHORT):
     if "proj" not in _FOLDER:
         _FOLDER["proj"] = tempfile.mkdtemp(prefix="pb_diet-proj-")
     return _first_request(ONE_SHOT_REF, window=ONE_SHOT_CAP, platform=platform, cwd=_FOLDER["proj"], control="auto",
-                          one_shot=one_shot, text=text)
+                          one_shot=one_shot, text=text, builder=False)  # 3.6.0.19 LM: one registry for both kinds
 
 
 @test
@@ -365,6 +365,79 @@ def test_a_session_of_more_turns_is_sent_the_tool_block_it_was_sent_before(ctx: 
               json.dumps(sent, sort_keys=True) == json.dumps(once[4], sort_keys=True))
     cloud = one_shot_shaper(SimpleNamespace(model_ref=None), None, ("", [], [{"name": "Read"}]), raw=("", [], []))
     ctx.check("a session with no local model is never shaped again", cloud is None)
+
+
+@test
+def test_only_a_one_shot_keeps_the_request_it_may_shape_again(ctx: Ctx):
+    """3.6.0.19 LM: prompt_wire._shape keeps (raw, tools) on `session._turn_raw` for a one-shot only (its one reader,
+    one_shot_shaper, answers None for anything else); a lean turn of a session of more turns keeps nothing, and what
+    is sent is the same."""
+    import json
+    from halo_harness.agent.prompt_wire import shape
+    for one_shot in (False, True):
+        session, _full, *_rest = _first(one_shot)
+        before = getattr(session, "_turn_raw", None)
+        out = shape(session, *session._measure_raw, purpose="turn")
+        kept = getattr(session, "_turn_raw", None)
+        label = "a one-shot" if one_shot else "a session of more turns (interactive)"
+        ctx.check(f"{label}: nothing kept before its turn is shaped", before is None)
+        ctx.check(f"{label}: {'keeps' if one_shot else 'keeps no'} _turn_raw after a lean turn, got {kept is not None}",
+                  (kept is not None) == one_shot and (not one_shot or kept[1] is out[2]))
+        again = shape(session, *session._measure_raw, purpose="turn")
+        ctx.check(f"{label}: the request shaped is the same either way",
+                  json.dumps(again, sort_keys=True, default=str) == json.dumps(out, sort_keys=True, default=str))
+
+
+COPILOT_SET_UP = (("copilot.tenant", "pretend-tenant"), ("copilot.client_id", "00000000-0000-0000-0000-000000000000"))
+
+
+def _copilot_set_up(fn):
+    """`fn()` with Copilot set up in the module's home (copilot_ask registered), the settings put back after."""
+    from halo_harness.theme import get_config_value, set_config_value, unset_config_value
+    was = {k: get_config_value(k, default=None) for k, _v in COPILOT_SET_UP}
+    for k, v in COPILOT_SET_UP:
+        set_config_value(k, v)
+    try:
+        return fn()
+    finally:
+        for k, _v in COPILOT_SET_UP:
+            if was[k] is None:
+                unset_config_value(k)
+            else:
+                set_config_value(k, was[k])
+
+
+@test
+def test_a_set_up_copilot_rides_on_top_of_the_budget_and_the_builder_is_still_sent(ctx: Ctx):
+    """3.6.0.19 LM (the coordinator's ruling: neither gives way, nobody else pays): at 32,768 and 49,152 a set-up
+    Copilot's copilot_ask rides on top of the 4,500 budget: a top Auto session is sent copilot_ask AND the Builder, and
+    every other tool exactly as in a home without Copilot; the block stays inside 4,500 + copilot_ask's own size."""
+    from halo_harness.agent import prompt_diet as D
+    from halo_harness.agent.prompt_measure import first_turn
+    from halo_harness.tools.copilot_ask import CopilotAskTool
+    from halo_harness.tools.lean_descriptions import lean_definition
+    size = D.wire_tokens(lean_definition(CopilotAskTool().definition()))
+    _session("ol:tiny:3b@lan", 16384)
+    for platform in ("win32", "linux"):
+        for ref, window in (("ol:room-model", 32768), ("ol:qwen3-coder:30b@lan", 49152)):
+            kw = dict(window=window, platform=platform, cwd=_FOLDER["proj"], control="auto", builder=True)
+            plain = first_turn(ref, **kw)
+            m = _copilot_set_up(lambda: first_turn(ref, **kw))
+            sent = [(r["name"], r["tokens"]) for r in m["tools"] if r["offered"]]
+            names = [n for n, _t in sent]
+            label = f"{platform} {window:,}"
+            ctx.check(f"{label}: copilot_ask and the Builder are both sent, got {names}",
+                      "copilot_ask" in names and "Builder" in names)
+            ctx.check(f"{label}: every other tool as in a home without Copilot",
+                      [x for x in sent if x[0] != "copilot_ask"] == [(r["name"], r["tokens"]) for r in plain["tools"]
+                                                                    if r["offered"]])
+            tools = sum(t for _n, t in sent)
+            ctx.check(f"{label}: the tool block {tools:,} is inside 4,500 + copilot_ask's {size:,}",
+                      tools <= D.tools_budget(window) + size)
+    ask = {"name": "copilot_ask"}
+    ctx.check("it rides only on the 4,500 budget (not at 16,384 or under, not at 65,536 and up)",
+              D._rides(ask, 4500, 0) and not D._rides(ask, 2200, 0) and not D._rides(ask, None, 0)
+              and not D._rides({"name": "TaskList"}, 4500, 0))
 
 
 @test

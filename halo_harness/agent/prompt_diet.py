@@ -4,7 +4,8 @@
     ALIASES                           {alias: canonical}: one tool under two names goes on the wire once
     aliases_once(tools)               the alias left out wherever its canonical is in the list
     lean_shell(platform)              the one shell a lean Windows session offers (`prompt.shell`)
-    tools_budget(window)              the lean tool block's tokens: 2,200 to 16,384, 4,500 under 65,536
+    tools_budget(window)              the lean tool block's tokens: 2,200 to 16,384, 4,500 under 65,536 (a set-up
+                                      copilot_ask rides on top of the 4,500 one, 3.6.0.19 LM: `ON_TOP`)
     call_window(session)              the window the next call gets (a one-shot: the window it asks; an `ol:`
                                       model: its resolved num_ctx)
     workflow_needed(session)          an enabled square covers something this model does not take
@@ -35,6 +36,9 @@ BY_NAME_UNDER = {"Browser": 16384}
 # 3.6.0.10 MW batch 4: a top session's own built-in (headless.py registers it): ranked as the LAST of the built-ins, before
 # the tools of packs and MCP servers, and counted with them where the cap is the built-ins' count (prompt_lean.tools_cap)
 LAST_BUILTINS = ("Builder",)
+# 3.6.0.19 LM (the coordinator's ruling: neither the Builder nor copilot_ask gives way): copilot_ask, once set up, rides
+# on top of this budget (the 4,500 one: over 16,384, under 65,536) and is not counted in the cap there
+ON_TOP, ON_TOP_OF = ("copilot_ask",), 4500
 
 
 def tools_budget(window: Optional[int]) -> Optional[int]:
@@ -162,6 +166,12 @@ def _bands(session, tools: list, task: str, shell: Optional[str]) -> dict:
     return rank
 
 
+def _rides(t, budget: Optional[int], used: int) -> bool:
+    """3.6.0.19 LM: a set-up Copilot's `copilot_ask` rides ON TOP of the 4,500 budget (a window over 16,384 and under
+    65,536): the budget there is 4,500 plus its own size, so every other tool is in or out as in a home without it."""
+    return _name(t) in ON_TOP and budget == ON_TOP_OF and used <= budget
+
+
 def diet(session, tools: list, task: str = "", cap: Optional[int] = None, *,
          platform: Optional[str] = None) -> "tuple[list, list]":
     """(the tools sent, lean and in the catalog's order; the names left out) -- see the module docstring."""
@@ -178,14 +188,18 @@ def diet(session, tools: list, task: str = "", cap: Optional[int] = None, *,
     small = [n for n, at in BY_NAME_UNDER.items() if n in names and isinstance(window, int) and 0 < window <= at]
     rank = _bands(session, tools, task, shell)
     budget = tools_budget(window)
-    keep, used = set(), 0
+    keep, used, riders = set(), 0, 0
     for t in sorted(tools, key=lambda t: rank[id(t)]):
         cost = wire_tokens(lean_definition(t))
         first = rank[id(t)][0] == 0
-        if (cap is not None and len(keep) >= cap) or (budget is not None and not first and used + cost > budget) \
-                or _name(t) in small:
+        rides = _rides(t, budget, used)
+        if (cap is not None and len(keep) - riders >= cap) or (budget is not None and not first and not rides
+                                                                and used + cost > budget) or _name(t) in small:
             continue
         keep.add(id(t))
+        if rides:  # 3.6.0.19 LM: on top of the budget and the cap; every other tool as in a home without it
+            riders += 1
+            continue
         used += cost
     out = [lean_definition(t) for t in tools if id(t) in keep]
     dropped += [_name(t) for t in tools if id(t) not in keep]

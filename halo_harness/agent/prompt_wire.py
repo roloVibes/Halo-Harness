@@ -280,7 +280,8 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
         session._prompt_composition = comp
         session._prompt_prefix = {"tokens": comp["prefix_tokens"],
                                   "hash": hashlib.sha1(prefix.encode("utf-8")).hexdigest()[:12]}
-        if lean:
+        from halo_harness.agent.helpers_words import one_shot
+        if lean and one_shot(session):  # 3.6.0.19 LM: its one reader is a one-shot's
             session._turn_raw = (raw, tools)  # 3.6.0.12 OS: what `one_shot_shaper` shapes again for the window asked
     return system_text, messages, tools
 

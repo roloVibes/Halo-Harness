@@ -35,6 +35,16 @@ DESCRIPTION = (
 _ARG = re.compile(r'[{}\[\]]|"([^"]+)"(\??)')
 
 
+def wanted(*, bare: bool = False, print_mode: bool = False, disallow=(), deny_rules=(), tools=None) -> bool:
+    """3.6.0.19 LM: the one rule for "this session has the Builder": a session someone answers (not bare, not print
+    mode), the tool not disallowed (`--disallowedTools`, a bare deny rule) and in `--tools` when that names a list.
+    headless.build_session registers it by this rule; agent/prompt_measure measures the session it builds."""
+    from halo_harness.permissions import bare_deny_tool_names, split_tool_rule_list
+    return (not bare and not print_mode and NAME not in (disallow or ())
+            and NAME not in bare_deny_tool_names(list(deny_rules or ()))
+            and (tools is None or tools.strip() == "default" or NAME in split_tool_rule_list(tools)))
+
+
 def listed() -> list:
     """[(name, spec)] of the builder tools main is offered (crew/tools.py TOOLS; Try runs from Studio only)."""
     from halo_harness.crew.tools import TOOLS

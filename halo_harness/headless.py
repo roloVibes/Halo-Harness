@@ -1228,9 +1228,9 @@ def build_session(
             frozen_registry.add_tool(ws_tool)
     # 3.6.0.0 R3: Studio's builder tools for main in a session someone answers (the terminal, Studio's sessions); its
     # approval card is the question round trip (crew/session_tool.py). Before the catalog snapshot, like WebSearch.
-    if not bare and not print_mode and frozen_registry.get("Builder") is None and "Builder" not in cli_disallow \
-            and "Builder" not in bare_deny_tool_names(deny_rules) and (tools is None or tools.strip() == "default" or "Builder" in split_tool_rule_list(tools)):
-        from halo_harness.tools.builder_tool import BuilderTool
+    from halo_harness.tools.builder_tool import BuilderTool, wanted as _builder_wanted  # 3.6.0.19 LM: the one rule
+    if frozen_registry.get("Builder") is None and _builder_wanted(bare=bare, print_mode=print_mode, disallow=cli_disallow,
+                                                                  deny_rules=deny_rules, tools=tools):
         frozen_registry.add_tool(BuilderTool())
 
     mcp_manager = None

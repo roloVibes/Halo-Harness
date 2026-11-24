@@ -142,6 +142,8 @@ def build_ollama_request_body(
     think_choice: Optional[str] = None,
     # Halo 3.6.0.0 R8: the window the call starts from, when the caller chose one
     start_num_ctx: Optional[int] = None,
+    # Halo 3.6.0.19 LM: the most the prompt floor may raise it to (a session of more turns under a spill's cap)
+    hard_cap: Optional[int] = None,
 ) -> dict:
     """Build the native `/api/chat` body. `messages`/`system_text` are the
     SAME Anthropic-shaped derived-transcript inputs `providers.request.
@@ -222,7 +224,8 @@ def build_ollama_request_body(
         from halo_harness.providers.ollama_prompt import reply_reserve, window_for
         choice = window_for(prompt_tokens, base=num_ctx, base_source="min", factor=window_factor,
                             trained_context=trained_context, fit_estimate=fit_estimate, host_max_ctx=host.max_ctx,
-                            reserve=reply_reserve(requested_max_tokens), min_reply=(steward_profile or {}).get("num_predict"))
+                            reserve=reply_reserve(requested_max_tokens), min_reply=(steward_profile or {}).get("num_predict"),
+                            hard_cap=hard_cap)
         num_ctx, reply_room = choice.num_ctx, choice.num_predict
     tools_max = max((steward_profile or {}).get("tools_max") or resolve_ollama_tools_max(num_ctx), len(tools or []))
     tools_profile = profile if tools_max == profile.tools_max else dataclasses.replace(profile, tools_max=tools_max)

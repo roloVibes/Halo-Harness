@@ -3110,7 +3110,7 @@ class Session:
             effective_learned_cap = remembered_retry
         # Halo 3.2.3.0 R1: the request's own size, estimated before every
         # call -- `num_ctx` never sits below it (`agent/ollama_window.py`).
-        from halo_harness.agent.ollama_window import prepare_window
+        from halo_harness.agent.ollama_window import _session_spill_cap, prepare_window
         from halo_harness.agent.reply_room import for_call as _reply_room  # 3.3.16.1: the room follows the window
         base_num_ctx, base_source = resolve_num_ctx_and_source(
             decision.trained_context, host.max_ctx, decision.fit_estimate, learned_cap=effective_learned_cap,
@@ -3161,6 +3161,7 @@ class Session:
             steward_profile=decision.profile,
             think_choice=_think_choice_for(ref.raw),  # 3.3.5.0 R0: models.think.<ref>
             start_num_ctx=base_num_ctx,  # 3.6.0.0 R8: the window start_window chose (window_for may raise it)
+            hard_cap=_session_spill_cap(self, host, ref),  # 3.6.0.19 LM: never past a session's spill cap
         )
         body = resident_options(self, host, ref.model, body, base_source)  # 3.6.0.0 R8: num_gpu as it is resident
         # Halo 2.0.3 round 5c FIX PASS: `_build_request`'s own side-channel

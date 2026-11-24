@@ -57,7 +57,8 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
     factor = st["factor"].get(key, 1.0)
     profile = getattr(decision, "profile", None) or {}  # 3.3.4.0 R3: the reply's room never under its num_predict
     choice = window_for(estimate, decision, base=base_num_ctx, base_source=base_source, factor=factor,
-                        host_max_ctx=host.max_ctx, reserve=reserve, min_reply=profile.get("num_predict"))
+                        host_max_ctx=host.max_ctx, reserve=reserve, min_reply=profile.get("num_predict"),
+                        hard_cap=_session_spill_cap(session, host, ref))
     # 3.3.4.0 R2: the ledger line of this call reads the window's source and the estimate back; 3.6.0.0 R8: the
     # raw chars / 3.5 too, for the ratio the answer's real count measures
     st.setdefault("sent", {})[(str(host.url).rstrip("/"), ref.model)] = {
@@ -71,6 +72,16 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
         from halo_harness.agent.ollama_window_steward import note_prepared
         note_prepared(st, estimate, reserve, session)
     return estimate, factor
+
+
+def _session_spill_cap(session, host, ref) -> Optional[int]:
+    """3.6.0.19 LM: the cap a spill lowered, for the main call of a session of more turns (ollama_window_truth.
+    start_window keeps it every turn): the prompt floor never raises the window past it; a one-shot is unchanged."""
+    from halo_harness.agent.ollama_window_truth import is_main_call, many_turns
+    from halo_harness.agent.reply_room import _spill_cap
+    if not (is_main_call(session, ref) and many_turns(session)):
+        return None
+    return _spill_cap(session, host, ref)
 
 
 def last_estimate(session) -> Optional[int]:

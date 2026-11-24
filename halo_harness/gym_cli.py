@@ -204,6 +204,9 @@ def _cmd_handout(argv: list) -> int:
                                                  "refused and sends nothing")
     parser.add_argument("--trials", type=_trials, default=3, metavar="N",
                         help="trials per arm (default: 3)")
+    parser.add_argument("--diet", action="store_true",
+                        help="every tool against the 16,384 block (fewer tools), both with today's words, "
+                             "instead; about 2 minutes per model with three trials on a GPU")
     args = parser.parse_args(argv)
     local = []
     for ref in args.model:
@@ -213,7 +216,7 @@ def _cmd_handout(argv: list) -> int:
             print(f"{ref}: the gym runs local models only.")
     if not local:
         return 1
-    for fact in gym_handout.facts(args.trials):
+    for fact in gym_handout.facts(args.trials, diet=args.diet):
         print(fact)
     sys.stdout.flush()
     state_dir = bridge_home()
@@ -224,10 +227,12 @@ def _cmd_handout(argv: list) -> int:
 
     ran = 0
     for ref in local:
-        card = gym_handout.run_model(ref, trials=args.trials, state_dir=state_dir, on_trial=on_trial)
+        card = gym_handout.run_model(ref, trials=args.trials, state_dir=state_dir, on_trial=on_trial,
+                                     arms=gym_handout.DIET_ARMS if args.diet else gym_handout.ARMS)
         causes = None if card.get("same_words") else gym_handout.not_measured(card)
         if card.get("same_words"):
-            print(gym_handout.SAME_WORDS.format(model=card.get("model")))
+            same = gym_handout.SAME_BLOCK if card.get("diet_run") else gym_handout.SAME_WORDS
+            print(same.format(model=card.get("model")))
             ran += 1
         elif causes is not None:  # no trial of an arm was answered (or none ran): the cause once, no card
             print(f"{ref}: not measured: {causes}")
@@ -246,7 +251,7 @@ def cmd_gym(argv: list) -> int:
         print("usage: halo gym [--models REF,REF,...] [--roles ROLE,...] [--quick]", file=sys.stderr)
         print("       halo gym show [model]", file=sys.stderr)
         print("       halo gym propose [--apply] [--name NAME] [--roles ROLE,...] [--main REF]", file=sys.stderr)
-        print("       halo gym handout <model> [<model> ...] [--trials N]", file=sys.stderr)
+        print("       halo gym handout <model> [<model> ...] [--trials N] [--diet]", file=sys.stderr)
         return 0
     # 3.6.0.14 GR-1: a sub-command that sends reaches a host the way a session does, so the keys file is loaded first
     # (a host entry's `api_key_env` names a variable whose value lives there); `show` reads cards only

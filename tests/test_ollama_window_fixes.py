@@ -398,6 +398,65 @@ def test_a_one_shot_over_half_of_the_spill_window_is_sent_the_window_the_line_na
         ctx.check(f"one sentence says the prompt is more than half of it, got {out[-600:]!r}",
                   "the prompt is more than half of it: the reply has 4,096 tokens" in out)
         ctx.check(f"no line names the 32,768 window as the one sized, got {out[-600:]!r}", "32,768 window" not in out)
+        ctx.check(f"3.6.0.19 LM: one line says the reply's room (that sentence), got {out[-600:]!r}",
+                  "the reply's room is" not in out)
+    finally:
+        fake.stop()
+
+
+def _session_said(fh, fake, turns: list, timeout: float = 300) -> "tuple[int, int, str]":
+    """`_session`'s client with `--output-format text --verbose`, so the `↳` lines a person reads are printed: each
+    user line after the previous turn's end line (`◼ ...`). Returns (exit code, turns ended, everything printed)."""
+    cmd = [sys.executable, "-m", "tests.helpers.halo_turn_net", "-p", "--input-format", "stream-json",
+           "--output-format", "text", "--verbose", "--model", f"ol:{MODEL}@gpu-box", "--cwd", str(fh["proj"]),
+           "--permission-mode", "auto"]
+    proc = subprocess.Popen(cmd, env=L._env(fh, fake), cwd=str(L.REPO_DIR), stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8",
+                            errors="replace")
+    timer = threading.Timer(timeout, proc.kill)
+    timer.start()
+    ended, out = 0, []
+    try:
+        for line in turns:
+            proc.stdin.write(line + "\n")
+            proc.stdin.flush()
+            for got in proc.stdout:
+                out.append(got)
+                if "◼ " in got:
+                    ended += 1
+                    break
+        proc.stdin.close()
+        out.append(proc.stdout.read())
+        return proc.wait(), ended, "".join(out)
+    finally:
+        timer.cancel()
+        if proc.poll() is None:
+            proc.kill()
+
+
+@test
+def test_a_session_under_the_spill_is_sent_the_window_the_line_names_every_turn(ctx: Ctx):
+    """3.6.0.19 LM: a session of more turns (stream-json) on the spilling fake preloaded at 32,768, its first turn
+    over half of 16,384 (Halo's own prompt): every turn is sent the cap the spill lowered (16,384), one load there,
+    so "reloaded at 16k" is true; the reply's room is said once, sized by 16,384 (it was 32,768 on every turn). A
+    helper call of the session (its compaction) leaves the session's cap as it is."""
+    fake = _spilling_fake()
+    try:
+        fh = L._home(fake)
+        fake.preload(MODEL, 32768)
+        turns = [_user("Reply with exactly one word: ready"),
+                 _user("Context follows. " + "word " * int(4000 * 3.5 / 5) + "Reply with exactly one word: ready"),
+                 _user("Reply with exactly one word: done")]
+        rc, ended, out = _session_said(fh, fake, turns)
+        ctx.check(f"a three-turn session: exit 0 and three turns ended, got {rc} {ended}", rc == 0 and ended == 3)
+        sent = [o.get("num_ctx") for o in _opts(fake)]
+        # three turns (and, as the session grows past 80 % of 16,384, its compaction's calls): every one at 16,384
+        ctx.check(f"every call is sent 16,384, got {sent}", len(sent) >= 3 and all(n == 16384 for n in sent))
+        ctx.check(f"one load, at 16,384, got {fake.loads}", [x["num_ctx"] for x in fake.loads] == [16384])
+        ctx.check(f"the line names 16k, got {out[-900:]!r}", "reloaded at 16k, the largest known to fit the card" in out)
+        ctx.check(f"the reply's room is said once, sized by 16,384, got {out[-900:]!r}",
+                  out.count("the reply's room is") == 1 and "sized by the 16,384 window" in out)
+        ctx.check(f"no line names the 32,768 window as the one sized, got {out[-900:]!r}", "32,768 window" not in out)
     finally:
         fake.stop()
 

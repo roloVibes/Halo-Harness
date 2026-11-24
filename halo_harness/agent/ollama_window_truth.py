@@ -241,6 +241,10 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     if spill and cap >= spill:
         fits = _pos(t.get("fits"))
         cap, cap_source = max(_below(spill), fits if fits and fits < spill else 0), "known to spill"
+    many = own and many_turns(session)
+    kept = _pos((st.get("spill_cap") or {}).get(key)) if many else None
+    if kept and cap > kept:  # 3.6.0.19 LM: a session of more turns stays at the window a spill lowered it to
+        cap, cap_source = kept, "known to spill"
     st.setdefault("cap", {})[key] = cap
     _raw, prompt0 = prompt_estimate(state_dir, host.url, ref.model, *request)
     first = own and not getattr(session, "_reply_room_called", False)
@@ -289,6 +293,7 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
             _queue_line(session, head + f"reloaded at {fmt_window(cap)}, the largest known to fit the card")
             if one and first and 2 * _prompt(cap) > cap:  # the first call's "at most half" gives way to the spill cap
                 _queue_line(session, f"the prompt is more than half of it: the reply has {_room(cap):,} tokens")
+                session._reply_room_said = True  # 3.6.0.19 LM: one line says the reply's room (reply_room.for_call)
             return cap, cap_source, False
         if not known:
             for w in (prev, _pos(t.get("num_ctx"))):  # unknown: the window most likely resident, when it holds this
@@ -305,14 +310,18 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         return cap, cap_source, False
 
     window, source, hold = _choose()
-    if recent and recent > window and _ok(recent):
+    if recent and recent > window and _ok(recent) and not (many and cap_source == "known to spill" and recent > cap):
         # F5: another call of this process asked for a larger window a moment ago (it may still be loading): asking
         # for less would reload the model back and forth
         window, source, hold = recent, "asked here", True
     # 3.6.0.12 OS: a one-shot sent the cap a spill lowered, which holds its request: the reply's room never raises the
     # window past it (agent/reply_room.for_call), so the model runs wholly on the card and a "reloaded at" line is true
     held = one and spill and source == "known to spill" and window == cap and _holds(cap)
-    st.setdefault("spill_cap", {})[key] = cap if held else None
+    # 3.6.0.19 LM: a session of more turns sent the cap a spill lowered keeps it every turn (the room and the prompt
+    # floor never raise past it; a request larger than it is compacted, ollama_window.pre_send_line)
+    held = held or (many and cap_source == "known to spill" and window <= cap)
+    if own or not many_turns(session):  # a helper call of a session of more turns leaves the session's cap as it is
+        st.setdefault("spill_cap", {})[key] = cap if held else None
     if reshape is not None:  # 3.6.0.12 OS: the block the call sends (reshape(None)) and every later call starts from
         session._shape_window, session._shape_model = max(window, shaped_for or 0), ref.raw
     return _ask(window, source, hold)

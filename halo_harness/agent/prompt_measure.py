@@ -2,9 +2,9 @@
 costs before anything is sent (`halo local prompt`, `/status`, `halo doctor`, Studio's model card, the
 steward's fit plan, tests/test_prompt_budget_pins.py).
 
-    first_turn(ref, *, window=None, platform=None, cwd=None, text="hi", control=None, builder=False,
-               one_shot=False) -> Measure
-    new_session(ref, *, window=, platform=, cwd=, control=None, builder=False, one_shot=False, helpers_off=False)
+    first_turn(ref, *, window=None, platform=None, cwd=None, text="hi", control=None, builder=None,
+               one_shot=False) -> Measure    (builder None: the session a person really gets, 3.6.0.19 LM)
+    new_session(ref, *, window=, platform=, cwd=, control=None, builder=None, one_shot=False, helpers_off=False)
                                          the stub it measures: a NEW top session in `cwd` (crew/session_start.py;
                                          3.6.0.10 M1b); `one_shot`: as `halo -p` with one prompt marks it (many_turns
                                          False); `helpers_off`: the gym's "before" (halo_harness/gym_handout.py)
@@ -93,11 +93,24 @@ def _why_kept(session, sent: list) -> dict:
     return out
 
 
+def _builder_wanted(settings, cwd, one_shot: bool) -> bool:
+    """Whether a session started in `cwd` with no flags has the Builder: a person's session (a one-shot is print mode),
+    by the one rule headless.build_session applies, with the settings' own deny rules."""
+    from halo_harness.tools.builder_tool import wanted
+    try:
+        from halo_harness.permissions import build_rules_from_settings
+        deny = build_rules_from_settings(settings, cwd=Path(cwd))[0]
+    except Exception:
+        deny = []
+    return wanted(bare=False, print_mode=one_shot, deny_rules=deny)
+
+
 def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-                control: Optional[str] = None, builder: bool = False, one_shot: bool = False,
+                control: Optional[str] = None, builder: Optional[bool] = None, one_shot: bool = False,
                 helpers_off: bool = False):
     """The session a measure runs on: a NEW top session in `cwd` (3.6.0.10 M1b): the built-in tools of `platform`,
-    the Builder when `builder` (as headless.build_session adds it for a session someone answers), and the state a
+    the Builder when `builder` (as headless.build_session adds it for a session someone answers; None, 3.6.0.19 LM:
+    the session a person really gets, by tools/builder_tool.wanted -- a one-shot is print mode), and the state a
     start sets (crew/session_start.new_session_state: `control` is what `--map` would name, None the folder's own).
     `helpers_off` (3.6.0.13 GM, the gym's "before"): the helpers words turned off BEFORE the start, so the tools'
     words and the Builder's sentence are today's line's (agent/helpers_words.on_auto)."""
@@ -111,10 +124,13 @@ def new_session(ref, *, window: Optional[int] = None, platform: Optional[str] = 
     plat = platform or sys.platform
     cwd = Path(cwd or Path.cwd())
     registry = ToolRegistry(default_tools(platform=plat))
+    ctx = SessionContext(cwd=cwd, model_label=ref.raw, model_family=model_family(ref.model), tool_registry=registry)
+    if builder is None:  # 3.6.0.19 LM: the session a person really gets (tools/builder_tool.wanted, headless's rule)
+        builder = _builder_wanted(ctx.settings, cwd, one_shot)
     if builder and registry.get("Builder") is None:
         from halo_harness.tools.builder_tool import BuilderTool
         registry.add_tool(BuilderTool())
-    ctx = SessionContext(cwd=cwd, model_label=ref.raw, model_family=model_family(ref.model), tool_registry=registry)
+        ctx = SessionContext(cwd=cwd, model_label=ref.raw, model_family=model_family(ref.model), tool_registry=registry)
     window = window or _window_for_ref(ref, getattr(ctx.settings, "effective_env", None))
     session = SimpleNamespace(model_ref=ref, model_profile=SimpleNamespace(context_tokens=window), log=_Nodes(),
                               session_context=ctx, tool_registry=registry, state_dir=bridge_home(),
@@ -166,7 +182,7 @@ def _first_request(ref, **kw) -> tuple:
 
 
 def first_turn(ref, *, window: Optional[int] = None, platform: Optional[str] = None, cwd=None,
-               text: str = "hi", control: Optional[str] = None, builder: bool = False, one_shot: bool = False,
+               text: str = "hi", control: Optional[str] = None, builder: Optional[bool] = None, one_shot: bool = False,
                mode: Optional[str] = None) -> dict:
     """A new session's first request weighed (nothing is sent). `mode`: the permission mode its turn starts in; None
     (3.6.0.15 F9) the mode a new session in `cwd` starts in (crew/map_session.start on configured_mode, the rule
@@ -286,7 +302,9 @@ def for_session(session) -> Optional[dict]:
     key = (getattr(ref, "raw", None), window)
     if key not in cache:
         try:
-            cache = {key: first_turn(ref, window=window, cwd=getattr(session, "cwd", None))}
+            registry = getattr(session, "tool_registry", None)  # 3.6.0.19 LM: the session's own Builder, or none
+            has = getattr(registry, "get", lambda _n: None)("Builder") is not None if registry is not None else None
+            cache = {key: first_turn(ref, window=window, cwd=getattr(session, "cwd", None), builder=has)}
         except Exception:
             cache = {key: None}
         session._first_turn_measure = cache
