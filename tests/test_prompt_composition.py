@@ -97,6 +97,26 @@ def test_dedupe_keeps_the_newest_block_and_names_the_other(ctx: Ctx):
 
 
 @test
+def test_the_other_servers_block_is_split_only_in_the_printed_line(ctx: Ctx):
+    """3.6.0.20 P (after the check): the deferred tools' block is its own part of the line /cost and /status print; the
+    ledger's fields (the status event's `composition`: Studio's bar, the steward's ledger) keep 3.6.0.19's keys, the
+    block in `system`, the six parts adding up to the total."""
+    from halo_harness.agent.catalog import deferred_reminder
+    from halo_harness.agent.prompt_composition import compose, composition_line, ledger_fields, tokens_of
+    block = deferred_reminder(sorted(f"mcp__srv{n:02d}-craft__tool_action_{t:02d}" for n in range(4) for t in range(30)))
+    msgs = [{"role": "user", "content": [{"type": "text", "text": block}, {"type": "text", "text": "hi"}]}]
+    comp = compose(None, msgs, [], "You are Halo.", known={"memory": set(), "claude_md": set(), "harness": {block}})
+    f = ledger_fields(comp)
+    six = ("system", "memory", "topic_index", "tools_schema", "history", "user")
+    ctx.check(f"3.6.0.19's keys, got {sorted(f)}", set(f) == set(six) | {"total"})
+    ctx.check(f"the six parts add up to the total, got {sum(f[k] for k in six)} of {f['total']}",
+              sum(f[k] for k in six) == f["total"] and f["system"] >= tokens_of(block))
+    line = composition_line(comp)
+    ctx.check(f"the printed line names the block apart, got {line!r}",
+              f"system {f['system'] - tokens_of(block):,} · other servers' tools {tokens_of(block):,} · " in line)
+
+
+@test
 def test_the_parts_and_where_the_memory_goes(ctx: Ctx):
     with Rig() as rig:
         rig.script("wide:14b", answer())

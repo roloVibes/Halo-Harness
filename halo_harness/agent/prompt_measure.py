@@ -380,8 +380,9 @@ def _local(ref) -> bool:
 def for_session(session) -> Optional[dict]:
     """`/status`: the session's OWN first request (3.6.0.20 P), None for a cloud model or on a failure: the one its
     conversation's first main request was shaped to (prompt_wire.first_turn_seen: kept by `_shape`; after /clear or a
-    compaction the new conversation's), else (no request yet, or none at the model it is on now) the preview of the
-    request its own log, registry and snapshots make now. No request is sent and nothing is kept."""
+    compaction the new conversation's), else (no request yet, none at the model it is on now, a resumed session) the
+    preview of the conversation's first request (its own log up to its first answer: prompt_wire.first_request_end,
+    never the later turns), its registry and snapshots, shaped for the model now. No request is sent, nothing kept."""
     ref = getattr(session, "model_ref", None)
     if ref is None or not _local(ref):
         return None
@@ -392,8 +393,8 @@ def for_session(session) -> Optional[dict]:
             return _measured(session, seen["full"], seen["request"], seen["window"], seen["dropped"])
         from halo_harness.agent.derive import derive_request
         from halo_harness.agent.prompt_diet import call_window
-        from halo_harness.agent.prompt_wire import shape
-        system_text, messages, full = derive_request(session.log, tools=None)
+        from halo_harness.agent.prompt_wire import first_request_end, shape
+        system_text, messages, full = derive_request(session.log, tools=None, upto=first_request_end(session.log))
         was = getattr(session, "_diet_dropped", None)
         try:
             request = shape(session, system_text, messages, list(full or []), purpose="preview")

@@ -302,7 +302,8 @@ def test_status_says_the_sessions_own_first_request(ctx: Ctx):
     """3.6.0.20 P entry 3: `/status` in a live session says the session's OWN first request: before any request the
     preview of its own log, registry and snapshots (here: `--tools` left four tools, 16 stand-in servers' block); kept
     when the conversation's first main request is shaped, not moved by a later one; after `/clear` or a compaction the
-    NEW conversation's first request; on a model switch with no request at the new model, the preview again."""
+    NEW conversation's first request; on a model switch (a request at the new model or not) and in a resumed session,
+    the preview of the conversation's FIRST request (its log up to its first answer), never the whole conversation."""
     from halo_harness.agent.catalog import deferred_reminder
     from halo_harness.agent.derive import derive_request
     from halo_harness.agent.prompt_composition import compose, known_texts
@@ -323,8 +324,8 @@ def test_status_says_the_sessions_own_first_request(ctx: Ctx):
         log.add(type="snapshot", kind="deferred_tools", content=[{"type": "text", "text": deferred_reminder(names)}])
         log.add(type="user", content=[{"type": "text", "text": words}])
 
-    def _own(purpose="measure"):  # the request shaped as the loop shapes it, weighed by the measure's own rule
-        out = shape(s, *derive_request(s.log), purpose=purpose)
+    def _own(purpose="measure", upto=None):  # the request shaped as the loop shapes it, weighed by the measure's rule
+        out = shape(s, *derive_request(s.log, upto=upto), purpose=purpose)
         total = compose(s, out[1], out[2], out[0], placement=placement_for(s), known=known_texts(s))["total"]
         weighed = wire_estimate(*out) - 1024
         ctx.check(f"the measure's rule is the composition's within 3 %, got {weighed} vs {total}",
@@ -357,10 +358,30 @@ def test_status_says_the_sessions_own_first_request(ctx: Ctx):
     got = _figure(composition_text(s, first=True))
     ctx.check(f"after a compaction: the new conversation's first request, got {got:,} want {after:,}",
               got == after and abs(after - fresh) > 0.05 * fresh)
+    at_first = len(s.log.nodes())  # the conversation's first request was made of these nodes
+    for i in range(4):  # a longer conversation at the same model
+        s.log.add(type="assistant", content=[{"type": "text", "text": "ok " * 200}])
+        s.log.add(type="user", content=[{"type": "text", "text": f"ask {i} " * 400}])
+        _own("turn")
     s.model_ref = parse_model_ref("ol:other-model:8b")
-    want = _own()
+    want = _own(upto=at_first)
     got = _figure(composition_text(s, first=True))
-    ctx.check(f"a model switch with no request yet: the preview, got {got:,} want {want:,}", got == want)
+    ctx.check(f"a model switch with no request yet: the conversation's first request at the new model, got {got:,} "
+              f"want {want:,} (the whole conversation: {_own():,})", got == want and _own() > 2 * want)
+    sent = _own("turn")
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"a request at the new model does not make it the whole conversation, got {got:,} want {want:,} "
+              f"(sent {sent:,})", got == want)
+    s.model_ref = parse_model_ref(ref)
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"back at the first model: its kept first request, got {got:,} want {after:,}", got == after)
+    resumed = new_session(ref, window=16384, platform="linux", cwd=cwd)  # a resumed session: its log, no request yet
+    resumed.cwd, resumed.tool_registry, resumed.log = cwd, s.tool_registry, s.log
+    s = resumed
+    want = _own(upto=at_first)
+    got = _figure(composition_text(s, first=True))
+    ctx.check(f"a resumed session before its first request: the conversation's first request, got {got:,} "
+              f"want {want:,}", got == want and _own() > 2 * want)
 
 
 @test

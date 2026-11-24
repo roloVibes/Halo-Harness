@@ -46,13 +46,15 @@ def deferred_reminder(names) -> str:
 
 
 def deferred_counts(text: str) -> "dict[str, int]":
-    """{a server's name as its tools carry it: its tool count} of one deferred tools' block (its `mcp__` names)."""
+    """{a server's name as its tools carry it: its tool count} of one deferred tools' block (its `mcp__` names; a
+    claude.ai connector's one tool `connector__<slug>` counts under that name)."""
     from halo_harness.mcp.manager import split_mcp_tool_name
     out: dict = {}
     for name in (text or "")[len(DEFERRED_HEAD):].splitlines():
         parts = split_mcp_tool_name(name.strip())
-        if parts:
-            out[parts[0]] = out.get(parts[0], 0) + 1
+        key = parts[0] if parts else (name.strip() if name.strip().startswith("connector__") else None)
+        if key:
+            out[key] = out.get(key, 0) + 1
     return out
 
 # ---- finding 12: ToolSearch keyword-search ranking -------------------------

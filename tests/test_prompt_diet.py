@@ -298,6 +298,29 @@ def test_a_lean_request_leaves_the_other_servers_tool_names_out(ctx: Ctx):
 
 
 @test
+def test_a_lean_request_names_the_connectors_its_block_held(ctx: Ctx):
+    """3.6.0.20 P entry 0 (after the check): a claude.ai connector's one tool (`connector__<slug>`) in the block left out
+    of a lean request gets a line of its own with its name, as a server with no line does."""
+    import json
+    from halo_harness.agent.catalog import deferred_reminder
+    from halo_harness.agent.prompt import build_system_prompt
+    from halo_harness.agent.prompt_wire import shape
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    defs = ToolRegistry(default_tools()).definitions()
+    text = build_system_prompt(model_label="ol:example-model:30b", cwd="/work", tool_definitions=defs,
+                               family="generic", mcp_servers=[{"name": "kb", "instructions": "Keeps pages."}])
+    names = sorted(["connector__mailbox", "connector__calendar", "mcp__kb__find", "mcp__kb__read"])
+    msgs = [{"role": "user", "content": [{"type": "text", "text": deferred_reminder(names)},
+                                         {"type": "text", "text": "hi"}]}]
+    system, out, _t = shape(_session("ol:example-model:30b", 16384), text, msgs, defs, purpose="measure")
+    lines = [ln for ln in system.splitlines() if ln.startswith("  - `")]
+    ctx.check(f"the block is gone and each connector has its line, got {lines!r}",
+              "connector__" not in json.dumps(out)
+              and lines == ["  - `kb` (2 tools): Keeps pages.", "  - `connector__calendar` (1 tool)",
+                            "  - `connector__mailbox` (1 tool)"])
+
+
+@test
 def test_a_cloud_model_with_a_large_window_gets_todays_bytes(ctx: Ctx):
     from halo_harness.agent.prompt import build_system_prompt
     tools = [{"name": "Bash", "description": "Runs a command."}, {"name": "Read", "description": "Reads a file."},

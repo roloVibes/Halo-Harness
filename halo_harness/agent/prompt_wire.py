@@ -323,6 +323,19 @@ def _conversation(session):
     return log, mark
 
 
+def first_request_end(log) -> "int | None":
+    """3.6.0.20 P (`/status` with no kept request: a model switch, a resumed session): how many of the log's nodes the
+    conversation's first request was made of (`derive_request`'s `upto`): up to its first answer after the newest
+    compaction marker; None (the whole log) when nothing has answered yet."""
+    try:
+        nodes = log.nodes() if log is not None else []
+    except Exception:
+        return None
+    start = max((i for i, n in enumerate(nodes) if isinstance(n, dict) and n.get("type") == "compacted"), default=-1)
+    return next((i for i in range(start + 1, len(nodes))
+                 if isinstance(nodes[i], dict) and nodes[i].get("type") == "assistant"), None)
+
+
 def _keep_first(session, raw: tuple, request: tuple) -> None:
     """3.6.0.20 P (`/status`, prompt_measure.for_session): the request a conversation's first main request was shaped
     to, kept on a local model; shaped again for the same call (the same messages: a window asked again, a retry) it is

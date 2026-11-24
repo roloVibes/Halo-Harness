@@ -203,12 +203,10 @@ def ledger_fields(comp: Optional[dict]) -> Optional[dict]:
     if not comp:
         return None
     sp, up = comp["system"]["parts"], comp["user"]["parts"]
-    out = {"system": sp["harness"] + sp["claude_md"], "memory": sp["memory"] + up["memory"],
-           "topic_index": sp["topic_index"] + up["topic_index"], "tools_schema": sp["tools_schema"],
-           "history": comp["history"]["tokens"], "user": up["text"] + up["attachments"], "total": comp["total"]}
-    if sp.get("other_servers"):  # 3.6.0.20 P: the other tool servers' block of names, when one was sent
-        out["other_servers"] = sp["other_servers"]
-    return out
+    # 3.6.0.20 P: the other tool servers' block stays in `system` here (Studio's bar, the steward's ledger)
+    return {"system": sp["harness"] + sp["claude_md"] + sp.get("other_servers", 0), "memory": sp["memory"] + up["memory"],
+            "topic_index": sp["topic_index"] + up["topic_index"], "tools_schema": sp["tools_schema"],
+            "history": comp["history"]["tokens"], "user": up["text"] + up["attachments"], "total": comp["total"]}
 
 
 def composition_line(comp: Optional[dict]) -> str:
@@ -216,7 +214,8 @@ def composition_line(comp: Optional[dict]) -> str:
     f = ledger_fields(comp)
     if not f:
         return "prompt: nothing sent yet"
-    bits = [("system", f["system"])] + ([("other servers' tools", f["other_servers"])] if f.get("other_servers") else [])
+    others = comp["system"]["parts"].get("other_servers", 0)  # 3.6.0.20 P: the block of names, printed apart
+    bits = [("system", f["system"] - others)] + ([("other servers' tools", others)] if others else [])
     bits += [("memory", f["memory"]), ("topics", f["topic_index"]),
             ("tools", f["tools_schema"]), ("history", f["history"]), ("you", f["user"])]
     line = f"prompt {f['total']:,}: " + " · ".join(f"{k} {v:,}" for k, v in bits)
