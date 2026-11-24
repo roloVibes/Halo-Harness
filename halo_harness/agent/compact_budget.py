@@ -101,6 +101,12 @@ def budget(session, system_text: str, tools) -> Optional[dict]:
             "summary_max": summary_max, "tail_max": max(0, target - summary_max)}
 
 
+def fixed_line(b: dict) -> str:
+    """The line when the budget's fixed part alone (`target` 0) is more than the window holds."""
+    return (f"↳ the system prompt, the memory and the tools alone are {b['fixed']:,} tokens, more than this "
+            f"{b['window']:,} window holds with the reply's {b['reserve']:,}: a bigger-window model holds them")
+
+
 def again_lines(session, turn_no: int):
     """After an overflow compaction: the conversation still past its budget -> one more
     compaction; then, still over, the line (and when the fixed part alone is over, that line)."""
@@ -110,9 +116,7 @@ def again_lines(session, turn_no: int):
         return
     prompt, b = got
     if b["target"] <= 0:
-        yield events.turn_marker("preflight", f"↳ the system prompt, the memory and the tools alone are "
-                                 f"{b['fixed']:,} tokens, more than this {b['window']:,} window holds with the reply's "
-                                 f"{b['reserve']:,}: a bigger-window model holds them", turn=turn_no)
+        yield events.turn_marker("preflight", fixed_line(b), turn=turn_no)
         return
     yield events.turn_marker("resend", f"↳ the compacted request ({prompt:,} tokens) is still past the window's "
                              "budget: compacting once more", turn=turn_no)

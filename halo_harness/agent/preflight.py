@@ -21,6 +21,10 @@ non-interactive run or a sub-agent the default applies: `prompt.preflight`
 goes on the next ledger line (`preflight`: "compact" | "switch" | "sent")
 and into the session log (a `preflight` node); "send anyway" orders the
 payload so the tail Ollama keeps holds the task (`agent/prompt_wire.py`).
+3.6.0.19 LM: a conversation with no earlier turn is never compacted (there is
+nothing to summarise): nothing is asked, compact_budget's line says when the
+system prompt, the memory and the tools alone are over the window, and the
+request is sent as "send anyway" sends it.
 """
 
 from __future__ import annotations
@@ -141,6 +145,21 @@ def _switch(session, alt: str, turn_no: int):
                                        session.effort, session.effort_source)
 
 
+def _fixed_part_line(session, turn_no: int):
+    """3.6.0.19 LM: a first request that does not fit: compact_budget's line when the system prompt, the memory and the
+    tools alone are more than the window holds (the request as it is sent: ollama_window.prepare_window's)."""
+    try:
+        from halo_harness.agent.compact_budget import budget, fixed_line
+        from halo_harness.agent.ollama_window import _state
+        parts = (_state(session).get("last") or {}).get("parts")
+        b = budget(session, *parts) if parts else None
+    except Exception:
+        log.debug("preflight: the fixed part could not be measured", exc_info=True)
+        b = None
+    if b and b["target"] <= 0:
+        yield events.turn_marker("preflight", fixed_line(b), turn=turn_no)
+
+
 def run(session, turn_no: int):
     from halo_harness.agent.prompt_lean import knobs
     session._preflight_sent_now = False
@@ -148,15 +167,21 @@ def run(session, turn_no: int):
     if info is None:
         return None
     mode = knobs()["preflight"]
-    alt = bigger_model(session, info["prompt"] + info["reserve"])
-    asked = mode == "ask" and bool(getattr(session, "interactive", False)) and getattr(session, "agent_id", None) is None
-    if asked:
+    from halo_harness.agent.ollama_window import no_earlier_turn
+    first = no_earlier_turn(session)  # 3.6.0.19 LM: nothing to summarise, a compaction can only lose the question
+    alt = None if first else bigger_model(session, info["prompt"] + info["reserve"])
+    asked = not first and mode == "ask" and bool(getattr(session, "interactive", False)) \
+        and getattr(session, "agent_id", None) is None
+    if first:
+        yield from _fixed_part_line(session, turn_no)
+        choice = "send"
+    elif asked:
         choice = yield from _ask(session, info, alt, turn_no)
     else:
         choice = "send" if mode == "send" else "compact"
     if choice == "switch" and not alt:
         choice = "compact"
-    how = "" if asked else f" (prompt.preflight: {mode})"
+    how = "" if asked or first else f" (prompt.preflight: {mode})"
     yield events.turn_marker("preflight", f"↳ {info['line']}: {WORDS[choice].format(to=alt)}{how}", turn=turn_no,
                              preflight={**info, "choice": choice, "switch_to": alt, "asked": asked})
     _record(session, info, choice, alt, asked)

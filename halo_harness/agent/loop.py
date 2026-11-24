@@ -3133,6 +3133,16 @@ class Session:
             self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
             system_text=system_text, messages=messages, tools=tools, auto_calibrate=False,
             reply_tokens=requested_max_tokens)
+        if _reshape is not None:  # 3.6.0.19 LM: a session's tool block is the one of the window its first call is sent
+            from halo_harness.agent.ollama_window_truth import first_block
+            for _ in range(3):  # shaped once more for the window sent (a larger block may raise the window once more)
+                if not first_block(self, host, ref, _reshape.before):
+                    break
+                system_text, messages, tools = _reshape(None)
+                prompt_tokens, window_factor = prepare_window(
+                    self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
+                    system_text=system_text, messages=messages, tools=tools, auto_calibrate=False,
+                    reply_tokens=requested_max_tokens)
         if getattr(self, "_ollama_overflow_handled", False) and ref is self.model_ref:
             # Compaction already ran this step and the turn in progress (its
             # own tool output) still does not fit: cut that output on the wire.
@@ -3443,9 +3453,10 @@ class Session:
             # Halo 3.2.3.0 R1: the request (this turn's tool results
             # included) does not fit even the largest window this call can
             # get -- compact BEFORE sending, never let Ollama trim it.
-            from halo_harness.agent.ollama_window import pre_send_line
+            from halo_harness.agent.ollama_window import no_earlier_turn, pre_send_line
             _too_large = None if _choice in ("send", "switch") else pre_send_line(self)
-            if not _too_large and not self._just_compacted and _choice != "send":
+            if not _too_large and not self._just_compacted and _choice != "send" and not no_earlier_turn(self):
+                # 3.6.0.19 LM: a conversation with no earlier turn is never compacted (nothing to summarise)
                 # Halo 3.3.4.0 R3: the compaction trigger per model, before the call
                 from halo_harness.agent.ollama_window_steward import compact_due
                 _too_large = compact_due(self)
@@ -4979,6 +4990,10 @@ class Session:
         if self.route.dialect == "ollama":
             from halo_harness.agent.ollama_window_truth import compaction_window
             _window = max(_window or 0, compaction_window(self) or 0) or _window
+            from halo_harness.agent.ollama_window import no_earlier_turn
+            if no_earlier_turn(self):  # 3.6.0.19 LM: a conversation with no earlier turn has nothing to summarise
+                self._just_compacted = False
+                return
         do_it, trigger_tokens = should_compact(
             prompt_tokens, _window, self.model_profile.max_output_tokens,
             self._compaction_knobs,

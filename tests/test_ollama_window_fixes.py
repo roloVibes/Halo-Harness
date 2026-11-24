@@ -557,6 +557,158 @@ def test_a_session_with_no_spill_is_sent_the_tool_block_of_its_window_every_turn
         fake.stop()
 
 
+# ---- 3.6.0.19 LM batch 3: a new session on a model Halo never measured -------------------------------------------
+
+def _unmeasured_fake(trained: int = 202752, spill: bool = False):
+    """A model Halo has never measured: its `/api/show` names no `num_ctx`, its `model_info` an architecture Halo's
+    memory estimate does not know (no estimate), the home has no `ollama-fit.json` and the host no `max_ctx` (the
+    home `_unmeasured_home` makes): the window it resolves is a default the prompt floor raises over. `spill`: a
+    window of 32,768 or more runs half on the CPU."""
+    fake = _spilling_fake() if spill else L._fake()
+    fake.show_responses[MODEL]["model_info"] = {
+        "general.architecture": "examplearch", "examplearch.context_length": trained,
+        "examplearch.embedding_length": 2048, "examplearch.block_count": 47}
+    return fake
+
+
+def _unmeasured_home(fake):
+    return L._home(fake, max_ctx=None)
+
+
+def _chats(fake) -> list:
+    return [r["body"] or {} for r in fake.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
+
+
+def _carries(body: dict, text: str) -> bool:
+    return any(text in json.dumps(m.get("content"), ensure_ascii=False) for m in body.get("messages") or []
+               if isinstance(m, dict) and m.get("role") == "user")
+
+
+def _windows_named(out: str) -> dict:
+    """Every window a `↳` line names: the diet line's `(window N)`, "sized by the N window", "reloaded at Nk"."""
+    import re
+    return {"diet": {int(w.replace(",", "")) for ln in out.splitlines() if "not offered to" in ln
+                     for w in re.findall(r"\(window ([\d,]+)\)", ln)},
+            "sized": {int(w.replace(",", "")) for w in re.findall(r"sized by the ([\d,]+) window", out)},
+            "reloaded": set(re.findall(r"reloaded at (\d+k)", out))}
+
+
+FIRST = "Question one: what is a harness? Reply with exactly one word: ready"
+
+
+@test
+def test_a_new_session_on_a_model_never_measured_names_the_one_window_it_is_sent(ctx: Ctx):
+    """3.6.0.19 LM batch 3: a session of three turns on a model Halo never measured, nothing loaded: the window it
+    resolves (a default) is raised over by the first request; the tool block is the one of the window that first call
+    is sent, the diet line names that window and no other, nothing is compacted, every request holds the person's
+    first message (it was: the block of the default and a diet line naming the default, a window never sent)."""
+    fake = _unmeasured_fake()
+    try:
+        fh = _unmeasured_home(fake)
+        texts = [FIRST, "Question two: reply with exactly one word: done", "Question three: what did I ask first?"]
+        rc, ended, out = _session_said(fh, fake, [_user(t) for t in texts], timeout=400)
+        ctx.check(f"a three-turn session: exit 0 and three turns ended, got {rc} {ended}", rc == 0 and ended == 3)
+        chats = _chats(fake)
+        sent = [(b.get("options") or {}).get("num_ctx") for b in chats]
+        ctx.check(f"three calls, no compaction call (each carries the first question), got {len(chats)} "
+                  f"{[_carries(b, 'Question one') for b in chats]}",
+                  len(chats) == 3 and all(_carries(b, "Question one") for b in chats))
+        ctx.check(f"every window sent holds its request (nothing cut), got {fake.cuts}", not fake.cuts)
+        named = _windows_named(out)
+        ctx.check(f"the diet line names exactly one window, the first sent ({sent[:1]}), got {named['diet']}",
+                  bool(sent) and named["diet"] == {sent[0]})
+        ctx.check(f"every window a line names is sent, got {named} {sent}",
+                  named["sized"] <= set(sent) and not named["reloaded"])
+        ctx.check(f"no line says the request will be cut, got {out[-900:]!r}", "this will be cut" not in out)
+        ctx.check("the third request still carries the first user message",
+                  len(chats) == 3 and _carries(chats[2], "Question one"))
+        names = _chat_tool_names(fake)
+        ctx.check(f"one tool block on every request, got {[len(n) for n in names]}",
+                  bool(names) and all(n == names[0] for n in names))
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_session_held_at_a_larger_loaded_window_is_sent_that_windows_tool_block(ctx: Ctx):
+    """3.6.0.19 LM batch 3: another program left the model loaded at 65,536, wholly on the card; the session holds that
+    window (nothing reloaded) and is sent the tool block of a plain session at 65,536 from its first request on (it
+    was the block of the window the home resolves, a diet line naming that window)."""
+    fake = _unmeasured_fake()
+    try:
+        fh = _unmeasured_home(fake)
+        fake.preload(MODEL, CAP)
+        texts = [FIRST, "Question two: reply with exactly one word: done"]
+        rc, ended, out = _session_said(fh, fake, [_user(t) for t in texts], timeout=400)
+        ctx.check(f"a two-turn session: exit 0 and two turns ended, got {rc} {ended}", rc == 0 and ended == 2)
+        sent = [(b.get("options") or {}).get("num_ctx") for b in _chats(fake)]
+        ctx.check(f"every call holds the loaded window, nothing reloaded, got {sent} {fake.loads}",
+                  bool(sent) and set(sent) == {CAP} and not fake.loads)
+        names = _chat_tool_names(fake)
+        ref = _plain_session_names(CAP, [FIRST])[0]
+        ctx.check(f"the first request carries a plain session's block at {CAP:,} ({len(ref)} tools), got "
+                  f"{[len(n) for n in names[:1]]}", bool(names) and names[0] == ref)
+        ctx.check(f"every later request the same names, got {[len(n) for n in names]}",
+                  all(n == names[0] for n in names))
+        named = _windows_named(out)
+        ctx.check(f"a diet line names only the window held, got {named['diet']}", named["diet"] <= {CAP})
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_session_on_a_spilling_load_with_nothing_measured_names_no_window_it_does_not_send(ctx: Ctx):
+    """3.6.0.19 LM batch 3: the model loaded at 65,536, a window that runs half on the CPU, and nothing measured: the
+    reload goes to the window the request needs; no line names a window that is not sent, none says a window nothing
+    measured is "known to fit the card", and the tool block is one on every request."""
+    fake = _unmeasured_fake(spill=True)
+    try:
+        fh = _unmeasured_home(fake)
+        fake.preload(MODEL, CAP)
+        texts = [FIRST, "Question two: reply with exactly one word: done", "Question three: what did I ask first?"]
+        rc, ended, out = _session_said(fh, fake, [_user(t) for t in texts], timeout=400)
+        ctx.check(f"a three-turn session: exit 0 and three turns ended, got {rc} {ended}", rc == 0 and ended == 3)
+        sent = [(b.get("options") or {}).get("num_ctx") for b in _chats(fake)]
+        ctx.check(f"reloaded under the spill once, every call there, got {sent} {fake.loads}",
+                  bool(sent) and len(set(sent)) == 1 and sent[0] < 32768 and len(fake.loads) == 1)
+        from halo_harness.providers.ollama_prompt import fmt_window
+        named = _windows_named(out)
+        ctx.check(f"every window a line names is sent, got {named} {sent}",
+                  named["diet"] <= set(sent) and named["sized"] <= set(sent)
+                  and named["reloaded"] <= {fmt_window(s) for s in sent})
+        ctx.check(f"no line says a window nothing measured is known to fit, got {out[-900:]!r}",
+                  "known to fit the card" not in out)
+        names = _chat_tool_names(fake)
+        ctx.check(f"one tool block on every request, got {[len(n) for n in names]}",
+                  bool(names) and all(n == names[0] for n in names))
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_first_request_larger_than_the_window_is_never_compacted(ctx: Ctx):
+    """3.6.0.19 LM batch 3: a model whose trained window (4,096) is smaller than Halo's own first request: a
+    conversation with no earlier turn has nothing to summarise, so it is not compacted (it was: "this will be cut:
+    compacting first", a compaction that lost the question). The person reads the existing line that the system prompt,
+    the memory and the tools alone are more than the window holds, and the request is sent as "send anyway" sends it."""
+    fake = _unmeasured_fake(trained=4096)
+    try:
+        fh = _unmeasured_home(fake)
+        rc, ended, out = _session_said(fh, fake, [_user(FIRST)], timeout=400)
+        ctx.check(f"one turn: exit 0 and it ended, got {rc} {ended}", rc == 0 and ended == 1)
+        chats = _chats(fake)
+        ctx.check(f"no compaction call: one call, carrying the first question, got {len(chats)} "
+                  f"{[_carries(b, 'Question one') for b in chats]}",
+                  len(chats) == 1 and _carries(chats[0], "Question one"))
+        ctx.check(f"no line says it compacts or summarises, got {out[-900:]!r}",
+                  "compact" not in out and "summarises" not in out)
+        ctx.check(f"the line that the fixed part alone is over the window, got {out[-900:]!r}",
+                  "the system prompt, the memory and the tools alone are" in out and "this 4,096 window" in out)
+        ctx.check(f"sent as 'send anyway' sends it, got {out[-900:]!r}", "sending anyway (the tail is kept)" in out)
+    finally:
+        fake.stop()
+
+
 @test
 def test_a_one_shot_too_large_for_the_spill_window_is_sent_the_larger_one_and_says_so(ctx: Ctx):
     # 3.6.0.12 OS: a prompt of about 12,000 tokens does not fit 16,384 with the reply's room: the larger window is

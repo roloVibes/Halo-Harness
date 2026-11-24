@@ -337,6 +337,7 @@ def one_shot_shaper(session, ref, request, *, raw=None, post=None, purpose: str 
         if window not in shaped:
             shaped[window] = _at(window, "measure")
         return shaped[window]
+    reshape.before = before  # 3.6.0.19 LM batch 3: the window `request` was shaped for (ollama_window_truth.first_block)
     return reshape
 
 

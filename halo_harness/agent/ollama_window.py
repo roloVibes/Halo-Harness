@@ -21,6 +21,7 @@ only grows by the call sites:
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from typing import Optional
@@ -68,10 +69,30 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
         st["last"] = {"estimate": estimate, "choice": choice, "host_name": host.name, "host_url": host.url,
                       "model": ref.model, "tool_tokens": tool_output_tokens(messages),
                       "gpu_fits_up_to": getattr(decision, "gpu_fits_up_to", None), "reserve": reserve,
-                      "profile": profile}
+                      "profile": profile, "first": _first_request(messages), "parts": (system_text, tools)}
         from halo_harness.agent.ollama_window_steward import note_prepared
         note_prepared(st, estimate, reserve, session)
     return estimate, factor
+
+
+def _first_request(messages) -> bool:
+    """3.6.0.19 LM: a request that holds nothing before the person's prompt: no answer (no assistant message, so no
+    earlier turn and no tool step of this one) and no compaction's summary."""
+    from halo_harness.agent.prompt_composition import SUMMARY_MARK
+    for m in messages or []:
+        if not isinstance(m, dict) or m.get("role") == "assistant":
+            return False
+        content = m.get("content")
+        if SUMMARY_MARK in (content if isinstance(content, str) else json.dumps(content, default=str)):
+            return False
+    return bool(messages)
+
+
+def no_earlier_turn(session) -> bool:
+    """3.6.0.19 LM: the session's last request on its own Ollama model is its conversation's first (nothing answered
+    yet): there is nothing to summarise, so it is never compacted (agent/preflight.run, agent/loop.py's compaction
+    before a call and after the first reply)."""
+    return (_state(session).get("last") or {}).get("first") is True
 
 
 def _session_spill_cap(session, host, ref) -> Optional[int]:

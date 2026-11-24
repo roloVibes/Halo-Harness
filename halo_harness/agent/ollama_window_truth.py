@@ -244,6 +244,9 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         fits = _pos(t.get("fits"))
         cap, cap_source = max(_below(spill), fits if fits and fits < spill else 0), "known to spill"
     many = own and many_turns(session)
+    shaper = reshape  # 3.6.0.19 LM batch 3: the request is lean, shaped for `shaper.before` (prompt_wire.one_shot_shaper)
+    if own:  # a session's first main call on this model: its block is the window it is sent (first_block)
+        st["first_call"] = key if many and prev is None and shaper is not None else None
     # 3.6.0.19 LM: a session of more turns stays at the window a spill lowered it to, its helper calls on the same
     # model too (its compaction): a call larger than it never reloads the model onto the spilling window and back
     kept = _pos((st.get("spill_cap") or {}).get(key)) if many_turns(session) else None
@@ -290,12 +293,17 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
             from halo_harness.providers.ollama_prompt import fmt_window
             now = "runs partly on the CPU there now" if live is False else "ran partly on the CPU there"
             head = f"{ref.model} on {host.name} is loaded at a {fmt_window(loaded)} window that {now}: "
+            # 3.6.0.19 LM: "known to fit" only of a cap the spill's truth or a measurement gave; a default or the
+            # memory estimate is raised to the request's need or is a guess: the load's own line says the window
+            known_cap = cap_source in ("known to spill", "learned cap")
             if one and not _holds(cap):  # 3.6.0.12 OS: the request does not fit under the spill: the larger is sent
-                _queue_line(session, head + f"kept there, the request does not fit {fmt_window(cap)}, the largest "
-                                            "known to fit the card")
+                if known_cap:
+                    _queue_line(session, head + f"kept there, the request does not fit {fmt_window(cap)}, the "
+                                                "largest known to fit the card")
                 return loaded, "loaded", True
-            _queue_line(session, head + f"reloaded at {fmt_window(cap)}, the largest known to fit the card")
-            if one and first and 2 * _prompt(cap) > cap:  # the first call's "at most half" gives way to the spill cap
+            if known_cap:
+                _queue_line(session, head + f"reloaded at {fmt_window(cap)}, the largest known to fit the card")
+            if known_cap and one and first and 2 * _prompt(cap) > cap:  # the first call's "at most half" gives way
                 _queue_line(session, f"the prompt is more than half of it: the reply has {_room(cap):,} tokens")
                 session._reply_room_said = True  # 3.6.0.19 LM: one line says the reply's room (reply_room.for_call)
             return cap, cap_source, False
@@ -329,14 +337,34 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         st.setdefault("spill_cap", {})[key] = cap if held else None
     if reshape is not None:  # 3.6.0.12 OS: the block the call sends (reshape(None)) and every later call starts from
         session._shape_window, session._shape_model = max(window, shaped_for or 0), ref.raw
-    if many:  # 3.6.0.19 LM: a session held at a spill cap from its first request on this model is sent the cap's tool
-        # block (loop.py's reshape(None)) on every call after; the block, once sent, never changes on this model
+    if many:  # 3.6.0.19 LM: a session's tool block is the one of the window its FIRST main call on this model is sent
+        # (loop.py's reshape(None)), on every call after; the block, once sent, never changes on this model. Known here
+        # when that call holds a loaded window or a spill cap; a window the prompt floor raises to is known after
+        # ollama_window.prepare_window (first_block)
         blocks = st.setdefault("block", {})
-        if held and prev is None:
-            blocks[key] = cap
+        if st.get("first_call") == key and (held or hold) and window != getattr(shaper, "before", None):
+            blocks[key] = window
         if blocks.get(key):
             session._shape_window, session._shape_model = blocks[key], ref.raw
     return _ask(window, source, hold)
+
+
+def first_block(session, host, ref, before) -> Optional[int]:
+    """3.6.0.19 LM batch 3: on a session's FIRST main call on this model (start_window marked it), the window the call
+    is sent (ollama_window.prepare_window's choice) when its request was shaped for another window (`before`, the
+    shaper's, or the block start_window set): kept as the session's block on this model and returned, so the caller
+    shapes the request once more for it (prompt_wire.one_shot_shaper's reshape(None)); else None."""
+    st = _state(session)
+    key = (host.url, ref.model)
+    if st.get("first_call") != key:
+        return None
+    sent = getattr((st.get("last") or {}).get("choice"), "num_ctx", None)
+    shaped = getattr(session, "_shape_window", None) if getattr(session, "_shape_model", None) == ref.raw else None
+    if not _pos(sent) or sent == (_pos(shaped) or before):
+        return None
+    st.setdefault("block", {})[key] = sent
+    session._shape_window, session._shape_model = sent, ref.raw
+    return sent
 
 
 def _live_fit(row) -> Optional[bool]:
