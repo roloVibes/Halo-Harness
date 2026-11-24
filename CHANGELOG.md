@@ -94,9 +94,9 @@ found the closing fault repaired here, so this is the first release that holds w
   is the owner's decision.
 - **Stop ends every running `!command` and a running turn with it;** there is no "end only this command". A click on a
   row whose command has just ended, before the page has its result, ends whatever turn runs then.
-- **A prompt pasted with a space before a path now takes the command door, as in the terminal.** ` /home/me/notes.txt
-  explain this` answers "Unknown command: /home/me/notes.txt (try /help)" and the line stays in the box. A line of
-  only spaces and a `!` shows an error row and keeps the line, where the terminal empties its box without a word.
+- **A prompt pasted with a space before a path now takes the command door, as in the terminal.** ` /tmp/notes.txt
+  explain this` answers "Unknown command: /tmp/notes.txt (try /help)" and the line stays in the box. A line of only
+  spaces and a `!` shows an error row and keeps the line, where the terminal empties its box without a word.
 - **The steer box's image chip is still one for the page:** only its text is kept per session.
 - **The timeline shows a running `!command` only while a turn runs, with no Stop, and Agents -> Live does not show it
   at all.** The Feed and the Prompt panel are the two places that name it, and both have its Stop.
