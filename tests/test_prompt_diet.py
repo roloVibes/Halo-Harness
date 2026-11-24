@@ -350,16 +350,19 @@ def test_a_one_shot_asked_at_16384_is_sent_the_tool_block_of_16384(ctx: Ctx):
 
 @test
 def test_a_session_of_more_turns_is_sent_the_tool_block_it_was_sent_before(ctx: Ctx):
-    """The same prompt: a session of more turns gets no reshaper, and its tools are byte-equal to the request shaped at
-    the cap, the block every session was sent before 3.6.0.12 (the one-shot's too, before it is shaped again)."""
+    """The same prompt: a session of more turns with no spill cap held is sent its request as shaped (3.6.0.19 LM batch
+    2: the shaper answers for its main call too, and gives back the very request), and its tools are byte-equal to the
+    request shaped at the cap, the block every session was sent before 3.6.0.12 (the one-shot's too, before it is
+    shaped again)."""
     import json
     from halo_harness.agent.prompt_wire import one_shot_shaper
     many = _first(False)
     once = _first(True)
     session, _full, system_text, messages, sent = many
-    ctx.check("a session of more turns is never shaped again",
-              one_shot_shaper(session, session.model_ref, (system_text, messages, sent),
-                              raw=session._measure_raw) is None)
+    request = (system_text, messages, sent)
+    reshape = one_shot_shaper(session, session.model_ref, request, raw=session._measure_raw)
+    ctx.check("a session of more turns with no spill cap held is never shaped again (the very request back)",
+              reshape is not None and reshape(None) is request)
     ctx.check("its window is never a one-shot's", getattr(session, "_shape_window", None) is None)
     ctx.check(f"its tools are byte-equal to the request shaped at the cap ({len(sent)} and {len(once[4])} tools)",
               json.dumps(sent, sort_keys=True) == json.dumps(once[4], sort_keys=True))
@@ -369,11 +372,11 @@ def test_a_session_of_more_turns_is_sent_the_tool_block_it_was_sent_before(ctx: 
 
 @test
 def test_only_a_one_shot_keeps_the_request_it_may_shape_again(ctx: Ctx):
-    """3.6.0.19 LM: prompt_wire._shape keeps (raw, tools) on `session._turn_raw` for a one-shot only (its one reader,
-    one_shot_shaper, answers None for anything else); a lean turn of a session of more turns keeps nothing, and what
-    is sent is the same."""
+    """3.6.0.19 LM batch 2: prompt_wire._shape keeps (raw, tools) on `session._turn_raw` on a lean turn of an Ollama
+    model, where its one reader (one_shot_shaper, for the main call of a one-shot AND of a session of more turns)
+    reads it: the shaper made with no `raw` finds it; what is sent is the same."""
     import json
-    from halo_harness.agent.prompt_wire import shape
+    from halo_harness.agent.prompt_wire import one_shot_shaper, shape
     for one_shot in (False, True):
         session, _full, *_rest = _first(one_shot)
         before = getattr(session, "_turn_raw", None)
@@ -381,8 +384,10 @@ def test_only_a_one_shot_keeps_the_request_it_may_shape_again(ctx: Ctx):
         kept = getattr(session, "_turn_raw", None)
         label = "a one-shot" if one_shot else "a session of more turns (interactive)"
         ctx.check(f"{label}: nothing kept before its turn is shaped", before is None)
-        ctx.check(f"{label}: {'keeps' if one_shot else 'keeps no'} _turn_raw after a lean turn, got {kept is not None}",
-                  (kept is not None) == one_shot and (not one_shot or kept[1] is out[2]))
+        ctx.check(f"{label}: keeps _turn_raw after a lean turn, got {kept is not None}",
+                  kept is not None and kept[1] is out[2])
+        ctx.check(f"{label}: the shaper of its main call reads what was kept",
+                  one_shot_shaper(session, session.model_ref, out) is not None)
         again = shape(session, *session._measure_raw, purpose="turn")
         ctx.check(f"{label}: the request shaped is the same either way",
                   json.dumps(again, sort_keys=True, default=str) == json.dumps(out, sort_keys=True, default=str))

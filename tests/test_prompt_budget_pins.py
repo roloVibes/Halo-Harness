@@ -36,9 +36,9 @@ test, TESTS = new_registry()
 # answers has the Builder), so the lean cases now carry it. Measured 2026-11-24 in this module's home on 099d5d9c (the
 # released 3.6.0.18) -> with the Builder, win32 / linux, prompt (tool block): 32,768 8,263 / 8,224 (3,980) -> 8,666 /
 # 8,626 (4,383); 16,384 6,521 / 6,518 (2,195) -> 6,524 / 6,520 (2,195, the Builder named on the by-name line only);
-# 49,152 and 65,536 8,260 / 8,221 (3,980) -> 8,663 / 8,624 (4,383). Every bound holds. The 200k cloud row stays a
-# measure WITHOUT the Builder (17,582 / 17,233): with it, 18,882 / 18,533 passes this row's 18,000, and that session is
-# REAL_CASES' pin below (18,000 + the Builder's 1,024), so no bound moved.
+# 49,152 and 65,536 8,260 / 8,221 (3,980) -> 8,663 / 8,624 (4,383). Every bound holds.
+# The 200k row measures the cloud session nobody answers (no Builder: a `-p` run), 17,582 / 17,233; the answered cloud
+# session, with the Builder, is REAL_CASES' pin below (18,000 + the Builder's 1,024).
 # (label, model ref, window, prompt bound, tool block bound, sent window)
 CASES = (("an unknown remote model", "ol:room-model", 32768, 9000, 4500, 32768),
          ("a 16,384 window", "ol:tiny:3b@lan", 16384, 7000, 2200, 16384),

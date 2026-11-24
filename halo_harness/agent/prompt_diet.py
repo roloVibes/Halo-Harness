@@ -82,7 +82,8 @@ def lean_shell(platform: Optional[str] = None) -> Optional[str]:
 
 def call_window(session) -> Optional[int]:
     """The window the next call gets: a one-shot's ask (3.6.0.12 OS: the window its request is shaped for,
-    agent/ollama_window_truth.start_window), a measure's own window, an `ol:` model's resolved num_ctx (what
+    agent/ollama_window_truth.start_window; 3.6.0.19 LM: a session's spill cap held from its first call), a measure's
+    own window, an `ol:` model's resolved num_ctx (what
     `_build_ollama_body_for_ref` starts from), else the model profile's context."""
     model = getattr(getattr(session, "model_ref", None), "raw", None)
     for attr in ("_shape_window", "_measure_window"):

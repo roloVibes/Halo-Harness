@@ -280,27 +280,29 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
         session._prompt_composition = comp
         session._prompt_prefix = {"tokens": comp["prefix_tokens"],
                                   "hash": hashlib.sha1(prefix.encode("utf-8")).hexdigest()[:12]}
-        from halo_harness.agent.helpers_words import one_shot
-        if lean and one_shot(session):  # 3.6.0.19 LM: its one reader is a one-shot's
+        from halo_harness.agent.model_window import kind_of
+        if lean and kind_of(getattr(session, "model_ref", None)) == "ollama":  # 3.6.0.19 LM: its one reader's calls
             session._turn_raw = (raw, tools)  # 3.6.0.12 OS: what `one_shot_shaper` shapes again for the window asked
     return system_text, messages, tools
 
 
 def one_shot_shaper(session, ref, request, *, raw=None, post=None, purpose: str = "turn"):
-    """3.6.0.12 OS: for a ONE-SHOT's main call on a lean request (helpers_words.one_shot; a session of more turns, a
-    helper call and a cloud model get None and are untouched), `reshape(w)`: this call's request shaped again with the
-    diet of a window of `w` (nothing queued, nothing kept; ollama_window_truth.start_window measures each ladder step
-    with it); `reshape(None)`: the request shaped for the window the ask chose (`session._shape_window`), the request
-    the call sends, its "not offered" line the one queued. `request` is `shape`'s output for this call (`raw`, its
-    input, defaults to the one `shape` kept); `post` is applied to each shaped request (a measure's fixed paths)."""
+    """3.6.0.12 OS: for the main call of an Ollama model on a lean request (a one-shot's; 3.6.0.19 LM: a session of more
+    turns' too; a helper call and a cloud model get None and are untouched), `reshape(w)`: this call's request shaped
+    again with the diet of a window of `w` (nothing queued, nothing kept; ollama_window_truth.start_window measures each
+    ladder step of a one-shot with it); `reshape(None)`: the request shaped for the window the call's block is kept at
+    (`session._shape_window`, when it is this model's: a one-shot's ask, a session held at a spill cap), the request the
+    call sends, its "not offered" line the one queued; with no such window, or the one `request` was shaped for, the
+    very `request`. `request` is `shape`'s output for this call (`raw`, its input, defaults to the one `shape` kept);
+    `post` is applied to each shaped request (a measure's fixed paths)."""
     from halo_harness.agent import prompt_lean as L
-    from halo_harness.agent.helpers_words import one_shot
+    from halo_harness.agent.model_window import kind_of
     from halo_harness.agent.ollama_window_truth import is_main_call
     try:
         kept = getattr(session, "_turn_raw", None)
         if raw is None and kept and kept[1] is request[2]:
             raw = kept[0]
-        if raw is None or not request[2] or not is_main_call(session, ref) or not one_shot(session) \
+        if raw is None or not request[2] or not is_main_call(session, ref) or kind_of(ref) != "ollama" \
                 or not L.active(session):
             return None
         before = L.call_window(session)  # the window `request` was shaped for
@@ -324,7 +326,8 @@ def one_shot_shaper(session, ref, request, *, raw=None, post=None, purpose: str 
 
     def reshape(window=None):
         if window is None:
-            window = getattr(session, "_shape_window", None)
+            window = getattr(session, "_shape_window", None) \
+                if getattr(session, "_shape_model", None) == getattr(ref, "raw", None) else None
             if window == before or not isinstance(window, int):
                 return request
             _take_back(session, getattr(session, "_diet_line", None))

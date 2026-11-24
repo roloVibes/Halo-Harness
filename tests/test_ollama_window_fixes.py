@@ -434,6 +434,53 @@ def _session_said(fh, fake, turns: list, timeout: float = 300) -> "tuple[int, in
             proc.kill()
 
 
+def _tool_names(tools) -> list:
+    """The names of a tool block, from a request body (`{"function": {"name"}}`) or a shaped request (`{"name"}`)."""
+    return [(t.get("function") or {}).get("name") or t.get("name") for t in tools or [] if isinstance(t, dict)]
+
+
+def _measured_names(fh, window: int, text: str) -> list:
+    """The product's own measure (agent/prompt_measure._first_request) of a NEW session of more turns in this fake home
+    at `window`, its first user message `text`, no Builder (a `-p` run): the names of the tools its first request
+    sends. The process's home is put back after."""
+    import os
+    from halo_harness.agent.prompt_measure import _first_request
+    keys = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")
+    was = {k: os.environ.get(k) for k in keys}
+    os.environ.pop("BRIDGE_STATE_DIR", None)
+    os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+    try:
+        sent = _first_request(f"ol:{MODEL}@gpu-box", window=window, platform=sys.platform, cwd=fh["proj"],
+                              one_shot=False, builder=False, text=text)[4]
+    finally:
+        for k, v in was.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    return _tool_names(sent)
+
+
+def _chat_tool_names(fake) -> list:
+    """The tool names of every `/api/chat` request that carries tools, in order."""
+    return [_tool_names(b.get("tools")) for b in (r["body"] or {} for r in fake.requests
+            if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat") if b.get("tools")]
+
+
+def _plain_session_names(window: int, texts: list) -> list:
+    """The tool names of every request of a session of more turns on the plain fake (nothing spills) whose host's
+    max_ctx is `window`: what a session on a model of that window is sent."""
+    fake = L._fake()
+    try:
+        fh = L._home(fake, max_ctx=window)
+        rc, ended, _out = _session_said(fh, fake, [_user(t) for t in texts], timeout=300)
+        if rc != 0 or ended != len(texts):
+            raise AssertionError(f"the plain session at {window:,} did not end: {rc} {ended}")
+        return _chat_tool_names(fake)
+    finally:
+        fake.stop()
+
+
 @test
 def test_a_session_under_the_spill_is_sent_the_window_the_line_names_every_turn(ctx: Ctx):
     """3.6.0.19 LM: a session of more turns (stream-json) on the spilling fake preloaded at 32,768, its first turn
@@ -464,6 +511,48 @@ def test_a_session_under_the_spill_is_sent_the_window_the_line_names_every_turn(
         ctx.check(f"the reply's room is said once, sized by 16,384, got {out[-900:]!r}",
                   out.count("the reply's room is") == 1 and "sized by the 16,384 window" in out)
         ctx.check(f"no line names the 32,768 window as the one sized, got {out[-900:]!r}", "32,768 window" not in out)
+        # 3.6.0.19 LM batch 2 (the coordinator's ruling): from the first request it sends, the tool block of a plain
+        # session whose window is the cap, every request the same; every line names that one window
+        names = _chat_tool_names(fake)
+        ref = _plain_session_names(16384, ["Reply with exactly one word: ready"])[0]
+        full = _plain_session_names(CAP, ["Reply with exactly one word: ready"])[0]
+        print(f"  the cap's block {len(ref)} tools, the resolved window's {len(full)}; sent {[len(n) for n in names]}")
+        ctx.check(f"the first request carries the cap's tool block ({len(ref)} tools), got {names[:1]}",
+                  bool(names) and names[0] == ref)
+        ctx.check(f"every later request carries the same names, got {[len(n) for n in names]}",
+                  all(n == names[0] for n in names))
+        ctx.check(f"the cap's block is not the resolved window's (the test sees a difference), {len(ref)} {len(full)}",
+                  ref != full)
+        diet = [ln.strip() for ln in out.splitlines() if "not offered to" in ln]
+        ctx.check(f"the diet line names the window sent, got {diet}",
+                  bool(diet) and all("(window 16,384)" in ln for ln in diet))
+        ctx.check(f"no line names 65,536, got {[ln for ln in out.splitlines() if '65,536' in ln]}", "65,536" not in out)
+    finally:
+        fake.stop()
+
+
+@test
+def test_a_session_with_no_spill_is_sent_the_tool_block_of_its_window_every_turn(ctx: Ctx):
+    """3.6.0.19 LM batch 2: a session of more turns on the plain fake (no spill): every request's tool names are those
+    the product's own measure gives at the resolved window (the host's max_ctx), as before this batch: nothing is
+    shaped again. The measure's registry is the built-in tools only: the session's own others (none of the measure's)
+    are compared as the same in every request."""
+    fake = L._fake()
+    try:
+        fh = L._home(fake)
+        texts = ["Reply with exactly one word: ready", "Reply with exactly one word: done"]
+        rc, ended, out = _session_said(fh, fake, [_user(t) for t in texts], timeout=300)
+        ctx.check(f"a two-turn session: exit 0 and two turns ended, got {rc} {ended}", rc == 0 and ended == 2)
+        sent = [(b.get("options") or {}).get("num_ctx") for b in L._turn_chats(fake)]
+        ctx.check(f"every turn is sent the resolved window {CAP:,}, got {sent}", bool(sent) and set(sent) == {CAP})
+        names = _chat_tool_names(fake)
+        want = [_measured_names(fh, CAP, t) for t in texts]
+        ctx.check(f"one request with tools per turn, got {len(names)}", len(names) == len(texts))
+        for i, (got, w) in enumerate(zip(names, want)):
+            own = [n for n in got if n in w]
+            ctx.check(f"turn {i + 1}: the measure's block at {CAP:,} ({len(w)} tools), got {own}", own == w)
+            ctx.check(f"turn {i + 1}: the session's other tools as on the first, got {got}",
+                      [n for n in got if n not in w] == [n for n in names[0] if n not in want[0]])
     finally:
         fake.stop()
 

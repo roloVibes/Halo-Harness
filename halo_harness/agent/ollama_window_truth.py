@@ -205,7 +205,9 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     spill. A prompt larger than all of that is the prompt floor's to raise (agent/ollama_window.prepare_window).
     3.6.0.12 OS, `reshape` (prompt_wire.one_shot_shaper, a one-shot's main call only): each window is measured with the
     request's tool block shaped for THAT window, never smaller than an earlier call of the run sent; the window the
-    block is shaped for is kept on `session._shape_window` (prompt_diet.call_window reads it)."""
+    block is shaped for is kept on `session._shape_window` (prompt_diet.call_window reads it). 3.6.0.19 LM: a session of
+    more turns held at a spill cap on its first call on a model keeps that cap there, so its block is the cap's on
+    every call after (the ladder is still measured with the request's own block)."""
     st = _state(session)
     key = (host.url, ref.model)
     own = is_main_call(session, ref)  # fix pass F4: helper calls (small model, compaction, titles, hooks) never grow
@@ -327,6 +329,13 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         st.setdefault("spill_cap", {})[key] = cap if held else None
     if reshape is not None:  # 3.6.0.12 OS: the block the call sends (reshape(None)) and every later call starts from
         session._shape_window, session._shape_model = max(window, shaped_for or 0), ref.raw
+    if many:  # 3.6.0.19 LM: a session held at a spill cap from its first request on this model is sent the cap's tool
+        # block (loop.py's reshape(None)) on every call after; the block, once sent, never changes on this model
+        blocks = st.setdefault("block", {})
+        if held and prev is None:
+            blocks[key] = cap
+        if blocks.get(key):
+            session._shape_window, session._shape_model = blocks[key], ref.raw
     return _ask(window, source, hold)
 
 
