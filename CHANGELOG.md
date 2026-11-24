@@ -107,15 +107,15 @@ requests fit, are sent byte for byte what 3.6.0.18 sent (the request bodies were
 
 - **A model Halo has not measured can be held at a window that is far too small.** Halo's memory estimate counts
   about thirty times too much for one family of models (latent attention). Seen on a real 30B model: the estimate
-  says 4k, while the model sits wholly on its card at 65,536. A new session on it then reads "... more
-  than this 4,096 window holds ...: a bigger-window model holds them" (for this model untrue: it is the estimate
-  that is small) and "sending anyway", is sent at 4k, and from the second turn runs at a larger window with a
-  reload and another tool block, which can change once more on a later turn (the estimate moves while the model
-  is loaded). Measuring does not help yet: `halo
-  local measure <model>` found a far larger window safe for that model and the next session still started at 4k,
-  because the smaller of the estimate and the measurement wins. What does help today is a window of your own for that model:
-  `halo ollama profile set <host> <model> num_ctx 32768`; a new session then starts at 32,768 with one window in
-  every line (checked on the real model). The estimate itself is the next release's first job.
+  says 4k, while the model sits wholly on its card at 65,536. A new session on it then reads "... more than this
+  4,096 window holds ...: a bigger-window model holds them" (for this model untrue: it is the estimate that is
+  small) and "sending anyway", is sent at 4k, and from the second turn runs at a larger window with a reload and
+  another tool block, which can change once more on a later turn (the estimate moves while the model is loaded).
+  Measuring does not help yet: `halo local measure <model>` found a far larger window safe for that model and the
+  next session still started at 4k, because the smaller of the estimate and the measurement wins. What does help
+  today is a window of your own for that model: `halo ollama profile set <host> <model> num_ctx 32768`; a new
+  session then starts at 32,768 with one window in every line (checked on the real model). The estimate itself is
+  the next release's first job.
 - The names of the tools of your other MCP servers are in every request of a local session, and `halo local
   prompt` does not count them. With many servers that is thousands of tokens.
 - A spill found only after a session's first call (nothing loaded at the start, the first load spills): the window
