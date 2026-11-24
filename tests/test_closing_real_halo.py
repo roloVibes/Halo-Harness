@@ -275,7 +275,7 @@ def _quit_while_a_read_hangs(c: "core.Ctx", how: str, stuck: bool = True, claude
         row["code"] = t.poll()
         text = _settled(t)
         row["last_lines"] = _last_lines(text)
-        row["way_out"] = _way_out(text)
+        row["way_out"] = _way_out(_after_the_app(t))
         row["left"] = [f"{p.short(110)} [{p.why}]" for p in c.left_after(h, 0.5)]
         if claude:
             row["claude"] = sorted(f.name.split("-")[0] for f in row["claude_dir"].iterdir() if "-" in f.name)
@@ -333,6 +333,19 @@ def _claude_standin(folder: Path, trace: Path) -> str:
 
 
 _WAY_OUT = ("halo:", "stopped:", "stand-in:")
+_ALT_OFF = "[?1049l"  # the terminal leaves the app's own screen
+
+
+def _after_the_app(t) -> str:
+    """What the process wrote once it had left the app's own screen for the last time, as plain text: the terminal's
+    text from its last "alternate screen off" on (the whole text where a terminal reports no such switch). Read as
+    one flat text, the screen's last row and the first line after it are ONE line, and a way-out line that follows a
+    row ending in a letter ("...-0/proj" + "halo: left running on purpose: ...") was not found: CI's Linux runner,
+    2026-11-24, and the Linux VM with a longer folder name. The line was printed; only this reading lost it."""
+    from realcheck.term import strip_ansi
+    raw = t.text()
+    cut = raw.rfind(_ALT_OFF)
+    return strip_ansi(raw[cut:] if cut >= 0 else raw)
 
 
 def _settled(t) -> str:
@@ -533,7 +546,7 @@ def _rig(c: "core.Ctx", way: str, stuck: bool, kept: bool) -> dict:
         row["code"] = t.poll()
         text = _settled(t)
         row["last_lines"] = _last_lines(text)
-        row["way_out"] = _way_out(text)
+        row["way_out"] = _way_out(_after_the_app(t))
         row["kept_pid"] = kept_pid
         _end_kept(kept_pid, kept_start)  # it holds the terminal (Windows: its conhost) while it runs
         row["left"] = [f"{p.short(110)} [{p.why}]" for p in c.left_after(h, 2.0) if p.pid != kept_pid]
