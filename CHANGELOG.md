@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.17] - unreleased
+## [3.6.0.17] - 2026-11-23
 
 Closed means gone, also while the network hangs; and the prompt, one to one. A terminal Halo you quit no longer stays
 alive behind a background check that waits on a network that does not answer. Session's Prompt box in Studio now does

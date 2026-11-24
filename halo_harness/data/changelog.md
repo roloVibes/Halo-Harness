@@ -1,5 +1,122 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.17] - 2026-11-23
+
+Closed means gone, also while the network hangs; and the prompt, one to one. A terminal Halo you quit no longer stays
+alive behind a background check that waits on a network that does not answer. Session's Prompt box in Studio now does
+with a line what the terminal's prompt does: a `!command` or `/command` typed after a space runs as a command, a
+`/command` runs with an image waiting under the box, a refused `!command` shows once and the box empties, and Up and
+Down move through a long wrapped line a screen line at a time. A running `!command` can be stopped from its row in the
+Feed, and the Agent panel names a running tool as its box does. 3.6.0.16 was not published on its own: its release run
+found the closing fault repaired here, so this is the first release that holds what both sections say.
+
+### Changed
+
+- **A `!command` or `/command` typed after a space or a blank line runs as a command in Studio's Prompt box.** As in
+  the terminal, the line runs in the session with no model turn. Before, Studio sent it to the model as a prompt. A
+  text of two lines that both have words and a `!` inside a line are prompts, as before.
+- **A `/command` typed while an image is under the box runs as a command.** The image waits under the box for the next
+  prompt, as the terminal keeps it. Before, the line went to the model with the image.
+- **After a refused `!command` the Prompt box is empty, as the terminal's is.** Up brings the line back. Before,
+  Studio kept the line in the box.
+- **Up and Down on one long prompt that wraps in the box move a screen line at a time first.** Then Up goes to the
+  start and Down to the end, and then through the prompts you sent, as in the terminal. Before, Up on a wrapped line
+  went straight to the start.
+- **`s` on a row of the Feed pins that agent, exactly as the row's "steer ▸" does.** One act, one result; Esc on a row
+  shows everyone again. Before, `s` aimed the steer box without the pin.
+- **The Agent panel's glance line and a pinned agent's small floating panel name a running tool as its box does.** An
+  MCP tool reads as its name alone (`mcp__srv__slow_tool`, not `mcp__srv__slow_tool {"seconds": 30}`), and a built-in
+  reads "Bash ls -la" (before, "Bash: ls -la"). A waiting, paused, queued or finished agent reads as before, and the
+  whole input stays in the tool row's detail.
+
+### Added
+
+- **A running `!command` has its own Stop on its row in the Feed.** The same "Stop" its row in the Prompt panel has,
+  with the same hover: "Stop: ends this command now, and a running turn with it (Esc in the terminal does the same)".
+  A click on it does not open the row, a model's tool rows and a session of another machine's Halo have none, and when
+  the command ends the Stop goes while the elapsed time keeps its place at the row's end.
+
+### Fixed
+
+- **A Halo you quit is gone, also while the network hangs.** A terminal session starts a few checks in the background
+  when it opens: who is signed in, the model catalog, your balances, whether an update is out. When you quit while one
+  of them waited on a network that did not answer, the Halo process stayed alive until that wait gave up by itself:
+  seconds for most, minutes for the catalog (30 seconds a provider), and the update check's `git` and git's https
+  helper stayed with it. 3.6.0.16's release run saw exactly that on Windows: five seconds after Ctrl+C a `python.exe`,
+  a `git.exe` and a `git-remote-https.exe` were still running. Now a quit waits for them at most two seconds, all of
+  them together. Halo then saves the session and prints its last lines as before, and when a check is still stuck it
+  is gone half a second after the last line, whatever that check waits for: 2.7 seconds from the quit to gone,
+  measured on Windows and on Linux, against 0.2 to 0.4 seconds with nothing stuck. Every way out of the terminal has
+  this bound: Ctrl+C and its confirm, `/quit`, an error that ends the app, and `/update`'s restart, where it starts
+  only after the hand-off to the updater has returned, never during it. A quit where nothing is stuck leaves as it
+  did: the same lines, the same exit code, the same saved session.
+- **The update check's git ends with Halo.** The check's `git ls-remote` runs in a group of its own and is ended with
+  everything it started, the https helper included, the moment Halo leaves, and at its five-second limit while Halo
+  runs. Before, the limit ended git alone and then waited on the helper, which held git's output open. A check that a
+  quit cut short is not remembered as "no network": the next launch asks again. A catalog refresh asks no further
+  provider once Halo is leaving.
+- **A thing you asked Halo to leave running is named in every quit.** "halo: left running on purpose: ..." is printed
+  also when a background check is stuck; the lines of a stuck quit are those of any other quit.
+- **On Windows a command ended at its time limit no longer holds Halo.** After Halo ended a command that ran over its
+  limit, it waited without limit for the command's output to close, and a helper the command had started could hold it
+  open. Halo now waits at most one second for the rest of the output.
+- **A `!command` refused by a rule of yours shows once in the Prompt panel.** `!<cmd>` over `denied: <reason>`, not
+  twice. A `!command` refused in the terminal still shows the session's own line in the panel, and Live's journal
+  still records every refusal.
+- **The Feed's steer box keeps its unsent text for each session.** Moving Session to another session shows that
+  session's own text (empty when it has none), so a text written for one session is never sent to another. Before, one
+  text stood for the whole page.
+
+### Known limits
+
+- **A background check that is stuck is left behind, not ended.** Its thread is abandoned when the process leaves half
+  a second after the quit's last line; what it was reading is not saved. A check of Halo's own that runs a program
+  longer than the two-second wait (the launch's `claude auth status` on a quit in its first seconds) has that program
+  ended by the closing procedure, which on Linux and macOS names it "left running by a tool command". Print mode,
+  Studio's server and `halo local serve` are as they were: this bound is the terminal app's.
+- **A Ctrl+C during `/update`'s hand-off to the updater leaves without the bound,** as 3.6.0.16 did. When an error
+  ends the app, Halo's last lines now print before the error's traceback.
+- **The closing repairs were not run by hand on macOS.** CI's macOS legs run their tests and the real-use check's
+  `closing` step.
+- **On one loaded Windows machine the real-use check's Ctrl+C step fails in about half its runs** (seen while this
+  release was built): the Ctrl+C keys the checker sends do not all reach Halo, so no quit is asked. It passes on Linux
+  and on CI's Windows runners. Whether the checker's key sending or Halo's console input loses them is not yet known;
+  it is the next thing looked at.
+- **A `!command` line from the phone bridge or from voice is still a prompt.** Letting a remote surface run a command
+  is the owner's decision.
+- **Stop ends every running `!command` and a running turn with it;** there is no "end only this command". A click on a
+  row whose command has just ended, before the page has its result, ends whatever turn runs then.
+- **A prompt pasted with a space before a path now takes the command door, as in the terminal.** ` /tmp/notes.txt
+  explain this` answers "Unknown command: /tmp/notes.txt (try /help)" and the line stays in the box. A line of only
+  spaces and a `!` shows an error row and keeps the line, where the terminal empties its box without a word.
+- **The steer box's image chip is still one for the page:** only its text is kept per session.
+- **The timeline shows a running `!command` only while a turn runs, with no Stop, and Agents -> Live does not show it
+  at all.** The Feed and the Prompt panel are the two places that name it, and both have its Stop.
+- **On a very narrow Feed, where a tool row's first line wraps, the row can wrap differently when the Stop goes.** The
+  result's line arrives under the row at the same moment.
+- **The one row for a refused `!command` is proven in the panel's own rule, not in a browser:** the browser check
+  holds the one row and the emptied box, but its page does not draw the session's own error line, so it could not show
+  two rows either way.
+- **A click on the Feed's Stop was not shown ending a real `!command` in a real session.** The check holds that the
+  click reaches the session's door; the same Stop on the Prompt panel's row is shown ending a real command.
+- **Up and Down on a wrapped line were driven in Chrome on Linux and once on Windows;** each browser makes its own
+  move inside the text, and macOS is CI's part.
+- **Every Known limit of 3.6.0.16 still holds, except this one:** the Agent panel's glance line and a pinned agent's
+  small floating panel no longer write an MCP tool's raw arguments.
+- **Where it was checked.** On the Linux VM, on the final code: all three suites (the module runner's four shards, the
+  bridge suite and the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), the
+  browser modules of the Prompt box, the Feed, the steer box, Session's drawing and the card, the closing and update
+  modules, and the full real-use check, twenty of twenty steps; named alone, its `closing` step (all 28 ways out left
+  nothing) and its `update` step passed three more times each. On the PC (Windows), one at a time, on the final code:
+  every node-backed module, this release's four browser modules, the closing modules (the ones that start a real Halo
+  three times), every update module and the terminal app's quit tests. The real-use check's `closing` step was not
+  used as a gate on the PC: see the limit above. Three reviewers read this release: one the Prompt box and the Feed
+  (nothing that must be fixed; two sentences of these notes were corrected), one the first closing repair (nothing
+  that must be fixed; it named what still held a quit, which became the second), and one the quit's bound, who found
+  that a healthy quit on Linux and macOS could end a short program of one of Halo's own checks and print a false
+  "halo: ended" line; that was repaired and its test fails on the code before. Browsers on macOS are CI's part, and
+  nothing was run on macOS by hand.
+
 ## [3.6.0.16] - 2026-11-23
 
 Small repairs after 3.6.0.15. Main is now told about an agent you save, delete or undo only when the names it can
@@ -1260,202 +1377,3 @@ workflows and agents are named as the pack's. The limits that remain are at the 
   expected the pack picker to be the last thing in the form's box of fields, which the new Workflows list under it
   ended. Not run: macOS locally (CI runs it at the release gate), Firefox on Windows or macOS, Safari, and a look-only
   tab across a real restart of Studio by a person (the test starts a second Studio under the open tab).
-
-## [3.6.0.5] - 2026-11-20
-
-The default is called Auto everywhere you read it, and the word "starter" leaves what Halo shows you. On Auto, the Live
-drawings show each piece of work main hands out as a named, coloured group, and after a build Halo says what is ready in
-this session now. The Attention chip left the Agents section: Session's Attention button counts what waits. A map of
-your own is drawn as before. The limits that remain are at the end of this section.
-
-### Added
-
-- **On Auto, each piece of work is a named, coloured group.** In Session's Live drawer and in Agents -> 4 · Live, a
-  session on Auto shows main alone until main starts a helper. Then each piece of work main hands out is one box in a
-  colour of its own: four colours that repeat (the fifth group takes the first again), never a state's colour. A new
-  group comes under the last one and nothing already drawn moves; main's box keeps the room of its usual fullest state
-  from the first draw (a longer line, such as a long command, grows it once, and it then holds), so the groups under it
-  stand still. In Session the drawing fills its drawer from the first draw; a group that does not fit whole is cut by
-  the drawer's edge and reached by scrolling. Helpers on the same piece of work share one box, also when main hands out
-  more of it in a later reply; a helper started by a helper sits in its parent's box; each run of a saved workflow is a
-  box of its own, named "workflow {W}", with its steps, so two runs of one workflow are two boxes. A group's name is the
-  few words main gave the work, else the words its helpers share, else "Task {n}", and the Timeline's **by group** and
-  the glance page use the same name. A session recorded before this release groups its helpers by the reply that started
-  them.
-- **A group's head says how its work goes, and every helper says why it got its model.** The head reads, for example,
-  "3 agents · 3 working · $0.04" (a part that is zero is left out; "1 failed" is red), and "3 agents · all done · $0.09
-  · 2 min" once every helper is done; under it, a line says which models were picked and why. Inside, each helper reads
-  "{who}: {description}" over "{model} · {state}", its left edge in its state's colour; a helper started by a helper
-  adds "started by {who}: {task}"; up to eight are shown, then "+{n} more". **Save as an agent** shows only on a helper
-  that is no saved agent. Hover a helper for "Why this model: ..." ("Why this model: named by main or by your settings"
-  when there is no reason); click it for its card with the same line. Hover the head for "Started by main at {t}", one
-  line per helper and the cost; click it for a card with Pause and Stop for each helper still working and **Open in
-  Agents -> Live**. Hover main for its model and "Can hand work to: {names}", the agents this session started with.
-- **Main's line into a group shows the work.** It lights while a helper of that group works, then stays as a trace that
-  is heavier the more helpers the group had. A line into a group carries no label: the group's head names it.
-- **Work that starts out of sight is named.** On Auto, when a helper starts working in a group wholly below what you
-  see, the slot at the foot of the drawing reads "↓ {name} · working" (or "↓ {name} · working and {n} more below").
-  Press it and the group's head comes to the top of Session's Live drawer (in Agents -> 4 · Live, into view). The slot's
-  room is there from the first draw, so nothing above it moves when a name appears. On a map of your own Session's slot
-  is as before and Agents -> 4 · Live has no slot.
-- **The doors land on the group.** A group card's **Open in Agents -> Live** opens Agents -> 4 · Live on that session
-  with the group's head at the top and its border pulsing for two seconds (with reduced motion: a still outline for
-  the same two seconds). An attention alert's **Open**, or a row's **O**, for a question a helper of a session on Auto
-  asks opens that helper's group, selected, with the helper's card open and the question's choices in it. Main's own
-  questions land on main as before.
-- **After a build on Auto, Halo says what is ready in this session now.** When a Builder card is applied in a session on
-  Auto, its result (what main reads, and the terminal's card) ends with lines worked out from what the session really
-  has: "Ready in this session now: the workflow review.", "Saved for your next session: the agent checker (this
-  session's list of agents was fixed when it started; ...)", "Saved for your next session: the agent checker (this
-  session keeps the checker it started with).", "Saved for your next session: the workflow review (this session started
-  with no workflow, so it has no Workflow tool).", or "Not run under its name: the workflow review (this project has its
-  own workflow review, which runs first)." The line about a session with no Workflow tool is given only when that is the
-  reason: when the session's own rules leave the tool out (a deny rule, a tool list), no line is shown for that
-  workflow. The terminal's Builder card shows them right under its header, also while folded. In Studio the head over
-  Session's Live drawing says "Just built: the workflow review. Ready in this session now, by name." (or that it waits
-  for your next session, or that this project's own workflow of that name runs under that name), with **Open in
-  Workflows** and the same lines under it; a build of agents only gets the lines alone. Nothing is made usable that was
-  not usable before. On a map of your own, after an undo, or when you leave every line, there is no such line.
-- **A docs page, "Studio: Auto's groups"**, says what the boxes, the slot and the doors are; the Studio index links it.
-
-### Changed
-
-- **The default is Auto, and `auto`, `starter` and no map set are one map.** It ships as `auto`, with the same seven
-  boxes and lines as before. `--map starter`, `crew.map: starter`, a goal's `lineup: starter` and `halo maps use
-  starter` all run on Auto, as a plain session; `halo maps use auto`, `halo maps use starter` and `halo maps use --off`
-  take `crew.map` out of config.
-- **The terminal says Auto.** `/status` reads "Map: Auto (the default: main picks who works on each task, and a model
-  for each one)"; `halo doctor` "Map: Auto (the default: main picks who works on each task); halo maps use <name>
-  changes it, halo maps list shows them"; `halo setup map --terminal` "map: Auto (the default)"; `halo init`'s summary
-  "Lineup: Auto (the default)". `halo maps list` starts with a row for `auto` (`default`, "main picks who works on each
-  task") and ends "in use: Auto (the default)". `halo maps use --off` says "New sessions run on Auto (the default); no
-  map of yours is set." A map with a problem: "halo: the map {X} has a problem, so this session runs on Auto (the
-  default):". An old `team: auto` says "... lineups are gone; Auto is the default, so team: auto needs nothing. Clear
-  the old key with halo config set team null."
-- **What comes with Halo says "ships with Halo".** `halo maps show`, `halo agents show` and `halo workflows show`, the
-  rows of Setup -> Map, the Map's switcher and the Builder name a map, agent or workflow that comes with Halo "(ships
-  with Halo)", and the scope column of `halo maps list`, `halo agents list` and `halo workflows list` reads `shipped`.
-  Studio's Agents and Workflows lists head them "Ships with Halo · Copy makes it yours". The refusals say it too, for
-  example "coder ships with Halo (read-only): halo agents copy coder makes yours (my-coder)", and the Builder's copy row
-  reads "Copy the map ship-it (ships with Halo) as yours (the changes below go into your copy)". Every agent, workflow
-  and map file that ships with Halo starts "# Ships with Halo (3.6.0.0): read-only; ...".
-- **Agents -> 3 · Map on Auto shows main alone and one line**: "Auto has no plan to edit: main picks who works on each
-  task as it goes, and Live draws each task as a named group. Main can hand work to: {names}." with **Watch it in Live**
-  (it opens Agents -> 4 · Live on the newest session on Auto) and "· + New map makes a map of your own." With no session
-  on Auto, "Nothing runs on Auto right now." stands where the button was. Auto has no box to edit, no switch, no Lock
-  and no Add; Run a goal stays. The bar's slot says "New sessions run on Auto (the default)." while no map is set. Over
-  a session on Auto Studio says "This session runs on Auto (the default), as it started at {t}. Main picks who works on
-  each task; each task shows as a named, coloured group." Old sessions, logs and links that name starter open and read
-  as Auto (the default).
-- **The map lists put Auto first.** The Map's switcher lists "Auto (the default)", then your maps, then "{name} (this
-  project's)", then "{name} (ships with Halo)", then **+ New map**; no row says "· in use". Setup -> Map lists "Auto
-  (the default)" first with "Main picks who works on each task; each one's model is picked for its task, and the reason
-  is shown.", and One model for everything last; with Auto picked its preview reads "PREVIEW · Auto (the default)" with
-  no **Edit on the Map**. Setup's strip and the Map glance say "Auto (the default)", and a theme set to follow the
-  system reads "Follow the system" in Setup (the config value `auto` is unchanged).
-- **Turning your map's "New sessions run on this" off** says "New sessions run on Auto (the default); a running session
-  keeps its own."
-- **An old map of yours named `starter` or `auto` is kept and listed, and no longer runs.** On 3.6.0.4 a map of yours
-  named starter was what new sessions ran on; now a session with no map set, with `--map starter` or with `crew.map`
-  naming starter or auto runs the shipped Auto. Halo never renames, moves or deletes your file. It is listed among your
-  maps as "starter · your copy from before" (in `halo maps list` under its own name, never in use). In Setup -> Map its
-  row has one button, **Copy as my-map**, and pressing its name opens your file read-only on Agents -> 3 · Map; there
-  the bar shows its name and the same button, with no switch and no Lock. The copy holds your boxes and lines, is named
-  my-map (my-map-2, my-map-3 ... when taken) and opens on the Map; turn on its **New sessions run on this** to run it
-  again. In the terminal, `halo maps show starter` and `halo maps copy starter` read the shipped Auto, not your file.
-- **A new map can never be named `auto` or `starter`.** Studio's **+ New map**, `halo maps copy --as`, the Builder and
-  Studio's map API answer "{name} is a name of the default (Auto); give your map another name." and write nothing.
-- **The Builder no longer copies the default as a map of yours.** With no map named (outside a session with no map
-  set, or in Studio's builder box with Auto open on the Map), a map change used to offer to copy the default as your own
-  map named starter. Now it writes nothing and answers "Name the map: Auto (the default) stays as it is, where main
-  chooses who works. Pass a new name in args.map to make a map that routes."
-- **Asking the Builder to use the map "starter" or "Auto" says what happens.** When Auto is already in use it answers
-  "New sessions run on Auto (the default) already." and shows no card. When a map of yours is set, the card has one row,
-  "New sessions run on Auto (the default); a running session keeps its own.", and applying it takes `crew.map` out of
-  your config.
-- **Asking for a workflow on Auto makes no map.** In a session on Auto, "build me a review workflow: a coder then a
-  checker" gives one card that makes the agents not saved yet and the workflow, with no map row and no "New sessions run
-  on it" row, headed "Your review workflow: the workflow review (coder, then checker)." In a session on a map of your
-  own the card is as before.
-- **Main is asked to name the piece of work each helper belongs to**, in 2 to 6 words, on the Agent and the Task tool,
-  and to give helpers on the same work the same words: these become the group's name. A call that leaves them out still
-  runs exactly as on 3.6.0.4, also when a local model's reply is repaired.
-- **`halo explain auto`** (and Studio's Glossary) says "Auto: the default. Main picks who works on each task, and a
-  model for each one; Live draws each task as a named, coloured group." The docs and the README say Auto (the default)
-  and "ships with Halo" throughout.
-- **Session's Attention button counts what waits on you.** It reads "Attention 2" while two decisions wait, the number
-  and the button in the amber the Agents chip had, and just "Attention" while none does. Its room for two digits is
-  there from the first draw, so nothing in Session's bar moves when the number comes, changes or goes; a count of 100 or
-  more shows the true number, and the button widens for it. While its drawer is open the button keeps its pressed look
-  and only the number is amber. A decision that belongs to no session (a conflict whose holder is in no session) is
-  listed and counted in Session's Attention too.
-- **The doors that opened Agents' Attention open Session's Attention drawer.** The palette's two lines read "Session:
-  Attention" and "Session: answer next" (the oldest row picked), in the palette's Session group, with no key hint. A
-  pack's attention row with no section of its own opens there on **O**. A note sent to your phone or chat through a
-  pack's bridge, for a decision Halo has no card of its own for (a file conflict, for example), now ends "(answer it in
-  Studio: Session, Attention)".
-
-### Removed
-
-- **The word "starter" from what Halo shows you.** Studio's pages, the terminal's lines, `halo` commands' output and
-  help, Studio's API answers and what a session on Auto is told were cleared of it, and checks now scan for it. It stays
-  only in the name of your own old file ("starter · your copy from before"), in a refusal that repeats a name you typed,
-  and in the notes of earlier releases (`halo whatsnew`). `halo media`'s ComfyUI starter workflows keep their own word.
-- **The glossary's "starter" entry.** `halo explain auto` is the default's entry now.
-- **The Attention chip in Agents.** No "Attention · n" chip on any Agents tab (1 · Agents, 2 · Workflows, 3 · Map, 4 ·
-  Live), no Attention panel over the tab, no A key in Agents, and no Attention step or A key in Agents' section help.
-  Decisions wait in Session's Attention. An ask's alert, clicked while you are in Agents, still lands on 4 · Live on the
-  asking box's card (on Auto, on its group).
-
-### Fixed
-
-- **Turning off a map that was not in use said new sessions run on no map.** Through Studio's map API, turning off a
-  map while another map of yours was set changed nothing, yet the answer read "New sessions run on no map (as before
-  maps)." It now reads "{name} was not in use; new sessions still run on {set}."
-- **A running workflow was named by its raw input.** While main ran a workflow, its box in the Live drawings and its
-  card in Agents -> 4 · Live read `Workflow {"name": "review", "task": "..."}`: several lines, so the box grew and
-  everything under it moved at the moment the workflow started. A workflow is now named by its name (`Workflow review`),
-  or by its task when it has no name.
-
-### Known limits
-
-- **Every Known limit of 3.6.0.4 still holds**, except renaming "starter" to Auto with agents drawn in named groups,
-  which this release does for Auto.
-- **A map of your own draws no groups.** Its boxes, lines and workflow blocks draw exactly as on 3.6.0.4, with no group
-  colours. Groups on a map of your own are not in this release.
-- **At a small window (1280 x 800) a group can be only partly in view in Session's Live drawing.** The drawing fills its
-  drawer, but a group of three helpers is taller than the room left under main, and after a build the head and its lines
-  take more of it. What does not fit is reached by scrolling; the line at the foot names a working group that is not
-  wholly in view ("↓ {name} · working"), and one press on it brings that group's head to the top.
-- **With no live session, the count on Session's Attention button is not visible until Session is opened.** Session
-  then shows its Start view; **Open anyway** shows the bar and the count. The glance and the alert still show a decision
-  that waits.
-- **In Agents' Feed, an ask card's keys can open Session's Attention out of sight.** A key pressed while Studio is
-  still reading the card's answers (its hover then says "Studio is reading its answers: this opens Attention"), or R on
-  a question, opens Session's drawer, not something in Agents. Answer it there: Session's Attention lists it.
-- **On a map of your own, main's box still changes height with what main does**, and the boxes under it move with it, as
-  on 3.6.0.4. On Auto it keeps the room of its usual fullest state.
-- **On Auto a helper inside a group cannot be reached with the keyboard.** The keyboard reaches a group and its card,
-  not a single helper in it; a click opens a helper's card. On 3.6.0.4 every helper box was a tab stop.
-- **Main is not yet told which kinds of helper it can start, and nothing measures how often it hands work out.** The
-  agents it can hand work to are shown to you: this session's on main's hover, a new session's on Auto's Map tab.
-- **A theme from a pack takes the group colours of the shipped palette of its kind**: a light one the shipped light
-  palette's four, a dark one the default palette's four, not colours of its own.
-- **A group name in unusually wide letters can make Session's slot one line taller.** The slot's room is sized for a
-  long name of ordinary letters; the text is never cut.
-- **On Auto, a workflow built in a session that an older Halo started gets no head and no lines in Studio**, because
-  that session's build carries no answer about what is ready. Studio no longer says "It is on no map, so no session runs
-  it yet", which is false on Auto. A session started by this release gets the lines.
-- **Where it was checked.** On the Linux VM, with a browser: the whole test suite, its browser modules included (on a
-  copy with no git history: the few tests that need it run in CI), and the full real-use check, sixteen of sixteen
-  steps passed, among them the two new ones that drive a real terminal session and a real Studio through Auto's groups
-  and through a build on Auto with its true lines, with nothing of the run left running. On the PC (Windows), without
-  a browser: the Python and node checks of each change, and, before the Attention change, the real-use check with its
-  five browser steps skipped by name (11 passed). With a browser on Windows, one real-use step was run on the PC, the
-  build on Auto: the release gate's first Windows run had failed in it (a workflow's start grew main's box; see
-  Fixed), and it passed on the PC after the fix. The release gate's hosted Windows and macOS runs also showed that
-  with reduced motion (those machines have it on) the group's two-second cue lasted one frame; it is a still outline
-  now, and the groups' browser test presses once with reduced motion on every system (run on the PC, with and without
-  the fix). macOS was not run locally: CI runs it, and the other browser steps on Windows, at the release gate. How
-  the four group colours look to a person was judged by no check; the checks measure only that they stay apart from
-  the state colours and from each other, also for colour-blind eyes.
