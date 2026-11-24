@@ -84,8 +84,8 @@ out exactly as in a home without Copilot.
 
 **The window the block is shaped for (3.6.0.19).** A session's tool block is
 the block of the window its first request is SENT at, and it stays that for
-the session: the line "N tools not offered to <model> (window W)" names the
-window that is sent. That matters where Halo sends another window than the
+the session: the line "N tools not offered to <model> (window W)" names that
+window. That matters where Halo sends another window than the
 one it first resolved: a model held at a smaller window because the larger
 one runs partly on the CPU, a first request raised over a default, a larger
 window another program loaded and Halo holds. A switch to another model
@@ -158,8 +158,8 @@ say the same line for a local model, and Studio's Local -> a model's card
 has the row "Halo's first turn: N tokens (P % of the window)". Since 3.6.0.19
 the session measured is the one you get: a session someone answers has the
 Builder tool (about 400 tokens from a 32,768 window on; one rule decides it
-for the session and for the measure), and `/status` measures the session's
-own tools. Not counted: the names of the tools of your other MCP servers,
+for the session and for the measure), and `/status` measures with the
+Builder when the session has it. Not counted: the names of the tools of your other MCP servers,
 which a session in this folder also sends.
 
 ## The budget test

@@ -66,10 +66,14 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
         "estimate": estimate, "source": choice.source, "num_ctx": choice.num_ctx, "reserve": reserve,
         "raw_prompt": raw_prompt}
     if ref is session.model_ref:
+        from halo_harness.agent.ollama_window_truth import is_main_call
+        # "first" is the MAIN call's fact only (the review of 3.6.0.19): a helper call on the session's own model (a
+        # title, the compaction's summary) holds one user message too and would switch a later compaction off
         st["last"] = {"estimate": estimate, "choice": choice, "host_name": host.name, "host_url": host.url,
                       "model": ref.model, "tool_tokens": tool_output_tokens(messages),
                       "gpu_fits_up_to": getattr(decision, "gpu_fits_up_to", None), "reserve": reserve,
-                      "profile": profile, "first": _first_request(messages), "parts": (system_text, tools)}
+                      "profile": profile, "first": _first_request(messages) and is_main_call(session, ref),
+                      "parts": (system_text, tools)}
         from halo_harness.agent.ollama_window_steward import note_prepared
         note_prepared(st, estimate, reserve, session)
     return estimate, factor

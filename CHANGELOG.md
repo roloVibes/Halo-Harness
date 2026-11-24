@@ -11,10 +11,10 @@ version.
 ## [3.6.0.19] - unreleased
 
 Local models: the session you really get. A session on a local model is now sent the window Halo names, with the
-tool block of that window, from its first request to its last, and every line of the session names that one
-window. A new conversation is never compacted before it has an answer (on one real model that compaction threw the
-first question away). `halo local prompt` measures the session you get, and with Copilot set up main keeps the
-Builder. This release was checked with real sessions on a real Ollama, which also showed what it does not fix yet:
+tool block of the window its first request is sent at (where the two can still part is in the Known limits). A new
+conversation is not compacted before it has an answer (on one real model that compaction threw the first question
+away). `halo local prompt` measures the session you get, and with Copilot set up main keeps the Builder. This
+release was checked with real sessions on a real Ollama, which also showed what it does not fix yet:
 read the Known limits.
 
 ### Fixed
@@ -27,20 +27,24 @@ read the Known limits.
   window too, and a conversation larger than it is summarised from a transcript cut to fit ("the conversation (N
   tokens) is larger than <model>'s window (16,384): it summarises a transcript cut to fit"). A `halo -p` run already
   did this since 3.6.0.12; a session did not.
-- **A new conversation is never compacted.** On a model whose window Halo puts below Halo's own first request, a
-  new session said "this will be cut: compacting first", summarised a conversation that had no history, and the
-  summary replaced the question you had just typed: asked later what the first question was, the model named the
-  second one. Now a request with no earlier answer is never compacted and nothing is asked. When it cannot fit the
-  window you read the two lines Halo already has for that ("the system prompt, the memory and the tools alone are N
-  tokens, more than this W window holds ...", "prompt N tokens · window W · usable U · ...: sending anyway (the tail
-  is kept)") and it goes out as "send anyway" sends it. From the second turn on nothing changes.
+- **A new conversation is not compacted before it has an answer.** On a model whose window Halo puts below Halo's
+  own first request, a new session said "this will be cut: compacting first", summarised a conversation that had
+  no history, and the summary replaced the question you had just typed: asked later what the first question was,
+  the model named the second one. Now a request with no earlier answer is not compacted before it is sent, and
+  nothing is asked. When it cannot fit the window you read "prompt N tokens · window W · usable U · ...: sending
+  anyway (the tail is kept)", and before it, when the system prompt, the memory and the tools alone are already
+  more than the window holds, the line that says so ("... alone are N tokens, more than this W window holds ...").
+  It goes out as "send anyway" sends it, and a reply that is then cut at the window stands as the answer (before,
+  that started a compaction too). The same holds for a helper's first request and for a `halo -p` run. From the
+  second turn on nothing changes.
 - **One window in every line, and the tool block of that window.** The tool block of a session is the block of the
   window its first request is sent at, and it stays that for the session. Three cases said one window and sent
   another: a model held at a smaller window because the larger one spills (the line beside "reloaded at 16k" said
   "(window 65,536)" and the session carried that window's 28 tools); a model Halo has not
   measured, whose first request is raised over the default (the line said "(window 8,192)", 16,384 was sent); and a
   model another program left loaded at a larger window that Halo holds (65,536 was sent with the 16,384 block and
-  "(window 16,384)"). Each now reads "N tools not offered to <model> (window W)" with the window that is sent.
+  "(window 16,384)"). Each now reads "N tools not offered to <model> (window W)" with the window the first request
+  is sent at.
 - **"the largest known to fit the card" is said only of a window that is known.** With nothing measured, a model
   loaded at a spilling window was "reloaded at 8k, the largest known to fit the card": the 8k was a default, never
   measured and never sent. Now that line is said only when the window comes from a spill Halo saw or from a
@@ -49,12 +53,15 @@ read the Known limits.
 - **The reply's room is said once.** A reload under a spill printed it on two lines.
 - **`halo local prompt` measures the session you get.** It measured a session without the Builder tool, so from a
   32,768 window on its figure was about 400 tokens lower than what a session someone answers really sends. It now
-  uses the same rule a session uses for the Builder, and so do `/status` (it measures the session's own tools),
-  Studio's model card ("Halo's first turn: N tokens") and `halo doctor`. Nothing a model is sent changes by this.
+  uses the same rule a session uses for the Builder, and so do `/status` (with the Builder when the session has
+  it), Studio's model card ("Halo's first turn: N tokens") and `halo doctor`. Nothing a model is sent changes by
+  this.
 - **With Copilot set up, main keeps the Builder.** `copilot_ask` took the last room of the 4,500-token tool budget,
   so at a 32,768 or 49,152 window the Builder was left out and main never read the words that let it propose a
-  helper or a workflow. `copilot_ask` now rides on top of that budget (150 tokens): both are sent, and every other
-  tool is in or out exactly as in a home without Copilot.
+  helper or a workflow. `copilot_ask` now rides on top of that budget (150 tokens) and is not counted in the tool
+  count either: both are sent, and every other tool is in or out exactly as in a home without Copilot. So with
+  Copilot set up, another tool ranked after it that did not fit before (a pack's, another server's) can be sent
+  now too.
 - **macOS: the closing procedure's look for left-over programs no longer lists its own `ps`,** a process that is
   gone a moment later, and one byte that is no UTF-8 in any program's command line no longer makes the whole look
   answer "nothing".
@@ -66,22 +73,25 @@ read the Known limits.
   (13 tools, the rest by name), both with today's words and at the same window, and ends with one line: "Verdict:
   the 16,384 block does as well (finished A of N, with every tool B; parts handed out C of P, with every tool D)."
   or "Verdict: the 16,384 block does worse: it finishes A of N (with every tool B)." A model whose own window takes
-  no more tools than that block prints "not measured" and saves no card. Free and local; about two and a half
-  minutes for one 27B model on a GPU, where the first real run read "does as well (finished 3 of 3, with every
-  tool 2 ...)". See [COMMANDS-gym-handout.md](docs/COMMANDS-gym-handout.md).
+  no more tools than that block prints "not measured" and saves no card. Free and local; about two minutes per
+  model on a GPU. On the first real model it read "does as well (finished 3 of 3, with every tool 2 ...)". See
+  [COMMANDS-gym-handout.md](docs/COMMANDS-gym-handout.md).
 
 ### Changed
 
-What a LOCAL model is sent changes in these cases only; a cloud session, a `halo -p` run and a session on a measured
-model with no spill are sent byte for byte what 3.6.0.18 sent (the request bodies were compared across both).
+What a model is sent changes in these cases only. A session on a model with a large window (65,536 and up: the
+cloud models Halo ships with), and a local session or `halo -p` run on a measured model with no spill whose
+requests fit, are sent byte for byte what 3.6.0.18 sent (the request bodies were compared across both).
 
 - A session held at a window because the larger one spills: that window on every call (also its compaction's), and
   the tool block of that window from the first request on (at 16,384: 13 tools instead of 28, the others by name).
 - A session whose first request is sent another window than Halo resolved (raised over a default, or a larger
   loaded window that is held): the tool block of the window sent.
-- A first request that cannot fit its window: sent as "send anyway" sends it, where a compaction ran before.
-- With Copilot set up, at windows over 16,384 and under 65,536: the Builder's definition (about 400 tokens) as well
-  as `copilot_ask`'s.
+- A first request that cannot fit its window (a session's, a `halo -p` run's, a helper's): sent as "send anyway"
+  sends it, where a compaction ran before.
+- With Copilot set up, at windows over 16,384 and under 65,536 (a local model or a small-window cloud one):
+  `copilot_ask` no longer takes room from the others, so the tools ranked after it that now fit are sent too, the
+  Builder's definition (about 400 tokens) first.
 
 ### Tests
 
@@ -89,31 +99,36 @@ model with no spill are sent byte for byte what 3.6.0.18 sent (the request bodie
   answer; the terminal draws the first answer again when the second prompt is sent, so the second wait could be
   true before main had asked anything (red once on macOS in 3.6.0.18's CI). The second turn has its own words.
 - The two real-halo tests of a quit with a stuck read now time the stuck quit against a healthy quit on the same
-  machine: it may take twice the healthy one plus the product's own bound and one second (on one Windows machine:
+  machine: it may take twice the healthy one plus the product's own bound and three seconds (on one Windows machine:
   0.3 s healthy, 2.1 s stuck). Before, they asked only "gone within 15 s".
 - The prompt pins measure the session with the Builder (32,768: 8,263 -> 8,666 tokens on Windows); no bound moved.
 
 ### Known limits
 
 - **A model Halo has not measured can be held at a window that is far too small.** Halo's memory estimate counts
-  about thirty times too much for one family of models (latent attention). Seen on a real 30B model on a 23 GB
-  card: the estimate says 4k, the model sits wholly on the card at 65,536. A new session on it then reads "... more
+  about thirty times too much for one family of models (latent attention). Seen on a real 30B model: the estimate
+  says 4k, while the model sits wholly on its card at 65,536. A new session on it then reads "... more
   than this 4,096 window holds ...: a bigger-window model holds them" (for this model untrue: it is the estimate
   that is small) and "sending anyway", is sent at 4k, and from the second turn runs at a larger window with a
   reload and another tool block (the estimate moves once the model is loaded). Measuring does not help yet: `halo
-  local measure <model>` found "98k safe" for that model and the next session still started at 4k, because the
-  smaller of the estimate and the measurement wins. What does help today is a window of your own for that model:
+  local measure <model>` found a far larger window safe for that model and the next session still started at 4k,
+  because the smaller of the estimate and the measurement wins. What does help today is a window of your own for that model:
   `halo ollama profile set <host> <model> num_ctx 32768`; a new session then starts at 32,768 with one window in
   every line (checked on the real model). The estimate itself is the next release's first job.
 - The names of the tools of your other MCP servers are in every request of a local session, and `halo local
   prompt` does not count them. With many servers that is thousands of tokens.
 - A spill found only after a session's first call (nothing loaded at the start, the first load spills): the window
-  steps down turn by turn and the tool block stays the first window's; the lines name each window as it is sent.
+  steps down turn by turn and the tool block stays the first window's; the reload lines name each window as it is
+  sent, the "tools not offered" line still names the first.
 - When another program later reloads the model at a larger window that fits, the session keeps its tool block and
   is sent the larger window, with no new line.
 - A first request that cannot fit its window is sent at once: the card that offers a bigger-window model is not
   shown for it (the line says a bigger-window model holds it; `/model` switches).
-- The tool steps of a FIRST turn can still be compacted when their output does not fit.
+- The tool steps of a FIRST turn can still be compacted when their output does not fit, and so can a first
+  request that Halo judged to fit and that the server then cuts.
+- A session held at a window is now held there too when Ollama answers "prompt exceeds num_ctx" (it compacts
+  instead of being re-sent at a larger window). That one path was changed after the review and has no test of
+  its own yet.
 - A reload with nothing known says only "loading <model> on <host> again at a Wk window", not why.
 - The real sessions were run on Windows with one Ollama and one card; the same code paths run with a stand-in
   server in the tests on Windows, macOS and Linux. The macOS fix above was not run by hand on a Mac.

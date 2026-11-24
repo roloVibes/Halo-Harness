@@ -371,7 +371,7 @@ def test_a_session_of_more_turns_is_sent_the_tool_block_it_was_sent_before(ctx: 
 
 
 @test
-def test_only_a_one_shot_keeps_the_request_it_may_shape_again(ctx: Ctx):
+def test_a_lean_local_turn_keeps_the_request_it_may_shape_again(ctx: Ctx):
     """3.6.0.19 LM batch 2: prompt_wire._shape keeps (raw, tools) on `session._turn_raw` on a lean turn of an Ollama
     model, where its one reader (one_shot_shaper, for the main call of a one-shot AND of a session of more turns)
     reads it: the shaper made with no `raw` finds it; what is sent is the same."""

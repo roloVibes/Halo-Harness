@@ -3191,6 +3191,12 @@ class Session:
             trained_context=decision.trained_context, host_max_ctx=host.max_ctx,
             fit_estimate=decision.fit_estimate, learned_cap=effective_learned_cap, remote=decision.remote,
             recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only)
+        # 3.6.0.19 (its review): a call held at a window because the larger one spills is never re-sent past that
+        # window by the "prompt exceeds num_ctx" retry either (it raised a held session silently); it compacts instead
+        from halo_harness.agent.reply_room import _spill_cap as _held_at
+        _held = _held_at(self, host, ref)
+        if isinstance(_held, int) and 0 < _held < self._last_ollama_ctx_ceiling:
+            self._last_ollama_ctx_ceiling = _held
         if ref is self.model_ref:
             num_ctx = (body.get("options") or {}).get("num_ctx")
             if isinstance(num_ctx, int) and num_ctx != self.model_profile.context_tokens:
@@ -4438,6 +4444,13 @@ class Session:
                     # Halo 3.3.4.0 R3: a reply that used up the room the window left it is a cut too
                     from halo_harness.agent.ollama_window_steward import squeezed_cut
                     _cut = squeezed_cut(self, harness_meta.get("done_reason"), _eval, _opts.get("num_predict"))
+                if _cut and getattr(self, "_preflight_sent_now", False):
+                    # 3.6.0.19 (its review): a FIRST request that was sent anyway has nothing to compact: a reply cut at
+                    # the window stands as the answer, as a chosen cut of the prompt does below. (Before: "compacted and
+                    # re-sent", a compaction of a conversation with no earlier answer, then the ladder and an error.)
+                    from halo_harness.agent.ollama_window import no_earlier_turn
+                    if no_earlier_turn(self):
+                        _cut = False
                 _trim = _log["trim"] if not getattr(self, "_preflight_sent_now", False) else None  # the log's exact cut
                 # 3.6.0.0 R8 fix pass F1: the server's own cut shapes (half the window, front-dropped messages, a
                 # count into the reply's room, a count that shrank) -- agent/ollama_window_truth.cut_kind; no log needed

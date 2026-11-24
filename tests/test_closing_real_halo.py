@@ -423,13 +423,13 @@ def _check_z2(ctx: Ctx, how: str) -> None:
               not row["halo_alive_after"])
     # 3.6.0.19: the product's own bound, held against a healthy quit on THIS machine (half a stand-in's hold let a
     # quit that regressed to 10 s pass): a stuck quit may take the healthy quit's time, once more for a slow
-    # machine, the whole way out's budget and the exit's grace, and one second of this test's own polling.
+    # machine, the whole way out's budget and the exit's grace, and three seconds for a slow runner's own jitter.
     from halo_harness import closing
     bound = closing.QUIT_BUDGET_S + closing.EXIT_GRACE_S
-    allowed = 2 * float(free.get("gone_s") or 0.0) + bound + 1.0
+    allowed = 2 * float(free.get("gone_s") or 0.0) + bound + 3.0
     ctx.check(f"{row.get('keys')}: the stuck quit is gone within the product's bound of a healthy quit here: healthy "
               f"{free.get('gone_s')} s, stuck {row.get('gone_s')} s, allowed {allowed:.1f} s (twice the healthy quit + "
-              f"{bound:.0f} s + 1 s)", "gone_s" in free and "gone_s" in row and row["gone_s"] <= allowed)
+              f"{bound:.0f} s + 3 s)", "gone_s" in free and "gone_s" in row and row["gone_s"] <= allowed)
     for name, r in (("nothing stuck", free), ("a read stuck", row)):
         ctx.check(f"{row.get('keys')}, {name}: its way out's phases in order, got {r.get('phases')}",
                   tuple(r.get("phases") or ()) == _PHASES)

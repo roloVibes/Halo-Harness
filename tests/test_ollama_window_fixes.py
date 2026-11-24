@@ -710,6 +710,30 @@ def test_a_first_request_larger_than_the_window_is_never_compacted(ctx: Ctx):
 
 
 @test
+def test_a_first_request_sent_anyway_whose_reply_fills_the_window_is_not_compacted_after_it(ctx: Ctx):
+    """3.6.0.19 (its review): the first request is sent anyway (the test above); the reply then uses its whole room and
+    ends at the window (done_reason "length"). Before: "cut the reply at the window: compacted and re-sent", a
+    compaction of a conversation with no earlier answer, the ladder of rungs, exit 1 (five calls). Now the cut reply
+    stands as the answer: one call, exit 0, nothing compacted."""
+    for shape in (None, "edge"):
+        fake = _unmeasured_fake(trained=4096)
+        fake.reply_tokens = 100000
+        fake.cut_shape = shape
+        try:
+            fh = _unmeasured_home(fake)
+            rc, ended, out = _session_said(fh, fake, [_user(FIRST)], timeout=400)
+            chats = _chats(fake)
+            ctx.check(f"cut shape {shape}: one turn, exit 0, got {rc} {ended}", rc == 0 and ended == 1)
+            ctx.check(f"cut shape {shape}: one call, carrying the first question, got {len(chats)} "
+                      f"{[_carries(b, 'Question one') for b in chats]}",
+                      len(chats) == 1 and _carries(chats[0], "Question one"))
+            ctx.check(f"cut shape {shape}: no line says it compacts or summarises, got {out[-900:]!r}",
+                      "compact" not in out and "summarises" not in out)
+        finally:
+            fake.stop()
+
+
+@test
 def test_a_one_shot_too_large_for_the_spill_window_is_sent_the_larger_one_and_says_so(ctx: Ctx):
     # 3.6.0.12 OS: a prompt of about 12,000 tokens does not fit 16,384 with the reply's room: the larger window is
     # sent, and no line claims a reload at 16k
