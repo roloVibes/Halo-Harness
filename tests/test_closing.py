@@ -1124,7 +1124,10 @@ def _way_out(installed: bool, code, quit_called: bool) -> dict:
         first = getattr(loop, "_default_executor", None)
         BridgeApp._bound_the_way_out(app)
         seen.update(deadline=closing._STATE.get("deadline"), stop_asked=closing.stop_asked(),
-                    fresh_pool=getattr(loop, "_default_executor", None) is not first)
+                    fresh_pool=getattr(loop, "_default_executor", None) is not first,
+                    kept_pool=first is not None and getattr(app, "_pool_at_unmount", None) is first)
+        if getattr(loop, "_default_executor", None) is not first:
+            first.shutdown(wait=True)  # asyncio.run ends only the loop's own (fresh) pool
     saved = _closing_state_saved()
     closing._STATE.update(installed=installed, deadline=None, closed=False)
     closing._STATE.pop("hard_exit", None)
@@ -1142,25 +1145,34 @@ def test_z3_at_unmount_the_terminal_app_arms_the_deadline_and_a_fresh_pool_never
     out of the terminal app passes its unmount; there a real halo arms the closing deadline and hands the loop a fresh
     pool (asyncio's join at the end of app.run waits on nothing the app started), and arms NO hard exit, on a quit, on
     the restart exit and on an exception exit alike: `closing.stop_asked()` stays false until the quit itself. A test's
-    app (closing not installed) changes nothing."""
+    app (closing not installed) changes nothing. 3.6.0.17 Z4-1: the pool taken from the loop is kept on the app
+    (`_pool_at_unmount`), for run_tui to join first."""
     off = _way_out(False, 0, True)
     ctx.check(f"a test's app arms nothing and keeps its pool, got {off}",
-              off["timers"] == [] and off["deadline"] is None and not off["fresh_pool"])
+              off["timers"] == [] and off["deadline"] is None and not off["fresh_pool"] and not off["kept_pool"])
     for name, code, quit_called in (("a confirmed quit", 0, True), ("the restart exit", 91, False),
                                     ("an exception exit", None, False)):
         row = _way_out(True, code, quit_called)
         ctx.check(f"{name}: the deadline is armed and the loop has a fresh pool, got {row}",
                   row["deadline"] is not None and row["fresh_pool"])
+        ctx.check(f"{name}: 3.6.0.17 Z4-1: the app keeps the pool it took from the loop (run_tui joins it), got {row}",
+                  row["kept_pool"])
         ctx.check(f"{name}: no hard exit is armed at unmount and stop_asked() is still false, got {row}",
                   row["timers"] == [] and row["stop_asked"] is False)
 
 
-def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" = None, hand_off_s: float = 8.0):
+def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" = None, hand_off_s: float = 8.0,
+                      pool: str = "done", fail: "str | None" = None):
     """tui/launch.py run_tui (and, for /update's restart exit, cli._run_full_screen with its hand-off) on a stand-in
     app and controller, in a 'real halo' (closing installed) whose hard_exit is armed for real with its timer never
     started. Returns the ordered events: the app's run and unmount, the controller's quit (with stop_asked() at that
     moment), launch.py's last line, the exit hooks run on the main path, each hard exit armed (with its code, its grace and the injected clock),
-    and the hand-off's end on that clock (it takes `hand_off_s` there, no real sleep)."""
+    and the hand-off's end on that clock (it takes `hand_off_s` there, no real sleep).
+    3.6.0.17 Z4-1: the app keeps the pool it had at unmount (`pool`: "done", a worker that has ended; "stuck", one
+    that never ends, whose join only moves the injected clock on; "join-kbi", a Ctrl+C in that join); the pool's
+    shut-down and the end of its join are events. `fail`: "quit-kbi" / "quit-error" (controller.quit raises a
+    KeyboardInterrupt / a RuntimeError), "line-kbi" / "line-error" (the stopped line's print raises a
+    KeyboardInterrupt / an OSError)."""
     import atexit
     import contextlib
     import io
@@ -1182,6 +1194,10 @@ def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" 
             if not self.quit_called:
                 events.append(("quit", closing.stop_asked()))
             self.quit_called = True
+            if fail == "quit-kbi":
+                raise KeyboardInterrupt
+            if fail == "quit-error":
+                raise RuntimeError("a stop failed")
             return 0
 
         @property
@@ -1196,12 +1212,37 @@ def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" 
         def run(self):
             events.append("app.run")
             self.return_code = code
-            if code == 0:
+            if code == 0 and fail is None:
                 self.controller.quit()  # the app's own quit card ran it
             A.BridgeApp._bound_the_way_out(self)  # Textual's unmount
+            self._pool_at_unmount = Pool()  # (outside a running loop _bound_the_way_out keeps none of its own)
             events.append("unmount")
             if raises:
                 raise RuntimeError("the driver failed")
+
+    class Worker:  # a pool thread
+        def is_alive(self):
+            if pool == "join-kbi":
+                raise KeyboardInterrupt
+            if pool == "done":
+                events.append("pool joined")
+            return pool != "done"
+
+        def join(self, timeout=None):  # a stuck worker's join: the injected clock moves on, no real sleep
+            clock[0] += timeout or 0.0
+
+    class Pool:
+        def __init__(self):
+            self._threads = {Worker()}
+
+        def shutdown(self, wait=True, *, cancel_futures=False):
+            events.append(("pool shut down", wait, cancel_futures))
+
+    class Out(io.StringIO):
+        def write(self, s):
+            if fail in ("line-kbi", "line-error") and "stopped:" in s:
+                raise KeyboardInterrupt if fail == "line-kbi" else OSError("the terminal is gone")
+            return super().write(s)
 
     def hard_exit(c, g=closing.EXIT_GRACE_S):
         events.append(("hard_exit", c, g, clock[0]))
@@ -1217,8 +1258,9 @@ def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" 
     saved = _closing_state_saved()
     closing._STATE.update(installed=True, deadline=None, closed=False)
     closing._STATE.pop("hard_exit", None)
-    out = io.StringIO()
+    out = Out()
     result: dict = {}
+    pool_state = dict(getattr(launch, "_POOL", {}))
     try:
         with mock.patch.object(A, "BridgeApp", type("BridgeApp", (App,), {"_bound_the_way_out":
                                                                          A.BridgeApp._bound_the_way_out})), \
@@ -1232,14 +1274,18 @@ def _terminal_way_out(code, *, raises: bool = False, restart_code: "int | None" 
                 mock.patch.object(closing, "hard_exit", hard_exit), \
                 mock.patch.object(closing, "threading", _NoTimer(timers)), \
                 mock.patch.object(update_detached, "run_after_exit", hand_off), \
+                mock.patch.object(launch, "_clock", lambda: clock[0], create=True), \
                 contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
             try:
                 result["code"] = cli._run_full_screen(args, ["--demo"]) if restart_code else launch.run_tui(args)
-            except RuntimeError as e:
-                result["raised"] = str(e)
+            except (RuntimeError, OSError, KeyboardInterrupt) as e:
+                result["raised"], result["raised_type"] = str(e), type(e).__name__
     finally:
         _closing_state_back(saved)
-    return {"events": events, "timers": timers, **result}
+        if hasattr(launch, "_POOL"):
+            launch._POOL.clear()
+            launch._POOL.update(pool_state)
+    return {"events": events, "timers": timers, "clock": clock[0], **result}
 
 
 @test
@@ -1283,6 +1329,124 @@ def test_z3_the_restart_exits_bound_comes_after_the_hand_off_to_the_updater(ctx:
               bounds == [ev[-1]] and ev[-2:] == ["exit hooks", ("hard_exit", 0, closing.EXIT_GRACE_S, 8.0)])
     ctx.check(f"the quit ran before any stop was asked, got {ev}", ("quit", False) in ev)
     ctx.check(f"one timer, got {row['timers']}", row["timers"] == ["halo-hard-exit"])
+
+
+@test
+def test_z4_the_old_pool_is_joined_first_then_the_quit_then_the_exit_hooks(ctx: Ctx):
+    """3.6.0.17 Z4-1 (b): the pool the app took from the loop at unmount is shut down without waiting (nothing new
+    starts, queued work is cancelled) and joined as the FIRST step after app.run, before controller.quit, the last
+    line, the hand-off and the exit hooks: a worker only in flight (a short git, the status line, `claude auth
+    status`) ends with its child before the closing procedure's scan, as asyncio's join did in 3.6.0.16."""
+    from halo_harness.update import RESTART_EXIT_CODE
+    for name, row in (("a quit", _terminal_way_out(0)),
+                      ("the restart exit", _terminal_way_out(RESTART_EXIT_CODE, restart_code=RESTART_EXIT_CODE)),
+                      ("an exception exit", _terminal_way_out(None, raises=True))):
+        ev = row["events"]
+        after = ev[ev.index("unmount") + 1:]
+        ctx.check(f"{name}: right after the app, its pool is shut down (no wait, queued work cancelled) and joined, "
+                  f"before anything else of the way out, got {ev}",
+                  after[:2] == [("pool shut down", False, True), "pool joined"])
+        ctx.check(f"{name}: then the quit's last line and the exit hooks, the bound last, got {ev}",
+                  "last line" in after and after.index("last line") < after.index("exit hooks")
+                  and after[-1][0] == "hard_exit")
+        if name != "a quit":
+            ctx.check(f"{name}: controller.quit runs after the join, got {ev}", ("quit", False) in after)
+
+
+@test
+def test_z4_a_stuck_worker_is_given_up_at_one_bound_and_the_grace_is_then_short(ctx: Ctx):
+    """3.6.0.17 Z4-1 (c): a worker that never ends is joined within ONE bound (closing.EXIT_GRACE_S, never past the
+    closing deadline; an injected clock, no real sleep), then abandoned: the way out goes on, and the bound is armed
+    with the short grace (the interpreter cannot end by itself then). With every worker done it is EXIT_GRACE_S."""
+    from halo_harness import closing
+    from halo_harness.tui import launch
+    from halo_harness.update import RESTART_EXIT_CODE
+    short = getattr(launch, "STUCK_GRACE_S", None)
+    ctx.check(f"the short grace has its own name and is shorter than EXIT_GRACE_S, got {short}",
+              short is not None and 0 < short < closing.EXIT_GRACE_S)
+    stuck = _terminal_way_out(0, pool="stuck")
+    ev = stuck["events"]
+    ctx.check(f"the join gave up at its one bound on the injected clock, got {stuck['clock']}",
+              abs(stuck["clock"] - closing.EXIT_GRACE_S) < 0.1)
+    ctx.check(f"the way out went on, the bound last with the short grace, got {ev}",
+              "last line" in ev and ev[-2:] == ["exit hooks", ("hard_exit", 0, short, stuck["clock"])])
+    done = _terminal_way_out(0)
+    ctx.check(f"every worker done: the plain grace, got {done['events']}",
+              done["events"][-1] == ("hard_exit", 0, closing.EXIT_GRACE_S, 0.0))
+    restart = _terminal_way_out(RESTART_EXIT_CODE, restart_code=RESTART_EXIT_CODE, pool="stuck", hand_off_s=8.0)
+    ctx.check(f"the restart exit with a stuck worker: the bound after the hand-off, with the short grace, got "
+              f"{restart['events']}", restart["events"][-1][:3] == ("hard_exit", 0, short)
+              and restart["events"][-1][3] >= 8.0)
+
+
+@test
+def test_z4_the_bound_is_armed_whatever_the_way_outs_end_raises(ctx: Ctx):
+    """3.6.0.17 Z4-1 (d): a step of run_tui's finally that raises (controller.quit, the stopped line's print, a
+    Ctrl+C there or in the pool's join) still arms the bound, with the code cli.main gives that exit (130 for a
+    Ctrl+C, as cli.main's own Ctrl+C; 1 for an error cli.main does not turn into a line of its own), and the exception
+    goes on. An error controller.quit raises is swallowed there as before (the plain code)."""
+    from halo_harness import closing
+    from halo_harness.update import RESTART_EXIT_CODE
+    g = closing.EXIT_GRACE_S
+    for name, row, code, raised in (
+            ("a Ctrl+C in controller.quit", _terminal_way_out(0, fail="quit-kbi"), 130, "KeyboardInterrupt"),
+            ("a Ctrl+C in the stopped line's print", _terminal_way_out(0, fail="line-kbi"), 130, "KeyboardInterrupt"),
+            ("an error in the stopped line's print", _terminal_way_out(0, fail="line-error"), 1, "OSError"),
+            ("an error in controller.quit", _terminal_way_out(0, fail="quit-error"), 0, None),
+            ("the restart exit, a Ctrl+C in controller.quit",
+             _terminal_way_out(RESTART_EXIT_CODE, restart_code=RESTART_EXIT_CODE, fail="quit-kbi"), 130,
+             "KeyboardInterrupt"),
+            ("a Ctrl+C in the pool's join", _terminal_way_out(None, pool="join-kbi"), 130, "KeyboardInterrupt")):
+        ev = row["events"]
+        ctx.check(f"{name}: the exception goes on, got {row.get('raised_type')}", row.get("raised_type") == raised)
+        ctx.check(f"{name}: the bound is armed last, after the exit hooks, with code {code}, got {ev}",
+                  ev[-2:] == ["exit hooks", ("hard_exit", code, g, 0.0)])
+        if name == "a Ctrl+C in the pool's join":
+            ctx.check(f"{name}: the quit and its last line still ran, got {ev}",
+                      ("quit", False) in ev and "last line" in ev)
+        ctx.check(f"{name}: the hand-off never started, got {ev}", not any(
+            isinstance(e, tuple) and e[0] == "hand-off done" for e in ev))
+
+
+@test
+def test_z4_the_way_out_starts_at_unmount_whatever_the_title_steps_raise(ctx: Ctx):
+    """3.6.0.17 Z4-1 (e): BridgeApp.on_unmount's two title steps (deactivate_tui_mode, set_tui_driver) raising
+    still arm the closing deadline, hand the loop a fresh pool and keep the old one; the error goes on."""
+    import asyncio
+    from types import SimpleNamespace
+    from unittest import mock
+    from halo_harness import closing, termtitle
+    from halo_harness.tui.app import BridgeApp
+
+    def boom(*_a):
+        raise RuntimeError("the title could not be put back")
+    for step in ("deactivate_tui_mode", "set_tui_driver"):
+        app = SimpleNamespace(return_code=0, controller=SimpleNamespace(quit_called=True))
+        app._bound_the_way_out = lambda app=app: BridgeApp._bound_the_way_out(app)
+        seen: dict = {}
+
+        async def body():
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, lambda: None)
+            first = loop._default_executor
+            try:
+                BridgeApp.on_unmount(app)
+            except RuntimeError as e:
+                seen["raised"] = str(e)
+            seen.update(deadline=closing._STATE.get("deadline"), fresh=loop._default_executor is not first,
+                        kept=getattr(app, "_pool_at_unmount", None) is first)
+            if loop._default_executor is not first:
+                first.shutdown(wait=True)
+        saved = _closing_state_saved()
+        closing._STATE.update(installed=True, deadline=None, closed=False)
+        try:
+            with mock.patch.object(termtitle, step, boom):
+                asyncio.run(body())
+        finally:
+            _closing_state_back(saved)
+        ctx.check(f"{step} raising: the error goes on, got {seen}", seen.get("raised") == "the title could not be put back")
+        ctx.check(f"{step} raising: the deadline armed, a fresh pool, the old one kept, got {seen}",
+                  seen.get("deadline") is not None and seen.get("fresh") and seen.get("kept"))
 
 
 @test
@@ -1385,7 +1549,9 @@ def test_z2_the_catalog_refresh_asks_no_further_provider_once_halo_is_leaving(ct
     def second(state_dir, env=None, **_kw):
         fetched.append("anthropic")
         return True
-    app = SimpleNamespace(controller=SimpleNamespace(state_dir=Path(tempfile.mkdtemp(prefix="z2-cat-")),
+    import shutil
+    folder = Path(tempfile.mkdtemp(prefix="z2-cat-"))
+    app = SimpleNamespace(controller=SimpleNamespace(state_dir=folder,
                                                     settings=SimpleNamespace(effective_env={})),
                           call_from_thread=lambda fn, *a, **kw: fn(*a, **kw),
                           notify=lambda text, **kw: notes.append(text))
@@ -1401,6 +1567,7 @@ def test_z2_the_catalog_refresh_asks_no_further_provider_once_halo_is_leaving(ct
         closing._STATE["deadline"] = saved_deadline
         if saved_net is not None:
             os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = saved_net
+        shutil.rmtree(folder, ignore_errors=True)  # 3.6.0.17 Z4 (S4): the test's own folder goes with it
     ctx.check(f"only the first provider was asked, got {fetched}", fetched == ["openrouter"])
     ctx.check(f"what it has is said as before, got {notes}", notes == ["Catalog refreshed: OpenRouter (2 models)"])
 

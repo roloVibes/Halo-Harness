@@ -958,6 +958,26 @@ def test_z2_posix_the_checks_git_group_ends_even_when_getpgid_fails(ctx: Ctx):
             os.environ["PATH"] = saved
 
 
+@test
+def test_z4_the_checks_git_group_is_signalled_only_while_git_is_not_reaped(ctx: Ctx):
+    """3.6.0.17 Z4 (S3): `_end_tree` signals git's process group (its id is git's pid: git leads its own session) only
+    while this Popen has not reaped git (`returncode is None`): a git not yet reaped (alive, or ended and not yet
+    waited for) still holds its pid, so that group id is no other process's. Once Popen has reaped it, the pid may
+    belong to another process, which may lead a group of its own: nothing is signalled. POSIX logic, fed its inputs
+    (a stand-in Popen and os), so it runs everywhere."""
+    from types import SimpleNamespace
+    from unittest import mock
+    sent: list = []
+    fake_os = SimpleNamespace(name="posix", killpg=lambda pid, sig: sent.append(pid))
+    for returncode, want in ((None, [4242]), (0, []), (-9, [])):
+        sent.clear()
+        p = SimpleNamespace(pid=4242, returncode=returncode, kill=lambda: None, wait=lambda _t=None: returncode)
+        import signal
+        with mock.patch.object(upd, "os", fake_os), mock.patch.object(signal, "SIGKILL", 9, create=True):
+            upd._end_tree(p)
+        ctx.check(f"git's returncode {returncode}: the group signalled {want}, got {sent}", sent == want)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

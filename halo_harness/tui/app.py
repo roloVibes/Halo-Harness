@@ -688,9 +688,11 @@ class BridgeApp(App):
         # title synchronously (print mode and one-shot probes have no
         # drain tick to do it for them).
         from halo_harness.termtitle import deactivate_tui_mode, set_tui_driver
-        deactivate_tui_mode()
-        set_tui_driver(None)
-        self._bound_the_way_out()
+        try:
+            deactivate_tui_mode()
+            set_tui_driver(None)
+        finally:
+            self._bound_the_way_out()  # 3.6.0.17 Z4 (S2): the way out starts whatever the title steps do
 
     def _bound_the_way_out(self) -> None:
         """3.6.0.17 Z2-1, Z3-1: the start of the terminal app's way out. Every way out passes here: Textual's run
@@ -702,7 +704,9 @@ class BridgeApp(App):
         worker still in a network read: the catalog refresh, a balance, the update check). The bound itself
         (`closing.hard_exit`) is NOT armed here: it comes last, where the way out is done (tui/launch.py
         `bound_the_end`, for /update's restart exit in cli.py after the hand-off to the updater), so nothing a quit
-        still has to do (`controller.quit`, its last lines, the hand-off) is ever inside its grace."""
+        still has to do (`controller.quit`, its last lines, the hand-off) is ever inside its grace.
+        3.6.0.17 Z4-1: the pool taken from the loop is kept (`_pool_at_unmount`): run_tui joins it FIRST, within one
+        bound (tui/launch.py `join_the_pool`), so a worker only in flight ends with its child before the way out runs."""
         from halo_harness import closing
         closing.arm_close_deadline()
         if not closing._STATE.get("installed"):
@@ -710,9 +714,11 @@ class BridgeApp(App):
         import asyncio
         import concurrent.futures
         try:
-            asyncio.get_running_loop().set_default_executor(concurrent.futures.ThreadPoolExecutor())
+            loop = asyncio.get_running_loop()
         except RuntimeError:
-            pass
+            return
+        self._pool_at_unmount = getattr(loop, "_default_executor", None)  # None: no thread worker ever ran
+        loop.set_default_executor(concurrent.futures.ThreadPoolExecutor())
 
     def _git_branch(self) -> str:
         try:

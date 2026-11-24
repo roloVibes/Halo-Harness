@@ -111,13 +111,17 @@ def _end_tree(p) -> None:
     """3.6.0.17 Z2-2: the whole tree `_run_tree` started. POSIX: git leads its own session, so its pid is its group's
     id, and while the group has a member (git not yet reaped, or its helper) that id is no other's: the group ends
     directly (never through getpgid, which can fail on a leader that has already ended). Windows: taskkill /T /F of
-    its tree, while this Popen still holds git's handle (its pid is not reused)."""
+    its tree, while this Popen still holds git's handle (its pid is not reused).
+    3.6.0.17 Z4 (S3): the group only while this Popen has not reaped git (`returncode is None`, never `poll()`, which
+    would reap it here): an unreaped git, alive or ended, still holds its pid, so its group id is no other process's;
+    once reaped, that pid may be another process's, leading a group of its own, and nothing is signalled."""
     if os.name != "nt":
-        import signal
-        try:
-            os.killpg(p.pid, signal.SIGKILL)
-        except OSError:
-            pass
+        if p.returncode is None:
+            import signal
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except OSError:
+                pass
     else:
         from halo_harness import closing
         closing._signal_tree(p.pid, hard=True)

@@ -7,6 +7,7 @@ above it, so `import halo_harness` and `-p` stay dependency-free.
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 
@@ -92,32 +93,98 @@ def run_tui(args) -> int:
     finally:
         from halo_harness import closing
         closing.trace("app.run returned")  # fx jb12: HALO_CLOSE_TRACE (nothing when unset)
-        console_guard.restore()
-        # review finding 5: `app.run()` returning (or raising) via any
-        # path OTHER than the app's own `_quit_worker` (an uncaught
-        # exception escaping Textual's event loop, e.g.) must still stop
-        # the worker thread and close every MCP subprocess -- `quit()` is
-        # already idempotent (`quit_called`), so a normal exit that
-        # already called it here is a harmless no-op.
-        quit_fn = getattr(controller, "quit", None)
-        if callable(quit_fn):
+        # 3.6.0.17 Z4-1: an exception escaping app.run leaves with the code cli.main gives it; a step below that
+        # raises (a second Ctrl+C in the quit's stops, a print to a gone terminal) with that one's. Whatever it is,
+        # the bound is armed (the `finally` below) and the exception goes on.
+        code = None if returned else _code_of(sys.exc_info()[1])
+        raised = False
+        try:
+            interrupted = None
             try:
-                quit_fn()
-            except Exception:
-                pass
-        # 3.2.2.0 R3: an exit that did not pass the app's own quit card
-        # (`/update`, an error) still names what the quit stopped.
-        line = getattr(controller, "stopped_line", "") or ""
-        if line and not getattr(controller, "stopped_line_shown", False):
-            print(line)
-        closing.trace("app.run's finally done", done=True)  # fx jb14: the app's way out ended, nothing outlives it
-        # 3.6.0.17 Z3-1: the bound comes last. /update's restart exit still hands over to the updater (cli.py
-        # `_apply_update_and_relaunch` arms it after that); an exception escaping app.run leaves with Python's 1.
-        from halo_harness.update import RESTART_EXIT_CODE
-        code = (app.return_code if app.return_code is not None else 0) if returned else 1
-        if code != RESTART_EXIT_CODE:
-            bound_the_end(code)
+                join_the_pool(app)  # 3.6.0.17 Z4-1: first, as asyncio's own join was in 3.6.0.16, now bounded
+            except KeyboardInterrupt as e:  # a Ctrl+C in that join: the way out still runs, then it goes on
+                interrupted = e
+            console_guard.restore()
+            # review finding 5: `app.run()` returning (or raising) via any
+            # path OTHER than the app's own `_quit_worker` (an uncaught
+            # exception escaping Textual's event loop, e.g.) must still stop
+            # the worker thread and close every MCP subprocess -- `quit()` is
+            # already idempotent (`quit_called`), so a normal exit that
+            # already called it here is a harmless no-op.
+            quit_fn = getattr(controller, "quit", None)
+            if callable(quit_fn):
+                try:
+                    quit_fn()
+                except Exception:
+                    pass
+            # 3.2.2.0 R3: an exit that did not pass the app's own quit card
+            # (`/update`, an error) still names what the quit stopped.
+            line = getattr(controller, "stopped_line", "") or ""
+            if line and not getattr(controller, "stopped_line_shown", False):
+                print(line)
+            closing.trace("app.run's finally done", done=True)  # fx jb14: the app's way out ended, nothing outlives it
+            if interrupted is not None:
+                raise interrupted
+        except BaseException as e:
+            code, raised = _code_of(e), True
+            raise
+        finally:
+            # 3.6.0.17 Z3-1: the bound comes last. /update's restart exit still hands over to the updater (cli.py
+            # `_apply_update_and_relaunch` arms it after that) unless a step here raised: then there is no hand-off.
+            from halo_harness.update import RESTART_EXIT_CODE
+            if code is None:
+                code = app.return_code if app.return_code is not None else 0
+            if raised or code != RESTART_EXIT_CODE:
+                bound_the_end(code)
     return app.return_code if app.return_code is not None else 0
+
+
+STUCK_GRACE_S = 0.5  # 3.6.0.17 Z4-1: hard_exit's grace once the pool's join gave up on a stuck worker
+_POOL: dict = {"stuck": False}  # 3.6.0.17 Z4-1: whether join_the_pool gave up (bound_the_end's grace)
+_clock = time.monotonic
+
+
+def join_the_pool(app) -> bool:
+    """3.6.0.17 Z4-1: the pool the app took from the loop at its unmount (`BridgeApp._bound_the_way_out`, a real halo
+    only) is shut down without waiting (nothing new starts; work not yet started is cancelled) and its threads are
+    joined within ONE bound for all of them: `closing.EXIT_GRACE_S`, never past the closing deadline. A worker only in
+    flight (the git branch probe, the status line command, the launch's `claude auth status`) so ends by itself, its
+    child with it, before anything of the way out runs (the closing procedure's marker scan would end that child and
+    say so), as asyncio's join of that pool at the end of `app.run()` did in 3.6.0.16. A worker still running at the
+    bound (a network read that never answers) is abandoned: False, and `bound_the_end` then arms the short grace."""
+    from halo_harness import closing
+    pool = getattr(app, "_pool_at_unmount", None)
+    if pool is None:
+        return True
+    pool.shutdown(wait=False, cancel_futures=True)
+    end = _clock() + closing.time_left(closing.EXIT_GRACE_S)
+    for t in list(getattr(pool, "_threads", ())):
+        while t.is_alive():
+            left = end - _clock()
+            if left <= 0:
+                _POOL["stuck"] = True
+                closing.trace("the app's pool still has a worker running: abandoned")
+                return False
+            t.join(min(left, 0.05))
+    return True
+
+
+def _code_of(exc) -> int:
+    """3.6.0.17 Z4-1: the exit code cli.main gives an exit that raises `exc` out of run_tui: a Ctrl+C 130 (cli.main's
+    own for a Ctrl+C, 128 + SIGINT), SystemExit its code, a config file that does not parse or a file in Halo's own
+    folders 2 (cli.main's one line), anything else Python's 1 (a traceback)."""
+    if isinstance(exc, KeyboardInterrupt):
+        return 130
+    if isinstance(exc, SystemExit):
+        return exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+    try:
+        from halo_harness.state_home import line_for_error
+        from halo_harness.theme import CorruptConfigError
+        if isinstance(exc, CorruptConfigError) or line_for_error(exc) is not None:
+            return 2
+    except Exception:
+        pass
+    return 1
 
 
 def bound_the_end(code: int) -> None:
@@ -128,13 +195,16 @@ def bound_the_end(code: int) -> None:
     clears them, so the exit runs none twice). The lines a quit prints at its close ("halo: left running on purpose:
     ...") are so printed also when a thread worker is stuck in a network read (the interpreter joins that thread
     before atexit). Then `closing.hard_exit(code)` with its own grace: only the interpreter's own ending is inside it,
-    and a stuck thread is abandoned, never joined."""
+    and a stuck thread is abandoned, never joined.
+    3.6.0.17 Z4: the hooks run while pool threads `join_the_pool` abandoned may still run (a worker stuck in a network
+    read); nothing here waits on them. When that join gave up, the grace is STUCK_GRACE_S (the interpreter cannot end
+    by itself then: its own join of that thread would wait), else the plain EXIT_GRACE_S."""
     import atexit
     from halo_harness import closing
     if not closing._STATE.get("installed"):
         return
     atexit._run_exitfuncs()
-    closing.hard_exit(code)
+    closing.hard_exit(code, STUCK_GRACE_S if _POOL["stuck"] else closing.EXIT_GRACE_S)
 
 
 def _build_demo_controller(args):
