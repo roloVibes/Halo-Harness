@@ -2324,6 +2324,7 @@ def test_ctrl_q_on_a_wedged_loop_arms_its_backstop_first_and_it_ends_through_har
             if t.function is not os._exit:  # 3.6.0.17's raw os._exit is never fired in this process
                 t.function(*t.args)
     rows: dict = {}
+    held: dict = {}
     try:
         with mock.patch.object(threading_mod, "Timer", _CapturingTimer), \
                 mock.patch.object(closing, "hard_exit", lambda code, *a, **k: asked.append(code)), \
@@ -2341,7 +2342,11 @@ def test_ctrl_q_on_a_wedged_loop_arms_its_backstop_first_and_it_ends_through_har
                 first = list(asked)
                 app_mod.BridgeApp._bound_the_way_out(stub)  # the way out begins (unmount)
                 fire()
-                rows[name] = (ended, len(timers), list(stub._loop.posted), first, list(asked))
+                after_unmount = list(asked)
+                stub._held_in_run = True  # a real session whose app.run() never gave the launcher its turn
+                fire()
+                rows[name] = (ended, len(timers), list(stub._loop.posted), first, after_unmount)
+                held[name] = list(asked)
     finally:
         wedged.set()
         let_quit_go.set()
@@ -2350,6 +2355,8 @@ def test_ctrl_q_on_a_wedged_loop_arms_its_backstop_first_and_it_ends_through_har
     ctx.check(f"one backstop armed, got {n}", n == 1)
     ctx.check(f"the backstop asked hard_exit once with controller.quit's 0, got {first}", first == [0])
     ctx.check(f"once the way out began, a fired backstop asks nothing, got {after}", after == [0])
+    ctx.check(f"unmount ran but a real session is still held in app.run(): the backstop ends it, got {held}",
+              held.get("quit returned") == [0, 0])
     ended, n, posted, first, after = rows.get("quit hung", (False, 0, [], [], []))
     ctx.check(f"controller.quit hung: the thread still ended, one backstop, got {rows.get('quit hung')}",
               ended and n == 1 and len(posted) == 1)

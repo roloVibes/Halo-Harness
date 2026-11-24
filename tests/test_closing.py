@@ -1649,6 +1649,30 @@ def test_l_a_ctrl_c_out_of_the_terminal_app_leaves_with_one_line_and_130(ctx: Ct
 
 
 @test
+def test_l_a_ctrl_c_before_the_terminal_app_runs_still_arms_the_bound(ctx: Ctx):
+    """3.6.0.18 L: a Ctrl+C raised in run_tui BEFORE its own try/finally (the session's setup) is caught by
+    `cli._run_full_screen` too: the same one line and 130, and the bound is armed there (run_tui's finally never ran,
+    so nobody else armed it; a stuck thread would hold the interpreter's end)."""
+    import contextlib
+    import io
+    from unittest import mock
+    from halo_harness import cli
+    from halo_harness.tui import launch
+    armed: list = []
+
+    def interrupted(_args):
+        raise KeyboardInterrupt()
+    err = io.StringIO()
+    with mock.patch.object(launch, "run_tui", interrupted), \
+            mock.patch.object(launch, "bound_the_end", lambda code: armed.append(code)), \
+            contextlib.redirect_stderr(err):
+        code = cli._run_full_screen(object(), [])
+    ctx.check(f"130, got {code}", code == 130)
+    ctx.check(f"the bound armed once with 130, got {armed}", armed == [130])
+    ctx.check(f"the one line, got {err.getvalue()!r}", err.getvalue().count(cli.INTERRUPTED_LINE.strip()) == 1)
+
+
+@test
 def test_l_a_thread_worker_posted_while_unmount_runs_never_holds_app_run(ctx: Ctx):
     """3.6.0.18 L (entry 4): a call posted to the loop while Unmount runs (a worker thread's call_from_thread) that
     starts a thread worker after the way out began: the loop's executor then runs nothing, so `app.run()` returns while

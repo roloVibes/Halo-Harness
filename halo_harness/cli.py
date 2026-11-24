@@ -487,11 +487,12 @@ def _relaunch_flags(argv: list) -> list:
 
 def _run_full_screen(args, argv: list) -> int:
     """The full-screen session: `run_tui(args)`, then `/update`'s restart exit code handed to the detached updater."""
-    from halo_harness.tui.launch import run_tui
+    from halo_harness.tui.launch import bound_the_end, run_tui
     try:
         code = run_tui(args)
-    except KeyboardInterrupt:  # 3.6.0.18 L: run_tui's finally armed the bound with 130: one line, 130, no traceback
+    except KeyboardInterrupt:  # 3.6.0.18 L: one line, 130, no traceback
         print(INTERRUPTED_LINE, file=sys.stderr)
+        bound_the_end(130)  # run_tui's finally armed it already; a Ctrl+C before its `try` arms it here (it holds once)
         return 130
     from halo_harness.update import RESTART_EXIT_CODE
     if code == RESTART_EXIT_CODE:

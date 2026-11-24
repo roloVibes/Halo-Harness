@@ -94,10 +94,12 @@ def run_tui(args) -> int:
     from halo_harness import subprocess_safe
     give_the_terminal_on_suspend(app)
     subprocess_safe.set_terminal_app(True)
+    app._held_in_run = True  # 3.6.0.18 L: Ctrl+Q's backstop still ends a session that never leaves app.run()
     try:
         app.run()
         returned = True
     finally:
+        app._held_in_run = False  # from here `bound_the_end` below is the only end
         console_guard.on_ctrl_c = None  # 3.6.0.18 K: Textual keeps its driver after run(): no key posts to a gone loop
         from halo_harness import closing
         closing.trace("app.run returned")  # fx jb12: HALO_CLOSE_TRACE (nothing when unset)
@@ -223,8 +225,8 @@ def join_the_pool(app) -> bool:
 def _code_of(exc) -> int:
     """3.6.0.17 Z4-1: the exit code an exit that raises `exc` out of run_tui leaves with: a Ctrl+C 130 (3.6.0.18 L:
     on every system; cli._run_full_screen catches it once this bound is armed, prints cli.main's one line and returns
-    130, so no traceback and no Python's own code for it), SystemExit its code, a config file that does not parse or a file in Halo's own folders 2
-    (cli.main's one line), anything else Python's 1 (a traceback)."""
+    130, so no traceback and no Python's own code for it), SystemExit its code, a config file that does not parse or
+    a file in Halo's own folders 2 (cli.main's one line), anything else Python's 1 (a traceback)."""
     if isinstance(exc, KeyboardInterrupt):
         return 130
     if isinstance(exc, SystemExit):

@@ -20,8 +20,9 @@ holding `git.exe` ran it the moment Halo asked git for the branch. Three parts c
    (`_quiet_stdin`). A child sharing the input took a person's key (`claude auth status` at a session's start), and a
    `.cmd`'s cmd.exe switched the console's processed input back on as it left. A caller that names `stdin` (None too:
    inherit on purpose) or gives `input` is left as written; with the switch off nothing changes. While the app is
-   suspended (`with app.suspend():` around the person's editor) the person has the terminal: run_tui switches the rule
-   off for the suspend (tui/launch.py `give_the_terminal_on_suspend`).
+   suspended (`with app.suspend():` around the person's editor) the person has the terminal: the THREAD that suspends
+   hands it to its own child (`hand_the_terminal_here`, set by tui/launch.py `give_the_terminal_on_suspend`); the rule
+   stays on for every other thread's child.
 
 A test that replaced the standard function (`subprocess.run = fake`) still gets the call, unchanged. A name not found
 on PATH is passed as it was (the first part keeps Windows from looking in the current folder for it). Anything else is

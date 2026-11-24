@@ -2830,13 +2830,16 @@ class BridgeApp(App):
         from halo_harness.controller import _end_browsers
         # 3.6.0.18 L: ONE rule for the end. At the press the way out's deadline is armed, and the backstop BEFORE
         # anything here that can block: past CTRL_Q_BACKSTOP_S, if the way out has not begun (a wedged loop never
-        # unmounts), it ends halo through closing.hard_exit (close(), the exit hooks, the lines), never a raw
-        # os._exit. Once unmount ran, tui/launch.py `bound_the_end` is the only end and the backstop does nothing.
+        # unmounts), it ends halo through closing.hard_exit (close() and the exit hooks, without their lines: the
+        # terminal is still the app's), never a raw os._exit. Once unmount ran AND `app.run()` gave the launcher its
+        # turn, tui/launch.py `bound_the_end` is the only end and the backstop does nothing. A real session still
+        # inside `app.run()` then (`_held_in_run`: Textual's own ending after Unmount hangs) is ended here, as
+        # 3.6.0.17's timer did.
         closing.arm_close_deadline()
         result = {"code": 0, "returned": False}
 
         def _backstop() -> None:
-            if getattr(self, "_way_out_begun", False):
+            if getattr(self, "_way_out_begun", False) and not getattr(self, "_held_in_run", False):
                 return
             closing.hard_exit(result["code"] if result["returned"] else 1)
         timer = threading.Timer(CTRL_Q_BACKSTOP_S, _backstop)
