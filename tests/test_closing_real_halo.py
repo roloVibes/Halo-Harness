@@ -306,7 +306,9 @@ def _quit_while_a_read_hangs(c: "core.Ctx", how: str, stuck: bool = True, claude
         # the hold: the stuck read's own timeout (the listener never answers), or the stand-in claude's
         from halo_harness.providers import databricks
         row["hold_s"] = _CLAUDE_HOLD_S if claude else float(databricks._CATALOG_READ_TIMEOUT_S)
+        asked = time.monotonic()
         row["halo_alive_after"] = not _gone_by(t, row["hold_s"] / 2)
+        row["gone_s"] = round(time.monotonic() - asked, 1)  # from the quit's last key to the process gone
         row["phases"] = _phases(trace)
         row["code"] = t.poll()
         text = _settled(t)
@@ -419,6 +421,15 @@ def _check_z2(ctx: Ctx, how: str) -> None:
               "not_up" not in free and not free["halo_alive_after"] and free.get("code") == 0)
     ctx.check(f"{row.get('keys')}: the Halo process gone before half the stuck read's {row.get('hold_s')} s, got {row}",
               not row["halo_alive_after"])
+    # 3.6.0.19: the product's own bound, held against a healthy quit on THIS machine (half a stand-in's hold let a
+    # quit that regressed to 10 s pass): a stuck quit may take the healthy quit's time, once more for a slow
+    # machine, the whole way out's budget and the exit's grace, and one second of this test's own polling.
+    from halo_harness import closing
+    bound = closing.QUIT_BUDGET_S + closing.EXIT_GRACE_S
+    allowed = 2 * float(free.get("gone_s") or 0.0) + bound + 1.0
+    ctx.check(f"{row.get('keys')}: the stuck quit is gone within the product's bound of a healthy quit here: healthy "
+              f"{free.get('gone_s')} s, stuck {row.get('gone_s')} s, allowed {allowed:.1f} s (twice the healthy quit + "
+              f"{bound:.0f} s + 1 s)", "gone_s" in free and "gone_s" in row and row["gone_s"] <= allowed)
     for name, r in (("nothing stuck", free), ("a read stuck", row)):
         ctx.check(f"{row.get('keys')}, {name}: its way out's phases in order, got {r.get('phases')}",
                   tuple(r.get("phases") or ()) == _PHASES)
