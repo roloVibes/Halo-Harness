@@ -8,6 +8,118 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.20] - unreleased
+
+Local models, measured right. Halo's memory estimate was about eighteen times too high for one family of models
+and gave such a model a 4k window where 65,536 fits; it now counts what the server really keeps, and a measurement
+or a load Halo has seen can raise an estimate that is too low. A local session no longer carries the names of every
+tool of your other tool servers: on one real setup with many servers its first request went from about 14,600
+tokens to about 6,300. `halo local prompt` counts those servers, and `/status` describes the session it is typed in. All
+of it was checked with real sessions on a real Ollama.
+
+### Fixed
+
+- **The memory estimate of a latent-attention model.** A model that keeps one small latent row a layer in its cache
+  (its `/api/show` names `kv_lora_rank`) was estimated as if every head kept its full key and value: about eighteen
+  times too much. A 30B model of that kind was held at 4k, where it sits wholly on its card at 65,536. The estimate
+  now counts what the server keeps. Checked against five real loads of one model: it is never below a real load. A
+  new session on that model now starts at 65,536 with one load and one tool list; 3.6.0.19 started it at 4k, cut
+  its first request and reloaded on the second turn.
+- **A reading of the card no longer counts a load twice.** Halo keeps a reading of the card's free memory for a
+  minute and adds back what its own loaded models hold; right after a load that counted the model twice, and the
+  second request of a session asked for a window four times the first (a reload, and with the estimate now right,
+  a window that would spill). Each reading now adds back only what was loaded when it was taken.
+- **A measurement, or a load Halo saw wholly on the card, raises an estimate that is too low.** After `halo local
+  measure <model>` a new session starts at the measured window (the lines call it "learned cap") while the card has
+  the room it had at the measurement. A window a session saw sit wholly on the card ("seen to fit") does the same
+  for later sessions while the card has that load's room. With less room on the card than then, the estimate
+  stands, as before. `halo ollama`, `/ollama` and Studio's Models list print the window a session is sent, with the
+  source word `calibrated` or `seen`. Before, the smaller of the estimate and the measurement always won, so a
+  measurement could never help a model the estimate misjudged.
+- **A session's tool list never changes in the middle of it.** The list is the one of the window the first request
+  is sent at (3.6.0.19), but it was kept only when that window differed from the one Halo first resolved; when the
+  resolved window moved later (the card got busier), the list changed between two turns. It is always kept now.
+- **With a window of your own (a profile), the first turn loads the model once.** It loaded twice ("loading ...",
+  then "loading ... again at a 32k window").
+- **The line for a first request that is over its window says why the window is that small.** After "the system
+  prompt, the memory and the tools alone are N tokens, more than this W window holds with the reply's R:" you now
+  read, when the window is Halo's own estimate and nothing was measured, "that window is Halo's memory estimate for
+  <model> on <host>; `halo local measure <model>` measures what the card holds"; for a profile, "the profile of
+  <model> on <host> sets that window (`halo ollama profile`)"; for the host's `max_ctx`, "the host's max_ctx sets
+  that window"; otherwise, as before, "a bigger-window model holds them".
+- **A first request is not compacted after it was sent either.** 3.6.0.19 stopped the compaction before the send.
+  Now, when Halo judged a first request to fit and the server then cut it: a reply cut at the window stands ("<host>
+  cut the reply at the window (...): nothing earlier to compact, the reply stands as it is"); a prompt the server
+  trimmed is sent once more at a larger window when the call may get one, and otherwise stands ("<host> read X of Y
+  tokens of the first request (its window is W): nothing earlier to compact, the answer stands"); a first request
+  Ollama refuses outright at a window that cannot grow ends with one line ("<host> refused the first request (N
+  tokens) and its window cannot grow: nothing earlier to compact"). Before, each started a compaction of a
+  conversation with no answer in it, then more calls, then an error. From the second turn on nothing changes.
+- **A local session no longer carries the names of every tool of your other tool servers.** Every session logs a
+  list of the tools it can load on demand, and that list rode in every request, outside every budget: with sixteen
+  servers of sixty tools about 9,400 tokens, more than half of a 16,384 window. A lean request (a local model, or
+  any model with a window under 65,536, and its helpers) now leaves the list out; each server's line says how many
+  tools it has, ``- `<server>` (60 tools): <what it is for>``, and one line says that ToolSearch finds a server's
+  tool. ToolSearch searches the tools itself and never needed the list. A session on a large-window model is sent
+  what it was sent before, byte for byte.
+- **A server's line in a local model's system text is its first sentence,** 160 characters at most. One server's
+  whole first line of more than 900 characters rode in every request.
+- **`halo local prompt` counts the other tool servers.** It reads the servers a session in this folder has and
+  their tools from Halo's own cache of their tool lists, and starts nothing. It prints "other tool servers: N, M
+  tools (from Halo's cache of their tool lists; none was started)", and for a server Halo has no cache of yet "not
+  counted: the tools of N other tool servers (<names>); a session's /status counts them". On the real setup above
+  it said 6,410 tokens where the server then read 6,265.
+- **`/status` describes the session it is typed in:** its own first request, with its own tools and servers. It
+  described a new default session.
+- **The release tool** no longer prints false "driver retried once" warnings (it read the workflow's own script in
+  the log), and says so when a job never ran because no runner took it.
+
+### Changed
+
+What a model is sent changes in these cases only; a session on a model with a large window (65,536 and up) is sent
+byte for byte what 3.6.0.19 sent (the request bodies were compared across both).
+
+- A latent-attention model: a larger window, and the tool list of that window.
+- A lean request: no list of the other servers' tool names; the servers' lines with their counts, each its first
+  sentence; one ToolSearch line.
+- A first request the server cut, trimmed or refused: no compaction request follows.
+- A session whose resolved window moves after its first request: the first request's tool list on every later one.
+- After `halo local measure`, or after a load seen wholly on the card: the observed window when it is larger than
+  the estimate and the card has the room.
+
+### Tests
+
+- The three waits that follow a click in one browser test of Studio's Live view have a slow runner's budget (one
+  of them ran out on a hosted Windows runner and five tests went red from that one read).
+- The stand-in Ollama of the tests can answer "exceeds the available context size", so the rule that a session
+  held at a window is never re-sent past it has its own test now (3.6.0.19 shipped it without one).
+- Four tests that pinned "compacted and re-sent" for a first request are rewritten to the new truth and renamed to
+  what they assert; the compaction of a LATER request after the send has a new end-to-end test.
+
+### Known limits
+
+- The estimate errs on the safe side: for the model it was checked against it is 0.3 to 2.4 GB above the real
+  load, so a model can still get a smaller window than its card would hold. `halo local measure <model>` settles
+  it; the session after it starts at the measured window, which can fill the card almost to the top. A window of
+  your own is `halo ollama profile set <host> <model> num_ctx <N>`.
+- Model families with a sliding attention window are still estimated too high (not checked against a real load).
+- A session on a large-window model still sends the names of all tools of your other servers in every request, as
+  before: with many servers that is thousands of tokens. Its sentence "calling them directly will fail" is not
+  true on Halo (such a tool is loaded when it is called).
+- `halo local prompt` counts a server only when Halo has a cache of its tools made with the server's settings as
+  they are now (a session makes it). Studio's model card and `halo doctor` describe a new session without the
+  other servers.
+- A reading of the card that another view took first (Studio's panel) and that an estimate uses only after a load
+  can still count that load twice.
+- A first request can still be compacted on two rare paths: an overflow in the middle of a stream on a dialect
+  other than Ollama's, and a compaction left pending by a switch of the model.
+- A first request that cannot fit its window is sent at once, without the card that offers a bigger-window model.
+- The real sessions were run on Windows with one Ollama and one card; the same paths run with a stand-in server in
+  the tests on Windows, macOS and Linux.
+- Every Known limit of 3.6.0.19 still holds, except the ones this release closes: the estimate of a
+  latent-attention model, a measurement that could not win over it, the tool list that changed on a later turn,
+  the other servers' tool names in a local session, and the first request compacted after the send.
+
 ## [3.6.0.19] - 2026-11-24
 
 Local models: the session you really get. A session on a local model is now sent the window Halo names, with the

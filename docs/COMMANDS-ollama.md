@@ -74,8 +74,9 @@ unknown size); `--timeout <seconds>` sets it. Each load prints one line
 "qwen3-coder:30b on pc: 65k safe, 98k tight (22.1 of 23 GB), 131k does
 not fit (6 min 10 s)", or "...: inconclusive (...), the window stays at
 32k (trained)". `halo ollama` shows per model the window in use, its
-source word (`trained` / `memory` / `calibrated` / `max_ctx` / `prompt
-floor`), the last session's prompt floor, `calibrated` / `estimated` /
+source word (`trained` / `memory` / `calibrated` / `seen` / `max_ctx` / `prompt floor`; 3.6.0.20: `seen` is a
+window a session saw sit wholly on the card; it and a measured window are what a session is sent while the card
+has the room), the last session's prompt floor, `calibrated` / `estimated` /
 `inconclusive`, the tight window when one was measured, and the prompt
 reading speed.
 

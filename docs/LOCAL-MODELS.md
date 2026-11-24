@@ -263,10 +263,15 @@ only of a window Halo saw spill above or measured; with nothing known the
 line is "loading <model> on <host> again at a 16k window", the window that
 is sent. A conversation with no earlier answer is not compacted before it is
 sent: a first request that cannot fit its window says so and goes out as
-"send anyway" sends it, and a reply cut at the window then stands. A model can be held at a window Halo's memory
-estimate puts too low (the smaller of the estimate and a measurement wins);
-a window of your own for it is `halo ollama profile set HOST MODEL num_ctx
-32768`, and a session then starts there. Ollama cuts a prompt longer than the window and answers anyway:
+"send anyway" sends it, and a reply cut at the window then stands. Since
+3.6.0.20 the same holds after the send: a first request the server trims,
+cuts or refuses is never compacted (one line says what stands, or that the
+window cannot grow). Since 3.6.0.20 an observation of the model raises a
+memory estimate that is too low while the card has the room it had: a
+measured window (`halo local measure MODEL`; the lines say "learned cap")
+and a window a session saw sit wholly on the card ("seen to fit"). A
+window of your own is `halo ollama profile set HOST MODEL num_ctx 32768`,
+and a session then starts there with one load. Ollama cuts a prompt longer than the window and answers anyway:
 one long message to half the window (`prompt_eval_count` = `num_ctx / 2 +
 2`), a chat by dropping whole messages from the front. A count at that
 half, a count reaching into the room kept for the reply, a count smaller
