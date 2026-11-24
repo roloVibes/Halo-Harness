@@ -90,7 +90,35 @@ def test_a_real_halo_init_killed_hard_takes_its_studio_with_it(ctx: Ctx):
     _check(ctx, HOW[2])
 
 
-GONE_S = 5.0  # 3.6.0.17 Z1: a closed session is gone this long after its last key, its git with it
+GONE_S = 5.0  # the ONE look for leftovers, this long after the Halo process has gone (never a poll that waits them away)
+# 3.6.0.18 L: whether the Halo process ITSELF is gone is never read against a small wall-clock constant: a stand-in
+# holds the worker for a long named time and the process must be gone before half of it (a way out that waited on the
+# stand-in would be gone only after all of it), and where the close trace is on, its phases came in this order.
+_PHASES = ("quit asked", "app exit asked", "app.run returned", "app.run's finally done", "close: start", "close: end",
+           "hard exit armed")
+
+
+def _phases(trace: Path) -> list:
+    """The way out's phases (_PHASES) in the order the process's close trace wrote them, each the first time."""
+    try:
+        lines = trace.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    seen: list = []
+    for line in lines:
+        what = line.split("] ", 1)[-1]
+        for phase in _PHASES:
+            if what.startswith(phase) and phase not in seen:
+                seen.append(phase)
+    return seen
+
+
+def _gone_by(t, seconds: float) -> bool:
+    """True once the process `t` has gone, waiting at most `seconds` (half a stand-in's hold) for it."""
+    end = time.monotonic() + seconds
+    while t.poll() is None and time.monotonic() < end:
+        time.sleep(0.1)
+    return t.poll() is not None
 
 
 def _session_while_the_check_hangs(c: "core.Ctx") -> dict:
@@ -134,11 +162,11 @@ def _session_while_the_check_hangs(c: "core.Ctx") -> dict:
         row["standins_alive_at_close"] = hanging_git.alive(rows)
         row["hung_s_at_close"] = round(time.monotonic() - (first or time.monotonic()), 1)
         row["keys"] = _end(c, t, HOW[0], full_screen=True, note=_noter(trace))
-        end = time.monotonic() + GONE_S
-        while t.poll() is None and time.monotonic() < end:
-            time.sleep(0.1)
-        row["halo_alive_after"] = t.poll() is None
-        row["standins_alive_after"] = hanging_git.wait_gone(rows, max(0.0, end - time.monotonic()))
+        row["halo_alive_after"] = not _gone_by(t, hanging_git.HOLD_S / 2)  # the stand-in git holds HOLD_S
+        row["phases"] = _phases(trace)
+        if not row["halo_alive_after"]:
+            time.sleep(GONE_S)  # the one look, GONE_S after the process has gone
+        row["standins_alive_after"] = hanging_git.alive(rows)
         row["left"] = [f"{p.short(110)} [{p.why}]" for p in c.left_after(h, 0.5)]
         return row
     finally:
@@ -149,8 +177,11 @@ def _session_while_the_check_hangs(c: "core.Ctx") -> dict:
 
 @test
 def test_z1_a_session_closed_while_its_update_check_hangs_is_gone_with_its_git(ctx: Ctx):
-    """3.6.0.17 Z1 (a): the closing rule while the network hangs: the Halo process gone within GONE_S of the Ctrl+C,
-    and neither git nor its helper alive then (by pid and start time)."""
+    """3.6.0.17 Z1 (a): the closing rule while the network hangs: the Halo process gone after the Ctrl+C before half
+    the stand-in git's hold, its way out's phases in order, and neither git nor its helper alive GONE_S after it had
+    gone (by pid and start time). 3.6.0.18 L: the close must still land within the update check's own budget
+    (update.CHECK_TIMEOUT_S) of git's start; the product has no door that makes it longer, so a slow start can still
+    make the not-vacuous guard below red (said, never loosened)."""
     c = core.Ctx(REPO, Path(tempfile.mkdtemp(prefix="rc-close-z1-")))
     try:
         row = _session_while_the_check_hangs(c)
@@ -160,8 +191,12 @@ def test_z1_a_session_closed_while_its_update_check_hangs_is_gone_with_its_git(c
               "not_up" not in row and len(row["standins_alive"]) == 2)
     ctx.check(f"the close landed while the check's git and helper still hung (not a vacuous check), got {row}",
               len(row.get("standins_alive_at_close") or []) == 2)
-    ctx.check(f"{row.get('keys')}: the Halo process gone within {GONE_S:.0f} s, got {row}", not row["halo_alive_after"])
-    ctx.check(f"{row.get('keys')}: no stand-in git left {GONE_S:.0f} s after the close, got {row}",
+    from tests.helpers import hanging_git
+    ctx.check(f"{row.get('keys')}: the Halo process gone before half the stand-in's {hanging_git.HOLD_S} s hold, "
+              f"got {row}", not row["halo_alive_after"])
+    ctx.check(f"{row.get('keys')}: its way out's phases in order, got {row.get('phases')}",
+              tuple(row.get("phases") or ()) == _PHASES)
+    ctx.check(f"{row.get('keys')}: no stand-in git left {GONE_S:.0f} s after Halo had gone, got {row}",
               not row["standins_alive_after"])
     ctx.check(f"{row.get('keys')}: nothing started under the scratch home left, got {row['left']}", not row["left"])
 
@@ -232,8 +267,8 @@ def _z2_env(c: "core.Ctx", h, folder: Path, listener: "_Silent", trace: Path, st
 def _quit_while_a_read_hangs(c: "core.Ctx", how: str, stuck: bool = True, claude: bool = False) -> dict:
     """A real terminal session (bare `halo`) in a scratch home, ONE of its launch workers (the OpenRouter catalog
     refresh: a 30 s read) stuck on `_Silent` (`stuck` false: the same rig, nothing stuck); the session is quit the
-    way a person does (`how`: Ctrl+C then Enter on "Quit Halo?", or /quit). The Halo process must be gone within
-    GONE_S, with the normal quit's code. `claude` (3.6.0.17 Z4-1): a stand-in `claude` (_CLAUDE) answers the launch's
+    way a person does (`how`: Ctrl+C then Enter on "Quit Halo?", or /quit). The Halo process must be gone before
+    half the hold (3.6.0.18 L: the stuck read's own timeout, or the stand-in claude's), with the normal quit's code. `claude` (3.6.0.17 Z4-1): a stand-in `claude` (_CLAUDE) answers the launch's
     `claude auth status` only once the way out has begun, so its child is in flight at the quit, every time."""
     from realcheck import screen
     from realcheck.steps_close import _noter
@@ -268,10 +303,11 @@ def _quit_while_a_read_hangs(c: "core.Ctx", how: str, stuck: bool = True, claude
             row["keys"] = "/quit Enter"
         else:
             row["keys"] = screen.quit_with_ctrl_c(t, wait=0.5, note=_noter(trace))
-        end = time.monotonic() + GONE_S
-        while t.poll() is None and time.monotonic() < end:
-            time.sleep(0.1)
-        row["halo_alive_after"] = t.poll() is None
+        # the hold: the stuck read's own timeout (the listener never answers), or the stand-in claude's
+        from halo_harness.providers import databricks
+        row["hold_s"] = _CLAUDE_HOLD_S if claude else float(databricks._CATALOG_READ_TIMEOUT_S)
+        row["halo_alive_after"] = not _gone_by(t, row["hold_s"] / 2)
+        row["phases"] = _phases(trace)
         row["code"] = t.poll()
         text = _settled(t)
         row["last_lines"] = _last_lines(text)
@@ -290,7 +326,8 @@ def _quit_while_a_read_hangs(c: "core.Ctx", how: str, stuck: bool = True, claude
 # 3.6.0.17 Z4-1: a stand-in `claude` (never the real one): `auth status` writes started-<pid>, waits until the halo's
 # close trace says its app has returned (the quit is under way: the child is in flight then on every machine, however
 # slow), then 0.5 s more, and answers "signed out" (mcp/claude_auth.py: loggedIn false), writing ended-<pid>. A SIGTERM
-# (the closing procedure's marker scan on POSIX) writes term-<pid> instead. It gives up after 60 s on its own.
+# (the closing procedure's marker scan on POSIX) writes term-<pid> instead. It gives up after _CLAUDE_HOLD_S on its own.
+_CLAUDE_HOLD_S = 60.0
 _CLAUDE = r'''
 import os, signal, sys, time
 folder, trace = sys.argv[1], sys.argv[2]
@@ -315,7 +352,7 @@ def returned():
         return False
 
 
-end = time.monotonic() + 60
+end = time.monotonic() + float(sys.argv[3])
 while time.monotonic() < end and not returned():
     time.sleep(0.05)
 time.sleep(0.5)
@@ -329,7 +366,7 @@ def _claude_standin(folder: Path, trace: Path) -> str:
     folder.mkdir(parents=True, exist_ok=True)
     script = folder / "claude_standin.py"
     script.write_text(_CLAUDE, encoding="utf-8")
-    return " ".join(f'"{x}"' for x in (sys.executable, script, folder, trace))
+    return " ".join(f'"{x}"' for x in (sys.executable, script, folder, trace, _CLAUDE_HOLD_S))
 
 
 _WAY_OUT = ("halo:", "stopped:", "stand-in:")
@@ -380,8 +417,11 @@ def _check_z2(ctx: Ctx, how: str) -> None:
               f"got {row}", "not_up" not in row and row["held"] >= 1)
     ctx.check(f"the same session with nothing stuck came up and quit, got {free}",
               "not_up" not in free and not free["halo_alive_after"] and free.get("code") == 0)
-    ctx.check(f"{row.get('keys')}: the Halo process gone within {GONE_S:.0f} s of the quit, got {row}",
+    ctx.check(f"{row.get('keys')}: the Halo process gone before half the stuck read's {row.get('hold_s')} s, got {row}",
               not row["halo_alive_after"])
+    for name, r in (("nothing stuck", free), ("a read stuck", row)):
+        ctx.check(f"{row.get('keys')}, {name}: its way out's phases in order, got {r.get('phases')}",
+                  tuple(r.get("phases") or ()) == _PHASES)
     ctx.check(f"{row.get('keys')}: it left with the normal quit's code 0, got {row.get('code')}", row.get("code") == 0)
     ctx.check(f"{row.get('keys')}: the terminal shows no traceback on the way out, got {row.get('last_lines')}",
               not any("Traceback" in ln for ln in row.get("last_lines") or []))
@@ -408,7 +448,7 @@ def test_z4_a_quit_with_nothing_stuck_ends_no_child_of_halos_own_checks(ctx: Ctx
     """3.6.0.17 Z4-1: a healthy quit while a launch worker's short child is still in flight (the stand-in `claude`'s
     `auth status`, _CLAUDE): the pool the app had is joined first (within one bound), so that child ends by itself
     before the closing procedure looks: no "halo: ended" line, the child never signalled, the normal quit's code 0,
-    the process gone within GONE_S. On Windows there is no marker scan: green there before and after."""
+    the process gone before half the stand-in's hold (3.6.0.18 L). On Windows there is no marker scan: green there before and after."""
     c = core.Ctx(REPO, Path(tempfile.mkdtemp(prefix="rc-close-z4-")))
     try:
         row = _quit_while_a_read_hangs(c, "Ctrl+C", stuck=False, claude=True)
@@ -417,8 +457,10 @@ def test_z4_a_quit_with_nothing_stuck_ends_no_child_of_halos_own_checks(ctx: Ctx
     seen = row.get("claude") or []
     ctx.check(f"the session came up and its `claude auth status` stand-in ran (not a vacuous check), got {row}",
               "not_up" not in row and "started" in seen)
-    ctx.check(f"{row.get('keys')}: the Halo process gone within {GONE_S:.0f} s, with the normal quit's code 0, got {row}",
-              not row["halo_alive_after"] and row.get("code") == 0)
+    ctx.check(f"{row.get('keys')}: the Halo process gone before half the stand-in's {row.get('hold_s')} s, with the "
+              f"normal quit's code 0, got {row}", not row["halo_alive_after"] and row.get("code") == 0)
+    ctx.check(f"{row.get('keys')}: its way out's phases in order, got {row.get('phases')}",
+              tuple(row.get("phases") or ()) == _PHASES)
     ctx.check(f"{row.get('keys')}: no 'halo: ended' line on a healthy quit, got {row.get('way_out')}",
               not any(ln.startswith("halo: ended") for ln in row.get("way_out") or []))
     ctx.check(f"{row.get('keys')}: the stand-in was never signalled and ended by itself, got {seen}",
@@ -441,7 +483,7 @@ closing.install()  # what cli.main does first in the real process
 from halo_harness import cli, update_detached
 from halo_harness.tui import app as A, slash
 port, way, stuck, kept, out = int(sys.argv[1]), sys.argv[2], sys.argv[3] == "stuck", sys.argv[4] == "kept", sys.argv[5]
-HAND_OFF_S = float(sys.argv[6])
+HAND_OFF_S, HOLD_S = float(sys.argv[6]), float(sys.argv[7])
 
 
 def hand_off(**_kw):  # the updater's start, stood in
@@ -465,7 +507,7 @@ async def on_mount(self):
         s = None
         if stuck:  # a launch worker in a network read that never answers
             s = socket.create_connection(("127.0.0.1", port), timeout=5)
-            s.settimeout(120)
+            s.settimeout(HOLD_S)
         with open(os.path.join(out, "asked.json"), "w", encoding="utf-8") as f:
             json.dump({"at": time.time()}, f)
         if way == "restart":
@@ -484,6 +526,7 @@ A.BridgeApp.on_mount = on_mount
 sys.exit(cli._run_full_screen(cli._build_parser().parse_intermixed_args(["--demo"]), ["--demo"]))
 '''
 HAND_OFF_S = 8.0  # longer than Z2's bound for the restart exit (EXIT_GRACE_S + QUIT_BUDGET_S): it was cut there
+RIG_HOLD_S = 120.0  # 3.6.0.18 L: the stuck worker's read holds this long; the process must be gone before half of it
 
 
 def _end_kept(pid, started) -> None:
@@ -518,11 +561,11 @@ def _rig(c: "core.Ctx", way: str, stuck: bool, kept: bool) -> dict:
         script.write_text(_RIG, encoding="utf-8")
         env = c.env(h, HALO_NO_UPDATER="1", BRIDGE_TEST_NO_BACKGROUND_NET="1")
         argv = [sys.executable, str(script), str(listener.port), way, "stuck" if stuck else "free",
-                "kept" if kept else "-", str(out), str(HAND_OFF_S)]
+                "kept" if kept else "-", str(out), str(HAND_OFF_S), str(RIG_HOLD_S)]
         t = Terminal(argv, env=env, cwd=str(h.proj))
         c._mark(h, t.pid)
         c.terms.append(t)
-        end = time.monotonic() + 90 + HAND_OFF_S + GONE_S
+        end = time.monotonic() + 90 + RIG_HOLD_S / 2
         gone_at = None
         while True:
             if kept and kept_pid is None and (out / "kept.json").exists():
@@ -582,10 +625,10 @@ def test_z3_the_restart_exits_hand_off_is_never_cut_and_leaves_with_its_code(ctx
     runs controller.quit and then the hand-off to the updater (cli.py) to its end, also when it takes longer than any
     grace (a slow machine) and also when a thread worker is stuck; the process then leaves within the bound with the
     hand-off's code, and the lines are those of a restart with nothing stuck."""
-    from halo_harness import closing
     # 3.6.0.17 Z4-1: measured on the PC and the Linux VM: 8.3 s with nothing stuck, 10.6 to 10.7 s with a worker stuck
-    # (the hand-off, the pool's join at its 2 s bound, the short grace); the bound leaves the slow runners their room.
-    row = _check_rig(ctx, "restart", False, 0, HAND_OFF_S + closing.QUIT_BUDGET_S + GONE_S)
+    # (the hand-off, the pool's join at its 2 s bound, the short grace). 3.6.0.18 L: read against the stuck read's hold
+    # (gone before half of it), never a small constant a slow runner passes.
+    row = _check_rig(ctx, "restart", False, 0, RIG_HOLD_S / 2)
     ctx.check(f"the hand-off ran to its end (its line shows), got {row['way_out']}",
               "stand-in: the updater is on its way" in row["way_out"])
 
@@ -597,10 +640,9 @@ def test_z3_a_quit_while_a_worker_is_stuck_names_what_it_leaves_running(ctx: Ctx
     "halo: left running on purpose: ..." for the thing a person asked to keep (the owner's rule: Halo names what it
     leaves running). Before, the interpreter's join of the stuck thread held the exit until the bound's silent
     close() ran and the line was lost."""
-    from halo_harness import closing
     # 3.6.0.17 Z4-1: measured on the PC and the Linux VM: 0.2 to 0.4 s with nothing stuck, 2.7 s with a worker stuck
-    # (the pool's join at its 2 s bound, then the short grace); the bound leaves the slow runners their room.
-    row = _check_rig(ctx, "quit", True, 0, closing.QUIT_BUDGET_S + GONE_S)
+    # (the pool's join at its 2 s bound, then the short grace). 3.6.0.18 L: gone before half the stuck read's hold.
+    row = _check_rig(ctx, "quit", True, 0, RIG_HOLD_S / 2)
     ctx.check(f"the kept thing is named on the way out, got {row['last_lines']}",
               any("left running on purpose" in ln and f"pid {row['kept_pid']}" in ln for ln in row["last_lines"]))
     ctx.check(f"and only once, got {row['way_out']}", sum("left running on purpose" in ln for ln in row["way_out"]) == 1)

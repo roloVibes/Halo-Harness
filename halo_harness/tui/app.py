@@ -747,9 +747,11 @@ class BridgeApp(App):
         loop.set_default_executor(_RunsNothing())
 
     def _git_branch(self) -> str:
+        from halo_harness.closing import own_check
         try:
-            result = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(self.cwd),
-                                     capture_output=True, text=True, timeout=2)
+            with own_check():  # 3.6.0.18 L: Halo's own check: a close ends it without naming it
+                result = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(self.cwd),
+                                        capture_output=True, text=True, timeout=2)
             if result.returncode == 0:
                 return result.stdout.strip()
         except (OSError, subprocess.SubprocessError):

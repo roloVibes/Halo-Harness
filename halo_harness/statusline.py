@@ -69,10 +69,12 @@ def run_statusline_command(command: str, payload: dict, *, cwd: "Path | str",
         # Same child-env hygiene as hooks and tools: the user's statusLine
         # script never inherits the harness's provider secrets.
         from halo_harness.providers.config import tool_child_env
-        proc = subprocess.run(
-            command, shell=True, cwd=str(cwd), input=json.dumps(payload), capture_output=True,
-            text=True, timeout=timeout_s, env=tool_child_env(dict(os.environ)),
-        )
+        from halo_harness.closing import own_check
+        with own_check():  # 3.6.0.18 L: run on Halo's own schedule: a close ends it without naming it
+            proc = subprocess.run(
+                command, shell=True, cwd=str(cwd), input=json.dumps(payload), capture_output=True,
+                text=True, timeout=timeout_s, env=tool_child_env(dict(os.environ)),
+            )
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
     if proc.returncode != 0:

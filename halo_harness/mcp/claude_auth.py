@@ -100,9 +100,11 @@ def claude_auth_status(*, timeout: float = 10.0, env: Optional[dict] = None) -> 
     if env is None:
         env = claude_child_env(dict(os.environ))
     from halo_harness.termtitle import reassert_after_claude_child
+    from halo_harness.closing import own_check
     try:
-        proc = subprocess.run(argv + ["auth", "status"], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=timeout, env=env)
+        with own_check():  # 3.6.0.18 L: Halo's own check: a close ends it without naming it
+            proc = subprocess.run(argv + ["auth", "status"], capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace", timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         # A real `claude` child did start (the timeout kills it after
         # launch): re-assert halo's own terminal title.

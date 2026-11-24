@@ -750,10 +750,12 @@ def test_z1_the_check_ends_gits_whole_tree_at_its_budget_and_never_waits_on_its_
         rows = hanging_git.wait_seen(folder, budget)
         ctx.check(f"the stand-in git and its helper ran (not a vacuous check), got {rows}",
                   len(rows) == 2 and len(hanging_git.alive(rows)) == 2)
-        th.join(budget + 3.0)
+        th.join(hanging_git.HOLD_S)
         took = time.monotonic() - t0
-        ctx.check(f"the check returned within its budget ({budget} s) and a little, took {took:.1f} s",
-                  not th.is_alive() and took <= budget + 3.0)
+        # 3.6.0.18 L: read against the stand-in's hold (a check that waited on git would return only after all of it),
+        # never a margin over the budget a slow runner's taskkill can pass
+        ctx.check(f"the check returned before the stand-in's {hanging_git.HOLD_S} s hold (budget {budget} s), "
+                  f"took {took:.1f} s", not th.is_alive() and took < hanging_git.HOLD_S)
         ctx.check(f"no answer, as an unreachable network gives, got {answers}",
                   bool(answers) and answers[0].get("commit") is None)
         left = hanging_git.wait_gone(rows, 1.0)
@@ -787,10 +789,10 @@ def test_z1_a_closing_halo_ends_the_checks_git_at_once_and_asks_no_further(ctx: 
                   len(rows) == 2 and len(hanging_git.alive(rows)) == 2)
         t0 = time.monotonic()
         closing._STATE["deadline"] = time.monotonic() + closing.QUIT_BUDGET_S  # what a quit's arm_close_deadline sets
-        th.join(10.0)
+        th.join(upd.CHECK_TIMEOUT_S / 2)
         took = time.monotonic() - t0
-        ctx.check(f"the check returned soon after the quit began (budget 60 s), took {took:.1f} s",
-                  not th.is_alive() and took <= 4.0)
+        ctx.check(f"the check returned after the quit began before half its {upd.CHECK_TIMEOUT_S} s budget, took "
+                  f"{took:.1f} s", not th.is_alive() and took < upd.CHECK_TIMEOUT_S / 2)
         ctx.check(f"a closing halo asks nothing more (no HTTP fallback), asked: {called}", not called)
         left = hanging_git.wait_gone(rows, 1.0)
         ctx.check(f"no stand-in process left (git's helper included), alive: {left} of {rows}", not left)

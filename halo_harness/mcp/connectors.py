@@ -138,14 +138,16 @@ def run_claude_mcp_list(*, timeout: float = DISCOVERY_TIMEOUT_S) -> "tuple[str, 
         argv = resolve_claude_launch_argv()
     except ClaudeCodeNotFoundError as e:
         return "", str(e)
+    from halo_harness.closing import own_check
     try:
         # encoding="utf-8" (never the Windows console's own codepage default,
         # which can't represent claude's own "✔"/"✗" status glyphs
         # -- verified live: cp1252 raises UnicodeEncodeError INSIDE the
         # child's own `print`, same fix `mcp/claude_process.ClaudeCodeProcess`
         # already applies to every other claude subprocess this harness spawns).
-        proc = subprocess.run(argv + ["mcp", "list"], capture_output=True, text=True, encoding="utf-8",
-                               errors="replace", timeout=timeout, env=_claude_subprocess_env())
+        with own_check():  # 3.6.0.18 L: Halo's own check: a close ends it without naming it
+            proc = subprocess.run(argv + ["mcp", "list"], capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", timeout=timeout, env=_claude_subprocess_env())
     except subprocess.TimeoutExpired:
         # Halo 2.0.2 W7 round 1 (brief F): a real `claude` child DID
         # start (subprocess.run's timeout path kills it after launch) --

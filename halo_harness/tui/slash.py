@@ -361,7 +361,8 @@ def or_balance_refresh_worker(app, *, force: bool = False) -> None:
     management_key = resolve_openrouter_management_key(env)
     from halo_harness.providers.openrouter_account import format_status_bar_segment, refresh_cached_openrouter_balance
     entry = refresh_cached_openrouter_balance(orc.base_url, orc.api_key, management_key=management_key)
-    if entry is not None:
+    from halo_harness import closing
+    if entry is not None and not closing.leaving():  # 3.6.0.18 L: no call back into an app that is closing
         segment = format_status_bar_segment()
         app.call_from_thread(app.status_bar.set_or_balance, segment, fetched_at=entry["fetched_at"])
 
@@ -392,6 +393,9 @@ def experiential_balance_refresh_worker(app) -> None:
     total = credits["total_credits"]
     used = credits.get("total_usage") or 0.0
     segment = f"XP ${total - used:.2f} left"
+    from halo_harness import closing
+    if closing.leaving():  # 3.6.0.18 L: no call back into an app that is closing
+        return
     app.call_from_thread(app.status_bar.set_provider_balance, "experiential", segment)
 
 

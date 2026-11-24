@@ -162,8 +162,11 @@ def post_ctrl_c_key(app) -> None:
 
 def give_the_terminal_on_suspend(app) -> None:
     """3.6.0.18 K: while the app is suspended (`with app.suspend():` around the person's editor: Ctrl+E, /editor,
-    /improve's edit, the /mcp dialog) the person has the terminal, so subprocess_safe's rule (no child inherits the
-    terminal's input) is off for the suspend and put back as it was after. An app without `suspend` is left as it is."""
+    /improve's edit, the /mcp dialog) the person has the terminal. 3.6.0.18 L: the hand-over is for the THREAD that
+    suspends (its child, the editor, inherits the terminal's input); every other thread's child (a tool's command, the
+    branch worker's git) still gets the null device. And no Ctrl+C the console made into an event is posted to the
+    app meanwhile (the guard's `on_ctrl_c` is None for the suspend, put back after). An app without `suspend` is
+    left as it is."""
     suspend = getattr(app, "suspend", None)
     if not callable(suspend):
         return
@@ -172,12 +175,17 @@ def give_the_terminal_on_suspend(app) -> None:
     @contextlib.contextmanager
     def suspended(*args, **kw):
         with suspend(*args, **kw):
-            was = subprocess_safe.terminal_app_is_up()
-            subprocess_safe.set_terminal_app(False)
+            was = subprocess_safe.hand_the_terminal_here(True)
+            guard = getattr(app, "console_guard", None)
+            on_ctrl_c = getattr(guard, "on_ctrl_c", None)
+            if guard is not None:
+                guard.on_ctrl_c = None
             try:
                 yield
             finally:
-                subprocess_safe.set_terminal_app(was)
+                subprocess_safe.hand_the_terminal_here(was)
+                if guard is not None:
+                    guard.on_ctrl_c = on_ctrl_c
 
     app.suspend = suspended
 

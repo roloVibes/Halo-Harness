@@ -214,6 +214,9 @@ def refresh_cached_openrouter_balance(base_url: str, api_key: str, *,
     with _BALANCE_CACHE_LOCK:
         _balance_last_attempt_at = time.monotonic()
     key_info = fetch_key_info(base_url, api_key)
+    from halo_harness import closing
+    if management_key and closing.leaving():
+        return None  # 3.6.0.18 L: a quit began meanwhile: no second request leaves after the person quit
     credits = fetch_credits(base_url, management_key) if management_key else None
     balance = resolve_balance(key_info, credits)
     if balance is None:

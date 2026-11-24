@@ -1743,6 +1743,249 @@ def test_z2_the_catalog_refresh_asks_no_further_provider_once_halo_is_leaving(ct
     ctx.check(f"what it has is said as before, got {notes}", notes == ["Catalog refreshed: OpenRouter (2 models)"])
 
 
+@test
+def test_l_the_balance_refresh_makes_no_second_request_and_calls_nobody_back_once_halo_is_leaving(ctx: Ctx):
+    """3.6.0.18 L (batch 2, entry 3): the OpenRouter balance refresh reads `/key`, then (with a management key)
+    `/credits`; a quit that begins after the first request ends it there: one request, no call back into the app. The
+    Experiential Labs worker (one request) calls nobody back either once Halo is leaving (before: two requests and a
+    call back each)."""
+    from unittest import mock
+    from types import SimpleNamespace
+    from halo_harness import closing
+    from halo_harness.providers import config as pconfig, enablement, experiential_account, openrouter_account as ora
+    from halo_harness.tui.slash import experiential_balance_refresh_worker, or_balance_refresh_worker
+    asked: list = []
+    called_back: list = []
+
+    def key_info(base_url, api_key):
+        asked.append("/key")
+        closing._STATE["deadline"] = time.monotonic() + closing.QUIT_BUDGET_S  # the quit begins meanwhile
+        return ora.OrKeyInfo(label="gpu-box", limit=None, usage=0.0180, limit_remaining=None, is_free_tier=False)
+
+    def credits(base_url, management_key):
+        asked.append("/credits")
+        return ora.OrCredits(total_credits=10.0, total_usage=0.0180)
+
+    def xp_credits(env=None):
+        asked.append("xp /credits")
+        closing._STATE["deadline"] = time.monotonic() + closing.QUIT_BUDGET_S
+        return {"total_credits": 10.0, "total_usage": 0.0180}
+    app = SimpleNamespace(controller=None, status_bar=SimpleNamespace(set_or_balance=None, set_provider_balance=None),
+                          call_from_thread=lambda fn, *a, **kw: called_back.append(getattr(fn, "__name__", fn)))
+    orc = SimpleNamespace(base_url="https://openrouter.ai/api/v1", api_key="sk-example")
+    saved_deadline = closing._STATE.get("deadline")
+    saved_cache = (ora._balance_cache, ora._balance_last_attempt_at)
+    saved_net = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+    try:
+        with mock.patch.object(enablement, "is_enabled_with_env", lambda name, env=None: True), \
+                mock.patch.object(pconfig, "resolve_openrouter", lambda env=None: orc), \
+                mock.patch.object(pconfig, "resolve_openrouter_management_key", lambda env=None: "mk-example"), \
+                mock.patch.object(ora, "fetch_key_info", key_info), mock.patch.object(ora, "fetch_credits", credits), \
+                mock.patch.object(experiential_account, "fetch_experiential_credits", xp_credits):
+            closing._STATE["deadline"] = None
+            or_balance_refresh_worker(app, force=True)
+            or_asked, or_called = list(asked), list(called_back)
+            closing._STATE["deadline"] = None
+            experiential_balance_refresh_worker(app)
+    finally:
+        closing._STATE["deadline"] = saved_deadline
+        ora._balance_cache, ora._balance_last_attempt_at = saved_cache
+        if saved_net is not None:
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = saved_net
+    ctx.check(f"OpenRouter: one request, never /credits after the quit began, got {or_asked}", or_asked == ["/key"])
+    ctx.check(f"OpenRouter: no call back into the app, got {or_called}", or_called == [])
+    ctx.check(f"Experiential: its one request, then no call back, got {asked[len(or_asked):]} {called_back}",
+              asked[len(or_asked):] == ["xp /credits"] and called_back == [])
+
+
+# 3.6.0.18 L (batch 2, entry 1): a halo stand-in whose workers start programs around close(): "late" starts one after
+# close() returned (an abandoned worker whose read answered late), "held" was already inside its start (past
+# before_spawn) when close() began and creates its program only after close() returned. The thread that ran close()
+# then starts a short program of its own (the way out's own), and the kept door is asked. Then the bound's end.
+_LATE_START = r"""
+import json, os, sys, threading, time
+from halo_harness import closing, subprocess_safe
+closing.install(sweep_at_start=False)
+from halo_harness.bg_run import process_start_time
+out = sys.argv[1]
+rows = {}
+LONG = [sys.executable, "-c", "import time; time.sleep(120)"]
+closed, entered, release = threading.Event(), threading.Event(), threading.Event()
+orig = closing.before_spawn
+
+def held_before_spawn(kw):
+    kw = orig(kw)
+    if threading.current_thread().name == "held":
+        entered.set()
+        release.wait(60)
+    return kw
+closing.before_spawn = held_before_spawn
+
+def start(name):
+    try:
+        p = subprocess_safe.Popen(LONG, stdin=subprocess_safe.DEVNULL, stdout=subprocess_safe.DEVNULL,
+                                  stderr=subprocess_safe.DEVNULL)
+        rows[name] = {"pid": p.pid, "start": process_start_time(p.pid)}
+    except OSError as e:
+        rows[name] = {"refused": str(e)}
+
+def late():
+    closed.wait(60)
+    start("late")
+    try:
+        closing.before_spawn(closing.kept_kwargs(env=dict(os.environ)))
+        rows["kept"] = "started"
+    except OSError as e:
+        rows["kept"] = str(e)
+
+held = threading.Thread(target=start, args=("held",), name="held")
+held.start()
+entered.wait(60)
+lines = closing.close(say=lambda _l: None)
+closed.set()
+release.set()
+worker = threading.Thread(target=late, name="late")
+worker.start()
+worker.join(60)
+held.join(60)
+rows["own"] = subprocess_safe.run([sys.executable, "-c", "pass"], stdin=subprocess_safe.DEVNULL, timeout=60).returncode
+with open(out, "w") as f:
+    json.dump(rows, f)
+closing.hard_exit(0, 0.5)
+time.sleep(120)
+"""
+
+
+@test
+def test_l_once_closed_nothing_new_starts_and_the_last_scan_ends_a_start_already_under_way(ctx: Ctx):
+    """3.6.0.18 L (batch 2, entry 1): once close() has run, a worker's new program is refused ("halo is closing: nothing
+    new is started"), a kept start is not, and the way out's own thread still starts what it needs. A start that was
+    already under way when close() began creates its program after the marker scan: on Linux and macOS the bound's end
+    scans once more and ends it, with its line (before: both programs outlived halo, their parent 1)."""
+    tmp = Path(tempfile.mkdtemp(prefix="halo-l-late-"))
+    home, out = tmp / "home", tmp / "rows.json"
+    home.mkdir()
+    rows: dict = {}
+    try:
+        r = subprocess.run([sys.executable, "-c", _LATE_START, str(out)], env=_env(home), cwd=str(tmp),
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+                           stdin=subprocess.DEVNULL)
+        if out.exists():
+            rows = json.loads(out.read_text(encoding="utf-8"))
+        ctx.check(f"the stand-in ran to its end, got {r.returncode} {r.stderr[-400:]!r}", r.returncode == 0 and rows)
+        late, held = rows.get("late") or {}, rows.get("held") or {}
+        ctx.check(f"the late start is refused with the line, got {late}",
+                  late.get("refused") == "halo is closing: nothing new is started")
+        ctx.check(f"a kept start is never refused, got {rows.get('kept')}", rows.get("kept") == "started")
+        ctx.check(f"the way out's own thread still starts its program, got {rows.get('own')}", rows.get("own") == 0)
+        ctx.check(f"the start under way had its program, got {held}", bool(held.get("pid")))
+        for name, row in (("late", late), ("held", held)):
+            if row.get("pid"):
+                ctx.check(f"{name}: its program is gone with halo, got {row}", not _same(row["pid"], row.get("start")))
+        if not WIN and held.get("pid"):
+            ctx.check(f"the last scan names what it ended, got {r.stderr[-400:]!r}",
+                      f"(pid {held['pid']}), left running by a tool command" in r.stderr)
+    finally:
+        if not rows and out.exists():
+            rows = json.loads(out.read_text(encoding="utf-8"))
+        for row in rows.values():
+            if isinstance(row, dict) and row.get("pid"):
+                _end_tree_we_started(row["pid"], row.get("start"))
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_l_every_spawn_of_the_closing_procedure_names_its_stdin(ctx: Ctx):
+    """3.6.0.18 L (batch 2, entry 5c): closing.py's own tools (the `ps` looks, taskkill, the reaper, the WMI start)
+    bypass subprocess_safe's rule for the terminal's input, so each names its stdin (a caller's spawn passed through
+    with **kwargs names its own)."""
+    import ast
+    tree = ast.parse((REPO / "halo_harness" / "closing.py").read_text(encoding="utf-8"))
+    bare = []
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in ("run", "Popen")
+                and isinstance(node.func.value, ast.Name) and node.func.value.id in ("sp", "_sp", "subprocess")):
+            if not any(k.arg in ("stdin", None) for k in node.keywords):
+                bare.append(node.lineno)
+    ctx.check(f"no spawn of closing.py leaves its stdin unnamed, got lines {bare}", not bare)
+
+
+# 3.6.0.18 L (batch 2, entry 2): Halo's own short check (a stand-in for `claude auth status`, longer than the join's
+# bound) and a tool command's leftover both still run at close.
+_OWN_CHECK = r"""
+import contextlib, json, sys, threading, time
+from halo_harness import closing, subprocess_safe
+closing.install(sweep_at_start=False)
+from halo_harness.bg_run import process_start_time
+own_check = getattr(closing, "own_check", contextlib.nullcontext)
+LONG = [sys.executable, "-c", "import time; time.sleep(120)"]
+
+def check():
+    try:
+        with own_check():
+            subprocess_safe.run(LONG, capture_output=True, stdin=subprocess_safe.DEVNULL, timeout=100)
+    except Exception:
+        pass
+threading.Thread(target=check, daemon=True).start()
+tool = subprocess_safe.Popen(LONG, stdin=subprocess_safe.DEVNULL, stdout=subprocess_safe.DEVNULL,
+                             stderr=subprocess_safe.DEVNULL)
+
+def found():
+    reaper = closing._STATE.get("reaper")
+    return sorted(p for p in closing.marker_pids(closing.marker()) if not reaper or p != reaper.pid)
+end = time.monotonic() + 60
+while len(found()) < 2 and time.monotonic() < end:
+    time.sleep(0.05)
+kids = {p: process_start_time(p) for p in found()}
+lines = closing.close(say=lambda _l: None)
+print(json.dumps({"tool": tool.pid, "kids": kids, "lines": lines}), flush=True)
+"""
+
+
+@test
+def test_l_halos_own_check_ended_at_close_is_never_named_a_tool_commands_leftover(ctx: Ctx):
+    """3.6.0.18 L (batch 2, entry 2): a spawn inside `closing.own_check()` carries its mark; on Linux and macOS the
+    marker scan at close still ends it but its line leaves it out, while a tool command's leftover beside it keeps its
+    line word for word (before: "halo: ended python3 (pid N), left running by a tool command" for Halo's own check)."""
+    from halo_harness import closing
+    if not WIN:  # Windows: no marker scan and no line (the Job ends both)
+        _own_check_at_close(ctx)
+    own_check = getattr(closing, "own_check", None)
+    ctx.check("closing has own_check()", callable(own_check))
+    with own_check():
+        inside = closing.before_spawn({"env": {"PATH": os.environ.get("PATH", "")}})
+    outside = closing.before_spawn({"env": {"PATH": os.environ.get("PATH", "")}})
+    ctx.check(f"a spawn inside carries the own-check mark, outside not, got {inside} {outside}",
+              (inside["env"].get(closing.OWN_CHECK) == "1") and closing.OWN_CHECK not in outside["env"])
+
+
+def _own_check_at_close(ctx: Ctx) -> None:
+    from halo_harness import closing
+    tmp = Path(tempfile.mkdtemp(prefix="halo-l-own-"))
+    home = tmp / "home"
+    home.mkdir()
+    row: dict = {}
+    try:
+        r = subprocess.run([sys.executable, "-c", _OWN_CHECK], env=_env(home), cwd=str(tmp), capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=120, stdin=subprocess.DEVNULL)
+        try:
+            row = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            row = {}
+        kids = {int(p): s for p, s in (row.get("kids") or {}).items()}
+        ctx.check(f"both stand-ins ran at close, got {row} {r.stderr[-300:]!r}", len(kids) == 2)
+        ended = [line for line in row.get("lines") or [] if line.startswith("halo: ended")]
+        tool = row.get("tool")
+        ctx.check(f"one line, naming only the tool command's leftover, got {ended}",
+                  len(ended) == 1 and ended[0].count("(pid ") == 1 and f"(pid {tool}), left running by a tool command; "
+                  "to keep one past Halo, the command starts it with HALO_OWNER=kept-<name> (docs/PROCESSES.md)" in ended[0])
+        ctx.check(f"both are ended, got {kids}", not any(_same(p, s) for p, s in kids.items()))
+    finally:
+        for p, s in {int(p): s for p, s in (row.get("kids") or {}).items()}.items():
+            _end_tree_we_started(p, s)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

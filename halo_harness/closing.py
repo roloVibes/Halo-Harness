@@ -64,6 +64,9 @@ _LOCK = threading.RLock()
 QUIT_BUDGET_S = 4.0              # fx jb8: the whole way out of a halo (quit's waits, close()'s waits) shares this
 _BROWSERS: list = []             # fx jb8: browser starts handed to a thread (open_url); close() waits for them
 _OPENING = threading.local()     # join: this thread's last open_url went to such a thread (True said "handed on")
+_WAY_OUT = threading.local()     # 3.6.0.18 L: this thread runs the way out (close(), hard_exit's end): it may still start
+OWN_CHECK = "HALO_OWN_CHECK"     # 3.6.0.18 L: "1" in the environment of Halo's own short check (closing.own_check())
+_OWN = threading.local()
 _OUTSIDE: dict = {}              # 3.6.0.18 S: start_outside_job's starts in flight (folder -> state); a way out marks them
 
 
@@ -661,8 +664,12 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
     written, keep = False, False
     stop = lambda: _outside_marked(folder) or _start_cancelled()  # noqa: E731
     with _LOCK:  # 3.6.0.18 S: in flight: a way out marks it (close(), the exit hooks' browser wait)
-        _OUTSIDE[folder] = {"marked": False}
+        # 3.6.0.18 L: one that begins once close() has set "closed" (under this lock, right before it marks the starts
+        # in flight) is marked from the start: taken back at once, no create runs
+        _OUTSIDE[folder] = {"marked": bool(_STATE["closed"])}
     try:
+        if _outside_marked(folder):
+            raise StartCancelled("this process is closing")
         try:
             runner.write_text(_OUTSIDE_RUNNER, encoding="utf-8")
             env = kw.get("env") if isinstance(kw.get("env"), dict) else dict(os.environ)
@@ -761,14 +768,39 @@ class without_marker:
 
 # -- the Popen hook (subprocess_safe.Popen calls these) -----------------------------------------------------------
 
+class own_check:
+    """3.6.0.18 L: `with own_check():` -- what this thread starts inside is Halo's own short check (the branch
+    worker's git, `claude auth status`, `claude mcp list`, the status line command): its environment carries
+    OWN_CHECK, so a close still ends it but names it in no line (nobody started it, nobody can keep it). An
+    environment variable, not a pid: `run` makes its child inside the standard library, where no pid is known before
+    it has ended, and the marker scan already reads each process's environment."""
+
+    def __enter__(self):
+        self.was = getattr(_OWN, "check", False)
+        _OWN.check = True
+        return self
+
+    def __exit__(self, *exc):
+        _OWN.check = self.was
+        return False
+
+
 def before_spawn(kw: dict) -> dict:
-    """A caller that built its own environment still passes this tree's marker (and owner) on."""
+    """A caller that built its own environment still passes this tree's marker (and owner) on. 3.6.0.18 L: once close()
+    has begun, a spawn that is not kept is refused (an abandoned worker's program would outlive this halo), except on
+    the thread that runs the way out; inside own_check() the child carries OWN_CHECK."""
     env = kw.get("env")
+    if _STATE["closed"] and not getattr(_WAY_OUT, "mine", False) and not is_kept_env(env):
+        raise OSError("halo is closing: nothing new is started")
     if isinstance(env, dict) and not isinstance(env, Unmarked) and MARKER not in env and os.environ.get(MARKER):
         env = dict(env)
         env[MARKER] = os.environ[MARKER]
         if os.environ.get(WATCH) and WATCH not in env:
             env[WATCH] = os.environ[WATCH]
+        kw = dict(kw, env=env)
+    if getattr(_OWN, "check", False) and not isinstance(env, Unmarked):
+        env = dict(env if isinstance(env, dict) else os.environ)
+        env[OWN_CHECK] = "1"
         kw = dict(kw, env=env)
     return kw
 
@@ -946,7 +978,8 @@ def _signal_tree(pid: int, hard: bool) -> bool:
     if os.name == "nt":
         try:
             from halo_harness import subprocess_safe as sp
-            r = sp.run(["taskkill", "/PID", str(pid), "/T"] + (["/F"] if hard else []), capture_output=True, timeout=5)
+            r = sp.run(["taskkill", "/PID", str(pid), "/T"] + (["/F"] if hard else []), capture_output=True, timeout=5,
+                       stdin=sp.DEVNULL)
             return r.returncode == 0
         except Exception:
             return False
@@ -964,6 +997,14 @@ def _signal_tree(pid: int, hard: bool) -> bool:
         return False
 
 
+def _on_the_way_out(fn: Callable) -> Callable:
+    """3.6.0.18 L: `fn` on a thread the closing procedure starts: part of the way out, so it may still start a program."""
+    def run(*a, **kw):
+        _WAY_OUT.mine = True
+        return fn(*a, **kw)
+    return run
+
+
 def _polite(entry: dict, state_dir) -> None:
     """The child's own shutdown first: Studio's stop route, a model server's stop; else SIGTERM to its group."""
     what = entry.get("what")
@@ -974,11 +1015,11 @@ def _polite(entry: dict, state_dir) -> None:
             # 3.6.0.0 fx: or it is this halo's own although its pid differs (Windows: a venv's python.exe is a
             # launcher, the ledger can hold its pid while studio.json holds the Studio's)
             if info and (info.get("pid") == entry.get("pid") or launch.owned_by_me(info)):
-                threading.Thread(target=launch._ask_shutdown, args=(info,), daemon=True).start()
+                threading.Thread(target=_on_the_way_out(launch._ask_shutdown), args=(info,), daemon=True).start()
                 return
         elif entry.get("source") == "local-servers" and entry.get("model"):
             from halo_harness.providers.local_runtime import stop_managed_server
-            threading.Thread(target=stop_managed_server, args=(entry["model"],),
+            threading.Thread(target=_on_the_way_out(stop_managed_server), args=(entry["model"],),
                              kwargs={"state_dir": state_dir}, daemon=True).start()
             return
     except Exception:
@@ -1039,21 +1080,24 @@ def _wait(entries: list, seconds: float) -> None:
 
 # -- the marker scan -----------------------------------------------------------------------------------------------
 
-def marker_pids(mark: Optional[str] = None, *, prefix: bool = False) -> "dict[int, str]":
+def marker_pids(mark: Optional[str] = None, *, prefix: bool = False, own: Optional[set] = None) -> "dict[int, str]":
     """{pid: marker} of the processes whose environment carries `HALO_OWNER=<mark>` (any marker with `mark` None;
     `prefix`: markers starting with it). Linux reads /proc/<pid>/environ, macOS `ps -E`; Windows has no cheap way to
-    read another process's environment, so it answers {} (the Job object covers Windows)."""
+    read another process's environment, so it answers {} (the Job object covers Windows). `own` (a set) gets the pids
+    found that are Halo's own short checks (OWN_CHECK in their environment)."""
     out: dict = {}
     me_pid = os.getpid()
 
-    def take(pid: int, value: str) -> None:
+    def take(pid: int, value: str, is_own: bool) -> None:
         if pid == me_pid:
             return
         if mark is None or value == mark or (prefix and value.startswith(mark)):
             out[pid] = value
+            if is_own and own is not None:
+                own.add(pid)
 
     if os.path.isdir("/proc") and os.path.exists("/proc/self/environ"):
-        key = (MARKER + "=").encode()
+        key, own_item = (MARKER + "=").encode(), (OWN_CHECK + "=1").encode()
         for name in os.listdir("/proc"):
             if not name.isdigit():
                 continue
@@ -1062,16 +1106,17 @@ def marker_pids(mark: Optional[str] = None, *, prefix: bool = False) -> "dict[in
                     data = fh.read()
             except OSError:
                 continue
-            for item in data.split(b"\0"):
+            items = data.split(b"\0")
+            for item in items:
                 if item.startswith(key):
-                    take(int(name), item[len(key):].decode("utf-8", "replace"))
+                    take(int(name), item[len(key):].decode("utf-8", "replace"), own_item in items)
                     break
         return out
     if sys.platform == "darwin":
         try:
             import subprocess as _sp
             r = _sp.run(["/bin/ps", "-E", "-ww", "-A", "-o", "pid=,command="], capture_output=True, text=True,
-                        timeout=10, env={**os.environ, "LC_ALL": "C"})
+                        timeout=10, env={**os.environ, "LC_ALL": "C"}, stdin=_sp.DEVNULL)
         except Exception:
             return out
         key = f" {MARKER}="
@@ -1080,7 +1125,7 @@ def marker_pids(mark: Optional[str] = None, *, prefix: bool = False) -> "dict[in
             if not head.isdigit() or key not in " " + rest:
                 continue
             value = (" " + rest).split(key, 1)[1].split(" ", 1)[0]
-            take(int(head), value)
+            take(int(head), value, f" {OWN_CHECK}=1 " in f" {rest} ")
     return out
 
 
@@ -1093,7 +1138,8 @@ def prog_name(pid: int) -> str:
         pass
     try:
         import subprocess as _sp
-        r = _sp.run(["/bin/ps", "-o", "comm=", "-p", str(pid)], capture_output=True, text=True, timeout=3)
+        r = _sp.run(["/bin/ps", "-o", "comm=", "-p", str(pid)], capture_output=True, text=True, timeout=3,
+                    stdin=_sp.DEVNULL)
         return os.path.basename((r.stdout or "").strip()) or "a program"
     except Exception:
         return "a program"
@@ -1112,20 +1158,23 @@ def ended_line(ended: dict) -> str:
 
 
 def kill_marked(mark: str, *, exclude=(), bound_s: float = 2.0) -> list:
-    """SIGTERM, then SIGKILL after half the bound, every process that carries this tree's marker (POSIX)."""
+    """SIGTERM, then SIGKILL after half the bound, every process that carries this tree's marker (POSIX). Halo's own
+    short checks (own_check()) are ended too but never named in the ended line."""
     if os.name == "nt" or not mark or mark.startswith((KEPT_PREFIX, "home-")):
         return []
-    found = {p: _start(p) for p in marker_pids(mark) if p not in set(exclude)}
+    own: set = set()
+    found = {p: _start(p) for p in marker_pids(mark, own=own) if p not in set(exclude)}
     found = {p: s for p, s in found.items() if s}  # an unreadable start time: never signalled
     if not found:
         return []
     from halo_harness import children as C
     for pid in found:
         if C.provably_same(pid, found[pid]):
-            name = prog_name(pid)
+            name = None if pid in own else prog_name(pid)
             try:
                 os.kill(pid, signal.SIGTERM)
-                _STATE.setdefault("ended", {})[pid] = name
+                if name is not None:
+                    _STATE.setdefault("ended", {})[pid] = name
             except OSError:
                 pass
     deadline = time.monotonic() + bound_s / 2
@@ -1143,6 +1192,15 @@ def kill_marked(mark: str, *, exclude=(), bound_s: float = 2.0) -> list:
             except OSError:
                 pass
     return list(found)
+
+
+def _marker_scan(bound_s: float) -> str:
+    """POSIX: end what carries this tree's marker (never the reaper); the line naming what was ended ('' if none)."""
+    if os.name == "nt" or not _STATE["spawned"] or os.environ.get(MARKER) != my_ident():
+        return ""
+    reaper = _STATE.get("reaper")
+    kill_marked(marker(), exclude=(reaper.pid,) if reaper else (), bound_s=bound_s)
+    return ended_line(_STATE.pop("ended", None) or {})
 
 
 # -- the reaper (POSIX) --------------------------------------------------------------------------------------------
@@ -1261,6 +1319,7 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
     """THE closing procedure, idempotent; every way out runs it. Returns the lines it printed (one per thing left
     running on purpose, with the command that stops it, and one naming what the marker scan ended); nothing when
     all is well."""
+    _WAY_OUT.mine = True  # 3.6.0.18 L: this thread runs the way out: what it starts is the way out's own
     with _LOCK:
         if _STATE["closed"]:
             return []
@@ -1286,9 +1345,7 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         pass
     if os.name != "nt" and _STATE["spawned"] and os.environ.get(MARKER) == my_ident():
         left = max(0.5, polite_s + hard_s - (time.monotonic() - t0))
-        reaper = _STATE.get("reaper")
-        kill_marked(marker(), exclude=(reaper.pid,) if reaper else (), bound_s=min(left, 2.0))
-        line = ended_line(_STATE.pop("ended", None) or {})
+        line = _marker_scan(min(left, 2.0))
         if line:
             ended.append(line)
     trace(f"close: stops done after {time.monotonic() - t0:.2f} s")
@@ -1472,12 +1529,19 @@ def hard_exit(code: int, grace_s: float = EXIT_GRACE_S) -> None:
     trace(f"hard exit armed: code {code}, {grace_s} s")
 
     def later() -> None:
+        _WAY_OUT.mine = True
         time.sleep(max(0.0, grace_s))
         trace("hard exit: grace over")
         close(polite_s=1.0, hard_s=0.8, say=lambda _l: None)
         try:
             atexit._run_exitfuncs()
         except BaseException:
+            pass
+        try:  # 3.6.0.18 L (POSIX): once more, for a program that was inside its start when close() finished
+            line = _marker_scan(1.0)
+            if line:
+                _say(line)
+        except Exception:
             pass
         try:
             sys.stdout.flush()
@@ -1575,7 +1639,8 @@ def _parent(pid: int, cache: dict) -> Optional[int]:
             return None
     try:
         import subprocess as _sp
-        r = _sp.run(["/bin/ps", "-o", "ppid=", "-p", str(pid)], capture_output=True, text=True, timeout=5)
+        r = _sp.run(["/bin/ps", "-o", "ppid=", "-p", str(pid)], capture_output=True, text=True, timeout=5,
+                    stdin=_sp.DEVNULL)
         return int((r.stdout or "").strip() or 0) or None
     except Exception:
         return None

@@ -34,6 +34,7 @@ import os
 import shutil
 import subprocess as _sp
 import sys
+import threading
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, CompletedProcess, SubprocessError, TimeoutExpired  # noqa: F401
 from typing import Optional
 
@@ -137,10 +138,22 @@ def terminal_app_is_up() -> bool:
     return _TERMINAL_APP["up"]
 
 
+_HANDS = threading.local()  # 3.6.0.18 L: this thread hands the terminal to its child (the app is suspended for it)
+
+
+def hand_the_terminal_here(on: bool) -> bool:
+    """3.6.0.18 L: THIS thread's children inherit the terminal's input (True: the person's editor while the app is
+    suspended) or follow the rule (False); every other thread keeps the rule. What it was before."""
+    was = bool(getattr(_HANDS, "on", False))
+    _HANDS.on = bool(on)
+    return was
+
+
 def _quiet_stdin(kw: dict, positional: int = 0) -> dict:
     """`kw` with `stdin=DEVNULL` while the terminal app is up and the caller named neither `stdin` nor `input` (nor
     `stdin` by position: Popen's fourth argument); otherwise `kw` as written."""
-    if not _TERMINAL_APP["up"] or positional >= 3 or "stdin" in kw or "input" in kw:
+    if (not _TERMINAL_APP["up"] or getattr(_HANDS, "on", False) or positional >= 3 or "stdin" in kw
+            or "input" in kw):
         return kw
     return dict(kw, stdin=_sp.DEVNULL)
 

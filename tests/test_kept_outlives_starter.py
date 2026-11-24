@@ -626,6 +626,41 @@ def test_a_slow_runner_never_leads_to_a_second_start(ctx: Ctx):
 
 
 @test
+def test_a_kept_outside_start_that_begins_once_close_ran_is_taken_back_with_no_create(ctx: Ctx):
+    """3.6.0.18 L (batch 2, entry 5a): close() sets "closed" and then marks the outside starts in flight; a start that
+    BEGINS after that (a worker's kept start) is marked from the start: taken back at once, the WMI create never runs,
+    the caller gets what a taken-back start gives (StartCancelled), and no folder (the environment) stays."""
+    if not WIN:
+        raise SkipTest("Windows only: the WMI way out of a Job")
+    from halo_harness import closing
+    tmp = Path(tempfile.mkdtemp(prefix="fx-kept-after-close-"))
+    argv = [sys.executable, "-I", "-c", "pass"]
+    kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
+          "env": dict(os.environ), "cwd": str(tmp)}
+    real, saved_closed = closing._run_wmi, closing._STATE.get("closed")
+    before = set(Path(tempfile.gettempdir()).glob("halo-kept-*"))
+    seen: list = []
+    got: object = None
+    try:
+        closing._run_wmi = _fake_wmi(False, seen)
+        closing._STATE["closed"] = True
+        try:
+            got = closing.start_outside_job(argv, kw, wait_s=0.3)
+        except closing.StartCancelled as e:
+            got = e
+    finally:
+        closing._run_wmi = real
+        closing._STATE["closed"] = saved_closed
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+    ctx.check(f"the create ran 0 times, got {len(seen)}", seen == [])
+    ctx.check(f"the caller gets a taken-back start (StartCancelled), got {got!r}",
+              isinstance(got, closing.StartCancelled))
+    left = set(Path(tempfile.gettempdir()).glob("halo-kept-*")) - before
+    ctx.check(f"no folder stays, got {sorted(left)}", not left)
+
+
+@test
 def test_the_held_in_a_job_line_says_asked_only_when_a_person_asked(ctx: Ctx):
     import contextlib
     import io

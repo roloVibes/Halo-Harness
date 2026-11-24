@@ -199,7 +199,9 @@ def test_the_rule_leaves_a_tests_replacement_of_the_standard_function_the_call_a
 def test_while_the_app_is_suspended_the_persons_editor_has_the_terminals_input(ctx: Ctx):
     """3.6.0.18 K repair: the person's editor runs inside `with app.suspend():` (Ctrl+E, /editor, /improve's edit, the
     /mcp dialog's editor) as `sp.run(cmd, shell=True, env=scrubbed_env())`, naming no stdin. While the app is suspended
-    the person has the terminal: run_tui's hand-over switches the rule off for the suspend and puts it back after."""
+    the person has the terminal: run_tui's hand-over gives it to the suspending thread's child for the suspend and
+    takes it back after (3.6.0.18 L: only that thread's; another thread's child keeps the null device, and no Ctrl+C
+    event is posted to the app meanwhile)."""
     import tempfile
     from halo_harness import subprocess_safe as sp
     from halo_harness.closing import scrubbed_env
@@ -217,15 +219,31 @@ def test_while_the_app_is_suspended_the_persons_editor_has_the_terminals_input(c
             yield
             seen.append("resume")
 
+    import threading
+    from types import SimpleNamespace
+
+    def the_key() -> None:
+        pass
     app, was = App(), sp.terminal_app_is_up()
+    app.console_guard = SimpleNamespace(on_ctrl_c=the_key)
     with tempfile.TemporaryDirectory() as d:
         try:
             sp.set_terminal_app(True)
             hand_over(app)
             with app.suspend():
-                ctx.check("suspended: the rule reads OFF", sp.terminal_app_is_up() is False)
+                # 3.6.0.18 L (batch 2, entry 5b): the hand-over is the suspending thread's, the rule stays on for all
+                ctx.check("suspended: the rule stays ON for the process", sp.terminal_app_is_up() is True)
                 got = _read_by_child("run", Path(d) / "editor.txt", env=scrubbed_env())
                 ctx.check(f"suspended: the editor-shaped child inherits the input (3), got {got}", got == len(_HOLDS))
+                other: list = []
+                th = threading.Thread(target=lambda: other.append(_read_by_child("run", Path(d) / "other.txt")))
+                th.start()
+                th.join(_BOUND_S * 2)
+                ctx.check(f"suspended: another thread's child still gets the null device (0), got {other}",
+                          other == [0])
+                ctx.check("suspended: no Ctrl+C event is posted to the app (on_ctrl_c None)",
+                          app.console_guard.on_ctrl_c is None)
+            ctx.check("resumed: the guard's hand is back", app.console_guard.on_ctrl_c is the_key)
             ctx.check(f"the app's own suspend ran around it, got {seen}", seen == ["suspend", "resume"])
             ctx.check("resumed: the rule reads ON again", sp.terminal_app_is_up() is True)
             got = _read_by_child("run", Path(d) / "after.txt", env=scrubbed_env())
