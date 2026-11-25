@@ -1175,6 +1175,31 @@ def test_a_load_seen_at_the_end_of_a_turn_keeps_the_server_it_was_seen_under(ctx
         O._version_cache.update(had)
 
 
+@test
+def test_a_load_seen_while_the_version_is_not_known_keeps_a_known_servers_floor(ctx: Ctx):
+    """3.6.0.21 R1 after the check: a load seen while this process does not know the server's version (`server`
+    None) is not a load under another server: a smaller one leaves the `fits` kept under a known server, its size and
+    that server as they were; a load under a known other server still replaces it."""
+    import shutil
+    from halo_harness.agent import ollama_window_truth as W
+    known = {"version": "0.2.0-example", "kv_bytes_per_elem": 2, "parallel": 1, "gpu_overhead": 0}
+    url = "http://gpu-box:11434"
+    d = Path(tempfile.mkdtemp(prefix="ol-r1-unknown-"))
+    try:
+        W.record_truth(d, url, MODEL, num_ctx=65536, size=19 * GB, size_vram=19 * GB, digest="sha256:1", server=known)
+        W.record_truth(d, url, MODEL, num_ctx=16384, size=12 * GB, size_vram=12 * GB, digest="sha256:1", server=None)
+        got = W.truth(d, url, MODEL)
+        ctx.check(f"an unknown version: the known server's floor stays, got {got}",
+                  got.get("fits") == 65536 and got.get("fits_size") == 19 * GB and got.get("fits_server") == known)
+        other = {**known, "version": "0.3.0-example"}
+        W.record_truth(d, url, MODEL, num_ctx=16384, size=12 * GB, size_vram=12 * GB, digest="sha256:1", server=other)
+        got = W.truth(d, url, MODEL)
+        ctx.check(f"another known server: this load's, got {got}",
+                  got.get("fits") == 16384 and got.get("fits_size") == 12 * GB and got.get("fits_server") == other)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

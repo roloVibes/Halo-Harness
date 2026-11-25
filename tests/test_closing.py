@@ -1985,6 +1985,41 @@ def test_a_start_refused_after_close_ends_an_exit_hook_and_a_stop_quietly(ctx: C
 
 
 @test
+def test_a_tool_server_start_refused_after_close_names_its_program_in_the_trace(ctx: Ctx):
+    """3.6.0.21 R5 (after the check): the third caller of before_spawn, a stdio tool server's start (mcp/stdio.py),
+    passes its argv too, so the one trace line names the program, never "a program". In process: close() is marked
+    as run, the trace points at a scratch file, and everything is put back exactly as found."""
+    import asyncio
+    from halo_harness import closing
+    from halo_harness.mcp import stdio
+    tmp = Path(tempfile.mkdtemp(prefix="halo-r5-stdio-"))
+    trace = tmp / "trace.txt"
+    saved = {k: closing._STATE[k] for k in ("closed", "spawned")}
+    saved_trace = os.environ.get(closing.TRACE)
+    try:
+        os.environ[closing.TRACE] = str(trace)
+        closing._STATE["closed"] = True
+        refused = None
+        try:
+            asyncio.run(stdio.connect(command="example-server", args=["--serve"], env={}, cwd=None,
+                                      errlog=None, connect_timeout=5.0))
+        except closing.ClosingRefused as e:
+            refused = e
+        ctx.check(f"the start is refused, got {refused!r}", refused is not None)
+        lines = [ln for ln in (trace.read_text(encoding="utf-8").splitlines() if trace.exists() else [])
+                 if "refused" in ln]
+        ctx.check(f"one trace line names the program, got {lines}",
+                  len(lines) == 1 and "example-server --serve" in lines[0] and "a program" not in lines[0])
+    finally:
+        closing._STATE.update(saved)
+        if saved_trace is None:
+            os.environ.pop(closing.TRACE, None)
+        else:
+            os.environ[closing.TRACE] = saved_trace
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
 def test_l_every_spawn_of_the_closing_procedure_names_its_stdin(ctx: Ctx):
     """3.6.0.18 L (batch 2, entry 5c): closing.py's own tools (the `ps` looks, taskkill, the reaper, the WMI start)
     bypass subprocess_safe's rule for the terminal's input, so each names its stdin (a caller's spawn passed through

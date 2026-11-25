@@ -655,10 +655,11 @@ def host_fit_settings(host) -> dict:
 
 def fit_settings_of(host) -> dict:
     """3.6.0.21 R1: the fit settings the estimate reads for `host` as it uses them (the cache type's bytes per element,
-    the parallel count): beside the digest and the server's version, what a measurement and a load seen wholly on the
-    card hold only under."""
+    the parallel count, and on a local host OLLAMA_GPU_OVERHEAD as `_fit_from_gpu_cards` reads it): beside the digest
+    and the server's version, what a measurement and a load seen wholly on the card hold only under."""
     s = host_fit_settings(host)
-    return {"kv_bytes_per_elem": kv_bytes_per_elem_for(s["kv_cache_type"]), "parallel": s["parallel"]}
+    return {"kv_bytes_per_elem": kv_bytes_per_elem_for(s["kv_cache_type"]), "parallel": s["parallel"],
+            "gpu_overhead": _ollama_gpu_overhead_bytes() if is_local_host(host) else 0}
 
 
 def load_server(host, version) -> Optional[dict]:

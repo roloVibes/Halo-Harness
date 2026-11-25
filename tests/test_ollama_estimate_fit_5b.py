@@ -331,6 +331,60 @@ def test_a_measured_cap_taken_under_other_fit_settings_is_not_used(ctx: Ctx):
                   f"(learned {other.learned_cap})", other.num_ctx < 32768 and other.learned_cap is None)
 
 
+class _gpu_overhead:
+    """`with _gpu_overhead(value):` OLLAMA_GPU_OVERHEAD is `value` (None: unset) inside; put back exactly after."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __enter__(self):
+        import os
+        self.saved = os.environ.get("OLLAMA_GPU_OVERHEAD")
+        if self.value is None:
+            os.environ.pop("OLLAMA_GPU_OVERHEAD", None)
+        else:
+            os.environ["OLLAMA_GPU_OVERHEAD"] = self.value
+        return self
+
+    def __exit__(self, *exc):
+        import os
+        if self.saved is None:
+            os.environ.pop("OLLAMA_GPU_OVERHEAD", None)
+        else:
+            os.environ["OLLAMA_GPU_OVERHEAD"] = self.saved
+        return False
+
+
+@test
+def test_a_load_seen_or_a_cap_measured_under_another_gpu_overhead_is_not_used(ctx: Ctx):
+    """3.6.0.21 R1 after the check: OLLAMA_GPU_OVERHEAD is a fit setting the estimate reads (a local host), so a
+    load seen wholly on the card and a measured cap hold only under the overhead they were taken under: a larger one
+    today can spill the same window at the same room."""
+    def measured(d, url):
+        from halo_harness.providers.ollama_calibrate import record_calibration
+        settings = {k: v for k, v in _today(url).items() if k != "version"}
+        record_calibration(d, host_url=url, model=_E2_MODEL, digest=_E2_DIGEST, max_full_gpu_ctx=32768,
+                           ollama_version="0.1.0-mock", tight_ctx=65536, tight_vram=19_200_000_000,
+                           gpu_total=24_000_000_000, fit_settings=settings)
+
+    def taken_without_overhead(prepare):
+        def wrapped(d, url):
+            with _gpu_overhead(None):
+                prepare(d, url)
+        return wrapped
+    for label, prepare, want in (("a load seen", _seen(19_200_000_000), (65536, "seen to fit")),
+                                 ("a measured cap", measured, (32768, "learned cap"))):
+        with _gpu_overhead(None):
+            same, _c = _e2_decide(19_500_000_000, taken_without_overhead(prepare))
+        ctx.check(f"{label}, the same overhead: {want}, got {same.num_ctx} {same.source!r}",
+                  (same.num_ctx, same.source) == want)
+        with _gpu_overhead(str(500_000_000)):
+            other, _c = _e2_decide(19_500_000_000, taken_without_overhead(prepare))
+        ctx.check(f"{label}, a larger overhead today: neither a cap nor a floor, got {other.num_ctx} "
+                  f"{other.source!r} (learned {other.learned_cap})",
+                  other.num_ctx < 32768 and other.source == "fit estimate" and other.learned_cap is None)
+
+
 @test
 def test_the_panel_says_the_window_the_session_decides_after_an_observation(ctx: Ctx):
     """3.6.0.20 E2 after the check: `halo ollama`, `/ollama` and Studio's Models list print the window a session

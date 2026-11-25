@@ -133,7 +133,9 @@ def record_truth(state_dir, host_url: str, model: str, *, num_ctx: int, size, si
                  digest=None, server=None) -> Optional[str]:
     """One read after a call: `fits` (wholly on the card at `num_ctx`) or `spills` (part on the CPU). A new digest
     starts over. `server`: what the load was seen under (ollama_hw.load_server); a `fits` seen under another (or
-    before 3.6.0.21, under none kept) is replaced by this load's. Returns "fits" / "spills" / None."""
+    before 3.6.0.21, under none kept) is replaced by this load's. A load seen while the version is not known (`server`
+    None) is under no other server: a smaller one leaves the kept `fits` as it is; a larger one is kept, never a floor.
+    Returns "fits" / "spills" / None."""
     if not (_pos(num_ctx) and _pos(size) and isinstance(size_vram, int)):
         return None
     kind = "fits" if size_vram >= size else "spills"
@@ -143,7 +145,8 @@ def record_truth(state_dir, host_url: str, model: str, *, num_ctx: int, size, si
             old = {}
         out = {**old, "num_ctx": num_ctx, "num_gpu": num_gpu, "digest": digest or old.get("digest"), "at": time.time()}
         if kind == "fits":
-            same = old.get("fits_server") == server  # 3.6.0.21 R1: a load under another server is no measure of this
+            # 3.6.0.21 R1: a load under another server is no measure of this; one whose server is not known is not that
+            same = server is None or old.get("fits_server") == server
             out["fits"] = max(num_ctx, (_pos(old.get("fits")) if same else None) or 0)
             if out["fits"] == num_ctx:  # 3.6.0.20 E2: the load's own size at `fits` (ollama_hw.observed_floor)
                 out["fits_size"], out["fits_server"] = size, server

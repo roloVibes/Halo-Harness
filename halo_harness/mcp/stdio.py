@@ -104,7 +104,7 @@ async def connect(*, command: str, args: list, env: dict, cwd: Optional[str],
     from halo_harness.mcp.client import task_timeout
     from halo_harness import closing  # 3.6.0.0 R10: the server carries this tree's marker; the reaper covers it (POSIX)
     closing.note_spawn()
-    env = closing.before_spawn({"env": dict(env or {})})["env"]
+    env = closing.before_spawn({"env": dict(env or {})}, [command, *(args or [])])["env"]  # 3.6.0.21 R5: names it
 
     params = StdioServerParameters(
         command=command, args=[str(a) for a in (args or [])],
