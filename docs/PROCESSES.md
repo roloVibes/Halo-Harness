@@ -81,7 +81,9 @@ left by a reboot or a hard kill is cleared and said, never signalled.
    then ended hard -- within 3 s + 2 s. When all is well it prints nothing.
 2. **A hard kill** runs no code in Halo, so the children notice on their own:
    - Windows: every child is in Halo's Job object, which Windows ends together with Halo (a tool's shell command
-     too, with every program it started: Git Bash's own children no longer leave it);
+     too, with every program it started: Git Bash's own children no longer leave it). A child joins the Job a few
+     instructions after it is started; a hard kill in exactly that moment leaves that one child outside it (a
+     known limit; a helper of Halo's own waits for Halo's word before it does anything, so it leaves by itself);
    - a shell command a tool started is in the ledger as `shell` while it runs (`halo ps` lists it), so the closing
      procedure and the reaper end its whole group even where its environment cannot be read (macOS);
    - every Halo child (Studio's server first) watches the Halo that started it and closes within two seconds;

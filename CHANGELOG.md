@@ -8,6 +8,52 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.22] - unreleased
+
+A closing release, Windows only. The hole a test caught while 3.6.0.21 was made is closed, and a second of the same
+kind that was found while closing it. No new feature. Nothing changes on macOS or Linux.
+
+### Fixed
+
+- **Windows, inside a Job that lets nothing leave (a CI runner, a service, some terminals): a hard kill of Halo in
+  the instant it started the helper that opens your browser left that helper behind,** a PowerShell that was
+  suspended and did nothing, for good. Halo started the helper suspended, put it into its own Job and only then
+  let it run; killed between those two steps, the helper was in no Job of Halo's and nobody was left to wake it or
+  end it. Now the helper is started awake, and the first thing it does is wait for one word from Halo on a pipe of
+  its own. Halo writes the word once the helper is in its Job. A Halo that is gone before that closes the pipe by
+  being gone, and the helper leaves at once, having started nothing. It was there since 3.6.0.18 and named in
+  3.6.0.21's Known limits. The same helper starts a program you asked to keep (a background job, for one)
+  inside such a Job, so that start is covered too.
+- **The same for the short probe** that asks whether a program may leave the Jobs Halo is in (once per process,
+  before a browser or a kept program is started). It was a `cmd` created suspended and ended at once; a hard kill
+  while it was up left a suspended `cmd.exe`. It now waits on a pipe of its own in the same way and ends when the
+  pipe closes. It runs with `/d`, so no AutoRun command of yours runs inside it.
+
+### Tests
+
+- Halo is killed hard exactly between the helper's start and its adoption, and nothing is left. The kill is put
+  there on purpose (the test holds the starter in that instant), never hoped for. A helper whose adoption fails is
+  gone and has started nothing; a healthy start still starts the program exactly once. A hard kill while the probe
+  is up leaves nothing; the probe passes `/d`. The two hard-kill tests are red on 3.6.0.21.
+- Real use, on a Windows PC: a real `halo init` in a scratch home, inside a Job that lets nothing leave, with a
+  stand-in for the browser. Killed hard in that exact instant, 3.6.0.21 left the helper both times of two; this
+  release left nothing five times of five, and nothing at sixteen other instants from the address line to a second
+  after it. The browser was asked once where the start had been let through, never twice, and not at all where
+  the kill came first.
+- Twenty healthy starts are as fast as before (the medians differ by a millisecond).
+
+### Known limits
+
+- **Windows: a child joins Halo's Job a moment after it is started, not at its start.** A hard kill of Halo in
+  exactly that moment (a few instructions wide) leaves that one child outside the Job. A server that reads from
+  Halo ends when its pipe closes, a tool's command runs to its own end, and Halo's own children watch for Halo and
+  close within two seconds; but a browser that Halo runs itself is started suspended and would stay so until you
+  end it. Found while closing the hole above; it has been so since Halo first used a Job (3.6.0.0), and nothing
+  has been seen left this way. Closing it means starting every child inside the Job from its first instruction,
+  which changes the base of how Halo starts programs: it is the next release's first job.
+- The new tests have not run on a hosted Windows machine before the push; the hosted run follows it.
+- Every Known limit of 3.6.0.21 still holds, except its first (closed here).
+
 ## [3.6.0.21] - 2026-11-25
 
 Left-overs, and checks that tell the truth. No new feature. The small faults the last two reviews named are
