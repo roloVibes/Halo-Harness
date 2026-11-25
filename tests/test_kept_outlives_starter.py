@@ -913,7 +913,10 @@ def _quit_mid_start(ctx: Ctx, held_part: str, way: str) -> None:
     if held_part == "powershell":
         ps = (f"Set-Content -LiteralPath '{held}' -Value $PID; "
               f"while (-not (Test-Path -LiteralPath '{go}')) {{ Start-Sleep -Milliseconds 100 }}; ")
-        hold = f"closing._WMI_CREATE = {ps!r} + closing._WMI_CREATE"
+        # 3.6.0.22: the hold goes AFTER the script's first act (the wait for Halo's word), so the helper is held where
+        # it always was: let go by Halo, before the create. In front of it, it would be held before the word.
+        hold = ("_g, _r = closing._WMI_CREATE.split('$ErrorActionPreference', 1); "
+                f"closing._WMI_CREATE = _g + {ps!r} + '$ErrorActionPreference' + _r")
     else:
         py = (f"import os as _o, time as _t\nopen({str(held) + '.tmp'!r}, 'w').write(str(_o.getpid()))\n"
               f"_o.replace({str(held) + '.tmp'!r}, {str(held)!r})\n"
@@ -1020,7 +1023,8 @@ def _wmi_child(tmp: Path, hold: str):
 def _left_under(tmp: Path, seconds: float) -> list:
     """The processes with `tmp` in their command line or environment (and their children) still alive within
     `seconds` (polled; early once none is left)."""
-    sys.path.insert(0, str(REPO / "scripts"))
+    if str(REPO / "scripts") not in sys.path:
+        sys.path.insert(0, str(REPO / "scripts"))
     from realcheck import procs
     end = time.monotonic() + seconds
     while True:
@@ -1065,6 +1069,23 @@ def test_a_hard_kill_between_the_helpers_start_and_its_adoption_leaves_nothing(c
             proc.kill()
         _end_under(tmp)
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_the_helpers_script_waits_for_halos_word_before_anything_else(ctx: Ctx):
+    """3.6.0.22 C, after the review: the wait for the word is the script's FIRST act, and the script never asks
+    PowerShell for its piped input (`$input`, Read-Host): a `-Command` text that uses `$input` makes PowerShell read
+    the redirected input itself, and Halo's word would be gone before the script reads it (no start at all)."""
+    from halo_harness import closing
+    text = closing._WMI_CREATE
+    ctx.check(f"the script starts with the wait for the word, got {text[:60]!r}",
+              text.startswith(f"if ([Console]::In.ReadLine() -ne '{closing._WMI_WORD}') {{ exit 7 }}; "))
+    ctx.check("the word is plain ASCII with no space (it is read as one line)",
+              closing._WMI_WORD.isascii() and closing._WMI_WORD.isalnum())
+    ctx.check("the script never uses $input or Read-Host",
+              "$input" not in text.lower() and "read-host" not in text.lower())
+    ctx.check("the rest of the script is still there to split at (the tests' hold goes in after the wait)",
+              text.count("$ErrorActionPreference") == 1)
 
 
 @test

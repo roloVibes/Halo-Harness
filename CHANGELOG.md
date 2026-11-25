@@ -40,17 +40,23 @@ kind that was found while closing it. No new feature. Nothing changes on macOS o
   release left nothing five times of five, and nothing at sixteen other instants from the address line to a second
   after it. The browser was asked once where the start had been let through, never twice, and not at all where
   the kill came first.
-- Twenty healthy starts are as fast as before (the medians differ by a millisecond).
+- Healthy starts are as fast as before.
+- The helper's script is checked as text: the wait for the word is its first act, and it never asks PowerShell
+  for its piped input (PowerShell would then read Halo's word itself).
 
 ### Known limits
 
-- **Windows: a child joins Halo's Job a moment after it is started, not at its start.** A hard kill of Halo in
-  exactly that moment (a few instructions wide) leaves that one child outside the Job. A server that reads from
+- **Windows: a child joins its Job a brief moment after it is started, not at its start.** The moment is the time
+  Halo takes to put it in: usually far under a second, longer on a busy machine. A hard kill of Halo in exactly
+  that moment leaves that child, and anything it started in that moment, outside the Job. A server that reads from
   Halo ends when its pipe closes, a tool's command runs to its own end, and Halo's own children watch for Halo and
   close within two seconds; but a browser that Halo runs itself is started suspended and would stay so until you
   end it. Found while closing the hole above; it has been so since Halo first used a Job (3.6.0.0), and nothing
   has been seen left this way. Closing it means starting every child inside the Job from its first instruction,
   which changes the base of how Halo starts programs: it is the next release's first job.
+- Not tried: a PowerShell in Constrained Language mode. If the helper's read of the word is refused there, the
+  helper does not wait for it and goes on to the start. The program's own starter still refuses to run it once
+  Halo is gone, so nothing outlives Halo; but the helper would not have "started nothing".
 - The new tests have not run on a hosted Windows machine before the push; the hosted run follows it.
 - Every Known limit of 3.6.0.21 still holds, except its first (closed here).
 

@@ -643,7 +643,7 @@ def _run_wmi(cmdline: str, cwd: str, wait_s: float, stop: Callable[[], bool]) ->
                     return None
     finally:
         try:
-            proc.stdin.close()  # no word: the helper leaves by itself even if the kill below could not end it
+            proc.stdin.close()  # a helper still waiting for its word leaves by itself, even if the kill below fails
         except Exception:
             pass
         if proc.poll() is None:
