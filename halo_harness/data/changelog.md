@@ -1,5 +1,122 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.20] - 2026-11-24
+
+Local models, measured right. Halo's memory estimate was about eighteen times too high for one family of models
+and gave such a model a 4k window where 65,536 fits; it now counts what the server really keeps, and a measurement
+or a load Halo has seen can raise an estimate that is too low. A local session no longer carries the names of every
+tool of your other tool servers: on one real setup with many servers its first request went from about 14,600
+tokens to about 6,300. `halo local prompt` counts those servers, and `/status` describes the session it is typed in. All
+of it was checked with real sessions on a real Ollama.
+
+### Fixed
+
+- **The memory estimate of a latent-attention model.** A model that keeps one small latent row a layer in its cache
+  (its `/api/show` names `key_length_mla` and `value_length_mla`) was estimated as if every head kept its full key
+  and value: about eighteen times too much. (An older file of the same family names neither; the server runs it
+  with every head's full cache, and it keeps the estimate it had.) A 30B model of that kind was held at 4k, where
+  it sits wholly on its card at 65,536. The estimate now counts what the server keeps. Checked against five real
+  loads of one model: it is never below a real load. A new session on that model now starts at 65,536 with one
+  load and one tool list; 3.6.0.19 started it at 4k, cut its first request and reloaded on the second turn.
+- **A reading of the card no longer counts a load twice.** Halo keeps a reading of the card's free memory for a
+  minute and adds back what its own loaded models hold; right after a load that counted the model twice, and the
+  second request of a session asked for a window four times the first (a reload, and with the estimate now right,
+  a window that would spill). Each reading now adds back only what was loaded when it was taken.
+- **A measurement, or a load Halo saw wholly on the card, raises an estimate that is too low.** After `halo local
+  measure <model>` a new session starts at the measured window (the lines call it "learned cap") while the card has
+  the room it had at the measurement. A window a session saw sit wholly on the card ("seen to fit") does the same
+  for later sessions while the card has that load's room. With less room on the card than then, the estimate
+  stands, as before. `halo ollama`, `/ollama` and Studio's Models list print the window a session is sent, with the
+  source word `calibrated` or `seen`. Before, the smaller of the estimate and the measurement always won, so a
+  measurement could never help a model the estimate misjudged.
+- **A session's tool list never changes in the middle of it.** The list is the one of the window the first request
+  is sent at (3.6.0.19), but it was kept only when that window differed from the one Halo first resolved; when the
+  resolved window moved later (the card got busier), the list changed between two turns. It is always kept now.
+  So a session that started at a small window keeps that window's list also when its window grows later (a
+  profile, a measurement, a freed card); a new session, or a switch of the model, gets the larger one.
+- **With a window of your own (a profile), the first turn loads the model once.** It loaded twice ("loading ...",
+  then "loading ... again at a 32k window").
+- **The line for a first request that is over its window says why the window is that small.** After "the system
+  prompt, the memory and the tools alone are N tokens, more than this W window holds with the reply's R:" you now
+  read, when the window is Halo's own estimate and nothing was measured, "that window is Halo's memory estimate for
+  <model> on <host>; `halo local measure <model>` measures what the card holds"; for a profile, "the profile of
+  <model> on <host> sets that window (`halo ollama profile`)"; for the host's `max_ctx`, "the host's max_ctx sets
+  that window"; otherwise, as before, "a bigger-window model holds them".
+- **A first request is not compacted after it was sent either.** 3.6.0.19 stopped the compaction before the send.
+  Now, when Halo judged a first request to fit and the server then cut it: a reply cut at the window stands ("<host>
+  cut the reply at the window (...): nothing earlier to compact, the reply stands as it is"); a prompt the server
+  trimmed is sent once more at a larger window when the call may get one, and otherwise stands ("<host> read X of Y
+  tokens of the first request (its window is W): nothing earlier to compact, the answer stands"); a first request
+  Ollama refuses outright at a window that cannot grow ends with one line ("<host> refused the first request (N
+  tokens) and its window cannot grow: nothing earlier to compact"). Before, each started a compaction of a
+  conversation with no answer in it, then more calls, then an error. From the second turn on nothing changes.
+- **A local session no longer carries the names of every tool of your other tool servers.** Every session logs a
+  list of the tools it can load on demand, and that list rode in every request, outside every budget: with sixteen
+  servers of sixty tools about 9,400 tokens, more than half of a 16,384 window. A lean request (a local model, any
+  model with a window under 65,536, their helpers, the smaller request Halo makes after a model's answer failed,
+  and any session with the lean prompt switched on) now leaves the list out; each server's line says how many
+  tools it has, ``- `<server>` (60 tools): <what it is for>``, and one line says that ToolSearch finds a server's
+  tool. ToolSearch searches the tools itself and never needed the list. A session on a large-window model is sent
+  what it was sent before, byte for byte (only that smaller request after a failed answer is lean).
+- **A server's line in a local model's system text is its first sentence,** 160 characters at most. One server's
+  whole first line of more than 900 characters rode in every request.
+- **`halo local prompt` counts the other tool servers.** It reads the servers a session in this folder has and
+  their tools from Halo's own cache of their tool lists, and starts nothing. It prints "other tool servers: N, M
+  tools (from Halo's cache of their tool lists; none was started)", and for a server Halo has no cache of yet "not
+  counted: the tools of N other tool servers (<names>); a session's /status counts them". On the real setup above
+  it said 6,410 tokens where the server then read 6,265.
+- **`/status` describes the session it is typed in:** its own first request, with its own tools and servers. It
+  described a new default session.
+- **The release tool** no longer prints false "driver retried once" warnings (it read the workflow's own script in
+  the log), and says so when a job never ran because no runner took it.
+
+### Changed
+
+What a model is sent changes in these cases only; a session on a model with a large window (65,536 and up) is sent
+byte for byte what 3.6.0.19 sent (the request bodies were compared across both), except the smaller request Halo
+makes after a failed answer, which is lean.
+
+- A latent-attention model: a larger window, and the tool list of that window.
+- A lean request: no list of the other servers' tool names; the servers' lines with their counts, each its first
+  sentence; one ToolSearch line. A helper's own system text gets those lines too when its request held the list.
+- A first request the server cut, trimmed or refused: no compaction request follows.
+- A session whose resolved window moves after its first request: the first request's tool list on every later one.
+- After `halo local measure`, or after a load seen wholly on the card: the observed window when it is larger than
+  the estimate and the card has the room.
+
+### Tests
+
+- The three waits that follow a click in one browser test of Studio's Live view have a slow runner's budget (one
+  of them ran out on a hosted Windows runner and five tests went red from that one read).
+- The stand-in Ollama of the tests can answer "exceeds the available context size", so the rule that a session
+  held at a window is never re-sent past it has its own test now (3.6.0.19 shipped it without one).
+- Four tests that pinned "compacted and re-sent" for a first request are rewritten to the new truth and renamed to
+  what they assert; the compaction of a LATER request after the send has a new end-to-end test.
+
+### Known limits
+
+- The estimate errs on the safe side: for the model it was checked against it is 0.3 to 2.4 GB above the real
+  load, so a model can still get a smaller window than its card would hold. `halo local measure <model>` settles
+  it; the session after it starts at the measured window, which can fill the card almost to the top. A window of
+  your own is `halo ollama profile set <host> <model> num_ctx <N>`.
+- Model families with a sliding attention window are still estimated too high (not checked against a real load).
+- A session on a large-window model still sends the names of all tools of your other servers in every request, as
+  before: with many servers that is thousands of tokens. Its sentence "calling them directly will fail" is not
+  true on Halo (such a tool is loaded when it is called).
+- `halo local prompt` counts a server only when Halo has a cache of its tools made with the server's settings as
+  they are now (a session makes it). Studio's model card and `halo doctor` describe a new session without the
+  other servers.
+- A reading of the card that another view took first (Studio's panel) and that an estimate uses only after a load
+  can still count that load twice.
+- A first request can still be compacted on two rare paths: an overflow in the middle of a stream on a dialect
+  other than Ollama's, and a compaction left pending by a switch of the model.
+- A first request that cannot fit its window is sent at once, without the card that offers a bigger-window model.
+- The real sessions were run on Windows with one Ollama and one card; the same paths run with a stand-in server in
+  the tests on Windows, macOS and Linux.
+- Every Known limit of 3.6.0.19 still holds, except the ones this release closes: the estimate of a
+  latent-attention model, a measurement that could not win over it, the tool list that changed on a later turn,
+  the other servers' tool names in a local session, and the first request compacted after the send.
+
 ## [3.6.0.19] - 2026-11-24
 
 Local models: the session you really get. A session on a local model is now sent the window Halo names, with the
@@ -1376,93 +1493,3 @@ limits that remain are at the end of this section.
   "on the map" tag did not follow a changed map: its test had passed elsewhere only by its timing, and now tests the
   rule. Not checked by hand: macOS (CI's macOS runners ran the suites and the real-use check). Not run: Agents, 4
   Live, a real model asked to change a workflow, and a session started in another folder than Studio's.
-
-## [3.6.0.8] - 2026-11-21
-
-Halo runs and drives a browser by itself. Every session has a built-in Browser tool that uses a browser already on
-the machine, with nothing to install and no other product in between; Studio shows each step in words and with a
-picture of the page, and you can have a window you can watch. The limits that remain are at the end of this section.
-
-### Added
-
-- **A built-in Browser tool in every session.** Halo finds Google Chrome, Chromium, Microsoft Edge or Brave already on
-  the machine (in that order, or the one `HALO_CHROME` names), starts it itself and drives it. Nothing is installed
-  and nothing is downloaded. A session started from Studio has it too. With no browser on the machine the tool
-  answers "No browser found: install Google Chrome, Chromium, Microsoft Edge or Brave, or set HALO_CHROME to a
-  browser's path. Halo downloads none."
-- **What it can do.** Open a page, read it, click, type, press a key, scroll, go back, run JavaScript in the page,
-  take a screenshot, close. Every answer but screenshot's and close's gives the page's title, its address, its visible
-  text and a numbered list of what can be pressed or typed into; a control is named by its number, its words, or
-  `css:<selector>`.
-- **Real pages.** When a click opens a new tab the browser goes on in it and the answer begins "A new tab opened; now
-  on it." A page's alert, confirm or prompt box is answered at once and the answer begins "The page showed a box:
-  '...' (accepted)." A page that never finishes loading is read as it stands after 15 s, and the answer says so. A
-  download lands in the session's attachments folder when it is whole, and the answer says where.
-- **You can see the page.** After every action that can change the page, its picture is kept in the session's
-  attachments folder (the newest 20) and the answer names it. In Studio, a Browser step shows in Session's Live column
-  and in Agents -> 4 · Live in plain words ("Browser open <address>", "Browser click <target>" ...), and a click on
-  the step opens the picture of the page after it. The picture is not sent to the model; `screenshot` sends one.
-- **A window you can watch.** Settings has a head "Browser" with two settings. **Window**: "shown opens the browser
-  Halo drives as a window you can watch and sign in to; hidden runs it out of sight." (`halo config set
-  browser.window shown`; the tool's `show: true` does it for one session). **Profile**: "kept remembers sign-ins
-  between sessions in Halo's own folder (never your own browser's); clean starts empty every time."
-- **Sign-ins stay.** By default the browser uses a profile of Halo's own, kept between sessions, so a sign-in you make
-  once in the shown window is there next time. It is never your own browser's profile. One session uses it at a
-  time; another session at the same moment starts clean and says so.
-- **`halo doctor` has a row `browser`**: which browser Halo will use, or the line that says what to install.
-
-### Changed
-
-- **`--chrome` is no longer the way to a browser.** Its doc now says it uses another product's browser extension and
-  works only while that product does; the built-in Browser tool needs neither. The tip that named it names the
-  built-in tool.
-- **`--playwright` runs a fixed version** (`@playwright/mcp@0.0.86`, never the latest), says once before it starts
-  what the first start downloads (about 59 MB), and writes its page files in Halo's own folder, removed when the
-  session ends, instead of the folder halo was started in.
-- **Permissions for the tool.** Open, read, screenshot and close are decided as WebFetch is for the same address (a
-  rule `Browser(domain:example.com)` works); click, type, key, scroll, back and js ask in the default mode and never
-  in Auto.
-
-### Fixed
-
-- **Four `halo doctor` fix lines named headings that did not exist**, the Chrome row's among them ("see README.md
-  (Browser)"). They name real ones now.
-
-### Known limits
-
-- **Nothing listens on the network.** The browser talks to Halo over a pipe on Linux, macOS and Windows. It is Halo's
-  own child: it ends with the session on every way out, and `halo ps` lists it while it runs. The helpers the browser
-  starts for itself (its crash handler; on macOS the updater it wakes) are ended with it on Linux and macOS: asked to
-  end, and ended at most a second later if still there. What it may leave on the machine is Halo's kept profile only.
-- **A sign-in survives every ordinary way out** (quitting the terminal app, ending a session from Studio, Studio
-  stopping, the end of `halo -p`): Halo asks the browser to close and waits up to three seconds. A kill of Halo itself
-  cannot do that: a sign-in made in its last seconds may then be lost. Quitting the terminal app with a browser open
-  was not run for real on any system: only the order of its steps is tested. Studio stopping was driven inside the
-  test's own process, not by a real `halo studio --stop`.
-- **In Studio the picture's box can change its height once** when a browser shown as a window took the picture: the
-  page is smaller than the 1280 by 800 the box starts with.
-- **A download that cannot be moved into the session's folder is dropped without a line.**
-- **A session whose model gets the short tool list** (a small context window) is offered the Browser tool by name
-  only; it can still call it.
-- **The window was never opened in a test**: only the way the browser is started for it is checked. macOS was run on
-  CI's runners only (a headless Chrome there), never on a person's Mac. On Windows, Edge was run only as far as
-  starting and answering over the pipe; Brave and Chromium were never run, and only finding them is tested.
-- **Every Known limit of 3.6.0.7 still holds.**
-- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
-  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
-  check, eighteen of eighteen steps. Its new step starts a real Halo that opens a real page in a real installed
-  browser, presses a button, takes its pictures and closes; nothing of the browser is left after a normal end and
-  after a hard one. The system's temp folder was listed before and after a session there and on the PC: nothing of the
-  browser was added. On the PC (Windows), with a real headless Chrome, one at a time: the browser's own modules (among
-  them a sign-in that is still there in the next session), the Studio module (a session started from Studio opens,
-  presses and pictures a page; Live shows the steps and the picture), the changed plain modules and the node checks,
-  and the two new real-use steps. Chrome and Edge both answered over the pipe on Windows. The whole suite found five
-  things at the join, none in what the browser does (lists of main's tools and a recorded request that now hold the
-  Browser tool, a rule about reading the home folder, a test helper's server, the browser module started `ps` through
-  the standard starter): each is settled. CI then ran the browser's modules and the real-use step on its Windows and
-  macOS runners, with the Chrome installed there, and its first run found two more things, both in how the browser
-  ends: on Windows a start that came right after a hard end left that session's folder for a later start, and on macOS
-  Chrome's crash handler and the updater it wakes ran on after the browser was closed. Each has a fix and a test that
-  was red before, and this release's own CI run passed on both runners with them. Not run: a person's Mac, a browser
-  shown as a window, Edge beyond starting and answering, Brave and Chromium at all, and quitting the terminal app with
-  a browser open on any system.

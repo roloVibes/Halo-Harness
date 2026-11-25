@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.20] - unreleased
+## [3.6.0.20] - 2026-11-24
 
 Local models, measured right. Halo's memory estimate was about eighteen times too high for one family of models
 and gave such a model a 4k window where 65,536 fits; it now counts what the server really keeps, and a measurement
