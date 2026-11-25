@@ -56,6 +56,14 @@ SECOND = ["ollama/steward", "setup/ollama/scan", "setup/ollama/measure", "setup/
 _BASE: dict = {}  # test 1's start cost, test 2's baseline
 
 
+def _to_idle_budget() -> tuple:
+    """3.6.0.21 T4: CPU_TO_IDLE_S times this machine's speed factor, measured now, in the same run, before the start it
+    budgets (tests/helpers/cpu_factor.py: 1 on the reference machine, at most 4); the budget and the words that say it."""
+    from tests.helpers import cpu_factor
+    f = cpu_factor.factor()
+    return CPU_TO_IDLE_S * f, cpu_factor.said(f"{CPU_TO_IDLE_S} CPU-s", f)
+
+
 # ---- the home ---------------------------------------------------------------------------------------------------
 def _big_pack(packs: Path) -> None:
     """doc-review, grown: 48 more bios and 8 more workflows of 6 stages, every stage naming a bio by its kind."""
@@ -317,13 +325,14 @@ def test_launch_to_idle_and_idle_cost_in_an_owner_shaped_home(ctx: Ctx):
     s = None
     try:
         home = _home(root)
+        budget, words = _to_idle_budget()
         rec, s = _start_cost(home)
         ctx.check(f"every page request answered 200, got {[d for d in s.done if d[1] != 200]}",
                   len(s.done) == len(FIRST) + len(SECOND) and all(st == 200 for _p, st in s.done))
         cpu = rec.get("cpu_s")
         _BASE["cpu"] = cpu
-        ctx.check(f"launch to idle costs at most {CPU_TO_IDLE_S} CPU-s (the process's own counter), got {cpu}",
-                  isinstance(cpu, (int, float)) and cpu <= CPU_TO_IDLE_S)
+        ctx.check(f"launch to idle costs at most {words} (the process's own counter), got {cpu}",
+                  isinstance(cpu, (int, float)) and cpu <= budget)
         printed = next((p for p in rec.get("phases") or [] if p["phase"] == "address printed"), None)
         ctx.check(f"the address is printed at most {ADDRESS_CPU_S} CPU-s into the process, got {printed}",
                   printed is not None and printed["cpu_s"] <= ADDRESS_CPU_S)
@@ -387,6 +396,7 @@ def test_live_hosts_with_many_models_stay_in_budget_and_read_each_host_once_a_pa
         cfg = json.loads((home / ".halo" / "config.json").read_text(encoding="utf-8"))
         cfg["ollama"]["hosts"] = [{"name": "lan", "url": mocks[0].base_url}, {"name": "local", "url": mocks[1].base_url}]
         (home / ".halo" / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        budget, words = _to_idle_budget()
         rec, s = _start_cost(home, _fake_gpu(root), FIRST + MODEL_READS)
         ctx.check(f"every page request answered 200, got {[d for d in s.done if d[1] != 200]}",
                   len(s.done) == len(FIRST) + len(MODEL_READS) + len(SECOND) and all(st == 200 for _p, st in s.done))
@@ -396,8 +406,8 @@ def test_live_hosts_with_many_models_stay_in_budget_and_read_each_host_once_a_pa
         ctx.check(f"the picker lists the hosts' models ({2 * MODELS_PER_HOST}), got {len(ours)} of {len(rows)} rows",
                   len(ours) >= 2 * MODELS_PER_HOST)
         cpu = rec.get("cpu_s")
-        ctx.check(f"launch to idle costs at most {CPU_TO_IDLE_S} CPU-s with live hosts, got {cpu}",
-                  isinstance(cpu, (int, float)) and cpu <= CPU_TO_IDLE_S)
+        ctx.check(f"launch to idle costs at most {words} with live hosts, got {cpu}",
+                  isinstance(cpu, (int, float)) and cpu <= budget)
         for path in ("/api/setup/state", "/api/models"):
             first = next((r for r in rec.get("requests") or [] if r["path"] == path), None)
             ctx.check(f"{path} takes at most {FIRST_READ_CPU_S} s of its thread's CPU, got {first}",

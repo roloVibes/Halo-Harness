@@ -693,14 +693,24 @@ def judge_card(seen: str) -> list:
 
 
 def _folded(t, mark: int, ev: dict, bad: list) -> None:
-    """(2) the folded card's header says P1; then the turn ends."""
-    ok = t.wait_for(lambda s: not judge_ready_lines(s[mark:]), 15)
+    """(2) the folded card's header says P1; then the turn ends. 3.6.0.21 T2: the waits are the turn's budget on a slow
+    runner (TURN_S), and a turn still running when it runs out is said as that alone: the card's words are judged only
+    once they stand or the turn has ended."""
+    def ended(s: str) -> bool:
+        return fakes.AUTOBUILD_DONE in s[mark:]
+    t.wait_for(lambda s: not judge_ready_lines(s[mark:]) or ended(s), TURN_S)
+    if ended(t.plain()):  # the card is drawn over several frames: its words get the step's own 15 s to stand
+        t.wait_for(lambda s: not judge_ready_lines(s[mark:]), 15)
     seen = t.plain()[mark:]
     ev["folded"] = seen[-2000:]
-    if not ok:
-        bad.extend(judge_ready_lines(seen))
-    if not t.wait_for(lambda s: fakes.AUTOBUILD_DONE in s[mark:], 30):
-        bad.append("(2) the build's turn never ended in 30 s: " + excerpt(t.plain()[mark:], 160))
+    lines = judge_ready_lines(seen)
+    if lines and not ended(t.plain()):
+        bad.append(f"(2) the build's turn never ended in {TURN_S:.0f} s (the folded card's words not judged): "
+                   + excerpt(t.plain()[mark:], 160))
+        return
+    bad.extend(lines)
+    if not t.wait_for(ended, TURN_S):
+        bad.append(f"(2) the build's turn never ended in {TURN_S:.0f} s: " + excerpt(t.plain()[mark:], 160))
 
 
 def judge_ready_lines(seen: str) -> list:
@@ -812,8 +822,8 @@ def _use(ctx, t, c, ev: dict, bad: list) -> None:
     ev["use"] = read
     bad.extend(judge_use(read))
     ctx.provider.release()  # the first step's child was held at the gate so "step 1 of 2" stood for the read
-    if not t.wait_for(lambda s: fakes.AUTOUSE_DONE in s[mark:], 30):
-        bad.append("(5) the turn never ended in 30 s: " + excerpt(t.plain()[mark:], 160))
+    if not t.wait_for(lambda s: fakes.AUTOUSE_DONE in s[mark:], TURN_S):
+        bad.append(f"(5) the turn never ended in {TURN_S:.0f} s: " + excerpt(t.plain()[mark:], 160))
 
 
 def _settled(read: dict) -> bool:

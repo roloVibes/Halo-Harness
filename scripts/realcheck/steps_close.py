@@ -329,13 +329,17 @@ def _timers(n: int) -> str:
     return f"{n} interval timer{'' if n == 1 else 's'}"
 
 
-def judge_idle(share: float, counts: dict, live_added: int = LIVE_INTERVALS, seconds: float = 60.0) -> list:
-    """What a person saw of the idle minute ([] when right): the share of one core against 5%, and the page's live
+def judge_idle(share: float, counts: dict, live_added: int = LIVE_INTERVALS, seconds: float = 60.0,
+               factor: float = 1.0) -> list:
+    """What a person saw of the idle minute ([] when right): the share of one core against 5% times this machine's
+    speed factor (3.6.0.21 T3: tests/helpers/cpu_factor.py, measured in the same run, 1 to 4), and the page's live
     interval timers -- A before Live, B with Live, C with the box open, D closed, E after the minute (a list of periods
     or a number each; None when the hook could not count)."""
+    from tests.helpers.cpu_factor import said
     bad = []
-    if share >= 0.05:
-        bad.append(f"an idle Studio with Agents -> Live open used {share:.1%} of one core over {seconds:.0f}s (budget 5%)")
+    if share >= 0.05 * factor:
+        bad.append(f"an idle Studio with Agents -> Live open used {share:.1%} of one core over {seconds:.0f}s "
+                   f"(budget {said('5%', factor)})")
     n = {k: (len(v) if isinstance(v, (list, tuple)) else v) for k, v in (counts or {}).items()}
     if any(n.get(k) is None for k in "ABCDE"):
         return bad + ["the page's timers could not be counted"]
@@ -408,6 +412,7 @@ def _idle_page(ctx, h, c, url: str, counts: dict, ev: dict):
 
 
 def idle_cpu(ctx, seconds: float = 60.0):
+    from tests.helpers import cpu_factor
     from tests.helpers.chrome_driver import open_chrome
     from realcheck.steps_map import HOOK
     exe = browser(ctx)  # first: --browser none is a SKIP before any halo starts
@@ -433,6 +438,7 @@ def idle_cpu(ctx, seconds: float = 60.0):
             s = _idle_page(ctx, h, c, url, counts, ev)
         finally:
             s = ev.pop("_session", s)
+        ev["speed_factor"] = speed = cpu_factor.factor()  # T3: this machine's speed, now, before the minute
         before = {p.pid: p for p in ctx.ours(h).values()}
         time.sleep(seconds)  # the idle minute: nobody touches the page or the terminal
         after = {p.pid: p for p in ctx.ours(h).values()}
@@ -461,9 +467,9 @@ def idle_cpu(ctx, seconds: float = 60.0):
               share_of_one_core=round(share, 4), processes=per)
     if not after:
         raise Fail("no Halo process was found to measure (the scan saw none under the home)", ev)
-    bad = judge_idle(share, counts, LIVE_INTERVALS, seconds)
+    bad = judge_idle(share, counts, LIVE_INTERVALS, seconds, speed)
     if bad:
         raise Fail("; ".join(bad), ev)
     b = len(counts["B"])
-    return (f"{share:.1%} of one core over {seconds:.0f}s with Agents -> Live open on a session on Auto; {b} interval "
-            "timers, as before"), ev
+    return (f"{share:.1%} of one core over {seconds:.0f}s with Agents -> Live open on a session on Auto (budget "
+            f"{cpu_factor.said('5%', speed)}); {b} interval timers, as before"), ev

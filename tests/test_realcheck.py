@@ -2068,6 +2068,36 @@ def test_idle_cpu_judges_the_share_and_the_timers(ctx: Ctx):
 
 
 @test
+def test_idle_cpu_budget_follows_the_speed_factor_measured_in_the_same_run(ctx: Ctx):
+    """3.6.0.21 T3/T4: tests/helpers/cpu_factor.py: the factor is the work's time over the reference, never under 1,
+    at most 4; idle-cpu's 5% is times it, and its line names the factor when it is not 1; a busy page (tens of
+    percent of a core) still fails at the cap; the helper's own measure runs here and gives a time."""
+    from tests.helpers import cpu_factor as cf
+    from realcheck import steps_close as z
+    r = cf.REFERENCE_S
+    for measured, want in ((r / 2, 1.0), (r, 1.0), (r * 1.3, 1.3), (r * 2, 2.0), (r * 10, 4.0), (0.0, 1.0)):
+        ctx.check(f"factor of {measured:.3f} s against {r} s is {want}, got {cf.factor(measured)}", cf.factor(measured) == want)
+    m = cf.measure(1)
+    ctx.check(f"measure() gives a positive CPU time, got {m}", isinstance(m, float) and m > 0)
+    f = cf.factor()
+    ctx.check(f"factor() measured now is in [1, 4], got {f}", 1.0 <= f <= cf.CAP)
+    ctx.check("said() names the factor only when it is not 1",
+              cf.said("5%", 1.0) == "5%" and cf.said("5%", 1.3) == "5% x 1.3 for this machine's speed")
+    live = z.LIVE_INTERVALS
+    a = [1000, 15000, 2000]
+    b = a + [1000] * live
+    ok = {"A": a, "B": b, "C": list(b), "D": list(b), "E": list(b)}
+    ctx.check("6.1% with a factor of 1.3: within 6.5%", z.judge_idle(0.061, ok, live, 60.0, 1.3) == [])
+    got = z.judge_idle(0.07, ok, live, 60.0, 1.3)
+    ctx.check(f"7% with a factor of 1.3: the share's line naming the factor, got {got}",
+              got == ["an idle Studio with Agents -> Live open used 7.0% of one core over 60s "
+                      "(budget 5% x 1.3 for this machine's speed)"])
+    for busy in (0.2, 0.3, 0.6):
+        got = z.judge_idle(busy, ok, live, 60.0, cf.factor(r * 100))
+        ctx.check(f"a busy page at {busy:.0%} of a core fails even at the cap, got {got}", len(got) == 1 and "x 4" in got[0])
+
+
+@test
 def test_idle_cpu_reads_count_a_only_once_the_session_row_is_drawn(ctx: Ctx):
     """3.6.0.14 K2 (the checker): Session's row of the session not drawn within the wait is a FAIL that says so; count A
     is never read off a page in another state (stand-ins for the terminal, the page and steps_map's helpers, each put
@@ -2272,7 +2302,43 @@ def test_auto_ready_lines_reads_the_card_and_the_lines_in_any_wrap(ctx: Ctx):
               len(got) == 1 and "slot does not name it" in got[0])
 
 
-_STILL = {"head": [0, 40, 1280, 96], "main": [190, 140, 374, 247], "draw": [100, 12, 184, 107]}
+@test
+def test_auto_ready_lines_waits_a_turn_its_budget_and_says_a_turn_still_running_alone(ctx: Ctx):
+    """3.6.0.21 T2: step (2)'s waits are the turn's budget on a slow runner (TURN_S, never 30 s), and a turn still running
+    when it runs out is ONE line saying so, never also "the folded card does not say P1"; a turn that ended with P1
+    missing still fails on the card's words (a stand-in terminal: each wait answers at once and records its bound)."""
+    from realcheck import fakes
+    s = _steps_auto()
+    head = "⏺ Builder(2 changes)\n"
+    folded = head + _boxed(s.P1) + "\n  ✓ done · 0.4 s\n"
+
+    class Term:
+        def __init__(self, text: str):
+            self.text, self.waits = text, []
+
+        def plain(self) -> str:
+            return self.text
+
+        def wait_for(self, pred, timeout):
+            self.waits.append(timeout)
+            return bool(pred(self.text))
+
+    for name, text, want in (
+            ("the card folded, the turn ended", folded + fakes.AUTOBUILD_DONE, []),
+            ("the turn still running, the card unfolded", head + "⠦ tool Builder 45 s", ["turn never ended in", "not judged"]),
+            ("the card folded, the turn still running", folded, ["turn never ended in"]),
+            ("the turn ended, P1 missing", head + "  ✓ done\n" + fakes.AUTOBUILD_DONE, ["does not say"])):
+        t, bad = Term(text), []
+        s._folded(t, 0, {}, bad)
+        ctx.check(f"{name}: exactly {want or 'no failure'}, got {bad}",
+                  len(bad) == len(want[:1]) and all(w in (bad[0] if bad else "") for w in want))
+        ctx.check(f"{name}: no turn's wait shorter than TURN_S ({s.TURN_S}), got {t.waits}",
+                  max(t.waits) >= s.TURN_S and all(w in (s.TURN_S, 15) for w in t.waits))
+        if bad and "turn never ended" in bad[0]:
+            ctx.check(f"{name}: the line names the budget, got {bad[0]!r}", f"{s.TURN_S:.0f} s" in bad[0])
+
+
+_STILL ={"head": [0, 40, 1280, 96], "main": [190, 140, 374, 247], "draw": [100, 12, 184, 107]}
 
 
 def _use_read(s, **kw) -> dict:

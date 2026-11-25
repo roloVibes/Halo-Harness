@@ -331,17 +331,34 @@ def focus(c, rig, rows: Rows, a: str, b: str) -> dict:
 # when one is there; nothing of the product's) -- only for the step that counts
 HOOK = """(() => { window.__commits = 0; window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = { supportsFiber: true, isDisabled: false,
   renderers: new Map(), inject() { return 1; }, checkDCE() {}, onScheduleFiberRoot() {}, onCommitFiberUnmount() {},
-  onPostCommitFiberRoot() {}, onCommitFiberRoot() { window.__commits += 1; } }; })();"""
+  onPostCommitFiberRoot() {}, onCommitFiberRoot() { window.__commits += 1; } }; })();
+// 3.6.0.21 T1: while window.__held is set, the page's own clock and its feed wait: a setInterval call is skipped, a
+// setTimeout call and an event of the live feed are kept and run when it is let go (window.__letGo) -- so a commit
+// counted then is one the scroll caused, not a tick of the page that fell into the window on a slow runner
+(() => { window.__held = false; window.__heldN = 0; const q = [], si = window.setInterval, st = window.setTimeout, ct = window.clearTimeout;
+  window.__letGo = () => { window.__held = false; q.splice(0).forEach(([, f]) => { try { f(); } catch (e) { st(() => { throw e; }); } }); };
+  window.setInterval = (fn, ms, ...a) => si((...b) => { if (window.__held) window.__heldN += 1; else if (typeof fn === 'function') fn(...b); }, ms, ...a);
+  window.setTimeout = (fn, ms, ...a) => { if (typeof fn !== 'function') return st(fn, ms, ...a);
+    const id = st((...b) => { if (window.__held) { window.__heldN += 1; q.push([id, () => fn(...b)]); } else fn(...b); }, ms, ...a); return id; };
+  window.clearTimeout = (id) => { const i = q.findIndex((x) => x[0] === id); if (i >= 0) q.splice(i, 1); ct(id); };
+  const ael = EventSource.prototype.addEventListener;
+  EventSource.prototype.addEventListener = function (k, fn, o) { return ael.call(this, k, typeof fn !== 'function' ? fn
+    : (...b) => { if (window.__held) { window.__heldN += 1; q.push([0, () => fn.apply(this, b)]); } else fn.apply(this, b); }, o); }; })();"""
 LSCROLL = f"document.querySelector('{P} [data-testid=live-scroll]')"
-# 40 small scroll steps (2 px a frame) inside group 3's span, against 40 idle frames just before
+# 40 small scroll steps (2 px a frame) inside group 3's span, against 40 idle frames just before, the page's clock and
+# feed held for both (T1); `held` is how many of the page's own calls waited meanwhile
 COUNT = f"""(async () => {{ const s = {LSCROLL}, g = s.querySelector('[data-testid=live-group][data-group="3"]');
   const fr = () => new Promise((r) => requestAnimationFrame(() => r()));
   const top = s.scrollTop + g.getBoundingClientRect().top - s.getBoundingClientRect().top;
   s.scrollTop = top + 4; for (let i = 0; i < 10; i++) await fr();
-  const c0 = window.__commits; for (let i = 0; i < 40; i++) await fr(); const idle = window.__commits - c0;
-  const c1 = window.__commits; for (let i = 0; i < 40; i++) {{ s.scrollTop += 2; await fr(); }} for (let i = 0; i < 3; i++) await fr();
-  return {{hooked: window.__commits > 0, idle, scroll: window.__commits - c1, span: g.getBoundingClientRect().height,
-    moved: Math.round(s.scrollTop - top - 4)}}; }})()"""
+  window.__heldN = 0; window.__held = true;
+  try {{
+    for (let i = 0; i < 3; i++) await fr();
+    const c0 = window.__commits; for (let i = 0; i < 40; i++) await fr(); const idle = window.__commits - c0;
+    const c1 = window.__commits; for (let i = 0; i < 40; i++) {{ s.scrollTop += 2; await fr(); }} for (let i = 0; i < 3; i++) await fr();
+    return {{hooked: window.__commits > 0, idle, scroll: window.__commits - c1, span: g.getBoundingClientRect().height,
+      moved: Math.round(s.scrollTop - top - 4), held: window.__heldN}};
+  }} finally {{ window.__letGo(); }} }})()"""
 # for `ms` from now: did the scroll box move, did any group pulse
 STILL = f"""((ms) => {{ const s = {LSCROLL}, w = window.__still = {{top: s.scrollTop, moved: false, pulsed: false, done: false}}, t0 = performance.now();
   const tick = () => {{ if (Math.abs(s.scrollTop - w.top) > 1) w.moved = true;

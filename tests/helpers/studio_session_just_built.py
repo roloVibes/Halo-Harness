@@ -261,11 +261,17 @@ def same(c, rig, rows: Rows, a: str, b: str) -> dict:
     c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
     n = c.js(f"{BOXES}.length")
     one = MAP.replace("lines:\n", "- {id: extra1, agent: writer}\nlines:\n") + "- {from: main, to: extra1, when: always}\n"
-    before = c.js(f"{MAPREQS}.length")
+    # 3.6.0.21 T5: the moment extra1's box is first in the page (a MutationObserver: synchronous with the commit); only the
+    # map reads the page STARTED before it count -- the file is written too, and a read Studio's watcher asks for after the
+    # redraw is not the fault this guards (a redraw that waited on a read)
+    c.js(f"""(() => {{ const t0 = window.__sameT0 = performance.now(); window.__sameAt = null;
+      const seen = () => !!{Q}('[data-testid=session-lit-map] [data-box=extra1]');
+      const mo = new MutationObserver(() => {{ if (seen()) {{ window.__sameAt = performance.now(); mo.disconnect(); }} }});
+      mo.observe(document.body, {{childList: true, subtree: true, attributes: true}}); return t0; }})()""")
     _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", one)}, undo="u1", this="shop",
            sigs=_sigs(rig, "shop"))
     a_ok = _wait(c, f"!!{Q}('[data-testid=session-lit-map] [data-box=extra1]')", 5)
-    a_reqs = c.js(f"{MAPREQS}.length") - before
+    a_reqs = c.js(f"window.__sameAt == null ? -1 : {MAPREQS}.filter((r) => r.t >= window.__sameT0 && r.t < window.__sameAt).length")
     a_new = c.js(f"!!{Q}('[data-box=extra1][data-new]')")
     two = one.replace("lines:\n", "- {id: extra2, agent: writer}\nlines:\n") + "- {from: main, to: extra2, when: always}\n"
     _body(rig, "shop", two)  # a plain write, as the Write tool makes: Studio's watcher sends files_changed
