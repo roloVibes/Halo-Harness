@@ -1191,6 +1191,12 @@ def test_a_load_seen_while_the_version_is_not_known_keeps_a_known_servers_floor(
         got = W.truth(d, url, MODEL)
         ctx.check(f"an unknown version: the known server's floor stays, got {got}",
                   got.get("fits") == 65536 and got.get("fits_size") == 19 * GB and got.get("fits_server") == known)
+        # the review of 3.6.0.21: the usual case is a load at the SAME window (a floored session asks for the floor's
+        # window again); it wiped the server (and so the floor)
+        W.record_truth(d, url, MODEL, num_ctx=65536, size=20 * GB, size_vram=20 * GB, digest="sha256:1", server=None)
+        got = W.truth(d, url, MODEL)
+        ctx.check(f"an unknown version at the very window kept: its size and server stay, got {got}",
+                  got.get("fits") == 65536 and got.get("fits_size") == 19 * GB and got.get("fits_server") == known)
         other = {**known, "version": "0.3.0-example"}
         W.record_truth(d, url, MODEL, num_ctx=16384, size=12 * GB, size_vram=12 * GB, digest="sha256:1", server=other)
         got = W.truth(d, url, MODEL)

@@ -270,16 +270,28 @@ def same(c, rig, rows: Rows, a: str, b: str) -> dict:
       const seen = () => !!{Q}('[data-testid=session-lit-map] [data-box=extra1]');
       const mo = new MutationObserver(() => {{ if (seen()) {{ window.__sameAt = performance.now(); mo.disconnect(); }} }});
       mo.observe(document.body, {{childList: true, subtree: true, attributes: true}}); return t0; }})()""")
-    _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", one)}, undo="u1", this="shop",
-           sigs=_sigs(rig, "shop"))
+    # the review of 3.6.0.21: the FRAME goes first, its body and hash made from the same text in a scratch file, and the
+    # map's own file is written only once the box is drawn: the page can then draw it from nothing but the frame's
+    # body, and Studio's file watcher can never be first (with the file written first, a page that ignored the frame
+    # and drew from the watcher's read passed this check)
+    import tempfile
+    from halo_harness.crew import store
+    from halo_harness.studio.files_live import file_sig
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td) / "shop.yaml"
+        store.write_text(tmp, one)
+        body, sig = store.read(tmp) or {}, file_sig(tmp)
+    _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": body}, undo="u1", this="shop",
+           sigs={"shop": sig})
     a_ok = _wait(c, f"!!{Q}('[data-testid=session-lit-map] [data-box=extra1]')", 20)  # a slow runner's budget
     a_reqs = c.js(f"""window.__sameAt == null ? -1 : (() => {{ const t0 = window.__sameT0;
       const fc = window.__jb.fct.filter((f) => f.t >= t0 && f.n.includes('shop')).map((f) => f.t), cut = Math.min(window.__sameAt, ...fc);
       return {MAPREQS}.filter((r) => r.t >= t0 && r.t < cut).length; }})()""")
     a_new = c.js(f"!!{Q}('[data-box=extra1][data-new]')")
-    # the coordinator's ruling (3.6.0.21): when the watcher's files_changed for shop reached the page BEFORE the box
-    # (the file is written first; a slow runner), the watcher's read draws the box and it has no 'new' tag: a small
-    # fault of the page that is on the later list, not what this test guards. The test is told, and says so.
+    # `raced`: a files_changed for shop reached the page before the box was drawn. With the frame sent first and the
+    # file not yet written it cannot happen; the test asks for false. (In real use the Builder writes the file first,
+    # and on a slow machine the watcher's notice can be first: the box is then drawn without its 'new' tag, a small
+    # fault of the page that is on the later list.)
     a_raced = bool(c.js("""window.__sameAt != null && window.__jb.fct.some((f) => f.t >= window.__sameT0
       && f.t < window.__sameAt && f.n.includes('shop'))"""))
     two = one.replace("lines:\n", "- {id: extra2, agent: writer}\nlines:\n") + "- {from: main, to: extra2, when: always}\n"

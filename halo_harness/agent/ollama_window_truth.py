@@ -148,8 +148,11 @@ def record_truth(state_dir, host_url: str, model: str, *, num_ctx: int, size, si
             # 3.6.0.21 R1: a load under another server is no measure of this; one whose server is not known is not that
             same = server is None or old.get("fits_server") == server
             out["fits"] = max(num_ctx, (_pos(old.get("fits")) if same else None) or 0)
-            if out["fits"] == num_ctx:  # 3.6.0.20 E2: the load's own size at `fits` (ollama_hw.observed_floor)
+            kept = server is None and old.get("fits_server") and _pos(old.get("fits")) == num_ctx
+            if out["fits"] == num_ctx and not kept:  # 3.6.0.20 E2: the load's own size at `fits` (observed_floor)
                 out["fits_size"], out["fits_server"] = size, server
+            # (`kept`, the review of 3.6.0.21: a load at the very window a known server's record holds, seen while
+            # the version is not known, leaves that record's size and server: it wiped them and the floor was gone)
             if _pos(old.get("spills")) and old["spills"] <= num_ctx:
                 out["spills"] = None  # the card has more room now than when it spilled
         else:

@@ -20,8 +20,11 @@ mean to measure.
   measured window, and a window a session saw sit wholly on the card, raise a memory estimate that is too low. Both
   were trusted after an Ollama upgrade or a change of the settings that change the size of the same window (the
   cache type, how many requests the server takes at once, `OLLAMA_GPU_OVERHEAD`), so the first session after such
-  a change could ask for a window that no longer fits. Each record now keeps the server's version and those
-  settings and is used only when they are today's. A measurement made before this release keeps its window.
+  a change could ask for a window that no longer fits. Each record now keeps the server's version and the settings
+  Halo can see, and is used only when they are today's. (For a server on another machine Halo sees its version
+  only; `OLLAMA_GPU_OVERHEAD` is read from Halo's own environment.) A measurement made before this release keeps
+  its window. A window that 3.6.0.20 only saw sit on the card, without a measurement, no longer raises the estimate
+  after the update; `halo local measure <model>` settles it.
 - **A local session keeps what you paste.** A lean request leaves out the list of the other tool servers' tools
   (3.6.0.20); it also dropped any message of yours that happened to begin with that list's first words. Only the
   list itself, exactly as Halo writes it, is left out now.
@@ -41,8 +44,8 @@ mean to measure.
 
 ### Tests
 
-Each of these went red on a hosted test machine in the last three releases although the product was right; each
-was made wrong on purpose once to see the new check still fail, and then run ten times.
+Each of the first four went red on a hosted test machine in the last three releases although the product was
+right; each was made wrong on purpose once to see the new check still fail, and then run ten times.
 
 - A browser test of Studio's Live view counts the redraws a scroll causes. It counted while the page's own clock
   and live feed kept running, so a tick could land in one of its two counts (red about one run in three on macOS).
@@ -50,13 +53,14 @@ was made wrong on purpose once to see the new check still fail, and then run ten
 - The real-use step that builds an agent and reads its "ready" card waited 15 and 30 seconds for a turn and then
   blamed the card's words. It waits the checker's own budget for a turn, and a turn that is still running is said
   as that.
-- Two budgets of CPU time (an idle Studio page: 5 % of one core; a start with many local hosts: 5 CPU-seconds)
-  are now set against the speed of the machine they run on, measured in the same run with a fixed piece of work
-  (never under the budget, at most four times it); the line says the factor when it is not 1.
-- A redraw test counted a read that Studio's file watcher makes after the redraw; it counts only reads before it,
-  and says so when the watcher was first.
-- A session on a large-window model WITH other tool servers is now driven through the same path a real turn takes
-  and compared with what it must be sent (3.6.0.20 proved this for one function only).
+- Budgets of CPU time (an idle Studio page: 5 % of one core; Studio's two start checks: 5 CPU-seconds each) are
+  now set against the speed of the machine they run on, measured in the same run with a fixed piece of work (never
+  under the budget, at most four times it); the line says the factor when it is not 1.
+- A redraw test counted a read that Studio's file watcher makes after the redraw. It now sends the Builder's
+  message before the file is written, so the page must draw from that message alone, and counts only reads
+  before the redraw.
+- New, not one of the four: a session on a large-window model WITH other tool servers is driven through the same
+  path a real turn takes and compared with what it must be sent (3.6.0.20 proved this for one function only).
 
 ### Known limits
 

@@ -14,9 +14,8 @@ from __future__ import annotations
 
 import time
 
-# The median CPU time of `work()` on the reference machine (the Linux VM the release gates run on, 3.6.0.21, Python 3.12;
-# measured ten times there: median 0.202 s, nine of ten between 0.198 and 0.220 s). Never lower it to make a check pass:
-# the factor is never under 1 anyway.
+# The CPU time of `work()` on the reference machine. Never lower it to make a check pass: the factor is never under 1
+# anyway.
 REFERENCE_S = 0.20
 CAP = 4.0
 ROUNDS = 4_000_000
