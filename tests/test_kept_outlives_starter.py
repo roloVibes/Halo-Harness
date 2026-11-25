@@ -1152,6 +1152,38 @@ def test_a_hard_kill_while_the_breakaway_probe_runs_leaves_nothing(ctx: Ctx):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+@test
+def test_the_breakaway_probe_runs_no_autorun(ctx: Ctx):
+    """3.6.0.22 C after the check: the probe really runs `cmd` now (it waits on its pipe), and it may have broken away
+    from every Job. Without `/d`, cmd runs the person's Command Processor AutoRun (a conda or clink hook) first, and
+    what that starts is in no Job of Halo's and outlives the probe's kill. So the probe asks for `/d` before `/c`."""
+    if not WIN:
+        raise SkipTest("Windows only: the breakaway probe is Windows'")
+    import subprocess as _sp
+    from halo_harness import closing
+    seen: list = []
+
+    def _record(argv, *a, **k):
+        seen.append(list(argv))
+        raise OSError("recorded, not started")
+
+    saved = (_sp.Popen, closing._in_a_job, "frees" in closing._STATE, closing._STATE.get("frees"))
+    try:
+        _sp.Popen, closing._in_a_job = _record, (lambda: True)
+        closing._STATE.pop("frees", None)
+        closing.breakaway_frees()
+    finally:
+        _sp.Popen, closing._in_a_job = saved[0], saved[1]
+        if saved[2]:
+            closing._STATE["frees"] = saved[3]
+        else:
+            closing._STATE.pop("frees", None)
+    ctx.check(f"the probe was asked for once, got {seen}", len(seen) == 1)
+    argv = [str(a).lower() for a in (seen[0] if seen else [])]
+    ctx.check(f"the probe's cmd runs with /d (no AutoRun) before /c, got {seen}",
+              "/d" in argv and "/c" in argv and argv.index("/d") < argv.index("/c"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

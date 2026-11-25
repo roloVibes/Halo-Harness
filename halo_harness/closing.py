@@ -325,7 +325,8 @@ def breakaway_frees() -> bool:
                 import subprocess as _sp
                 from ctypes import wintypes
                 exe = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "cmd.exe")
-                p = _sp.Popen([exe, "/c", "set /p x="], stdin=_sp.PIPE, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                # /d: no AutoRun of the person's (a conda or clink hook) in a cmd that may be in no Job of Halo's
+                p = _sp.Popen([exe, "/d", "/c", "set /p x="], stdin=_sp.PIPE, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
                               creationflags=_BREAKAWAY | 0x08000000)  # BREAKAWAY | NO_WINDOW
                 try:
                     k32 = ctypes.WinDLL("kernel32")
