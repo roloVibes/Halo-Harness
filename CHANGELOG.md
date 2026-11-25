@@ -69,9 +69,16 @@ right; each was made wrong on purpose once to see the new check still fail, and 
   Windows machine, where that start goes through a helper, they ran out once: it has forty-five, and the wait
   ends as soon as the browser is asked. And a test that sets the wait between two changes of the model pool to
   zero was still told to wait ("-0 min ago"): see Fixed.
+- And one from the run on the version's own commit: the test that proves `halo local prompt` starts nothing
+  compared the NUMBER of threads before and after, and failed when a thread an earlier test had left ended in
+  between. It now looks for a new thread.
 
 ### Known limits
 
+- **Windows, inside a Job that lets nothing leave (a CI runner, a service): a hard kill of Halo in the instant it
+  starts the helper that opens your browser can leave that helper behind,** a PowerShell that is suspended and does
+  nothing. A test caught it once on a hosted Windows machine while this release was made. It has been there
+  since 3.6.0.18, and no other way out is affected (Ctrl+C, a closed terminal, a quit). The next release closes it.
 - When the notice of a file write reaches Studio before the Builder's own message about it (a slow machine), the
   newly built box is drawn without its "new" tag. Seen while fixing the redraw test; not fixed here.
 - A browser page's own errors still do not fail a test: only one in five of the test drivers collects them. On the

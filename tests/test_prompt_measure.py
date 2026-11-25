@@ -246,10 +246,13 @@ def test_halo_local_prompt_counts_the_other_tool_servers_from_halos_cache(ctx: C
         tools_cache.write_cache("gpu-box-tools", key="made-for-other-settings", tools=_cached_tools("gpu", 60),
                                 instructions="A stale cache.")
         before = first_turn(ref, window=16384, platform="linux", cwd=proj)
-        threads, kids = threading.active_count(), _children()
+        # 3.6.0.21: no NEW thread and no more processes than before. (It compared the counts: red once on macOS with
+        # "got 2 0 (was 3 0)": a thread an earlier test of this process had left ended meanwhile.)
+        threads, kids = set(threading.enumerate()), _children()
         m = first_turn(ref, window=16384, platform="linux", cwd=proj, servers=True)
-        ctx.check(f"no thread and no process made, got {threading.active_count()} {_children()} (was {threads} {kids})",
-                  (threading.active_count(), _children()) == (threads, kids))
+        made = [t.name for t in threading.enumerate() if t not in threads]
+        ctx.check(f"no thread and no process made, got new threads {made}, processes {_children()} (was {kids})",
+                  not made and _children() <= kids)
         ctx.check(f"the facts, got {m.get('other_servers')!r}",
                   m.get("other_servers") == {"servers": 2, "tools": 120, "not_counted": ["gpu-box-tools"]})
         _s, _f, lean, msgs, _t = _first_request(ref, window=16384, platform="linux", cwd=proj, servers=True)
