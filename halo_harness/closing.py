@@ -311,8 +311,10 @@ def _in_a_job() -> bool:
 def breakaway_frees() -> bool:
     """Windows: a spawn asking to break away (CREATE_BREAKAWAY_FROM_JOB) leaves every Job this process is in. Not so
     when a Job lets it go silently (a venv's or a console script's launcher) inside one that does not (the strict Job
-    of the Halo whose shell ran this `halo`): the spawn would end with that one, and nothing would say so. A probe,
-    created suspended and never run, tells; once per process."""
+    of the Halo whose shell ran this `halo`): the spawn would end with that one, and nothing would say so. A probe
+    tells; once per process. 3.6.0.22 C: the probe waits for a line on its own input pipe (a fresh pipe) and never
+    gets one: it ends when the pipe closes, also when this process is ended hard while it is up (created suspended,
+    it stayed suspended for good)."""
     if os.name != "nt":
         return True
     if _STATE.get("frees") is None:
@@ -323,14 +325,15 @@ def breakaway_frees() -> bool:
                 import subprocess as _sp
                 from ctypes import wintypes
                 exe = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "cmd.exe")
-                p = _sp.Popen([exe, "/c", "exit"], stdin=_sp.DEVNULL, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
-                              creationflags=0x4 | _BREAKAWAY | 0x08000000)  # SUSPENDED | BREAKAWAY | NO_WINDOW
+                p = _sp.Popen([exe, "/c", "set /p x="], stdin=_sp.PIPE, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                              creationflags=_BREAKAWAY | 0x08000000)  # BREAKAWAY | NO_WINDOW
                 try:
                     k32 = ctypes.WinDLL("kernel32")
                     k32.IsProcessInJob.argtypes = (wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL))
                     held = wintypes.BOOL(False)
                     free = not (k32.IsProcessInJob(int(p._handle), None, ctypes.byref(held)) and held.value)
                 finally:
+                    p.stdin.close()
                     p.kill()
                     p.wait(timeout=5)
             except PermissionError:  # a Job that forbids leaving it outright
@@ -498,7 +501,10 @@ if __name__ == "__main__":
     main(sys.argv[1])
 '''
 
+_WMI_WORD = "go"  # 3.6.0.22 C: written on the helper's own input pipe once it is in Halo's Job
 _WMI_CREATE = (
+    # first Halo's word; a pipe that closes without it (Halo gone before the adoption): it leaves, created nothing
+    f"if ([Console]::In.ReadLine() -ne '{_WMI_WORD}') {{ exit 7 }}; "
     "$ErrorActionPreference = 'Stop'; "
     "$s = New-CimInstance -CimClass (Get-CimClass -ClassName Win32_ProcessStartup) -ClientOnly "
     "-Property @{ShowWindow = [uint16]0; CreateFlags = [uint32]8}; "
@@ -604,20 +610,28 @@ def _take_back(folder: Path) -> "tuple[bool, Optional[int], bool]":
 
 
 def _run_wmi(cmdline: str, cwd: str, wait_s: float, stop: Callable[[], bool]) -> Optional[str]:
-    """3.6.0.18 S: the WMI create's PowerShell: a plain child (never the kept way) in this process's strict Job from
-    its first instruction (started suspended, adopted, only then resumed), so it ends with this process on every way
-    out, a hard kill included. Its output; None when it could not be held (it never ran), was stopped (`stop`: a way
-    out marked this start) or ran out of `wait_s`. Ended by its own handle on any way out of here."""
-    import ctypes
+    """3.6.0.18 S: the WMI create's PowerShell: a plain child (never the kept way) that creates nothing before it is
+    in this process's strict Job, so it ends with this process on every way out, a hard kill included. 3.6.0.22 C: it
+    is not started suspended (a hard kill between the start and the adoption left it suspended, in no Job, for
+    good): the first thing it does is read one line from its own input pipe (a fresh pipe, never the terminal's),
+    and only the word written here once the adoption succeeded lets it go on; a pipe that closes without the word
+    (this process ended, the adoption failed) and it leaves at once. Its output; None when it could not be held (it
+    created nothing), was stopped (`stop`: a way out marked this start) or ran out of `wait_s`. Ended by its own
+    handle, its pipes closed, on any way out of here."""
     import subprocess as _sp
     ps = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "WindowsPowerShell", "v1.0",
                       "powershell.exe")
-    proc = _sp.Popen([ps, "-NoProfile", "-NonInteractive", "-Command", _WMI_CREATE], stdin=_sp.DEVNULL,
+    proc = _sp.Popen([ps, "-NoProfile", "-NonInteractive", "-Command", _WMI_CREATE], stdin=_sp.PIPE,
                      stdout=_sp.PIPE, stderr=_sp.PIPE, text=True,
                      env={**os.environ, "HALO_KEPT_CMDLINE": cmdline, "HALO_KEPT_CWD": cwd},
-                     creationflags=0x08000000 | 0x4)  # CREATE_NO_WINDOW | CREATE_SUSPENDED
+                     creationflags=0x08000000)  # CREATE_NO_WINDOW
     try:
-        if not adopt(proc) or ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle))) != 0:
+        if not adopt(proc):
+            return None
+        try:
+            proc.stdin.write(_WMI_WORD + "\n")
+            proc.stdin.close()
+        except OSError:  # it has already ended: nothing was created
             return None
         end = time.monotonic() + wait_s
         while True:
@@ -627,6 +641,10 @@ def _run_wmi(cmdline: str, cwd: str, wait_s: float, stop: Callable[[], bool]) ->
                 if stop() or time.monotonic() >= end:
                     return None
     finally:
+        try:
+            proc.stdin.close()  # no word: the helper leaves by itself even if the kill below could not end it
+        except Exception:
+            pass
         if proc.poll() is None:
             proc.kill()
             try:

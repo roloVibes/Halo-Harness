@@ -990,6 +990,168 @@ def test_a_quit_while_the_runner_is_held_starts_no_browser_and_leaves_nothing(ct
         _quit_mid_start(ctx, "runner", way)
 
 
+_BETWEEN = '''import json, sys, time
+sys.path.insert(0, {repo!r})
+from halo_harness import closing
+_real = closing.adopt
+
+
+def _between(proc):  # the instant between the helper's start and its adoption, held on purpose
+    print(json.dumps({{"helper": proc.pid}}), flush=True)
+    {hold}
+
+
+closing.adopt = _between
+got = closing._run_wmi({cmdline!r}, {cwd!r}, 120.0, lambda: False)
+print(json.dumps({{"answer": got}}), flush=True)
+'''
+
+
+def _wmi_child(tmp: Path, hold: str):
+    """A child Python (the base interpreter: a venv's launcher would leave the real one running when killed) that
+    calls closing._run_wmi with `adopt` replaced by `hold`; the program the helper would create appends a line to
+    tmp/started."""
+    base = getattr(sys, "_base_executable", None) or sys.executable
+    cmdline = subprocess.list2cmdline([base, "-c", f"open({str(tmp / 'started')!r}, 'a').write('x\\n')"])
+    code = _base_starter_code(_BETWEEN.format(repo=str(REPO), hold=hold, cmdline=cmdline, cwd=str(tmp)))
+    return _starter(tmp, code, _env(tmp / "home"), python=base)
+
+
+def _left_under(tmp: Path, seconds: float) -> list:
+    """The processes with `tmp` in their command line or environment (and their children) still alive within
+    `seconds` (polled; early once none is left)."""
+    sys.path.insert(0, str(REPO / "scripts"))
+    from realcheck import procs
+    end = time.monotonic() + seconds
+    while True:
+        left = list(procs.belonging(procs.snapshot(), procs.needles_for(tmp)).values())
+        if not left or time.monotonic() >= end:
+            return left
+        time.sleep(0.5)
+
+
+def _end_under(tmp: Path) -> None:
+    """End what this test caused and is still running (each verified by the scan, by pid, its start time checked)."""
+    from realcheck import procs
+    for p in _left_under(tmp, 0.0):
+        procs.kill(p)
+
+
+@test
+def test_a_hard_kill_between_the_helpers_start_and_its_adoption_leaves_nothing(ctx: Ctx):
+    """3.6.0.22 C: Halo ended hard (TerminateProcess) in the instant after closing._run_wmi started the helper
+    PowerShell and before adopt() put it into Halo's Job. The helper must leave by itself, having created nothing
+    (it waits for Halo's word on its own input pipe, and the pipe closes with Halo). Before: a suspended
+    powershell.exe in no Job of Halo's stayed for good."""
+    if not WIN:
+        raise SkipTest("Windows only: the helper PowerShell and the Job object are Windows'")
+    import shutil
+    tmp = Path(tempfile.mkdtemp(prefix="fx-wmi-between-"))
+    proc = _wmi_child(tmp, "time.sleep(600)")
+    try:
+        ready = _ready_line(proc, 120.0)
+        helper = ready.get("helper")
+        ctx.check(f"the child reached the instant between the start and the adoption, got {ready}", helper)
+        start = _start_time(helper) if helper else None
+        ctx.check("the helper was running when its Halo was killed (not a vacuous check)", _same(helper, start))
+        proc.kill()  # the hard kill, by this test's own handle on its own child
+        proc.wait(timeout=60)
+        left = [f"{p.short(110)} [{p.why}]" for p in _left_under(tmp, 60.0)]
+        ctx.check(f"nothing started under the scratch folder left within 60 s of the kill, got {left}", not left)
+        ctx.check("the helper (by its pid) is gone", not _same(helper, start))
+        ctx.check("the helper created nothing", not (tmp / "started").exists())
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        _end_under(tmp)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_the_helper_whose_adoption_fails_is_gone_and_the_healthy_one_creates_once(ctx: Ctx):
+    """3.6.0.22 C: the adoption fails: _run_wmi answers None and its helper is gone, having created nothing. The
+    adoption succeeds: the helper gets its word, the create answers 0 and the program ran exactly once."""
+    if not WIN:
+        raise SkipTest("Windows only: the helper PowerShell and the Job object are Windows'")
+    import shutil
+    for hold, healthy in (("return False", False), ("return _real(proc)", True)):
+        tmp = Path(tempfile.mkdtemp(prefix="fx-wmi-adopt-"))
+        proc = _wmi_child(tmp, hold)
+        what = "adopted" if healthy else "adoption failed"
+        try:
+            helper = _ready_line(proc, 120.0).get("helper")
+            start = _start_time(helper) if helper else None
+            answer = _ready_line(proc, 120.0)
+            ctx.check(f"{what}: _run_wmi answered {'0' if healthy else 'None'}, got {answer}",
+                      "answer" in answer and answer["answer"] == ("0" if healthy else None))
+            ctx.check(f"{what}: the helper (by its pid) is gone when _run_wmi returns",
+                      helper and not _same(helper, start))
+            proc.wait(timeout=60)
+            if healthy:
+                end = time.monotonic() + 60.0
+                while not (tmp / "started").exists() and time.monotonic() < end:
+                    time.sleep(0.1)
+            left = [f"{p.short(110)} [{p.why}]" for p in _left_under(tmp, 60.0)]
+            ctx.check(f"{what}: nothing started under the scratch folder left, got {left}", not left)
+            got = (tmp / "started").read_text(encoding="utf-8") if (tmp / "started").exists() else ""
+            ctx.check(f"{what}: the program ran {'once' if healthy else 'never'}, got {got!r}",
+                      got == ("x\n" if healthy else ""))
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+            _end_under(tmp)
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+_PROBE_HELD = '''import json, subprocess, sys, time
+sys.path.insert(0, {repo!r})
+from halo_harness import closing
+
+
+class _Held(subprocess.Popen):  # the instant between the probe's start and its end, held on purpose
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        print(json.dumps({{"probe": self.pid}}), flush=True)
+        time.sleep(600)
+
+
+subprocess.Popen = _Held
+closing._in_a_job = lambda: True  # the probe runs only inside a Job
+print(json.dumps({{"frees": closing.breakaway_frees()}}), flush=True)
+'''
+
+
+@test
+def test_a_hard_kill_while_the_breakaway_probe_runs_leaves_nothing(ctx: Ctx):
+    """3.6.0.22 C: closing.breakaway_frees' probe (Halo's own `cmd`, asked to break away, never adopted) and Halo
+    ended hard while it is up: it must end by itself (it waits on its own input pipe, which closes with Halo).
+    Before: it was created suspended and stayed so, in no Job of Halo's, for good."""
+    if not WIN:
+        raise SkipTest("Windows only: the breakaway probe is Windows'")
+    import shutil
+    tmp = Path(tempfile.mkdtemp(prefix="fx-probe-held-"))
+    base = getattr(sys, "_base_executable", None) or sys.executable
+    proc = _starter(tmp, _base_starter_code(_PROBE_HELD.format(repo=str(REPO))), _env(tmp / "home"), python=base)
+    try:
+        ready = _ready_line(proc, 120.0)
+        probe = ready.get("probe")
+        if not probe and ready.get("frees") is False:
+            raise SkipTest("a Job this runner is in forbids breakaway: no probe starts here")
+        ctx.check(f"the child reached the instant the probe is up, got {ready}", probe)
+        start = _start_time(probe) if probe else None
+        ctx.check("the probe was there when its Halo was killed (not a vacuous check)", _same(probe, start))
+        proc.kill()  # the hard kill, by this test's own handle on its own child
+        proc.wait(timeout=60)
+        left = [f"{p.short(110)} [{p.why}]" for p in _left_under(tmp, 60.0)]
+        ctx.check(f"nothing started under the scratch folder left within 60 s of the kill, got {left}", not left)
+        ctx.check("the probe (by its pid) is gone", not _same(probe, start))
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        _end_under(tmp)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
