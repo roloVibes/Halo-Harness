@@ -8,6 +8,67 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.21] - unreleased
+
+Left-overs, and checks that tell the truth. No new feature. The small faults the last two reviews named are
+closed, and five checks that went red on a slow test machine while the product was right now measure what they
+mean to measure.
+
+### Fixed
+
+- **A load Halo saw, or a window it measured, counts only under the server it was seen under.** 3.6.0.20 lets a
+  measured window, and a window a session saw sit wholly on the card, raise a memory estimate that is too low. Both
+  were trusted after an Ollama upgrade or a change of the settings that change the size of the same window (the
+  cache type, how many requests the server takes at once, `OLLAMA_GPU_OVERHEAD`), so the first session after such
+  a change could ask for a window that no longer fits. Each record now keeps the server's version and those
+  settings and is used only when they are today's. A measurement made before this release keeps its window.
+- **A local session keeps what you paste.** A lean request leaves out the list of the other tool servers' tools
+  (3.6.0.20); it also dropped any message of yours that happened to begin with that list's first words. Only the
+  list itself, exactly as Halo writes it, is left out now.
+- **The line that tells a local model how to reach a server's tool is true.** It said every such tool can be called
+  by its name; only a tool named `mcp__...` can. It now reads `- ToolSearch "<words>" finds a server's tool; a tool
+  named mcp__... can also be called by its name.`
+- **No "Exception ignored in atexit callback" after a forced end.** Once Halo's closing procedure has run, nothing
+  new is started (3.6.0.18). When it ran first on another thread (a hard end after the grace, a closed console),
+  a pack's exit hook or a stop that tried to start a program printed a traceback on the way out. The start is
+  still refused; the refusal is now taken quietly. With `HALO_CLOSE_TRACE` on, one trace line names what was
+  refused.
+
+### Changed
+
+- What a local model is sent: the one ToolSearch line above, and a pasted message that begins like the tools list
+  stays in the request. Nothing else; a session on a large-window model is sent what 3.6.0.20 sent, byte for byte.
+
+### Tests
+
+Each of these went red on a hosted test machine in the last three releases although the product was right; each
+was made wrong on purpose once to see the new check still fail, and then run ten times.
+
+- A browser test of Studio's Live view counts the redraws a scroll causes. It counted while the page's own clock
+  and live feed kept running, so a tick could land in one of its two counts (red about one run in three on macOS).
+  The page's clock and feed are held still while it counts; a redraw the scroll itself causes is still counted.
+- The real-use step that builds an agent and reads its "ready" card waited 15 and 30 seconds for a turn and then
+  blamed the card's words. It waits the checker's own budget for a turn, and a turn that is still running is said
+  as that.
+- Two budgets of CPU time (an idle Studio page: 5 % of one core; a start with many local hosts: 5 CPU-seconds)
+  are now set against the speed of the machine they run on, measured in the same run with a fixed piece of work
+  (never under the budget, at most four times it); the line says the factor when it is not 1.
+- A redraw test counted a read that Studio's file watcher makes after the redraw; it counts only reads before it,
+  and says so when the watcher was first.
+- A session on a large-window model WITH other tool servers is now driven through the same path a real turn takes
+  and compared with what it must be sent (3.6.0.20 proved this for one function only).
+
+### Known limits
+
+- When the notice of a file write reaches Studio before the Builder's own message about it (a slow machine), the
+  newly built box is drawn without its "new" tag. Seen while fixing the redraw test; not fixed here.
+- A browser page's own errors still do not fail a test: only one in five of the test drivers collects them. On the
+  one full pass made for this release no page error was seen.
+- A tool server whose name contains two underscores in a row is listed under a cut name in a local model's lines.
+- The hosted Windows and macOS test machines were not available for the checks above before the push; the ten
+  runs of each were made on Linux.
+- Every Known limit of 3.6.0.20 still holds.
+
 ## [3.6.0.20] - 2026-11-24
 
 Local models, measured right. Halo's memory estimate was about eighteen times too high for one family of models
