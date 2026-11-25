@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.21] - unreleased
+## [3.6.0.21] - 2026-11-25
 
 Left-overs, and checks that tell the truth. No new feature. The small faults the last two reviews named are
 closed, and five checks that went red on a slow test machine while the product was right now measure what they

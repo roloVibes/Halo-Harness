@@ -1,5 +1,85 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.21] - 2026-11-25
+
+Left-overs, and checks that tell the truth. No new feature. The small faults the last two reviews named are
+closed, and five checks that went red on a slow test machine while the product was right now measure what they
+mean to measure.
+
+### Fixed
+
+- **A load Halo saw, or a window it measured, counts only under the server it was seen under.** 3.6.0.20 lets a
+  measured window, and a window a session saw sit wholly on the card, raise a memory estimate that is too low. Both
+  were trusted after an Ollama upgrade or a change of the settings that change the size of the same window (the
+  cache type, how many requests the server takes at once, `OLLAMA_GPU_OVERHEAD`), so the first session after such
+  a change could ask for a window that no longer fits. Each record now keeps the server's version and the settings
+  Halo can see, and is used only when they are today's. (For a server on another machine Halo sees its version
+  only; `OLLAMA_GPU_OVERHEAD` is read from Halo's own environment.) A measurement made before this release keeps
+  its window. A window that 3.6.0.20 only saw sit on the card, without a measurement, no longer raises the estimate
+  after the update; `halo local measure <model>` settles it.
+- **A local session keeps what you paste.** A lean request leaves out the list of the other tool servers' tools
+  (3.6.0.20); it also dropped any message of yours that happened to begin with that list's first words. Only the
+  list itself, exactly as Halo writes it, is left out now.
+- **The line that tells a local model how to reach a server's tool is true.** It said every such tool can be called
+  by its name; only a tool named `mcp__...` can. It now reads `- ToolSearch "<words>" finds a server's tool; a tool
+  named mcp__... can also be called by its name.`
+- **No "Exception ignored in atexit callback" after a forced end.** Once Halo's closing procedure has run, nothing
+  new is started (3.6.0.18). When it ran first on another thread (a hard end after the grace, a closed console),
+  a pack's exit hook or a stop that tried to start a program printed a traceback on the way out. The start is
+  still refused; the refusal is now taken quietly. With `HALO_CLOSE_TRACE` on, one trace line names what was
+  refused.
+- **The wait between two changes of the model pool never counts a change as lying in the future.** A change stamped
+  a moment after the clock's reading (the stamp is rounded) read "-0 min ago" and added that moment to the
+  ten-minute wait. It is now zero seconds ago.
+
+### Changed
+
+- What a local model is sent: the one ToolSearch line above, and a pasted message that begins like the tools list
+  stays in the request. Nothing else; a session on a large-window model is sent what 3.6.0.20 sent, byte for byte.
+
+### Tests
+
+Each of the first four went red on a hosted test machine in the last three releases although the product was
+right; each was made wrong on purpose once to see the new check still fail, and then run ten times.
+
+- A browser test of Studio's Live view counts the redraws a scroll causes. It counted while the page's own clock
+  and live feed kept running, so a tick could land in one of its two counts (red about one run in three on macOS).
+  The page's clock and feed are held still while it counts; a redraw the scroll itself causes is still counted.
+- The real-use step that builds an agent and reads its "ready" card waited 15 and 30 seconds for a turn and then
+  blamed the card's words. It waits the checker's own budget for a turn, and a turn that is still running is said
+  as that.
+- Budgets of CPU time (an idle Studio page: 5 % of one core; Studio's two start checks: 5 CPU-seconds each) are
+  now set against the speed of the machine they run on, measured in the same run with a fixed piece of work (never
+  under the budget, at most four times it); the line says the factor when it is not 1.
+- A redraw test counted a read that Studio's file watcher makes after the redraw. It now sends the Builder's
+  message before the file is written, so the page must draw from that message alone, and counts only reads
+  before the redraw.
+- New, not one of the four: a session on a large-window model WITH other tool servers is driven through the same
+  path a real turn takes and compared with what it must be sent (3.6.0.20 proved this for one function only).
+- Two more, from this release's own first run on the hosted machines (each read, neither the product's doing in a
+  way a person would meet). The real-use check gave `halo init` ten seconds to reach the browser; on a hosted
+  Windows machine, where that start goes through a helper, they ran out once: it has forty-five, and the wait
+  ends as soon as the browser is asked. And a test that sets the wait between two changes of the model pool to
+  zero was still told to wait ("-0 min ago"): see Fixed.
+- And one from the run on the version's own commit: the test that proves `halo local prompt` starts nothing
+  compared the NUMBER of threads before and after, and failed when a thread an earlier test had left ended in
+  between. It now looks for a new thread.
+
+### Known limits
+
+- **Windows, inside a Job that lets nothing leave (a CI runner, a service): a hard kill of Halo in the instant it
+  starts the helper that opens your browser can leave that helper behind,** a PowerShell that is suspended and does
+  nothing. A test caught it once on a hosted Windows machine while this release was made. It has been there
+  since 3.6.0.18, and no other way out is affected (Ctrl+C, a closed terminal, a quit). The next release closes it.
+- When the notice of a file write reaches Studio before the Builder's own message about it (a slow machine), the
+  newly built box is drawn without its "new" tag. Seen while fixing the redraw test; not fixed here.
+- A browser page's own errors still do not fail a test: only one in five of the test drivers collects them. On the
+  one full pass made for this release no page error was seen.
+- A tool server whose name contains two underscores in a row is listed under a cut name in a local model's lines.
+- The hosted Windows and macOS test machines were not available for the checks above before the push; the ten
+  runs of each were made on Linux.
+- Every Known limit of 3.6.0.20 still holds.
+
 ## [3.6.0.20] - 2026-11-24
 
 Local models, measured right. Halo's memory estimate was about eighteen times too high for one family of models
@@ -1402,94 +1482,3 @@ this section.
   the suite's order moved; that test now cleans up after itself. Not run: any real model (every figure here is Halo's
   own measure of what it sends), macOS, Windows beyond the modules named (CI runs both at the release gate), and
   Studio's Map tab in a browser.
-
-## [3.6.0.9] - 2026-11-21
-
-What Studio shows now follows the files. When a session, the Builder's card or a hand changes a workflow, a map or an
-agent, the workflow you have open, the map you have open and the drawings show it a moment later, with no reload. The
-limits that remain are at the end of this section.
-
-### Changed
-
-- **The workflow you have open follows its file** (Agents, 2 Workflows). When the workflow that is open in the form
-  changes on disk, the form shows the new steps and words a moment later. Before, the list beside it showed the new
-  number of steps while the form kept the old ones, and Save would have written the old ones back over the change. If
-  you have unsaved edits in the form, nothing you typed changes: the form says "{name} changed on disk while you had
-  edits here. Save writes yours over it." with the button "Reload it (your edits go)". If the file is removed, the
-  form stays and says "{name} was removed on disk. Save writes it again." A pack's workflow that is open read-only
-  shows the pack's new steps when the pack changes. In the list, a workflow's "on the map" tag now follows a map
-  changed while you look at it; before, it changed only when a workflow file changed or the list was read again.
-- **The map you have open follows its files** (Agents, 3 Map). The map is drawn again when its file changes; a
-  workflow box shows its workflow's new steps and an agent box its agent's new model when those files change. Before,
-  a map written other than by the Builder's card, or a changed workflow or agent on one of its boxes, re-read only the
-  list of maps: the open map stayed old until you switched maps or reloaded the page. A box you opened, an open When
-  card and an Undo on offer stay as they are. While you drag a box or a line the redraw waits for the drop; a drag
-  whose release never reaches the window (the window lost the focus) now ends as Escape ends it. A locked map is drawn
-  again too.
-- **The drawings follow a changed workflow** (Session's drawing; Agents, 4 Live draws with the same code). A workflow
-  box's steps follow the workflow's file: after a plain write, and after a Builder card that changed only the
-  workflow, with "new" on the new steps. Before, a plain write showed nothing, and a Builder card put "new" on the old
-  steps. A step's model follows the agent's file, where the map has an agent box for that agent.
-- **What was built is still said after a reload.** After a Builder card, Session's head ("Changed in this session at
-  ...", "Just built: ..."), the ready lines on Auto and "new" on the boxes it wrote are there again when the page is
-  loaded again in the same tab, for that session. Before, a reload showed the new steps and dropped every word about
-  what had changed. Only that browser tab keeps them (at most the 20 newest sessions); nothing leaves the machine.
-- **A workflow changed by a plain edit is said in words.** When a workflow on a box of the session's drawing changes
-  on disk and no Builder card wrote it, Session's lines gain "The workflow {name} changed at {time}. A run already
-  going keeps its steps; the next run takes the change." It is one line however many changed: "The workflows build and
-  review changed, the last at {time}. ..." names the newest first, three at most, then how many more. The room for the
-  line is held from the first draw, so nothing moves when it comes. On Auto the line is for a workflow the session has
-  run or is running. A Builder card that wrote the workflow shows its own head and not this line as well.
-- **The real-use check says how it ended itself** (for developers). `python scripts/realcheck.py --name-the-end` runs
-  the check as a child and, when the check did not end by its own exit, prints one line with the true exit status and
-  its kind; the check also turns on Python's own fault reporter. CI passes the switch.
-
-### Fixed
-
-- **A Builder card's write was read twice.** Studio's file watcher reports every write about a second and a half
-  later, and the page then read again what the card had just brought. The page now compares the file's hash with what
-  it holds and reads only what differs; a different write that lands right after is still read.
-- **A local model server could keep running after the last Halo on its home was killed.** A session that is killed
-  hard cannot take its row out of the list of sessions, and the watcher that stops the server took that row for a
-  living session for as long as any program had its process number; Windows can give a dead number to another program
-  soon after. The watcher now tells such a program from the session by when it began. That works on Windows and macOS;
-  on Linux a row carries nothing to tell by, and the number is taken at its word, as before. On Windows the watcher
-  also waited two seconds for the server to obey a soft stop that the system had refused outright, as it does for a
-  console program, which a model server is. It now goes on to the hard stop at once: by its own waits the server now
-  ends at most a little over one second after its last Halo, where it was up to a little over three.
-
-### Known limits
-
-- **Studio follows the files of its own folder.** A session started in a terminal in another project writes that
-  project's workflows, maps and agents where Studio does not look: they are not listed and not followed.
-- **A session whose model gets the short tool list is not sent the Builder tool** (a small context window: measured
-  with the default tools at 49,152 and below; sent at 65,536). Such a session can change a workflow only by editing
-  its file. Studio now shows that change; the card's head and the "new" marks come only with the Builder's card.
-- **Agents, 4 Live has no test of its own for this.** It draws with the code Session's drawing uses, which is tested.
-  Live has no head and no "changed" line of its own.
-- **The line can still move the drawing once** in two cases: a session that was started before this release, and a
-  workflow box added to the map after the session started (until its next hand-off).
-- **One order is not tested:** the watcher's report of a Builder card's write reaching the page before the card's own.
-  The card's session then still shows the card's head; another session with the same workflow on a box keeps the line.
-- **On the Map, not checked during a redraw:** the picked box, and a Builder ghost waiting for Apply or Undo. When the
-  open map's file is removed, the tab does nothing, as before.
-- **Not understood: how the real-use check ended once at the gate of 3.6.0.8.** On CI's Windows runner both real-use
-  jobs passed all 18 steps, and then their checker ended with status 127 and no line of its own. Git Bash reports 127
-  for a crash-kind Windows status. The rerun and the release's own run were green. The switch above is there so that
-  the next time names itself.
-- **Every Known limit of 3.6.0.8 still holds.**
-- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
-  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
-  check through its new parent, eighteen of eighteen steps. This release's browser tests ran there on a real headless
-  Chrome: the open workflow's form, the open map (also with a drag in hand), Session's drawing, one read per change,
-  the head after a reload, and the line for a changed workflow (also on Auto). On the PC (Windows), one at a time with
-  a real headless Chrome: the three Studio modules that hold these browser tests (the Workflows tab, the Map tab and
-  Session's drawing), and the plain and node modules the change touches. CI's first run on this release then failed
-  once in the real-use check on its Windows runner: of 28 ways out, a hard kill of a session with a model server
-  beside it left the server and its watcher running 5 s later. Reading the watcher found the two things under Fixed:
-  the first explains why only a hard kill failed (only a hard kill leaves the session's row; the same case passed by
-  Ctrl+C and by a closed terminal), and the second took 2 s off every way out. The run cannot be repeated on demand.
-  Each has a test that was red before. The same run showed, on CI's Linux and macOS runners, that the Workflows list's
-  "on the map" tag did not follow a changed map: its test had passed elsewhere only by its timing, and now tests the
-  rule. Not checked by hand: macOS (CI's macOS runners ran the suites and the real-use check). Not run: Agents, 4
-  Live, a real model asked to change a workflow, and a session started in another folder than Studio's.
