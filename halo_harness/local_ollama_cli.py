@@ -377,8 +377,9 @@ def measure(host, model: str, *, again: bool = False, say=None, timeout: Optiona
                 "say": f"{host.name} does not have {model} (pull it: halo local pull {model} --host {host.name})"}
     state = bridge_home()
     version = cached_ollama_version(host)
+    from halo_harness.providers.ollama_hw import fit_settings_of  # 3.6.0.21 R1: other fit settings measure again
     if not again and has_calibration_entry(state, host_url=host.url, model=model, digest=row.get("digest"),
-                                           ollama_version=version):
+                                           ollama_version=version, fit_settings=fit_settings_of(host)):
         cap = lookup_learned_cap(state, host_url=host.url, model=model)
         tight = lookup_tight(state, host_url=host.url, model=model) or {}
         line = (f"{model} on {host.name}: measured already for this digest and Ollama {version or '?'} -- "

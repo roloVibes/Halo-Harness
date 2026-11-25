@@ -156,8 +156,9 @@ def _replace_memory(messages: list, known: dict, fn) -> list:
 def _take_deferred(messages: list) -> tuple:
     """3.6.0.20 P (a lean request's wire copy; the log keeps it): every deferred tools' block (agent/catalog.
     DEFERRED_HEAD) taken out of the user messages; returns (messages, {server: its tool count} of the newest block, or
-    None when there was none). A message left with nothing is left out."""
-    from halo_harness.agent.catalog import DEFERRED_HEAD, deferred_counts
+    None when there was none). A message left with nothing is left out. 3.6.0.21 R2: only a block that is, byte for
+    byte, what catalog.deferred_reminder writes (`is_deferred_reminder`); a paste that only starts like one stays."""
+    from halo_harness.agent.catalog import deferred_counts, is_deferred_reminder
     out, counts = [], None
     for msg in messages:
         content = msg.get("content") if isinstance(msg, dict) and msg.get("role") == "user" else None
@@ -166,7 +167,7 @@ def _take_deferred(messages: list) -> tuple:
             continue
         keep = []
         for b in content:
-            if isinstance(b, dict) and b.get("type") == "text" and str(b.get("text") or "").startswith(DEFERRED_HEAD):
+            if isinstance(b, dict) and b.get("type") == "text" and is_deferred_reminder(b.get("text")):
                 counts = deferred_counts(b.get("text"))
             else:
                 keep.append(b)

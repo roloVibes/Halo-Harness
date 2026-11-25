@@ -45,6 +45,15 @@ def deferred_reminder(names) -> str:
     return DEFERRED_HEAD + "\n".join(names)
 
 
+def is_deferred_reminder(text) -> bool:
+    """3.6.0.21 R2: `text` is, byte for byte, a block `deferred_reminder` writes: the names it lists (its lines that
+    are a name: no space) written again give the same text. A person's paste that only starts like it is not."""
+    if not isinstance(text, str) or not text.startswith(DEFERRED_HEAD):
+        return False
+    names = [n for n in text[len(DEFERRED_HEAD):].split("\n") if n and n.split() == [n]]
+    return bool(names) and deferred_reminder(names) == text
+
+
 def deferred_counts(text: str) -> "dict[str, int]":
     """{a server's name as its tools carry it: its tool count} of one deferred tools' block (its `mcp__` names; a
     claude.ai connector's one tool `connector__<slug>` counts under that name)."""

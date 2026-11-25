@@ -66,7 +66,7 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
                                                trained_context_for)
     from halo_harness.providers.ollama_calibrate import (gpu_layers_for, host_gpu_total_bytes, record_calibration,
                                                          run_calibration)
-    from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host
+    from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, fit_settings_of
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
@@ -108,7 +108,7 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
                 record_calibration(state_dir, host_url=host.url, model=model, digest=row.get("digest"),
                                    max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=version,
                                    tight_ctx=getattr(result, "tight_ctx", None), tight_vram=getattr(result, "tight_vram", None),
-                                   gpu_total=getattr(result, "gpu_total", None))
+                                   gpu_total=getattr(result, "gpu_total", None), fit_settings=fit_settings_of(host))
             up_bound = min(trained, cap or HARD_CONTEXT_CAP) if isinstance(trained, int) and trained > 0 \
                 else (cap or HARD_CONTEXT_CAP)
             text = _outcome_text(result, up_bound) + (f"; {guard.left}" if guard.left else "")

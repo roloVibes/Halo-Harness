@@ -650,6 +650,75 @@ def test_h5b_f18_environment_and_deferred_tools_and_plan_reinjected_after_compac
 
 
 @test
+def test_a_large_window_session_with_other_tool_servers_is_sent_the_block_and_whole_lines(ctx: Ctx):
+    """3.6.0.21 R6 (a test, no product change): a new session on a large-window cloud stand-in with other tool servers
+    (a fake catalog of deferred tools), driven through the path a real turn takes up to the request
+    (`Session._derive_and_build`): the user-role block is exactly `catalog.deferred_reminder(names)` and the system
+    text holds each server's WHOLE line; the same session switched to a lean window: the block is gone from the request
+    and each server's line carries its count."""
+    import json as _json
+    from halo_harness.agent.assemble import SessionContext
+    from halo_harness.agent.catalog import deferred_reminder
+    from halo_harness.agent.loop import Session
+    from halo_harness.agent.prompt_lean import active
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from halo_harness.permissions import PermissionEngine
+    from halo_harness.providers.stream import ProviderCreds
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    fh = build_fake_home()
+    mock = MockUpstream().start()
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+        os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url
+        servers = [{"name": "kb", "instructions": "Keeps pages and finds them again. Each page has a title."},
+                   {"name": "drawings", "instructions": "Draws plans on a grid.\nA second line of words."}]
+        names = sorted(["mcp__kb__find", "mcp__kb__read", "mcp__kb__write", "mcp__drawings__open"])
+        registry = ToolRegistry(default_tools())
+
+        class _FakeCatalog:
+            deferred = set(names)
+            on_grow = None
+
+            def __init__(self):
+                self.names = registry.names()
+        model = "or:mock/model"
+        session = Session(
+            cwd=fh["proj"], model_ref=parse_model_ref(model),
+            model_profile=ModelProfile(context_tokens=200_000, max_output_tokens=8192),
+            creds=ProviderCreds(base_url=mock.base_url, api_key="k"),
+            state_dir=Path(tempfile.mkdtemp(prefix="compact-int-")), model_label=model,
+            session_context=SessionContext(cwd=fh["proj"], model_label=model, tool_registry=registry,
+                                           mcp_servers=servers),
+            openrouter_base_url=mock.base_url, permission_engine=PermissionEngine(mode="auto", cwd=fh["proj"]),
+            session_catalog=_FakeCatalog())
+        session.log.append_user([{"type": "text", "text": "hi"}])
+        whole = ["  - `kb`: Keeps pages and finds them again. Each page has a title.",
+                 "  - `drawings`: Draws plans on a grid."]
+        system, msgs, _t, body = session._derive_and_build()
+        blocks = [b.get("text") for m in msgs if m.get("role") == "user"
+                  for b in (m.get("content") if isinstance(m.get("content"), list) else []) if isinstance(b, dict)]
+        sent = [str(m.get("content")) for m in body.get("messages") or [] if m.get("role") == "user"]
+        ctx.check(f"a large window: not lean, the block is a user-role block exactly once and in the request's user "
+                  f"text, got {blocks!r}"[:600], not active(session) and blocks.count(deferred_reminder(names)) == 1
+                  and sum(s.count(deferred_reminder(names)) for s in sent) == 1)
+        wire = _json.dumps(body)
+        ctx.check(f"a large window: each server's whole line, no count, got {system[-400:]!r}",
+                  all(ln in system and _json.dumps(ln)[1:-1] in wire for ln in whole) and " tools)" not in system)
+        session.model_profile = ModelProfile(context_tokens=10_000, max_output_tokens=1_000)
+        system, _m, _t, body = session._derive_and_build()
+        wire = _json.dumps(body)
+        ctx.check(f"a lean window: the block is gone, got {wire[:300]!r}",
+                  active(session) and "mcp__kb__find" not in wire and "mcp__drawings__open" not in wire)
+        ctx.check(f"a lean window: each server's line carries its count, got {system[-500:]!r}",
+                  "  - `kb` (3 tools): Keeps pages and finds them again." in system
+                  and "  - `drawings` (1 tool): Draws plans on a grid." in system)
+    finally:
+        mock.stop()
+        os.environ.pop("BRIDGE_TEST_HOME", None)
+        os.environ.pop("BRIDGE_OPENROUTER_BASE_URL", None)
+
+
+@test
 def test_h5c_f03_no_back_to_back_auto_compaction_driven_through_real_gate(ctx: Ctx):
     """H5b finding 1: `_maybe_auto_compact` must never run a SECOND
     compaction immediately after one that just ran, with no real step in

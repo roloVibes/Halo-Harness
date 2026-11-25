@@ -653,6 +653,20 @@ def host_fit_settings(host) -> dict:
     return {"kv_cache_type": kv or "f16", "parallel": parallel if isinstance(parallel, int) and parallel > 0 else 1}
 
 
+def fit_settings_of(host) -> dict:
+    """3.6.0.21 R1: the fit settings the estimate reads for `host` as it uses them (the cache type's bytes per element,
+    the parallel count): beside the digest and the server's version, what a measurement and a load seen wholly on the
+    card hold only under."""
+    s = host_fit_settings(host)
+    return {"kv_bytes_per_elem": kv_bytes_per_elem_for(s["kv_cache_type"]), "parallel": s["parallel"]}
+
+
+def load_server(host, version) -> Optional[dict]:
+    """3.6.0.21 R1: the server a load is seen under (`window_truth`'s `fits_server`, `observed_floor`'s key): its
+    version and `fit_settings_of`; None while the version is not known (such a load is never a floor)."""
+    return {"version": version, **fit_settings_of(host)} if version else None
+
+
 _VRAM_AT_READING: dict = {}  # host url -> (the reading's card objects, the /api/ps size_vram sum seen with it)
 _VRAM_LOCK = threading.Lock()
 _ROOM = threading.local()  # (host url, free + reclaimable) of this thread's last estimate (resolve_context_decision)
@@ -876,14 +890,17 @@ def _gpu_fits_up_to(fit, learned_cap) -> Optional[int]:
     return max(values) if values else None
 
 
-def observed_floor(state_dir, host_url: str, model: str, *, digest, learned_cap, room) -> "Optional[tuple]":
+def observed_floor(state_dir, host_url: str, model: str, *, digest, learned_cap, room,
+                   server=None) -> "Optional[tuple]":
     """3.6.0.20 E2: `(window, source)`, an observation of this very model on this very server that bounds the memory
     estimate from below while the card has the room it had then (`room`: its free bytes plus what the loaded models
     would give back, now), or None. B: a measured cap (`learned_cap`: this digest and Ollama version) while `room` is
     at least the measurement's `tight_vram` (an entry without one gives no floor). D: a window a call saw wholly on
     the card (`window_truth` `fits` of this digest) while `room` is at least that load's own `size` (a record from
-    before 3.6.0.20 has none: no floor). The larger of the two; the card has less room now: None (the estimate
-    stands, the reason the measured cap stopped replacing it)."""
+    before 3.6.0.20 has none: no floor), seen under today's `server` (`load_server`: version and fit settings,
+    3.6.0.21 R1; a record without one, or today's unknown: no floor; `learned_cap` is looked up under the same). The
+    larger of the two; the card has less room now: None (the estimate stands, the reason the measured cap stopped
+    replacing it)."""
     def _p(v):
         return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
     if not _p(room):
@@ -897,17 +914,18 @@ def observed_floor(state_dir, host_url: str, model: str, *, digest, learned_cap,
     from halo_harness.agent.ollama_window_truth import truth
     t = truth(state_dir, host_url, model)
     fits, size = _p(t.get("fits")), _p(t.get("fits_size"))
-    if fits and size and digest and t.get("digest") == digest and room >= size:
+    if fits and size and digest and t.get("digest") == digest and server and t.get("fits_server") == server \
+            and room >= size:
         found.append((fits, "seen to fit"))
     return max(found, key=lambda f: f[0]) if found else None  # a tie: the measurement names it
 
 
-def floored_estimate(state_dir, host_url: str, model: str, *, digest, learned_cap, fit) -> tuple:
+def floored_estimate(state_dir, host_url: str, model: str, *, digest, learned_cap, fit, server=None) -> tuple:
     """`(fit, fit_source)`: the estimate `fit` this thread just made for `host_url`, raised to `observed_floor` when
     an observation is above it (its source then names it), else `(fit, "fit estimate")`. The one place the session
     (`resolve_context_decision`) and the panel (`ollama_panel._model_fit_info`) floor an estimate."""
     floor = observed_floor(state_dir, host_url, model, digest=digest, learned_cap=learned_cap,
-                           room=last_card_room(host_url))
+                           room=last_card_room(host_url), server=server)
     if floor and floor[0] > (fit if isinstance(fit, int) and not isinstance(fit, bool) else 0):
         return floor
     return fit, "fit estimate"
@@ -989,8 +1007,9 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             digest = (catalog_row(catalog, model_ref.model) or {}).get("digest") if catalog else None
             ollama_version = cached_ollama_version(host)
             state_dir = bridge_home()
+            settings = fit_settings_of(host)  # 3.6.0.21 R1: a measurement and a load seen hold under these only
             learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=model_ref.model, digest=digest,
-                                              ollama_version=ollama_version)
+                                              ollama_version=ollama_version, fit_settings=settings)
             # Review fix pass (finding 5): the OTHER half of the SAME
             # lookup -- a recorded "does not fit" verdict must route to
             # the conservative fallback, not be indistinguishable from
@@ -998,9 +1017,11 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             # above, when it's None, would otherwise leave to fall
             # through toward trained_context/the hard cap).
             recorded_does_not_fit = has_recorded_does_not_fit(state_dir, host_url=host.url, model=model_ref.model,
-                                                                digest=digest, ollama_version=ollama_version)
+                                                                digest=digest, ollama_version=ollama_version,
+                                                                fit_settings=settings)
             fit, fit_source = floored_estimate(state_dir, host.url, model_ref.model, digest=digest,
-                                               learned_cap=learned_cap, fit=fit)
+                                               learned_cap=learned_cap, fit=fit,
+                                               server=load_server(host, ollama_version))
         except Exception:
             log.debug("ollama_hw: learned-cap lookup failed for %s", model_ref.model, exc_info=True)
     gpu_fits = _gpu_fits_up_to(fit, learned_cap)

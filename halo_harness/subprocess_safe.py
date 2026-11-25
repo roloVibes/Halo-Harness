@@ -170,7 +170,7 @@ def _call(name: str, args, kw: dict):
     from halo_harness.selfexec import fix_kw  # 3.6.0.0 R10: Halo's own Python child imports this installation
     # 3.6.0.0 fx: inside the closing procedure like a Popen: the child carries this tree's marker even in an
     # environment the caller built, and it counts as spawned (POSIX: the reaper starts, a close runs the marker scan)
-    kw = closing.before_spawn(fix_kw(args, kw))
+    kw = closing.before_spawn(fix_kw(args, kw), args)
     env = kw.get("env")
     if not closing.is_kept_env(env):
         closing.note_spawn()
@@ -274,7 +274,7 @@ class Popen(_sp.Popen):
         # may not break away from an outer Job starts from outside every Job (closing.start_outside_job); when even
         # that cannot be done it starts inside that Job and Halo says so in one line (never a silent pretence).
         from halo_harness import closing, selfexec
-        kw = closing.before_spawn(selfexec.fix_kw(args, _quiet_stdin(kw, len(a))))
+        kw = closing.before_spawn(selfexec.fix_kw(args, _quiet_stdin(kw, len(a))), args)
         try:
             if (os.name == "nt" and int(kw.get("creationflags") or 0) & closing._BREAKAWAY
                     and not closing.breakaway_frees()):  # 3.6.0.0 fx: a Job would hold it silently: as if refused

@@ -252,13 +252,27 @@ def test_a_measured_cap_is_a_floor_of_the_estimate_while_the_card_has_the_room_i
     ctx.check(f"a measurement with no tight_vram gives no floor, got {old.num_ctx}", old.num_ctx < 32768)
 
 
-def _seen(size, *, keep_size=True, digest=_E2_DIGEST):
+def _today(url) -> dict:
+    """The server a load is seen under today: the mock's version and the fit settings the estimate reads for it."""
+    from halo_harness.providers import ollama_hw
+    from halo_harness.providers.ollama import OllamaHost
+    return ollama_hw.load_server(OllamaHost(name="gpu-box", url=url), "0.1.0-mock")
+
+
+def _seen(size, *, keep_size=True, digest=_E2_DIGEST, server=None, then=None):
+    """`server(today) -> dict | None`: the server the load was seen under (today's when not given; None: a record
+    written before 3.6.0.21); `then`: a later load `(num_ctx, size)` seen under today's server."""
     def prepare(d, url):
         from halo_harness.agent.ollama_window_truth import _key, _update, record_truth
-        record_truth(d, url, _E2_MODEL, num_ctx=65536, size=size, size_vram=size, digest=digest)
+        today = _today(url)
+        record_truth(d, url, _E2_MODEL, num_ctx=65536, size=size, size_vram=size, digest=digest,
+                     server=server(today) if server else today)
         if not keep_size:  # a record written before 3.6.0.20
             _update(d, "window_truth", _key(url, _E2_MODEL), lambda old: {k: v for k, v in old.items()
                                                                          if k != "fits_size"})
+        if then:
+            record_truth(d, url, _E2_MODEL, num_ctx=then[0], size=then[1], size_vram=then[1], digest=digest,
+                         server=today)
     return prepare
 
 
@@ -273,6 +287,48 @@ def test_a_load_seen_wholly_on_the_card_is_a_floor_while_the_card_has_its_size(c
     ctx.check(f"a record without the load's size gives no floor, got {old.num_ctx}", old.num_ctx < 32768)
     other, _c = _e2_decide(19_500_000_000, _seen(19_200_000_000, digest="sha256:another"))
     ctx.check(f"a load of another digest gives no floor, got {other.num_ctx}", other.num_ctx < 32768)
+
+
+@test
+def test_a_load_seen_under_another_server_version_or_other_fit_settings_gives_no_floor(ctx: Ctx):
+    """3.6.0.21 R1: a load seen wholly on the card is a floor only under the server version and the fit settings
+    (the cache type's bytes per element, the parallel count) it was seen under; a record without them (3.6.0.20)
+    gives none, and the next load rewrites it."""
+    cases = (("another server version", lambda t: {**t, "version": "0.0.9-older"}),
+             ("another cache type", lambda t: {**t, "kv_bytes_per_elem": t["kv_bytes_per_elem"] / 2}),
+             ("another parallel count", lambda t: {**t, "parallel": t["parallel"] + 1}),
+             ("a record from 3.6.0.20 (no server kept)", lambda t: None))
+    for label, server in cases:
+        got, ceiling = _e2_decide(19_500_000_000, _seen(19_200_000_000, server=server))
+        ctx.check(f"{label}: no floor, got {got.num_ctx} {got.source!r}",
+                  got.num_ctx < 32768 and got.source == "fit estimate" and ceiling == got.num_ctx)
+    again, _c = _e2_decide(19_500_000_000, _seen(19_200_000_000, server=lambda t: {**t, "version": "0.0.9-older"},
+                                                  then=(49152, 18_000_000_000)))
+    ctx.check(f"the next load under today's server rewrites it: 49,152 'seen to fit', got {again.num_ctx} "
+              f"{again.source!r}", again.num_ctx == 49152 and again.source == "seen to fit")
+
+
+@test
+def test_a_measured_cap_taken_under_other_fit_settings_is_not_used(ctx: Ctx):
+    """3.6.0.21 R1: the measured cap is keyed on the fit settings as it is on the version: a measurement taken under
+    another cache type or parallel count is not this server's; one that kept none (before 3.6.0.21) still is."""
+    def measured(change):
+        def prepare(d, url):
+            from halo_harness.providers.ollama_calibrate import record_calibration
+            today = _today(url)
+            settings = {k: v for k, v in today.items() if k != "version"}
+            record_calibration(d, host_url=url, model=_E2_MODEL, digest=_E2_DIGEST, max_full_gpu_ctx=32768,
+                               ollama_version="0.1.0-mock", tight_ctx=65536, tight_vram=19_200_000_000,
+                               gpu_total=24_000_000_000, fit_settings=change(settings))
+        return prepare
+    same, _c = _e2_decide(19_500_000_000, measured(lambda s: s))
+    ctx.check(f"under today's settings: 32,768 'learned cap', got {same.num_ctx} {same.source!r}",
+              same.num_ctx == 32768 and same.source == "learned cap")
+    for label, change in (("another cache type", lambda s: {**s, "kv_bytes_per_elem": s["kv_bytes_per_elem"] / 2}),
+                          ("another parallel count", lambda s: {**s, "parallel": s["parallel"] + 1})):
+        other, _c = _e2_decide(19_500_000_000, measured(change))
+        ctx.check(f"{label}: neither a cap nor a floor, got {other.num_ctx} {other.source!r} "
+                  f"(learned {other.learned_cap})", other.num_ctx < 32768 and other.learned_cap is None)
 
 
 @test

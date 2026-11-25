@@ -285,7 +285,9 @@ def test_a_lean_request_leaves_the_other_servers_tool_names_out(ctx: Ctx):
     ctx.check(f"a line per server with its count, got {part[:300]!r}",
               at >= 0 and "  - `srv00-craft` (60 tools): Craft app 0 for drawings." in part
               and part.count(" (60 tools): ") == 16)
-    ctx.check("one ToolSearch line", part.count("- ToolSearch \"<words>\" finds a server's tool, or call it by its name.") == 1)
+    ctx.check("one ToolSearch line, its words (3.6.0.21 R4: only a tool named mcp__... loads when called by name)",
+              part.count("- ToolSearch \"<words>\" finds a server's tool; a tool named mcp__... can also be called by "
+                         "its name.") == 1 and "or call it by its name" not in lean)
     ctx.check(f"the servers' part is small, got {tokens_of(part)} tokens", tokens_of(part) <= 600)
     ctx.check("the input (the log's copy) keeps the block", msgs[0]["content"][0]["text"].startswith(DEFERRED_HEAD))
     text, msgs, defs, (cloud, out, tools) = _servers_request("ant:claude-opus-5-5", 200000)
@@ -318,6 +320,55 @@ def test_a_lean_request_names_the_connectors_its_block_held(ctx: Ctx):
               "connector__" not in json.dumps(out)
               and lines == ["  - `kb` (2 tools): Keeps pages.", "  - `connector__calendar` (1 tool)",
                             "  - `connector__mailbox` (1 tool)"])
+
+
+@test
+def test_a_lean_request_keeps_a_user_block_that_only_starts_like_the_deferred_block(ctx: Ctx):
+    """3.6.0.21 R2: a lean request leaves out only a block that is, byte for byte, what catalog.deferred_reminder
+    writes for the names it lists; a person's paste that starts with the same words (and then holds other words, or
+    the names with a line of its own after them) stays on the wire, and the servers' counts are the real block's."""
+    import json
+    from halo_harness.agent.catalog import DEFERRED_HEAD, deferred_reminder
+    from halo_harness.agent.prompt import build_system_prompt
+    from halo_harness.agent.prompt_wire import shape
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    defs = ToolRegistry(default_tools()).definitions()
+    text = build_system_prompt(model_label="ol:example-model:30b", cwd="/work", tool_definitions=defs,
+                               family="generic", mcp_servers=[{"name": "kb", "instructions": "Keeps pages."}])
+    real = deferred_reminder(["mcp__kb__find", "mcp__kb__read"])
+    pasted = (DEFERRED_HEAD + "mcp__kb__find\nmcp__kb__save\nmcp__kb__list\nand then the run stopped: why?",
+              DEFERRED_HEAD + "mcp__kb__find\nmcp__kb__save\n")
+    msgs = [{"role": "user", "content": [{"type": "text", "text": real}, {"type": "text", "text": "hi"}]},
+            {"role": "assistant", "content": [{"type": "text", "text": "Hello."}]},
+            {"role": "user", "content": [{"type": "text", "text": pasted[0]}, {"type": "text", "text": pasted[1]}]}]
+    system, out, _t = shape(_session("ol:example-model:30b", 16384), text, msgs, defs, purpose="measure")
+    wire = [b.get("text") for m in out for b in m["content"] if isinstance(b, dict)]
+    ctx.check(f"the real block is gone, both pastes are on the wire as written, got {json.dumps(out)[:300]}",
+              real not in wire and wire.count(pasted[0]) == 1 and wire.count(pasted[1]) == 1 and "hi" in wire)
+    lines = [ln for ln in system.splitlines() if ln.startswith("  - `")]
+    ctx.check(f"the counts are the real block's, got {lines!r}", lines == ["  - `kb` (2 tools): Keeps pages."])
+
+
+@test
+def test_a_plugins_tool_server_gets_one_line_with_its_count(ctx: Ctx):
+    """3.6.0.21 R3: a plugin's server (its tools named by config.plugins.plugin_server_name) gets ONE line in a lean
+    request: its words and its count."""
+    from halo_harness.agent.catalog import deferred_reminder
+    from halo_harness.agent.prompt import build_system_prompt
+    from halo_harness.agent.prompt_wire import shape
+    from halo_harness.config.plugins import plugin_server_name
+    from halo_harness.mcp.manager import mcp_tool_name
+    from halo_harness.tools.registry import ToolRegistry, default_tools
+    defs = ToolRegistry(default_tools()).definitions()
+    srv = plugin_server_name("example-plugin", "drawings")
+    text = build_system_prompt(model_label="ol:example-model:30b", cwd="/work", tool_definitions=defs,
+                               family="generic", mcp_servers=[{"name": srv, "instructions": "Draws pages."}])
+    names = sorted(mcp_tool_name(srv, t) for t in ("open", "save", "export"))
+    msgs = [{"role": "user", "content": [{"type": "text", "text": deferred_reminder(names)},
+                                         {"type": "text", "text": "hi"}]}]
+    system, _out, _t = shape(_session("ol:example-model:30b", 16384), text, msgs, defs, purpose="measure")
+    lines = [ln for ln in system.splitlines() if ln.startswith("  - `")]
+    ctx.check(f"one line, its words and its count, got {lines!r}", lines == [f"  - `{srv}` (3 tools): Draws pages."])
 
 
 @test

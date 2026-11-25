@@ -95,8 +95,15 @@ def _find_entry(entries: list, *, host_url: str, model: str) -> Optional[dict]:
     return None
 
 
+def _other_settings(entry: dict, fit_settings) -> bool:
+    """3.6.0.21 R1: the measurement was taken under other fit settings (ollama_hw.fit_settings_of: the cache type's
+    bytes per element, the parallel count) than `fit_settings` -- the same rule as the version: both known and
+    different (an entry from before 3.6.0.21 kept none and still stands)."""
+    return fit_settings is not None and entry.get("fit_settings") is not None and entry["fit_settings"] != fit_settings
+
+
 def has_calibration_entry(state_dir, *, host_url: str, model: str, digest: Optional[str] = None,
-                           ollama_version: Optional[str] = None) -> bool:
+                           ollama_version: Optional[str] = None, fit_settings: Optional[dict] = None) -> bool:
     """True iff SOME entry exists for (host_url, model) -- this is what
     gates auto-calibration (brief: run it "the first time a model is
     used on a host with no learned cap").
@@ -120,11 +127,11 @@ def has_calibration_entry(state_dir, *, host_url: str, model: str, digest: Optio
     if ollama_version is not None and entry.get("ollama_version") is not None \
             and entry.get("ollama_version") != ollama_version:
         return False
-    return True
+    return not _other_settings(entry, fit_settings)
 
 
 def lookup_learned_cap(state_dir, *, host_url: str, model: str, digest: Optional[str] = None,
-                        ollama_version: Optional[str] = None) -> Optional[int]:
+                        ollama_version: Optional[str] = None, fit_settings: Optional[dict] = None) -> Optional[int]:
     """The learned `max_full_gpu_ctx` for (host_url, model), or `None`
     when there's no entry, the entry itself recorded "does not fit"
     (`max_full_gpu_ctx` stored as `None`), or -- a digest/version MISMATCH
@@ -143,12 +150,14 @@ def lookup_learned_cap(state_dir, *, host_url: str, model: str, digest: Optional
     if ollama_version is not None and entry.get("ollama_version") is not None \
             and entry.get("ollama_version") != ollama_version:
         return None
+    if _other_settings(entry, fit_settings):
+        return None
     cap = entry.get("max_full_gpu_ctx")
     return cap if isinstance(cap, int) and not isinstance(cap, bool) and cap > 0 else None
 
 
 def has_recorded_does_not_fit(state_dir, *, host_url: str, model: str, digest: Optional[str] = None,
-                               ollama_version: Optional[str] = None) -> bool:
+                               ollama_version: Optional[str] = None, fit_settings: Optional[dict] = None) -> bool:
     """Review fix pass (finding 5): `lookup_learned_cap` returns `None`
     for BOTH "no entry at all" and "the entry itself recorded does not
     fit" -- indistinguishable to every caller that only reads that one
@@ -169,13 +178,13 @@ def has_recorded_does_not_fit(state_dir, *, host_url: str, model: str, digest: O
     if ollama_version is not None and entry.get("ollama_version") is not None \
             and entry.get("ollama_version") != ollama_version:
         return False
-    return entry.get("max_full_gpu_ctx") is None
+    return entry.get("max_full_gpu_ctx") is None and not _other_settings(entry, fit_settings)
 
 
 def record_calibration(state_dir, *, host_url: str, model: str, digest: Optional[str],
                         max_full_gpu_ctx: Optional[int], ollama_version: Optional[str],
                         tight_ctx: Optional[int] = None, tight_vram: Optional[int] = None,
-                        gpu_total: Optional[int] = None) -> dict:
+                        gpu_total: Optional[int] = None, fit_settings: Optional[dict] = None) -> dict:
     """Upserts the (host_url, model) entry -- `{host_url, model, digest,
     max_full_gpu_ctx, measured_at, ollama_version}` (brief item 2's exact
     schema). `max_full_gpu_ctx=None` is a VALID, meaningful recording
@@ -189,6 +198,8 @@ def record_calibration(state_dir, *, host_url: str, model: str, digest: Optional
     if tight_ctx:
         # Halo 3.2.3.0 R1: the window on the GPU but under the headroom rule.
         record.update({"tight_ctx": tight_ctx, "tight_vram": tight_vram, "gpu_total": gpu_total})
+    if fit_settings:  # 3.6.0.21 R1: the fit settings it was measured under (ollama_hw.fit_settings_of)
+        record["fit_settings"] = fit_settings
     with file_lock(_fit_store_path(state_dir)):
         store = load_fit_store(state_dir)
         entries = store["entries"]
@@ -317,7 +328,7 @@ def run_auto_calibration(host, model: str, *, state_dir, timeout: Optional[float
     for `halo ollama` (`record_inconclusive`). Returns the one outcome
     line, or None on any failure (never raises)."""
     from halo_harness.providers.ollama import HARD_CONTEXT_CAP, get_catalog, probe_version, trained_context_for
-    from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, is_local_host
+    from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, fit_settings_of, is_local_host
     try:
         catalog = get_catalog(host)
         row = catalog_row(catalog, model)
@@ -349,7 +360,8 @@ def run_auto_calibration(host, model: str, *, state_dir, timeout: Optional[float
             return outcome_line(model, host.name, result, window=window, source=source)
         record_calibration(state_dir, host_url=host.url, model=model, digest=digest,
                             max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version,
-                            tight_ctx=result.tight_ctx, tight_vram=result.tight_vram, gpu_total=result.gpu_total)
+                            tight_ctx=result.tight_ctx, tight_vram=result.tight_vram, gpu_total=result.gpu_total,
+                            fit_settings=fit_settings_of(host))
         return outcome_line(model, host.name, result)
     except Exception:
         log.debug("ollama: auto-calibration failed for %s@%s", model, host.name, exc_info=True)

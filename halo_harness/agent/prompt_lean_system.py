@@ -45,7 +45,7 @@ def _has(session, name: str) -> bool:
 
 
 _SERVER = re.compile(r"^  - `([^`]*)`: (.*)$")
-SEARCH_LINE = "- ToolSearch \"<words>\" finds a server's tool, or call it by its name."
+SEARCH_LINE = "- ToolSearch \"<words>\" finds a server's tool; a tool named mcp__... can also be called by its name."
 
 
 def _count(n) -> str:

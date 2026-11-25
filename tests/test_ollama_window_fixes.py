@@ -1138,6 +1138,43 @@ def test_after_call_reads_nothing_and_turn_end_check_reads_ps_once_per_turn(ctx:
         O.fetch_ps, W._host_for_url = real_ps, real_host
 
 
+@test
+def test_a_load_seen_at_the_end_of_a_turn_keeps_the_server_it_was_seen_under(ctx: Ctx):
+    """3.6.0.21 R1: the record of a load wholly on the card keeps the server's version (as this process already
+    knows it: no new probe) and the fit settings the estimate reads, the floor's key (ollama_hw.observed_floor)."""
+    from types import SimpleNamespace
+    import halo_harness.providers.ollama as O
+    from halo_harness.agent import ollama_window_truth as W
+    from halo_harness.providers.ollama_hw import load_server
+    host = SimpleNamespace(url="http://gpu-box:11434", name="gpu-box", api_key=None, max_ctx=None, keep_alive=None)
+    probes = []
+
+    def fake_ps(h, timeout=None):
+        return {"models": [{"model": MODEL, "name": MODEL, "context_length": 16384, "size": 2 * GB,
+                            "size_vram": 2 * GB, "digest": "sha256:1"}]}
+    real_ps, real_probe, had = O.fetch_ps, O.probe_version, dict(O._version_cache)
+    O.fetch_ps, O.probe_version = fake_ps, (lambda *a, **k: probes.append(a) or None)
+    try:
+        for version in (None, "0.2.0-example"):
+            O._version_cache.pop(host.url, None)
+            if version:
+                O._version_cache[host.url] = version
+            session = SimpleNamespace(state_dir=Path(tempfile.mkdtemp()), model_ref=SimpleNamespace(model=MODEL),
+                                      _ollama_turn_reads={(host.url, MODEL): {"host": host, "model": MODEL,
+                                                                              "num_ctx": 16384, "num_gpu": None}})
+            W.turn_end_check(session)
+            got = W.truth(session.state_dir, host.url, MODEL)
+            want = load_server(host, version)
+            ctx.check(f"version {version}: the record keeps {want}, got {got}",
+                      got.get("fits") == 16384 and got.get("fits_server") == want
+                      and (want is None or want.get("version") == version))
+        ctx.check(f"no /api/version probe for it, got {probes}", not probes)
+    finally:
+        O.fetch_ps, O.probe_version = real_ps, real_probe
+        O._version_cache.clear()
+        O._version_cache.update(had)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

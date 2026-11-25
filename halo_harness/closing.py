@@ -537,6 +537,12 @@ def _outside_answer(result: Path, wait_s: float, stop: Optional[Callable[[], boo
     return False, None
 
 
+class ClosingRefused(OSError):
+    """3.6.0.21 R5: `before_spawn`'s refusal of a start once close() has run (the refusal stays: a program started then
+    could outlive Halo on POSIX). Its own type so that what runs a stop or an exit hook on the way out takes exactly
+    it, never a bare OSError (`_quiet_refusals`)."""
+
+
 class StartCancelled(RuntimeError):
     """jb10: start_outside_job in open_url's browser thread after a stop: nothing was started anywhere."""
 
@@ -795,13 +801,16 @@ class own_check:
         return False
 
 
-def before_spawn(kw: dict) -> dict:
+def before_spawn(kw: dict, what=None) -> dict:
     """A caller that built its own environment still passes this tree's marker (and owner) on. 3.6.0.18 L: once close()
     has begun, a spawn that is not kept is refused (an abandoned worker's program would outlive this halo), except on
-    the thread that runs the way out; inside own_check() the child carries OWN_CHECK."""
+    the thread that runs the way out; inside own_check() the child carries OWN_CHECK. 3.6.0.21 R5: the refusal is a
+    ClosingRefused, and with the close trace on one line names what was refused (`what`: its argv)."""
     env = kw.get("env")
     if _STATE["closed"] and not getattr(_WAY_OUT, "mine", False) and not is_kept_env(env):
-        raise OSError("halo is closing: nothing new is started")
+        argv = [what] if isinstance(what, (str, bytes, os.PathLike)) else list(what or [])
+        trace(f"refused after close: {' '.join(str(a) for a in argv[:2]) or 'a program'}"[:200])
+        raise ClosingRefused("halo is closing: nothing new is started")
     if isinstance(env, dict) and not isinstance(env, Unmarked) and MARKER not in env and os.environ.get(MARKER):
         env = dict(env)
         env[MARKER] = os.environ[MARKER]
@@ -1698,6 +1707,21 @@ def valid_watch(owner_pid: Optional[int], owner_start: Optional[str]) -> bool:
     return adopted == f"{owner_pid}:{owner_start or ''}" or is_ancestor(owner_pid)
 
 
+def _quiet_refusals() -> None:
+    """3.6.0.21 R5: every exit hook runs through the interpreter's atexit (its own exit, `tui.launch.bound_the_end`,
+    `hard_exit`), which reports a hook's exception as "Exception ignored in atexit callback" through
+    `sys.unraisablehook`. A hook (a stop, a pack's `stop_all`) whose start `before_spawn` refused after close() ran
+    on another thread ends there with nothing for the person: the closing procedure already ended what was running,
+    and the refusal's trace line names it. Exactly ClosingRefused is taken; every other report goes on as before."""
+    prev = sys.unraisablehook
+
+    def hook(unraisable) -> None:
+        if isinstance(getattr(unraisable, "exc_value", None), ClosingRefused):
+            return
+        prev(unraisable)
+    sys.unraisablehook = hook
+
+
 def install(*, sweep_at_start: bool = True) -> None:
     """The real process's first call. Idempotent."""
     if _STATE["installed"]:
@@ -1713,6 +1737,7 @@ def install(*, sweep_at_start: bool = True) -> None:
     pid, start = me()
     os.environ[WATCH] = f"{pid}:{start or ''}"  # what this process starts watches it
     atexit.register(close)
+    _quiet_refusals()
     if os.name == "nt":
         _windows_console_close()
     if owner_pid and owner_pid != pid:

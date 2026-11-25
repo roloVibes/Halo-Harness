@@ -93,7 +93,7 @@ def cmd_ollama_calibrate(argv: list) -> int:
         current_window, gpu_layers_for, host_gpu_total_bytes, load_budget_s, model_size_gb, outcome_line,
         record_calibration, record_inconclusive, record_prompt_speed, run_calibration,
     )
-    from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, is_local_host
+    from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, fit_settings_of, is_local_host
     from halo_harness.providers.ollama_prompt import fmt_window
 
     parser = argparse.ArgumentParser(
@@ -178,7 +178,7 @@ def cmd_ollama_calibrate(argv: list) -> int:
     record = record_calibration(bridge_home(), host_url=host.url, model=args.model, digest=digest,
                                  max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version,
                                  tight_ctx=result.tight_ctx, tight_vram=result.tight_vram,
-                                 gpu_total=result.gpu_total)
+                                 gpu_total=result.gpu_total, fit_settings=fit_settings_of(host))
     print(f"  {outcome_line(args.model, host.name, result)}")
     print(f"  recorded in ~/.halo/ollama-fit.json (digest {record['digest']!r}, ollama {ollama_version or '?'})")
     return 0

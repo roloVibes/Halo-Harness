@@ -1837,8 +1837,8 @@ LONG = [sys.executable, "-c", "import time; time.sleep(120)"]
 closed, entered, release = threading.Event(), threading.Event(), threading.Event()
 orig = closing.before_spawn
 
-def held_before_spawn(kw):
-    kw = orig(kw)
+def held_before_spawn(kw, what=None):
+    kw = orig(kw, what)
     if threading.current_thread().name == "held":
         entered.set()
         release.wait(60)
@@ -1916,6 +1916,72 @@ def test_l_once_closed_nothing_new_starts_and_the_last_scan_ends_a_start_already
             if isinstance(row, dict) and row.get("pid"):
                 _end_tree_we_started(row["pid"], row.get("start"))
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+_REFUSED_ON_THE_WAY_OUT = r"""
+import atexit, sys, threading
+from pathlib import Path
+from halo_harness import closing, subprocess_safe
+mode, tmp = sys.argv[1], Path(sys.argv[2])
+closing.install(sweep_at_start=False)  # the real process's first call: a pack policy's exit hook comes after it
+from halo_harness.packs import policy
+START = [sys.executable, "-c", "import sys; open(sys.argv[1], 'w').close()"]
+
+class _Proc:  # a pack policy's process whose stop starts a program (a stand-in for a stop command)
+    def stop(self):
+        (tmp / "stop-ran").write_text("1")
+        subprocess_safe.run(START + [str(tmp / "stop-started")], stdin=subprocess_safe.DEVNULL, timeout=60)
+
+def hook():  # an exit hook that starts a program
+    (tmp / "hook-ran").write_text("1")
+    subprocess_safe.run(START + [str(tmp / "hook-started")], stdin=subprocess_safe.DEVNULL, timeout=60)
+
+with policy._lock:
+    policy._procs[("example-pack", "guard")] = _Proc()
+atexit.register(hook)
+other = threading.Thread(target=lambda: closing.close(say=lambda _l: None), name="other")  # hard_exit, the console
+other.start()
+other.join(60)
+(tmp / "closed").write_text(str(bool(closing._STATE["closed"])))
+if mode == "bound":
+    from halo_harness.tui.launch import bound_the_end
+    bound_the_end(0)
+"""
+
+
+@test
+def test_a_start_refused_after_close_ends_an_exit_hook_and_a_stop_quietly(ctx: Ctx):
+    """3.6.0.21 R5: when close() ran first on another thread, an exit hook and a pack's stop that start a program are
+    refused (the refusal stays: its own type, a subclass of OSError) and end quietly: nothing is started, no "Exception
+    ignored in atexit callback" or traceback reaches the person, and with the close trace on one line names each
+    refusal. Both ways the exit hooks run: the interpreter's own exit and the terminal app's bound."""
+    from halo_harness import closing
+    ctx.check("the refusal is its own type, an OSError", issubclass(closing.ClosingRefused, OSError)
+              and closing.ClosingRefused is not OSError)
+    for mode in ("exit", "bound"):
+        tmp = Path(tempfile.mkdtemp(prefix="halo-r5-refused-"))
+        home, trace = tmp / "home", tmp / "trace.txt"
+        home.mkdir()
+        try:
+            env = dict(_env(home), **{closing.TRACE: str(trace)})
+            r = subprocess.run([sys.executable, "-c", _REFUSED_ON_THE_WAY_OUT, mode, str(tmp)], env=env, cwd=str(tmp),
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+                               stdin=subprocess.DEVNULL)
+            ran = [n for n in ("closed", "hook-ran", "stop-ran") if (tmp / n).exists()]
+            ctx.check(f"{mode}: close() ran first, then the hook and the stop ran, got {ran} {r.returncode} "
+                      f"{r.stderr[-300:]!r}", ran == ["closed", "hook-ran", "stop-ran"]
+                      and (tmp / "closed").read_text() == "True" and r.returncode == 0)
+            started = [n for n in ("hook-started", "stop-started") if (tmp / n).exists()]
+            ctx.check(f"{mode}: nothing was started, got {started}", not started)
+            ctx.check(f"{mode}: no traceback for the person, got {r.stderr[-600:]!r}",
+                      "Exception ignored" not in r.stderr and "Traceback" not in r.stderr
+                      and "ClosingRefused" not in r.stderr and "halo is closing" not in r.stderr)
+            lines = [ln for ln in (trace.read_text(encoding="utf-8").splitlines() if trace.exists() else [])
+                     if "refused" in ln]
+            ctx.check(f"{mode}: one trace line names each refusal, got {lines}",
+                      len(lines) == 2 and all("python" in ln.lower() for ln in lines))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 @test

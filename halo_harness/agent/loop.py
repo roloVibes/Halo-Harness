@@ -4818,7 +4818,7 @@ class Session:
             from halo_harness.providers.ollama import cached_ollama_version, get_catalog, resolve_ollama_host
             from halo_harness.providers.ollama_calibrate import record_calibration
             from halo_harness.providers.ollama_fit import fit_estimate, kv_bytes_per_elem_for, kv_bytes_per_token
-            from halo_harness.providers.ollama_hw import catalog_row, last_known_offload_sizes
+            from halo_harness.providers.ollama_hw import catalog_row, fit_settings_of, last_known_offload_sizes
             env = self.settings.effective_env if self.settings is not None else None
             host = resolve_ollama_host(getattr(self.model_ref, "host", None), env)
             if host is None or host.url != host_url:
@@ -4848,7 +4848,8 @@ class Session:
                     f"at {fmt_window(self.model_profile.context_tokens)}.")
                 return
             record_calibration(self.state_dir, host_url=host_url, model=model, digest=row.get("digest"),
-                                max_full_gpu_ctx=estimated_cap, ollama_version=cached_ollama_version(host))
+                                max_full_gpu_ctx=estimated_cap, ollama_version=cached_ollama_version(host),
+                                fit_settings=fit_settings_of(host))
             self._pending_ollama_notices.append(
                 f"{model} on '{host.name}' loaded partially offloaded this turn -- set ollama.hosts[].max_ctx "
                 f"to {estimated_cap} to keep it fully in GPU memory (recorded as a learned cap for next time).")

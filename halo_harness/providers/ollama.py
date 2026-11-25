@@ -787,6 +787,13 @@ def cached_ollama_version(host: OllamaHost, *, timeout: float = _VERSION_PROBE_T
     return version
 
 
+def known_ollama_version(host_url: str) -> Optional[str]:
+    """3.6.0.21 R1: the version `cached_ollama_version` found for `host_url` in this process, or None: never a probe
+    (a load seen after a call is kept with what the session's own decision already read)."""
+    with _VERSION_CACHE_LOCK:
+        return _version_cache.get(host_url)
+
+
 def reset_ollama_version_cache() -> None:
     """Test seam: force the next `cached_ollama_version` call on any host
     to re-probe rather than reading a stale in-process cache entry."""

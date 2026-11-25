@@ -16,7 +16,8 @@ view, diagnose on failure; no background watcher.
     compaction_window(session) -> int | None     the most the window can be (auto-compaction's 80 % is of this)
 
 Kept in `<state>/ollama-fit.json` beside the calibration entries (providers/ollama_calibrate.py):
-`window_truth["<url>|<model>"] = {fits, spills, num_ctx, num_gpu, digest, at}` -- the largest window seen wholly on
+`window_truth["<url>|<model>"] = {fits, fits_size, fits_server, spills, num_ctx, num_gpu, digest, at}` -- the
+largest window seen wholly on
 the card (`size_vram == size` after a call), the smallest seen partly on the CPU, and the options the last call sent
 (a resident runner keeps them; asking for others reloads it) -- and `token_ratio["<url>|<model>"] = {ratio, n, at}`,
 Ollama's `prompt_eval_count` over chars / 3.5 for this model (applied when it is off by more than 15 %).
@@ -129,9 +130,10 @@ def truth(state_dir, host_url: str, model: str) -> dict:
 
 
 def record_truth(state_dir, host_url: str, model: str, *, num_ctx: int, size, size_vram, num_gpu=None,
-                 digest=None) -> Optional[str]:
+                 digest=None, server=None) -> Optional[str]:
     """One read after a call: `fits` (wholly on the card at `num_ctx`) or `spills` (part on the CPU). A new digest
-    starts over. Returns "fits" / "spills" / None."""
+    starts over. `server`: what the load was seen under (ollama_hw.load_server); a `fits` seen under another (or
+    before 3.6.0.21, under none kept) is replaced by this load's. Returns "fits" / "spills" / None."""
     if not (_pos(num_ctx) and _pos(size) and isinstance(size_vram, int)):
         return None
     kind = "fits" if size_vram >= size else "spills"
@@ -141,18 +143,27 @@ def record_truth(state_dir, host_url: str, model: str, *, num_ctx: int, size, si
             old = {}
         out = {**old, "num_ctx": num_ctx, "num_gpu": num_gpu, "digest": digest or old.get("digest"), "at": time.time()}
         if kind == "fits":
-            out["fits"] = max(num_ctx, _pos(old.get("fits")) or 0)
+            same = old.get("fits_server") == server  # 3.6.0.21 R1: a load under another server is no measure of this
+            out["fits"] = max(num_ctx, (_pos(old.get("fits")) if same else None) or 0)
             if out["fits"] == num_ctx:  # 3.6.0.20 E2: the load's own size at `fits` (ollama_hw.observed_floor)
-                out["fits_size"] = size
+                out["fits_size"], out["fits_server"] = size, server
             if _pos(old.get("spills")) and old["spills"] <= num_ctx:
                 out["spills"] = None  # the card has more room now than when it spilled
         else:
             out["spills"] = min(num_ctx, _pos(old.get("spills")) or num_ctx)
             if _pos(old.get("fits")) and old["fits"] >= num_ctx:
-                out["fits"], out["fits_size"] = None, None
+                out["fits"], out["fits_size"], out["fits_server"] = None, None, None
         return out
     _update(state_dir, "window_truth", _key(host_url, model), _fold)
     return kind
+
+
+def _server_of(host) -> Optional[dict]:
+    """3.6.0.21 R1: the server a load just read is seen under (ollama_hw.load_server), the version as this process
+    already knows it (no probe)."""
+    from halo_harness.providers.ollama import known_ollama_version
+    from halo_harness.providers.ollama_hw import load_server
+    return load_server(host, known_ollama_version(host.url))
 
 
 def known_spill(state_dir, host_url: str, model: str) -> Optional[int]:
@@ -239,7 +250,7 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     if live is True and _pos(t.get("spills")) and t["spills"] <= loaded:
         record_truth(state_dir, host.url, ref.model, num_ctx=loaded, size=row.get("size"),
                      size_vram=row.get("size_vram"), digest=row.get("digest"),
-                     num_gpu=t.get("num_gpu") if t.get("num_ctx") == loaded else None)
+                     num_gpu=t.get("num_gpu") if t.get("num_ctx") == loaded else None, server=_server_of(host))
         t = truth(state_dir, host.url, ref.model)
     spill = min([w for w in (_pos(t.get("spills")), loaded if live is False else None) if w] or [0]) or None
     if spill and cap >= spill:
@@ -656,7 +667,7 @@ def turn_end_check(session, *, timeout: float = TURN_END_READ_S) -> None:
             if row and row.get("context_length") in (None, item.get("num_ctx")):
                 kind = record_truth(state_dir, host.url, model, num_ctx=item.get("num_ctx"), size=row.get("size"),
                                     size_vram=row.get("size_vram"), num_gpu=item.get("num_gpu"),
-                                    digest=row.get("digest"))
+                                    digest=row.get("digest"), server=_server_of(host))
                 if kind and getattr(getattr(session, "model_ref", None), "model", None) == model:
                     session._last_ollama_offloaded = kind == "spills"
     except Exception:

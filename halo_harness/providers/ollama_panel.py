@@ -179,7 +179,8 @@ def analyze_host(host, *, hw_runner=None, force: bool = False, state_dir=None) -
         state_dir = bridge_home()
     from halo_harness.providers.ollama_tune_rows import twin_order
     catalog_fits = tuple(twin_order(
-        [_model_fit_info(host, catalog, row, state_dir=state_dir, remote=not local, hw_runner=hw_runner, ps=ps)
+        [_model_fit_info(host, catalog, row, state_dir=state_dir, remote=not local, hw_runner=hw_runner, ps=ps,
+                         ollama_version=version)
          for row in (catalog.get("models") or []) if isinstance(row, dict)],
         key=lambda f: f.name, twin_of=lambda f: f.twin_of, twin_first=False))  # R3: a twin under its original
     return HostAnalysis(host_name=host.name, host_url=host.url, is_local=local, reachable=reachable,
@@ -187,7 +188,8 @@ def analyze_host(host, *, hw_runner=None, force: bool = False, state_dir=None) -
                          catalog_fits=catalog_fits)
 
 
-def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, hw_runner=None, ps=None) -> ModelFitInfo:
+def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, hw_runner=None, ps=None,
+                    ollama_version=None) -> ModelFitInfo:
     """One `ModelFitInfo` row (round 5b, brief item 3's "what fits"
     column + learned-cap + source phrase), reusing the EXACT SAME
     `resolve_num_ctx_and_source` precedence `agent/loop.py`'s real
@@ -199,13 +201,16 @@ def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, 
     from halo_harness.providers.ollama_prompt import window_for
     name = row.get("model") or row.get("name") or "?"
     trained = trained_context_for(catalog, name)
-    learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=name, digest=row.get("digest"))
     from halo_harness.providers import ollama_hw
+    # 3.6.0.21 R1: a measurement holds under the fit settings it was taken under, a load seen also under the version
+    learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=name, digest=row.get("digest"),
+                                     fit_settings=ollama_hw.fit_settings_of(host))
     ollama_hw._ROOM.value = None  # the room this row's own estimate reads, never an earlier one's
     fit = estimate_fit_for_host(host, name, catalog, runner=hw_runner, ps=ps)  # 3.6.0.0 R14: analyze_host's one read
     # 3.6.0.20 E2: the same floor a session's decision puts under the estimate (a measurement, a load seen on the card)
     fit, fit_source = ollama_hw.floored_estimate(state_dir, host.url, name, digest=row.get("digest"),
-                                                 learned_cap=learned_cap, fit=fit)
+                                                 learned_cap=learned_cap, fit=fit,
+                                                 server=ollama_hw.load_server(host, ollama_version))
     what_fits, source = resolve_num_ctx_and_source(trained, host.max_ctx, fit, learned_cap=learned_cap,
                                                     remote=remote, fit_source=fit_source)
     throughput = get_last_turn_throughput(state_dir, host_url=host.url, model=name)
