@@ -36,6 +36,9 @@ mean to measure.
   a pack's exit hook or a stop that tried to start a program printed a traceback on the way out. The start is
   still refused; the refusal is now taken quietly. With `HALO_CLOSE_TRACE` on, one trace line names what was
   refused.
+- **The wait between two changes of the model pool never counts a change as lying in the future.** A change stamped
+  a moment after the clock's reading (the stamp is rounded) read "-0 min ago" and added that moment to the
+  ten-minute wait. It is now zero seconds ago.
 
 ### Changed
 
@@ -61,6 +64,11 @@ right; each was made wrong on purpose once to see the new check still fail, and 
   before the redraw.
 - New, not one of the four: a session on a large-window model WITH other tool servers is driven through the same
   path a real turn takes and compared with what it must be sent (3.6.0.20 proved this for one function only).
+- Two more, from this release's own first run on the hosted machines (each read, neither the product's doing in a
+  way a person would meet). The real-use check gave `halo init` ten seconds to reach the browser; on a hosted
+  Windows machine, where that start goes through a helper, they ran out once: it has forty-five, and the wait
+  ends as soon as the browser is asked. And a test that sets the wait between two changes of the model pool to
+  zero was still told to wait ("-0 min ago"): see Fixed.
 
 ### Known limits
 

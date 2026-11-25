@@ -15,7 +15,9 @@ from realcheck.core import Fail, excerpt, http_get, split_url, wait_address, wai
 # fails here and says by how much. macOS was not measured: it takes the Linux number until a run says otherwise.
 REQUEST_BYTES = {"win32": 49847, "linux": 48565, "darwin": 48565}
 # how long `halo init` has, after its address, to hand the page to the browser it was given (BROWSER)
-BROWSER_WAIT_S = 10.0
+# 3.6.0.21: 10 s ran out once on a hosted Windows runner (the start goes through a helper there: three cold process
+# starts) with the product right; the wait ends as soon as the browser is asked, so a slow runner's budget costs nothing
+BROWSER_WAIT_S = 45.0
 
 
 def _no_leftovers(ctx, h, what: str) -> None:

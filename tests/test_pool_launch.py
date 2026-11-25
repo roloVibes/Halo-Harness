@@ -135,6 +135,32 @@ def test_halo_local_serve_pool(ctx: Ctx):
 
 
 @test
+def test_a_pool_change_stamped_a_moment_ahead_of_the_clock_is_zero_seconds_ago(ctx: Ctx):
+    """3.6.0.21: the test above went red once on a hosted Windows runner with "the last (...) was -0 min ago -- the
+    next in 0 min": the last change's stamp was a moment AFTER the clock's reading (the stamp is rounded; a coarse
+    clock answers the same tick twice), so a wait of 0 s still had time left. A change is never in the future."""
+    import datetime
+    from unittest import mock
+
+    from halo_harness.ollama_steward import changes_pool
+    now = 1_800_000_000.0
+    ahead = datetime.datetime.fromtimestamp(now + 0.4, datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    row = [{"at": ahead, "after": "stopped", "model": "example-model:30b", "field": changes_pool.FIELD}]
+    saved = changes_pool.COOLDOWN_S
+    try:
+        with mock.patch.object(changes_pool, "_rows", lambda _state_dir: row):
+            changes_pool.COOLDOWN_S = 0.0
+            ctx.check(f"a wait of 0 s: nothing to wait for, got {changes_pool.cooldown(now=now)!r}",
+                      changes_pool.cooldown(now=now) == "")
+            changes_pool.COOLDOWN_S = 600.0
+            said = changes_pool.cooldown(now=now)
+            ctx.check(f"a wait of 10 min: the change was 0 min ago, never '-0', got {said!r}",
+                      "was 0 min ago -- the next in 10 min" in said and "-0" not in said)
+    finally:
+        changes_pool.COOLDOWN_S = saved
+
+
+@test
 def test_the_refusals(ctx: Ctx):
     from halo_harness.local_pool import entry, launch
     from halo_harness.local_sched import claims_file as CF

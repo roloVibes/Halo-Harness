@@ -46,7 +46,9 @@ def cooldown(state_dir=None, now: Optional[float] = None) -> str:
     if not rows:
         return ""
     at = parse_at(rows[-1].get("at")) or 0.0
-    left = COOLDOWN_S - ((time.time() if now is None else now) - at)
+    # 3.6.0.21: a change stamped a moment AFTER this clock's reading (the stamp is rounded; a coarse clock answers the
+    # same tick twice) was "-0 min ago" and stretched the wait: it is 0 s ago
+    left = COOLDOWN_S - max(0.0, (time.time() if now is None else now) - at)
     if left <= 0:
         return ""
     return (f"one pool change per {COOLDOWN_S / 60:.0f} min: the last ({rows[-1].get('after')} {rows[-1].get('model')}) "
