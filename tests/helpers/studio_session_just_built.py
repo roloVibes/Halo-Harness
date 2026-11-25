@@ -66,11 +66,11 @@ FLOW_REVIEW = {"format": "workflow/1", "name": "review", "for": "review",
 # request with its answer's status
 # fw (3.6.0.9 V batch 2): `{kind}:{name}` of each workflow or agent file the page heard, pushed 1 s after the frame: the
 # page's own handler (lib/filesLive.ts, a 300 ms debounce set as the same frame arrives) has run by then, by timer order
-HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0, reqs: [], held: [], hold: false, fc: [], fw: [] };
+HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0, reqs: [], held: [], hold: false, fc: [], fct: [], fw: [] };
   const ES = window.EventSource; if (ES) { const W = function (u, o) { const es = new ES(u, o);
     es.addEventListener('open', () => { jb.open += 1; });
     es.addEventListener('files_changed', (e) => { try { const d = JSON.parse(e.data).data || {};
-      if (d.kind === 'maps') jb.fc.push([...(d.names || []), ...(d.removed || [])]);
+      if (d.kind === 'maps') { const n = [...(d.names || []), ...(d.removed || [])]; jb.fc.push(n); jb.fct.push({ t: performance.now(), n }); }
       if (d.kind === 'workflows' || d.kind === 'agents') setTimeout(() => jb.fw.push(...(d.names || []).map((n) => d.kind + ':' + n)), 1000); } catch (x) { jb.fc.push(['?']); } });
     return es; }; W.prototype = ES.prototype; window.EventSource = W; }
   const f = window.fetch.bind(window);
@@ -263,7 +263,9 @@ def same(c, rig, rows: Rows, a: str, b: str) -> dict:
     one = MAP.replace("lines:\n", "- {id: extra1, agent: writer}\nlines:\n") + "- {from: main, to: extra1, when: always}\n"
     # 3.6.0.21 T5: the moment extra1's box is first in the page (a MutationObserver: synchronous with the commit); only the
     # map reads the page STARTED before it count -- the file is written too, and a read Studio's watcher asks for after the
-    # redraw is not the fault this guards (a redraw that waited on a read)
+    # redraw is not the fault this guards (a redraw that waited on a read). After the check: nor is a read that follows the
+    # watcher's files_changed for shop (it can come before the frame on a slow runner: the file is written first); this
+    # rig's feed listener is added before the page's, so its stamp is never later than the read that frame starts
     c.js(f"""(() => {{ const t0 = window.__sameT0 = performance.now(); window.__sameAt = null;
       const seen = () => !!{Q}('[data-testid=session-lit-map] [data-box=extra1]');
       const mo = new MutationObserver(() => {{ if (seen()) {{ window.__sameAt = performance.now(); mo.disconnect(); }} }});
@@ -271,7 +273,9 @@ def same(c, rig, rows: Rows, a: str, b: str) -> dict:
     _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", one)}, undo="u1", this="shop",
            sigs=_sigs(rig, "shop"))
     a_ok = _wait(c, f"!!{Q}('[data-testid=session-lit-map] [data-box=extra1]')", 5)
-    a_reqs = c.js(f"window.__sameAt == null ? -1 : {MAPREQS}.filter((r) => r.t >= window.__sameT0 && r.t < window.__sameAt).length")
+    a_reqs = c.js(f"""window.__sameAt == null ? -1 : (() => {{ const t0 = window.__sameT0;
+      const fc = window.__jb.fct.filter((f) => f.t >= t0 && f.n.includes('shop')).map((f) => f.t), cut = Math.min(window.__sameAt, ...fc);
+      return {MAPREQS}.filter((r) => r.t >= t0 && r.t < cut).length; }})()""")
     a_new = c.js(f"!!{Q}('[data-box=extra1][data-new]')")
     two = one.replace("lines:\n", "- {id: extra2, agent: writer}\nlines:\n") + "- {from: main, to: extra2, when: always}\n"
     _body(rig, "shop", two)  # a plain write, as the Write tool makes: Studio's watcher sends files_changed

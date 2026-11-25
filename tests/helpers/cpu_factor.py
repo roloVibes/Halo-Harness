@@ -3,7 +3,7 @@
 A budget of CPU seconds a check sets for a process (Studio idle with Agents -> Live open, launch to idle) is kept on
 the reference machine and broken on a hosted runner that is several times slower that day, with the product right.
 So such a budget is set against a baseline measured IN THE SAME RUN: a fixed piece of pure-Python work is timed by
-this process's own CPU clock (the unit those budgets count in), and the factor is that time over the reference time,
+the measuring thread's own CPU clock (CPU seconds, the unit those budgets count in), and the factor is that time over the reference time,
 never under 1 (a faster machine keeps the plain budget) and capped at 4 (a busy product still fails: tens of percent
 of a core is over 4 x 5 %).
 
@@ -31,12 +31,13 @@ def work() -> int:
 
 
 def measure(repeats: int = 5) -> float:
-    """The median CPU seconds of `work()` over `repeats` runs, by this process's own clock."""
+    """The median CPU seconds of `work()` over `repeats` runs, by the CALLING THREAD's own clock: another busy thread of
+    this process (the realcheck's terminal reader, a thread an earlier test left) is not this machine's speed."""
     times = []
     for _ in range(max(1, repeats)):
-        t0 = time.process_time()
+        t0 = time.thread_time()
         work()
-        times.append(time.process_time() - t0)
+        times.append(time.thread_time() - t0)
     times.sort()
     return times[len(times) // 2]
 

@@ -2079,6 +2079,19 @@ def test_idle_cpu_budget_follows_the_speed_factor_measured_in_the_same_run(ctx: 
         ctx.check(f"factor of {measured:.3f} s against {r} s is {want}, got {cf.factor(measured)}", cf.factor(measured) == want)
     m = cf.measure(1)
     ctx.check(f"measure() gives a positive CPU time, got {m}", isinstance(m, float) and m > 0)
+    # after the check: a busy thread of the measuring process is not this machine's speed (process_time counted it: x2)
+    import threading
+    alone = cf.measure(3)
+    stop = threading.Event()
+    busy = threading.Thread(target=lambda: [None for _ in iter(stop.is_set, True)], daemon=True)
+    busy.start()
+    try:
+        crowded = cf.measure(3)
+    finally:
+        stop.set()
+        busy.join(10)
+    ctx.check(f"measure() with a busy thread beside it stays near its time alone ({alone:.3f} s), got {crowded:.3f} s",
+              crowded < alone * 1.5)
     f = cf.factor()
     ctx.check(f"factor() measured now is in [1, 4], got {f}", 1.0 <= f <= cf.CAP)
     ctx.check("said() names the factor only when it is not 1",
