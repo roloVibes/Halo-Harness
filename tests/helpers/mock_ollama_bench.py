@@ -12,6 +12,8 @@ byte on the GPU up to the model's `gpu_up_to`, past it 80 % (a scripted spill at
 
 from __future__ import annotations
 
+import json
+
 from tests.helpers.mock_ollama import _finish_chat, _real_prompt_count
 from tests.helpers.steward_seed import CODER30, QWEN9
 
@@ -37,6 +39,9 @@ SWEEP = {
     "sw-short:8b": {"size": 5 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 40960}, "family": "qwen35",
                     "gpu_up_to": 10 ** 7, "load_s": 5.0, "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0,
                     "per_ctx": 98304},
+    "sw-new:8b": {"size": 5 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 131072}, "family": "qwen35",
+                  "gpu_up_to": 10 ** 7, "load_s": 5.0, "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0,
+                  "per_ctx": 98304, "fail": "unknown model architecture: 'qwen99'"},
 }
 
 
@@ -55,6 +60,14 @@ def _rates(m: dict, window: int, spilled: bool) -> "tuple[float, float]":
 def scenario(name: str):
     def fn(h, body):
         mock, m = h.server.mock, spec(name)
+        if m.get("fail"):  # a runtime that cannot load it: Ollama's 500 with its error
+            data = json.dumps({"error": m["fail"]}).encode("utf-8")
+            h.send_response(500)
+            h.send_header("Content-Type", "application/json")
+            h.send_header("Content-Length", str(len(data)))
+            h.end_headers()
+            h.wfile.write(data)
+            return
         opts = body.get("options") or {}
         window, predict = int(opts.get("num_ctx") or 2048), int(opts.get("num_predict") or 128)
         with mock._lock:

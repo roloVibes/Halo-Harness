@@ -140,7 +140,9 @@ def _finish(state_dir, host, rec: dict, *, stopped: bool, max_loads: int, gpu_to
                     stopped=stopped)
     rec.update(pick=w, why=why, done=S.next_window(rec["windows"], start=rec["start"], top=rec["top"]) is None)
     S.save(state_dir, rec)
-    if w or rec["done"]:
+    floor = rec["done"] and rec["windows"] and not any(r.get("state") == S.FAILED for r in rec["windows"]) \
+        and S.step_down(min(r["window"] for r in rec["windows"])) is None
+    if w or floor:  # a pick, or measured down to the floor and nothing fits (a load that failed is no fit reading)
         from halo_harness.providers.ollama_calibrate import record_calibration
         srv = rec.get("server") or {}
         record_calibration(state_dir, host_url=host.url, model=rec["model"], digest=rec.get("digest"), max_full_gpu_ctx=w,

@@ -354,6 +354,19 @@ def test_one_sweep_per_server_and_the_record_keyed_by_digest_and_server(ctx: Ctx
 
 
 @test
+def test_a_model_that_does_not_load_is_no_fit_reading(ctx: Ctx):
+    from halo_harness.providers.ollama_calibrate import has_calibration_entry
+    with BenchRig(["sw-new:8b"]) as rig:
+        got = _sweep(rig, "sw-new:8b", start=32768)
+        rec = got["record"]
+        ctx.check(f"one load, its error kept, no pick, the sweep ends, got {_ws(got)} {rec['why']!r}",
+                  _ws(got) == [32768] and rec["windows"][0]["state"] == "did not load" and rec["pick"] is None
+                  and "unknown model architecture" in rec["why"] and rec["done"])
+        ctx.check("no calibration entry: a failed load is not 'does not fit'",
+                  not has_calibration_entry(rig.state, host_url=rig.host.url, model="sw-new:8b"))
+
+
+@test
 def test_halo_local_bench_sweep(ctx: Ctx):
     from halo_harness.local_bench_cli import cmd_bench
     with BenchRig(["sw-short:8b"]) as rig:
