@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from tests.test_browser_cdp import _Locked, _scratch, _tree_pids  # noqa: E402  (sets a scratch home first)
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
 GONE_S = 5.0
@@ -278,6 +278,30 @@ def test_the_ledger_lists_a_running_browser_as_browser(ctx: Ctx):
             ok, left = _gone_within(info["profile"], GONE_S)
             _end_left(left)
             ctx.check("gone after", ok)
+
+
+@test
+def test_a_hard_kill_while_the_browser_waits_suspended_for_its_job_leaves_nothing(ctx: Ctx):
+    """3.6.0.23 J P2 (Windows): Halo's browser starts suspended (browser_pipe_win.spawn) and runs only once it is in
+    its Jobs. A hard kill of Halo before the move left it suspended in no Job of Halo's, for good. Now it is born in
+    Halo's own Job, so it ends with Halo at every instant. The browser here is a stand-in (a Python that would sleep;
+    held suspended, it never runs); no real browser starts."""
+    if os.name != "nt":
+        raise SkipTest("Windows only: the pipe by handles and the Job objects are Windows'")
+    import shutil
+    import tempfile
+    from tests import test_kept_outlives_starter as K
+    tmp = Path(tempfile.mkdtemp(prefix="fx-j-browser-"))
+    start = '''from halo_harness import browser_pipe_win
+browser_pipe_win.spawn(SLEEP, subprocess_safe.Popen)'''
+    proc, child = K._moment_child(tmp, start), (None, None)
+    try:
+        child = K._killed_in_the_moment(ctx, proc, "the browser stand-in")
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        K._end(*child)
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

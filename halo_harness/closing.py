@@ -22,7 +22,9 @@ How the children notice a dead owner on their own (a hard kill runs no Python at
   each Halo process marks what it starts with its OWN id, so a `halo` run from a session's shell tool, or a sub-agent,
   ends only its own and never its parent's (two sessions of one home never touch each other's either);
 * Windows: every child subprocess_safe.Popen starts goes into this process's Job object with KILL_ON_JOB_CLOSE, so
-  the kernel ends them when the last handle (this process) goes; a Halo child's kept spawn breaks away (Halo's own
+  the kernel ends them when the last handle (this process) goes (3.6.0.23 J: from install() on this process is
+  itself a member of its plain Job, so a child is born inside it, never in no Job of Halo's for an instant); a Halo
+  child's kept spawn breaks away (Halo's own
   children join the Job that allows it; every other child joins one that forbids it, so a Git Bash program's own
   children, which break away whenever they may, stay in); when
   an OUTER Job (a terminal's, a service's) forbids breakaway, a kept spawn starts from outside every Job through WMI
@@ -244,6 +246,8 @@ def open_unsure() -> bool:
 
 def _python_browser(url: str, stubbed: bool, setup_door) -> bool:
     import webbrowser
+    if os.name == "nt" and not stubbed and _STATE.get("member"):
+        return False  # 3.6.0.23 J: a browser this process starts is born in its own Job and would close with Halo
     try:
         with without_marker():
             return bool(webbrowser.open(url) if stubbed else setup_door.open_in_a_window(url))
@@ -347,6 +351,19 @@ def breakaway_frees() -> bool:
 
 class Unmarked(dict):
     """An environment built without Halo's owner variables on purpose: before_spawn leaves it so (3.6.0.0 fx)."""
+
+
+def start_persons(fn: Callable, args, **kw):
+    """`fn(args, **kw)` (subprocess's call or run) for a program that is the person's own, an editor: never ended
+    with Halo. 3.6.0.23 J: on Windows, while this process is a member of a Job of its own (install()), the program
+    would be born inside that Job, so it asks to break away; where a Job refuses that (error 5) the same start is made
+    once more without it (an outer Job then holds it, as before)."""
+    if os.name == "nt" and _STATE.get("member"):
+        try:
+            return fn(args, **dict(kw, creationflags=int(kw.get("creationflags") or 0) | _BREAKAWAY))
+        except PermissionError:
+            pass
+    return fn(args, **kw)
 
 
 def scrubbed_env(env: Optional[dict] = None) -> dict:
@@ -877,6 +894,7 @@ def _k32():
     k32.WaitForSingleObject.restype = wintypes.DWORD
     k32.CloseHandle.argtypes = (wintypes.HANDLE,)
     k32.TerminateJobObject.argtypes = (wintypes.HANDLE, wintypes.UINT)
+    k32.GetCurrentProcess.restype = wintypes.HANDLE
     return k32
 
 
@@ -935,10 +953,44 @@ def may_break_away(args) -> bool:
     return str(args[0]).replace("\\", "/").rsplit("/", 1)[-1].lower() in ("halo", "halo.exe")
 
 
+def _assign_self(job) -> bool:
+    """Windows: this process joins `job`, for good (a process never leaves a Job)."""
+    k32 = _k32()
+    return bool(k32.AssignProcessToJobObject(job, k32.GetCurrentProcess()))
+
+
+def _join_own_job() -> None:
+    """3.6.0.23 J (Windows), install()'s first step: this process becomes a member of a Job of its own
+    (KILL_ON_JOB_CLOSE | BREAKAWAY_OK), so every program it starts is born inside it and a hard kill at any instant
+    ends it (a child used to join a Job only after its create: a kill in between left it, running or suspended, in
+    none). It is the plain Job (_job()), never inherited, never closed: the kernel ends every member when this
+    process, its only holder, goes. BREAKAWAY_OK: a kept spawn still leaves it. A child Halo starts nests its own in
+    it. When joining fails (an outer Job that refuses nesting, an old Windows) the path before stays: each child joins
+    a Job after its start, and one trace line says so."""
+    import ctypes
+    job = new_job(0x2000 | 0x800)  # KILL_ON_JOB_CLOSE | BREAKAWAY_OK
+    why = "no Job object"
+    try:
+        if job and _assign_self(job):
+            _STATE["job"], _STATE["member"] = job, True
+            return
+        if job:
+            why = f"error {ctypes.get_last_error()}"
+    except Exception as e:
+        why = type(e).__name__
+    if job:
+        try:
+            _k32().CloseHandle(job)
+        except Exception:
+            pass
+    trace(f"own Job: not joined ({why}): each child joins a Job of Halo's after its start")
+
+
 def _job(strict: bool = False):
     """This process's Job objects: KILL_ON_JOB_CLOSE (the kernel ends every member when this process's handle goes,
     a hard kill included). The plain one also has BREAKAWAY_OK (a kept spawn of a Halo child leaves it); the strict
-    one does not (an ordinary child and everything it starts stay in it). Never inherited: no child holds one open."""
+    one does not (an ordinary child and everything it starts stay in it). Never inherited: no child holds one open.
+    3.6.0.23 J: when this process is a member of its own Job (install()), that one is the plain Job."""
     key = "strict_job" if strict else "job"
     if _STATE[key] is not None:
         return _STATE[key] or None
@@ -956,7 +1008,10 @@ def adopt(proc) -> bool:
     if os.name != "nt":
         return False
     handle = getattr(proc, "_handle", None)
-    job = _job(strict=not may_break_away(getattr(proc, "args", None)))
+    own = may_break_away(getattr(proc, "args", None))
+    if own and _STATE.get("member"):
+        return True  # 3.6.0.23 J: born in this process's own Job, the one a kept spawn of its own may leave
+    job = _job(strict=not own)
     if not job or handle is None:
         return False
     try:
@@ -1746,6 +1801,8 @@ def install(*, sweep_at_start: bool = True) -> None:
     if _STATE["installed"]:
         return
     _STATE["installed"] = True
+    if os.name == "nt":
+        _join_own_job()  # 3.6.0.23 J: before anything that can start a process
     watch = os.environ.get(WATCH, "")
     owner_pid, owner_start = parse_watch(watch)
     if owner_pid and not valid_watch(owner_pid, owner_start):
@@ -1769,5 +1826,6 @@ def install(*, sweep_at_start: bool = True) -> None:
 
 
 def reset_for_tests() -> None:
+    # 3.6.0.23 J: "member" and the Job handles stay as they are: a process that joined a Job never leaves it
     _STATE.update(installed=False, closed=False, spawned=False, callbacks=[], owner_gone=False, hard_exit=None,
                   deadline=None)

@@ -94,8 +94,8 @@ def edit(kind: str, name: str, cwd: Path) -> int:
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if scope != "starter" and editor and sys.stdin.isatty():
         try:
-            from halo_harness.closing import scrubbed_env  # the person's editor: never ended with Halo
-            return subprocess.call([*editor_argv(editor), str(path)], env=scrubbed_env())
+            from halo_harness.closing import scrubbed_env, start_persons  # the person's editor: never ended with Halo
+            return start_persons(subprocess.call, [*editor_argv(editor), str(path)], env=scrubbed_env())
         except (OSError, ValueError) as e:  # 3.6.0.0 R5 fix: one plain line, never a traceback
             print(f"halo {kind}s edit: your editor ({editor}) did not start ({type(e).__name__}): set VISUAL or EDITOR "
                   f"to one that runs, or open it in Studio: halo studio --edit {kind}:{name}", file=sys.stderr)

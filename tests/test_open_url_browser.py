@@ -24,7 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
 WIN = os.name == "nt"
@@ -309,6 +309,58 @@ def test_a_threaded_browser_start_sees_a_stop_and_a_close_does_not_wait_for_it(c
         closing._STATE.update(st)
         os.environ.pop("BROWSER", None) if b is None else os.environ.__setitem__("BROWSER", b)
         closing._OPENING.unsure = False
+
+
+_MEMBER_BROWSER = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from halo_harness import closing
+if sys.argv[3] == "fails":
+    closing._assign_self = lambda job: False  # stood in: this halo could not join a Job of its own
+closing.install(sweep_at_start=False)
+seen = []
+
+
+class _Door:  # the product's door to a window, recorded: no browser starts, and webbrowser.open stays Python's own
+    @staticmethod
+    def open_in_a_window(url):
+        seen.append(url)
+        return True
+
+
+import webbrowser
+stubbed = getattr(webbrowser.open, "__module__", "webbrowser") != "webbrowser"  # as open_url tells it
+got = closing._python_browser(sys.argv[2], stubbed, _Door)
+print(json.dumps({"member": bool(closing._STATE.get("member")), "stubbed": stubbed, "got": got, "seen": seen}))
+'''
+
+
+@test
+def test_a_member_halo_never_starts_the_shells_browser_inside_its_own_job(ctx: Ctx):
+    """3.6.0.23 J P7 (Windows): the shell's browser (webbrowser / os.startfile) started by this process is born in
+    its Job and would close with Halo. While Halo is a member of a Job of its own, the not-stubbed fallback starts
+    nothing and answers False (the caller prints the address); a halo that is no member opens it as before."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import json
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "BRIDGE_"))}
+    root = Path(tempfile.mkdtemp(prefix="halo-member-browser-"))
+    env.update(BRIDGE_TEST_HOME=str(root / "home"), PYTHONPATH=str(REPO), HALO_NO_UPDATER="1",
+               OLLAMA_HOST="http://127.0.0.1:9")
+    got = {}
+    for way in ("member", "fails"):
+        r = subprocess.run([sys.executable, "-c", _MEMBER_BROWSER, str(REPO), URL, way], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=120, env=env)
+        try:
+            got[way] = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            got[way] = {"raw": r.stdout[-200:], "err": r.stderr[-300:]}
+    m, f = got["member"], got["fails"]
+    ctx.check(f"the not-stubbed branch is the one tested, got {got}", m.get("stubbed") is False)
+    ctx.check(f"a member: nothing started, False, got {m}", m.get("member") is True and m.get("got") is False
+              and m.get("seen") == [])
+    ctx.check(f"no member (the path before): the door opens it, got {f}", f.get("member") is False
+              and f.get("got") is True and f.get("seen") == [URL])
 
 
 if __name__ == "__main__":

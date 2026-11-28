@@ -439,8 +439,9 @@ def _base_starter_code(code: str) -> str:
     return f"import site; site.addsitedir({sysconfig.get_paths()['purelib']!r})\n" + code
 
 
-def _no_breakaway_job():
-    """A Job object of this test's: kill-on-close, breakaway forbidden (what some terminals and services hold)."""
+def _no_breakaway_job(flags: int = 0x2000):
+    """A Job object of this test's: kill-on-close, breakaway forbidden (what some terminals and services hold); with
+    `flags` 0x3000 (KILL_ON_JOB_CLOSE | SILENT_BREAKAWAY_OK) what a venv's or a console script's launcher holds."""
     import ctypes
     from ctypes import wintypes
 
@@ -458,7 +459,7 @@ def _no_breakaway_job():
     k32.CloseHandle.argtypes = (wintypes.HANDLE,)
     job = k32.CreateJobObjectW(None, None)
     info = _Ext()
-    info.Basic.LimitFlags = 0x2000  # KILL_ON_JOB_CLOSE only: no BREAKAWAY_OK, no SILENT_BREAKAWAY_OK
+    info.Basic.LimitFlags = flags  # 0x2000: KILL_ON_JOB_CLOSE only: no BREAKAWAY_OK, no SILENT_BREAKAWAY_OK
     if not job or not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
         raise SkipTest("could not make a Job object here")
     return k32, job
@@ -1011,7 +1012,8 @@ print(json.dumps({{"answer": got}}), flush=True)
 
 
 def _wmi_child(tmp: Path, hold: str):
-    """A child Python (the base interpreter: a venv's launcher would leave the real one running when killed) that
+    """A child Python (the base interpreter, so the process the test ends is the interpreter itself, never a launcher in
+    front of it; on the PC, ending the uv tool venv's launcher hard ended its interpreter too) that
     calls closing._run_wmi with `adopt` replaced by `hold`; the program the helper would create appends a line to
     tmp/started."""
     base = getattr(sys, "_base_executable", None) or sys.executable
@@ -1203,6 +1205,294 @@ def test_the_breakaway_probe_runs_no_autorun(ctx: Ctx):
     argv = [str(a).lower() for a in (seen[0] if seen else [])]
     ctx.check(f"the probe's cmd runs with /d (no AutoRun) before /c, got {seen}",
               "/d" in argv and "/c" in argv and argv.index("/d") < argv.index("/c"))
+
+
+# -- 3.6.0.23 J: on Windows a halo is a member of a Job of its own, so what it starts is born inside it ---------------
+
+_MOMENT = r'''import json, os, sys, time
+sys.path.insert(0, {repo!r})
+from pathlib import Path
+from halo_harness import closing, subprocess_safe
+tmp = Path({tmp!r})
+{before}
+closing.install(sweep_at_start=False)  # what cli.main does first in a real halo
+member = bool(closing._STATE.get("member"))
+_real_adopt = closing.adopt
+
+
+def _held(proc):  # the instant between the create and the move into a Job of Halo's, held on purpose
+    print(json.dumps({{"child": proc.pid, "member": member}}), flush=True)
+    time.sleep(600)
+
+
+if {hold!r}:
+    closing.adopt = _held
+SLEEP = [sys.executable, "-c", "import time; time.sleep(600)"]
+QUIET = dict(stdin=subprocess_safe.DEVNULL, stdout=subprocess_safe.DEVNULL, stderr=subprocess_safe.DEVNULL)
+{start}
+time.sleep(600)
+'''
+
+_START_SLEEPER = '''p = subprocess_safe.Popen(SLEEP, **QUIET)
+print(json.dumps({"child": p.pid, "member": member}), flush=True)'''
+
+
+def _moment_child(tmp: Path, start: str, *, hold: bool = True, before: str = "", flags: int = 0, **env):
+    """A starter (the base interpreter) that calls closing.install(), so IT joins a Job, never this test process; with
+    `hold` its adopt() prints the child's pid and never returns (the moment a hard kill must not leave anything)."""
+    base = getattr(sys, "_base_executable", None) or sys.executable
+    code = _base_starter_code(_MOMENT.format(repo=str(REPO), tmp=str(tmp), before=before, hold=hold, start=start))
+    return _starter(tmp, code, dict(_env(tmp / "home"), **env), python=base, flags=flags)
+
+
+def _child_of(proc, seconds: float = 120.0) -> "tuple[dict, tuple]":
+    ready = _ready_line(proc, seconds)
+    pid = ready.get("child")
+    return ready, (pid, _start_time(pid) if pid else None)
+
+
+def _killed_in_the_moment(ctx: Ctx, proc, what: str) -> tuple:
+    """The starter is ended hard while it holds its child in the moment; the child must be gone (by pid and start)."""
+    ready, child = _child_of(proc)
+    ctx.check(f"{what}: the starter held its child in the moment, got {ready}", _same(*child))
+    proc.kill()  # the hard kill, by this test's own handle on its own child
+    proc.wait(timeout=60)
+    ctx.check(f"{what}: the child (pid {child[0]}) is gone within 30 s of its starter's hard kill",
+              _gone([child], 30.0))
+    ctx.check(f"{what}: the starter was a member of a Job of its own", ready.get("member") is True)
+    return child
+
+
+@test
+def test_a_hard_kill_before_an_ordinary_childs_move_into_halos_job_leaves_nothing(ctx: Ctx):
+    """3.6.0.23 J P1: a child of subprocess_safe.Popen joined a Job of Halo's only AFTER its create; a hard kill of
+    Halo in between left it running in no Job of Halo's, for good. Now Halo is a member of a Job of its own from its
+    install() on, so the child is born inside it."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import shutil
+    tmp = Path(tempfile.mkdtemp(prefix="fx-j-moment-"))
+    proc, child = _moment_child(tmp, _START_SLEEPER), (None, None)
+    try:
+        child = _killed_in_the_moment(ctx, proc, "plain")
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        _end(*child)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_a_hard_kill_in_the_moment_leaves_nothing_under_a_launchers_job_or_a_strict_outer_job(ctx: Ctx):
+    """3.6.0.23 J P4: the starter inside a Job of the TEST's: a launcher's (KILL | SILENT_BREAKAWAY_OK, which every
+    installed halo runs under: a plain child is silently in none of it) and one that lets nothing leave (a terminal's,
+    a service's: the child stayed in it, alive, as long as that Job lived)."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import ctypes
+    import shutil
+    for flags, what in ((0x3000, "under a launcher's Job"), (0x2000, "under a Job that lets nothing leave")):
+        tmp = Path(tempfile.mkdtemp(prefix="fx-j-outer-"))
+        k32, job = _no_breakaway_job(flags)
+        proc, child = _moment_child(tmp, _START_SLEEPER, flags=0x4), (None, None)  # CREATE_SUSPENDED: in the Job first
+        try:
+            ctx.check(f"{what}: the starter is in the test's Job", k32.AssignProcessToJobObject(job, int(proc._handle)))
+            ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle)))
+            child = _killed_in_the_moment(ctx, proc, what)
+        finally:
+            k32.CloseHandle(job)  # the test's Job closes: the kernel ends whatever is still in it
+            if proc.poll() is None:
+                proc.kill()
+            _end(*child)
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+_START_MCP = '''import asyncio
+import mcp.os.win32.utilities as U
+
+
+def _held_mcp(process, job):  # the library's own Job assignment, held on purpose
+    print(json.dumps({"child": process.pid, "member": member}), flush=True)
+    time.sleep(600)
+
+
+U._maybe_assign_process_to_job = _held_mcp
+from halo_harness.mcp.stdio import connect
+err = open(tmp / "mcp-err.log", "w")
+asyncio.run(connect(command=sys.executable, args=["-c", "import time; time.sleep(600)"], env=dict(os.environ),
+                    cwd=None, errlog=err, connect_timeout=120))'''
+
+
+@test
+def test_a_hard_kill_before_the_mcp_librarys_own_job_takes_its_server_leaves_nothing(ctx: Ctx):
+    """3.6.0.23 J P3: a tool server the MCP library starts (halo_harness/mcp/stdio.py) was never in a Job of Halo's:
+    the library puts it into a Job of its own after the create, and a hard kill of Halo in that moment left the
+    server (one that does not end when its input closes) running for good. Now it is born in Halo's own Job."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import importlib.util
+    import shutil
+    if importlib.util.find_spec("mcp") is None:
+        raise SkipTest("the MCP library is not installed here")
+    tmp = Path(tempfile.mkdtemp(prefix="fx-j-mcp-"))
+    proc, child = _moment_child(tmp, _START_MCP, hold=False), (None, None)
+    try:
+        child = _killed_in_the_moment(ctx, proc, "a tool server")
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        _end(*child)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_a_kept_spawn_of_a_member_halo_outlives_its_hard_kill_under_a_launchers_job(ctx: Ctx):
+    """3.6.0.23 J P5: Halo's own Job lets a kept spawn leave (BREAKAWAY_OK), and under a launcher's Job (every
+    installed halo) it then lands in no Job at all: the kept program outlives the starter's hard kill and the
+    launcher's Job closing. A strict own Job would refuse its create (error 5). (Without an outer Job of the test's:
+    test_a_kept_server_outlives_its_starter_ended_normally_or_hard, whose starters are members too.)"""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import ctypes
+    import shutil
+    base = getattr(sys, "_base_executable", None) or sys.executable
+    tmp = Path(tempfile.mkdtemp(prefix="fx-j-kept-"))
+    code = _base_starter_code(_OUTER.format(tmp=str(tmp), sleeper=str(SLEEPER), no_way=False))
+    k32, job = _no_breakaway_job(0x3000)
+    proc = _starter(tmp, code, _env(tmp / "home"), python=base, flags=0x4)
+    kept = (None, None)
+    try:
+        ctx.check("the starter is in the launcher-like Job", k32.AssignProcessToJobObject(job, int(proc._handle)))
+        ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle)))
+        ready = _ready_line(proc, 120.0)
+        ctx.check(f"the kept spawn started, got {ready}", ready.get("kept"))
+        kept = (ready.get("kept"), _start_time(ready["kept"]) if ready.get("kept") else None)
+        proc.kill()
+        proc.wait(timeout=60)
+        k32.CloseHandle(job)
+        job = None
+        time.sleep(2.0)
+        ctx.check("the kept program outlives its starter's hard kill and the launcher's Job", _same(*kept))
+    finally:
+        if job:
+            k32.CloseHandle(job)
+        if proc.poll() is None:
+            proc.kill()
+        _end(*kept)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+_EDITOR = r'''import json, os, subprocess, sys, time
+mode, path = sys.argv[1], sys.argv[-1]
+if mode == "returns":  # an editor that hands the file to a window of its own and returns at once (`code`, no --wait)
+    g = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    open(path + ".json", "w").write(json.dumps({"pid": g.pid}))
+else:
+    open(path + ".json", "w").write(json.dumps({"pid": os.getpid()}))
+    time.sleep(600)
+'''
+
+_START_EDITOR = '''import shlex
+from halo_harness import roles_cli
+editor = " ".join(shlex.quote(str(a).replace("\\\\", "/")) for a in (sys.executable, tmp / "editor.py", MODE))
+rc = roles_cli._run_editor(editor, tmp / "edited.txt", label="test")
+print(json.dumps({"rc": rc, "member": member}), flush=True)
+sys.exit(0)'''
+
+
+@test
+def test_the_persons_editor_outlives_a_member_halo_ended_normally_or_hard(ctx: Ctx):
+    """3.6.0.23 J P6: the person's editor is the person's (3.6.0.0). Born inside Halo's own Job it would end with
+    Halo: on a hard kill while it is open, and on a normal exit when the editor returned at once and its window
+    still runs. closing.start_persons starts it out of the Job."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import shutil
+    for mode in ("returns", "stays"):
+        tmp = Path(tempfile.mkdtemp(prefix=f"fx-j-editor-{mode}-"))
+        (tmp / "editor.py").write_text(_EDITOR, encoding="utf-8")
+        proc = _moment_child(tmp, _START_EDITOR.replace("MODE", repr(mode)), hold=False)
+        ed = (None, None)
+        try:
+            got = _wait_file(tmp / "edited.txt.json", 120.0) or {}
+            ed = (got.get("pid"), _start_time(got["pid"]) if got.get("pid") else None)
+            ctx.check(f"{mode}: the editor stand-in started, got {got}", ed[0])
+            if mode == "returns":
+                ready = _ready_line(proc, 120.0)
+                ctx.check(f"{mode}: the editor returned, got {ready}", ready.get("rc") == 0)
+                proc.wait(timeout=60)  # the normal exit: its closing procedure ran, its own Job closed
+            else:
+                proc.kill()
+                proc.wait(timeout=60)
+            time.sleep(2.0)
+            ctx.check(f"{mode}: the editor's program (pid {ed[0]}) outlives its starter's "
+                      f"{'normal exit' if mode == 'returns' else 'hard kill'}", _same(*ed))
+            if mode == "returns":
+                ctx.check(f"{mode}: the starter was a member, got {ready}", ready.get("member") is True)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+            _end(*ed)
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_every_editor_start_goes_through_start_persons(ctx: Ctx):
+    """3.6.0.23 J ruling 3: the four starts of the person's editor use the one helper (and still no marker)."""
+    sites = {"crew_cli_parts.py": ("subprocess.call", "subprocess.call([*editor_argv"),
+             "roles_cli.py": ("subprocess.call", "subprocess.call([*argv"),
+             "tui/app.py": ("sp.run", "sp.run(f'{editor}"),
+             "tui/dialogs/mcp_status.py": ("sp.run", "sp.run(_editor_command(")}
+    for rel, (fn, before) in sites.items():
+        text = (REPO / "halo_harness" / rel).read_text(encoding="utf-8")
+        ctx.check(f"{rel}: the editor starts through start_persons({fn}, ...) with a scrubbed environment",
+                  f"start_persons({fn}," in text and "env=scrubbed_env())" in text and before not in text)
+
+
+@test
+def test_a_halo_that_cannot_join_a_job_of_its_own_takes_the_path_before_and_says_so_in_its_trace(ctx: Ctx):
+    """3.6.0.23 J P8: when the self-assignment fails (an outer Job that refuses nesting, an old Windows: stood in
+    here), nothing changes from 3.6.0.22: no member, each child is moved into the strict Job after its start, one
+    line in the close trace, nothing printed."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import shutil
+    tmp = Path(tempfile.mkdtemp(prefix="fx-j-fallback-"))
+    start = '''import ctypes
+from ctypes import wintypes
+p = subprocess_safe.Popen(SLEEP, **QUIET)
+k32 = ctypes.WinDLL("kernel32")
+k32.IsProcessInJob.argtypes = (wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL))
+held = wintypes.BOOL(False)
+k32.IsProcessInJob(int(p._handle), closing._STATE.get("strict_job") or None, ctypes.byref(held))
+print(json.dumps({"child": p.pid, "member": member, "in_strict": bool(held.value),
+                  "plain": bool(closing._STATE.get("job")), "resumed": RESUMED}), flush=True)'''
+    before = '''closing._assign_self = lambda job: False  # stood in: the self-assignment fails
+RESUMED = []
+if hasattr(closing, "_nt_resume"):
+    _resume = closing._nt_resume
+    closing._nt_resume = lambda p: (RESUMED.append(p.pid), _resume(p))[1]'''
+    proc = _moment_child(tmp, start, hold=False, before=before, HALO_CLOSE_TRACE=str(tmp / "trace.txt"))
+    child = (None, None)
+    try:
+        ready, child = _child_of(proc)
+        ctx.check(f"the child started, got {ready}", _same(*child))
+        ctx.check("not a member", ready.get("member") is False and ready.get("plain") is False)
+        ctx.check("the child was moved into the strict Job after its start, as before", ready.get("in_strict") is True)
+        ctx.check(f"and never held suspended, got {ready.get('resumed')}", ready.get("resumed") == [])
+        trace = (tmp / "trace.txt").read_text(encoding="utf-8") if (tmp / "trace.txt").exists() else ""
+        ctx.check(f"one line in the close trace says so, got {trace[-300:]!r}",
+                  sum("own Job: not joined" in ln for ln in trace.splitlines()) == 1)
+        proc.kill()
+        proc.wait(timeout=60)
+        err = proc.stderr.read()
+        ctx.check(f"nothing printed, got {err[-300:]!r}", not err.strip())
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        _end(*child)
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

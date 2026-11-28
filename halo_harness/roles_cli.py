@@ -202,9 +202,9 @@ def _run_editor(editor: str, path, *, label: str) -> int:
     with an uncaught `FileNotFoundError` traceback."""
     argv = shlex.split(editor) or [editor]
     argv[0] = shutil.which(argv[0]) or argv[0]
-    from halo_harness.closing import scrubbed_env  # the person's editor: never ended with Halo
+    from halo_harness.closing import scrubbed_env, start_persons  # the person's editor: never ended with Halo
     try:
-        return subprocess.call([*argv, str(path)], env=scrubbed_env())
+        return start_persons(subprocess.call, [*argv, str(path)], env=scrubbed_env())
     except OSError as e:
         print(f"{label}: could not launch {editor!r}: {type(e).__name__}: {e}", file=sys.stderr)
         return 1

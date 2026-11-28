@@ -43,7 +43,8 @@ without a line (3.6.0.18): nobody started it and nobody can keep it.
 
 **While the terminal app is up, no program Halo starts reads your keyboard** (3.6.0.18): its input is the null
 device, so it cannot take a key you typed for Halo. Your editor (Ctrl+E, `/editor`, `/improve`'s edit, the `/mcp`
-dialog's editor) has the keyboard while it is open. **Once Halo's closing procedure has run, nothing new
+dialog's editor) has the keyboard while it is open; it is yours, so it never ends with Halo (on Windows it leaves
+Halo's Job object). **Once Halo's closing procedure has run, nothing new
 starts**: a background worker that answers late and then tries to start a program through Halo's own process
 layer is refused. What you asked Halo to keep still starts.
 
@@ -80,11 +81,15 @@ left by a reboot or a hard kill is cleared and said, never signalled.
    the way it stops itself (Studio's stop route, a model server's stop), then signalled as a process group or tree,
    then ended hard -- within 3 s + 2 s. When all is well it prints nothing.
 2. **A hard kill** runs no code in Halo, so the children notice on their own:
-   - Windows: every child is in a Job object that Windows ends together with Halo: Halo's own (a tool's shell
-     command too, with every program it started: Git Bash's own children no longer leave it), or, for a tool
-     server, one the server library makes for it. A child joins its Job a brief moment after it is started; a hard
-     kill in exactly that moment leaves that child, and anything it started in it, outside (a known limit; a
-     helper of Halo's own waits for Halo's word before it does anything, so it leaves by itself);
+   - Windows: from its first moment Halo is itself in a Job object of its own (3.6.0.23), so every program it
+     starts is born inside it, and Windows ends it together with Halo at any instant: a child, Halo's own browser
+     while it waits to run, a tool server. An ordinary child (a tool's shell command too, with every program it
+     started) is then moved into a stricter Job that no program may leave (Git Bash's own children no longer leave
+     it); a tool server's library adds one of its own inside Halo's. What stays open: a program may start one that
+     leaves every Job in the brief moment before its move (Git Bash programs do so whenever they may); and where
+     Windows refuses Halo a Job of its own (an outer Job that allows none inside it, an old Windows), a child joins
+     its Job a brief moment after it is started, and a hard kill in exactly that moment leaves it outside, as
+     before 3.6.0.23;
    - a shell command a tool started is in the ledger as `shell` while it runs (`halo ps` lists it), so the closing
      procedure and the reaper end its whole group even where its environment cannot be read (macOS);
    - every Halo child (Studio's server first) watches the Halo that started it and closes within two seconds;
