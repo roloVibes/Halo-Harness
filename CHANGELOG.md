@@ -8,6 +8,65 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.24] - unreleased
+
+The plan of a session. Session now says what the session is for and shows the plan written out with what is done;
+every agent card says what that agent is for. No model is sent anything new for it.
+
+### Added
+
+- **Session shows the objective and the plan.** In the Feed's title bar, after "FEED main · full": "Objective"
+  with your latest ask (a "yes" or a "go on" keeps the one before; for a slash command it is the line you typed),
+  and a chip, "Plan 3 of 7". It takes no room from the feed. A click on the chip opens the plan above the
+  Timeline: the objective whole, then one line per step with its state as a mark and a word (done, doing, to do);
+  the step in progress stands out and says what is being done. Another click closes it, and your choice is kept.
+  A hover on the chip says the step in progress. The plan is main's own to-do list exactly as main last wrote it:
+  nothing is guessed. When main has written none the chip says "no plan yet".
+- **Every agent card says its goal.** In Agents -> Live and in Session's map a card's first line reads
+  "researcher · Goal: read the failing test": the words the agent was given when it was started. A hover adds
+  "started for: ..." with the step that was in progress at that moment in the plan of whoever started it (main,
+  or the helper that started this one), when there was one.
+- Each agent's to-do list is kept on its own row. The map's "plan: N of M done" line and the Feed's plan filter
+  show main's; nothing fed them before this release, so they show a real plan for the first time, and keep it
+  across a page reload.
+- `/clear` and a resume inside the app clear the objective and the plan with the conversation they belonged to.
+- A list of more than thirty steps: the chip and the map's line count all of them; the list shows thirty (the
+  step in progress always among them) and says how many are not shown.
+- Other machines you share status with (federation, the `status` level) get an agent's state as before, not the
+  words of its plan or objective.
+
+### Changed
+
+- While main writes its plan, its "doing" line says "TodoWrite: plan of N steps" (it showed the raw list).
+- A card whose first line was already full grows by one line with the word "Goal" (the box grows before a word is
+  cut).
+
+### Tests
+
+- The page in a real browser (the Linux machine): the title bar holds the objective and the chip at the first
+  draw; the Feed's head and the Timeline stay where they are with no objective, a long one, and a plan arriving;
+  a click opens the list, a change of states keeps its height, the fold survives a reload; the card's first line.
+- What the checks found before this release, each with its test now: a skill's slash command put the skill's own
+  first line under "Objective" (in the terminal app, in a headless run, and when typed while a turn ran); the
+  plan of a cleared or left conversation stayed on the page; a list over thirty steps was cut without a word.
+- The first build put the objective in a row of its own at the top of the Feed. The run on the hosted machines
+  showed what that cost: the feed lost lines, and its own click and copy tests failed. The objective and the chip
+  moved into the title bar and the list opens on a click; those tests are green again, unchanged.
+- What a model is sent is pinned and unchanged.
+
+### Known limits
+
+- In a narrow Feed the title bar cuts a long objective with an ellipsis; a hover, or the open list, says it whole.
+- After a resumed session the plan is shown again only once main writes its list again ("no plan yet" until then).
+- When main empties its list, the chip says "no plan yet" again.
+- The fold is one choice for the browser: opened in one session, the list is open in the next.
+- A model that writes no to-do list (many small local models) shows the objective only. Halo does not tell a
+  model to write one.
+- Not in this release: the task board that sub-agents share, a click on a step that shows only what was done for
+  it, a receipt per finished step, the plan in the terminal app, editing the objective by hand.
+- The page was driven by the same two events a real to-do call sends; no browser on Windows or macOS drew it.
+- Every Known limit of 3.6.0.23 still holds.
+
 ## [3.6.0.23] - 2026-11-27
 
 A closing release, Windows only. Every program Halo starts is inside Halo's Job from its first instant: the start
