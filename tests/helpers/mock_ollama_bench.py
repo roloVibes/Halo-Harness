@@ -42,6 +42,16 @@ SWEEP = {
     "sw-new:8b": {"size": 5 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 131072}, "family": "qwen35",
                   "gpu_up_to": 10 ** 7, "load_s": 5.0, "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0,
                   "per_ctx": 98304, "fail": "unknown model architecture: 'qwen99'"},
+    # the repair after the check: trained past Halo's 131,072 cap; a header without its trained window; a tag that
+    # carries the user name of the scrub's tests and an Ollama error that carries a path
+    "sw-long:4b": {"size": 3 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 262144}, "family": "qwen35",
+                   "gpu_up_to": 10 ** 7, "load_s": 5.0, "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0,
+                   "per_ctx": 8192},
+    "sw-nohead:8b": {"size": 5 * 2 ** 30, "info": dict(QWEN9), "family": "qwen35", "gpu_up_to": 10 ** 7, "load_s": 5.0,
+                     "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0, "per_ctx": 98304},
+    "tester-coder:8b": {"size": 5 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 131072}, "family": "qwen35",
+                        "gpu_up_to": 10 ** 7, "load_s": 5.0, "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0,
+                        "per_ctx": 98304, "fail": "open /data/ollama/models/blobs/sha256-ab12: no such file or directory"},
 }
 
 

@@ -80,7 +80,7 @@ def measure_window(host, model: str, window: int, *, send: Callable, client, mem
     ps = _ps(client, model)
     size, vram = ps.get("size"), ps.get("size_vram")
     row.update(size=size, size_vram=vram,
-               on_card=(vram >= size) if isinstance(size, int) and isinstance(vram, int) and size > 0 else False)
+               on_card=(vram >= size) if isinstance(size, int) and isinstance(vram, int) and size > 0 else None)
     mem = None
     try:
         mem = memory() if memory is not None else None
@@ -124,10 +124,15 @@ def _start(host, model: str, f: dict, card) -> int:
     return S.grid(ceiling)
 
 
+def _max_ctx(host) -> Optional[int]:
+    v = getattr(host, "max_ctx", None)
+    return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+
+
 def _top(host, f: dict) -> int:
-    from halo_harness.providers.local_bench import MAX_WINDOW
-    cap = host.max_ctx if isinstance(getattr(host, "max_ctx", None), int) and host.max_ctx > 0 else None
-    return min(x for x in (f.get("trained") or MAX_WINDOW, cap or MAX_WINDOW))
+    """The trained window, the host's max_ctx and Halo's hard cap (it never asks a model for more): the smallest."""
+    from halo_harness.providers.ollama import HARD_CONTEXT_CAP
+    return min(f.get("trained") or HARD_CONTEXT_CAP, _max_ctx(host) or HARD_CONTEXT_CAP, HARD_CONTEXT_CAP)
 
 
 def _fail(model: str, name: str, say: str) -> dict:
@@ -136,11 +141,11 @@ def _fail(model: str, name: str, say: str) -> dict:
 
 def _finish(state_dir, host, rec: dict, *, stopped: bool, max_loads: int, gpu_total=None) -> None:
     S.mark(rec["windows"])
-    w, why = S.pick(rec["windows"], top=rec["top"], trained=rec.get("trained"), loads_left=max_loads - len(rec["windows"]),
-                    stopped=stopped)
+    w, why = S.pick(rec["windows"], top=rec["top"], trained=rec.get("trained"), cap=rec.get("max_ctx"),
+                    loads_left=max_loads - len(rec["windows"]), stopped=stopped)
     rec.update(pick=w, why=why, done=S.next_window(rec["windows"], start=rec["start"], top=rec["top"]) is None)
     S.save(state_dir, rec)
-    floor = rec["done"] and rec["windows"] and not any(r.get("state") == S.FAILED for r in rec["windows"]) \
+    floor = rec["done"] and rec["windows"] and not any(r.get("state") in (S.FAILED, S.UNKNOWN) for r in rec["windows"]) \
         and S.step_down(min(r["window"] for r in rec["windows"])) is None
     if w or floor:  # a pick, or measured down to the floor and nothing fits (a load that failed is no fit reading)
         from halo_harness.providers.ollama_calibrate import record_calibration
@@ -172,11 +177,14 @@ def sweep(host, model: str, *, state_dir, card=None, send: Optional[Callable] = 
         rec = {"host_url": host.url, "host": name, "model": model, "digest": f["digest"], "server": f["server"],
                "trained": f["trained"], "start": start or _start(host, model, f, card), "windows": [], "pick": None,
                "why": "", "done": False, "proposals": []}
-    rec["top"] = _top(host, f)
+    rec["top"], rec["max_ctx"] = _top(host, f), _max_ctx(host)
     if only is not None:
         if f["trained"] and only > f["trained"]:
             return {**_fail(model, name, f"{only:,} is above {model}'s trained window ({f['trained']:,}): refused"),
                     "refused": True}
+        if only > rec["top"] or only < S.FLOOR:  # the bound the sweep's own steps keep (next_window)
+            return {**_fail(model, name, f"{only:,} is not a window from {S.FLOOR:,} up to {rec['top']:,} (the trained "
+                                         "window, the host's max_ctx and Halo's cap): refused"), "refused": True}
         if any(r["window"] == only for r in rec["windows"]):
             return {"ok": True, "model": model, "host": name, "record": rec, "say": f"{only:,} is measured already",
                     "row": next(r for r in rec["windows"] if r["window"] == only)}

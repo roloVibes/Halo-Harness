@@ -126,6 +126,12 @@ def test_find_the_best_window_offer_table_pick_and_stop(ctx: Ctx):
     off = got.get("tuner_off") or [None, "", None]
     ctx.check(f"no tuner model set: one closed line, no start, got {off}", off[0] is False and off[2] is False
               and "write a diagnosis, server advice and a guide" in str(off[1]))
+    ctx.check(f"a text a tuner wrote stays removable with no tuner set, got {got.get('tuner_off_note')}",
+              got.get("tuner_off_note") == ["guide", True])
+    # "go on" while the Stop left the sweep unfinished; "Sweep again" when it already had its answer (a start at the top)
+    goes_on = "before the Stop" in str(got.get("sweep_pick") or "")
+    ctx.check(f"the start says what it does after the Stop, got {got.get('sweep_start_after')!r} ({got.get('sweep_pick')!r})",
+              got.get("sweep_start_after") == ("Find the best window (go on)" if goes_on else "Sweep again"))
     use, twin = (got.get("sweep_acts") or ["", ""])[:2]
     ctx.check(f"Use in Halo says what it writes; Make the twin, got {got.get('sweep_acts')}",
               "through Changes, where it can be reverted; nothing is written to the Ollama store" in use and twin == "Make the twin")

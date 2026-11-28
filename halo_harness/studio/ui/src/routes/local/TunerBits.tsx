@@ -1,5 +1,6 @@
 // 3.6.0.25 T batch 2: "Tune with <model>" under "Find the best window" (ollama_steward/tuner.py). With no tuner model
-// set (Settings -> Ollama -> Tuner model) it is one closed line that says what a tuner would do. Set, the offer says
+// set (Settings -> Ollama -> Tuner model) it is one closed line that says what a tuner would do (and the texts a tuner
+// wrote before, still removable). Set, the offer says
 // which model is called, what is sent, the cost and what it writes, before a start; then its rounds with Stop and its
 // cost when done; then the texts it wrote, each "written by <model>" and removable -- never shown as a measurement.
 import { Button } from "../../lib/ui";
@@ -34,11 +35,15 @@ export function TunerBits({ a, start, stop, remove }: {
   const t = a.tuner;
   const notes = Object.values(a.notes || {});
   if (!t) return null;
-  if (!t.tuner) {
+  const kept = notes.map((n) => <NoteBox key={n.kind} n={n} onRemove={() => remove(n.kind)} />);
+  if (!t.tuner) {  // the closed line stands for the job only: what a tuner wrote before stays here, removable
     return (
-      <details className="lc-tuner" data-testid="local-tuner-off">
-        <summary className="muted lc-why">{t.line}</summary>
-      </details>
+      <>
+        <details className="lc-tuner" data-testid="local-tuner-off">
+          <summary className="muted lc-why">{t.line}</summary>
+        </details>
+        {kept.length ? <div className="lc-tuner" data-testid="local-tuner-notes">{kept}</div> : null}
+      </>
     );
   }
   const job = a.tuner_job;
@@ -59,7 +64,7 @@ export function TunerBits({ a, start, stop, remove }: {
           {(live ? job.lines.slice(-6) : [job.line]).map((x, i) => <li key={i}>{x}</li>)}
         </ul>
       )}
-      {notes.map((n) => <NoteBox key={n.kind} n={n} onRemove={() => remove(n.kind)} />)}
+      {kept}
     </div>
   );
 }

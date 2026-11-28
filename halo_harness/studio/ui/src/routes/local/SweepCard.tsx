@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Button } from "../../lib/ui";
 import { makeTwin, planTwin, useCtl } from "./ctl";
 import { msg, readSweep, removeNote, startSweep, startTuner, stopSweep, stopTuner, useInHalo } from "./sweep";
-import { cells, HEAD, running, type SweepAnswer } from "./sweepRows";
+import { cells, HEAD, running, startButton, type SweepAnswer } from "./sweepRows";
 import { TunerBits } from "./TunerBits";
 import type { ModelEntry } from "./types";
 
@@ -45,6 +45,7 @@ export function SweepCard({ host, m }: { host: string; m: ModelEntry }) {
     void read();
   };
   const sw = a?.sweep;
+  const go = startButton(sw);
   return (
     <div className="lc-act-body lc-sweep" data-testid="local-sweep" data-running={live || undefined}>
       <p className="lc-why" data-testid="local-sweep-offer" title="what a sweep does, what it costs, what it writes">
@@ -55,8 +56,8 @@ export function SweepCard({ host, m }: { host: string; m: ModelEntry }) {
           <Button size="sm" onClick={() => void act(() => stopSweep(host, m.model))} data-testid="local-sweep-stop"
                   title="stops after the running load; what was measured is kept">Stop</Button>
         ) : (
-          <Button size="sm" variant="primary" disabled={!a} onClick={() => void act(() => startSweep(host, m.model))}
-                  data-testid="local-sweep-start" title={a?.cli}>{sw?.windows.length ? "Find the best window (go on)" : "Find the best window"}</Button>
+          <Button size="sm" variant="primary" disabled={!a} onClick={() => void act(() => startSweep(host, m.model, go.again))}
+                  data-testid="local-sweep-start" title={go.title || a?.cli}>{go.label}</Button>
         )}
       </div>
       {a?.job && (live || !sw) && (

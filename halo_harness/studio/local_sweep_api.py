@@ -7,6 +7,7 @@ kind "sweep"). Every answer carries `cli`, the `halo local bench --sweep` line t
                                                 what is loaded and puts it back, what it writes), cli}
     POST local/host/<name>/sweep {model, loads?, again?}   a sweep job; 409 with one line while the host had a call in
                                                 the last minute, a session uses it, or a bench or sweep runs there
+                                                (again: true starts over: Studio's "Sweep again" on a done sweep)
     POST local/host/<name>/sweep/stop {model}  its Stop: it ends after the running load and keeps what was measured
     POST local/host/<name>/sweep/use {model}   "Use in Halo": the pick as the profile's window (agent_proposals.
                                                 land_user: it shows in Changes and can be reverted; nothing is
@@ -33,16 +34,19 @@ def cli(name: str, model: str) -> str:
     return f"halo local bench --host {name} --sweep {model}"
 
 
-def _rec(req, host, model: str):
-    from halo_harness.providers import local_sweep as S
-    from halo_harness.providers.ollama_hw import load_server
-    from halo_harness.studio.ollama_hosts_view import card_of, catalog_of
+def _digest(host, model: str):
     from halo_harness.providers.ollama import ollama_names_match
+    from halo_harness.studio.ollama_hosts_view import catalog_of
     row = next((r for r in catalog_of(host).get("models") or [] if isinstance(r, dict)
                 and ollama_names_match(r.get("model") or r.get("name"), model)), {})
-    version = ((card_of(host) or {}).get("server") or {}).get("version")
-    return S.load(req.state_dir, host.url, model, digest=row.get("digest"),
-                  server=load_server(host, version) if version else None)
+    return row.get("digest")
+
+
+def _rec(req, host, model: str):
+    """The sweep under this digest and this server; None when either is not known (never one of another build)."""
+    from halo_harness.ollama_steward.tune_report import sweep_record
+    from halo_harness.studio.ollama_hosts_view import card_of
+    return sweep_record(req.state_dir, host, card_of(host), model, _digest(host, model))
 
 
 def _view(rec) -> "dict | None":
@@ -51,7 +55,7 @@ def _view(rec) -> "dict | None":
     from halo_harness.providers import local_sweep as S
     rows = [{**r, "line": S.row_line(r)} for r in sorted(rec.get("windows") or [], key=lambda r: r["window"])]
     return {"windows": rows, "pick": rec.get("pick"), "why": rec.get("why"), "done": bool(rec.get("done")),
-            "loads": len(rows), "trained": rec.get("trained"), "at": rec.get("at")}
+            "loads": len(rows), "loads_cap": S.MAX_LOADS, "trained": rec.get("trained"), "at": rec.get("at")}
 
 
 def _job(name: str, model: str, kind: str = "sweep"):
@@ -86,11 +90,7 @@ def _tuner_offer(req, host, model: str) -> dict:
 
 def _notes(req, host, name: str, model: str) -> dict:
     from halo_harness.ollama_steward import tuner_notes as N
-    from halo_harness.studio.ollama_hosts_view import catalog_of
-    from halo_harness.providers.ollama import ollama_names_match
-    row = next((r for r in catalog_of(host).get("models") or [] if isinstance(r, dict)
-                and ollama_names_match(r.get("model") or r.get("name"), model)), {})
-    return {k: {**v, "by_line": N.by_line(v)} for k, v in N.read(req.state_dir, name, model, digest=row.get("digest")).items()}
+    return {k: {**v, "by_line": N.by_line(v)} for k, v in N.read(req.state_dir, name, model, digest=_digest(host, model)).items()}
 
 
 def post_tuner(req, host, name: str, model: str):
@@ -105,6 +105,10 @@ def post_tuner(req, host, name: str, model: str):
     if other is not None and not (other.get("kind") == "tuner" and other.get("model") == model):
         return 409, {"error": f"a {other.get('kind') or 'bench'} of {other['model']} runs on {name} now: one at a time "
                               "per card"}
+    from halo_harness.providers.local_bench_runs import busy
+    why = busy(req.state_dir, name) if other is None else ""  # ruling 1's wait for an idle host (each proposal again)
+    if why:
+        return 409, {"error": why}
     card = card_of(host)
     off = T.offer(req.state_dir, host, model, tuner=tuner, card=card)
 

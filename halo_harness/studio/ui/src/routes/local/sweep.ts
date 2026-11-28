@@ -10,8 +10,8 @@ export async function readSweep(host: string, model: string): Promise<SweepAnswe
   return api.get<SweepAnswer>(`local/host/${enc(host)}/sweep`, { model });
 }
 
-export async function startSweep(host: string, model: string): Promise<void> {
-  await api.post(`local/host/${enc(host)}/sweep`, { model });
+export async function startSweep(host: string, model: string, again = false): Promise<void> {
+  await api.post(`local/host/${enc(host)}/sweep`, again ? { model, again: true } : { model });
 }
 
 export async function stopSweep(host: string, model: string): Promise<string> {

@@ -282,6 +282,93 @@ def test_the_tuner_stops_and_runs_eight_rounds_at_most(ctx: Ctx):
 
 
 @test
+def test_a_tuner_measure_waits_for_an_idle_host(ctx: Ctx):
+    """After the check: a window the tuner asks for runs only after the idle-host check (ruling 1), at every proposal:
+    a call on the host in the last minute refuses it, counted, nothing loaded; the route refuses a start the same way."""
+    from halo_harness.ollama_steward import tuner as T
+    from tests.helpers.steward_seed import line
+    with _bench_rig() as rig:
+        rig.home.calls(line(host={"name": "fake", "url": rig.mock.base_url}, model="other:1b", ago=5))
+        seen: list = []
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script([{"tool": "measure", "args": {"window": 65536}}], seen),
+                    card=rig.card, memory=_mem(rig))
+        loads = [x for x in rig.mock.bench_calls if x[0] == "sw-up:8b"]
+        ctx.check(f"refused and counted, nothing loaded, the tool says why, got {got.get('say')!r} {len(loads)} loads",
+                  got["refused"] == 1 and got["measured"] == 0 and not loads and "answered a call" in seen[-1]["user"])
+
+
+@test
+def test_a_diagnosis_after_a_spilling_start_that_stepped_down(ctx: Ctx):
+    """After the check: ruling 10(a) reads the sweep's START, not its smallest window: a start that spilled and stepped
+    down to a window on the card keeps the diagnosis; a start on the card refuses it."""
+    from halo_harness.ollama_steward import tuner as T
+    from halo_harness.providers.local_sweep_run import sweep
+    diag = [{"tool": "write", "args": {"kind": "diagnosis", "text": "it spills at its start"}}]
+    with _bench_rig() as rig:
+        sweep(rig.host, "sw-up:8b", state_dir=rig.state, card=rig.card, start=98304, sessions=lambda: [], memory=_mem(rig))
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script(diag, []), card=rig.card)
+        ctx.check(f"98,304 spilled, 65,536 on the card: kept, got {got.get('say')!r}", got["refused"] == 0
+                  and "diagnosis" in got["texts"])
+    with _bench_rig() as rig:
+        sweep(rig.host, "sw-up:8b", state_dir=rig.state, card=rig.card, start=32768, max_loads=2, sessions=lambda: [],
+              memory=_mem(rig))
+        seen: list = []
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script(diag, seen), card=rig.card)
+        ctx.check(f"a start on the card: refused, got {got.get('say')!r}", got["refused"] == 1 and not got["texts"]
+                  and "loads wholly on the card at its start" in seen[-1]["user"])
+
+
+def _scrub_env(user: str):
+    import os
+    saved = {k: os.environ.get(k) for k in ("USER", "USERNAME", "LOGNAME")}
+    for k in saved:
+        os.environ[k] = user
+
+    def back():
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    return back
+
+
+@test
+def test_the_request_body_with_a_user_named_tag_and_an_error_with_a_path(ctx: Ctx):
+    """After the check: the real call (agent.live_call) to the mock upstream for a model whose tag carries the user name
+    and whose load fails with an Ollama error that carries a path: neither reaches the request body."""
+    import json
+    from halo_harness.ollama_steward import tuner as T
+    from tests.helpers.bench_rig import BenchRig
+    from tests.helpers.mock_ollama import _finish_chat
+    back = _scrub_env("tester")
+    try:
+        with BenchRig(["tester-coder:8b"]) as rig:
+            n = [0]
+
+            def scn(h, body):
+                n[0] += 1
+                say = '{"tool": "measure", "args": {"window": 32768}}' if n[0] == 1 else '{"done": "ok"}'
+                _finish_chat(h, [{"message": {"role": "assistant", "content": say}, "done": False},
+                                 {"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop",
+                                  "prompt_eval_count": 900, "eval_count": 9, "eval_duration": 1000,
+                                  "prompt_eval_duration": 1000}])
+            rig.mock.scenarios["tuner-mock:1b"] = scn
+            rig.mock.tags_response["models"].append({"name": "tuner-mock:1b", "model": "tuner-mock:1b", "size": 1000,
+                                                     "digest": "sha256:tm", "details": {"family": "qwen3"}})
+            rig.mock.show_responses["tuner-mock:1b"] = {"capabilities": ["completion"], "details": {"family": "qwen3"},
+                                                        "model_info": {"qwen3.context_length": 32768}}
+            got = T.run(rig.state, rig.host, "tester-coder:8b", tuner="ol:tuner-mock:1b@fake", card=rig.card)
+            sent = "\n".join(json.dumps(r.get("body"), ensure_ascii=False) for r in rig.mock.requests
+                             if r.get("path") == "/api/chat" and (r.get("body") or {}).get("model") == "tuner-mock:1b")
+    finally:
+        back()
+    leaks = [x for x in ("tester", "/data/", "blobs") if x in sent]
+    ctx.check(f"two rounds, the failed load's answer sent scrubbed, got {got.get('say')!r}, leaks {leaks}",
+              got["rounds"] == 2 and "<name>-coder:8b" in sent and "did not load" in sent and "<path>" in sent and not leaks)
+
+
+@test
 def test_the_request_body_on_the_mock_upstream_holds_nothing_private(ctx: Ctx):
     """The real call (agent.live_call) to a tuner on the tests' mock upstream: the request body the upstream got."""
     import getpass
@@ -331,6 +418,22 @@ def test_the_scrub(ctx: Ctx):
              if x in got]
     ctx.check(f"no user, path, host or address left, got {got!r} (leaks {leaks})", not leaks and "prologue" in got
               and got.count("<path>") >= 3 and got.count("<address>") >= 3)
+    # after the check: a name next to '-' or '_' (a model tag), a host name with a digit after it, any absolute POSIX
+    # path, an address after a word character, an Ollama error that carries a path
+    back = _scrub_env("pat")
+    try:
+        host = OllamaHost(name="gpu-box", url="http://gpu-box.lan:11434")
+        cases = {"pat-coder:latest": "<name>-coder:latest", "pat_coder:latest": "<name>_coder:latest",
+                 "qwen3:8b-gpu-box": "qwen3:8b-<name>", "gpu-box2": "<name>2", "PAT-coder": "<name>-coder",
+                 "/data/ollama/models/blobs/sha256-ab": "<path>", "/run/media/disk/x": "<path>", "/models/blobs/x": "<path>",
+                 "x_10.1.2.3": "x_<address>", "x_C:\\models\\a": "x_<path>",
+                 "open /data/ollama/models/blobs/sha256-ab12: no such file": "open <path> no such file",
+                 "patch the compat layer, 120 tok/s, /api/ps did not answer": "patch the compat layer, 120 tok/s, /api/ps did not answer"}
+        got = {k: scrub(k, host) for k in cases}
+    finally:
+        back()
+    wrong = {k: v for k, v in got.items() if v != cases[k]}
+    ctx.check(f"every case scrubbed, nothing else touched, wrong {wrong}", not wrong)
 
 
 if __name__ == "__main__":

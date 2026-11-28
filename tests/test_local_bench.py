@@ -367,6 +367,73 @@ def test_a_model_that_does_not_load_is_no_fit_reading(ctx: Ctx):
 
 
 @test
+def test_the_pick_names_its_real_bound(ctx: Ctx):
+    """After the check: a model trained past Halo's 131,072 cap on a host with no max_ctx stops at Halo's cap and says
+    so (never "the host's max_ctx"); a host whose max_ctx is the bound says that."""
+    import dataclasses
+    with BenchRig(["sw-long:4b"]) as rig:
+        got = _sweep(rig, "sw-long:4b", start=98304)
+        ctx.check(f"Halo's cap, not the host's max_ctx, got {_ws(got)} {got['record']['why']!r}",
+                  _ws(got) == [98304, 114688, 131072] and got["record"]["why"] == "131,072: Halo's 131,072 cap")
+    with BenchRig(["sw-long:4b"]) as rig:
+        from halo_harness.providers.local_sweep_run import sweep
+        host = dataclasses.replace(rig.host, max_ctx=114688)
+        got = sweep(host, "sw-long:4b", state_dir=rig.state, card=rig.card, start=98304, sessions=lambda: [],
+                    memory=_mem(rig, 24 * GIB))
+        ctx.check(f"the host's max_ctx when it is the bound, got {_ws(got)} {got['record']['why']!r}",
+                  _ws(got) == [98304, 114688] and got["record"]["why"] == "114,688: the host's max_ctx")
+
+
+@test
+def test_a_proposal_above_the_top_is_refused_even_without_a_trained_window(ctx: Ctx):
+    """After the check: `only` (the tuner's ask) is bounded by the sweep's top (the trained window or Halo's cap, and
+    the host's max_ctx), also when the header does not say the trained window."""
+    with BenchRig(["sw-nohead:8b"]) as rig:
+        got = _sweep(rig, "sw-nohead:8b", only=10 ** 9)
+        ctx.check(f"10**9 with no trained window: refused, nothing loaded, got {got.get('say')!r}",
+                  got.get("refused") is True and not got["ok"] and _loads(rig, "sw-nohead:8b") == 0
+                  and "131,072" in got["say"])
+        ok = _sweep(rig, "sw-nohead:8b", only=65536)
+        ctx.check(f"a window under the top is measured, got {ok.get('say')!r}", ok["ok"] and _ws(ok) == [65536])
+
+
+class _NoPs:
+    """The host's client, whose /api/ps read fails from the `fail_from`-th read on (local_bench._ps then reads {})."""
+
+    def __init__(self, host, fail_from: int):
+        from halo_harness.providers.capability_battery import HostClient
+        self.inner, self.fail_from, self.n = HostClient(host), fail_from, 0
+
+    def call(self, method, path, body=None, timeout=10.0):
+        if path == "/api/ps":
+            self.n += 1
+            if self.n >= self.fail_from:
+                return {"error": "timed out"}
+        return self.inner.call(method, path, body=body, timeout=timeout)
+
+
+@test
+def test_a_failed_ps_read_is_unknown_never_a_spill(ctx: Ctx):
+    """After the check: when /api/ps does not answer, the window is "unknown: /api/ps did not answer", never "spilled":
+    never picked, never the pick's reason "the next step spilled", and no "does not fit" reading."""
+    from halo_harness.providers.ollama_calibrate import has_calibration_entry
+    with BenchRig(["sw-up:8b"]) as rig:
+        got = _sweep(rig, "sw-up:8b", start=32768, client=_NoPs(rig.host, 2))
+        rows = got["record"]["windows"]
+        ctx.check(f"the second window unknown, the sweep stops there, got {[(r['window'], r.get('state')) for r in rows]}",
+                  _ws(got) == [32768, 49152] and rows[1]["on_card"] is None
+                  and rows[1]["state"] == "unknown: /api/ps did not answer")
+        ctx.check(f"the pick is the window read on the card; its reason is no spill, got {got['record']['why']!r}",
+                  got["record"]["pick"] == 32768 and "spilled" not in got["record"]["why"]
+                  and "/api/ps did not answer" in got["record"]["why"])
+    with BenchRig(["sw-up:8b"]) as rig:
+        got = _sweep(rig, "sw-up:8b", start=32768, client=_NoPs(rig.host, 1))
+        ctx.check(f"an unknown start: no pick, no step down, no 'does not fit', got {_ws(got)} {got['record']['why']!r}",
+                  _ws(got) == [32768] and got["record"]["pick"] is None and "spill" not in got["record"]["why"]
+                  and not has_calibration_entry(rig.state, host_url=rig.host.url, model="sw-up:8b"))
+
+
+@test
 def test_halo_local_bench_sweep(ctx: Ctx):
     from halo_harness.local_bench_cli import cmd_bench
     with BenchRig(["sw-short:8b"]) as rig:

@@ -9,7 +9,8 @@ providers/local_sweep_run.py; `halo local bench --sweep MODEL` and Studio's "Fin
 
 The steps: from the start (Halo's own estimate) up by 16,384 (8,192 under 32,768) while the load is wholly on the
 card with room and no cliff, or down when the start itself spills, to at most `top` (the model's trained window, the
-host's max_ctx). The cliff: a window whose reply speed is more than 40 % below the best reply speed of a smaller
+host's max_ctx, Halo's 131,072 cap: the pick's line names which one bound it). A window whose /api/ps did not answer is
+"unknown": never a spill, never picked. The cliff: a window whose reply speed is more than 40 % below the best reply speed of a smaller
 window of the same sweep (on Windows a load can spill into shared memory while the server still says it is wholly on
 the card). The pick: the largest measured window wholly on the card, with at least 300 MiB free on the card where
 that is known, and before the cliff. The record sits in `<state>/ollama-fit.json` under `sweeps`, keyed by the
@@ -29,6 +30,7 @@ CLIFF = 0.40          # more than 40 % below the best smaller window's reply spe
 NOISE = 0.40          # a reply speed more than 40 % off the window before: one more timed call
 ROOM_MIB = 300
 ON, SPILLED, SLOW, FAILED = "on the card", "spilled", "on the card, but slow", "did not load"
+UNKNOWN = "unknown: /api/ps did not answer"  # no size or size_vram read: never a spill, never picked
 
 
 def step_up(w: int) -> int:
@@ -61,6 +63,9 @@ def mark(rows: list) -> list:
         if r.get("on_card") is False:
             r.update(state=SPILLED, slow=False)
             continue
+        if r.get("on_card") is None:
+            r.update(state=UNKNOWN, slow=False)
+            continue
         best = max((x["tok_s"] for x in rows if x["window"] < r["window"] and x.get("on_card") and not x.get("error")
                     and isinstance(x.get("tok_s"), (int, float))), default=None)
         slow = bool(best and isinstance(r.get("tok_s"), (int, float)) and r["tok_s"] < (1 - CLIFF) * best)
@@ -72,10 +77,10 @@ def next_window(rows: list, *, start: int, top: int) -> Optional[int]:
     if not rows:
         return min(start, top)
     first = rows[0]
-    if first.get("state") == FAILED:
+    if first.get("state") in (FAILED, UNKNOWN):
         return None
     if not good(first):  # the start spills (or leaves no room): down to the first window that does not
-        if any(good(r) for r in rows if r["window"] < first["window"]) or any(r.get("state") == FAILED for r in rows):
+        if any(good(r) for r in rows if r["window"] < first["window"])                 or any(r.get("state") in (FAILED, UNKNOWN) for r in rows):
             return None
         return step_down(min(r["window"] for r in rows))
     up = [r for r in rows if r["window"] >= first["window"]]
@@ -101,6 +106,8 @@ def pick(rows: list, *, top: int, trained: Optional[int], cap: Optional[int] = N
         r = min(rows, key=lambda x: x["window"])
         if r.get("state") == FAILED:
             return None, f"{r['window']:,}: it did not load ({r.get('error')})"
+        if r.get("state") == UNKNOWN:
+            return None, f"{r['window']:,}: /api/ps did not answer, so whether it sits wholly on the card is unknown"
         return None, f"no window from {bad:,} down stays wholly on the card with {ROOM_MIB} MiB free"
     p = max(ok, key=lambda r: r["window"])
     w = p["window"]
@@ -113,12 +120,16 @@ def pick(rows: list, *, top: int, trained: Optional[int], cap: Optional[int] = N
             why = f"the next step was {_times(n.get('best_before') or 0, n.get('tok_s') or 0)} slower"
         elif n.get("state") == FAILED:
             why = "the next step did not load"
+        elif n.get("state") == UNKNOWN:
+            why = "the next step could not be read (/api/ps did not answer)"
         else:
             why = f"the next step left {int(n['free_mib'])} MiB free on the card (under {ROOM_MIB})"
     elif trained and w >= trained:
         why = "the model's own limit"
-    elif w >= top:
+    elif cap and w >= cap:
         why = "the host's max_ctx"
+    elif w >= top:
+        why = f"Halo's {top:,} cap"
     elif stopped:
         why = "the largest measured before the Stop (start it again to go on)"
     elif loads_left <= 0:

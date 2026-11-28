@@ -4,7 +4,7 @@ export type SweepRow = {
   window: number; state: string; free_mib: number | null; prompt_tok_s: number | null; tok_s: number | null;
   line: string; slow?: boolean; error?: string; timed?: number;
 };
-export type Sweep = { windows: SweepRow[]; pick: number | null; why: string; done: boolean; loads: number };
+export type Sweep = { windows: SweepRow[]; pick: number | null; why: string; done: boolean; loads: number; loads_cap?: number };
 export type SweepJob = { job: string; done: boolean; ok: boolean; line: string; lines: string[] };
 export type TunerOffer = { tuner: string | null; line?: string; sends?: string; cost?: string; writes?: string; rounds?: number };
 export type Setting = { key: string; value: string; why: string; server: Record<string, { set: string; revert: string; restart: string }> };
@@ -32,6 +32,17 @@ export function cells(r: SweepRow, pick: number | null): string[] {
 }
 
 export const HEAD = ["window", "on the card", "free", "prompt", "reply", ""];
+
+/** The start button by the sweep's state: "go on" only while it is not done and loads are left; a done sweep (or one
+ * whose loads were used) offers "Sweep again", which starts over. */
+export function startButton(sw: Sweep | null | undefined): { label: string; again: boolean; title: string } {
+  if (!sw || !sw.windows.length) return { label: "Find the best window", again: false, title: "" };
+  if (!sw.done && sw.loads < (sw.loads_cap ?? 6)) {
+    return { label: "Find the best window (go on)", again: false, title: "goes on from the windows measured so far" };
+  }
+  return { label: "Sweep again", again: true,
+    title: "starts over: forgets these windows and measures again from Halo's own estimate (the same loads at most)" };
+}
 
 export function running(a: SweepAnswer | null): boolean {
   return !!a?.job && !a.job.done;

@@ -158,9 +158,17 @@ def sweep(c, url, ctx) -> dict:
     says what it does, Start, then Stop after the running load: the table, the pick marked with its reason, Use in
     Halo and Make the twin. The measured step is a slow stand-in here (one second, a fixed row): no load on the fake
     is timed, nothing is sent anywhere."""
+    from halo_harness.ollama_steward import tuner_notes as TN
     from halo_harness.providers import local_bench_runs as LBR
     from halo_harness.providers import local_sweep_run as SR
-    saved = (SR.measure_window, LBR.busy)
+    from halo_harness.studio import local_sweep_api as API
+    saved = (SR.measure_window, LBR.busy, TN.read, API._digest)
+    # the seeded catalog rows carry no digest (a real one has /api/tags' own): the sweep shows only under its digest
+    API._digest = lambda _h, m: next((t.get("digest") for t in ctx["mock"].tags_response.get("models") or []
+                                      if (t.get("model") or t.get("name")) in (m, f"{m}:latest")), None)
+    # after the check: a guide a tuner wrote earlier stays removable after the tuner setting was cleared
+    TN.read = lambda *_a, **_k: {"guide": {"kind": "guide", "by": "ant:tuner-x", "at": time.time(), "text": "a quick coder",
+                                           "best_at": ["short edits"], "avoid": [], "older_build": False}}
 
     def slow(host, model, window, **_kw):
         time.sleep(1.0)
@@ -177,6 +185,9 @@ def sweep(c, url, ctx) -> dict:
         off = q("[data-testid=local-tuner-off]")
         out["tuner_off"] = c.js(f"{off} ? [{off}.open, {off}.querySelector('summary').textContent, "
                                 f"!!{q('[data-testid=local-tuner-start]')}] : null")
+        note = q("[data-testid=local-tuner-note]")
+        out["tuner_off_note"] = c.js(f"{note} ? [{note}.dataset.kind, !!{note}.querySelector('[data-testid=local-tuner-remove]')] "
+                                     ": null")
         press(c, q("[data-testid=local-sweep-start]"), f"!!{q('[data-testid=local-sweep-stop]')}")
         press(c, q("[data-testid=local-sweep-stop]"), f"!!{q('[data-testid=local-sweep-said]')}")
         out["sweep_stop_said"] = c.js(f"{q('[data-testid=local-sweep-said]')}.textContent")
@@ -185,12 +196,13 @@ def sweep(c, url, ctx) -> dict:
                                     f"Array.from({tb}.querySelectorAll('tbody tr')).map((r) => [r.dataset.pick || '', "
                                     f"Array.from(r.cells).map((x) => x.textContent)])", 30)
         out["sweep_pick"] = c.wait(f"{q('[data-testid=local-sweep-pick]')}?.textContent", 10)
+        out["sweep_start_after"] = c.js(f"{q('[data-testid=local-sweep-start]')}?.textContent")
         out["sweep_acts"] = c.wait(f"!!{q('[data-testid=local-sweep-use]')} && [{q('[data-testid=local-sweep-use]')}.title, "
                                    f"{q('[data-testid=local-sweep-twin]')}.textContent]", 10)
         _close(c)
         out["sweep_row_after"] = c.js(f"{row}.querySelectorAll('[data-testid^=local-sweep]').length")
     finally:
-        SR.measure_window, LBR.busy = saved
+        SR.measure_window, LBR.busy, TN.read, API._digest = saved
     return out
 
 

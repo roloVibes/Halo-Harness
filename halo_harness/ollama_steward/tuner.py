@@ -73,12 +73,13 @@ def guide() -> str:
 # ---- the scrub ----------------------------------------------------------------------------------------------------
 
 _URL = re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s\"'<>]+", re.I)
-_IP4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b")
+_IP4 = re.compile(r"(?<!\d)(?<!\d\.)(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?!\.?\d)")
 _IP6 = re.compile(r"(?<![\w:])(?=[0-9a-f:]*(?:::|[a-f]))(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])", re.I)
-_WIN = re.compile(r"\b[A-Za-z]:[\\/][^\s\"'<>]*")
+_WIN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s\"'<>]*")
 _UNC = re.compile(r"\\\\[^\s\"'<>]+")
-_POSIX = re.compile(r"(?<![\w.])(?:~|/(?:home|Users|root|mnt|media|opt|var|tmp|usr|etc|srv|private|Volumes))"
-                    r"(?:/[^\s\"'<>]*)?")
+# any absolute POSIX path (a "/" that starts a segment followed by another "/"), and ~/...; Ollama's own API paths
+# (/api/ps) are no private path
+_POSIX = re.compile(r"(?<![\w.~/])(?:~(?:/[^\s\"'<>]*)?|/(?!api/)[^\s/\"'<>]+/[^\s\"'<>]*)")
 
 
 def _names(host) -> list:
@@ -118,8 +119,8 @@ def scrub(text: str, host=None) -> str:
     s = _POSIX.sub("<path>", s)
     s = _IP4.sub("<address>", s)
     s = _IP6.sub("<address>", s)
-    for n in _names(host):
-        s = re.sub(rf"(?<![\w-]){re.escape(n)}(?![\w-])", "<name>", s, flags=re.I)
+    for n in _names(host):  # wherever it sits ("pat-coder", "8b-gpu-box", "gpu-box2"), bounded only by letters
+        s = re.sub(rf"(?<![A-Za-z]){re.escape(n)}(?![A-Za-z])", "<name>", s, flags=re.I)
     return s
 
 
@@ -148,7 +149,8 @@ def facts(host, model: str, state_dir, *, client=None, card=None) -> dict:
             total = card_budget(card).get("total")
         except Exception:
             total = None
-    rec = S.load(state_dir, host.url, model, digest=row.get("digest"), server=load_server(host, version)) or {}
+    rec = (S.load(state_dir, host.url, model, digest=row.get("digest"), server=load_server(host, version))
+           if row.get("digest") and version else None) or {}  # a digest or a version not known: no sweep of any build
     table = [{k: r.get(k) for k in ("window", "state", "free_mib", "used_mib", "prompt_tok_s", "tok_s", "timed")}
              for r in sorted(rec.get("windows") or [], key=lambda r: r["window"])]
     return {"model": model, "family": d.get("family"), "parameter_size": d.get("parameter_size"),
@@ -157,7 +159,8 @@ def facts(host, model: str, state_dir, *, client=None, card=None) -> dict:
             "server": {"ollama_version": version, "kv_cache_type": settings.get("kv_cache_type"),
                        "parallel": settings.get("parallel")},
             "card_total_gib": round(total / 2 ** 30, 1) if isinstance(total, (int, float)) and total else "unknown",
-            "sweep": {"windows": table, "pick": rec.get("pick"), "why": rec.get("why"), "loads_used": len(table),
+            "sweep": {"windows": table, "start": rec.get("start"), "pick": rec.get("pick"), "why": rec.get("why"),
+                      "loads_used": len(table),
                       "loads_cap": S.MAX_LOADS}}
 
 
@@ -199,8 +202,9 @@ def _parse(text: str) -> dict:
 
 
 def run(state_dir, host, model: str, *, tuner: Optional[str] = None, caller: Optional[Callable] = None, stop=None,
-        on_line: Optional[Callable[[str], None]] = None, card=None, client=None, memory=None, send=None,
-        check_busy: bool = False) -> dict:
+        on_line: Optional[Callable[[str], None]] = None, card=None, client=None, memory=None, send=None) -> dict:
+    """Every window it asks for is measured after the idle-host check (ruling 1), at that proposal: a card a session or
+    a recent call holds refuses it, counted."""
     from halo_harness.ollama_steward import tuner_notes as N
     from halo_harness.ollama_steward.chat import cost_words
     from halo_harness.ollama_steward.tune_lines import os_of
@@ -255,7 +259,7 @@ def run(state_dir, host, model: str, *, tuner: Optional[str] = None, caller: Opt
                            send=send, say=say)
         elif tool == "write":
             ans = _write(state_dir, host, model, args, out, tuner=tuner, digest=digest, trained=trained,
-                         first=(f["sweep"]["windows"] or [{}])[0], os_name=os_of(host, card), N=N)
+                         first=_start_row(host, model, state_dir, client=client, card=card), os_name=os_of(host, card), N=N)
         else:
             out["refused"] += 1
             ans = f"no tool {tool!r}: the tools are {', '.join(TOOLS)}"
@@ -271,6 +275,12 @@ def run(state_dir, host, model: str, *, tuner: Optional[str] = None, caller: Opt
     return out
 
 
+def _start_row(host, model: str, state_dir, *, client=None, card=None) -> dict:
+    """The sweep's row at its START (ruling 10(a): "spills at its start"), never the smallest window of the table."""
+    sw = facts(host, model, state_dir, client=client, card=card)["sweep"]
+    return next((r for r in sw["windows"] if r.get("window") == sw.get("start")), {})
+
+
 def _measure(state_dir, host, model, args: dict, trained, out: dict, **kw) -> str:
     from halo_harness.providers import local_sweep as S
     from halo_harness.providers import local_sweep_run as SR
@@ -280,7 +290,7 @@ def _measure(state_dir, host, model, args: dict, trained, out: dict, **kw) -> st
         out["refused"] += 1
         return ("refused: " + (f"no option {', '.join(extra)}" if extra else f"{w!r} is not a window from {S.FLOOR:,} up to "
                 f"the model's trained window ({trained or '?'})"))
-    got = SR.sweep(host, model, state_dir=state_dir, only=w, check_busy=False, card=kw.get("card"), client=kw.get("client"),
+    got = SR.sweep(host, model, state_dir=state_dir, only=w, check_busy=True, card=kw.get("card"), client=kw.get("client"),
                    memory=kw.get("memory"), send=kw.get("send"), on_line=kw.get("say"))
     if got.get("refused") or not got.get("ok"):
         out["refused"] += 1

@@ -240,6 +240,10 @@ def test_the_tuner_routes_off_by_default_then_a_job_with_its_texts(ctx: Ctx):
         st, gone = _api(rig, "POST", "local/host/fake/sweep/notes/remove", body={"model": "sw-up:8b", "kind": "guide"})
         st, got = _api(rig, "GET", "local/host/fake/sweep", query={"model": "sw-up:8b"})
         ctx.check(f"Remove, got {gone}", gone["ok"] and got["notes"] == {})
+        rig.home.calls(line(host={"name": "fake", "url": rig.mock.base_url}, model="other:1b", ago=5))
+        st, busy = _api(rig, "POST", "local/host/fake/sweep/tuner", body={"model": "sw-up:8b"})
+        ctx.check(f"after the check: a busy card refuses a tuner start, got {st} {busy}", st == 409
+                  and "answered a call" in busy["error"])
 
 
 @test
@@ -260,6 +264,30 @@ def test_the_sweep_table_cells_in_node(ctx: Ctx):
         ["65,536", "on the card", "1,200 MiB", "2,400.5 tok/s", "90 tok/s", "the pick"],
         ["81,920", "on the card, but slow", "unknown", "800 tok/s", "28 tok/s (timed twice)", "past the cliff"],
         ["98,304", "did not load", "not measured", "not measured", "not measured", ""]])
+
+
+@test
+def test_the_start_button_says_what_it_does_by_state(ctx: Ctx):
+    """After the check (routes/local/sweepRows.ts startButton): "go on" only while the sweep is not done and loads are
+    left; a done sweep, or one whose loads were used, offers "Sweep again" (again: true) whose title says it starts
+    over; no sweep: "Find the best window"."""
+    import json
+    from tests.helpers import node_ts
+    src = (Path(__file__).resolve().parent.parent / "halo_harness/studio/ui/src/routes/local/sweepRows.ts").resolve().as_uri()
+    sws = [None, {"windows": [{}], "done": False, "loads": 2, "loads_cap": 6},
+           {"windows": [{}], "done": True, "loads": 3, "loads_cap": 6},
+           {"windows": [{}] * 6, "done": False, "loads": 6, "loads_cap": 6}]
+    got = node_ts.run(f"const M = await import({json.dumps(src)});\nconst D = {json.dumps(sws)};\n"
+                      "console.log(JSON.stringify(D.map((s) => M.startButton(s))));")
+    labels = [(g or {}).get("label") for g in got or []]
+    agains = [(g or {}).get("again") for g in got or []]
+    ctx.check(f"the labels by state, got {got}", labels == ["Find the best window", "Find the best window (go on)",
+                                                             "Sweep again", "Sweep again"]
+              and agains == [False, False, True, True] and "starts over" in got[2]["title"])
+    from halo_harness.providers import local_sweep as S
+    from halo_harness.studio.local_sweep_api import _view
+    v = _view({"windows": [{"window": 8192, "state": "on the card"}], "pick": 8192, "why": "x", "done": True})
+    ctx.check(f"the view says the loads' cap, got {v}", v["loads_cap"] == S.MAX_LOADS)
 
 
 if __name__ == "__main__":

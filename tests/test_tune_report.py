@@ -102,6 +102,25 @@ def test_the_report_carries_the_sweep(ctx: Ctx):
         ctx.check("it prints under its model", any(x == f"    {sw['line']}" for x in text))
         rig.card["server"]["version"] = "0.40.7"
         ctx.check("another server version: not shown", {e["model"]: e for e in _report(rig)["models"]}["sw-up:8b"].get("sweep") is None)
+        # after the check: a digest or a version that is not known is no match (never a sweep of any build or server)
+        from halo_harness.ollama_steward.tune_report import sweep_of
+        from halo_harness.studio import local_sweep_api as API
+        rig.card["server"]["version"] = "0.40.6"
+        ctx.check("this build and server: shown", sweep_of(rig.state, rig.host, rig.card, "sw-up:8b", "sha256:sw-up-8b"))
+        ctx.check("the digest not known: not shown", sweep_of(rig.state, rig.host, rig.card, "sw-up:8b", None) is None)
+        from halo_harness.providers.ollama import reset_ollama_version_cache
+        rig.mock.version_response = {"error": "down"}
+        reset_ollama_version_cache()
+        ctx.check("the version not known (no card, no answer): not shown",
+                  sweep_of(rig.state, rig.host, None, "sw-up:8b", "sha256:sw-up-8b") is None)
+        saved = API._digest
+        API._digest = lambda _h, _m: None
+        try:
+            from types import SimpleNamespace
+            st, used = API.post_use(SimpleNamespace(state_dir=rig.state), rig.host, "fake", "sw-up:8b")
+        finally:
+            API._digest = saved
+        ctx.check(f"Use in Halo refused when the digest is not known, got {st} {used}", st == 409)
 
 
 @test

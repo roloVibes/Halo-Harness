@@ -160,13 +160,27 @@ def report_for(state_dir, host_name: str, *, card: Optional[dict] = None, catalo
     return out
 
 
+def sweep_record(state_dir, host, card: Optional[dict], model: str, digest: Optional[str]) -> Optional[dict]:
+    """The kept sweep under this digest and this server (the card's version, else the version this process read);
+    None when the digest or the version is not known: never a sweep of another build or server."""
+    from halo_harness.providers import local_sweep as S
+    from halo_harness.providers.ollama import cached_ollama_version
+    from halo_harness.providers.ollama_hw import load_server
+    version = ((card or {}).get("server") or {}).get("version")
+    if not version:
+        try:
+            version = cached_ollama_version(host)
+        except Exception:
+            version = None
+    if not digest or not version:
+        return None
+    return S.load(state_dir, host.url, model, digest=digest, server=load_server(host, version))
+
+
 def sweep_of(state_dir, host, card: Optional[dict], model: str, digest: Optional[str]) -> Optional[dict]:
     """3.6.0.25 T: the model's sweep (providers/local_sweep.py) under this digest and this server: the windows tried,
     the pick and its reason, the reply speed at the start and at the pick; None when it has none."""
-    from halo_harness.providers import local_sweep as S
-    from halo_harness.providers.ollama_hw import load_server
-    version = ((card or {}).get("server") or {}).get("version")
-    rec = S.load(state_dir, host.url, model, digest=digest, server=load_server(host, version) if version else None)
+    rec = sweep_record(state_dir, host, card, model, digest)
     if not rec or not rec.get("windows"):
         return None
     ws = sorted(rec["windows"], key=lambda r: r["window"])
