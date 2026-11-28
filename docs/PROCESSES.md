@@ -85,11 +85,11 @@ left by a reboot or a hard kill is cleared and said, never signalled.
      starts is born inside it, and Windows ends it together with Halo at any instant: a child, Halo's own browser
      while it waits to run, a tool server. An ordinary child (a tool's shell command too, with every program it
      started) is then moved into a stricter Job that no program may leave (Git Bash's own children no longer leave
-     it); a tool server's library adds one of its own inside Halo's. What stays open: a program may start one that
-     leaves every Job in the brief moment before its move (Git Bash programs do so whenever they may); and where
-     Windows refuses Halo a Job of its own (an outer Job that allows none inside it, an old Windows), a child joins
-     its Job a brief moment after it is started, and a hard kill in exactly that moment leaves it outside, as
-     before 3.6.0.23;
+     it), and it runs only once it is there, so it cannot start one that leaves every Job before; a tool server's
+     library adds a Job of its own inside Halo's. What stays open: a tool server may start such a program before
+     its library's Job holds it; and where Windows refuses Halo a Job of its own (an outer Job that allows none
+     inside it, an old Windows), a child joins its Job a brief moment after it is started, and a hard kill in
+     exactly that moment leaves it outside, as before 3.6.0.23;
    - a shell command a tool started is in the ledger as `shell` while it runs (`halo ps` lists it), so the closing
      procedure and the reaper end its whole group even where its environment cannot be read (macOS);
    - every Halo child (Studio's server first) watches the Halo that started it and closes within two seconds;

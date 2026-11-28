@@ -275,32 +275,41 @@ class Popen(_sp.Popen):
         # that cannot be done it starts inside that Job and Halo says so in one line (never a silent pretence).
         from halo_harness import closing, selfexec
         kw = closing.before_spawn(selfexec.fix_kw(args, _quiet_stdin(kw, len(a))), args)
+        # 3.6.0.23 J (Windows, a member halo): an ordinary child is created suspended and runs only once it is in the
+        # strict Job; the resume is in the `finally`, so it runs on every way out of this stretch
+        held = closing.held_flags(args, kw)
+        if held:
+            kw = dict(kw, creationflags=held)
         try:
-            if (os.name == "nt" and int(kw.get("creationflags") or 0) & closing._BREAKAWAY
-                    and not closing.breakaway_frees()):  # 3.6.0.0 fx: a Job would hold it silently: as if refused
-                raise PermissionError("a Job object this process is in holds what it starts")
-            super().__init__(resolve(args, kw), *a, **kw)
-        except PermissionError:
-            flags = int(kw.get("creationflags") or 0)
-            if not (flags & closing._BREAKAWAY):
-                raise
-            # The failed attempt closed the DEVNULL handle it opened but left `_devnull` naming it; a retry on the
-            # same object would hand the child that closed handle ([Errno 9] Bad file descriptor). Start clean.
-            self.__dict__.pop("_devnull", None)
-            kept = closing.is_kept_env(kw.get("env"))
-            if kept and not a:  # an outer Job forbids leaving it: a kept spawn starts from outside every Job
-                pid = closing.start_outside_job(resolve(args, kw), kw)
-                if pid is not None:  # started out there: never a second time in here, even if it has ended
-                    self._stand_for(args, pid)
-                    return
-            kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
-            super().__init__(resolve(args, kw), *a, **kw)
-            if kept:
-                closing.say_held_in_job(self.pid, args, kw.get("env"))
-        try:
-            closing.after_spawn(self, kw)
-        except Exception:
-            pass
+            try:
+                if (os.name == "nt" and int(kw.get("creationflags") or 0) & closing._BREAKAWAY
+                        and not closing.breakaway_frees()):  # 3.6.0.0 fx: a Job would hold it silently: as if refused
+                    raise PermissionError("a Job object this process is in holds what it starts")
+                super().__init__(resolve(args, kw), *a, **kw)
+            except PermissionError:
+                flags = int(kw.get("creationflags") or 0)
+                if not (flags & closing._BREAKAWAY):
+                    raise
+                # The failed attempt closed the DEVNULL handle it opened but left `_devnull` naming it; a retry on the
+                # same object would hand the child that closed handle ([Errno 9] Bad file descriptor). Start clean.
+                self.__dict__.pop("_devnull", None)
+                kept = closing.is_kept_env(kw.get("env"))
+                if kept and not a:  # an outer Job forbids leaving it: a kept spawn starts from outside every Job
+                    pid = closing.start_outside_job(resolve(args, kw), kw)
+                    if pid is not None:  # started out there: never a second time in here, even if it has ended
+                        self._stand_for(args, pid)
+                        return
+                kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
+                super().__init__(resolve(args, kw), *a, **kw)
+                if kept:
+                    closing.say_held_in_job(self.pid, args, kw.get("env"))
+            try:
+                closing.after_spawn(self, kw)
+            except Exception:
+                pass
+        finally:
+            if held:
+                closing.resume_held(self)
 
     def _stand_for(self, args, pid: int) -> None:
         """Windows: this Popen stands for process `pid`, started elsewhere (closing.start_outside_job): pid, poll,

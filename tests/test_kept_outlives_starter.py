@@ -1495,6 +1495,139 @@ if hasattr(closing, "_nt_resume"):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+_BREAKER = r'''import json, subprocess, sys, time
+argv = [sys.executable, "-c", "import time; time.sleep(600)"]
+try:  # as a Git Bash program does: it leaves every Job it may leave
+    g, how = subprocess.Popen(argv, creationflags=0x01000000), "broke away"  # CREATE_BREAKAWAY_FROM_JOB
+except PermissionError:
+    g, how = subprocess.Popen(argv), "inside"
+open(sys.argv[1], "w").write(json.dumps({"pid": g.pid, "how": how}))
+time.sleep(600)
+'''
+
+_START_BREAKER = '''p = subprocess_safe.Popen([sys.executable, str(tmp / "breaker.py"), str(tmp / "grand.json")],
+                         **QUIET)
+end = time.time() + 120
+while not (tmp / "grand.json").exists() and time.time() < end:
+    time.sleep(0.05)
+print(json.dumps({"child": p.pid, "member": member}), flush=True)'''
+
+
+@test
+def test_a_childs_breakaway_grandchild_cannot_leave_before_or_after_its_move_into_the_strict_job(ctx: Ctx):
+    """3.6.0.23 J P9: Halo's own Job allows breakaway (a kept spawn must leave it). An ordinary child born in it that
+    starts a BREAKAWAY grandchild before Halo has moved it into the strict Job let that grandchild out of every Job
+    (it outlived a hard kill of Halo). Now the child is held suspended until the move: in the moment it starts
+    nothing; after it, its breakaway is refused and the grandchild is inside. The healthy way is checked beside it."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import shutil
+    for hold in (True, False):
+        what = "held in the moment" if hold else "after the move"
+        tmp = Path(tempfile.mkdtemp(prefix="fx-j-breaker-"))
+        (tmp / "breaker.py").write_text(_BREAKER, encoding="utf-8")
+        start = _START_BREAKER if not hold else '''p = subprocess_safe.Popen([sys.executable, str(tmp / "breaker.py"),
+                                  str(tmp / "grand.json")], **QUIET)'''
+        proc = _moment_child(tmp, start, hold=hold)
+        child, grand = (None, None), (None, None)
+        try:
+            ready, child = _child_of(proc)
+            ctx.check(f"{what}: the child started, got {ready}", _same(*child))
+            got = _wait_file(tmp / "grand.json", 5.0 if hold else 120.0) or {}
+            grand = (got.get("pid"), _start_time(got["pid"]) if got.get("pid") else None)
+            if not hold:
+                ctx.check(f"{what}: its breakaway was refused and the grandchild is inside, got {got}",
+                          got.get("how") == "inside" and _same(*grand))
+            proc.kill()
+            proc.wait(timeout=60)
+            ctx.check(f"{what}: the grandchild {got or '(none started)'} is gone within 30 s of the hard kill",
+                      _gone([grand], 30.0) if grand[0] else True)
+            ctx.check(f"{what}: the child is gone too", _gone([child], 30.0))
+            if hold:
+                ctx.check(f"{what}: held suspended, the child started nothing, got {got}", not got)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+            _end(*grand)
+            _end(*child)
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+_START_RESUME_FAILS = '''seen = []
+
+
+def _no_resume(p):  # stood in: the resume fails
+    seen.append({"pid": p.pid, "start": closing._start(p.pid)})
+    return False
+
+
+_resume = closing._nt_resume
+closing._nt_resume = _no_resume
+try:
+    subprocess_safe.Popen(SLEEP, **QUIET)
+    said = ""
+except OSError as e:
+    said = str(e)
+closing._nt_resume = _resume
+print(json.dumps({"said": said, "seen": seen, "member": member}), flush=True)
+
+
+def _boom(proc):  # stood in: the move into the strict Job raises
+    raise RuntimeError("the move failed")
+
+
+closing.adopt = _boom
+p = subprocess_safe.Popen([sys.executable, "-c", "import sys, time; open(sys.argv[1], 'w').write('ran'); "
+                           "time.sleep(600)", str(tmp / "ran")], **QUIET)
+print(json.dumps({"child": p.pid}), flush=True)'''
+
+
+@test
+def test_a_child_whose_resume_fails_is_ended_and_one_whose_move_fails_still_runs(ctx: Ctx):
+    """3.6.0.23 J P10: an ordinary child held suspended until its move is never left suspended while Halo lives:
+    when the resume fails it is ended by its handle and an OSError says so; when the move fails it is resumed (it
+    is inside Halo's own Job whatever happened) and ends with Halo."""
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import shutil
+    tmp = Path(tempfile.mkdtemp(prefix="fx-j-resume-"))
+    proc = _moment_child(tmp, _START_RESUME_FAILS, hold=False)
+    held, child = (None, None), (None, None)
+    try:
+        first = _ready_line(proc, 120.0)
+        seen = (first.get("seen") or [{}])[0]
+        held = (seen.get("pid"), seen.get("start"))
+        ctx.check(f"the resume was tried once, got {first}", len(first.get("seen") or []) == 1 and held[0])
+        ctx.check(f"an OSError says the program was ended, got {first.get('said')!r}",
+                  "could not be resumed" in first.get("said", "") and "ended" in first.get("said", ""))
+        ctx.check("and that child (by its pid and start time) is gone", _gone([held], 30.0))
+        ready, child = _child_of(proc)
+        ctx.check("the child whose move failed was resumed: it runs",
+                  _same(*child) and bool(_wait_file_text(tmp / "ran", 120.0)))
+        proc.kill()
+        proc.wait(timeout=60)
+        ctx.check("and it ends with its starter's hard kill (it is in the starter's own Job)", _gone([child], 30.0))
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        _end(*held)
+        _end(*child)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _wait_file_text(path: Path, seconds: float) -> str:
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        try:
+            text = path.read_text(encoding="utf-8")
+            if text:
+                return text
+        except OSError:
+            pass
+        time.sleep(0.1)
+    return ""
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

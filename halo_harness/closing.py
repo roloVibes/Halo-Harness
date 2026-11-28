@@ -986,6 +986,50 @@ def _join_own_job() -> None:
     trace(f"own Job: not joined ({why}): each child joins a Job of Halo's after its start")
 
 
+_SUSPENDED = 0x00000004          # CREATE_SUSPENDED
+
+
+def held_flags(args, kw: dict) -> int:
+    """3.6.0.23 J: the creationflags an ordinary child of subprocess_safe.Popen gets on Windows while this process is a
+    member of its own Job: CREATE_SUSPENDED, so it runs only once adopt() has moved it into the strict Job (born in the
+    own Job, which allows breakaway, it could start a program that leaves every Job in that moment, as Git Bash
+    programs do). Safe only because the own Job holds it: a suspended child in it ends with Halo. 0: start it as
+    asked (no member; a kept child or Halo's own; a caller that asked for a breakaway or a suspension of its own)."""
+    if os.name != "nt" or not _STATE.get("member") or is_kept_env(kw.get("env")):
+        return 0
+    flags = int(kw.get("creationflags") or 0)
+    if flags & (_BREAKAWAY | _SUSPENDED) or may_break_away(args):
+        return 0
+    return flags | _SUSPENDED
+
+
+def _nt_resume(proc) -> bool:
+    import ctypes
+    ntdll = ctypes.WinDLL("ntdll")
+    ntdll.NtResumeProcess.argtypes = (ctypes.c_void_p,)
+    ntdll.NtResumeProcess.restype = ctypes.c_long
+    return ntdll.NtResumeProcess(ctypes.c_void_p(int(proc._handle))) >= 0  # an NTSTATUS: >= 0 is success
+
+
+def resume_held(proc) -> None:
+    """3.6.0.23 J: a child held_flags() started suspended runs now, on every way out of its start (the move done,
+    failed, raised or interrupted): it is inside this process's own Job whatever happened. When the resume itself
+    fails, the child is ended by its handle and an OSError says so: never a suspended child while Halo lives."""
+    if getattr(proc, "_handle", None) is None:
+        return  # no child was created
+    try:
+        if _nt_resume(proc):
+            return
+    except Exception:
+        pass
+    try:
+        proc.kill()
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+    raise OSError(f"a program halo started (pid {getattr(proc, 'pid', None)}) could not be resumed: it was ended")
+
+
 def _job(strict: bool = False):
     """This process's Job objects: KILL_ON_JOB_CLOSE (the kernel ends every member when this process's handle goes,
     a hard kill included). The plain one also has BREAKAWAY_OK (a kept spawn of a Halo child leaves it); the strict
