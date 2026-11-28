@@ -1251,9 +1251,12 @@ def _child_of(proc, seconds: float = 120.0) -> "tuple[dict, tuple]":
     return ready, (pid, _start_time(pid) if pid else None)
 
 
-def _killed_in_the_moment(ctx: Ctx, proc, what: str) -> tuple:
-    """The starter is ended hard while it holds its child in the moment; the child must be gone (by pid and start)."""
+def _killed_in_the_moment(ctx: Ctx, proc, what: str, left: list) -> tuple:
+    """The starter is ended hard while it holds its child in the moment; the child must be gone (by pid and start).
+    The child goes into `left` at once, so the caller's `finally` ends it when a check fails (a suspended one stays
+    for good otherwise)."""
     ready, child = _child_of(proc)
+    left.append(child)
     ctx.check(f"{what}: the starter held its child in the moment, got {ready}", _same(*child))
     proc.kill()  # the hard kill, by this test's own handle on its own child
     proc.wait(timeout=60)
@@ -1272,13 +1275,14 @@ def test_a_hard_kill_before_an_ordinary_childs_move_into_halos_job_leaves_nothin
         raise SkipTest("Windows only: Job objects")
     import shutil
     tmp = Path(tempfile.mkdtemp(prefix="fx-j-moment-"))
-    proc, child = _moment_child(tmp, _START_SLEEPER), (None, None)
+    proc, left = _moment_child(tmp, _START_SLEEPER), []
     try:
-        child = _killed_in_the_moment(ctx, proc, "plain")
+        _killed_in_the_moment(ctx, proc, "plain", left)
     finally:
         if proc.poll() is None:
             proc.kill()
-        _end(*child)
+        for child in left:
+            _end(*child)
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -1294,16 +1298,17 @@ def test_a_hard_kill_in_the_moment_leaves_nothing_under_a_launchers_job_or_a_str
     for flags, what in ((0x3000, "under a launcher's Job"), (0x2000, "under a Job that lets nothing leave")):
         tmp = Path(tempfile.mkdtemp(prefix="fx-j-outer-"))
         k32, job = _no_breakaway_job(flags)
-        proc, child = _moment_child(tmp, _START_SLEEPER, flags=0x4), (None, None)  # CREATE_SUSPENDED: in the Job first
+        proc, left = _moment_child(tmp, _START_SLEEPER, flags=0x4), []  # CREATE_SUSPENDED: in the Job first
         try:
             ctx.check(f"{what}: the starter is in the test's Job", k32.AssignProcessToJobObject(job, int(proc._handle)))
             ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle)))
-            child = _killed_in_the_moment(ctx, proc, what)
+            _killed_in_the_moment(ctx, proc, what, left)
         finally:
             k32.CloseHandle(job)  # the test's Job closes: the kernel ends whatever is still in it
             if proc.poll() is None:
                 proc.kill()
-            _end(*child)
+            for child in left:
+                _end(*child)
             shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -1335,13 +1340,14 @@ def test_a_hard_kill_before_the_mcp_librarys_own_job_takes_its_server_leaves_not
     if importlib.util.find_spec("mcp") is None:
         raise SkipTest("the MCP library is not installed here")
     tmp = Path(tempfile.mkdtemp(prefix="fx-j-mcp-"))
-    proc, child = _moment_child(tmp, _START_MCP, hold=False), (None, None)
+    proc, left = _moment_child(tmp, _START_MCP, hold=False), []
     try:
-        child = _killed_in_the_moment(ctx, proc, "a tool server")
+        _killed_in_the_moment(ctx, proc, "a tool server", left)
     finally:
         if proc.poll() is None:
             proc.kill()
-        _end(*child)
+        for child in left:
+            _end(*child)
         shutil.rmtree(tmp, ignore_errors=True)
 
 

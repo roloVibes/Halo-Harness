@@ -294,13 +294,14 @@ def test_a_hard_kill_while_the_browser_waits_suspended_for_its_job_leaves_nothin
     tmp = Path(tempfile.mkdtemp(prefix="fx-j-browser-"))
     start = '''from halo_harness import browser_pipe_win
 browser_pipe_win.spawn(SLEEP, subprocess_safe.Popen)'''
-    proc, child = K._moment_child(tmp, start), (None, None)
+    proc, left = K._moment_child(tmp, start), []
     try:
-        child = K._killed_in_the_moment(ctx, proc, "the browser stand-in")
+        K._killed_in_the_moment(ctx, proc, "the browser stand-in", left)
     finally:
         if proc.poll() is None:
             proc.kill()
-        K._end(*child)
+        for child in left:
+            K._end(*child)  # by pid and start time: a stand-in left suspended would stay for good
         shutil.rmtree(tmp, ignore_errors=True)
 
 
