@@ -281,9 +281,11 @@ class Popen(_sp.Popen):
         if held:
             kw = dict(kw, creationflags=held)
         try:
+            held_above = False  # the probe (not the create) found a Job that will hold it
             try:
                 if (os.name == "nt" and int(kw.get("creationflags") or 0) & closing._BREAKAWAY
                         and not closing.breakaway_frees()):  # 3.6.0.0 fx: a Job would hold it silently: as if refused
+                    held_above = True
                     raise PermissionError("a Job object this process is in holds what it starts")
                 super().__init__(resolve(args, kw), *a, **kw)
             except PermissionError:
@@ -299,8 +301,19 @@ class Popen(_sp.Popen):
                     if pid is not None:  # started out there: never a second time in here, even if it has ended
                         self._stand_for(args, pid)
                         return
-                kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
-                super().__init__(resolve(args, kw), *a, **kw)
+                stripped = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
+                # 3.6.0.23 J: a member's own Job is the innermost and lets a kept child leave it; the child then stays,
+                # with no error, in the first Job up the chain that forbids leaving (where it was before the membership;
+                # without the flag it would be born in the own Job and end with this process). Only a create that was
+                # refused itself (error 5: the innermost Job forbids) is made once more without the flag.
+                for kw in ([kw, stripped] if kept and held_above and closing._STATE.get("member") else [stripped]):
+                    try:
+                        super().__init__(resolve(args, kw), *a, **kw)
+                        break
+                    except PermissionError:
+                        if kw is stripped:
+                            raise
+                        self.__dict__.pop("_devnull", None)
                 if kept:
                     closing.say_held_in_job(self.pid, args, kw.get("env"))
             try:

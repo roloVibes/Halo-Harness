@@ -426,7 +426,7 @@ while not (tmp / "kept.json").exists() and time.time() < end:
     time.sleep(0.05)
 print(json.dumps({{"kept": kept.pid, "poll": kept.poll(), "self": json.loads((tmp / "kept.json").read_text())}}),
       flush=True)
-time.sleep(120)
+time.sleep({linger!r})
 '''
 
 
@@ -472,10 +472,15 @@ def test_a_kept_spawn_survives_an_outer_job_that_forbids_breakaway_or_halo_says_
     import ctypes
     # The base interpreter itself (a venv's python.exe is a launcher with a Job of its own in between).
     base = getattr(sys, "_base_executable", None) or sys.executable
-    for no_way in (False, True):
+    # 3.6.0.23 J repair: in the no-way legs "starter_killed" and "starter_exits" the outer Job stays open after the
+    # starter has gone. The starter (it called install()) is a member of a Job of its own: the kept child must not be
+    # in it, but where the line says, in the outer Job only, so it runs on until that Job closes.
+    for no_way, leg in ((False, "outer_closes"), (True, "outer_closes"), (True, "starter_killed"),
+                        (True, "starter_exits")):
         tmp = Path(tempfile.mkdtemp(prefix="fx-kept-outer-"))
         env = _env(tmp / "home")  # PYTHONPATH = the repo only
-        code = _base_starter_code(_OUTER.format(tmp=str(tmp), sleeper=str(SLEEPER), no_way=no_way))
+        code = _base_starter_code(_OUTER.format(tmp=str(tmp), sleeper=str(SLEEPER), no_way=no_way,
+                                                linger=1 if leg == "starter_exits" else 120))
         k32, job = _no_breakaway_job()
         proc = _starter(tmp, code, env, python=base, flags=0x4)  # CREATE_SUSPENDED: in the Job before it runs
         kept = (None, None)
@@ -485,6 +490,20 @@ def test_a_kept_spawn_survives_an_outer_job_that_forbids_breakaway_or_halo_says_
             ready = _ready_line(proc)
             ctx.check(f"the kept spawn started, got {ready}", ready.get("kept"))
             kept = (ready["kept"], _start_time(ready["kept"]))
+            if leg != "outer_closes":
+                if leg == "starter_killed":
+                    proc.kill()  # the starter ended hard, by this test's handle; the outer Job stays open
+                proc.wait(timeout=60)
+                err = proc.stderr.read()
+                time.sleep(5.0)  # a member's Job would have ended the kept child with the starter by now
+                ctx.check(f"{leg}: with no way out of the Job, Halo says so in one line, got {err!r}",
+                          sum("Job object" in line for line in err.splitlines()) == 1)
+                ctx.check(f"{leg}: as that line says, the kept child runs on in the outer Job after its starter "
+                          "went (it is not in the starter's own Job)", _same(*kept))
+                k32.CloseHandle(job)
+                job = None
+                ctx.check(f"{leg}: and it ends when the outer Job closes", _gone([kept], 60.0))
+                continue
             k32.CloseHandle(job)  # the outer Job closes: the kernel ends everything still in it
             job = None
             proc.wait(timeout=30)
@@ -1363,7 +1382,7 @@ def test_a_kept_spawn_of_a_member_halo_outlives_its_hard_kill_under_a_launchers_
     import shutil
     base = getattr(sys, "_base_executable", None) or sys.executable
     tmp = Path(tempfile.mkdtemp(prefix="fx-j-kept-"))
-    code = _base_starter_code(_OUTER.format(tmp=str(tmp), sleeper=str(SLEEPER), no_way=False))
+    code = _base_starter_code(_OUTER.format(tmp=str(tmp), sleeper=str(SLEEPER), no_way=False, linger=120))
     k32, job = _no_breakaway_job(0x3000)
     proc = _starter(tmp, code, _env(tmp / "home"), python=base, flags=0x4)
     kept = (None, None)
@@ -1546,9 +1565,17 @@ def test_a_childs_breakaway_grandchild_cannot_leave_before_or_after_its_move_int
                           got.get("how") == "inside" and _same(*grand))
             proc.kill()
             proc.wait(timeout=60)
+            ctx.check(f"{what}: the child is gone", _gone([child], 30.0))
+            if hold:  # the child is dead: grand.json cannot appear any more; a slow runner's late one is read here
+                text = (tmp / "grand.json").read_text(encoding="utf-8") if (tmp / "grand.json").exists() else ""
+                try:
+                    got = json.loads(text) if text else {}
+                except ValueError:
+                    got = {"raw": text}
+                if got.get("pid") and not grand[0]:
+                    grand = (got["pid"], _start_time(got["pid"]))  # known to the finally, which ends it
             ctx.check(f"{what}: the grandchild {got or '(none started)'} is gone within 30 s of the hard kill",
                       _gone([grand], 30.0) if grand[0] else True)
-            ctx.check(f"{what}: the child is gone too", _gone([child], 30.0))
             if hold:
                 ctx.check(f"{what}: held suspended, the child started nothing, got {got}", not got)
         finally:
