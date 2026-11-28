@@ -175,6 +175,164 @@ def test_the_prompts_front_is_byte_identical_from_round_to_round(ctx: Ctx):
     ctx.check("the budget drops the events first", chat.DROP[0] == "events" and chat.DROP[-1] == "findings")
 
 
+# ---- 3.6.0.25 T: the tuner (ollama_steward/tuner.py, tuner_notes.py) on the bench's fake -------------------------
+
+TUNER = "ant:tuner-test"
+
+
+def _script(replies: list, seen: list, cost: float = 0.0012):
+    """A tuner that answers `replies` round by round (then {"done"}), recording what each round was sent."""
+    import json
+
+    def call(model, system, user, *, state_dir=None):
+        seen.append({"model": model, "system": system, "user": user})
+        r = replies[len(seen) - 1] if len(seen) <= len(replies) else {"done": "finished"}
+        return {"text": json.dumps(r), "input_tokens": 1000, "output_tokens": 50, "cost_usd": cost, "local": False}
+    return call
+
+
+def _bench_rig():
+    from tests.helpers.bench_rig import BenchRig
+    return BenchRig(["sw-up:8b"])
+
+
+def _mem(rig):
+    def read():
+        used = sum(int(e.get("size_vram") or 0) for e in (rig.mock.ps_response or {}).get("models") or [])
+        return {"used": used, "free": 24 * 2 ** 30 - used, "total": 24 * 2 ** 30}
+    return read
+
+
+@test
+def test_no_tuner_picked_no_request_and_the_closed_line(ctx: Ctx):
+    from halo_harness.ollama_steward import tuner as T
+    with _bench_rig() as rig:
+        seen: list = []
+        got = T.run(rig.state, rig.host, "sw-up:8b", caller=_script([{"done": "x"}], seen))
+        ctx.check(f"no tuner: nothing sent, one line, got {got.get('say')!r}", not seen and got["rounds"] == 0
+                  and got["say"].startswith("no tuner model is set"))
+        n = len(rig.mock.requests)
+        off = T.offer(rig.state, rig.host, "sw-up:8b")
+        ctx.check(f"the closed line says what a tuner would do, no request, got {off}", off["tuner"] is None
+                  and "write a diagnosis, server advice and a guide" in off["line"] and len(rig.mock.requests) == n)
+
+
+@test
+def test_the_tuner_job_proposals_texts_and_what_is_sent(ctx: Ctx):
+    import getpass
+    from halo_harness.ollama_steward import tuner as T
+    from halo_harness.ollama_steward import tuner_notes as N
+    from halo_harness.providers.local_sweep_run import sweep
+    with _bench_rig() as rig:
+        sweep(rig.host, "sw-up:8b", state_dir=rig.state, card=rig.card, start=98304, max_loads=2, sessions=lambda: [],
+              memory=_mem(rig))
+        off = T.offer(rig.state, rig.host, "sw-up:8b", tuner=TUNER, card=rig.card)
+        ctx.check(f"said before: which model, what is sent, the cost, what it writes, got {off}", off["tuner"] == TUNER
+                  and off["sends"].endswith("no file path, no host name, no address, no user name")
+                  and "(at most 8 rounds)" in off["cost"] and off["writes"].startswith("nothing to the Ollama store"))
+        seen: list = []
+        replies = [{"tool": "measure", "args": {"window": 65536}}, {"tool": "measure", "args": {"window": 49152}},
+                   {"tool": "measure", "args": {"window": 262144}},
+                   {"tool": "measure", "args": {"window": 40960, "num_batch": 512}},
+                   {"tool": "write", "args": {"kind": "diagnosis", "text": "it spills at its start: the window is too large"}},
+                   {"tool": "write", "args": {"kind": "advice", "settings": [
+                       {"key": "OLLAMA_KV_CACHE_TYPE", "value": "q8_0", "why": "halves the KV cache"},
+                       {"key": "OLLAMA_SCHED_SPREAD", "value": "1", "why": "not a setting it may advise"}]}},
+                   {"tool": "write", "args": {"kind": "guide", "best_at": ["short code edits"], "avoid": ["long PDFs"],
+                                               "text": "a quick coder"}},
+                   {"done": "tuned"}]
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script(replies, seen), card=rig.card,
+                    memory=_mem(rig))
+        ctx.check(f"measured, kept, refused, counted, got {got.get('say')!r}", got["measured"] == 2 and got["kept"] == 1
+                  and got["refused"] == 2 and got["dropped"] == 1 and got["rounds"] == 8)
+        from halo_harness.providers import local_sweep as S
+        rec = S.load(rig.state, rig.host.url, "sw-up:8b")
+        ctx.check(f"the proposal became the pick only by the sweep's rule, got {rec['pick']} {rec['why']!r}",
+                  rec["pick"] == 65536 and sorted(r["window"] for r in rec["windows"]) == [49152, 65536, 81920, 98304])
+        notes = N.read(rig.state, "fake", "sw-up:8b", digest="sha256:sw-up-8b")
+        ctx.check(f"the three texts kept with who and when, got {sorted(notes)}", sorted(notes) == ["advice", "diagnosis", "guide"]
+                  and all(n["by"] == TUNER and isinstance(n["at"], float) and not n["older_build"] for n in notes.values())
+                  and [s["key"] for s in notes["advice"]["settings"]] == ["OLLAMA_KV_CACHE_TYPE"]
+                  and notes["advice"]["settings"][0]["server"] and N.by_line(notes["guide"]).startswith(f"written by {TUNER}, "))
+        ctx.check(f"its cost at the end, got {got.get('cost')!r}", got["cost"] == "$0.0096" and "cost $0.0096" in got["say"])
+        sent = "\n".join(s["system"] + "\n" + s["user"] for s in seen)
+        private = [x for x in (rig.host.url, rig.mock.base_url.split("//")[1], str(rig.state), str(rig.home.root), "127.0.0.1",
+                               getpass.getuser()) if x and x in sent]
+        ctx.check(f"nothing private in what is sent (no path, host, address, user), found {private}",
+                  not private and '"window": 65536' in sent and "sw-up:8b" in sent)
+        ctx.check("removable", N.remove(rig.state, "fake", "sw-up:8b", "guide")
+                  and "guide" not in N.read(rig.state, "fake", "sw-up:8b"))
+        other = N.read(rig.state, "fake", "sw-up:8b", digest="sha256:newer")
+        ctx.check("another build of the tag: marked, not dropped", other["advice"]["older_build"] is True)
+
+
+@test
+def test_the_tuner_stops_and_runs_eight_rounds_at_most(ctx: Ctx):
+    import threading
+    from halo_harness.ollama_steward import tuner as T
+    with _bench_rig() as rig:
+        seen: list = []
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script([{"tool": "facts"}] * 20, seen))
+        ctx.check(f"eight rounds at most, got {got['rounds']} rounds, {len(seen)} calls", got["rounds"] == 8 and len(seen) == 8)
+        stop, seen = threading.Event(), []
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script([{"tool": "facts"}] * 20, seen),
+                    stop=stop, on_line=lambda s: stop.set() if s.startswith("round 1:") else None)
+        ctx.check(f"Stop: no round after it, the cost shown, got {got.get('say')!r}", got["stopped"] and len(seen) == 1
+                  and "(stopped)" in got["say"] and "cost $0.0012" in got["say"])
+
+
+@test
+def test_the_request_body_on_the_mock_upstream_holds_nothing_private(ctx: Ctx):
+    """The real call (agent.live_call) to a tuner on the tests' mock upstream: the request body the upstream got."""
+    import getpass
+    import json
+    from halo_harness.ollama_steward import tuner as T
+    from tests.helpers.mock_ollama import _finish_chat
+    with _bench_rig() as rig:
+        def scn(h, body):
+            _finish_chat(h, [{"message": {"role": "assistant", "content": '{"done": "nothing to add"}'}, "done": False},
+                             {"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop",
+                              "prompt_eval_count": 900, "eval_count": 9, "eval_duration": 1000, "prompt_eval_duration": 1000}])
+        rig.mock.scenarios["tuner-mock:1b"] = scn
+        rig.mock.tags_response["models"].append({"name": "tuner-mock:1b", "model": "tuner-mock:1b", "size": 1000,
+                                                 "digest": "sha256:tm", "details": {"family": "qwen3", "parameter_size": "1B"}})
+        rig.mock.show_responses["tuner-mock:1b"] = {"capabilities": ["completion"], "details": {"family": "qwen3"},
+                                                    "model_info": {"qwen3.context_length": 32768}}
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner="ol:tuner-mock:1b@fake", card=rig.card)
+        bodies = [json.dumps(r.get("body"), ensure_ascii=False) for r in rig.mock.requests
+                  if r.get("path") == "/api/chat" and (r.get("body") or {}).get("model") == "tuner-mock:1b"]
+        sent = "\n".join(bodies)
+        private = [x for x in (rig.mock.base_url.split("//")[1], str(rig.state), str(rig.home.root), "127.0.0.1",
+                               getpass.getuser()) if x and x in sent]
+        ctx.check(f"one round, the body carries the facts and nothing private, got {got.get('say')!r} {len(bodies)} "
+                  f"bodies, found {private}", got["rounds"] == 1 and len(bodies) == 1 and "sw-up:8b" in sent
+                  and "The facts:" in sent and not private)
+
+
+@test
+def test_the_scrub(ctx: Ctx):
+    import os
+    from halo_harness.ollama_steward.tuner import scrub
+    from halo_harness.providers.ollama import OllamaHost
+    saved = {k: os.environ.get(k) for k in ("USER", "USERNAME")}
+    os.environ["USER"] = os.environ["USERNAME"] = "pat-tester"
+    try:
+        host = OllamaHost(name="gpu-box", url="http://gpu-box.lan:11434")
+        got = scrub("pat-tester loads D:\\models\\blobs\\sha256-ab from /opt/ollama/models and ~/models on gpu-box "
+                    "(gpu-box.lan, http://gpu-box.lan:11434/api/ps, 192.0.2.10:11434, 2001:db8::1, \\\\share\\x) prologue",
+                    host)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    leaks = [x for x in ("pat-tester", "models\\blobs", "/opt/", "~/models", "gpu-box", "192.0.2", "2001:db8", "share")
+             if x in got]
+    ctx.check(f"no user, path, host or address left, got {got!r} (leaks {leaks})", not leaks and "prologue" in got
+              and got.count("<path>") >= 3 and got.count("<address>") >= 3)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

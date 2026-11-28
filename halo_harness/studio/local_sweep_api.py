@@ -11,6 +11,12 @@ kind "sweep"). Every answer carries `cli`, the `halo local bench --sweep` line t
     POST local/host/<name>/sweep/use {model}   "Use in Halo": the pick as the profile's window (agent_proposals.
                                                 land_user: it shows in Changes and can be reverted; nothing is
                                                 written to the Ollama store)
+    POST local/host/<name>/sweep/tuner {model} "Tune with <model>" (ollama_steward/tuner.py; job kind "tuner"); 409
+                                                when no tuner model is set (nothing is sent) or a job runs there
+    POST local/host/<name>/sweep/tuner/stop {model}   its Stop (ends before the next round)
+    POST local/host/<name>/sweep/notes/remove {model, kind}   removes a text the tuner wrote
+The GET also carries `tuner` (ollama_steward/tuner.offer: the tuner, what is sent, the cost, what it writes; or the
+one closed line when none is set), `tuner_job` and `notes` (the texts kept, each with `by_line`).
 """
 
 from __future__ import annotations
@@ -18,7 +24,7 @@ from __future__ import annotations
 import re
 import urllib.parse
 
-_SWEEP = re.compile(r"^local/host/(?P<name>[^/]+)/sweep(?:/(?P<verb>stop|use))?$")
+_SWEEP = re.compile(r"^local/host/(?P<name>[^/]+)/sweep(?:/(?P<verb>stop|use|tuner|tuner/stop|notes/remove))?$")
 USE_SAYS = ("sets the profile's window of {model} on {host} to {pick:,} (the sweep's pick) through Changes, where it "
             "can be reverted; nothing is written to the Ollama store")
 
@@ -48,10 +54,10 @@ def _view(rec) -> "dict | None":
             "loads": len(rows), "trained": rec.get("trained"), "at": rec.get("at")}
 
 
-def _job(name: str, model: str):
+def _job(name: str, model: str, kind: str = "sweep"):
     from halo_harness.providers.ollama import ollama_names_match
     from halo_harness.studio.local_bench_job import current
-    return next((j for j in current(name)["jobs"] if j.get("kind") == "sweep" and ollama_names_match(j["model"], model)),
+    return next((j for j in current(name)["jobs"] if j.get("kind") == kind and ollama_names_match(j["model"], model)),
                 None)
 
 
@@ -64,7 +70,49 @@ def get_sweep(req, host, name: str, model: str):
         offer = ""
     rec = _rec(req, host, model)
     return 200, {"sweep": _view(rec), "job": _job(name, model), "offer": offer, "cli": cli(name, model),
-                 "use": USE_SAYS.format(model=model, host=name, pick=rec["pick"]) if rec and rec.get("pick") else None}
+                 "use": USE_SAYS.format(model=model, host=name, pick=rec["pick"]) if rec and rec.get("pick") else None,
+                 "tuner": _tuner_offer(req, host, model), "tuner_job": _job(name, model, "tuner"),
+                 "notes": _notes(req, host, name, model)}
+
+
+def _tuner_offer(req, host, model: str) -> dict:
+    from halo_harness.ollama_steward import tuner as T
+    from halo_harness.studio.ollama_hosts_view import card_of
+    try:
+        return T.offer(req.state_dir, host, model, card=card_of(host))
+    except Exception as e:  # noqa: BLE001 -- the line says what broke
+        return {"tuner": T.tuner_model(), "line": f"the tuner's offer could not be read: {type(e).__name__}"}
+
+
+def _notes(req, host, name: str, model: str) -> dict:
+    from halo_harness.ollama_steward import tuner_notes as N
+    from halo_harness.studio.ollama_hosts_view import catalog_of
+    from halo_harness.providers.ollama import ollama_names_match
+    row = next((r for r in catalog_of(host).get("models") or [] if isinstance(r, dict)
+                and ollama_names_match(r.get("model") or r.get("name"), model)), {})
+    return {k: {**v, "by_line": N.by_line(v)} for k, v in N.read(req.state_dir, name, model, digest=row.get("digest")).items()}
+
+
+def post_tuner(req, host, name: str, model: str):
+    from halo_harness.ollama_steward import tuner as T
+    from halo_harness.studio import local_bench_job as J
+    from halo_harness.studio.local_control_api import _pub
+    from halo_harness.studio.ollama_hosts_view import card_of
+    tuner = T.tuner_model()
+    if not tuner:
+        return 409, {"error": "no tuner model is set (Settings: Tuner model): nothing was sent"}
+    other = J.running_on(name)
+    if other is not None and not (other.get("kind") == "tuner" and other.get("model") == model):
+        return 409, {"error": f"a {other.get('kind') or 'bench'} of {other['model']} runs on {name} now: one at a time "
+                              "per card"}
+    card = card_of(host)
+    off = T.offer(req.state_dir, host, model, tuner=tuner, card=card)
+
+    def runner(h, m, **kw):
+        return T.run(kw["state_dir"], h, m, tuner=tuner, stop=kw.get("stop"), on_line=kw.get("on_line"), card=kw.get("card"))
+    view = J.start(host, model, _pub(req), state_dir=req.state_dir, cost=off.get("cost") or "", card=card, runner=runner,
+                   kind="tuner")
+    return 200, {**view, "tuner": tuner}
 
 
 def post_sweep(req, host, name: str, model: str, body: dict):
@@ -127,6 +175,18 @@ def dispatch_sweep(req):
         ok = stop(name, model)
         return 200, {"ok": ok, "say": "stops after the running load; what was measured is kept" if ok
                      else f"no sweep of {model} runs on {name}"}
+    if verb == "tuner/stop":
+        from halo_harness.studio.local_bench_job import stop
+        ok = stop(name, model, "tuner")
+        return 200, {"ok": ok, "say": "stops before the next round; what it wrote is kept" if ok
+                     else f"no tuner runs on {model} on {name}"}
+    if verb == "tuner":
+        return post_tuner(req, host, name, model)
+    if verb == "notes/remove":
+        from halo_harness.ollama_steward import tuner_notes as N
+        kind = str(body.get("kind") or "")
+        ok = N.remove(req.state_dir, name, model, kind)
+        return 200, {"ok": ok, "say": f"removed the {kind}" if ok else f"no {kind or 'text'} kept for {model}"}
     if verb == "use":
         return post_use(req, host, name, model)
     return post_sweep(req, host, name, model, body)

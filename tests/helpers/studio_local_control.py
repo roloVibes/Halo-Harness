@@ -174,6 +174,9 @@ def sweep(c, url, ctx) -> dict:
         _act(c, "qwen3.5:9b", "sweep", f"{q('[data-testid=local-sweep-offer]')}?.textContent.includes('loads')")
         out["sweep_offer"] = c.js(f"{q('[data-testid=local-sweep-offer]')}.textContent")
         out["sweep_empty"] = c.js(f"[!!{q('[data-testid=local-sweep-table]')}, !!{q('[data-testid=local-sweep-acts]')}]")
+        off = q("[data-testid=local-tuner-off]")
+        out["tuner_off"] = c.js(f"{off} ? [{off}.open, {off}.querySelector('summary').textContent, "
+                                f"!!{q('[data-testid=local-tuner-start]')}] : null")
         press(c, q("[data-testid=local-sweep-start]"), f"!!{q('[data-testid=local-sweep-stop]')}")
         press(c, q("[data-testid=local-sweep-stop]"), f"!!{q('[data-testid=local-sweep-said]')}")
         out["sweep_stop_said"] = c.js(f"{q('[data-testid=local-sweep-said]')}.textContent")

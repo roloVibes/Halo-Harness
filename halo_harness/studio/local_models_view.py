@@ -91,6 +91,12 @@ def _ollama_rows(h, warm: Optional[dict] = None, state_dir=None) -> list:
                           "context_length": ld.get("context_length")} if ld else None, r.get("size")))
         rows[-1]["warm"] = warm_view((warm or {}).get((h.name, m)), ld)  # 3.3.5.0 R4: warm / cold, the cache
         rows[-1]["twin_of"] = r.get("twin_of")  # 3.3.6.0 R1: raw tag vs fitted twin (studio/local_twin_verify.py)
+        if state_dir is not None and isinstance(rows[-1]["card"], dict):  # 3.6.0.25 T: the tuner's guide, as its text
+            from halo_harness.ollama_steward.tuner_notes import by_line, read as read_notes
+            g = read_notes(state_dir, h.name, m, digest=r.get("digest")).get("guide")
+            if g:
+                rows[-1]["card"] = {**rows[-1]["card"], "guide": {k: g.get(k) for k in ("text", "best_at", "avoid", "by")}
+                                    | {"by_line": by_line(g)}}
     if state_dir is not None:
         from halo_harness.studio.local_twin_verify import raw_and_twins
         raw_and_twins(h, rows, state_dir)

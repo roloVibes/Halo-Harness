@@ -76,14 +76,14 @@ def start(host, model: str, publish: Optional[Callable] = None, *, state_dir=Non
 
     def body() -> None:
         try:
-            more = {"stop": job["stop"]} if kind == "sweep" else {"quick": quick}
+            more = {"stop": job["stop"]} if kind != "bench" else {"quick": quick}
             got = fn(host, model, card=card, state_dir=state_dir, on_line=said, check_busy=False, **more)
         except Exception as e:
             got = {"ok": False, "say": f"the {kind} of {model} stopped: {type(e).__name__}: {e}"}
         ok = bool(got.get("ok"))
         with _lock:
             job.update(done=True, ok=ok, error=None if ok else got.get("say"), card=got if ok else None,
-                       line=got.get("say") if kind == "sweep" else (f"benched: up to {(got.get('max_gpu_window') or 0) // 1024}k on the GPU, reply reserve "
+                       line=got.get("say") if kind != "bench" else (f"benched: up to {(got.get('max_gpu_window') or 0) // 1024}k on the GPU, reply reserve "
                              f"{got.get('reserve_floor') or 'over 512'}" if ok else got.get("say") or "the bench stopped"))
         if ok:
             from halo_harness.studio.local_pull_job import after_change

@@ -58,3 +58,7 @@
 .lc-sweep-table tr[data-pick] td { font-weight: 600; color: var(--accent, inherit); }
 .lc-sweep-table tr[data-slow] td { color: var(--warn, inherit); }
 .lc-sweep-acts { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+/* 3.6.0.25 T batch 2: the tuner's texts, apart from the measurements */
+.lc-tuner { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.lc-tuner-note, .mcard-guide { border-left: 2px solid var(--border, currentColor); padding-left: 8px; display: flex; flex-direction: column; gap: 4px; }
+.lc-tuner-note .lc-why, .mcard-guide .lc-why { white-space: normal; overflow-wrap: anywhere; }

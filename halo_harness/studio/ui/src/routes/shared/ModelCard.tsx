@@ -30,6 +30,8 @@ export type CardView = {
   vision?: boolean | null;
   vision_truth?: string | null;
   embedding_only?: boolean;
+  /** 3.6.0.25 T: the guide a tuner model wrote (ollama_steward/tuner_notes.py): its text, never Halo's measurement. */
+  guide?: { text?: string; best_at?: string[]; avoid?: string[]; by?: string; by_line: string };
   sources?: Record<string, string>;
   kind?: string;
   window?: { tokens: number | null; source?: string };
@@ -90,6 +92,14 @@ export function CardDetail({ card, refName, open }: { card?: CardView; refName: 
         ))}
       </div>
       <CardBlocks blocks={card.blocks} refName={refName} />
+      {card.guide && (
+        <div className="mcard-guide" data-testid="model-card-guide" title="a text the tuner model wrote, not a measurement">
+          <div className="rail-label mono">GUIDE · {card.guide.by_line}</div>
+          {card.guide.text && <p className="lc-why">{card.guide.text}</p>}
+          {card.guide.best_at?.length ? <p className="lc-why">good at: {card.guide.best_at.join("; ")}</p> : null}
+          {card.guide.avoid?.length ? <p className="lc-why">avoid: {card.guide.avoid.join("; ")}</p> : null}
+        </div>
+      )}
     </details>
   );
 }

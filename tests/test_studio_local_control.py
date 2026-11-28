@@ -123,6 +123,9 @@ def test_find_the_best_window_offer_table_pick_and_stop(ctx: Ctx):
               and picked[0][1][5] == "the pick")
     ctx.check(f"the pick's reason, got {got.get('sweep_pick')!r}",
               bool(picked) and str(got.get("sweep_pick") or "").startswith(f"the pick: {picked[0][1][0]}: "))
+    off = got.get("tuner_off") or [None, "", None]
+    ctx.check(f"no tuner model set: one closed line, no start, got {off}", off[0] is False and off[2] is False
+              and "write a diagnosis, server advice and a guide" in str(off[1]))
     use, twin = (got.get("sweep_acts") or ["", ""])[:2]
     ctx.check(f"Use in Halo says what it writes; Make the twin, got {got.get('sweep_acts')}",
               "through Changes, where it can be reverted; nothing is written to the Ollama store" in use and twin == "Make the twin")

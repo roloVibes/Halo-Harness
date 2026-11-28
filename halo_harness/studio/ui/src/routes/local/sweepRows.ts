@@ -6,7 +6,12 @@ export type SweepRow = {
 };
 export type Sweep = { windows: SweepRow[]; pick: number | null; why: string; done: boolean; loads: number };
 export type SweepJob = { job: string; done: boolean; ok: boolean; line: string; lines: string[] };
-export type SweepAnswer = { sweep: Sweep | null; job: SweepJob | null; offer: string; cli: string; use: string | null };
+export type TunerOffer = { tuner: string | null; line?: string; sends?: string; cost?: string; writes?: string; rounds?: number };
+export type Setting = { key: string; value: string; why: string; server: Record<string, { set: string; revert: string; restart: string }> };
+export type Note = { kind: string; by: string; by_line: string; text?: string; best_at?: string[]; avoid?: string[];
+  settings?: Setting[]; dropped?: number };
+export type SweepAnswer = { sweep: Sweep | null; job: SweepJob | null; offer: string; cli: string; use: string | null;
+  tuner?: TunerOffer; tuner_job?: SweepJob | null; notes?: Record<string, Note> };
 
 /** A figure as the host gave it; "unknown" where it did not tell, never a made-up number. */
 export function fig(v: number | null | undefined, unit = ""): string {

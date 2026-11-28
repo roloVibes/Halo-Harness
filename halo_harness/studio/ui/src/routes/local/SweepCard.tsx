@@ -5,8 +5,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "../../lib/ui";
 import { makeTwin, planTwin, useCtl } from "./ctl";
-import { msg, readSweep, startSweep, stopSweep, useInHalo } from "./sweep";
+import { msg, readSweep, removeNote, startSweep, startTuner, stopSweep, stopTuner, useInHalo } from "./sweep";
 import { cells, HEAD, running, type SweepAnswer } from "./sweepRows";
+import { TunerBits } from "./TunerBits";
 import type { ModelEntry } from "./types";
 
 export function SweepCard({ host, m }: { host: string; m: ModelEntry }) {
@@ -22,13 +23,14 @@ export function SweepCard({ host, m }: { host: string; m: ModelEntry }) {
     }
   };
   const live = running(a);
+  const poll = live || (!!a?.tuner_job && !a.tuner_job.done);
   const pick = a?.sweep?.pick ?? null;
   useEffect(() => { void read(); }, [host, m.model]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!live) return undefined;
+    if (!poll) return undefined;
     const t = setInterval(() => void read(), 1500);
     return () => clearInterval(t);
-  }, [live]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [poll]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (pick && !live) void planTwin(host, m.model, pick);
   }, [host, m.model, pick, live]);
@@ -89,6 +91,10 @@ export function SweepCard({ host, m }: { host: string; m: ModelEntry }) {
                   title={plan?.cli || ""}>Make the twin</Button>
         </div>
       ) : null}
+      {a && !live && (
+        <TunerBits a={a} start={() => void act(() => startTuner(host, m.model))} stop={() => void act(() => stopTuner(host, m.model))}
+                   remove={(kind) => void act(() => removeNote(host, m.model, kind))} />
+      )}
       {said && <p className="mono lc-said" data-testid="local-sweep-said">{said}</p>}
       <code className="mono lc-cli-line" title="the same from a terminal">{a?.cli || `halo local bench --host ${host} --sweep ${m.model}`}</code>
     </div>

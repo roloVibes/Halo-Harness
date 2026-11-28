@@ -199,6 +199,50 @@ def test_the_sweep_routes_offer_stop_and_use_in_halo(ctx: Ctx):
 
 
 @test
+def test_the_tuner_routes_off_by_default_then_a_job_with_its_texts(ctx: Ctx):
+    """3.6.0.25 T rulings 8-10 through the routes: no tuner set -> the one closed line, POST refused, nothing sent; set
+    -> the offer (which model, what is sent, the cost, what it writes), a job with its cost when done, the texts with
+    who wrote them, Remove. The tuner is a scripted stand-in for agent.live_call: no request leaves this machine."""
+    import json
+    from halo_harness.ollama_steward import agent as A
+    from halo_harness.theme import set_config_value
+    with BenchRig(["sw-up:8b"]) as rig:
+        st, got = _api(rig, "GET", "local/host/fake/sweep", query={"model": "sw-up:8b"})
+        ctx.check(f"no tuner: one closed line, got {got.get('tuner')}", st == 200 and got["tuner"]["tuner"] is None
+                  and "pick one in Settings (Tuner model)" in got["tuner"]["line"] and got["notes"] == {})
+        st, refused = _api(rig, "POST", "local/host/fake/sweep/tuner", body={"model": "sw-up:8b"})
+        ctx.check(f"no tuner: a start is refused, nothing sent, got {st} {refused}", st == 409
+                  and "nothing was sent" in refused["error"])
+        set_config_value("ollama.tuner.model", "ant:tuner-test")
+        seen: list = []
+        saved = A.live_call
+
+        def fake(model, system, user, *, state_dir=None, timeout_s=120.0):
+            seen.append(user)
+            r = {"tool": "write", "args": {"kind": "guide", "best_at": ["quick edits"], "text": "small and fast"}}                 if len(seen) == 1 else {"done": "ok"}
+            return {"text": json.dumps(r), "input_tokens": 800, "output_tokens": 40, "cost_usd": 0.002, "local": False}
+        A.live_call = fake
+        try:
+            st, got = _api(rig, "GET", "local/host/fake/sweep", query={"model": "sw-up:8b"})
+            t = got["tuner"]
+            ctx.check(f"the offer before a start, got {t}", t["tuner"] == "ant:tuner-test" and "no user name" in t["sends"]
+                      and "(at most 8 rounds)" in t["cost"] and t["writes"].startswith("nothing to the Ollama store"))
+            st, job = _api(rig, "POST", "local/host/fake/sweep/tuner", body={"model": "sw-up:8b"})
+            done = _wait(job.get("job", ""))
+        finally:
+            A.live_call = saved
+        ctx.check(f"the job ends with its cost and counts, got {done.get('line')!r}", st == 200 and done.get("ok")
+                  and "cost $0.0040" in str(done.get("line")) and "wrote: guide" in str(done.get("line")) and len(seen) == 2)
+        st, got = _api(rig, "GET", "local/host/fake/sweep", query={"model": "sw-up:8b"})
+        g = (got["notes"] or {}).get("guide") or {}
+        ctx.check(f"the text, written by the tuner, got {g}", g.get("by") == "ant:tuner-test"
+                  and g.get("by_line", "").startswith("written by ant:tuner-test, ") and g.get("best_at") == ["quick edits"])
+        st, gone = _api(rig, "POST", "local/host/fake/sweep/notes/remove", body={"model": "sw-up:8b", "kind": "guide"})
+        st, got = _api(rig, "GET", "local/host/fake/sweep", query={"model": "sw-up:8b"})
+        ctx.check(f"Remove, got {gone}", gone["ok"] and got["notes"] == {})
+
+
+@test
 def test_the_sweep_table_cells_in_node(ctx: Ctx):
     """3.6.0.25 T ruling 7 (routes/local/sweepRows.ts): a row's cells -- window, on the card, free, prompt and reply speed,
     the pick's mark; "unknown" where the host did not tell, "not measured" for a window that did not load."""
