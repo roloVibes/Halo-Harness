@@ -16,6 +16,7 @@ import { startLiveTree } from "../../shared/liveTree";
 import { LiveRow, type Who } from "../../session/LiveRows";
 import { useFollow } from "../../session/follow";
 import { followAgain } from "../../session/steer";
+import { watchWhy } from "../../fleet/watchOnly";
 import { BoxHead } from "./BoxHead";
 import { PlanPage, UnderList } from "./FeedParts";
 import { setFeedFor, useLitStore } from "./litStore";
@@ -75,6 +76,7 @@ export function Feed() {
     if (target && text.trim() && (await steer(target.key, text, "nudge"))) setText("");
   };
   const box = filter.startsWith("agent:") ? L.ov?.helpers.find((h) => h.aid === filter.slice(6))?.box || "" : filter;
+  const watch = watchWhy(L.rec); // 3.6.0.25 G: a Claude Code session takes no steer and no stop
   return (
     <div className="mpf" data-testid="map-feed" data-sid={L.session.sid} data-filter={filter || "everyone"} data-follow={following || undefined}>
       <Pick L={L} filter={filter} />
@@ -97,8 +99,8 @@ export function Feed() {
                    aria-label={`Steer ${target.name}`} data-testid="map-feed-steer-text"
                    onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void send(); } }} />
           <span className="mpf-buttons">
-            <Button variant="primary" onClick={() => void send()} disabled={!text.trim()} data-testid="map-feed-steer">Steer {target.name}</Button>
-            {!stopping ? <Button onClick={() => setStopping(true)} data-testid="map-feed-stop">Stop {target.name}</Button> : (
+            <Button variant="primary" onClick={() => void send()} disabled={!text.trim() || !!watch} title={watch} data-testid="map-feed-steer">Steer {target.name}</Button>
+            {!stopping ? <Button onClick={() => setStopping(true)} disabled={!!watch} title={watch} data-testid="map-feed-stop">Stop {target.name}</Button> : (
               <span className="mpf-ask" data-testid="map-feed-stop-ask">
                 <span className="cw-line">Stop {target.name} at its next step?</span>
                 <Button variant="primary" data-testid="map-feed-stop-yes"

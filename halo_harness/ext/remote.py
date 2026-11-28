@@ -56,10 +56,16 @@ def offline() -> bool:
     return offline_mode_enabled()
 
 
+def _offered(row) -> bool:
+    """3.6.0.25 G: a Claude Code session Halo only shows (kind `guest`) is never offered to a transport: nothing of it
+    (its prompt, its tools, its words) leaves this machine."""
+    return isinstance(row, dict) and row.get("kind") != "guest"
+
+
 def _live() -> list:
     from halo_harness.remote import registry
     try:
-        rows = list(registry.list_live())
+        rows = [r for r in registry.list_live() if _offered(r)]
     except Exception:
         return []
     from halo_harness.newest_first import newest_first
@@ -181,7 +187,8 @@ def live_lines(limit: int = 8) -> "list[str]":
     from halo_harness.live.attention import build
     from halo_harness.peers.local_view import snapshot
     local = snapshot()
-    rows = [r for r in local.get("sessions") or [] if isinstance(r, dict)]
+    rows = [r for r in local.get("sessions") or [] if _offered(r)]
+    local = {**local, "sessions": rows}  # what waits on you, too, of the sessions offered only
     cost = local.get("cost_today")
     out = [f"{local.get('name') or 'This harness'}: {len(rows)} live session(s)"
            + (f", ${cost:.2f} today" if isinstance(cost, (int, float)) else "")]

@@ -303,6 +303,46 @@ def test_a_late_call_never_gives_its_goal_to_the_next_agent(ctx: Ctx):
     ctx.check("c2: never c1's goal", feed.tree.row("c2")["task"] == "goal not known")
 
 
+def _landing(feed, seq, t0=10**12):
+    """Feed `seq` [(ms after t0, line)] one line per read, in that order (each async hook lands on its own)."""
+    from halo_harness.guest import note
+    for ms, d in seq:
+        feed.take([json.loads(note.line_of(d, ts=t0 + ms * 1_000_000))])
+
+
+def _agent_call(tid, goal, typ):
+    return _ev("PreToolUse", tool_name="Agent", tool_use_id=tid, tool_input={"description": goal, "subagent_type": typ})
+
+
+@test
+def test_a_start_before_its_call_then_two_calls_never_gives_c2_the_goal_of_c1(ctx: Ctx):
+    """The check's case A: c1's start lands before its call, a second call g10 lands, then c1's own late call g9."""
+    for gap in (1, 1500):  # inside the settle window, and the late call past it
+        feed, _seen, _ = _feed()
+        _landing(feed, [(0, _ev("SubagentStart", agent_id="c1", agent_type="Explore")),
+                        (gap, _agent_call("g10", "Goal of c2", "Explore")),
+                        (2 * gap, _agent_call("g9", "Goal of c1", "Explore")),
+                        (2 * gap + 1, _ev("SubagentStart", agent_id="c2", agent_type="Explore"))])
+        got = (feed.tree.row("c1")["task"], feed.tree.row("c2")["task"])
+        ctx.check(f"{gap} ms apart: c1 and c2 goal not known, never c1's goal on c2; got {got}",
+                  got == ("goal not known", "goal not known") and feed.tree.row("c2")["spawn"]["description"] == "goal not known")
+
+
+@test
+def test_two_plan_calls_of_one_message_landing_interleaved_are_not_sure(ctx: Ctx):
+    """The check's case B: call g2, start b1, call g3, start b2: b1 may be g3's agent."""
+    feed, _seen, _ = _feed()
+    _landing(feed, [(0, _agent_call("g2", "Plan A", "Plan")), (1, _ev("SubagentStart", agent_id="b1", agent_type="Plan")),
+                    (2, _agent_call("g3", "Plan B", "Plan")), (3, _ev("SubagentStart", agent_id="b2", agent_type="Plan"))])
+    got = (feed.tree.row("b1")["task"], feed.tree.row("b2")["task"])
+    ctx.check(f"b1 and b2: goal not known (b1's goal taken back when g3 landed), got {got}",
+              got == ("goal not known", "goal not known") and feed.tree.row("b1")["spawn"]["description"] == "goal not known")
+    _landing(feed, [(10_000, _agent_call("g4", "Plan C", "Plan")), (10_001, _ev("SubagentStart", agent_id="b3", agent_type="Plan")),
+                    (20_000, _agent_call("g5", "Plan D", "Plan"))])
+    ctx.check(f"a lone call and its start, nothing of the type near: sure, and a call ten seconds later leaves it; got "
+              f"{feed.tree.row('b3')['task']!r}", feed.tree.row("b3")["task"] == "Plan C")
+
+
 @test
 def test_task_events_feed_the_plan_and_a_clear_resets_it(ctx: Ctx):
     from halo_harness.guest import note
@@ -350,7 +390,7 @@ def test_install_writes_the_plugin_and_prints_the_commands_uninstall_removes_it(
         manifest = made[plugin / ".claude-plugin" / "plugin.json"]
         ctx.check(f"the manifest: halo-guest, defaultEnabled false: {manifest}",
                   manifest["name"] == "halo-guest" and manifest["defaultEnabled"] is False)
-        py = str(Path(sys.executable).resolve())
+        py = os.path.abspath(sys.executable)  # never resolved: a venv's bin/python is a link to the base interpreter
         hooks = made[plugin / "hooks" / "hooks.json"]["hooks"]
         from halo_harness.guest.note import EVENTS
         ctx.check(f"a hook for each of the {len(EVENTS)} events", sorted(hooks) == sorted(EVENTS))
@@ -374,6 +414,51 @@ def test_install_writes_the_plugin_and_prints_the_commands_uninstall_removes_it(
                   "claude plugin uninstall halo-guest@halo-local" in out.getvalue())
 
 
+def _linked_python(where: Path):
+    """This interpreter reached through a link (a venv's bin/python is one on Linux and macOS): a symlink, or on
+    Windows a junction to its folder. None when the system makes neither."""
+    exe = Path(os.path.abspath(sys.executable))
+    try:
+        os.symlink(exe, where / exe.name)
+        return where / exe.name, None
+    except (OSError, NotImplementedError, AttributeError):
+        pass
+    try:
+        import _winapi
+        _winapi.CreateJunction(str(exe.parent), str(where / "j"))
+        return where / "j" / exe.name, where / "j"
+    except (ImportError, OSError, AttributeError):
+        return None, None
+
+
+@test
+def test_the_plugin_names_this_halos_python_as_it_was_started_never_the_link_resolved(ctx: Ctx):
+    """The check: resolving a venv's (or a uv tool's) python loses the venv, and the bridge then imports no Halo or
+    another one. The plugin names the interpreter by the path it runs under, a link kept as a link."""
+    from halo_harness.guest import install
+    where = Path(tempfile.mkdtemp(prefix="guest-py-"))
+    linked, junction = _linked_python(where)
+    if linked is None:
+        ctx.check("this system makes no link (nothing to tell apart)", True)
+        return
+    real = sys.executable
+    try:
+        sys.executable = str(linked)
+        with _Home() as home:
+            made = install.files(home.path / "p")
+        hooks = next(v for k, v in made.items() if Path(k).name == "hooks.json")["hooks"]
+        mcp = next(v for k, v in made.items() if Path(k).name == ".mcp.json")["mcpServers"]["halo-guest"]
+        cmds = {h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]} | {mcp["command"]}
+        ctx.check(f"every command is the link's own path {linked}, got {cmds}", cmds == {str(linked)})
+    finally:
+        sys.executable = real
+        if junction is not None:
+            os.rmdir(junction)  # the junction only, never what it points at
+        else:
+            os.unlink(linked)
+        os.rmdir(where)
+
+
 @test
 def test_halo_never_starts_the_bridge_nor_runs_its_hooks_in_its_own_sessions(ctx: Ctx):
     with _Home() as home:
@@ -384,8 +469,88 @@ def test_halo_never_starts_the_bridge_nor_runs_its_hooks_in_its_own_sessions(ctx
         plugins._discover_one_plugin_root_mcp_servers("halo-guest", root / "halo-guest", env={}, resolved=resolved,
                                                      notices=notices)
         ctx.check(f"Halo's plugin reader skips the bridge, got {sorted(resolved)}", resolved == {})
-        src = (Path(plugins.__file__).parent.parent / "headless.py").read_text(encoding="utf-8")
-        ctx.check("Halo's hook loader skips the plugin's hooks", "== GUEST_PLUGIN:" in src)
+        other = home.path / "other-plugin"
+        (other / "hooks").mkdir(parents=True)
+        (other / "hooks" / "hooks.json").write_text(json.dumps({"hooks": {"Notification": [
+            {"hooks": [{"type": "command", "command": "true"}]}]}}), encoding="utf-8")
+        from halo_harness import headless
+        saved = plugins.load_installed_plugins, plugins._plugin_roots
+        plugins.load_installed_plugins = lambda *a, **kw: {"version": 2, "plugins": {}}
+        plugins._plugin_roots = lambda *a, **kw: [("halo-guest", root / "halo-guest"), ("other", other)]
+        try:
+            runner = headless.build_hook_runner(settings=None, cwd=home.path, session_id="s", transcript_path="",
+                                                effort=None, permission_mode="default", mcp_manager=None, bare=False)
+        finally:
+            plugins.load_installed_plugins, plugins._plugin_roots = saved
+        from halo_harness.guest.note import EVENTS
+        ctx.check(f"Halo's hook loader read the other plugin's hooks, got {sorted(runner.hooks_by_event)}",
+                  runner.has_hooks("Notification"))
+        ctx.check("and loaded none of halo-guest's", not any(runner.has_hooks(e) for e in EVENTS if e != "Notification")
+                  and len(runner.hooks_by_event.get("Notification") or []) == 1)
+
+
+@test
+def test_a_guest_row_is_never_offered_to_a_transport_nor_to_the_lan_voice_door(ctx: Ctx):
+    """The check: ext.remote (the seam a pack carries Halo to a phone or a chat through) listed and connected to a
+    guest row, and its socket serves subscribe and agent_tail: a Claude Code session's words could leave the machine."""
+    import socket
+    from halo_harness.ext import remote
+    from halo_harness.peers import local_view
+    from halo_harness.remote import registry
+    from halo_harness.voice import turn
+    lst = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lst.bind(("127.0.0.1", 0))
+    lst.listen(8)
+    ep = f"tcp:127.0.0.1:{lst.getsockname()[1]}"
+    rows = [{"session_id": "h-1", "title": "my own work", "cwd": CWD, "pid": os.getpid(), "endpoint": ep, "kind": "tui",
+             "started": 1.0},
+            {"session_id": "g-1", "title": "Claude Code", "cwd": CWD, "pid": os.getpid(), "endpoint": ep, "kind": "guest",
+             "started": 2.0}]
+    real = registry.list_live
+    with _Home() as home:
+        try:
+            registry.list_live = lambda *a, **kw: [dict(r) for r in rows]
+            local_view.forget()
+            ctx.check(f"sessions(): the Halo session only, got {[r['session_id'] for r in remote.sessions()]}",
+                      [r["session_id"] for r in remote.sessions()] == ["h-1"])
+            ctx.check("connect() to the guest: None", remote.connect("g-1", timeout=1) is None)
+            text = "\n".join(remote.live_lines())
+            ctx.check(f"live_lines(): one live session, the guest not named: {text!r}",
+                      "1 live session(s)" in text and "Claude Code" not in text and "my own work" in text)
+            (home.path / "run").mkdir(parents=True, exist_ok=True)
+            (home.path / "run" / "sessions.json").write_text(json.dumps({"sessions": rows}), encoding="utf-8")
+            got = [r["session_id"] for r in turn.sessions(home.path)]
+            ctx.check(f"halo host's voice door lists the Halo session only, got {got}", got == ["h-1"])
+        finally:
+            registry.list_live = real
+            local_view.forget()
+            lst.close()
+
+
+@test
+def test_a_guest_row_keeps_nothing_halo_started_running(ctx: Ctx):
+    """The check: the home watch (closing_home_watch.halos_alive) and a model server's 'another Halo still runs'
+    counted Claude Code's bridge as a Halo, so a server Halo started outlived the last Halo session."""
+    from halo_harness import closing_home_watch as W
+    from halo_harness.providers import local_server
+    from halo_harness.remote import registry
+    with _Home() as home:
+        (home.path / "run").mkdir(parents=True, exist_ok=True)
+        import time
+        row = {"session_id": "g-1", "pid": os.getppid(), "kind": "guest", "started": time.time(), "endpoint": "tcp:127.0.0.1:9"}
+        (home.path / "run" / "sessions.json").write_text(json.dumps({"sessions": [row]}), encoding="utf-8")
+        ctx.check("the home watch: a guest row alone is no Halo alive",
+                  W.halos_alive(str(home.path), (0, "")) is False)
+        (home.path / "run" / "sessions.json").write_text(json.dumps({"sessions": [{**row, "kind": "tui"}]}), encoding="utf-8")
+        ctx.check("a Halo session's row still is", W.halos_alive(str(home.path), (0, "")) is True)
+        real = registry.list_live
+        try:
+            registry.list_live = lambda *a, **kw: [{**row, "pid": os.getppid()}]
+            ctx.check("a model server: a guest row is no other Halo", local_server._others_alive(home.path) is False)
+            registry.list_live = lambda *a, **kw: [{**row, "pid": os.getppid(), "kind": "tui"}]
+            ctx.check("a Halo session's row is", local_server._others_alive(home.path) is True)
+        finally:
+            registry.list_live = real
 
 
 @test

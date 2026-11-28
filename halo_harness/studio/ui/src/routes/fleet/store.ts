@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createStore, useStore, writeLocal } from "../../lib/store";
 import { settle, type MotionState } from "../../lib/motion";
+import { isGuest, WATCH_ONLY } from "../session/promptWords";
 import { LIVE_STATES, type Activity, type AgentKey, type AgentRef, type AgentRow, type Harness, type LitEdge, type SessionRow, type Stream } from "./types";
 
 export type StreamTab = "thinking" | "working" | "output";
@@ -137,7 +138,8 @@ export const isLive = (a: AgentRow) => LIVE_STATES.includes(String(a.state || ""
 export function sessionTitle(s: SessionRow): string {
   const main = (s.agents || []).find((a) => !a.parent);
   const folder = String(s.cwd || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop();
-  return String(s.title || main?.task || folder || s.session_id.slice(0, 8));
+  const title = String(s.title || main?.task || folder || s.session_id.slice(0, 8));
+  return isGuest(s) ? `${title} · ${WATCH_ONLY}` : title; // 3.6.0.25 G: a Claude Code session's name, on every view
 }
 
 export function findAgent(s: FleetState, key: AgentKey): AgentRef | null {

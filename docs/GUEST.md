@@ -36,8 +36,12 @@ Code (`claude plugin uninstall halo-guest@halo-local`, `claude plugin marketplac
 
 - The session is listed like any other, named **Claude Code** with **watch only** beside it.
 - Main's block and one block per sub-agent, each with the tool it runs now. A sub-agent's goal is the description
-  of the Agent call that started it. When two sub-agents of one type start at the same time, Halo cannot tell which
-  call started which, so their cards say **goal not known** (never another agent's goal).
+  of the Agent call that started it. Claude Code does not say which call started which sub-agent, and its hooks
+  can arrive out of order, so Halo gives a goal only when that call is the one call of its kind waiting and no other
+  call or sub-agent of that kind comes within two seconds of it; otherwise the card says **goal not known** (a goal
+  shown and then joined within those two seconds by another of its kind goes back to **goal not known**).
+- Wherever the session's name shows (Live, the Map, the agent cards) it reads **Claude Code · watch only**; an
+  agent's cost reads **not known**, and its Pause, Stop, Steer and Take over are off.
 - The objective (the first line of your latest prompt of four words or more) and the plan, from Claude Code's to-do
   list or its task events. On newer models Claude Code keeps no to-do list unless you turn its to-do tools on (its
   tools reference, https://code.claude.com/docs/en/tools-reference : `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`); without one

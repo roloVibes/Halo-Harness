@@ -51,7 +51,9 @@ def halos_alive(state: str, launcher: "tuple[int, str]") -> bool:
     if _alive(launcher[0], launcher[1] or None):
         return True
     rows = (_read(os.path.join(state, "run", "sessions.json")) or {}).get("sessions") or []
-    if isinstance(rows, list) and any(isinstance(r, dict) and _session_alive(r) for r in rows):
+    # 3.6.0.25 G: a `guest` row is Claude Code's bridge, not a Halo: it never keeps what Halo started running
+    halos = [r for r in rows if isinstance(r, dict) and r.get("kind") != "guest"] if isinstance(rows, list) else []
+    if any(_session_alive(r) for r in halos):
         return True
     studio = _read(os.path.join(state, "studio.json")) or {}
     if _alive(studio.get("pid"), studio.get("pstart")):

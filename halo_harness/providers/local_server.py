@@ -218,7 +218,8 @@ def _others_alive(state_dir) -> bool:
     from halo_harness.bg_run import pid_alive
     try:
         from halo_harness.remote.registry import list_live
-        if any(r.get("pid") not in (None, os.getpid()) for r in list_live()):
+        # 3.6.0.25 G: a `guest` row is Claude Code's bridge, not a Halo: it keeps no model server running
+        if any(r.get("pid") not in (None, os.getpid()) and r.get("kind") != "guest" for r in list_live()):
             return True
         from halo_harness.studio.launch import read_info
         info = read_info(Path(state_dir)) or {}

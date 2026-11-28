@@ -33,6 +33,7 @@ from halo_harness.remote.base import HandleError, _BaseHandle
 SPOOL_POLL_S = 0.25
 ROTATE_AT = 1024 * 1024
 READ_CHUNK = 1024 * 1024
+SPOOL_YOUNG_S = 30.0  # a spool with no `.on` this young may be a starting bridge's (its `.on` comes next)
 PROTOCOL = "2025-06-18"
 
 
@@ -148,23 +149,25 @@ class GuestBridge:
             return None
         _private_file(self.spool, b"")
         _private_file(self.on, json.dumps({"claude_pid": self.claude_pid, "bridge_pid": os.getpid(),
-                                           "cwd": str(self.project), "session_id": self.act.session_id}).encode())
+                                           "bridge_start": _start_mark(os.getpid()), "cwd": str(self.project),
+                                           "session_id": self.act.session_id}).encode())
         self._thread = threading.Thread(target=self._loop, daemon=True, name="halo-guest-spool")
         self._thread.start()
         return self
 
     def close(self) -> None:
-        """The `.on` first (no hook writes after it), then the row, then the spool. Idempotent."""
+        """The `.on` first (no hook writes after it), then the spool (the session's words go first: Windows may end
+        this process a moment after its input closes), then the row. Idempotent."""
         self._stop.set()
         _unlink(self.on)
         if self._thread is not None and self._thread is not threading.current_thread():
             self._thread.join(2.0)
+        for p in (self.spool, self.old):
+            _unlink(p)
         if self.act is not None:
             from halo_harness.remote import runtime
             runtime.stop_one(self.act)
             self.act = None
-        for p in (self.spool, self.old):
-            _unlink(p)
 
     # ---- the spool -------------------------------------------------------------------------------------------------
     def _loop(self) -> None:
@@ -244,23 +247,65 @@ def _read_lines(path: Path, offset: int) -> "tuple[list, int]":
     return out, offset + end + 1
 
 
-def sweep(directory: Path, also: Optional[int] = None) -> int:
-    """Remove the `.on` marks and spools of Claude Code processes that are gone (a bridge ended hard), and those of
-    `also` (this bridge's own Claude Code: an earlier bridge of it ended hard). How many were removed."""
+def _start_mark(pid: int) -> Optional[str]:
+    """The pid's start time where it is read with no process started (Windows, /proc), else None (macOS: `ps`)."""
+    from halo_harness.bg_run import no_proc, process_start_time
+    return None if no_proc() else process_start_time(pid)
+
+
+def _bridge_runs(on: Path, claude: int) -> bool:
+    """The bridge that wrote this `.on` still runs: its pid lives and began when the mark says (a pid the system gave
+    to another program since is not it). A mark of an older build, with no bridge pid: its Claude Code's pid lives."""
     from halo_harness.remote.registry import pid_alive
+    try:
+        mark = json.loads(on.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        mark = None
+    bridge = mark.get("bridge_pid") if isinstance(mark, dict) else None
+    if not isinstance(bridge, int) or isinstance(bridge, bool):
+        return pid_alive(claude)
+    if not pid_alive(bridge):
+        return False
+    began, now = mark.get("bridge_start"), _start_mark(bridge)
+    if not began or not now:
+        return True
+    from halo_harness.bg_run import start_matches
+    return start_matches(bridge, began, now)
+
+
+def sweep(directory: Path, also: Optional[int] = None) -> int:
+    """Remove what a bridge that ended hard left: a `.on` whose BRIDGE is gone takes its spools with it, whatever its
+    Claude Code's pid names now (Windows gives a pid to the next program at once); a spool with no `.on` stays only
+    while it is a moment old (a bridge writes its spool, then its `.on`); and everything of `also` (this bridge's own
+    Claude Code: an earlier bridge of it ended hard). How many were removed."""
     removed = 0
     try:
         names = os.listdir(directory)
     except OSError:
         return 0
+    live = set()
     for name in names:
         head = name.split(".", 1)[0]
-        if not head.isdigit() or not (name.endswith(".on") or name.endswith(".jsonl")):
+        if name.endswith(".on") and head.isdigit() and int(head) != also:
+            if _bridge_runs(Path(directory) / name, int(head)):
+                live.add(int(head))
+    for name in names:
+        head = name.split(".", 1)[0]
+        if not head.isdigit() or not (name.endswith(".on") or name.endswith(".jsonl")) or int(head) in live:
             continue
-        if int(head) == also or not pid_alive(int(head)):
-            _unlink(Path(directory) / name)
-            removed += 1
+        path = Path(directory) / name
+        if int(head) != also and name.endswith(".jsonl") and f"{head}.on" not in names and _young(path):
+            continue
+        _unlink(path)
+        removed += 1
     return removed
+
+
+def _young(path: Path) -> bool:
+    try:
+        return time.time() - os.stat(path).st_mtime < SPOOL_YOUNG_S
+    except OSError:
+        return False
 
 
 # ---- the MCP side: stdio, newline-delimited JSON-RPC; no tools, no instructions to the model ----------------------

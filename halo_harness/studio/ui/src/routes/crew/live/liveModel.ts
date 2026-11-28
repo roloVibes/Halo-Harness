@@ -18,6 +18,8 @@ export type LiveNode = {
   started: number | null; ended: number | null; virtual?: boolean;
   /** 3.4.1.1 (60): an agent whose record gives its cost at its end only, drawn before it: "cost unknown". */
   costUnknown?: boolean;
+  /** 3.6.0.25 G: an agent of a Claude Code session Halo only shows: its cost is not known (Halo reads no count of it). */
+  guest?: boolean;
   /** 3.3.16.0 R1: a live Orchestra run's node on the same tree (routes/agents/live/runLanes.tsx): its run, a lane's number
    *  and worktree (its branch). */
   run?: string; lane?: number; worktree?: string;
@@ -46,7 +48,7 @@ export function liveNodes(rec: WorkRecord, st: FleetState, now = Date.now()): Li
     return {
       id: a.id, key: a.key, parent: a.orphan ? UNKNOWN : a.parent, name: a.name, role: a.role, model: a.model, state: a.state, pick: pickLine(a),
       activity, glow: glowOf(activity), card: "", cardLabel: "", task: a.task, current: a.current,
-      cost: a.cost, started: a.started, ended: a.ended,
+      cost: a.cost, started: a.started, ended: a.ended, ...(rec.kind === "guest" ? { guest: true } : {}),
       ...(a.row.square ? { square: a.row.square.name, engine: a.row.square.engine } : {}),
     };
   });

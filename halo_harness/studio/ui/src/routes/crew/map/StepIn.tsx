@@ -25,6 +25,7 @@ import { setAgentsView } from "../../agents/store";
 import { askStop, togglePause } from "../../fleet/actions";
 import { usePanels } from "../../fleet/pstore";
 import { Steer } from "../../fleet/Steer";
+import { watchWhy } from "../../fleet/watchOnly";
 import { findAgent, isLive, useFleet } from "../../fleet/store";
 import { pauseWord } from "../../fleet/pauseFact";
 import { memberLine, memberState } from "./groupWords";
@@ -84,7 +85,8 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const seen = useRef<{ id: string; ids: Set<string> } | null>(null); // the asks present at open: later ones go to the end
   if (!seen.current || seen.current.id !== t.id) seen.current = { id: t.id, ids: new Set(attn.map((r) => r.id)) };
   const a = useFleet((s) => (pick ? findAgent(s, pick)?.a : undefined));
-  const steerLive = !!a && isLive(a);
+  const watch = useFleet((s) => (pick ? watchWhy(findAgent(s, pick)?.s) : undefined)); // 3.6.0.25 G: a Claude Code session
+  const steerLive = !!a && isLive(a) && !watch;
   const own = t.id.startsWith("member:") ? t.id.slice("member:".length) : "";
   const chosen = t.who.find((w) => w.key === pick);
   const aid = modelFor(t.id, chosen?.aid || null); // the MODEL block: a member's, main's, a group's CHOSEN row's (O2-9)
@@ -140,7 +142,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
         </div>
         {pick && (
           <div className="mp-step-in-steer" data-steer-key={pick}>
-            <Steer k={pick} where="agent" disabled={!steerLive} maxRows={3} />
+            <Steer k={pick} where="agent" disabled={!steerLive} why={watch} maxRows={3} />
           </div>
         )}
       </div>

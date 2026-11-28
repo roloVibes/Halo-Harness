@@ -25,10 +25,10 @@ works on, and the control socket's config switches (Halo 3.0.5.0 R1).
 from __future__ import annotations
 
 import os
-import platform
 import re
 import secrets
 import socket
+import sys
 from halo_harness import subprocess_safe as subprocess
 import threading
 import time
@@ -139,10 +139,22 @@ def harness_name() -> str:
     return (name or f"{_user()}@{_host()}")[:64]
 
 
+def _os_word() -> str:
+    """platform.system()'s word, lowercased ("windows", "linux", "darwin", "freebsd"), read from sys.platform: the
+    first platform.system() starts `cmd /c ver` on Windows (Python 3.11), and a session's way in starts nothing (3.6.0.25
+    G: Claude Code's bridge)."""
+    p = sys.platform
+    if p.startswith("win"):
+        return "windows"
+    if p.startswith("linux"):
+        return "linux"
+    return re.sub(r"\d+$", "", p) or os.name
+
+
 def harness() -> dict:
     from halo_harness import __version__
     return {"id": harness_id(), "name": harness_name(), "host": _host(), "user": _user(), "version": __version__,
-            "os": (platform.system() or os.name).lower()}
+            "os": _os_word()}
 
 
 def project_stub(cwd) -> dict:

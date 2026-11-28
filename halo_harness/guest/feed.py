@@ -8,7 +8,14 @@ work with no second path (agent/agent_observe.py, agent/agent_hooks.py `spawn_of
     PostToolUse(Failure) `tool_result` ok / not ok (a successful TodoWrite becomes `plan`)
     PreToolUse Agent    kept for the next sub-agent of its type (its goal)
     SubagentStart       a child row under main; its goal the kept Agent call's description when the pairing is sure,
-                        else GOAL_NOT_KNOWN (never another agent's goal)
+                        else GOAL_NOT_KNOWN
+
+The pairing (Claude Code documents no link from an Agent call to the sub-agent it starts, and async hooks land in
+any order): a start is sure of its call only when that call is the one open call of its type AND no other call or
+start of the type is stamped within SETTLE_NS of it, on either side. A start with no call makes its type unsure:
+every call of the type stamped within the window is unsure, and a later one is unsure too while a start still waits
+for its call (that call may be the waiting start's own). A call or start of the type that lands within the window of
+a sure pairing takes that goal back to GOAL_NOT_KNOWN.
     SubagentStop        the child done, its last words
     TaskCreated / TaskCompleted   a step of that agent's plan added / done
     Notification        a permission or idle prompt: main waits; a `notification` frame
@@ -38,6 +45,8 @@ from halo_harness.guest.note import AGENT_TOOLS
 KEPT_PER_AGENT = 200  # agent_tail's entries of one agent
 DONE_IDS = 4096  # the finished tool ids remembered (a late call of one is skipped)
 DEFAULT_TYPE = "general-purpose"  # an Agent call that names no subagent_type
+SETTLE_NS = 2_000_000_000  # calls and starts of one type stamped this close together cannot be told apart
+RECENT_PER_TYPE = 64  # the stamps of one type's calls and starts remembered for the window
 
 
 def _place(path) -> str:
@@ -54,7 +63,9 @@ class GuestFeed:
         self.ready: dict = {}  # tool_use_id -> (agent, name, input)
         self.finished: "OrderedDict[str, None]" = OrderedDict()
         self.calls: list = []  # Agent calls of main not yet paired: {id, type, goal, spawn, unsure}
-        self.orphans: dict = {}  # sub-agent type -> starts that found no call (a late call of that type is theirs)
+        self.orphans: dict = {}  # sub-agent type -> {"n": starts that found no call, "ts": the last one's stamp}
+        self.recent: dict = {}  # sub-agent type -> deque of (stamp, call id or agent id) of its calls and starts
+        self.sure: dict = {}  # agent id -> {"type", "ts": its start's stamp, "call", "call_ts"}: a goal given as sure
         self.tasks: dict = {}  # agent -> OrderedDict task_id -> step
         self.kept: dict = {}  # agent -> deque of transcript entries (agent_tail)
         self._kept_lock = threading.Lock()  # the spool's thread adds, a socket's thread reads
@@ -146,20 +157,48 @@ class GuestFeed:
         given = d.get("tool_input") if isinstance(d.get("tool_input"), dict) else {}
         self.ready[tid] = (aid, name, given)
         if name in AGENT_TOOLS and aid == MAIN:
-            self._call(tid, given)
+            self._call(tid, given, int(d.get("ts") or 0))
         self.publish(aid, events.Event("tool_use_start", {"id": tid, "name": name}))
         self.publish(aid, events.Event("tool_use_ready", {"id": tid, "name": name, "input": given}))
         if aid == MAIN and name not in AGENT_TOOLS:
             self.tree.own_tools(1)
 
-    def _call(self, tid: str, given: dict) -> None:
+    def _call(self, tid: str, given: dict, ts: int) -> None:
         typ = given.get("subagent_type") or DEFAULT_TYPE
-        if self.orphans.get(typ):  # a start of this type already came with no call: this call may be its, or not
-            self.orphans[typ] -= 1
-            return
+        unsure = self._near(typ, ts, tid)
+        orphan = self.orphans.get(typ)
+        if orphan:  # a start of this type came with no call: this call may be its own, or not
+            unsure = True
+            if abs(ts - orphan["ts"]) > SETTLE_NS:  # past the window: taken as the waiting start's own (given nobody)
+                orphan["n"] -= 1
+                if orphan["n"] <= 0:
+                    self.orphans.pop(typ, None)
+        self._landed(typ, ts, tid)
         goal = given.get("description") or given.get("prompt") or ""
-        self.calls.append({"id": tid, "type": typ, "goal": first_line(goal, 120),
-                           "spawn": spawn_of(self.tree, MAIN, goal), "unsure": False})
+        self.calls.append({"id": tid, "type": typ, "goal": first_line(goal, 120), "ts": ts,
+                           "spawn": spawn_of(self.tree, MAIN, goal), "unsure": unsure})
+
+    def _near(self, typ: str, ts: int, *but) -> bool:
+        """Another call or start of this type stamped within the window of `ts`, before or after it."""
+        return any(abs(ts - t) <= SETTLE_NS for t, key in self.recent.get(typ, ()) if key not in but)
+
+    def _landed(self, typ: str, ts: int, key: str) -> None:
+        """A call or start of `typ` landed: a sure pairing of the type within its window is not sure any more."""
+        for aid, p in list(self.sure.items()):
+            if p["type"] != typ or key in (aid, p["call"]):
+                continue
+            if abs(ts - p["ts"]) <= SETTLE_NS or abs(ts - p["call_ts"]) <= SETTLE_NS:
+                self._take_back(aid)
+            elif ts - max(p["ts"], p["call_ts"]) > SETTLE_NS:
+                self.sure.pop(aid, None)  # settled: nothing later can take it back
+        self.recent.setdefault(typ, deque(maxlen=RECENT_PER_TYPE)).append((ts, key))
+
+    def _take_back(self, aid: str) -> None:
+        self.sure.pop(aid, None)
+        row = self.tree.row(aid) or {}
+        spawn = dict(row.get("spawn") or {})
+        spawn["description"] = GOAL_NOT_KNOWN
+        self.tree.update(aid, task=GOAL_NOT_KNOWN, spawn=spawn)
 
     def _result(self, d, ok: bool) -> None:
         tid = str(d.get("tool_use_id") or "")
@@ -199,17 +238,22 @@ class GuestFeed:
         aid, typ = d.get("agent_id") or "", d.get("agent_type") or ""
         if not aid or aid == MAIN:
             return
-        mine = [c for c in self.calls if c["type"] == (typ or DEFAULT_TYPE)]
-        sure = len(mine) == 1 and not mine[0]["unsure"]
+        kind, ts = typ or DEFAULT_TYPE, int(d.get("ts") or 0)
+        mine = [c for c in self.calls if c["type"] == kind]
+        call = mine[0] if mine else None
+        sure = len(mine) == 1 and not call["unsure"] and not self._near(kind, ts, aid, call["id"])
         if not sure:
             for c in mine:  # two of one type at once: none of them is sure of its start any more
                 c["unsure"] = True
-        call = mine[0] if mine else None
+        self._landed(kind, ts, aid)
         if call is not None:
             self.calls.remove(call)
         else:
-            self.orphans[typ or DEFAULT_TYPE] = self.orphans.get(typ or DEFAULT_TYPE, 0) + 1
+            orphan = self.orphans.setdefault(kind, {"n": 0, "ts": ts})
+            orphan["n"], orphan["ts"] = orphan["n"] + 1, max(orphan["ts"], ts)
         self._child(aid, typ, call if sure else None)
+        if sure:
+            self.sure[aid] = {"type": kind, "ts": ts, "call": call["id"], "call_ts": call["ts"]}
         self.publish(aid, events.Event("subagent_start", {"agent_id": aid, "name": typ,
                                                           "description": (self.tree.row(aid) or {}).get("task")}))
 

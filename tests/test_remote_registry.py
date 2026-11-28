@@ -362,21 +362,8 @@ def test_a_guest_bridge_is_a_watch_only_session_row_and_its_end_takes_it_all(ctx
     with _Home():
         from halo_harness.guest.bridge import GuestBridge
         from halo_harness.remote import registry
-        import subprocess
         project = Path(tempfile.mkdtemp(prefix="guest-proj-"))
-        started, real_popen = [], subprocess.Popen
-
-        class _Counted(real_popen):  # the bridge starts no process (not even the git query of a project row)
-            def __init__(self, *a, **kw):
-                started.append(a[0] if a else kw.get("args"))
-                super().__init__(*a, **kw)
-        subprocess.Popen = _Counted
-        try:
-            bridge = GuestBridge(os.getpid(), project).start()
-            bridge.poll()
-        finally:
-            subprocess.Popen = real_popen
-        ctx.check(f"the bridge started no process, got {started}", started == [])
+        bridge = GuestBridge(os.getpid(), project).start()
         try:
             ctx.check("the bridge opened", bridge is not None)
             rows = [r for r in registry.list_live() if r.get("kind") == "guest"]
@@ -393,6 +380,39 @@ def test_a_guest_bridge_is_a_watch_only_session_row_and_its_end_takes_it_all(ctx
                 bridge.close()
         ctx.check("its end: no row", not [r for r in registry.list_live() if r.get("kind") == "guest"])
         ctx.check("its end: no .on, no spool", not bridge.on.exists() and not bridge.spool.exists())
+
+
+_FRESH_BRIDGE = r"""
+import json, os, sys, tempfile
+started = []
+def _audit(event, args):
+    if event in ("subprocess.Popen", "os.system", "os.posix_spawn", "os.spawn", "os.exec", "os.startfile", "os.fork"):
+        started.append([event, str(args[1] if event == "subprocess.Popen" and len(args) > 1 else args)[:200]])
+sys.addaudithook(_audit)
+from halo_harness.guest.bridge import GuestBridge
+bridge = GuestBridge(os.getpid(), tempfile.mkdtemp(prefix="guest-proj-")).start()
+bridge.poll()
+bridge.close()
+print(json.dumps({"opened": bridge is not None, "started": started}))
+"""
+
+
+@test
+def test_a_guest_bridge_starts_no_process_in_a_fresh_interpreter(ctx: Ctx):
+    """The check: the bridge's way in (runtime._open -> session_identity.harness) asked platform.system(), which on
+    Windows' Python 3.11 starts `cmd /c ver` the first time. A process that already asked once hides it, so the bridge
+    is started in a FRESH interpreter, every process start it makes counted by an audit hook."""
+    import subprocess
+    with _Home():
+        env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
+        r = subprocess.run([sys.executable, "-c", _FRESH_BRIDGE], capture_output=True, text=True, timeout=120,
+                           env=env, cwd=os.environ["BRIDGE_TEST_HOME"])
+        try:
+            got = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            got = {"opened": None, "started": None, "stderr": r.stderr[-400:]}
+        ctx.check(f"the bridge opened in the fresh interpreter, got {got}", got.get("opened") is True)
+        ctx.check(f"and started no process, got {got.get('started')}", got.get("started") == [])
 
 
 @test
@@ -417,6 +437,48 @@ def test_a_guest_spool_of_a_dead_claude_code_is_swept_at_a_bridges_start(ctx: Ct
         finally:
             if bridge is not None:
                 bridge.close()
+
+
+@test
+def test_a_guest_spool_is_swept_by_its_bridge_even_when_its_claude_pid_was_given_to_another_program(ctx: Ctx):
+    """The check: a bridge killed hard (Windows ends Claude Code's MCP tree 300 ms after closing its input) leaves its
+    `.on` and spool; Windows gives the pid to the next program at once, so a sweep keyed on Claude Code's pid kept a
+    dead session's words. The `.on` names its bridge (pid and start time): a dead bridge means stale files."""
+    import subprocess
+    with _Home():
+        from halo_harness.guest import guest_dir
+        from halo_harness.guest.bridge import GuestBridge
+        from halo_harness.bg_run import process_start_time as _start_mark
+        from halo_harness.remote import runtime
+        gone = subprocess.Popen([sys.executable, "-c", "pass"])
+        gone.wait(60)
+        reused = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])  # the pid's next program
+        bridge = None
+        try:
+            d = guest_dir()
+            stale = [d / f"{reused.pid}.on", d / f"{reused.pid}.jsonl"]
+            stale[0].write_text(json.dumps({"claude_pid": reused.pid, "bridge_pid": gone.pid, "bridge_start": "1"}))
+            stale[1].write_text('{"prompt": "the dead session\'s words"}\n')
+            alive = [d / f"{os.getppid()}.on", d / f"{os.getppid()}.jsonl"]  # a running bridge (this process)
+            alive[0].write_text(json.dumps({"claude_pid": os.getppid(), "bridge_pid": os.getpid(),
+                                            "bridge_start": _start_mark(os.getpid())}))
+            alive[1].write_text("")
+            bridge = GuestBridge(os.getpid(), Path(tempfile.mkdtemp(prefix="guest-proj-"))).start()
+            ctx.check(f"the dead bridge's files are gone though its Claude Code's pid runs: "
+                      f"{[f.name for f in stale if f.exists()]}", not any(f.exists() for f in stale))
+            ctx.check("a running bridge's files stay", all(f.exists() for f in alive))
+            seen, real_stop = [], runtime.stop_one
+            runtime.stop_one = lambda act: (seen.append(bridge.spool.exists() or bridge.on.exists()), real_stop(act))
+            try:
+                bridge.close()
+            finally:
+                runtime.stop_one = real_stop
+            ctx.check(f"its end removes the .on and the spool BEFORE the row, got {seen}", seen == [False])
+        finally:
+            if bridge is not None:
+                bridge.close()
+            reused.kill()
+            reused.wait(60)
 
 
 if __name__ == "__main__":

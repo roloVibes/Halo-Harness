@@ -36,7 +36,9 @@ def plugin_root(home: Optional[Path] = None) -> Path:
 
 
 def _python() -> str:
-    return str(Path(sys.executable).resolve())
+    """This Halo's interpreter by the path it runs under, absolute and NEVER resolved: a venv's (or a uv tool's)
+    bin/python is a link to the base interpreter, and the resolved path runs without the venv (no Halo, or another)."""
+    return os.path.abspath(sys.executable)
 
 
 def _bridge_env() -> dict:

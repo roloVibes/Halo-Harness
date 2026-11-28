@@ -6,8 +6,9 @@
 // 3.6.0.11: a parent's figure already holds its finished helpers', so the agents' spend is the Cost panel's sum
 // (session/shares.ts spentBy): a finished helper counted once.
 import { spentBy } from "../../session/shares";
+import { NOT_KNOWN } from "../../session/promptWords";
 
-export type Costed = { kind?: string; cost: number | null; costUnknown?: boolean; id?: string; parent?: string | null; state?: string };
+export type Costed = { kind?: string; cost: number | null; costUnknown?: boolean; guest?: boolean; id?: string; parent?: string | null; state?: string };
 
 export function liveSpend(nodes: Costed[]): number {
   return spentBy(nodes.filter((n) => !n.kind).map((n, i) => ({ id: n.id || `#${i}`, parent: n.parent, state: n.state, usd: Number(n.cost) || 0 })));
@@ -20,8 +21,10 @@ export function spendText(usd: number): string {
   return usd < 0.00005 ? "<$0.0001" : `$${usd.toFixed(4)}`;
 }
 
-/** The agents' spend in words, or "cost unknown at this moment" when one of them has no figure at this moment. */
+/** The agents' spend in words, or "cost unknown at this moment" when one of them has no figure at this moment; "cost
+ *  not known" for the agents of a Claude Code session (3.6.0.25 G: Halo reads no count of it). */
 export function spendWords(nodes: Costed[]): string {
+  if (nodes.some((n) => !n.kind && n.guest)) return `cost ${NOT_KNOWN}`;
   return nodes.some((n) => !n.kind && n.costUnknown) ? "cost unknown at this moment" : spendText(liveSpend(nodes));
 }
 

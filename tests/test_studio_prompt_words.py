@@ -498,6 +498,54 @@ def test_the_session_pages_draw_no_prompt_box_steer_or_cost_for_a_guest(ctx: Ctx
     ctx.check("Cost: not known, twice", src["Cost.tsx"].count("if (isGuest(ss))") == 2 and "NOT_KNOWN" in src["Cost.tsx"])
 
 
+JS_GUEST_COST = """
+const n = await import(%s);
+const w = await import(%s);
+const node = (id, parent, extra) => ({ id, key: `h|g-1|${id}`, parent, name: id, role: "", model: "claude-x", state: "running",
+  pick: "", activity: "", glow: "", card: "", cardLabel: "", task: "", current: "Read", cost: null, started: null, ended: null, ...extra });
+const waits = (ns) => new Map(ns.map((x) => [x.id, { kind: "tool", what: "Read a file", since: null, who: x.key, tool: "Read" }]));
+const path = { leaf: null, wait: null };
+const guest = [node("main", null, { guest: true }), node("a1", "main", { guest: true })];
+const plain = [node("main", null, {}), node("a1", "main", {})];
+const g = n.narrate(guest, waits(guest), path, () => "");
+const p = n.narrate(plain, waits(plain), path, () => "");
+const gs = { kind: "guest" }, ts = { kind: "tui" };
+console.log(JSON.stringify({ guest: g.text, guestRows: g.rows, plain: p.text,
+  cost: [w.agentCost(gs, 0), w.agentCost(gs, null), w.agentCost(ts, 0), w.agentCost(ts, 0.5)],
+  why: [w.watchWhy(gs), w.watchWhy(ts) === undefined] }));
+"""
+
+
+@test
+def test_a_claude_code_sessions_cost_reads_not_known_on_live_and_on_every_card(ctx: Ctx):
+    """The check: outside Session's Cost panel a guest's spend read $0 (Live's narration: spendWords; the cards:
+    cost(a.cost_usd)). A guest's agents are marked (liveModel `guest`), the narration says "cost not known", and the
+    cards' cost (fleet/watchOnly.agentCost, used by the inspector, its glance, the pinned stream and the Map's drawer)
+    says "not known"; a terminal session's figures are as they were."""
+    from tests.helpers import node_ts
+    routes = WORDS.parent.parent
+    got = node_ts.run(JS_GUEST_COST % (json.dumps((routes / "crew" / "live" / "narrate.ts").resolve().as_uri()),
+                                       json.dumps((routes / "fleet" / "watchOnly.ts").resolve().as_uri()))) or {}
+    ctx.check(f"Live's sentence: cost not known, no $ figure; got {got.get('guest')!r}",
+              str(got.get("guest") or "").endswith("· cost not known") and "$" not in str(got.get("guest")))
+    ctx.check(f"its per-place rows too, got {got.get('guestRows')}", all("cost not known" in r[1] and "$" not in r[1] for r in got.get("guestRows") or [[0, "$"]]))
+    ctx.check(f"a terminal session's sentence keeps its figure, got {got.get('plain')!r}", str(got.get("plain") or "").endswith("· $0.000"))
+    ctx.check(f"the cards: not known for a guest, the figure otherwise; got {got.get('cost')}",
+              (got.get("cost") or [None] * 4)[:2] == ["not known", "not known"]
+              and all(str(c).startswith("$") for c in (got.get("cost") or [""] * 4)[2:]))
+    ctx.check("the controls' title is the watch-only line", (got.get("why") or [None])[0] == "Claude Code · watch only: Studio shows this session; nothing is typed into it or steered from here."
+              and (got.get("why") or [None, None])[1] is True)
+    fleet = routes / "fleet"
+    src = {p: (routes / p).read_text(encoding="utf-8") for p in ("fleet/Agent.tsx", "fleet/Pip.tsx", "crew/map/BoxHead.tsx",
+                                                                  "crew/live/liveModel.ts", "fleet/store.ts")}
+    ctx.check("no card prints cost(a.cost_usd) any more", not any("{cost(" in s or "money(" in s for s in src.values()))
+    ctx.check("liveModel marks a guest record's agents", 'rec.kind === "guest" ? { guest: true }' in src["crew/live/liveModel.ts"])
+    ctx.check("a guest session's name carries 'watch only' on every view (sessionTitle)",
+              "isGuest(s) ? `${title} · ${WATCH_ONLY}`" in src["fleet/store.ts"])
+    ctx.check("the inspector's controls are off with the line for a guest", "watchWhy(r.s)" in src["fleet/Agent.tsx"]
+              and '|| !!watchOnly' in src["fleet/Agent.tsx"] and fleet.is_dir())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
