@@ -8,6 +8,90 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.25] - unreleased
+
+Two things. Halo finds a local model's best window by measuring it, and a model of your choice can tune with it.
+And a Claude Code session shows in Studio, watch only.
+
+### Added
+
+- **Find the best window (Local).** On a model's row: "Find the best window". Halo loads the model with every
+  layer on the card at up to six windows, starting at its own estimate and stepping by 16,384 (8,192 under
+  32,768), or stepping down when the start itself spills. At each one it records whether the load is wholly on
+  the card, the card's used and free memory (where it can be read), and the prompt and reply speed. It stops at
+  the first spill, or at the cliff: a window that is on the card but more than 40 % slower than a smaller one (on
+  Windows a load can spill into shared memory while the server still says it is on the card). The pick is the
+  largest window wholly on the card, with at least 300 MiB free where the card's free memory can be read, before
+  the cliff, and one line says why. Before it starts it says what it will do (how many loads, that it unloads
+  what is loaded and puts it back, that nothing is written to the Ollama store: the sweep and the measured window
+  are kept in Halo's own files); it has a Stop, keeps what it measured, and goes on from there.
+  `halo local bench --sweep MODEL` does the same in the terminal; `halo local tune` shows each model's sweep.
+- **What you do with a pick.** "Use in Halo" sets it for Halo's own sessions (it shows in Changes and can be
+  reverted; nothing is written to the Ollama store). "Make the twin" makes the tuned twin at it. The pick is the
+  tight window: it fits with nothing else on the card. Where a smaller window also meets Halo's stricter "safe"
+  rule (room for other programs on the card), the card says that one too.
+- **A tuner model, off until you pick one.** Settings -> Ollama -> "Tuner model": any model Halo can call. "Tune
+  with <model>" on a local model first says which model is called, what is sent (the model's facts, the server's
+  version and settings, the sweep's table, the card's size: no path, no host name, no address, no user name), what
+  it will cost by the price Halo knows, and that it writes nothing to the Ollama store. The tuner reads Halo's
+  measurements and may ask Halo to measure another window (the same six-load cap, and only on an idle host). It
+  writes three things, each kept with who wrote it and when, and removable: a diagnosis when the model does not
+  load or spills at its start; server advice (only settings on Halo's own list, shown as set and revert lines:
+  Halo runs none of them); and a guide for that model (what it is best at, when to avoid it), shown on the
+  model's card under the measured facts. A window it proposes is only a proposal: Halo measures it, and it becomes
+  the pick only by Halo's own rule.
+- **A Claude Code session in Studio, watch only.** `halo guest install` writes a small Claude Code plugin and
+  prints the three commands that add it and turn it on; Halo runs none of them. From then on a Claude Code session
+  is listed in Studio as "Claude Code · watch only": main's block, one block per sub-agent with the tool each one
+  runs, the objective, and the plan when Claude Code keeps a to-do list. Nothing can be typed into it and nothing
+  steers it. Halo reads the lines the plugin's hooks write (cut to size) and nothing else: nothing of your Claude
+  login, and not the transcript. Nothing is kept after the session; a bridge that was ended hard has its files
+  removed at the next `halo guest status`, `halo doctor`, Studio start or update, and the hooks write nothing
+  to a bridge that is not alive. Also: `halo guest status` (with the lines each bridge dropped), `halo guest
+  uninstall`, a row in `halo doctor`, and the page docs/GUEST.md.
+
+### Changed
+
+- `halo update` ends a running Claude Code bridge as it ends Halo's other processes, and says so in one line
+  first (the Claude Code session itself keeps running).
+- A watch-only session is never offered to a phone or chat transport, and never counts as "a Halo is alive" for
+  what Halo keeps running.
+
+### Tests
+
+- What the independent checks found before this release, each with its test now. The tuner: a window it asked for
+  was measured without waiting for an idle host; a user or host name next to a dash got past the scrub of what is
+  sent; a pick's reason named the wrong bound. The watch-only session: a sub-agent's card could show another
+  agent's goal when hooks landed out of order (it says "goal not known" unless it is sure); the bridge started a
+  process of its own on Windows (it starts none); a session's lines could be reached through a phone transport.
+- The reviews before the push found more, each with its test: part of a user name with a space got past the
+  scrub; a wildcard for browser origins was accepted as server advice (it is refused); a sweep could erase what
+  an earlier measurement had kept; in a real session a /clear in Claude Code did not reset the plan (the
+  session's start never reaches the bridge); a bridge ended hard left a file the hooks kept adding to.
+- Real use, on a Windows PC: one real Claude Code session with the plugin on. The bridge came up as Claude Code's
+  child, the hooks' lines reached it, main's block showed the tool as it ran and the objective, a steer was
+  answered "watch only", and the row and the spool were gone when the session ended.
+- What a session's model is sent is pinned and unchanged.
+
+### Known limits
+
+- **No sweep has run against a real Ollama in the making of this release** (none was up): every load was on the
+  tests' stand-in server. The first sweeps on a real server are yours; the table shows every window measured, so
+  a pick can be checked against it.
+- The tuner job was tried against a stand-in for the cloud model only.
+- A Halo that is killed during a sweep leaves the swept model loaded and does not put the others back; a Stop,
+  or ending it normally, does.
+- Not in this release: writing a pick into the model's own tag, Halo applying a server setting, a "task -> model"
+  table across models, a native Google provider (a Gemini model is reached through OpenRouter today).
+- Watch only, the limits: Claude Code does not say which call started which sub-agent, so a goal is shown only
+  when it is sure. Cost and tokens read "not known". Replies are not shown as they are written: the last reply
+  of a turn and of each sub-agent shows, cut to 2 KB. On newer models Claude Code keeps no to-do list unless its
+  own setting turns it on (docs/GUEST.md names it). The session's start reaches the hooks before the bridge is
+  up, so the model's name is not shown. A hook costs two short Python starts per tool call (before and after
+  it). A real session was tried on Windows only; macOS and Linux by tests. Claude Code handing work to agents
+  Halo runs is the next step, not in this release.
+- Every Known limit of 3.6.0.24 still holds.
+
 ## [3.6.0.24] - 2026-11-28
 
 The plan of a session. Session now says what the session is for and shows the plan written out with what is done;
