@@ -6,13 +6,13 @@ import { Button } from "../../../lib/ui";
 import { isLiveRun, useOrch } from "../../orchestra/store";
 import { openRun as openOrchRun, startOrchestra } from "../../orchestra/sync";
 import { openFeed, openMapDrawer } from "./feedOpen";
-import { planWords, useTodos } from "./todoStore";
+import { usePlanLine } from "./todoStore";
 import { WORDS } from "./truthWords";
 
 /** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed. */
 export function Extras({ sid }: { sid: string }) {
   useEffect(() => startOrchestra(), []);
-  const plan = planWords(useTodos(sid));
+  const plan = usePlanLine(sid); // the whole list's true counts
   if (!plan) return null;
   return (
     <span className="cw-line" data-testid="map-lit-extras">

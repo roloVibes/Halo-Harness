@@ -1632,7 +1632,8 @@ console.log(JSON.stringify({plan: P.planOf(D.sess), same: P.planOf(D.sess) === P
     kinds = (SRC / "lib/events.ts").read_text(encoding="utf-8") + (SRC.parent.parent / "feed_kinds.py").read_text(encoding="utf-8")
     ctx.check("Studio no longer asks for the dead `todos` kind", '"todos"' not in kinds)
     fold = (SRC / "routes/session/planFold.ts").read_text(encoding="utf-8")
-    ctx.check("the fold is kept the page's way (writeLocal, read back at load)", "writeLocal(KEY" in fold and "localStorage.getItem(KEY)" in fold)
+    ctx.check("the fold is kept the page's way (writeLocal, read back at load); closed unless the person opened it",
+              "writeLocal(KEY" in fold and 'localStorage.getItem(KEY) !== "0"' in fold and 'folded ? "1" : "0"' in fold)
 
 
 @test
@@ -1648,7 +1649,7 @@ def test_a_list_over_the_cap_says_its_true_counts_and_what_is_not_shown(ctx: Ctx
 const shape = (ls) => ls.map((x) => ("more" in x ? P.moreWords(x.more) : x.step.n));
 console.log(JSON.stringify({chip: P.chipWords(l, c), hover: P.chipHover(l, c), lines: shape(P.planLines(l, c.all)),
   whole: shape(P.planLines(l.slice(0, 29), 29)), old: [P.chipWords(P.planOf(D.old), P.countOf(D.old)), P.countOf(D.old)],
-  tail: shape(P.planLines(l.slice(0, 29), 31))}));"""
+  tail: shape(P.planLines(l.slice(0, 29), 31)), one: P.moreWords(1), map: P.planWords(l, c)}));"""
     got = _run(["pw"], js, {"sess": sess, "old": old})
     ctx.check(f"the chip counts the whole list, got {got['chip']!r}", got["chip"] == "Plan 10 of 40")
     ctx.check(f"its hover is the kept step in progress, got {got['hover']!r}", got["hover"] == "Now: Doing step 35")
@@ -1657,6 +1658,12 @@ console.log(JSON.stringify({chip: P.chipWords(l, c), hover: P.chipHover(l, c), l
     ctx.check(f"a whole list: no line added, got {len(got['whole'])}", got["whole"] == list(range(1, 30)))
     ctx.check(f"numbers left out after the last only, got {got['tail'][-2:]}", got["tail"][-1] == "+2 more steps not shown" and len(got["tail"]) == 30)
     ctx.check(f"a row without counts counts its own list, got {got['old']}", got["old"] == ["Plan 1 of 2", {"all": 2, "done": 1}])
+    # PV after the first CI run (the coordinator's two faults of words): one step is "step"; the map's line counts the whole list
+    ctx.check(f"exactly one left out says 'step', got {got['one']!r}", got["one"] == "+1 more step not shown")
+    ctx.check(f"the map's line counts the WHOLE list (plan_count), got {got['map']!r}", got["map"] == "plan: 10 of 40 done")
+    lit = (SRC / "routes/crew/map/LitLine.tsx").read_text(encoding="utf-8") + (SRC / "routes/crew/map/todoStore.ts").read_text(encoding="utf-8")
+    ctx.check("the map's line is drawn from the row's true counts (todoStore usePlanLine: planWords over countOf)",
+              "usePlanLine(sid)" in lit and "planWords(planOf(ss), countOf(ss))" in lit)
     src = (SRC / "routes/crew/map/PlanList.tsx").read_text(encoding="utf-8") + (SRC / "routes/session/FeedPlan.tsx").read_text(encoding="utf-8")
     ctx.check("the list draws planLines (the more line muted, in its place); the head passes the true counts",
               "planLines(list, all)" in src and "muted" in src and "all={count.all}" in src and "chipWords(list, count)" in src)

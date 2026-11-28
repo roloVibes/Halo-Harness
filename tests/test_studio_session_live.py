@@ -25,8 +25,8 @@ mid-work) plus three extra agents and scripted feed frames
 9. (3.1.7.0 R1) Fleet's time and KIND lead a tool, a text and a state row,
    stacked under 440 px; a click opens a tool row's whole result.
 10. (3.6.0.17 N2) a running `!` command's row carries its own Stop; a model's tool row none.
-11. (3.6.0.23 PV) the Feed head's objective row and the plan under it: there at the first draw, still while words
-    arrive, one move when a plan opens, the fold kept across a reload.
+11. (3.6.0.23 PV) the objective and the plan chip in the Feed's title bar, the Feed's head unmoved; the plan's list
+    opens on a click (the one move), the fold kept across a reload.
 Run: python -m tests.test_studio_session_live
 """
 from __future__ import annotations
@@ -42,7 +42,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
-from tests.helpers.studio_session_plan import LONG_NOW  # noqa: E402
+from tests.helpers.studio_session_plan import LONG_NOW, LONG_OBJ  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -233,38 +233,47 @@ def _gif_facts(path: Path) -> dict:
 
 
 @test
-def test_the_objective_row_and_the_plan_in_the_feed_head(ctx: Ctx):
-    """3.6.0.23 PV rulings 3 and 4 (tests/helpers/studio_session_plan.py): the objective's row is there at the first draw
-    (the rig's prompt "Ship the basket discount fix", "no plan yet", no list); the Timeline does not move while the
-    objective goes and comes; a plan through the real tree opens the checklist, the one move; a change of states keeps
-    its height and the Timeline; the chip folds it, the fold survives a reload, a click unfolds it."""
+def test_the_objective_and_the_plan_chip_in_the_feed_title_bar(ctx: Ctx):
+    """3.6.0.23 PV after the first CI run, the coordinator's ruling (tests/helpers/studio_session_plan.py): the objective
+    and the plan chip sit in the Feed panel's title bar from the first draw (the rig's prompt "Ship the basket discount
+    fix", "no plan yet"), none of it in the head; the head and the Timeline do not move with no objective, a long one
+    (an ellipsis in the bar, its hover whole) or a plan arriving (the list closed); a click opens the list (the one
+    move, the objective whole at its top); a change of states keeps its height; the fold survives a reload; a click
+    closes it and every place is back."""
     r, got = _driver("live")
     _ran(ctx, r, got)
     f = got.get("plan_first") or {}
-    ctx.check(f"the row at the first draw: the objective, 'no plan yet', no list, got {f}",
-              f.get("row") is True and f.get("words") == "Ship the basket discount fix" and f.get("chip") == "no plan yet"
-              and f.get("list") is False and (f.get("h") or 0) > 0)
-    t, h = got.get("plan_tops") or [], got.get("plan_heights") or []
-    # After the check: the row holds the room of a cap-length objective from the first draw (its twin), so a
-    # 120-character objective that wraps moves nothing; re-pinned from "one line" (<= 30 px) at the first draw
-    lo, rh = got.get("plan_long_objective") or {}, got.get("plan_row_heights") or []
-    ctx.check(f"a 120-character objective wraps and moves neither the row nor the Timeline, got {lo} rows {rh} tops {t}",
-              lo.get("wraps") is True and len(rh) == 3 and rh[0] == rh[1] == rh[2] == lo.get("row")
-              and bool(t) and lo.get("top") == t[0])
+    ctx.check(f"the title bar at the first draw: the objective, 'no plan yet' (28 px), no list, nothing in the head, got {f}",
+              f.get("bar") is True and f.get("words") == "Ship the basket discount fix" and f.get("chip") == "no plan yet"
+              and f.get("list") is False and f.get("in_head") is False and f.get("chip_h") == 28)
+    p = got.get("plan_places") or []
+    ctx.check(f"the Timeline's top, the head's and the bar's heights hold with no objective, a long one and a plan "
+              f"arriving, got {p}", len(p) == 4 and all(x == p[0] for x in p) and (p[0][2] or 0) > 0)
+    lo = got.get("plan_long_objective") or {}
+    ctx.check(f"a long objective ends with an ellipsis in the bar, its hover whole, got {lo}",
+              lo.get("ellipsis") is True and lo.get("ends") == "ellipsis" and lo.get("hover") == LONG_OBJ)
+    pa = got.get("plan_arrived") or {}
+    ctx.check(f"a plan arriving leaves the list closed, the chip 8 px or more from its neighbours, got {pa}",
+              pa.get("list") is False and pa.get("expanded") == "false" and (pa.get("gap") or 0) >= 8)
+    o, h = got.get("plan_opened") or [], got.get("plan_heights") or []
+    ctx.check(f"a click opens the list (the one move), a change of states keeps the Timeline, got {o} after {p[-1:]}",
+              len(o) == 2 and bool(p) and o[0] > p[0][0] and o[1] == o[0])
+    oo = got.get("plan_open_objective") or {}
+    ctx.check(f"the open list starts with the objective whole, wrapping, got {oo}", oo.get("words") == LONG_OBJ and oo.get("wraps") is True)
     ctx.check(f"the step that turns to 'doing' wraps in its activeForm words (so the height check means the twin), "
               f"got {got.get('plan_now_wraps')!r}", got.get("plan_now_wraps") is True)
-    ctx.check(f"the Timeline holds still while the objective goes and comes, moves once when the plan opens, holds on a "
-              f"change of states, and is back when folded, got tops {t}",
-              len(t) == 6 and t[0] == t[1] == t[2] and t[3] > t[2] and t[4] == t[3] and t[5] == t[2])
     ctx.check(f"a change of states keeps the checklist's height, got {h}", len(h) == 2 and h[0] > 0 and h[0] == h[1])
     ctx.check(f"the chip's hover says the step in progress, got {got.get('plan_hover')!r}", got.get("plan_hover") == "Now: Fixing the discount order")
     ctx.check(f"each step a mark and a word, the one in progress in its activeForm words, got {got.get('plan_rows')}",
               got.get("plan_rows") == [["completed", "✓ done", "Read basket.py"], ["completed", "✓ done", "Fix the discount order"],
                                        ["in_progress", "▸ doing", LONG_NOW]])
-    rl = got.get("plan_reload") or {}
-    ctx.check(f"after a reload: the plan from the fleet load, still folded, got {rl}",
-              rl.get("chip") == "Plan 2 of 3" and rl.get("expanded") == "false" and rl.get("list") is False)
-    ctx.check("a click on the chip unfolds it again", got.get("plan_unfold") is True)
+    ro = got.get("plan_reload_open") or {}
+    ctx.check(f"after a reload the list is still open (the fold kept), got {ro}",
+              ro.get("chip") == "Plan 2 of 3" and ro.get("expanded") == "true" and ro.get("list") is True)
+    cl = got.get("plan_closed") or {}
+    ctx.check(f"a click closes it and every place is back, got {cl} vs {p[:1]}", cl.get("list") is False and bool(p) and cl.get("place") == p[0])
+    rc = got.get("plan_reload_closed") or {}
+    ctx.check(f"after a reload it is still closed, got {rc}", rc.get("chip") == "Plan 2 of 3" and rc.get("expanded") == "false" and rc.get("list") is False)
 
 
 @test

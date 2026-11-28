@@ -34,16 +34,14 @@ export function planOf(ss: Sessionish): Todo[] {
 
 /** Main's objective ("" before a prompt of four words). */
 export const objectiveOf = (ss: Sessionish): string => String(mainOf(ss)?.objective || "");
-/** The objective row's held room (FeedPlan.tsx, a hidden twin in the same cell): an objective at its cap (120
- * characters, agent_transcript.first_line) of ordinary letters, so one arriving never moves what is under the row. */
-export const OBJECTIVE_ROOM = "collect the three reports and write the summary for the team, then fix the discount order in basket.py and run its suite";
 
 const STATES = ["pending", "in_progress", "completed"];
 export const doneOf = (list: Todo[]): number => list.filter((t) => t.status === "completed").length;
 export const nowOf = (list: Todo[]): Todo | undefined => list.find((t) => t.status === "in_progress");
 
-/** The Map's top line: "plan: 3 of 7 done" ("" with no plan). */
-export const planWords = (list: Todo[] | undefined): string => (list && list.length ? `plan: ${doneOf(list)} of ${list.length} done` : "");
+/** The Map's top line: "plan: 3 of 7 done" ("" with no plan), from main's true counts of the WHOLE list (countOf). */
+export const planWords = (list: Todo[] | undefined, c: PlanCount | undefined = list && own(list)): string =>
+  (list && list.length && c ? `plan: ${c.done} of ${c.all} done` : "");
 
 /** Main's true counts: the row's `plan_count`, else the list's own (a row from before the counts). */
 export function countOf(ss: Sessionish, list: Todo[] = planOf(ss)): PlanCount {
@@ -82,7 +80,7 @@ export const PLAN_ROWS = 8;
 /** A line of the written-out plan: a kept step, or where step numbers are left out (between two kept steps, or after
  *  the last: a list over the row's cap) ONE muted line saying how many. */
 export type PlanLine = { step: Todo } | { more: number };
-export const moreWords = (n: number): string => `+${n} more steps not shown`;
+export const moreWords = (n: number): string => `+${n} more step${n === 1 ? "" : "s"} not shown`;
 export function planLines(list: Todo[], all = list.length): PlanLine[] {
   const out: PlanLine[] = [];
   let last = 0;

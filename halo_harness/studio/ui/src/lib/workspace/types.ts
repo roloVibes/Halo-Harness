@@ -62,6 +62,9 @@ export type PanelSpec = {
   minH?: number;
   /** The face it opens on (default "detail", the full face; "glance" is the compact one). */
   face?: Face;
+  /** 3.6.0.23 PV: what the title bar holds after the panel's own words (Session's Feed: the objective and the plan
+   *  chip); one line, the bar's height kept. */
+  bar?: ComponentType;
   /** Compact face (glance): what it is, one live indicator, one or two numbers. */
   glance: ComponentType;
   /** Full face (detail): the panel itself. Without it the panel only has the compact face. */

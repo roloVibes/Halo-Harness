@@ -163,6 +163,7 @@ export function Panel({ spec, p, style, width, bar }: { spec: PanelSpec; p: Pane
               {where}{hasDetail ? (face === "glance" ? " · compact" : " · full") : ""}
             </span>
           )}
+          {spec.bar && <spec.bar />}
           <span className="panel-tools">
             {only && (
               <button type="button" className="btn btn-sm panel-only" data-testid="panel-only" data-only={only}

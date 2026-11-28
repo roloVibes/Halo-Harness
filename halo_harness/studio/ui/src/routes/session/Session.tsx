@@ -28,6 +28,7 @@ import { MapDetail, MapGlance, useBuiltWord, useMapMotion } from "./SessionMap";
 import { CostDetail, CostGlance, useCostMotion } from "./Cost";
 import { ConversationsDetail, ConversationsGlance, useConversationsMotion } from "./Conversations";
 import { LiveDetail, LiveGlance, useLiveMotion } from "./Live";
+import { FeedPlanBar } from "./FeedPlan";
 import { PromptDetail, PromptGlance, usePromptMotion } from "./Prompt";
 import { registerPromptPanel, startPrompt } from "./promptStore";
 import { WhySettings } from "./Why";
@@ -61,7 +62,7 @@ export const sessionPanels: PanelSpec[] = [
   // R29: its button's word "new" when the session built something while the drawer was closed (only this panel has one)
   panel("session-map", { title: WORDS.live, side: "left", contentW: 560, drawing: true, word: useBuiltWord,
           face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
-  panel("session-live", { title: WORDS.feed, primary: true, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
+  panel("session-live", { title: WORDS.feed, primary: true, face: "detail", bar: FeedPlanBar, glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
   panel("session-cost", { title: "Cost", contentW: 360, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
   panel("session-agent", { title: "Agent", contentW: 400, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
   panel("session-activity", { title: "Activity", role: "tab", face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),

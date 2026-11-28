@@ -159,14 +159,15 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 **Panels.** Live (`session-live`): every agent of the session its header names at once (3.6.0.11: with Change session;
 Session follows the newest session you start unless you picked one, never while the Prompt box holds text), what it types,
 runs, hands back and asks, in the live log's columns under this session's
-timeline strip, with the Steer box at its foot. Since 3.6.0.23 the header's last row says the session's **Objective** (the
-first line of your latest prompt of four words or more, or the slash line you typed for a skill or a command; a short
-reply such as "yes" keeps it; the row holds the room of a long objective from the start) and ends with a plan chip:
-"Plan 3 of 7" (steps done of all) once main keeps a to-do list, "no plan yet" before that. After `/clear` and after a
-resume the row starts empty ("none yet", "no plan yet"). Under it the plan is written out, one line per step marked
-"to do", "doing" or "done"; a list of more than 30 steps shows the first ones and the step in progress, and says how
-many are not shown ("+5 more steps not shown") where they are left out; a click on the chip folds and unfolds it,
-and the choice is kept. Map (`session-map`): your
+timeline strip, with the Steer box at its foot. Since 3.6.0.23 the Feed panel's title bar, after its own words, says
+the session's **Objective** on one line (the first line of your latest prompt of four words or more, or the slash line
+you typed for a skill or a command; a short reply such as "yes" keeps it; a long one ends with "..." and its hover
+shows it whole) and then a plan chip: "Plan 3 of 7" (steps done of all) once main keeps a to-do list, "no plan yet"
+before that. None of it takes a line from the Feed. After `/clear` and after a resume both start empty ("none yet",
+"no plan yet"). A click on the chip opens the plan under the header (another click closes it; it is closed until you
+open it, and your choice is kept): the objective whole, then one line per step marked "to do", "doing" or "done"; a
+list of more than 30 steps shows the first ones and the step in progress, and says how many are not shown ("+5 more
+steps not shown") where they are left out. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree -- since 3.3.11.0 R2 the thumbnail of the tree Roles Live draws full size (**Open in Roles Live** on its bar). Cost
 (`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost
 per turn, elapsed, the model, each agent's own share, tokens and calls, moving with the terminal; under the context
