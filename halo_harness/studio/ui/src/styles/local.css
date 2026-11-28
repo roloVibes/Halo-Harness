@@ -50,3 +50,11 @@
   .lc-scroll { padding: 8px; }
   .lc-page-card { padding: 12px; }
 }
+/* 3.6.0.25 T: Find the best window (routes/local/SweepCard.tsx): the table grows, a text is never cut */
+.lc-sweep-go { min-height: 32px; display: flex; align-items: center; }
+.lc-sweep-lines { margin: 0; padding-left: 16px; font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.lc-sweep-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.lc-sweep-table th, .lc-sweep-table td { text-align: left; padding: 2px 8px 2px 0; white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.lc-sweep-table tr[data-pick] td { font-weight: 600; color: var(--accent, inherit); }
+.lc-sweep-table tr[data-slow] td { color: var(--warn, inherit); }
+.lc-sweep-acts { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }

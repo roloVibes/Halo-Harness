@@ -115,13 +115,15 @@ def sender(host, model: str, state_dir) -> Callable:
     route = Route(provider="ollama", upstream_model=model, dialect="ollama")
     profile = resolve_profile(route, state_dir=state_dir)
 
-    def send(messages: list, *, num_ctx: int, num_predict: int) -> dict:
+    def send(messages: list, *, num_ctx: int, num_predict: int, num_gpu: Optional[int] = None) -> dict:
         d = SimpleNamespace(num_ctx=num_ctx, trained_context=None, fit_estimate=None, learned_cap=None, remote=False,
                             recorded_does_not_fit=False, cpu_only=False)
+        opts = {"num_ctx": num_ctx, "num_predict": num_predict, "temperature": 0}
+        if num_gpu:  # 3.6.0.25 T: the sweep's load asks for every layer on the card
+            opts["num_gpu"] = num_gpu
         r = send_turn(host=host, route=route, profile=profile, decision=d, system_text="", messages=messages,
                       tools=None, requested_max_tokens=num_predict, state_dir=state_dir,
-                      overrides={"options": {"num_ctx": num_ctx, "num_predict": num_predict, "temperature": 0},
-                                 "keep_alive": KEEP})
+                      overrides={"options": opts, "keep_alive": KEEP})
         return {**(r.timing_ns or {}), "done_reason": "length" if r.stop_reason == "max_tokens" else "stop",
                 "error": r.error, "text": r.text, "thinking": r.thinking}
     return send

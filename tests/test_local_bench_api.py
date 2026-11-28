@@ -155,6 +155,69 @@ def test_the_tune_and_changes_routes(ctx: Ctx):
         ctx.check("revert with no id: 422", _api(rig, "POST", "local/changes/revert", {})[0] == 422)
 
 
+@test
+def test_the_sweep_routes_offer_stop_and_use_in_halo(ctx: Ctx):
+    """3.6.0.25 T rulings 5 and 7: the offer says what it does before a start; the job runs with a Stop; the table and
+    the pick; "Use in Halo" lands the pick as the profile's window through Changes (revertable), nothing else."""
+    import os
+    saved = os.environ.get("BRIDGE_TEST_NO_BACKGROUND_NET")
+    os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"  # the card's memory: unknown here, never this PC's card
+    try:
+        with BenchRig(["sw-short:8b", "sw-up:8b"]) as rig:
+            st, got = _api(rig, "GET", "local/host/fake/sweep", query={"model": "sw-short:8b"})
+            ctx.check(f"before a start: no sweep, the offer, the cli, got {st} {got}", st == 200 and got["sweep"] is None
+                      and "at most 6 loads of sw-short:8b" in got["offer"] and "unloads what is loaded and puts it back"
+                      in got["offer"] and "nothing to the Ollama store" in got["offer"]
+                      and got["cli"] == "halo local bench --host fake --sweep sw-short:8b" and got["use"] is None)
+            st, job = _api(rig, "POST", "local/host/fake/sweep", body={"model": "sw-short:8b"})
+            done = _wait(job.get("job", ""))
+            ctx.check(f"the job ends with the pick's line, got {st} {done.get('line')!r}", st == 200 and done.get("ok")
+                      and done.get("kind") == "sweep" and str(done.get("line")).startswith("the pick: 40,960"))
+            st, got = _api(rig, "GET", "local/host/fake/sweep", query={"model": "sw-short:8b"})
+            sw = got["sweep"] or {}
+            ctx.check(f"the table and the pick, free unknown said, got {sw}", sw.get("pick") == 40960
+                      and sw["why"] == "40,960: the model's own limit" and all("free unknown" in r["line"] for r in sw["windows"])
+                      and got["use"].startswith("sets the profile's window of sw-short:8b on fake to 40,960"))
+            st, used = _api(rig, "POST", "local/host/fake/sweep/use", body={"model": "sw-short:8b"})
+            from halo_harness.ollama_steward import changes as C
+            rows = [r for r in C.read(rig.state) if not r.get("reverted_at")]
+            ctx.check(f"Use in Halo: one change in Changes, revertable, got {st} {used} {rows}", st == 200 and used["ok"]
+                      and any(r.get("field") == "num_ctx" and r.get("after") == 40960 for r in rows))
+            st, job = _api(rig, "POST", "local/host/fake/sweep", body={"model": "sw-up:8b"})
+            st2, stopped = _api(rig, "POST", "local/host/fake/sweep/stop", body={"model": "sw-up:8b"})
+            done = _wait(job.get("job", ""))
+            from halo_harness.providers import local_sweep as S
+            kept = S.load(rig.state, rig.host.url, "sw-up:8b") or {"windows": []}
+            ctx.check(f"Stop: it ends after the running load, what landed kept, got {stopped} {done.get('line')!r} "
+                      f"{[r['window'] for r in kept['windows']]}", st2 == 200 and stopped["ok"] and done.get("ok")
+                      and "stopped" in str(done.get("line")) and len(kept["windows"]) <= 1)
+    finally:
+        if saved is None:
+            os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+        else:
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = saved
+
+
+@test
+def test_the_sweep_table_cells_in_node(ctx: Ctx):
+    """3.6.0.25 T ruling 7 (routes/local/sweepRows.ts): a row's cells -- window, on the card, free, prompt and reply speed,
+    the pick's mark; "unknown" where the host did not tell, "not measured" for a window that did not load."""
+    import json
+    from tests.helpers import node_ts
+    src = (Path(__file__).resolve().parent.parent / "halo_harness/studio/ui/src/routes/local/sweepRows.ts").resolve().as_uri()
+    rows = [{"window": 65536, "state": "on the card", "free_mib": 1200, "prompt_tok_s": 2400.5, "tok_s": 90, "line": ""},
+            {"window": 81920, "state": "on the card, but slow", "free_mib": None, "prompt_tok_s": 800, "tok_s": 28,
+             "slow": True, "timed": 2, "line": ""},
+            {"window": 98304, "state": "did not load", "free_mib": None, "prompt_tok_s": None, "tok_s": None,
+             "error": "x", "line": ""}]
+    got = node_ts.run(f"const M = await import({json.dumps(src)});\nconst D = {json.dumps(rows)};\n"
+                      "console.log(JSON.stringify(D.map((r) => M.cells(r, 65536))));")
+    ctx.check(f"the cells, got {got}", got == [
+        ["65,536", "on the card", "1,200 MiB", "2,400.5 tok/s", "90 tok/s", "the pick"],
+        ["81,920", "on the card, but slow", "unknown", "800 tok/s", "28 tok/s (timed twice)", "past the cliff"],
+        ["98,304", "did not load", "not measured", "not measured", "not measured", ""]])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

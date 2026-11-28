@@ -44,7 +44,7 @@ class BenchRig:
 
     def catalog(self) -> dict:
         names = self.names or list(MB.MODELS)
-        return {"models": [{**MB.row(n), "model_info": MB.MODELS[n]["info"]} for n in names]}
+        return {"models": [{**MB.row(n), "model_info": MB.spec(n)["info"]} for n in names]}
 
     def __exit__(self, *exc):
         from halo_harness.providers.local_bench_runs import _INDEX

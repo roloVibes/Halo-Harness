@@ -103,6 +103,31 @@ def test_delete_with_the_uses_card(ctx: Ctx):
     ctx.check(f"a live session keeps Delete disabled, got {got.get('live')}", "1 live session is on it" in text and disabled is True)
 
 
+@test
+def test_find_the_best_window_offer_table_pick_and_stop(ctx: Ctx):
+    """3.6.0.25 T ruling 7: the card with no sweep is as it was; the offer says what it does; Start, Stop after the
+    running load; the table with the pick marked and its reason; Use in Halo and Make the twin."""
+    got = _got(ctx)
+    ctx.check(f"a Models row with no sweep gains nothing, got {got.get('sweep_row_before')} {got.get('sweep_row_after')}",
+              got.get("sweep_row_before") == 0 and got.get("sweep_row_after") == 0)
+    offer = str(got.get("sweep_offer") or "")
+    ctx.check(f"the offer: how many loads, about how long, it unloads and puts back, nothing written, got {offer!r}",
+              "at most 6 loads of qwen3.5:9b" in offer and "min on box" in offer and "puts it back" in offer
+              and "nothing to the Ollama store" in offer and got.get("sweep_empty") == [False, False])
+    ctx.check(f"Stop says what it does, got {got.get('sweep_stop_said')!r}",
+              got.get("sweep_stop_said") == "stops after the running load; what was measured is kept")
+    rows = got.get("sweep_table") or []
+    picked = [r for r in rows if r[0] == "true"]
+    ctx.check(f"the table: what landed before the Stop (the running load ends first), the pick marked, got {rows}",
+              1 <= len(rows) <= 2 and len(picked) == 1 and picked[0][1][1:5] == ["on the card", "1,200 MiB", "2,400 tok/s", "90 tok/s"]
+              and picked[0][1][5] == "the pick")
+    ctx.check(f"the pick's reason, got {got.get('sweep_pick')!r}",
+              bool(picked) and str(got.get("sweep_pick") or "").startswith(f"the pick: {picked[0][1][0]}: "))
+    use, twin = (got.get("sweep_acts") or ["", ""])[:2]
+    ctx.check(f"Use in Halo says what it writes; Make the twin, got {got.get('sweep_acts')}",
+              "through Changes, where it can be reverted; nothing is written to the Ollama store" in use and twin == "Make the twin")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

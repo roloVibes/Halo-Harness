@@ -83,6 +83,28 @@ def test_the_report_after_a_bench(ctx: Ctx):
 
 
 @test
+def test_the_report_carries_the_sweep(ctx: Ctx):
+    """3.6.0.25 T ruling 6: per model that has a sweep, the windows tried, the pick and its reason, the speed before
+    (the start) and after (the pick); a model without one gets no line; another server's sweep is not shown."""
+    from halo_harness.ollama_steward.tune_report import format_report
+    from halo_harness.providers.local_sweep_run import sweep
+    with BenchRig(["sw-up:8b", "bn-small:9b"], version="0.40.6") as rig:
+        sweep(rig.host, "sw-up:8b", state_dir=rig.state, card=rig.card, start=32768, sessions=lambda: [],
+              memory=lambda: None)
+        r = _report(rig)
+        m = {e["model"]: e for e in r["models"]}
+        sw = m["sw-up:8b"].get("sweep") or {}
+        ctx.check(f"the sweep's line, got {sw.get('line')!r}", sw.get("pick") == 65536 and sw["line"].startswith(
+            "the sweep tried 32k, 48k, 64k, 80k; the pick 65,536: the next step spilled; reply ")
+                  and "(the start) -> " in sw["line"] and sw["line"].endswith("at 65,536 (the pick)"))
+        ctx.check("no sweep, no line", m["bn-small:9b"].get("sweep") is None)
+        text = format_report(r)
+        ctx.check("it prints under its model", any(x == f"    {sw['line']}" for x in text))
+        rig.card["server"]["version"] = "0.40.7"
+        ctx.check("another server version: not shown", {e["model"]: e for e in _report(rig)["models"]}["sw-up:8b"].get("sweep") is None)
+
+
+@test
 def test_the_server_lines_per_os(ctx: Ctx):
     from halo_harness.ollama_steward import tune_lines as T
     w = T.env_lines("OLLAMA_KV_CACHE_TYPE", "q8_0", "windows")

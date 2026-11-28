@@ -148,6 +148,10 @@ def get_benches(req):
 
 def dispatch_bench(req):
     """The answer for a route of this file, else None."""
+    from halo_harness.studio.local_sweep_api import dispatch_sweep  # 3.6.0.25 T: the sweep's routes
+    got = dispatch_sweep(req)
+    if got is not None:
+        return got
     if req.path == "local/benches":
         return get_benches(req) if req.method == "GET" else (405, {"error": "method not allowed"})
     m = _BENCH.match(req.path)

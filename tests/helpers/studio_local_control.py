@@ -153,12 +153,50 @@ def acts(c, url, ctx) -> dict:
     return out
 
 
+def sweep(c, url, ctx) -> dict:
+    """3.6.0.25 T: Find the best window on qwen3.5:9b (no sweep yet): the card with no sweep is as it was, the offer
+    says what it does, Start, then Stop after the running load: the table, the pick marked with its reason, Use in
+    Halo and Make the twin. The measured step is a slow stand-in here (one second, a fixed row): no load on the fake
+    is timed, nothing is sent anywhere."""
+    from halo_harness.providers import local_bench_runs as LBR
+    from halo_harness.providers import local_sweep_run as SR
+    saved = (SR.measure_window, LBR.busy)
+
+    def slow(host, model, window, **_kw):
+        time.sleep(1.0)
+        return {"window": window, "at": time.time(), "on_card": True, "free_mib": 1200, "used_mib": 9000,
+                "prompt_tok_s": 2400.0, "tok_s": 90.0, "timed": 1, "size": 1, "size_vram": 1}
+    SR.measure_window, LBR.busy = slow, (lambda *_a, **_k: "")
+    out: dict = {}
+    try:
+        row = _row("qwen3.5:9b")
+        out["sweep_row_before"] = c.js(f"{row}.querySelectorAll('[data-testid^=local-sweep]').length")
+        _act(c, "qwen3.5:9b", "sweep", f"{q('[data-testid=local-sweep-offer]')}?.textContent.includes('loads')")
+        out["sweep_offer"] = c.js(f"{q('[data-testid=local-sweep-offer]')}.textContent")
+        out["sweep_empty"] = c.js(f"[!!{q('[data-testid=local-sweep-table]')}, !!{q('[data-testid=local-sweep-acts]')}]")
+        press(c, q("[data-testid=local-sweep-start]"), f"!!{q('[data-testid=local-sweep-stop]')}")
+        press(c, q("[data-testid=local-sweep-stop]"), f"!!{q('[data-testid=local-sweep-said]')}")
+        out["sweep_stop_said"] = c.js(f"{q('[data-testid=local-sweep-said]')}.textContent")
+        tb = q("[data-testid=local-sweep-table]")
+        out["sweep_table"] = c.wait(f"!!{tb} && !{q('[data-testid=local-sweep-stop]')} && "
+                                    f"Array.from({tb}.querySelectorAll('tbody tr')).map((r) => [r.dataset.pick || '', "
+                                    f"Array.from(r.cells).map((x) => x.textContent)])", 30)
+        out["sweep_pick"] = c.wait(f"{q('[data-testid=local-sweep-pick]')}?.textContent", 10)
+        out["sweep_acts"] = c.wait(f"!!{q('[data-testid=local-sweep-use]')} && [{q('[data-testid=local-sweep-use]')}.title, "
+                                   f"{q('[data-testid=local-sweep-twin]')}.textContent]", 10)
+        _close(c)
+        out["sweep_row_after"] = c.js(f"{row}.querySelectorAll('[data-testid^=local-sweep]').length")
+    finally:
+        SR.measure_window, LBR.busy = saved
+    return out
+
+
 class ControlDriver(LocalDriver):
     @contextmanager
     def session(self, c):
         with super().session(c) as steps:
             ctx = steps[0][1]
-            yield ((pull, ctx), (acts, ctx))
+            yield ((pull, ctx), (acts, ctx), (sweep, ctx))
 
 
 if __name__ == "__main__":

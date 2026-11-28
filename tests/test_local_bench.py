@@ -193,6 +193,180 @@ def test_halo_local_bench_and_models_bench(ctx: Ctx):
         ctx.check(f"no model named: it says how, got {out.getvalue()!r}", code == 2 and "--model M" in out.getvalue())
 
 
+# ---- 3.6.0.25 T: the sweep (providers/local_sweep.py, local_sweep_run.py) on the fake --------------------------------
+
+GIB, MIB = 2 ** 30, 2 ** 20
+
+
+def _mem(rig, total: int):
+    """The card's memory as this machine's probe would read it: the fake's /api/ps size_vram against `total`."""
+    def read():
+        used = sum(int(e.get("size_vram") or 0) for e in (rig.mock.ps_response or {}).get("models") or [])
+        return {"used": used, "free": total - used, "total": total}
+    return read
+
+
+def _sweep(rig, name: str, **kw):
+    from halo_harness.providers.local_sweep_run import sweep
+    kw.setdefault("sessions", lambda: [])
+    kw.setdefault("memory", _mem(rig, 24 * GIB))
+    return sweep(rig.host, name, state_dir=rig.state, card=rig.card, **kw)
+
+
+def _ws(got) -> list:
+    return [r["window"] for r in got["record"]["windows"]]
+
+
+def _loads(rig, name: str) -> int:
+    return sum(1 for x in rig.mock.bench_calls if x[0] == name and x[2] == 8)
+
+
+@test
+def test_the_sweep_starts_at_the_estimate_and_steps_up_to_the_first_spill(ctx: Ctx):
+    from halo_harness.providers import local_sweep as S
+    from halo_harness.providers.local_bench import plan_windows
+    with BenchRig(["sw-up:8b"]) as rig:
+        info = MB.SWEEP["sw-up:8b"]["info"]
+        _w, ceiling, _s = plan_windows(rig.card, MB.row("sw-up:8b"), info, quick=True)
+        got = _sweep(rig, "sw-up:8b", max_loads=1)
+        ctx.check(f"the first load is at Halo's own estimate ({ceiling} on the grid), got {_ws(got)}",
+                  got["ok"] and _ws(got) == [S.grid(ceiling)])
+    with BenchRig(["sw-up:8b"]) as rig:
+        got = _sweep(rig, "sw-up:8b", start=32768)
+        rec = got["record"]
+        ctx.check(f"up by 16,384 to the first spill, got {_ws(got)}", _ws(got) == [32768, 49152, 65536, 81920])
+        ctx.check(f"the states, got {[r['state'] for r in rec['windows']]}",
+                  [r["state"] for r in rec["windows"]] == ["on the card"] * 3 + ["spilled"])
+        ctx.check(f"the pick and its one line, got {rec['pick']} {rec['why']!r}",
+                  rec["pick"] == 65536 and rec["why"] == "65,536: the next step spilled")
+        timed = [b for b in rig.chats() if (b.get("options") or {}).get("num_predict") == 256]
+        layers = MB.SWEEP["sw-up:8b"]["info"]["qwen35.block_count"] + 1
+        ctx.check(f"every layer asked onto the card; one timed call a window, two where the speed fell more than 40 % "
+                  f"(the spill), got {[b['options'].get('num_gpu') for b in timed]} {[r['timed'] for r in rec['windows']]}",
+                  [r["timed"] for r in rec["windows"]] == [1, 1, 1, 2] and len(timed) == 5
+                  and all(b["options"].get("num_gpu") == layers for b in timed))
+        w = rec["windows"][0]
+        ctx.check(f"the card's used and free memory and both speeds per window, got {w}",
+                  w["free_mib"] == (24 * GIB - w["size_vram"]) // MIB and w["used_mib"] == w["size_vram"] // MIB
+                  and w["tok_s"] > 50 and w["prompt_tok_s"] > 1000 and w["timed"] == 1)
+        ctx.check(f"the loaded models put back (the guard's line), got {got.get('left')!r}",
+                  str(got.get("left") or "").startswith("left fake as it found it"))
+    with BenchRig(["sw-up:8b"]) as rig:
+        got = _sweep(rig, "sw-up:8b", start=98304)
+        ctx.check(f"down from a spilling start to the first window on the card, got {_ws(got)} {got['record']['why']!r}",
+                  _ws(got) == [98304, 81920, 65536] and got["record"]["pick"] == 65536
+                  and got["record"]["why"] == "65,536: the next step spilled")
+
+
+@test
+def test_the_cliff_the_room_and_unknown_free_memory(ctx: Ctx):
+    from halo_harness.providers import local_sweep as S
+    with BenchRig(["sw-cliff:8b"]) as rig:
+        got = _sweep(rig, "sw-cliff:8b", start=32768)
+        rows = got["record"]["windows"]
+        slow = rows[-1]
+        ctx.check(f"a window wholly on the card at a third of the speed: recorded, past the cliff, got {slow}",
+                  _ws(got) == [32768, 49152, 65536] and slow["on_card"] is True and slow["state"] == "on the card, but slow"
+                  and slow["slow"] and slow["timed"] == 2)
+        ctx.check(f"never picked; the line says how much slower, got {got['record']['why']!r}",
+                  got["record"]["pick"] == 49152 and got["record"]["why"].startswith("49,152: the next step was ")
+                  and got["record"]["why"].endswith("x slower"))
+    with BenchRig(["sw-up:8b"]) as rig:
+        at49 = 5 * GIB + 49152 * 98304
+        got = _sweep(rig, "sw-up:8b", start=32768, memory=_mem(rig, at49 + 200 * MIB))
+        ctx.check(f"under 300 MiB free is no room: not picked, the line says so, got {_ws(got)} {got['record']['why']!r}",
+                  _ws(got) == [32768, 49152] and got["record"]["pick"] == 32768
+                  and got["record"]["why"] == "32,768: the next step left 200 MiB free on the card (under 300)")
+    with BenchRig(["sw-short:8b"]) as rig:
+        got = _sweep(rig, "sw-short:8b", start=32768, memory=lambda: None)
+        rows = got["record"]["windows"]
+        ctx.check(f"a host that does not tell: free unknown, never invented, got {[S.row_line(r) for r in rows]}",
+                  all(r["free_mib"] is None and r["used_mib"] is None for r in rows)
+                  and all("free unknown" in S.row_line(r) for r in rows))
+        ctx.check(f"at most the trained window: the model's own limit, got {_ws(got)} {got['record']['why']!r}",
+                  _ws(got) == [32768, 40960] and got["record"]["why"] == "40,960: the model's own limit")
+
+
+@test
+def test_six_loads_a_stop_and_a_second_start(ctx: Ctx):
+    import threading
+    with BenchRig(["sw-up:8b"]) as rig:
+        got = _sweep(rig, "sw-up:8b", start=8192)
+        ctx.check(f"six loads at most, got {_ws(got)} ({_loads(rig, 'sw-up:8b')} loads) {got['record']['why']!r}",
+                  _ws(got) == [8192, 16384, 24576, 32768, 49152, 65536] and _loads(rig, "sw-up:8b") == 6
+                  and got["record"]["why"].startswith("65,536: the largest measured; the loads were used"))
+        again = _sweep(rig, "sw-up:8b")
+        ctx.check(f"a second start at the cap loads nothing, got {again.get('say')!r}", again.get("capped")
+                  and _loads(rig, "sw-up:8b") == 6)
+        more = _sweep(rig, "sw-up:8b", max_loads=8)
+        ctx.check(f"asked for more, it goes on from there, got {_ws(more)} {more['record']['why']!r}",
+                  _ws(more)[-1] == 81920 and more["record"]["why"] == "65,536: the next step spilled")
+    with BenchRig(["sw-up:8b"]) as rig:
+        stop = threading.Event()
+        got = _sweep(rig, "sw-up:8b", start=32768, stop=stop,
+                     on_line=lambda s: stop.set() if s.startswith("32,768: on the card") else None)
+        ctx.check(f"a Stop ends it after the running load and keeps what landed, got {_ws(got)} {got['say']!r}",
+                  got["stopped"] and _ws(got) == [32768] and "stopped" in got["say"])
+        from halo_harness.providers import local_sweep as S
+        kept = S.load(rig.state, rig.host.url, "sw-up:8b")
+        ctx.check(f"saved as it landed, got {kept and [r['window'] for r in kept['windows']]}",
+                  kept and [r["window"] for r in kept["windows"]] == [32768])
+        on = _sweep(rig, "sw-up:8b")
+        ctx.check(f"a second start goes on from there, got {_ws(on)}", _ws(on) == [32768, 49152, 65536, 81920])
+
+
+@test
+def test_one_sweep_per_server_and_the_record_keyed_by_digest_and_server(ctx: Ctx):
+    from halo_harness.providers import local_sweep as S
+    from halo_harness.providers.ollama_calibrate import has_calibration_entry, lookup_learned_cap
+    from halo_harness.providers.ollama_hw import fit_settings_of
+    from halo_harness.providers.ollama_measure_guard import measuring
+    with BenchRig(["sw-up:8b"]) as rig:
+        with measuring(rig.host, "bn-other:1b", rig.state) as g:
+            busy = _sweep(rig, "sw-up:8b", start=32768)
+        ctx.check(f"a measurement holds the server: one line, nothing loaded, got {busy.get('say')!r}",
+                  g.ok and not busy["ok"] and "is running already" in busy["say"] and not rig.chats())
+        got = _sweep(rig, "sw-up:8b", start=32768)
+        fs = fit_settings_of(rig.host)
+        cap = lookup_learned_cap(rig.state, host_url=rig.host.url, model="sw-up:8b", digest="sha256:sw-up-8b",
+                                 ollama_version="0.40.13", fit_settings=fs)
+        ctx.check(f"the pick is the measured window `halo local measure`, the estimate and the twin read, got {cap}",
+                  cap == got["record"]["pick"] == 65536
+                  and has_calibration_entry(rig.state, host_url=rig.host.url, model="sw-up:8b", digest="sha256:sw-up-8b",
+                                            ollama_version="0.40.13", fit_settings=fs))
+        from halo_harness.providers.ollama_tune import plan_twin
+        tw = plan_twin(rig.host, "sw-up:8b", state_dir=rig.state)
+        ctx.check(f"the twin's window is the pick, got {getattr(tw, 'window', None)}", getattr(tw, "window", None) == 65536)
+        srv = got["record"]["server"]
+        ctx.check(f"kept under the digest and the server, got {srv}", srv.get("version") == "0.40.13"
+                  and S.load(rig.state, rig.host.url, "sw-up:8b", digest="sha256:sw-up-8b", server=srv)
+                  and S.load(rig.state, rig.host.url, "sw-up:8b", digest="sha256:other", server=srv) is None
+                  and S.load(rig.state, rig.host.url, "sw-up:8b", digest="sha256:sw-up-8b",
+                             server={**srv, "version": "0.40.14"}) is None)
+        done = _sweep(rig, "sw-up:8b")
+        ctx.check(f"a finished sweep is not run again, got {done.get('say')!r}", done.get("already")
+                  and done["say"].startswith("swept already for this digest and server: 65,536"))
+        rig.mock.version_response = {"version": "0.40.14"}
+        from halo_harness.providers.ollama import reset_ollama_version_cache
+        reset_ollama_version_cache()
+        fresh = _sweep(rig, "sw-up:8b", start=49152)
+        ctx.check(f"another server version: the kept sweep is not used, got {_ws(fresh)}", _ws(fresh)[0] == 49152)
+
+
+@test
+def test_halo_local_bench_sweep(ctx: Ctx):
+    from halo_harness.local_bench_cli import cmd_bench
+    with BenchRig(["sw-short:8b"]) as rig:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cmd_bench(["--host", "fake", "--sweep", "sw-short:8b", "--yes", "--loads", "2"])
+        text = out.getvalue().splitlines()
+        ctx.check(f"the cost line first (loads, what it unloads, what it writes), the windows, the pick, got {text}",
+                  code == 0 and text[0].startswith("local: ~") and "at most 2 loads of sw-short:8b" in text[0]
+                  and "puts it back" in text[0] and "nothing to the Ollama store" in text[0]
+                  and text[1] == "sw-short:8b on fake:" and any(x.strip().startswith("the pick: ") for x in text))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

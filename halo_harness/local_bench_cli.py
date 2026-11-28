@@ -9,6 +9,9 @@ local_cli.cmd_local; `halo models bench` is the same as `halo local bench`).
         --json's `measured_from` / `link` / `over_lan` say so (providers/local_bench_link.py), then the way to a card
         without the link (`halo host serve` there, `halo host join` here). 3.3.13.0 R1: `--host <engine id | its server's
         name>` benches that engine's server through its OpenAI-compatible route (engines/bench.py)
+    halo local bench --sweep MODEL [--host H] [--loads N] [--again] [--yes] [--json]
+        3.6.0.25 T: the best window (providers/local_sweep_run.py): from Halo's estimate up (or down from a spill) a
+        load at a time, at most N loads (6), each window kept as it lands; the pick and its reason
     halo local tune [--host H] [--json] [--apply ID [--scope S] [--session SID]]
         the tuning report: the warm set, each model's windows, the reserve, the findings, every option with what it
         writes and how long it takes; --apply lands a Halo-side option (scope keep unless you name another)
@@ -67,7 +70,14 @@ def cmd_bench(argv: list) -> int:
     p.add_argument("--quick", action="store_true", help="one window: the planner's ceiling")
     p.add_argument("--yes", action="store_true", help="run without asking")
     p.add_argument("--json", action="store_true", help="the speed cards as JSON")
+    p.add_argument("--sweep", default="", metavar="MODEL", help="find MODEL's best window: loads it window by window "
+                   "from Halo's estimate, records the card's memory and the speeds, and picks the largest window before "
+                   "a spill or the speed cliff")
+    p.add_argument("--loads", type=int, default=6, help="--sweep: at most this many loads (default 6)")
+    p.add_argument("--again", action="store_true", help="--sweep: start over instead of going on from the kept sweep")
     args = p.parse_args(argv)
+    if args.sweep:
+        return _sweep(args)
     from halo_harness.engines.bench import bench_cli, server_named
     if args.host.strip() and server_named(args.host.strip()) is not None:  # 3.3.13.0 R1: an engine's server
         return bench_cli(args.host.strip().lower(), quick=args.quick, yes=args.yes, as_json=args.json, ask=_ask)
@@ -106,6 +116,33 @@ def cmd_bench(argv: list) -> int:
     if args.json:
         print(json.dumps(out, indent=2, default=str))
     return rc
+
+
+def _sweep(args) -> int:
+    """3.6.0.25 T: `halo local bench --sweep MODEL` (providers/local_sweep_run.py): the cost line, one line per window
+    as it lands, the pick and its reason."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.providers import local_sweep as S
+    from halo_harness.providers import local_sweep_run as SR
+    host = _host(args.host)
+    if host is None:
+        print(f"no Ollama host named {args.host!r} (ollama.hosts)")
+        return 1
+    card, state, loads = _card(host), bridge_home(), max(1, args.loads)
+    print(SR.estimate(host, args.sweep, card=card, state_dir=state, max_loads=loads)[1])
+    if not _ask("Sweep it now?", args.yes):
+        return 1
+    if not args.json:
+        print(f"{args.sweep} on {host.name}:")
+    got = SR.sweep(host, args.sweep, state_dir=state, card=card, max_loads=loads, again=args.again,
+                   on_line=(lambda s: None) if args.json else (lambda s: print(f"  {s}")))
+    if args.json:
+        print(json.dumps(got, indent=2, default=str))
+    elif not got.get("ok") or got.get("already") or got.get("capped"):
+        print(f"  {got.get('say')}")
+    if got.get("ok") and not args.json:
+        print("\n".join(f"  {x}" for x in S.lines(got["record"])))
+    return 0 if got.get("ok") else 1
 
 
 def _session_for(given: str):

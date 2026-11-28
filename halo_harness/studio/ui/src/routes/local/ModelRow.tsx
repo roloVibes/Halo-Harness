@@ -42,6 +42,7 @@ function Acts({ m, host }: { m: ModelEntry; host: string }) {
             m.loaded ? row("unload", "Unload", localLine("unload", host, m.model), () => void load())
                      : row("load", "Load now", localLine("warm", host, m.model), () => void load()),
             row("twin", "Make a tuned twin", line("twin", host, m.model, "--window", "N"), () => openAct("twin", host, m)),
+            row("sweep", "Find the best window", `halo local bench --host ${host} --sweep ${m.model}`, () => openAct("sweep", host, m)),
             row("copy", "Copy", line("copy", host, m.model, "<new name>"), () => openAct("copy", host, m)),
             row("rename", "Rename", line("rename", host, m.model, "<new name>"), () => openAct("rename", host, m)),
             row("delete", "Delete", line("rm", host, m.model), () => openAct("delete", host, m)),

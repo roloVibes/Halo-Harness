@@ -8,9 +8,10 @@ import { CardDetail } from "../shared/ModelCard";
 import { closeAct, copyModel, deleteModel, line, makeTwin, planTwin, useCtl } from "./ctl";
 import { WINDOWS } from "./libstore";
 import { RetireCard } from "./ShelfBits";
+import { SweepCard } from "./SweepCard";
 import type { ModelEntry } from "./types";
 
-const TITLES = { show: "Show", twin: "Make a tuned twin", copy: "Copy", rename: "Rename", delete: "Delete", retire: "Retire" };
+const TITLES = { show: "Show", twin: "Make a tuned twin", sweep: "Find the best window", copy: "Copy", rename: "Rename", delete: "Delete", retire: "Retire" };
 
 function Said() {
   const s = useCtl((c) => c.said);
@@ -142,6 +143,7 @@ export function ModelActCard() {
                                        writes: `${host}'s model store: its files go, the disk comes back` } : undefined}>
       {act === "show" && <ShowCard host={host} m={m} />}
       {act === "twin" && <TwinCard host={host} m={m} />}
+      {act === "sweep" && <SweepCard host={host} m={m} />}
       {(act === "copy" || act === "rename") && <CopyCard host={host} m={m} rename={act === "rename"} />}
       {act === "delete" && <DeleteCard host={host} m={m} />}
       {act === "retire" && <RetireCard host={host} m={m} />}

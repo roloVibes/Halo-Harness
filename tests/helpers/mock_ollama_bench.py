@@ -25,15 +25,36 @@ MODELS = {
 }
 
 
+# 3.6.0.25 T: the sweep's models (installed only when named): `per_ctx` bytes per window token, `cliff_at` -- past it
+# the load still reads wholly on the card (Windows' shared memory) but the reply speed is a third
+SWEEP = {
+    "sw-up:8b": {"size": 5 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 131072}, "family": "qwen35",
+                 "gpu_up_to": 65536, "load_s": 5.0, "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0,
+                 "per_ctx": 98304},
+    "sw-cliff:8b": {"size": 5 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 131072}, "family": "qwen35",
+                    "gpu_up_to": 10 ** 7, "cliff_at": 49152, "load_s": 5.0, "reply": 200, "tok_s": 120.0,
+                    "prompt_tok_s": 3000.0, "per_ctx": 98304},
+    "sw-short:8b": {"size": 5 * 2 ** 30, "info": {**QWEN9, "qwen35.context_length": 40960}, "family": "qwen35",
+                    "gpu_up_to": 10 ** 7, "load_s": 5.0, "reply": 200, "tok_s": 120.0, "prompt_tok_s": 3000.0,
+                    "per_ctx": 98304},
+}
+
+
+def spec(name: str) -> dict:
+    return MODELS.get(name) or SWEEP[name]
+
+
 def _rates(m: dict, window: int, spilled: bool) -> "tuple[float, float]":
     fill = max(0.55, 1.0 - window / 262144.0)  # the decode rate falls as the window grows
     tok, pp = m["tok_s"] * fill, m["prompt_tok_s"] * fill
+    if m.get("cliff_at") and window > m["cliff_at"]:
+        return tok / 3.0, pp / 3.0
     return (tok / 4.5, pp / 6.0) if spilled else (tok, pp)
 
 
 def scenario(name: str):
     def fn(h, body):
-        mock, m = h.server.mock, MODELS[name]
+        mock, m = h.server.mock, spec(name)
         opts = body.get("options") or {}
         window, predict = int(opts.get("num_ctx") or 2048), int(opts.get("num_predict") or 128)
         with mock._lock:
@@ -42,7 +63,7 @@ def scenario(name: str):
             if st["ctx"] != window:
                 load_ns = (m["load_s"] if st["loads"] == 0 else m["load_s"] * 0.6) * 1e9
                 st.update(ctx=window, loads=st["loads"] + 1, fresh=True)
-                size = m["size"] + window * 49152
+                size = m["size"] + window * m.get("per_ctx", 49152)
                 vram = size if window <= m["gpu_up_to"] else int(size * 0.8)
                 rest = [e for e in (mock.ps_response or {}).get("models") or [] if e.get("model") != name]
                 mock.ps_response = {"models": rest + [{"model": name, "name": name, "size": size, "size_vram": vram,
@@ -68,7 +89,7 @@ def scenario(name: str):
 
 
 def row(name: str) -> dict:
-    m = MODELS[name]
+    m = spec(name)
     return {"name": name, "model": name, "modified_at": "2026-10-01T00:00:00Z", "size": m["size"],
             "digest": "sha256:" + name.replace(":", "-"),
             "details": {"family": m["family"], "families": [m["family"]], "parameter_size": name.split(":")[1].upper(),
@@ -83,7 +104,7 @@ def install(mock, names=None, *, version: str = "0.40.13") -> None:
     mock.ps_response = {"models": []}
     for n in names:
         mock.show_responses[n] = {"modelfile": "", "parameters": "", "template": "", "capabilities": ["completion", "tools"],
-                                  "details": row(n)["details"], "model_info": MODELS[n]["info"]}
+                                  "details": row(n)["details"], "model_info": spec(n)["info"]}
         mock.scenarios[n] = scenario(n)
 
 

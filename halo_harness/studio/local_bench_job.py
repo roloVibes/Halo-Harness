@@ -47,18 +47,20 @@ def _send(job: dict) -> None:
 
 
 def start(host, model: str, publish: Optional[Callable] = None, *, state_dir=None, quick: bool = False, cost: str = "",
-          card=None, runner: Optional[Callable] = None) -> dict:
-    """Bench `model` on `host`; the job's view, `joined` when it was running already."""
+          card=None, runner: Optional[Callable] = None, kind: str = "bench") -> dict:
+    """Bench `model` on `host`; the job's view, `joined` when it was running already. 3.6.0.25 T: `kind` "sweep" is
+    the sweep (providers/local_sweep_run.sweep, `runner`), which gets the job's Stop (`stop(host, model)`)."""
     from halo_harness.providers.ollama import ollama_names_match
     with _lock:
-        hit = next((j for j in _jobs.values() if not j["done"] and j["host"] == host.name
+        hit = next((j for j in _jobs.values() if not j["done"] and j["host"] == host.name and j["kind"] == kind
                     and ollama_names_match(j["model"], model)), None)
         if hit is not None:
             return {**view(hit), "joined": True}
         _seq[0] += 1
         job = {"job": f"bench-{time.strftime('%H%M%S')}-{_seq[0]}", "host": host.name, "model": model, "quick": quick,
                "line": cost, "lines": [], "done": False, "ok": False, "error": None, "card": None,
-               "started": round(time.time(), 3), "cost": cost, "kind": "bench", "publish": publish}
+               "started": round(time.time(), 3), "cost": cost, "kind": kind, "publish": publish,
+               "stop": threading.Event()}
         done = [j for j in _jobs.values() if j["done"]]
         for old in sorted(done, key=lambda j: j["started"])[:max(0, len(done) - KEEP_DONE + 1)]:
             _jobs.pop(old["job"], None)
@@ -74,13 +76,14 @@ def start(host, model: str, publish: Optional[Callable] = None, *, state_dir=Non
 
     def body() -> None:
         try:
-            got = fn(host, model, quick=quick, card=card, state_dir=state_dir, on_line=said, check_busy=False)
+            more = {"stop": job["stop"]} if kind == "sweep" else {"quick": quick}
+            got = fn(host, model, card=card, state_dir=state_dir, on_line=said, check_busy=False, **more)
         except Exception as e:
-            got = {"ok": False, "say": f"the bench of {model} stopped: {type(e).__name__}: {e}"}
+            got = {"ok": False, "say": f"the {kind} of {model} stopped: {type(e).__name__}: {e}"}
         ok = bool(got.get("ok"))
         with _lock:
             job.update(done=True, ok=ok, error=None if ok else got.get("say"), card=got if ok else None,
-                       line=(f"benched: up to {(got.get('max_gpu_window') or 0) // 1024}k on the GPU, reply reserve "
+                       line=got.get("say") if kind == "sweep" else (f"benched: up to {(got.get('max_gpu_window') or 0) // 1024}k on the GPU, reply reserve "
                              f"{got.get('reserve_floor') or 'over 512'}" if ok else got.get("say") or "the bench stopped"))
         if ok:
             from halo_harness.studio.local_pull_job import after_change
@@ -90,3 +93,15 @@ def start(host, model: str, publish: Optional[Callable] = None, *, state_dir=Non
     threading.Thread(target=body, name=f"halo-local-{job['job']}", daemon=True).start()
     _send(job)
     return {**view(job), "joined": False}
+
+
+def stop(host: str, model: str, kind: str = "sweep") -> bool:
+    """3.6.0.25 T: the Stop of a running sweep: it ends after the running load and keeps what was measured."""
+    from halo_harness.providers.ollama import ollama_names_match
+    with _lock:
+        hit = next((j for j in _jobs.values() if not j["done"] and j["host"] == host and j["kind"] == kind
+                    and ollama_names_match(j["model"], model)), None)
+    if hit is None:
+        return False
+    hit["stop"].set()
+    return True

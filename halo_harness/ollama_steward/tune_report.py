@@ -144,6 +144,9 @@ def report_for(state_dir, host_name: str, *, card: Optional[dict] = None, catalo
                                       f" · with q8_0 KV {_k(q8)} ({'verified by the bench' if kv_ok else 'computed'})"
                                       + (f" · the bench: on the GPU up to {_k(sc['max_gpu_window'])}" if sc.get("max_gpu_window") else "")
                                       + (f" · reply reserve {sc['reserve_floor']:,}" if sc.get("reserve_floor") else "")})
+    if host is not None and state_dir is not None:
+        for e in out["models"]:
+            e["sweep"] = sweep_of(state_dir, host, card, e["model"], rows[e["model"]].get("digest"))
     out["findings"] = _findings(state_dir, host_name, card, rows)
     from halo_harness.ollama_steward.tune_options import options
     out["options"] = options(state_dir, host, host_name, card, b, rows, order, win, warm, asked, roles, cards,
@@ -155,6 +158,25 @@ def report_for(state_dir, host_name: str, *, card: Optional[dict] = None, catalo
     out["says"] = (f"{len(warm)} of {len(order)} models stay warm together on {host_name}; {len(out['options'])} "
                    f"option{'s' if len(out['options']) != 1 else ''}")
     return out
+
+
+def sweep_of(state_dir, host, card: Optional[dict], model: str, digest: Optional[str]) -> Optional[dict]:
+    """3.6.0.25 T: the model's sweep (providers/local_sweep.py) under this digest and this server: the windows tried,
+    the pick and its reason, the reply speed at the start and at the pick; None when it has none."""
+    from halo_harness.providers import local_sweep as S
+    from halo_harness.providers.ollama_hw import load_server
+    version = ((card or {}).get("server") or {}).get("version")
+    rec = S.load(state_dir, host.url, model, digest=digest, server=load_server(host, version) if version else None)
+    if not rec or not rec.get("windows"):
+        return None
+    ws = sorted(rec["windows"], key=lambda r: r["window"])
+    first = rec["windows"][0]
+    at = next((r for r in ws if r["window"] == rec.get("pick")), None)
+    sp = lambda r: f"{r['tok_s']:g} tok/s at {r['window']:,}" if r and isinstance(r.get("tok_s"), (int, float)) else "?"  # noqa: E731
+    line = (f"the sweep tried {', '.join(_k(r['window']) for r in ws)}; "
+            + (f"the pick {rec['why']}" if rec.get("pick") else f"no pick: {rec.get('why')}")
+            + f"; reply {sp(first)} (the start)" + (f" -> {sp(at)} (the pick)" if at and at is not first else ""))
+    return {"windows": ws, "pick": rec.get("pick"), "why": rec.get("why"), "line": line}
 
 
 def _live_session() -> bool:
@@ -190,7 +212,10 @@ def format_report(r: dict) -> list:
     if ws:
         out.append(f"  warm set: {ws['line']}")
         out.extend(f"    {p['line']}" for p in ws["pivots"])
-    out.extend(f"  {m['line']}" for m in r.get("models") or [])
+    for m in r.get("models") or []:
+        out.append(f"  {m['line']}")
+        if m.get("sweep"):
+            out.append(f"    {m['sweep']['line']}")
     out.extend(f"  finding: {f['line']}" for f in r.get("findings") or [])
     for o in r.get("options") or []:
         out.append(f"  [{o['id']}] {o['kind']}: {o['line']} -- writes {o['writes']}; takes {o['takes']}")

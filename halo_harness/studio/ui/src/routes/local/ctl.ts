@@ -6,7 +6,7 @@ import { createStore, useStore } from "../../lib/store";
 import { loadHosts, loadModels } from "./store";
 import type { ModelEntry, ShowAnswer, TwinPlan, Uses } from "./types";
 
-export type Act = "show" | "twin" | "copy" | "rename" | "delete" | "retire";
+export type Act = "show" | "twin" | "sweep" | "copy" | "rename" | "delete" | "retire";
 type Ctl = {
   open: { act: Act; host: string; m: ModelEntry } | null;
   show: ShowAnswer | null; plan: TwinPlan | null; uses: Uses | null;
