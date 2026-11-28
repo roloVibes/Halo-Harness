@@ -1,5 +1,57 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.22] - 2026-11-27
+
+A closing release, Windows only. The hole a test caught while 3.6.0.21 was made is closed, and a second of the same
+kind that was found while closing it. No new feature. Nothing changes on macOS or Linux.
+
+### Fixed
+
+- **Windows, inside a Job that lets nothing leave (a CI runner, a service, some terminals): a hard kill of Halo in
+  the instant it started the helper that opens your browser left that helper behind,** a PowerShell that was
+  suspended and did nothing, for good. Halo started the helper suspended, put it into its own Job and only then
+  let it run; killed between those two steps, the helper was in no Job of Halo's and nobody was left to wake it or
+  end it. Now the helper is started awake, and the first thing it does is wait for one word from Halo on a pipe of
+  its own. Halo writes the word once the helper is in its Job. A Halo that is gone before that closes the pipe by
+  being gone, and the helper leaves at once, having started nothing. It was there since 3.6.0.18 and named in
+  3.6.0.21's Known limits. The same helper starts a program you asked to keep (a background job, for one)
+  inside such a Job, so that start is covered too.
+- **The same for the short probe** that asks whether a program may leave the Jobs Halo is in (once per process,
+  before a browser or a kept program is started). It was a `cmd` created suspended and ended at once; a hard kill
+  while it was up left a suspended `cmd.exe`. It now waits on a pipe of its own in the same way and ends when the
+  pipe closes. It runs with `/d`, so no AutoRun command of yours runs inside it.
+
+### Tests
+
+- Halo is killed hard exactly between the helper's start and its adoption, and nothing is left. The kill is put
+  there on purpose (the test holds the starter in that instant), never hoped for. A helper whose adoption fails is
+  gone and has started nothing; a healthy start still starts the program exactly once. A hard kill while the probe
+  is up leaves nothing; the probe passes `/d`. The two hard-kill tests are red on 3.6.0.21.
+- Real use, on a Windows PC: a real `halo init` in a scratch home, inside a Job that lets nothing leave, with a
+  stand-in for the browser. Killed hard in that exact instant, 3.6.0.21 left the helper both times of two; this
+  release left nothing five times of five, and nothing at sixteen other instants from the address line to a second
+  after it. The browser was asked once where the start had been let through, never twice, and not at all where
+  the kill came first.
+- Healthy starts are as fast as before.
+- The helper's script is checked as text: the wait for the word is its first act, and it never asks PowerShell
+  for its piped input (PowerShell would then read Halo's word itself).
+
+### Known limits
+
+- **Windows: a child joins its Job a brief moment after it is started, not at its start.** The moment is the time
+  Halo takes to put it in: usually far under a second, longer on a busy machine. A hard kill of Halo in exactly
+  that moment leaves that child, and anything it started in that moment, outside the Job. A server that reads from
+  Halo ends when its pipe closes, a tool's command runs to its own end, and Halo's own children watch for Halo and
+  close within two seconds; but a browser that Halo runs itself is started suspended and would stay so until you
+  end it. Found while closing the hole above; it has been so since Halo first used a Job (3.6.0.0), and nothing
+  has been seen left this way. Closing it means starting every child inside the Job from its first instruction,
+  which changes the base of how Halo starts programs: it is the next release's first job.
+- Not tried: a PowerShell in Constrained Language mode. If the helper's read of the word is refused there, the
+  helper does not wait for it and goes on to the start. The program's own starter still refuses to run it once
+  Halo is gone, so nothing outlives Halo; but the helper would not have "started nothing".
+- The new tests have not run on a hosted Windows machine before the push; the hosted run follows it.
+- Every Known limit of 3.6.0.21 still holds, except its first (closed here).
+
 ## [3.6.0.21] - 2026-11-25
 
 Left-overs, and checks that tell the truth. No new feature. The small faults the last two reviews named are
@@ -1391,94 +1443,3 @@ before it walks history. The limits that remain are at the end of this section.
   squeezed the Feed; that step now starts with the box closed, as a person meets it. The follow rule (Session moves to
   the newest session) was checked with the test rig's sessions in a browser, not with two real terminal sessions side
   by side. Browsers on macOS and Windows are CI's part.
-
-## [3.6.0.10] - 2026-11-21
-
-Main knows what it can do. On Auto, main is told when to hand work out and which helpers this session can start, by
-name, your own agents first; a local model as main is sent the Builder tool from a 32,768 window and may propose an
-agent or a workflow by itself; and the Map tab shows the list main reads. The limits that remain are at the end of
-this section.
-
-### Changed
-
-- **On Auto, a local model running as main is told when to hand work out and whom it can start**, in the terminal app
-  and in a session started from Studio. In place of its one line about delegating on a big job it reads two: "- Hand
-  work out instead of doing it all yourself: give each part of a job that can run on its own (a search or survey, a
-  plan, a review, a test run, mechanical edits, a file your model cannot read) to a helper with the Agent tool;
-  helpers on one job share one `task`; run independent parts in parallel; keep judgement and the final review
-  yourself." and "- Helpers you can start now (`subagent_type`): planner (plan, outline); researcher (research,
-  investigate); coder (implement, fix, refactor); reviewer (review, audit, judge); writer (summarize, draft, docs,
-  changelog); media-reader (image, screenshot, video, audio, pdf, transcribe); ops (deploy, release, install, ci);
-  Judge (pass or fail a result); Tester (run tests, report). With no `subagent_type` Halo picks a kind from your
-  words." That is the list of a home with no agents of your own; yours come first. The two lines are made at the
-  session's first request and stay the same for the whole session (an agent you save meanwhile is in your next
-  session); they are made again only when main's model changes.
-- **A local model as main is sent the Builder tool from a 32,768 window** (it was 65,536 and up), in the terminal app
-  and in a session started from Studio. It can make or change agents and workflows as a cloud main does: it sends the
-  call, the approval card shows, and nothing is written until you approve it. It reads short words for the tool, with
-  every one of the Builder's tools and its arguments by name; a cloud model keeps the long words. At 8,192 and 16,384
-  the tool does not fit and is only named among the tools main can call by name, as before.
-- **On Auto, main may propose an agent or a workflow by itself.** There the Builder's own words read "Use it when the
-  person asks for an agent, a workflow or a map change, or by yourself to propose an agent or a workflow for work that
-  will come back." On a map of yours, with roles off, in an `--agent` session and in a session restricted to some
-  kinds they read as before ("..., never on your own."). The choice is made once, when the session starts.
-- **When a request sends the Workflow tool and you have workflows of your own**, main also reads "- The Workflow tool
-  lists workflows you can run by `name`: run one when it fits the whole job."
-- **With many agents the list gives way instead of growing.** The few words leave first (the built-in kinds', then
-  other agents', then Auto's seven, yours last), then names from the end, ending "and {n} more (a wrong name lists
-  them all)". No prompt bound was raised for anything in this release.
-- **A cloud model on Auto knows the helpers too.** In a top session on Auto the Agent and Task tools' words end with
-  the same list, set once at the start.
-- **The Map tab's "Main can hand work to"** (Agents, 3 Map, on Auto) names exactly the kinds a new session tells main:
-  in a home with no agents of your own, 9 names where it listed 15.
-- **Unchanged, letter for letter:** what main reads about handing work out on a map of yours, with roles off, in an
-  `--agent` session, in a session restricted to some kinds, as a sub-agent, and with a model that takes no tools.
-
-### Fixed
-
-- **The builder's tools answered some wrong calls with nothing, or with the wrong words** (in a session and in
-  Studio's builder box alike). `workflow_make` with steps that are not a list of steps made a workflow with no steps
-  and said nothing; `step_add` with an index that is not a number put the step at the end and said nothing;
-  `workflow_change` with no `fields` (or `for` outside `fields`) said "nothing would change"; an unknown field is now
-  named as not a workflow's. Each now says what it needs.
-- **The cloud text said custom roles are off by default.** They are on. A cloud model now reads "With custom roles ON
-  (the default) the model table (`roles.*`) picks a sub-agent's model (`role:`); with roles OFF it runs the session
-  model unless the call passes `model:`."
-- **A helper shared main's Agent, Task and Workflow tools**, and a helper's start set their state again. Each helper
-  now has its own copies.
-- **The measured prompt size counts what a real new session sends** (`halo local prompt`, `/status`, the model card in
-  Studio). On a cloud model the first turn measures 55 tokens larger by this fix alone, because a line the session
-  always sent is counted; the fix itself sends nothing more. The bounds now also measure a new session that carries
-  the Builder tool.
-
-### Known limits
-
-- **A one-shot (`halo -p`) on a local model is as it was.** There main keeps its one line about delegating and is not
-  sent the Builder tool. A one-shot's first window is sized by its prompt, and the new lines pushed a small one-shot
-  on a local model from a 16,384 window to 32,768: the whole suite found that before the release, and a local
-  one-shot's request is now letter for letter what it was in 3.6.0.9. (`halo -p --input-format stream-json` and a
-  remote session take more turns: they read the new lines, as the terminal app does.)
-- **At 8,192 and 16,384 the Builder tool does not fit**; main can still call it by name. With Copilot set up, its own
-  tool ranks first, so the Builder may not be sent at 32,768 or 49,152 either (not measured).
-- **`halo local prompt` measures a session without the Builder tool**, so the figure it shows is the Builder's short
-  words (about 400 tokens) lower than what a top session on Auto sends from 32,768.
-- **Nothing draws yet what main handed out.** A session now counts, for each of main's turns, the helpers it started
-  and its own tool calls, and its status row says which kinds main was told; Live shows neither yet.
-- **Whether a local model hands work out more, or uses the Builder well, with these words was not measured.** No model
-  was called.
-- **On a map of yours the measured prompt size can read a little high:** it counts the map's lines on the Agent and
-  Task tools but not the map's narrowing of the tools.
-- **Seen and not changed:** an agent file's line `tools: Read, Agent(planner, Judge)` is split at its comma and
-  restricts nothing; and an agent of yours that has a file problem and is named like one of Auto's seven stops Auto's
-  map from being made, so that session runs with none of the seven.
-- **Every Known limit of 3.6.0.9 still holds.**
-- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
-  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
-  check, eighteen of eighteen steps. On the PC (Windows), one at a time: the plain modules of this release and the
-  tests of how a local model's window is sized. The first whole run on the VM found what the first limit above says:
-  with the new lines a small one-shot on a local model asked a 32,768 window where it had asked 16,384, and seven
-  tests of window sizing failed; a one-shot now keeps its one line and those tests pass unchanged. That run also
-  showed that an older test left the governor's cooldown for a local host behind it, which failed another test once
-  the suite's order moved; that test now cleans up after itself. Not run: any real model (every figure here is Halo's
-  own measure of what it sends), macOS, Windows beyond the modules named (CI runs both at the release gate), and
-  Studio's Map tab in a browser.

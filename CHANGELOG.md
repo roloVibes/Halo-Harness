@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.22] - unreleased
+## [3.6.0.22] - 2026-11-27
 
 A closing release, Windows only. The hole a test caught while 3.6.0.21 was made is closed, and a second of the same
 kind that was found while closing it. No new feature. Nothing changes on macOS or Linux.
