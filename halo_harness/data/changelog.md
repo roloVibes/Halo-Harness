@@ -1,5 +1,64 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.24] - 2026-11-28
+
+The plan of a session. Session now says what the session is for and shows the plan written out with what is done;
+every agent card says what that agent is for. No model is sent anything new for it.
+
+### Added
+
+- **Session shows the objective and the plan.** In the Feed's title bar, after "FEED main · full": "Objective"
+  with your latest ask (a "yes" or a "go on" keeps the one before; for a slash command it is the line you typed),
+  and a chip, "Plan 3 of 7". It takes no room from the feed. A click on the chip opens the plan above the
+  Timeline: the objective whole, then one line per step with its state as a mark and a word (done, doing, to do);
+  the step in progress stands out and says what is being done. Another click closes it, and your choice is kept.
+  A hover on the chip says the step in progress. The plan is main's own to-do list exactly as main last wrote it:
+  nothing is guessed. When main has written none the chip says "no plan yet".
+- **Every agent card says its goal.** In Agents -> Live and in Session's map a card's first line reads
+  "researcher · Goal: read the failing test": the words the agent was given when it was started. A hover adds
+  "started for: ..." with the step that was in progress at that moment in the plan of whoever started it (main,
+  or the helper that started this one), when there was one.
+- Each agent's to-do list is kept on its own row. The map's "plan: N of M done" line and the Feed's plan filter
+  show main's; nothing fed them before this release, so they show a real plan for the first time, and keep it
+  across a page reload.
+- `/clear` and a resume inside the app clear the objective and the plan with the conversation they belonged to.
+- A list of more than thirty steps: the chip and the map's line count all of them; the list shows thirty (the
+  step in progress always among them) and says how many are not shown.
+- Other machines you share status with (federation, the `status` level) get an agent's state as before, not the
+  words of its plan or objective.
+
+### Changed
+
+- While main writes its plan, its "doing" line says "TodoWrite: plan of N steps" (it showed the raw list).
+- A card whose first line was already full grows by one line with the word "Goal" (the box grows before a word is
+  cut).
+
+### Tests
+
+- The page in a real browser (the Linux machine): the title bar holds the objective and the chip at the first
+  draw; the Feed's head and the Timeline stay where they are with no objective, a long one, and a plan arriving;
+  a click opens the list, a change of states keeps its height, the fold survives a reload; the card's first line.
+- What the checks found before this release, each with its test now: a skill's slash command put the skill's own
+  first line under "Objective" (in the terminal app, in a headless run, and when typed while a turn ran); the
+  plan of a cleared or left conversation stayed on the page; a list over thirty steps was cut without a word.
+- The first build put the objective in a row of its own at the top of the Feed. The run on the hosted machines
+  showed what that cost: the feed lost lines, and its own click and copy tests failed. The objective and the chip
+  moved into the title bar and the list opens on a click; those tests are green again, unchanged.
+- What a model is sent is pinned and unchanged.
+
+### Known limits
+
+- In a narrow Feed the title bar cuts a long objective with an ellipsis; a hover, or the open list, says it whole.
+- After a resumed session the plan is shown again only once main writes its list again ("no plan yet" until then).
+- When main empties its list, the chip says "no plan yet" again.
+- The fold is one choice for the browser: opened in one session, the list is open in the next.
+- A model that writes no to-do list (many small local models) shows the objective only. Halo does not tell a
+  model to write one.
+- Not in this release: the task board that sub-agents share, a click on a step that shows only what was done for
+  it, a receipt per finished step, the plan in the terminal app, editing the objective by hand.
+- The page was driven by the same two events a real to-do call sends; no browser on Windows or macOS drew it.
+- Every Known limit of 3.6.0.23 still holds.
+
 ## [3.6.0.23] - 2026-11-27
 
 A closing release, Windows only. Every program Halo starts is inside Halo's Job from its first instant: the start
@@ -1251,118 +1310,3 @@ the end of this section.
   by the model under test was looked up before it was refused; it is now refused first, and a test holds it. The
   package checks found that the first group of a session did not ring; it rings now. `halo gym handout` was never run
   against a real Ollama or a real model: every check used the tests' stand-in. Browsers on macOS are CI's part.
-
-## [3.6.0.12] - 2026-11-22
-
-`!command` runs from Studio too. A line that starts with `!` runs that command in the session at once, from the
-terminal app and now from Studio's Prompt box, through one path: it shows once in both, Esc or Stop ends it, and
-closing Halo ends everything. A one-shot (`halo -p`) on a local model is sent the window Halo says it sends and the
-tools of that window. And Studio reads the project of the session it shows. The limits that remain are at the end of
-this section.
-
-### Added
-
-- **A `!command` typed in Studio's Prompt box runs in the session, as in the terminal.** A one-line `!command` runs
-  that command at once: no model turn, no receipt marks, and the model sees its output on the next turn, as before. An
-  image chip in the box stays for the next prompt, as in the terminal. It works while a turn is running too: a `!`
-  line is never a steer and is never queued. Your line shows once, and under it one answer line: `ran` and the
-  command's output; `asks first: answer below` when the session's rules ask first (the ask is the panel's own card,
-  Allow there runs the command, and the terminal's card reads "Answered in Studio: Allow"); `denied: {reason}` when a
-  rule refuses it (the line stays in the box); or `still running: Stop is on its row; its output shows in the Feed`
-  when it has not ended after 3.5 seconds. Before, Studio sent such a line to the model as a prompt.
-- **Stop on a `!` command that still runs.** In the Prompt panel the row of a `!` command that has not ended carries a
-  Stop button. It ends the `!` commands running at that moment, and a running turn with them, as Esc does in the
-  terminal. A `!` command started right after it is its own command and runs.
-- **Esc ends a running `!` command in the terminal app.** Its card ends with `[command aborted]`, the words a stopped
-  Bash call already shows. With a turn running, one Esc ends both. With no turn running and text in the prompt box,
-  the first Esc clears the box, as before, and the next ends the command. Before, Esc did not reach a `!` command: it
-  ran on to its end or to the Bash tool's time limit.
-- **The Prompt panel's help and the docs say it:** "A line that starts with ! runs that command in the session at
-  once, as in the terminal: no model turn; its output shows here and in the Feed." (docs/SLASH-COMMANDS-keys.md,
-  docs/STUDIO-session.md).
-
-### Changed
-
-- **A `!` command is one thing in both views.** The terminal's Bash card and Studio's Feed row come from the same
-  events of the session, so each view shows the command once, with its result, whichever side typed it. A session
-  Studio started (no terminal) takes the same path.
-- **A `!` command that asks first can be answered from either side.** The terminal's card and Studio's card are one
-  decision: an Allow from Studio runs the command. Before, an answer from Studio closed the terminal's card and
-  nothing ran.
-- **Every interrupt sent to a session ends its running `!` commands too:** Session's Stop for a turn and an interrupt
-  from a phone, not only the new Stop on a `!` row. A Stop pressed in Studio for a turn therefore also ends a long `!`
-  command started in the terminal.
-- **Closing Halo ends a running `!` command and answers every waiting `!` ask "no",** on every way out, in the
-  terminal app and in a session Studio started: no thread and no process of it is left.
-- **A one-shot on a local model is sent the tools of the window it asks.** `halo -p` on an Ollama model tries the
-  windows 8,192, 16,384 and up in turn, each with the tool block a session of that window is sent, and asks the first
-  that holds the request. A typical one-shot asks 16,384 and now sends the core tools first (13 tools, about 2,200
-  tokens in the test home) where it sent all 28 (about 4,100); the others stay reachable through ToolSearch, and one
-  line says so: "{n} tools not offered to {model} (window 16,384): the core tools first, the rest by ToolSearch". A
-  very small one-shot (an empty folder, a one-line prompt) now fits 8,192. Later calls of the run keep the block they
-  started with; when the run has to grow, the block grows with it. A session of more than one turn (the terminal app,
-  Studio, `--input-format stream-json`), a helper's call and a cloud model are sent what they were sent before, byte
-  for byte.
-- **On Auto, a one-shot on a local model reads which helpers it can start,** the same two lines every other session
-  reads. 3.6.0.10's notes said a one-shot keeps its one older line about delegating; that limit is gone. With the
-  smaller tool block its first ask stays 16,384.
-- **Studio hears the files of every open session's project.** An agent, workflow or map changed in the project of a
-  session started in another folder reaches the open page at once. A folder is watched only while a session runs
-  there.
-
-### Fixed
-
-- **A one-shot on a model that runs partly on the CPU is sent the window its line names.** When a local model is
-  loaded at a window that spills to the CPU, Halo reloads it at the largest window known to fit the card and says
-  "reloaded at 16k". For a one-shot whose prompt was more than half of that window, the line was printed and the
-  larger, spilling window was sent all the same, so nothing was reloaded. Now the window the line names is the one
-  sent, and a second line says how much room the reply has: "the prompt is more than half of it: the reply has {n}
-  tokens". When the request does not fit the smaller window, the larger one is kept and the line says that instead:
-  "{model} on {host} is loaded at a 32k window that runs partly on the CPU there now: kept there, the request does not
-  fit 16k, the largest known to fit the card".
-- **Save as an agent on Live's card reads the session's own project.** The agent built from a made-up helper took what
-  it may use from `main` of the folder Studio was started in. It now takes it from the project of the session the
-  helper ran in, and never offers a name an agent of that project, or of Studio's own folder, already has. Save itself
-  is unchanged: it writes a new agent of yours.
-- **Session's workflow line reads the session's own map file.** "This session is running the workflow ... from ..."
-  read the map by its name in Studio's folder, so a session in another project with a map of the same name could show
-  the other project's workflow. It now reads the file the session runs on, the one the drawing under it reads.
-
-### Known limits
-
-- **A `!` line from the phone bridge or from voice is still a prompt to the model.** Only the terminal app and
-  Studio's Prompt box run it as a command.
-- **A `!` line with a second line is a prompt,** in Studio as in the terminal.
-- **A `!` line that begins with a space is a prompt in Studio's Prompt box;** the terminal runs it as a command.
-- **A `/` line with an image chip is still a prompt in Studio's Prompt box;** in the terminal it runs as a command and
-  the image waits.
-- **A refused `!` line from Studio shows its refusal twice in the Prompt panel:** the answer line `denied: {reason}`
-  and the session's own error row, the one the terminal shows.
-- **`halo -p "!ls"` sends the line to the model as a prompt, as before.** A one-shot has no `!` handling. A `!` line
-  sent from Studio's Prompt box to a `halo -p` run that is still running is answered "a ! command needs a session in
-  the terminal app or one Studio started".
-- **Stop and Esc end a running turn together with the `!` command.** There is no way yet to end only the command while
-  a turn runs.
-- **Stop for a `!` command is on its row in the Prompt panel only.** The Feed shows the row, but the steer box's Stop
-  there is for agents.
-- **Whether a small local model works as well with the core tools as with all of them was not measured.** Every check
-  of the one-shot change used the tests' stand-in for Ollama, never a real model.
-- **A one-shot reloaded under a spill can print the reply's room twice,** once in the new second line and once in the
-  line that was already there.
-- **The two changes for a model that runs partly on the CPU apply to one-shots only.** A session of more turns still
-  says "reloaded at 16k" and is raised past that window when its prompt is more than half of it.
-- **Session's workflow line, when the map new sessions use is not the session's own map,** still reads that other map
-  by its name in Studio's folder.
-- **Every Known limit of 3.6.0.11 still holds,** but the first: a `!` line from Studio now runs.
-- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
-  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
-  check, eighteen of eighteen steps; its prompt step now sends a `!` line from Studio to a real terminal session and
-  sees it run once, with no model request. On the PC (Windows), one at a time: the plain modules of this release, the
-  Prompt panel's browser module once, and the terminal app's `!` tests. The whole run on the VM found one test that
-  calls the quit on a stand-in object that lacked the new end of `!` work; the stand-in has it now. A package checker
-  found that Studio could not end a running `!` command; the Stop on the command's row was added after that and is
-  checked over the session's socket and in a browser. The reviewer found that a `!` command started right after a Stop
-  was ended with the one before; each command now has its own stop, and a test holds it. The modules changed after the
-  whole run were run again on the VM and the PC. Stop was not tried by hand with a real terminal session beside
-  Studio. No real Ollama and no real model was used for the one-shot changes. Browsers on macOS and Windows are CI's
-  part.

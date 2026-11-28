@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.24] - unreleased
+## [3.6.0.24] - 2026-11-28
 
 The plan of a session. Session now says what the session is for and shows the plan written out with what is done;
 every agent card says what that agent is for. No model is sent anything new for it.
