@@ -1425,6 +1425,16 @@ rc = roles_cli._run_editor(editor, tmp / "edited.txt", label="test")
 print(json.dumps({"rc": rc, "member": member}), flush=True)
 sys.exit(0)'''
 
+# After the review: the terminal app's own shape (tui/app.py, the /mcp dialog): subprocess_safe's run, one command
+# line through the shell, a scrubbed environment. subprocess_safe hands such a start to Python's own run (never its
+# adopting Popen), so the editor is in none of Halo's Jobs; a change that sent it through Popen would put it into
+# the strict Job and end it with Halo.
+_START_EDITOR_TUI = '''from halo_harness import closing as _c, subprocess_safe as _sp
+editor = '"%s" "%s" %s' % (sys.executable, tmp / "editor.py", MODE)
+r = _c.start_persons(_sp.run, f'{editor} "{tmp / "edited.txt"}"', shell=True, env=_c.scrubbed_env())
+print(json.dumps({"rc": r.returncode, "member": member}), flush=True)
+sys.exit(0)'''
+
 
 @test
 def test_the_persons_editor_outlives_a_member_halo_ended_normally_or_hard(ctx: Ctx):
@@ -1434,16 +1444,19 @@ def test_the_persons_editor_outlives_a_member_halo_ended_normally_or_hard(ctx: C
     if not WIN:
         raise SkipTest("Windows only: Job objects")
     import shutil
-    for mode in ("returns", "stays"):
+    for shape, start, mode in (("the roles editor", _START_EDITOR, "returns"), ("the roles editor", _START_EDITOR, "stays"),
+                               ("the terminal app's editor", _START_EDITOR_TUI, "returns"),
+                               ("the terminal app's editor", _START_EDITOR_TUI, "stays")):
         tmp = Path(tempfile.mkdtemp(prefix=f"fx-j-editor-{mode}-"))
         (tmp / "editor.py").write_text(_EDITOR, encoding="utf-8")
-        proc = _moment_child(tmp, _START_EDITOR.replace("MODE", repr(mode)), hold=False)
+        proc = _moment_child(tmp, start.replace("MODE", repr(mode)), hold=False)
+        mode_was, mode = mode, f"{shape}, {mode}"
         ed = (None, None)
         try:
             got = _wait_file(tmp / "edited.txt.json", 120.0) or {}
             ed = (got.get("pid"), _start_time(got["pid"]) if got.get("pid") else None)
             ctx.check(f"{mode}: the editor stand-in started, got {got}", ed[0])
-            if mode == "returns":
+            if mode_was == "returns":
                 ready = _ready_line(proc, 120.0)
                 ctx.check(f"{mode}: the editor returned, got {ready}", ready.get("rc") == 0)
                 proc.wait(timeout=60)  # the normal exit: its closing procedure ran, its own Job closed
@@ -1452,8 +1465,8 @@ def test_the_persons_editor_outlives_a_member_halo_ended_normally_or_hard(ctx: C
                 proc.wait(timeout=60)
             time.sleep(2.0)
             ctx.check(f"{mode}: the editor's program (pid {ed[0]}) outlives its starter's "
-                      f"{'normal exit' if mode == 'returns' else 'hard kill'}", _same(*ed))
-            if mode == "returns":
+                      f"{'normal exit' if mode_was == 'returns' else 'hard kill'}", _same(*ed))
+            if mode_was == "returns":
                 ctx.check(f"{mode}: the starter was a member, got {ready}", ready.get("member") is True)
         finally:
             if proc.poll() is None:

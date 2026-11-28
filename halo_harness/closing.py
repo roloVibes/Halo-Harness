@@ -357,7 +357,9 @@ def start_persons(fn: Callable, args, **kw):
     """`fn(args, **kw)` (subprocess's call or run) for a program that is the person's own, an editor: never ended
     with Halo. 3.6.0.23 J: on Windows, while this process is a member of a Job of its own (install()), the program
     would be born inside that Job, so it asks to break away; where a Job refuses that (error 5) the same start is made
-    once more without it (an outer Job then holds it, as before)."""
+    once more without it (an outer Job then holds it, as before). `fn` is subprocess's own call or run, or
+    subprocess_safe's (which hands a scrubbed-environment start to subprocess's own): never subprocess_safe.Popen,
+    whose children join the strict Job."""
     if os.name == "nt" and _STATE.get("member"):
         try:
             return fn(args, **dict(kw, creationflags=int(kw.get("creationflags") or 0) | _BREAKAWAY))
@@ -1027,6 +1029,12 @@ def resume_held(proc) -> None:
         proc.wait(timeout=5)
     except Exception:
         pass
+    for pipe in (getattr(proc, "stdin", None), getattr(proc, "stdout", None), getattr(proc, "stderr", None)):
+        try:  # after the review: the caller gets no object to close them with
+            if pipe is not None:
+                pipe.close()
+        except Exception:
+            pass
     raise OSError(f"a program halo started (pid {getattr(proc, 'pid', None)}) could not be resumed: it was ended")
 
 
