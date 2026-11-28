@@ -1,5 +1,60 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.23] - 2026-11-27
+
+A closing release, Windows only. Every program Halo starts is inside Halo's Job from its first instant: the start
+moment named in the Known limits of 3.6.0.22 is closed. Nothing changes on macOS or Linux.
+
+### Fixed
+
+- **Windows: a hard kill of Halo in the moment a program was being started could leave that program behind.** A
+  program joined Halo's Job a moment after its start. Killed in that moment, Halo left a browser it runs itself
+  suspended for good, any other program running on, and a tool server was never in a Job of Halo's at all. Now
+  Halo makes itself a member of a Job of its own, first thing. Everything it starts is born inside: an ordinary
+  program, the browser Halo runs, a tool server, a helper. Windows ends them with Halo at any instant.
+- **A program can no longer slip out in that moment either.** The Job Halo sits in has to let a kept program
+  leave (a background job, the updater, your browser). So a program born in it could let a child of its own leave
+  before Halo had moved it into the strict Job; Git Bash programs do that whenever they may. An ordinary program
+  is now started suspended and let run only once it is inside the strict Job.
+
+### Changed
+
+- **What is yours stays yours.** Your editor (from Roles, the crew editor, the terminal app, the /mcp dialog) is
+  started so that it leaves Halo's Job: it never ends with Halo, not at a normal exit and not at a hard kill. Kept
+  programs leave as before: by themselves, or from outside every Job where an outer Job lets nothing leave, or
+  held by that outer Job with the one line that says so.
+- On Windows Halo no longer falls back to opening your browser from inside its own process (it would close with
+  Halo). Where no kept start can be made, the address stays printed for you to open.
+- **For pack authors:** on Windows a program a pack starts by itself with Python's own `subprocess` is born in
+  Halo's Job now and ends with Halo, also at a normal exit. A program that must outlive Halo is started through
+  `closing.kept_kwargs`, the person's own program through `closing.start_persons`.
+
+### Tests
+
+- Proofs with the kill placed in the moment on purpose (the starter held right after a create): an ordinary child,
+  the browser stand-in, a tool-server stand-in, inside a launcher-like Job and inside a strict outer Job: gone. A
+  kept child and an editor: they OUTLIVE the starter, after a normal exit and after a hard kill. A grandchild that
+  asks to leave as its first act: gone. A resume that fails: the child is ended and the caller told. A
+  self-assignment that fails: the old path, one trace line.
+- The independent check found a kept start that ended with Halo inside a strict outer Job when it could not be
+  started from outside; repaired, with its test. The review asked whether the terminal app's editor still ended
+  with Halo; run, it does not, and that shape is a test now.
+- Real use on a Windows PC: a real `halo init` in a scratch home, inside a strict outer Job, with no outer Job,
+  and through an installed launcher. Healthy starts asked the browser exactly once; hard kills at many moments
+  left nothing.
+
+### Known limits
+
+- A tool server may start a program of its own that asks to leave before the server library's own Job holds the
+  server (the library assigns that Job after the start). Halo's Job holds the server itself from its birth.
+- A Ctrl+C in the few instructions between a create and Python's record of it leaves that one child suspended
+  until Halo ends; it ends with Halo.
+- Where Halo cannot join a Job of its own (an outer Job that refuses a nested one), it works as 3.6.0.22 did, and
+  one trace line says so.
+- Not tried before the push: a hosted machine's own outer Job, other installers' launchers, a real service, a real
+  browser.
+- Every other Known limit of 3.6.0.22 still holds.
+
 ## [3.6.0.22] - 2026-11-27
 
 A closing release, Windows only. The hole a test caught while 3.6.0.21 was made is closed, and a second of the same
@@ -1311,135 +1366,3 @@ this section.
   whole run were run again on the VM and the PC. Stop was not tried by hand with a real terminal session beside
   Studio. No real Ollama and no real model was used for the one-shot changes. Browsers on macOS and Windows are CI's
   part.
-
-## [3.6.0.11] - 2026-11-22
-
-What you pick is what you get. A default model and a map picked in `halo init` or in Studio are what a new session
-runs, and Studio says so where that cannot be; Session's steer box is closed until you ask for it; Session shows the
-session you started last, names it, and counts its cost once; and Up in the prompt goes to the start of the prompt
-before it walks history. The limits that remain are at the end of this section.
-
-### Changed
-
-- **Setup saves what you pick when you leave the page.** On the Map, Default model, Permissions and Theme pages a pick
-  was saved only by the page's own button (Apply on the Map page, Save on the others). Next, Back, the step rail and
-  Done saved nothing, so the Summary and the next session showed the older value. Now Next, Back, a click on the step
-  rail, the Summary's Change, Done, and opening another section through Studio's own rail all save the picks still
-  standing first. While a pick is not saved yet, the block's foot reads "1 changed · saved when you leave this page".
-  The page's button still saves at once and Revert still drops the pick. A pick made while a save is on its way is
-  saved by the same leave. A refused save keeps you on the page and the foot says why; at Done the Summary says it and
-  nothing is started. When Setup is left through Studio's rail the other section opens all the same, and a refused
-  save shows in the block's foot when you come back.
-- **Session's steer box is closed until you ask for it.** The Feed's rows take the whole height. A Steer button in the
-  Feed's header, beside Follow, opens the box at the bottom with the cursor in the field; a second click closes it. A
-  row's "steer" and `s` on a row open it aimed at that row's agent. An x at the end of the box's top row, or Esc in
-  the field, closes it. Text typed and not sent is still there the next time the box opens; a sent steer clears the
-  text and leaves the box open for a follow-up. Pause and Stop for the Feed's agent are in the box, so they show while
-  it is open. Screenshot opens the box too, so its picture shows under the field. Every page load starts with the box
-  closed.
-- **Session follows the newest session you start, and names the one it shows.** When Session chose its session by
-  itself and you start `halo` in another folder, Session moves to the new one at its next read of the session list and
-  says "Now typing into {folder} · {title}." for six seconds. It follows only a session a person talks to, the
-  terminal app's or one Studio started: a one-shot `halo -p` and a worker another session started never take Session
-  by themselves. If the session it chose by itself ends while another runs, it moves to the newest open one. A session
-  you picked yourself never moves by itself: Change session, a `?session=` link, `/studio`, New session, or a click on
-  a row, a tag or a Map agent of it. Nothing moves while the Prompt box, or the open steer box, holds text. The Feed's
-  header has a new last row that names the session, with a Change session button; while other sessions are open, a
-  chip "N other sessions running" beside it opens the same list.
-- **The Feed shows the lines of that session only.** Before, the lines of every session of this harness were mixed in
-  the Feed, while the steer box and the Prompt box sent to the picked one. The Feed's "N working" counts that
-  session's agents.
-- **Agents > Map says which map new sessions run.** The Map select at the top left only opens a map. When the open map
-  is not the one new sessions run, the top line now says "New sessions do not run on {open}; they run on {the other}."
-  with a button "Run new sessions on {open}", which does what the switch "New sessions run on this" does. On Auto the
-  same line stands under Auto's first line. After a change is saved on a map new sessions do not run, the receipt ends
-  with the same sentence.
-- **Main's box on the Map names the model a new session on that map starts on, and why:** "{model} · your default
-  model", "· your last /model", "· pinned in main's own file, outranks your default model", "· from HALO_MODEL", "·
-  from routes.json", "· from your work environment" or "· Halo's built-in default". On Auto a model pinned in your own
-  copy of main is not used, and the box says so on a second line. Which model wins is unchanged.
-- **Up goes to the start of the prompt before it walks history, in the terminal app and in Studio's Prompt box.** Up
-  moves one line up; on the first line it takes the cursor to the very start and keeps the text; pressed again at the
-  start, it brings back the older prompt. Down is the mirror: one line down, to the very end, then the newer prompt.
-  While a recalled prompt stands untouched, Up and Down keep walking. With nothing to recall, they leave the cursor
-  where it is (in the terminal app it jumped to the end). Before, Up on the first line of a long prompt went to
-  history, and the start was reached by holding Left.
-- **The terminal's status bar no longer shows an OpenRouter key's lifetime spend.** For a key with no limit the bar
-  read "OR $... used" beside the session's cost: everything that key ever spent, in every app, with nothing saying so.
-  The bar now shows an OpenRouter figure only when it is a balance ("OR $12.40 left"). `/cost` and `/providers` still
-  print the key's spend, with what it is.
-
-### Fixed
-
-- **The default model you pick is the one a new session starts on, and the one the check names.** A model switched to
-  with `/model` is remembered, and that memory outranks the default model. A `/model` made in one folder also counted
-  in every folder that had no choice of its own, so one switch, made anywhere, outranked the default everywhere, with
-  no end. The check's line ("Default model: ...", in the terminal setup's Checks and on Setup's Check page) told the
-  truth: a new session did start on the older model. Now saving a default model forgets the remembered `/model`
-  choices, in every folder: in `halo init`, on Setup's Default model page, in Settings, with `halo config set model
-  ...`, and when a lineup offer on a model's card is accepted. Resetting the default model (Settings' Reset to
-  default) does the same, and so does picking the model that already is the default in the terminal setup.
-- **A `/model` made after that is remembered as before** and outranks the default until a default is saved again.
-  While that model's provider is set up, the check names both: "Default model: {the /model one} ... [from last-used
-  model (/model); config.json's model is {the default}]"; when it is not, the check's warning names the remembered
-  model only.
-- **A map with a problem says that new sessions will not run it.** Setup saved such a map (one that names a workflow
-  that does not exist, for example) and every new session quietly ran on Auto. Apply's answer now ends with "{map} has
-  a problem: new sessions run on Auto until it is fixed" and the problems; the Summary row, the rail and the Map
-  glance read "{map}: has a problem, new sessions run on Auto". On Agents > Map, saving a map with a problem shows the
-  red "This map has a problem" lines at once; before, the save answered that there were none.
-- **A finished helper's cost is counted once.** Session's status line, the head line and the sentence of Agents >
-  Live, and the Map's boxes and top sentence counted a finished helper on its own row and again inside its parent's
-  figure: a session of $0.0251 whose helper had finished read "Done · $0.04". They now give the Cost panel's total,
-  which is the terminal's.
-- **The Prompt panel shows the prompts typed before Studio attached** as your turns, so an answer no longer stands
-  without its question.
-- **When the session you watched has ended and another is running,** Cost and the Prompt box say "The session you
-  watched ended; {folder} is running." with Change session, in place of "No session here yet".
-- **Setup: a finished measure or network scan no longer turns back to "running" for a moment.** On a slow machine the
-  log and the summary of "Measure the found models" could leave the page right after the measure ended and come back
-  up to a second later: the answer to the click that started it arrived after the result and was taken as newer. The
-  Check page already handled this; the Ollama block now does too.
-- **The real-use check on Windows leaves as soon as its result is written.** Three times at a release gate it passed
-  every step, printed its last line and was then stopped while Python was ending (the C runtime's abort, with no line
-  of Python's own). What stops it is not known; nothing of the result depends on that ending, and an end before the
-  last line is still named.
-
-### Known limits
-
-- **A line that starts with `!` typed in Studio's Prompt box is not run as a command.** In the terminal app `!command`
-  runs the command at once, as before. From Studio the same line still goes to the model as a prompt. It is planned
-  for the next release.
-- **A model pinned in your own copy of main still outranks the default model on a map that is not Auto.** The Map now
-  says so in main's box; which one should win has not been changed.
-- **Main's box names a remembered `/model` without checking that its provider is still set up.** If it is not, a new
-  session falls back with a notice while the box still names that model.
-- **Main's box on the Map speaks for the folder Studio was started in.** With the `/model` memory kept per folder (the
-  default), a session started in another folder can start on that folder's remembered `/model`.
-- **Closing the browser tab while a pick stands in Setup saves nothing.**
-- **An install that already shows the older model keeps showing it until a default is saved once more.** Halo cannot
-  tell which of the two was chosen last on an existing install. Save the default again (Setup's Default model page, or
-  `halo config set model <ref>`), or switch with `/model`.
-- **The remembered effort is not forgotten** when a default model is saved.
-- **A `config.json` edited by hand forgets nothing:** a remembered `/model` choice still outranks a `model` typed into
-  the file.
-- **Unchanged:** `HALO_MODEL` and `routes.json`'s `default` still outrank `config.json`'s `model`.
-- **The steer box keeps one unsent text for the page,** not one per session: text typed while one session shows is
-  there when the box opens on another.
-- **Up in Studio's Prompt box on one long line that wraps goes straight to the start;** the terminal app first moves
-  one screen line up.
-- **On Auto the Map keeps one empty line above main's box** for the "New sessions do not run on ..." line, so nothing
-  moves when the line comes or goes.
-- **The steer foot of the agent drawer in Agents > Live is unchanged:** it is always there.
-- **On a short window the open steer box leaves the Feed little room.** With six agents on the timeline and a window
-  about 800 px high, less than one row of the Feed shows until the box is closed.
-- **Every Known limit of 3.6.0.10 still holds.**
-- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
-  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI) and the full real-use
-  check, eighteen of eighteen steps. On the PC (Windows), one at a time: the plain modules of this release and, once
-  each, the browser modules it changed. The whole run on the VM found that the Feed's new Change session button sat 6
-  px under Export where the rule is 8; it has 10 now. The run on the PC found the short-window limit above: a browser
-  step that clicks a row's steer hit the timeline instead, because the steer box left open by the step before had
-  squeezed the Feed; that step now starts with the box closed, as a person meets it. The follow rule (Session moves to
-  the newest session) was checked with the test rig's sessions in a browser, not with two real terminal sessions side
-  by side. Browsers on macOS and Windows are CI's part.

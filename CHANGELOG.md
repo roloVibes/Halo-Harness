@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.23] - unreleased
+## [3.6.0.23] - 2026-11-27
 
 A closing release, Windows only. Every program Halo starts is inside Halo's Job from its first instant: the start
 moment named in the Known limits of 3.6.0.22 is closed. Nothing changes on macOS or Linux.
