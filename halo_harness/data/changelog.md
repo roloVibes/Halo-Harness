@@ -1,5 +1,89 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.6.0.25] - 2026-11-28
+
+Two things. Halo finds a local model's best window by measuring it, and a model of your choice can tune with it.
+And a Claude Code session shows in Studio, watch only.
+
+### Added
+
+- **Find the best window (Local).** On a model's row: "Find the best window". Halo loads the model with every
+  layer on the card at up to six windows, starting at its own estimate and stepping by 16,384 (8,192 under
+  32,768), or stepping down when the start itself spills. At each one it records whether the load is wholly on
+  the card, the card's used and free memory (where it can be read), and the prompt and reply speed. It stops at
+  the first spill, or at the cliff: a window that is on the card but more than 40 % slower than a smaller one (on
+  Windows a load can spill into shared memory while the server still says it is on the card). The pick is the
+  largest window wholly on the card, with at least 300 MiB free where the card's free memory can be read, before
+  the cliff, and one line says why. Before it starts it says what it will do (how many loads, that it unloads
+  what is loaded and puts it back, that nothing is written to the Ollama store: the sweep and the measured window
+  are kept in Halo's own files); it has a Stop, keeps what it measured, and goes on from there.
+  `halo local bench --sweep MODEL` does the same in the terminal; `halo local tune` shows each model's sweep.
+- **What you do with a pick.** "Use in Halo" sets it for Halo's own sessions (it shows in Changes and can be
+  reverted; nothing is written to the Ollama store). "Make the twin" makes the tuned twin at it. The pick is the
+  tight window: it fits with nothing else on the card. Where a smaller window also meets Halo's stricter "safe"
+  rule (room for other programs on the card), the card says that one too.
+- **A tuner model, off until you pick one.** Settings -> Ollama -> "Tuner model": any model Halo can call. "Tune
+  with <model>" on a local model first says which model is called, what is sent (the model's facts, the server's
+  version and settings, the sweep's table, the card's size: no path, no host name, no address, no user name), what
+  it will cost by the price Halo knows, and that it writes nothing to the Ollama store. The tuner reads Halo's
+  measurements and may ask Halo to measure another window (the same six-load cap, and only on an idle host). It
+  writes three things, each kept with who wrote it and when, and removable: a diagnosis when the model does not
+  load or spills at its start; server advice (only settings on Halo's own list, shown as set and revert lines:
+  Halo runs none of them); and a guide for that model (what it is best at, when to avoid it), shown on the
+  model's card under the measured facts. A window it proposes is only a proposal: Halo measures it, and it becomes
+  the pick only by Halo's own rule.
+- **A Claude Code session in Studio, watch only.** `halo guest install` writes a small Claude Code plugin and
+  prints the three commands that add it and turn it on; Halo runs none of them. From then on a Claude Code session
+  is listed in Studio as "Claude Code · watch only": main's block, one block per sub-agent with the tool each one
+  runs, the objective, and the plan when Claude Code keeps a to-do list. Nothing can be typed into it and nothing
+  steers it. Halo reads the lines the plugin's hooks write (cut to size) and nothing else: nothing of your Claude
+  login, and not the transcript. Nothing is kept after the session; a bridge that was ended hard has its files
+  removed at the next `halo guest status`, `halo doctor`, Studio start or update, and the hooks write nothing
+  to a bridge that is not alive. Also: `halo guest status` (with the lines each bridge dropped), `halo guest
+  uninstall`, a row in `halo doctor`, and the page docs/GUEST.md.
+
+### Changed
+
+- `halo update` ends a running Claude Code bridge as it ends Halo's other processes, and says so in one line
+  first (the Claude Code session itself keeps running).
+- A watch-only session is never offered to a phone or chat transport, and never counts as "a Halo is alive" for
+  what Halo keeps running.
+
+### Tests
+
+- What the independent checks found before this release, each with its test now. The tuner: a window it asked for
+  was measured without waiting for an idle host; a user or host name next to a dash got past the scrub of what is
+  sent; a pick's reason named the wrong bound. The watch-only session: a sub-agent's card could show another
+  agent's goal when hooks landed out of order (it says "goal not known" unless it is sure); the bridge started a
+  process of its own on Windows (it starts none); a session's lines could be reached through a phone transport.
+- The reviews before the push found more, each with its test: part of a user name with a space got past the
+  scrub; a wildcard for browser origins was accepted as server advice (it is refused); a sweep could erase what
+  an earlier measurement had kept; in a real session a /clear in Claude Code did not reset the plan (the
+  session's start never reaches the bridge); a bridge ended hard left a file the hooks kept adding to.
+- Real use, on a Windows PC: one real Claude Code session with the plugin on. The bridge came up as Claude Code's
+  child, the hooks' lines reached it, main's block showed the tool as it ran and the objective, a steer was
+  answered "watch only", and the row and the spool were gone when the session ended.
+- What a session's model is sent is pinned and unchanged.
+
+### Known limits
+
+- **No sweep has run against a real Ollama in the making of this release** (none was up): every load was on the
+  tests' stand-in server. The first sweeps on a real server are yours; the table shows every window measured, so
+  a pick can be checked against it.
+- The tuner job was tried against a stand-in for the cloud model only.
+- A Halo that is killed during a sweep leaves the swept model loaded and does not put the others back; a Stop,
+  or ending it normally, does.
+- Not in this release: writing a pick into the model's own tag, Halo applying a server setting, a "task -> model"
+  table across models, a native Google provider (a Gemini model is reached through OpenRouter today).
+- Watch only, the limits: Claude Code does not say which call started which sub-agent, so a goal is shown only
+  when it is sure. Cost and tokens read "not known". Replies are not shown as they are written: the last reply
+  of a turn and of each sub-agent shows, cut to 2 KB. On newer models Claude Code keeps no to-do list unless its
+  own setting turns it on (docs/GUEST.md names it). The session's start reaches the hooks before the bridge is
+  up, so the model's name is not shown. A hook costs two short Python starts per tool call (before and after
+  it). A real session was tried on Windows only; macOS and Linux by tests. Claude Code handing work to agents
+  Halo runs is the next step, not in this release.
+- Every Known limit of 3.6.0.24 still holds.
+
 ## [3.6.0.24] - 2026-11-28
 
 The plan of a session. Session now says what the session is for and shows the plan written out with what is done;
@@ -1196,117 +1280,3 @@ host that needs a key, says what it does while it runs and says whether a model 
   session's status line showed was not taken). `halo gym handout` was run for real on five local models on one
   machine's own Ollama, and once through a gateway that needs a key. One reviewer read the whole diff. Browsers on
   macOS and Windows are CI's part.
-
-## [3.6.0.13] - 2026-11-22
-
-Live you can read, and a measure. On the drawing of a running session (Agents -> Live and Session's map, on Auto)
-every helper's box now says in words what it does at this moment, a box keeps its height, main's box says what this
-turn did, a group's head counts what is true, the slot at the foot names the group that waits on you when it is out of
-sight, and a box rings once when something happens to it. A new command, `halo gym handout`, measures on a local model
-whether main hands work out more with the words 3.6.0.10 gave it. It was never run on a real model: the limits are at
-the end of this section.
-
-### Added
-
-- **NOW: every helper's box says what it does now.** A line under its state line, the first that applies: "waiting for
-  you · {s}"; "paused"; "queued · {s}"; "stopped after {span}", "done in {span}", "failed after {span}"; "{tool} ·
-  {s}" while a tool runs (the tool's own name, as the Feed shows it); "thinking · {s}"; "writing · {s}"; else "waiting
-  for a model reply · {s}". A thought is drawn in the thinking colour, waiting for you in amber. When Studio does not
-  know since when, the words stand alone, with no separator at their end; a tool Studio knows only from the agent's
-  row reads its name alone; and when Studio never saw a helper end, the line stays blank (the state line already says
-  how it ended). On Auto main's box draws the same line where its tool clock was, while main works or waits.
-- **A queued helper reads "queued" and a stopped one "stopped".** Before, a queued helper read as working and a
-  stopped one as done. Both have a calm edge: they are not working and not done.
-- **A helper's hover adds "Now: ..." with the whole words.** For a queued helper: "Now: queued · {s}: it starts when a
-  running helper ends."
-- **Main's box on Auto says what this turn did:** "This turn: started {h} helpers · used {t} tools itself", under NOW.
-  A part that is zero is left out; the line is blank before the first turn and stays until your next message. Main's
-  hover reads "main · {model}", "This session: started {H} helpers · used {T} tools itself" and "Told it can start:
-  {names}" (twelve names, then " and {n} more"); before the session's first request it reads as before.
-- **A group's head counts from the true state:** "{w} working" (running or paused), "{q} queued", "{v} waiting on you"
-  (amber), "{d} done", "{k} stopped", "{f} failed"; a part that is zero is left out.
-- **The slot at the drawing's foot names the group that waits on you when it is out of sight:** "↓ {name} · waits on
-  you" when it lies below and "↑ {name} · waits on you" above (a press brings the group's head to the top, or the
-  helper that asks when the head alone would leave it out of view), and "{name} · waits on you · under the open box"
-  when the open card covers it (a press closes the card). With nobody waiting out of sight it names a working group
-  below, as before. Its tail now reads " · and {n} more groups below" (" · and 1 more group below" at one); before it
-  read " and {n} more below".
-- **A box rings once when something happens to it.** A helper that starts waiting on you (amber) or fails (red) gets a
-  ring that shakes for a third of a second; a helper that ends done (green) and a group main hands work to (the
-  group's colour) get a ring that fades. Nothing rings on the first draw, out of view, under the pointer or under the
-  open card; a box rings at most once in 4 seconds, at most four at once, the top-most first; with reduced motion set
-  nothing rings. Main's box never rings.
-- **`halo gym handout <model> [<model> ...] [--trials N]`: does main hand work out more on your local model?** It runs
-  one fixed four-part job in a scratch copy of a small project with each local model you name as main: N times
-  (default 3) with the words main had before 3.6.0.10 and N times with today's, taking turns. No session runs and no
-  helper is started: the gym answers every tool call itself inside the copy, and each part handed out gets a fixed
-  answer. It prints four facts before its first request (what it does, that it is free, how long it may take, what it
-  writes), then one line per model: "{model}: hands out {a} of 4 parts in {c} calls (before {b}) · bundled {u} · names
-  right {r} of {n} · own steps {o} (before {p}) · finished {f} of 3 (before {g}) · 3 trials" (the two 3s follow
-  `--trials N`; a mean of one call reads "in 1 call"). A ref that is not a local model prints "{ref}: the gym runs
-  local models only." and sends nothing. A local model whose host is not found prints "{ref}: not measured: {the
-  cause}" and gets no card. When no model ran the command exits 1. A model that is sent the same words in both arms
-  prints "{model}: not measured: this model is sent the same words before and today (it takes no tools, or today's
-  words do not fit its window), so there is nothing to compare." and gets no card. An Ollama model is unloaded at the
-  end (when it could not be, the card's errors line says so) and the copy is removed. The paths and patterns the model
-  names are held inside the copy: one that leaves it is refused before the system is asked anything about it.
-- **The cards of `halo gym handout` and `halo gym show`.** One card per model and host under
-  `~/.halo/gym-handout/<host>/`, apart from the battery's cards (nothing that reads the battery's results reads them).
-  `halo gym show` prints the battery as before, then "Main hands work out (halo gym handout):" with each card's line;
-  with only handout cards it prints those and exits 0. The new docs part is docs/COMMANDS-gym-handout.md.
-
-### Changed
-
-- **A box keeps its height.** A helper's NOW holds two rows from the first draw and its state line the room of its
-  longest words, so a helper's box does not grow when it starts waiting or its words change; main's TURN line holds
-  its rows too. Words that need more (a long tool name) grow the box once, while the drawing is not held, and the box
-  keeps that height. While the pointer rests on the drawing, and for later words that need more than the box has, NOW
-  reads "a tool · {s}" and the whole words are in the hover (for main: in the line's own tooltip). A helper's box is
-  taller than before.
-- **Session's slot keeps the room of its longest words from the first draw:** four of its lines at the default drawer
-  width.
-- **A press on the slot while a card is open closes the card first, then scrolls.** Before, it scrolled with the card
-  open.
-- **A group's head reads "{v} waiting on you" where it read "{v} waiting",** and a group with a stopped helper no
-  longer reads as all done: only helpers that ended done count.
-- **Studio's row of a session carries the agents the session had at its start,** which main's hover on Auto reads.
-
-### Fixed
-
-- **While the pointer rests on the drawing, a helper that joins a group no longer changes the group's box.** The group
-  keeps the members it was laid out with until the pointer leaves; then the new helper is drawn, and its group rings.
-
-### Known limits
-
-- **`halo gym handout` was never run on a real model.** Every check used the tests' stand-in for Ollama on this
-  machine's loopback. Its time line says so itself: "About 20 to 40 minutes per model with three trials (not measured
-  yet: the first run sets this line)." Whether main hands out more on your model is what the first real run will say.
-- **The command prints counts, not a verdict.** The bar the design sets (today's words hand out at least one part more
-  than before, a helper is named right in at least 90 % of the calls that name one, and no fewer trials finish) is in
-  the docs, not in the output.
-- **The `hf:local/` and `hf:mlx/` routes of the command are built and no test drives them.** Nothing is unloaded on
-  them: a server Halo starts for an `hf:mlx/` model is handled as the battery's (`halo gym`) is. A `local:` ref is
-  refused with the same line as a cloud ref, as the battery does.
-- **A trial has no time limit of its own.** It ends after 10 requests, but a model that sends a search pattern that
-  never ends holds it until Ctrl+C.
-- **No talk between agents is drawn.** No agent sends a message to another agent yet, so there is nothing true to
-  draw.
-- **"The open box" is today's step-in card.** The box that opens in place is a later release.
-- **While the pointer rests on the drawing, a group's head counts leave out a helper that has just joined,** until the
-  pointer leaves.
-- **The slot's answer is worked out again on a scroll, a change of the view's height, a new layout and when the card
-  opens or closes.** A window resized with the card open can keep "under the open box" until one of those.
-- **The slot judges "out of sight" up and down only.** A helper that waits on you and is out of view sideways (the
-  drawing zoomed in) is not named.
-- **A workflow's group that is drawn as its steps has no helper boxes:** a helper of it that waits on you is not named
-  by the slot and does not ring.
-- **Only Auto draws NOW, TURN and the rings.** A map of your own draws its boxes as before.
-- **Every Known limit of 3.6.0.12 still holds.**
-- **Where it was checked.** On the Linux VM: all three suites (the module runner's four shards, the bridge suite and
-  the terminal app's suite; on a copy with no git history: the few tests that need it run in CI), then the modules
-  changed after that run once more, and the full real-use check, eighteen of eighteen steps. On the PC (Windows), one
-  at a time: the plain modules of this release and the two browser modules of the drawing, once each. The whole run on
-  the VM found one stylesheet imported in the wrong order; it is fixed. The reviewer found that a network path named
-  by the model under test was looked up before it was refused; it is now refused first, and a test holds it. The
-  package checks found that the first group of a session did not ring; it rings now. `halo gym handout` was never run
-  against a real Ollama or a real model: every check used the tests' stand-in. Browsers on macOS are CI's part.

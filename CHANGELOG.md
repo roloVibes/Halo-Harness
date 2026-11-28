@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.25] - unreleased
+## [3.6.0.25] - 2026-11-28
 
 Two things. Halo finds a local model's best window by measuring it, and a model of your choice can tune with it.
 And a Claude Code session shows in Studio, watch only.
