@@ -24,7 +24,8 @@ a sure pairing takes that goal back to GOAL_NOT_KNOWN.
 
 Which lines are taken (`accepts`): a line whose `cwd` is not the bridge's project folder (or a folder inside it)
 is dropped and counted; so is one of another `session_id` than the session's, unless it is a SessionStart (a /clear
-gives Claude Code's same process a new id). Lines of one read are ordered by their stamp; a result whose call came
+or a resume gives Claude Code's same process a new id: the plan and the objective are reset). The session's id is
+the first line's that names one (a real session's SessionStart lands before the bridge is up and is never written). Lines of one read are ordered by their stamp; a result whose call came
 later is paired by `tool_use_id` (its call is drawn from the result's own input, the late call is then skipped).
 """
 
@@ -83,7 +84,9 @@ class GuestFeed:
             self.dropped += 1
             return False
         sid = d.get("session_id") or ""
-        if self.sid and sid and sid != self.sid and d["hook_event_name"] != "SessionStart":
+        if not self.sid:
+            self.sid = sid  # a real session's SessionStart is never written (the bridge is not up yet)
+        elif sid and sid != self.sid and d["hook_event_name"] != "SessionStart":
             self.dropped += 1
             return False
         return True
@@ -136,7 +139,7 @@ class GuestFeed:
     # ---- the events ------------------------------------------------------------------------------------------------
     def _SessionStart(self, d) -> None:
         sid = d.get("session_id") or ""
-        if self.sid and sid and sid != self.sid and d.get("source") in ("clear", "resume"):
+        if self.sid and sid and sid != self.sid:  # a /clear or a resume: another id in the same process
             self.tree.conversation_reset()  # another conversation in the same process: no plan, no objective
             self.tasks.pop(MAIN, None)
         self.sid = sid or self.sid

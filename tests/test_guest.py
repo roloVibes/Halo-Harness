@@ -65,8 +65,9 @@ def _spool_dir(on=True):
     d = Path(tempfile.mkdtemp(prefix="guest-spool-"))
     from halo_harness.guest import note
     on_path, spool = note.paths(d, PID)
-    if on:
-        Path(on_path).write_text("{}")
+    if on:  # the `.on` names its bridge: this process stands for a running one
+        from halo_harness.guest.bridge import _start_mark
+        Path(on_path).write_text(json.dumps({"bridge_pid": os.getpid(), "bridge_start": _start_mark(os.getpid())}))
     Path(spool).write_bytes(b"")
     return d, Path(spool)
 
@@ -155,6 +156,32 @@ def test_no_bridge_no_line_and_a_full_disk_never_raises(ctx: Ctx):
     spool4.mkdir()  # the full disk's stand-in: the open or the write fails
     ctx.check("a write that fails returns False and raises nothing", not note.write(json.dumps(_ev("Stop")).encode(), d4, PID))
     ctx.check("garbage: nothing", not note.write(b"\xff{not json", d, PID))
+
+
+@test
+def test_the_hook_writes_nothing_when_the_bridge_of_the_on_is_not_alive(ctx: Ctx):
+    """A bridge ended hard (halo update's stop on Windows, a closed console) leaves its `.on`: the hook must not keep
+    adding the session's words to a spool nobody reads."""
+    from halo_harness.guest import note
+    from halo_harness.guest.bridge import _start_mark
+    stop = json.dumps(_ev("Stop", last_assistant_message="the words")).encode()
+    d, spool = _spool_dir()
+    on = Path(note.paths(d, PID)[0])
+    gone = subprocess.Popen([sys.executable, "-c", "pass"])
+    gone.wait(60)
+    on.write_text(json.dumps({"bridge_pid": gone.pid, "bridge_start": "1"}))
+    ctx.check("an .on of a bridge that ended: nothing written", not note.write(stop, d, PID) and spool.read_bytes() == b"")
+    on.write_text(json.dumps({"bridge_pid": gone.pid}))
+    ctx.check("the same with no start mark (the macOS form)", not note.write(stop, d, PID) and spool.read_bytes() == b"")
+    if _start_mark(os.getpid()) is not None:
+        on.write_text(json.dumps({"bridge_pid": os.getpid(), "bridge_start": "1"}))
+        ctx.check("a running pid that began at another time (a pid given to another program): nothing written",
+                  not note.write(stop, d, PID) and spool.read_bytes() == b"")
+    for text in ("{}", "", "not json"):
+        on.write_text(text)
+        ctx.check(f"an .on that names no bridge ({text!r}): nothing written", not note.write(stop, d, PID))
+    on.write_text(json.dumps({"bridge_pid": os.getpid(), "bridge_start": _start_mark(os.getpid())}))
+    ctx.check("the running bridge: the line is written", note.write(stop, d, PID) and len(_lines(spool)) == 1)
 
 
 @test
@@ -360,6 +387,29 @@ def test_task_events_feed_the_plan_and_a_clear_resets_it(ctx: Ctx):
     main = feed.tree.row("main")
     ctx.check("a /clear (a new session id): no plan, no objective", main["plan"] is None and main["objective"] is None)
     ctx.check("the new id is the session's now", feed.sid == "s-2")
+
+
+@test
+def test_with_no_start_line_the_first_line_gives_the_id_and_a_clear_still_resets(ctx: Ctx):
+    """A real session's SessionStart lands before the bridge is up and is never written."""
+    from halo_harness.guest import note
+    feed, _seen, _ = _feed()
+    mk = lambda i, d: json.loads(note.line_of(d, ts=i))  # noqa: E731
+    feed.take([mk(1, _ev("UserPromptSubmit", prompt="Make the page load faster now")),
+               mk(2, _ev("TaskCreated", task_id="k1", task_subject="Measure")),
+               mk(3, _ev("TaskCreated", task_id="k2", task_subject="Cache it"))])
+    ctx.check(f"the first line's id is the session's, got {feed.sid!r}", feed.sid == "s-1")
+    before = feed.dropped
+    feed.take([{**mk(4, _ev("PreToolUse", tool_use_id="o1", tool_name="Bash", tool_input={"command": "ls"})),
+                "session_id": "s-OTHER"}])
+    ctx.check(f"a line of another id is dropped and counted (dropped {before} -> {feed.dropped})",
+              feed.dropped == before + 1 and "o1" not in feed.ready)
+    feed.take([{**mk(5, _ev("SessionStart", source="clear")), "session_id": "s-2"}])
+    main = feed.tree.row("main")
+    ctx.check(f"a /clear: no plan, no objective, got {main['plan']} / {main['objective']!r}",
+              main["plan"] is None and main["objective"] is None and feed.sid == "s-2")
+    feed.take([mk(6, _ev("TaskCreated", task_id="k3", task_subject="Old one"))])
+    ctx.check("a line of the old id after the /clear is dropped", feed.tree.row("main")["plan"] is None)
 
 
 @test

@@ -546,6 +546,24 @@ def test_a_claude_code_sessions_cost_reads_not_known_on_live_and_on_every_card(c
               and '|| !!watchOnly' in src["fleet/Agent.tsx"] and fleet.is_dir())
 
 
+@test
+def test_the_pinned_streams_meta_line_keeps_its_spaces(ctx: Ctx):
+    """The review of 3.6.0.25 G: the cost change lost the space before the harness name ("idle · $0.0000 ·halo") for
+    every session. The line is watchOnly.pipMeta now, the one the pinned stream (fleet/Pip.tsx) prints."""
+    from tests.helpers import node_ts
+    fleet = WORDS.parent.parent / "fleet"
+    js = """const w = await import(%s);
+console.log(JSON.stringify([w.pipMeta({ kind: "tui" }, "idle", 0, "halo"), w.pipMeta({ kind: "guest" }, "running", null, "claude-code"),
+  w.pipMeta(null, "done", 0.5, "a-very-long-harness-name")]));""" % json.dumps((fleet / "watchOnly.ts").resolve().as_uri())
+    got = node_ts.run(js)
+    if got is None:
+        return
+    ctx.check(f"state · cost · name, a space on each side of every dot; got {got}",
+              got == ["idle · $0.0000 · halo", "running · not known · claude-code", "done · $0.5000 · a-very-long-har…"])
+    pip = (fleet / "Pip.tsx").read_text(encoding="utf-8")
+    ctx.check("the pinned stream prints that line", "{pipMeta(ref.s, a.state, a.cost_usd, ref.h.name)}" in pip)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -315,6 +315,8 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     watch(server)
     start_steward(server)
     start_local_tap(server)
+    from halo_harness.guest import sweep_dead
+    sweep_dead()  # 3.6.0.25 G: what a Claude Code bridge ended hard left
     return server
 
 

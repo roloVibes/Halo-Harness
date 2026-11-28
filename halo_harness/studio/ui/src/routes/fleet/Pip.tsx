@@ -11,7 +11,7 @@ import { studio, useStore } from "../../lib/store";
 import { layoutStore } from "../../lib/workspace/persist";
 import { showFleetPanel } from "../agents/fleetDoor";
 import { short } from "../orchestra/format";
-import { agentCost } from "./watchOnly";
+import { pipMeta } from "./watchOnly";
 import { pin, select } from "./actions";
 import { nowText } from "../crew/live/nodeBits";
 import { EMPTY } from "./streams";
@@ -57,7 +57,7 @@ export function FleetPip() {
       <header className="pip-bar" onPointerDown={down} onPointerMove={move} onPointerUp={() => (drag.current = null)} title="Drag to move it">
         <span className="panel-dot" data-motion={agentMotion(a, doneAt)} aria-hidden="true" />
         <b className="pip-name">{a.name || a.agent_id}</b>
-        <span className="mono muted pip-meta">{a.state} · {agentCost(ref.s, a.cost_usd)} ·{short(ref.h.name || "", 16)}</span>
+        <span className="mono muted pip-meta">{pipMeta(ref.s, a.state, a.cost_usd, ref.h.name)}</span>
         <button className="icon-btn" onClick={goTo} title={inSession ? "Open it in Session's Agent panel" : "Open it in Agents -> Live"}
                 aria-label={inSession ? "Open it in Session's Agent panel" : "Open it in Agents Live"}>
           <Icon name="popout" />

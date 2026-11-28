@@ -10,7 +10,9 @@ Halo: Halo's own plugin reader skips this plugin, config/plugins.py). It offers 
   feed); every other command answers "watch only" (remote/protocol.py): nothing is ever sent into his session.
 
 It ends when its input closes (Claude Code ends it at the session's end); its row, its `.on` and its spool go with
-it. A bridge ended hard leaves files of a dead pid: the next bridge sweeps them at its start; the row of a dead pid
+it. A bridge ended hard leaves files of a dead pid: the hook writes nothing to them (its `.on` names a bridge that is
+not alive, note.bridge_alive), and they are swept (guest.sweep_dead) by `halo update` after its stops, `halo guest
+status` and `uninstall`, `halo doctor`'s row, a Studio start and the next bridge's start; the row of a dead pid
 leaves the registry by itself (remote/registry.py). It starts no process. Nothing is kept after it.
 """
 

@@ -103,6 +103,8 @@ def bridges() -> list:
 
 def doctor_line() -> str:
     """`halo doctor`'s one row: the plugin folder, and how many Claude Code sessions are shown now."""
+    from halo_harness.guest import sweep_dead
+    sweep_dead()
     root = plugin_root()
     if not root.is_dir():
         return "Claude Code in Studio: off (`halo guest install` shows a Claude Code session, watch only)"
@@ -125,6 +127,8 @@ def cmd_install(argv: list) -> int:
 def cmd_uninstall(argv: list) -> int:
     root = plugin_root(Path(argv[argv.index("--to") + 1]) if "--to" in argv and argv.index("--to") + 1 < len(argv) else None)
     gone = uninstall(root)
+    from halo_harness.guest import sweep_dead
+    sweep_dead()
     print(f"The plugin folder is removed: {root}" if gone else f"No plugin folder here: {root}")
     print("To turn the plugin off in Claude Code and remove it there, run these yourself:")
     for line in remove_commands():
@@ -132,13 +136,33 @@ def cmd_uninstall(argv: list) -> int:
     return 0
 
 
+def dropped_of(row: dict):
+    """The lines a bridge dropped (another folder, another session): one `status` call on its socket; None when
+    it does not answer."""
+    from halo_harness.remote.client import ControlClient, default_token_for
+    client = None
+    try:
+        client = ControlClient(str(row.get("endpoint") or ""), default_token_for(row), timeout=2.0)
+        n = ((client.call("status").get("result") or {}).get("guest") or {}).get("dropped")
+        return n if isinstance(n, int) and not isinstance(n, bool) else None
+    except Exception:
+        return None
+    finally:
+        if client is not None:
+            client.close()
+
+
 def cmd_status(_argv: list) -> int:
+    from halo_harness.guest import sweep_dead
+    sweep_dead()
     rows = bridges()
     if not rows:
         print("No Claude Code session is shown in Studio now (no bridge is up).")
         return 0
     for r in rows:
-        print(f"Claude Code session shown, watch only: {r.get('cwd')} ({r.get('parent')})")
+        n = dropped_of(r)
+        print(f"Claude Code session shown, watch only: {r.get('cwd')} ({r.get('parent')}); lines dropped (another "
+              f"folder or another session): {'not known' if n is None else n}")
     return 0
 
 

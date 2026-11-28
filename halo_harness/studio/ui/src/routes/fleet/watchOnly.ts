@@ -1,7 +1,7 @@
 // 3.6.0.25 G: an agent of a Claude Code session Halo only shows (kind `guest`), as every card draws it: its cost reads
 // "not known" (Claude Code keeps its own count and Halo does not read it), and the card's controls are off with the
 // watch-only line as their title. Pure: node runs it in the tests (tests/test_studio_prompt_words.py).
-import { cost } from "../orchestra/format";
+import { cost, short } from "../orchestra/format";
 import { GUEST_LINE, isGuest, NOT_KNOWN } from "../session/promptWords";
 
 type Kinded = { kind?: string | null } | null | undefined;
@@ -11,3 +11,8 @@ export const agentCost = (session: Kinded, usd: number | null | undefined): stri
 
 /** Why a card's controls are off in a Claude Code session (their title), else undefined. */
 export const watchWhy = (session: Kinded): string | undefined => (isGuest(session) ? GUEST_LINE : undefined);
+
+/** The pinned stream's meta line: the agent's state, its cost (agentCost), its harness's name cut to 16. */
+export const pipMeta = (session: Kinded, state: string | null | undefined, usd: number | null | undefined,
+                        harness: string | null | undefined): string =>
+  `${state ?? ""} · ${agentCost(session, usd)} · ${short(harness || "", 16)}`;

@@ -35,6 +35,21 @@ DESCRIPTION = "Halo: shows this session in Studio (watch only)"
 WATCH_CMDS = ("ping", "status", "subscribe", "unsubscribe", "agents", "agent_tail", "agent_follow")
 
 
+def sweep_dead() -> int:
+    """Remove the `.on` and spools of bridges that ended hard (bridge.sweep): one listdir of `<run>/guest`, nothing
+    made when it is not there; never raises. Run by `halo update` right after its stops, `halo guest status` and
+    `uninstall`, `halo doctor`'s row, a Studio start and a bridge's own start. How many files were removed."""
+    try:
+        from halo_harness.remote.control_socket import run_dir
+        d = run_dir() / "guest"
+        if not d.is_dir():
+            return 0
+        from halo_harness.guest.bridge import sweep
+        return sweep(d)
+    except Exception:
+        return 0
+
+
 def guest_dir():
     """`<run>/guest`: the bridges' `.on` marks and spools (0700 on POSIX, under the owner's run folder)."""
     import os

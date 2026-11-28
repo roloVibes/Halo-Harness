@@ -234,6 +234,8 @@ def stop_lingering(state_dir=None, *, timeout: float = 5.0, skip=(), say=None) -
         if e["pid"] in said:
             add(said[e["pid"]])
         add(_stop_line(e, timeout, state_dir))
+    from halo_harness.guest import sweep_dead
+    sweep_dead()  # a Claude Code bridge stopped here (hard on Windows) leaves its `.on` and spool: gone now
     return lines, sup
 
 

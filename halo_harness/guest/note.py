@@ -5,7 +5,8 @@ the plugin folder, a copy of this file), never prints, always exits 0, and ends 
 
 * Which spool: `<guest dir>/<claude pid>.jsonl`, `<claude pid>` being this process's parent (a Windows Python
   launcher between them is stepped over: `claude_pid`); the bridge finds the same number from its own parent.
-  No `<claude pid>.on` (no bridge up), or no spool: nothing is written.
+  No `<claude pid>.on` (no bridge up), an `.on` whose bridge is not alive (its pid and start mark: a bridge ended
+  hard), or no spool: nothing is written, so a dead bridge's spool never grows.
 * What is kept: the documented fields named in KEEP, cut (a tool's input one line of INPUT_MAX characters, a
   TodoWrite list as its steps, an Agent call as its description, type and the first line of its prompt; a tool's
   response or error RESPONSE_MAX bytes; a prompt its first PROMPT_MAX characters; a whole line LINE_MAX bytes).
@@ -269,11 +270,64 @@ def _append_posix(path, data):
         os.close(fd)
 
 
+def _win_start(pid):
+    """The creation FILETIME of a RUNNING pid as text (bg_run.process_start_time's form), else None."""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+    k32.GetProcessTimes.argtypes = (wintypes.HANDLE,) + (ctypes.POINTER(wintypes.FILETIME),) * 4
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return None
+    try:
+        code = wintypes.DWORD(0)
+        if not k32.GetExitCodeProcess(handle, ctypes.byref(code)) or code.value != 259:  # STILL_ACTIVE
+            return None
+        times = [wintypes.FILETIME() for _ in range(4)]
+        if not k32.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+            return None
+        return str((times[0].dwHighDateTime << 32) | times[0].dwLowDateTime)
+    finally:
+        k32.CloseHandle(handle)
+
+
+def bridge_alive(on):
+    """The bridge the `.on` names (its `bridge_pid`, and its `bridge_start` where one was read) still runs: a pid
+    the system gave to another program since is not it. An `.on` that names no bridge: not alive."""
+    with open(on, "rb") as fh:
+        mark = json.loads(fh.read(4096).decode("utf-8", "replace"))
+    pid = mark.get("bridge_pid") if isinstance(mark, dict) else None
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return False
+    began = mark.get("bridge_start")
+    if os.name == "nt":
+        now = _win_start(pid)
+        return now is not None and (not began or now == str(began))
+    if os.path.exists("/proc/self/stat"):
+        try:
+            with open(f"/proc/{pid}/stat", "r", encoding="utf-8", errors="replace") as fh:
+                after = fh.read().rsplit(")", 1)[-1].split()
+        except OSError:
+            return False
+        return after[0] != "Z" and (not began or after[19] == str(began))
+    try:  # macOS: no start mark is read there (bridge._start_mark); the pid alone
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
 def write(raw, guest_dir, pid, ts=None):
     """One hook input (its raw bytes) into the spool of Claude Code `pid`; True when a line was written. Never raises."""
     try:
         on, spool = paths(guest_dir, pid)
-        if not os.path.isfile(on):
+        if not os.path.isfile(on) or not bridge_alive(on):
             return False
         data = line_of(json.loads(raw.decode("utf-8", "replace")), ts)
         if data is None:

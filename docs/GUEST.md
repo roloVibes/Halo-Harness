@@ -32,6 +32,10 @@ claude plugin disable halo-guest
 To remove it: `halo guest uninstall` removes the folder and prints the commands that remove the plugin from Claude
 Code (`claude plugin uninstall halo-guest@halo-local`, `claude plugin marketplace remove halo-local`).
 
+Turn the plugin off in Claude Code before you remove Halo: Claude Code keeps its own copy of the plugin, and with
+Halo gone that copy starts a Python that is no longer there (Claude Code then shows a hook error and a failed tool
+server).
+
 `halo update` ends the bridge as it ends Halo's other processes, and says so first in one line: the Claude Code
 session itself keeps running, and its view in Studio comes back when that session reconnects its tool servers or at
 its next start (`halo update --check` says the same line as what would happen and ends nothing).
@@ -58,14 +62,28 @@ its next start (`halo update --check` says the same line as what would happen an
 
 Claude Code runs the plugin's hook for these events: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse,
 PostToolUseFailure, SubagentStart, SubagentStop, TaskCreated, TaskCompleted, Notification, Stop, StopFailure,
-PreCompact, SessionEnd. The hook keeps only the documented fields it needs, cut to size: a tool's input as one line
-of at most 300 characters (a to-do list as its steps, an Agent call as its description, type and the first line of
-its prompt), a tool's response or error 2 KB, a prompt its first 200 characters, the session id and the folder. It
-does not keep the transcript's path, and Halo never reads the transcript file.
+PreCompact, SessionEnd. The hook keeps only the documented fields it needs, cut to size, and this is all of it:
+
+- a tool's name, its id and its input as one line of at most 300 characters (a to-do list as its steps, an Agent call
+  as its description, type and the first line of its prompt), its response or error cut to 2 KB, whether it was interrupted, how long it took;
+- a prompt's first 200 characters;
+- the last reply of a turn (Stop) and of each sub-agent (SubagentStop), cut to 2 KB; a failed turn's error and its
+  details (200 characters);
+- a notification's text and title (200 characters each) and its type;
+- a task's id, its subject and its description (200 characters each);
+- the session's title (200 characters), how it started (startup, resume, clear), its model, why it ended, what
+  started a compaction;
+- on every line: the session id, the folder, a sub-agent's id and type, and a time stamp.
+
+It does not keep the transcript's path, and Halo never reads the transcript file.
 
 While the session lives, these lines sit in one spool file under Halo's run folder (`~/.halo/run/guest/`, readable
-by you alone), with the session's registry row. When the session ends, both are removed. Halo keeps no log of a
-Claude Code session; Claude Code keeps its own.
+by you alone), with the session's registry row. When the session ends, both are removed. A bridge ended hard (`halo
+update`'s stop on Windows, a closed console, a killed process) cannot remove them: from then on the hook writes
+nothing there (the mark beside the spool names its bridge by its process id and start time, and the hook checks
+that this bridge still runs), so the file never grows, and it is removed at the next of these: `halo update` right
+after its stops, `halo guest status`, `halo guest uninstall`, `halo doctor`, a Studio start, a bridge's start.
+Halo keeps no log of a Claude Code session; Claude Code keeps its own.
 
 Halo reads, stores and forwards nothing of your Claude login, sets none of its variables and points nothing of
 Claude Code at Halo. It starts nothing of Claude Code's. The hook always exits at once with nothing on its output,
@@ -75,7 +93,11 @@ the same loopback control socket every Halo session opens.
 ## How it works
 
 - The hook (`note.py`, standard library only) appends one line to the spool of its own Claude Code process. With no
-  bridge up it writes nothing. The spool never passes 4 MB.
+  bridge up, or when the bridge its mark names no longer runs, it writes nothing. The spool never passes 4 MB.
+- What a hook costs: each tool call starts it twice (before and after the call); each start is one short Python
+  process (on Windows two, a launcher and the interpreter, and it reads the process list once) that checks its
+  bridge and appends one line. Claude Code runs it in the background and does not wait for it, and it ends itself
+  within a second.
 - The bridge (`halo guest serve`) is the plugin's MCP server: Claude Code starts it as its own child, it offers the
   model no tools, and it ends when Claude Code ends it. It turns the lines into the session's agent blocks and is
   listed for Studio exactly as a Halo session is.
@@ -84,9 +106,11 @@ the same loopback control socket every Halo session opens.
 
 - **Which process the hook's parent is.** Halo matches a hook to its bridge by Claude Code's process id (the parent
   of both; a Windows Python launcher between them is stepped over). If the parent were another process, the hook
-  finds no bridge and writes nothing: the session is not shown, and nothing wrong is shown. A line whose folder is
+  finds no bridge and writes nothing: the session is not shown, and nothing wrong is shown. The session's id is the
+  one the first line names (Claude Code's own session start comes before the bridge is up). A line whose folder is
   not the session's project folder (or one inside it), or of another session id than the session's, is dropped and
-  counted (`halo guest status` reads the bridge's row; the bridge's `status` names the count).
+  counted; `halo guest status` prints the count. A /clear or a resume starts another id in the same session: the
+  plan and the objective start again.
 - **Which Agent call started which sub-agent.** Paired by order and type; when that is not sure: "goal not known".
 - **The order of async hooks.** Lines carry a time stamp and are ordered by it; a tool's result that comes before
   its call is paired by the tool's id.

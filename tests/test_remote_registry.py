@@ -481,6 +481,75 @@ def test_a_guest_spool_is_swept_by_its_bridge_even_when_its_claude_pid_was_given
             reused.wait(60)
 
 
+def _dead_bridge_files(d: Path, gone_pid: int) -> list:
+    on, spool = d / f"{gone_pid}.on", d / f"{gone_pid}.jsonl"
+    on.write_text(json.dumps({"claude_pid": gone_pid, "bridge_pid": gone_pid, "bridge_start": "1"}))
+    spool.write_text('{"prompt": "the dead session\'s words"}\n')
+    return [on, spool]
+
+
+@test
+def test_a_bridge_ended_hard_leaves_nothing_at_each_place_that_sweeps(ctx: Ctx):
+    """The review: a bridge ended hard (halo update's stop on Windows, a closed console) left its `.on` and spool
+    until the next bridge's start, which may never come. Each of these sweeps them: halo update right after its
+    stops, `halo guest status`, `halo guest uninstall`, `halo doctor`'s row, a Studio start."""
+    import subprocess
+    with _Home():
+        home = Path(os.environ["BRIDGE_TEST_HOME"])
+        from halo_harness import update_stop
+        from halo_harness.guest import guest_dir, install
+        from halo_harness.studio.server import start_server
+        gone = subprocess.Popen([sys.executable, "-c", "pass"])
+        gone.wait(60)
+        d = guest_dir()
+        real = (update_stop.registered, update_stop.scanned)
+
+        def by_update():
+            update_stop.registered, update_stop.scanned = (lambda *_a, **_k: []), (lambda *_a, **_k: [])
+            try:
+                update_stop.stop_lingering()
+            finally:
+                update_stop.registered, update_stop.scanned = real
+
+        def by_studio():
+            (home / "proj").mkdir(exist_ok=True)
+            (home / "st").mkdir(exist_ok=True)
+            srv = start_server(port=0, cwd=home / "proj", state_dir=home / "st")
+            srv.server_close()
+        places = {"halo update's stops": by_update,
+                  "halo guest status": lambda: install.cmd_status([]),
+                  "halo guest uninstall": lambda: install.cmd_uninstall(["--to", tempfile.mkdtemp(prefix="guest-plug-")]),
+                  "halo doctor's row": install.doctor_line,
+                  "a Studio start": by_studio}
+        for name, run in places.items():
+            left = _dead_bridge_files(d, gone.pid)
+            with contextlib.redirect_stdout(io.StringIO()):
+                run()
+            ctx.check(f"{name}: the dead bridge's .on and spool are gone, left {[f.name for f in left if f.exists()]}",
+                      not any(f.exists() for f in left))
+
+
+@test
+def test_guest_status_prints_the_lines_a_bridge_dropped(ctx: Ctx):
+    with _Home():
+        from halo_harness.guest import install
+        from halo_harness.guest.bridge import GuestBridge
+        bridge = GuestBridge(os.getpid(), Path(tempfile.mkdtemp(prefix="guest-proj-"))).start()
+        try:
+            if bridge is None:
+                ctx.check("this build opens a session socket", False)
+                return
+            bridge.handle.feed.dropped = 3
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                install.cmd_status([])
+            ctx.check(f"the count is printed: {out.getvalue()!r}",
+                      "lines dropped (another folder or another session): 3" in out.getvalue())
+        finally:
+            if bridge is not None:
+                bridge.close()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
