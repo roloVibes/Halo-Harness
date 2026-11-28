@@ -1,5 +1,7 @@
 # A Claude Code session in Studio (watch only)
 
+Read this when you want to see a Claude Code session in Studio: how to turn the watch-only view on and off, what Studio shows of it, and what Halo reads and keeps.
+
 Halo can show a Claude Code session in Studio's Session section, as one more session with its agent blocks: the
 main agent, its sub-agents, the tool each one runs, the plan and the objective. It is **watch only**: nothing is
 typed into the session from Studio and nothing steers it. You stay inside Claude Code.

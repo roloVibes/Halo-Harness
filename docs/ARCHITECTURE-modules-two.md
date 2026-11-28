@@ -371,7 +371,8 @@ and `isolation/Dockerfile` the worker image.
   server lines and their reverts, Apply), `ollama_steward/changes.py` (every change's row and scope, revert, the
   session end and the exit path), `local_bench_cli.py` (`halo local bench | tune | changes | revert`),
   `studio/local_bench_api.py` (the bench routes), `studio/local_bench_job.py` (the bench jobs, `bench` frames),
-  `studio/local_tune_api.py` (the tuning report and the changes' routes) and `ui/src/routes/local/` `BenchPage.tsx`,
+  `studio/local_tune_api.py` (the tuning report and the changes' routes), `studio/local_sweep_api.py` (the sweep's and the tuner job's routes, 3.6.0.25),
+  `ollama_steward/tuner.py` (the tuner job: its fixed tools, the scrub, its rounds), `ollama_steward/tuner_notes.py` (the tuner's texts, the allow-list) and `ui/src/routes/local/` `BenchPage.tsx`,
   `BenchTable.tsx`, `TuneReport.tsx`, `ChangesList.tsx`, `BenchBits.tsx`, `benchstore.ts`, `ui/src/routes/shared/`
   `ScopePick.tsx`, `KvApply.tsx`, `ui/src/routes/settings/LocalBlock.tsx`, `ui/src/styles/local-bench.css`.
 - Eyes: the screenshot tool and which models can see (3.3.6.0 R6, docs/MODELS-vision.md; docs/COMMANDS-main-io.md

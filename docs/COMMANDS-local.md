@@ -239,7 +239,7 @@ What a model's first turn costs before you use it, nothing sent: "Halo's own fir
 - `halo local bench [--host H] [--model M | --all] [--quick] [--yes] [--json]` (also `halo models bench`): the cost line
   first ("local: ~N min on <host>, the card is busy meanwhile, ..."), a line per window, then the speed card ([MODELS-cards.md](MODELS-cards.md#the-speed-card-the-bench-3360-r5));
   `--all` every installed model, largest first; `--quick` the ceiling alone; no TTY: `--yes`. 3.3.8.1: a host this machine does not serve is
-  benched over the LAN from here, and the cost line, the card's first line and `--json` (`measured_from`, `link`) say so ([MODELS-cards.md](MODELS-cards.md#a-card-measured-over-the-lan-3381)).
+  benched over the LAN from here, and the cost line, the card's first line and `--json` (`measured_from`, `link`) say so ([MODELS-cards.md](MODELS-cards.md#a-card-measured-over-the-lan-3381)). 3.6.0.25: `halo local bench --sweep MODEL [--host H] [--loads N] [--again] [--yes] [--json]` finds the model's best window by measuring: up to six loads with every layer on the card, starting at Halo's own estimate; at each window whether it is wholly on the card, the card's free memory and the prompt and reply speed; the pick and its reason come last. `--loads N` raises the cap of six; `--again` sweeps a model again that already has a sweep; a sweep that was stopped goes on where it was.
 - `halo local tune [--host H] [--json] [--apply ID [--scope session|until-restart|keep] [--session SID]]`: the tuning
   report, each option with its id, what it writes and how long it takes, a server-side one with the line per OS and
   its revert; `--apply` lands a Halo-side option (keep unless named; `session` ends with the newest live session).

@@ -233,6 +233,10 @@ for what each WARN/MISSING line means)
 `doctor --work` and `doctor --work --probe-all` are Databricks-specific --
 see `docs/DATABRICKS.md`.
 
+## `halo guest`
+
+A Claude Code session shown in Studio, watch only (3.6.0.25; the page: [GUEST.md](GUEST.md)). `halo guest install` writes the Claude Code plugin folder under Halo's own folder and prints the three Claude Code commands that add it and turn it on (Halo runs none of them); `halo guest status` says whether a session is shown now and the lines each bridge dropped; `halo guest uninstall` removes the folder and prints the commands that remove the plugin from Claude Code; `halo guest serve` is the bridge itself, which Claude Code starts as the plugin's tool server (you never run it).
+
 ## `halo ps` and `halo stop`
 
 Every live process of Halo for this home, and the way to end it (`halo ps [--json]`, `halo ps --forget <pid>` for
