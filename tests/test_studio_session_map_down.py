@@ -1063,7 +1063,7 @@ def test_off_map_hand_off_stands_out(ctx: Ctx):
     ctx.check(f"R17: its hover, got {r.get('title')!r}", r.get("title") == "Not on the map: main started this itself")
     ctx.check(f"R17: the status line counts it, got {his.get('status')!r}", (his.get("status") or "").endswith("· 1 hand-off outside the map"))
     ctx.check(f"3.6.0.5 B11: on Auto it is main's pick, the one member of one group, got {st}",
-              st.get("groups") == 1 and st.get("member") == ["agent: list the repo", "working"])
+              st.get("groups") == 1 and st.get("member") == ["agent · Goal: list the repo", "working"])  # 3.6.0.23 PV: "Goal"
     ctx.check(f"R17 on Auto: nothing in the drawer is off the map, got {st.get('offs')}", st.get("offs") == 0)
     ctx.check(f"R17: and not counted, got {st.get('status')!r}", "outside the map" not in (st.get("status") or "x outside the map"))
 

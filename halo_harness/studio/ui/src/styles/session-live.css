@@ -171,6 +171,17 @@
 .slv-head { position: relative; }
 .slv-session { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: 26px; margin-top: 4px; font-size: 12px; } /* 4px + the head's 6px row gap: Change session stays 8 px clear of Export above it */
 .slv-session-words { min-width: 0; overflow-wrap: anywhere; }
+/* 3.6.0.23 PV (FeedPlan.tsx): the objective's row under the session's, there from the first draw one line high (its room
+   held: words arriving move nothing; a longer objective wraps, never cut); the plan chip at its end keeps one width
+   whatever it says; the checklist under it opens once, when the first plan arrives. */
+.slv-objective { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: 26px; font-size: 12px; }
+.slv-objective-words { min-width: 0; overflow-wrap: anywhere; }
+.slv-objective-label { margin-right: 6px; font-size: 12px; color: var(--muted); }
+.slv-plan-chip { min-width: 15ch; min-height: 24px; padding: 0 8px; text-align: center; font-size: 12px; border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); color: var(--text); cursor: pointer; }
+.slv-plan-chip[aria-disabled="true"] { color: var(--muted); cursor: default; }
+.slv-plan-chip:not([aria-disabled="true"]):hover, .slv-plan-chip:focus-visible { border-color: var(--accent); outline: none; }
+.slv-plan { flex: 1 1 100%; min-width: 0; }
 .chg-doors { display: inline-flex; align-items: center; gap: 6px; }
 .slv-others { min-width: calc(25ch + 18px); text-align: center; padding: 2px 8px; border-radius: 99px; /* fits "99 other sessions running" */ font-size: 12px; cursor: pointer; color: var(--text); background: var(--accent-soft); border: 1px solid var(--line); }
 .slv-others:not([data-on]) { visibility: hidden; }

@@ -49,7 +49,9 @@ FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind"
           "crew",  # 3.6.0.0 R4: {map, box, line?, made_up?} -- the map box it runs for (crew/map_events.py tag)
           "turn", "turn_total",  # 3.6.0.10 M10, main's row only: {n, helpers, tools, ended}, {helpers, tools}
           "ended",  # 3.6.0.15 F4, a helper row only: time.time() of its end, sent with the end state
-          "pause_set")  # 3.6.0.15 F3: a pause is set on THIS agent (its own key in controls.pauses) until a resume
+          "pause_set",  # 3.6.0.15 F3: a pause is set on THIS agent (its own key in controls.pauses) until a resume
+          "plan",  # 3.6.0.23 PV: its last successful TodoWrite list [{content, status, activeForm}] (agent_observe.py)
+          "objective")  # 3.6.0.23 PV, main's row only: the first line of his latest prompt of four words or more
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()
@@ -92,6 +94,7 @@ class AgentTree(ObserveMixin):
         self._live: dict = {}
         self._think: dict = {}  # 3.3.16.2: aid -> fleet/think.py ThinkFeed (every agent's thinking_chunk frames)
         self._inflight: dict = {}
+        self._todo_in: dict = {}  # 3.6.0.23 PV: aid -> {TodoWrite call id: its list}, kept until the call's result
         self._last_pub: dict = {}
         self._held: dict = {}  # aid -> the timer of its trailing flush (a quiet change waiting for its window to end)
         self._reason: dict = {}

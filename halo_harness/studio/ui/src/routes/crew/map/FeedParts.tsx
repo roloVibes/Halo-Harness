@@ -1,11 +1,12 @@
 // The Feed's other pages (3.6.0.0 R4b; 3.6.0.2 R57: the Feed is 4 · Live's drawer) besides a live run's rows --
 // - `under:<id>`: the helpers a helper started (R4's gap 2, depth): one row each, "started by <who>", a click filters
 //   the drawer to it; no second level is drawn on the map;
-// - `plan`: the session's todo plan (todoStore.ts), one row per item with its state.
+// - `plan`: the session's todo plan (todoStore.ts: main's row `plan`), one row per item with its state (PlanList.tsx).
 import { Empty } from "../../../lib/ui";
 import { under, type Helper } from "./overlay";
 import { setFeedFor } from "./litStore";
 import { STATE_WORDS } from "./LitBits";
+import { PlanList } from "./PlanList";
 import type { Todo } from "./todoStore";
 import type { Lit } from "./useLit";
 
@@ -28,17 +29,8 @@ export function UnderList({ L, aid }: { L: Lit; aid: string }) {
   );
 }
 
-const TODO_WORDS: Record<string, string> = { completed: "done", in_progress: "doing now", pending: "not yet" };
-
-export function PlanList({ list }: { list: Todo[] | undefined }) {
-  if (!list || !list.length) return <Empty title="No plan" body="When main keeps a todo plan, its items land here as it ticks them off." testid="map-feed-plan-none" />;
-  return (
-    <ol className="mpf-plan" data-testid="map-feed-plan">
-      {list.map((t, i) => (
-        <li key={i} className="mpf-plan-row" data-testid="map-feed-plan-row" data-status={t.status}>
-          <span className="mono mp-muted">{TODO_WORDS[t.status] || t.status}</span> {t.status === "in_progress" && t.activeForm ? t.activeForm : t.content}
-        </li>
-      ))}
-    </ol>
-  );
+/** The plan page: the list written out (PlanList.tsx, the one Session's head draws too), or "No plan". */
+export function PlanPage({ list }: { list: Todo[] }) {
+  if (!list.length) return <Empty title="No plan" body="When main keeps a todo plan, its items land here as it ticks them off." testid="map-feed-plan-none" />;
+  return <PlanList list={list} />;
 }

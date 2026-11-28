@@ -36,7 +36,7 @@ MODS = {
     "tw": "routes/crew/map/truthWords.ts", "tb": "routes/crew/map/truthBits.ts", "df": "routes/session/downFit.ts",
     "slot": "routes/agents/liveSlot.ts", "now": "routes/crew/map/nowLine.ts", "room": "routes/crew/map/nowRoom.ts",
     "turn": "routes/crew/map/turnWords.ts", "rings": "routes/crew/map/rings.ts", "fold": "routes/crew/map/foldRule.ts",
-    "fmt": "routes/orchestra/format.ts", "pf": "routes/fleet/pauseFact.ts",
+    "fmt": "routes/orchestra/format.ts", "pf": "routes/fleet/pauseFact.ts", "pw": "routes/crew/map/planWords.ts",
 }
 T0 = 1_700_000_000.0
 # the Linux VM rig's map of his (tests/helpers/studio_session_run.py HOPS)
@@ -466,7 +466,7 @@ console.log(JSON.stringify(out));"""
     ctx.check(f"one member: '1 agent', zero parts and a zero cost left out, got {got['one']['line']!r}",
               got["one"]["line"] == "1 agent · 1 working")
     ctx.check(f"all done over 125 s: the done form, got {got['done']['line']!r}", got["done"]["line"] == f"3 agents · all done · $0.0900 · 2{NB}min")
-    ctx.check(f"a member's two lines, got {got['member']}", got["member"] == ["researcher: read report A", "kimi-k3 · working"])
+    ctx.check(f"a member's two lines, got {got['member']}", got["member"] == ["researcher · Goal: read report A", "kimi-k3 · working"])  # 3.6.0.23 PV: "Goal"
     ctx.check(f"no description: who alone; no model: the state alone, got {got['bare']}", got["bare"] == ["agent", "done"])
     ctx.check(f"the third line, got {got['third']!r}", got["third"] == "started by researcher: read report A")
     ctx.check(f"+2 more, got {got['more']!r}", got["more"] == "+2 more")
@@ -510,7 +510,7 @@ def test_grandchild_has_three_lines(ctx: Ctx):
 console.log(JSON.stringify(g.members.map((m) => [M.gw.memberLine(m), M.gw.memberState(m), M.gw.thirdLine(g, m)])));"""
     got = _run(["og", "gw"], js, {"rows": rows})
     ctx.check(f"main's child two lines, its child three, got {got}",
-              got == [["researcher: read report A", "working", ""], ["reviewer: check a figure", "working", "started by researcher: read report A"]])
+              got == [["researcher · Goal: read report A", "working", ""], ["reviewer · Goal: check a figure", "working", "started by researcher: read report A"]])
 
 
 @test
@@ -1593,6 +1593,65 @@ def test_pause_reads_resume_while_a_pause_is_set(ctx: Ctx):
         s = (SRC / name).read_text(encoding="utf-8")
         ctx.check(f"{name} reads the one fact ({call}) and no door decides from `=== \"paused\"` alone",
                   call in s and "pauseFact" in s and not re.search(r"""=== "paused" \? (?:`?(?:Resume|Pause)|"(?:play|resume)")""", s))
+
+
+def _todo(content: str, status: str = "pending", active: str = "") -> dict:
+    return {"content": content, "status": status, "activeForm": active or f"Doing {content}"}
+
+
+@test
+def test_the_plan_is_main_rows_plan_in_words(ctx: Ctx):
+    """3.6.0.23 PV rulings 1, 3, 4: the one path is main's row `plan` (planWords.ts planOf; todoStore.ts reads it, the
+    dead `todos` frame is gone); the chip says "Plan k of N" (steps done of all) or "no plan yet"; its hover the step in
+    progress; each step a mark AND a word, the step in progress in its activeForm words over a twin of the other form."""
+    three = [_todo("Read the code", "completed"), _todo("Write the parser", "in_progress", "Writing the parser"), _todo("Test it")]
+    sess = {"agents": [{**MAIN, "plan": three, "objective": "Fix the parser so it reads YAML"},
+                       {**kid("h1", 2), "plan": [_todo("a helper's own step", "in_progress")]}]}
+    js = """const P = M.pw, L = (l) => [P.chipWords(l), P.chipHover(l), P.planWords(l)];
+const all = D.three.map((t) => ({...t, status: "completed"})), none = D.three.map((t) => ({...t, status: "pending"}));
+console.log(JSON.stringify({plan: P.planOf(D.sess), same: P.planOf(D.sess) === P.planOf(D.sess), obj: P.objectiveOf(D.sess),
+  bare: [P.planOf({agents: [D.helper]}), P.planOf(null), P.objectiveOf({agents: []})],
+  k: L(P.planOf(D.sess)), zero: L(none), n: L(all), empty: L([]),
+  steps: P.planOf(D.sess).map((t) => [P.STEP[t.status].mark, P.STEP[t.status].word, P.stepText(t).text, P.stepText(t).twin]), rows: P.PLAN_ROWS}));"""
+    got = _run(["pw"], js, {"sess": sess, "three": three, "helper": sess["agents"][1]})
+    ctx.check(f"main's row's plan, never a helper's, got {got['plan']}", [t["content"] for t in got["plan"]] == ["Read the code", "Write the parser", "Test it"])
+    ctx.check("one array per row's list (a view's selector keeps its reference)", got["same"] is True)
+    ctx.check(f"main's objective, got {got['obj']!r}", got["obj"] == "Fix the parser so it reads YAML")
+    ctx.check(f"no main, no session: no plan, no objective, got {got['bare']}", got["bare"] == [[], [], ""])
+    ctx.check(f"k of N, got {got['k']}", got["k"] == ["Plan 1 of 3", "Now: Writing the parser", "plan: 1 of 3 done"])
+    ctx.check(f"0 of N, got {got['zero']}", got["zero"] == ["Plan 0 of 3", "No step in progress", "plan: 0 of 3 done"])
+    ctx.check(f"N of N, got {got['n']}", got["n"] == ["Plan 3 of 3", "Every step is done", "plan: 3 of 3 done"])
+    ctx.check(f"no plan, got {got['empty']}", got["empty"] == ["no plan yet", "No plan yet: when main writes a to-do list, its steps show here", ""])
+    ctx.check(f"each step: mark, word, its words and their twin, got {got['steps']}", got["steps"] == [
+        ["✓", "done", "Read the code", "Doing Read the code"], ["▸", "doing", "Writing the parser", "Write the parser"],
+        ["○", "to do", "Test it", "Doing Test it"]])
+    ctx.check(f"eight steps before the list scrolls, got {got['rows']}", got["rows"] == 8)
+    store = (SRC / "routes/crew/map/todoStore.ts").read_text(encoding="utf-8")
+    ctx.check("todoStore reads main's row (planOf over the fleet store), never a `todos` frame",
+              "planOf(" in store and "onEvent" not in store and '"todos"' not in store)
+    kinds = (SRC / "lib/events.ts").read_text(encoding="utf-8") + (SRC.parent.parent / "feed_kinds.py").read_text(encoding="utf-8")
+    ctx.check("Studio no longer asks for the dead `todos` kind", '"todos"' not in kinds)
+    fold = (SRC / "routes/session/planFold.ts").read_text(encoding="utf-8")
+    ctx.check("the fold is kept the page's way (writeLocal, read back at load)", "writeLocal(KEY" in fold and "localStorage.getItem(KEY)" in fold)
+
+
+@test
+def test_a_card_says_goal_and_its_hover_the_step_it_was_started_for(ctx: Ctx):
+    """3.6.0.23 PV ruling 5: a member's first line says "Goal" before its description (no new row); its hover adds
+    "started for: <main's step in progress at its start>" (spawn.plan_step, words frozen at the start, never "n of M"),
+    nothing without one."""
+    rows = [MAIN, kid("a1", 1, step="main#1", desc="read report A", plan_step="Compare the numbers"),
+            kid("a2", 2, step="main#1", desc="read report B")]
+    for r in rows[1:]:
+        r["spawn"].update({k: r.pop(k) for k in ("plan_step",) if k in r})
+    js = """const gs = M.og.autoGroups(D.rows), ms = gs.flatMap((g) => g.members);
+console.log(JSON.stringify(ms.map((m) => ({aid: m.aid, line: M.gw.memberLine(m), hover: M.gw.g4Lines(m, 0).slice(0, 2), forStep: m.forStep || null}))));"""
+    got = {m["aid"]: m for m in _run(["og", "gw"], js, {"rows": rows})}
+    ctx.check(f"the first line says Goal before the description, got {got['a1']['line']!r}", got["a1"]["line"] == "agent · Goal: read report A")
+    ctx.check(f"its hover: the description, then the step it was started for, got {got['a1']['hover']}",
+              got["a1"]["hover"] == ["read report A", "started for: Compare the numbers"])
+    ctx.check(f"no step in progress at its start: nothing added, got {got['a2']}", got["a2"]["forStep"] is None
+              and not any(x.startswith("started for") for x in got["a2"]["hover"]))
 
 
 if __name__ == "__main__":

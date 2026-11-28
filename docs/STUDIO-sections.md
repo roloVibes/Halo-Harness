@@ -159,7 +159,11 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 **Panels.** Live (`session-live`): every agent of the session its header names at once (3.6.0.11: with Change session;
 Session follows the newest session you start unless you picked one, never while the Prompt box holds text), what it types,
 runs, hands back and asks, in the live log's columns under this session's
-timeline strip, with the Steer box at its foot. Map (`session-map`): your
+timeline strip, with the Steer box at its foot. Since 3.6.0.23 the header's last row says the session's **Objective** (the
+first line of your latest prompt of four words or more; a short reply such as "yes" keeps it) and ends with a plan chip:
+"Plan 3 of 7" (steps done of all) once main keeps a to-do list, "no plan yet" before that and after a resume. Under it
+the plan is written out, one line per step marked "to do", "doing" or "done"; a click on the chip folds and unfolds it,
+and the choice is kept. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree -- since 3.3.11.0 R2 the thumbnail of the tree Roles Live draws full size (**Open in Roles Live** on its bar). Cost
 (`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost
 per turn, elapsed, the model, each agent's own share, tokens and calls, moving with the terminal; under the context

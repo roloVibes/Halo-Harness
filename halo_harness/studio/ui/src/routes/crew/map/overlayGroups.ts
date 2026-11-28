@@ -19,7 +19,8 @@ export type GRow = OvRow & { spawn?: AgentRow["spawn"]; since?: number | null; m
 /** `raw`: the row's own state (agent/agent_registry.py STATES; 3.6.0.13 L1): `state` reads queued as working and stopped as
  *  done, NOW and the state word read `raw`. */
 export type Member = { aid: string; parent: string; who: string; description: string; model: string; state: BoxState; raw: string;
-  cost: number; reason: string; made: boolean; started: number; ended: number; by?: string; step?: number };
+  cost: number; reason: string; made: boolean; started: number; ended: number; by?: string; step?: number;
+  forStep?: string };
 export type AutoGroup = { n: number; key: string; by: "workflow" | "task" | "reply"; name: string; workflow?: string; members: Member[];
   steps?: StepRow[]; first: number };
 
@@ -53,6 +54,7 @@ export function autoGroups(rows: GRow[], blocks: Record<string, BlockLit> = {}):
         made: r.crew ? !!r.crew.made_up : ANY.includes(str(r.name)), started: num(r.since), ended: num(r.ended) };
       if (str(r.parent) !== main) m.by = str(r.parent);
       if (typeof r.crew?.step === "number") m.step = r.crew.step;
+      if (str(r.spawn?.plan_step)) m.forStep = str(r.spawn?.plan_step); // 3.6.0.23 PV: its parent's step, frozen at its start
       return m;
     });
     const w = workflowOf(g.key);

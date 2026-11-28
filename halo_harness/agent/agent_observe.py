@@ -6,7 +6,9 @@ agent/agent_registry.py).
                        a sub-agent: the first line of what it was asked)
     message_start   -> `current` "thinking"
     tool_use_ready  -> `current` "<Tool>: <one line of its arguments>"
-    tool_result     -> the next tool still in flight, else "thinking"
+    tool_result     -> the next tool still in flight, else "thinking"; a successful
+                       TodoWrite's list becomes `plan` (3.6.0.23 PV, capped:
+                       PLAN_MAX steps, PLAN_TEXT characters a text)
     a card opens    -> waiting (permission_request, question, plan_review)
     text_delta      -> `last_text` (the last LAST_TEXT characters)
     message_end     -> `turns` + 1, `cost_usd` (the session's own running total),
@@ -30,6 +32,26 @@ LAST_TEXT = 200
 END_STATE = {"end_turn": "done", "max_tokens": "done", "interrupted": "stopped", "error": "failed",
              "max_turns": "failed", "blocked": "failed"}
 ASKS = ("permission_request", "question", "plan_review")
+PLAN_MAX = 30  # 3.6.0.23 PV: the steps a row keeps of one TodoWrite list
+PLAN_TEXT = 160  # and the characters of each step's content and activeForm
+PLAN_STATES = ("pending", "in_progress", "completed")
+OBJECTIVE_WORDS = 4  # 3.6.0.23 PV: a prompt's first line of fewer words ("yes", "go on") keeps main's objective
+
+
+def plan_of(todos) -> list:
+    """TodoWrite's `todos` as a row keeps them: [{content, status, activeForm}], capped (PLAN_MAX, PLAN_TEXT)."""
+    out = []
+    for t in (todos if isinstance(todos, list) else [])[:PLAN_MAX]:
+        if isinstance(t, dict) and isinstance(t.get("content"), str):
+            status = t.get("status") if t.get("status") in PLAN_STATES else "pending"
+            out.append({"content": first_line(t["content"], PLAN_TEXT), "status": status,
+                        "activeForm": first_line(t.get("activeForm") or "", PLAN_TEXT)})
+    return out
+
+
+def step_in_progress(plan) -> str:
+    """The content of the step in progress of a row's `plan` ("" with none)."""
+    return next((t["content"] for t in plan or () if isinstance(t, dict) and t.get("status") == "in_progress"), "")
 
 
 def _running(row: dict) -> None:
@@ -47,6 +69,8 @@ class ObserveMixin:
             before = dict(row)
             if aid == self.root_id or not row.get("task"):
                 row["task"] = first_line(text)
+            if aid == self.root_id and len(first_line(text).split()) >= OBJECTIVE_WORDS:
+                row["objective"] = first_line(text)
             if row.get("state") != "paused":
                 row["state"] = "running"
             model = getattr(getattr(session, "model_ref", None), "raw", None)
@@ -55,6 +79,7 @@ class ObserveMixin:
                 row["ended"] = None
             self._reason.pop(aid, None)
             self._inflight.pop(aid, None)
+            self._todo_in.pop(aid, None)
             self._sessions[aid] = self._ref(session)
             pub = self._commit(aid, row, before, force=True)
         self._publish(pub)
@@ -78,11 +103,16 @@ class ObserveMixin:
             elif kind == "tool_use_ready":
                 label = tool_label(str(data.get("name") or "?"), data.get("input"))
                 self._inflight.setdefault(aid, {})[data.get("id")] = label
+                if data.get("name") == "TodoWrite":  # 3.6.0.23 PV: the list waits for the call's result
+                    self._todo_in.setdefault(aid, {})[data.get("id")] = (data.get("input") or {}).get("todos")                         if isinstance(data.get("input"), dict) else None
                 row["current"] = label
                 _running(row)
             elif kind == "tool_result":
                 inflight = self._inflight.get(aid) or {}
                 inflight.pop(data.get("id"), None)
+                todos = (self._todo_in.get(aid) or {}).pop(data.get("id"), None)
+                if todos is not None and data.get("ok") is True:  # a refused list changes nothing
+                    row["plan"] = plan_of(todos)
                 row["current"] = next(reversed(list(inflight.values())), "thinking")
                 _running(row)
             elif kind in ASKS and row.get("state") == "running":
@@ -117,6 +147,7 @@ class ObserveMixin:
             if aid != self.root_id:  # 3.6.0.15 F4: the end time goes out with the end state (not main: since = session)
                 row["ended"] = time.time()
             self._inflight.pop(aid, None)
+            self._todo_in.pop(aid, None)
             live = self._live.get(aid)
             entries = live.flush() if live is not None else []
             think = self._think.get(aid)

@@ -95,11 +95,15 @@ def spawn_of(tree, parent_aid: str, text: str) -> dict:
     """3.3.16.3 (Live in groups): the step of the parent that started a child -- `step` is the parent's id and its
     reply count at the spawn (every Agent call of one reply shares it), `description` the call's description (else the
     first line of its prompt), `lead` the last line the parent wrote in that reply. Studio's Live groups the children
-    of one step and titles the group from these words; nothing here calls a model."""
+    of one step and titles the group from these words; nothing here calls a model. 3.6.0.23 PV: `plan_step`, the WORDS
+    of the parent's own step in progress at this moment (its row's `plan`), frozen here; no key when it has none."""
+    from halo_harness.agent.agent_observe import step_in_progress
     with tree.lock:
         turns = (tree.rows.get(parent_aid) or {}).get("turns") or 0
         said = [ln.strip() for ln in str(tree._said.get(parent_aid, "")).splitlines() if ln.strip()]
-    return {"step": f"{parent_aid}#{turns}", "description": first_line(text, 80), "lead": first_line(said[-1], 120) if said else ""}
+        doing = step_in_progress((tree.rows.get(parent_aid) or {}).get("plan"))
+    spawn = {"step": f"{parent_aid}#{turns}", "description": first_line(text, 80), "lead": first_line(said[-1], 120) if said else ""}
+    return {**spawn, "plan_step": doing} if doing else spawn
 
 
 def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], role: Optional[str],

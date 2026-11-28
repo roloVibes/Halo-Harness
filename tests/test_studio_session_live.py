@@ -25,6 +25,8 @@ mid-work) plus three extra agents and scripted feed frames
 9. (3.1.7.0 R1) Fleet's time and KIND lead a tool, a text and a state row,
    stacked under 440 px; a click opens a tool row's whole result.
 10. (3.6.0.17 N2) a running `!` command's row carries its own Stop; a model's tool row none.
+11. (3.6.0.23 PV) the Feed head's objective row and the plan under it: there at the first draw, still while words
+    arrive, one move when a plan opens, the fold kept across a reload.
 Run: python -m tests.test_studio_session_live
 """
 from __future__ import annotations
@@ -227,6 +229,33 @@ def _gif_facts(path: Path) -> dict:
             i += b[i] + 1
         i += 1
     return out
+
+
+@test
+def test_the_objective_row_and_the_plan_in_the_feed_head(ctx: Ctx):
+    """3.6.0.23 PV rulings 3 and 4 (tests/helpers/studio_session_plan.py): the objective's row is there at the first draw
+    (the rig's prompt "Ship the basket discount fix", "no plan yet", no list); the Timeline does not move while the
+    objective goes and comes; a plan through the real tree opens the checklist, the one move; a change of states keeps
+    its height and the Timeline; the chip folds it, the fold survives a reload, a click unfolds it."""
+    r, got = _driver("live")
+    _ran(ctx, r, got)
+    f = got.get("plan_first") or {}
+    ctx.check(f"the row at the first draw: the objective, 'no plan yet', no list, one line, got {f}",
+              f.get("row") is True and f.get("words") == "Ship the basket discount fix" and f.get("chip") == "no plan yet"
+              and f.get("list") is False and 0 < (f.get("h") or 0) <= 30)
+    t, h = got.get("plan_tops") or [], got.get("plan_heights") or []
+    ctx.check(f"the Timeline holds still while the objective goes and comes, moves once when the plan opens, holds on a "
+              f"change of states, and is back when folded, got tops {t}",
+              len(t) == 6 and t[0] == t[1] == t[2] and t[3] > t[2] and t[4] == t[3] and t[5] == t[2])
+    ctx.check(f"a change of states keeps the checklist's height, got {h}", len(h) == 2 and h[0] > 0 and h[0] == h[1])
+    ctx.check(f"the chip's hover says the step in progress, got {got.get('plan_hover')!r}", got.get("plan_hover") == "Now: Fixing the discount order")
+    ctx.check(f"each step a mark and a word, the one in progress in its activeForm words, got {got.get('plan_rows')}",
+              got.get("plan_rows") == [["completed", "✓ done", "Read basket.py"], ["completed", "✓ done", "Fix the discount order"],
+                                       ["in_progress", "▸ doing", "Doing: Run the basket suite"]])
+    rl = got.get("plan_reload") or {}
+    ctx.check(f"after a reload: the plan from the fleet load, still folded, got {rl}",
+              rl.get("chip") == "Plan 2 of 3" and rl.get("expanded") == "false" and rl.get("list") is False)
+    ctx.check("a click on the chip unfolds it again", got.get("plan_unfold") is True)
 
 
 @test

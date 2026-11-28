@@ -142,7 +142,12 @@ def grow(c, rig, rows: Rows, a: str, b: str) -> dict:
       const small = all.filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 12).length;
       const inner = g.querySelector('.mp-inner'), box = g.getBoundingClientRect(), ib = inner.getBoundingClientRect();
       const world = {M}.querySelector('.mp-mini-world'), k = parseFloat(world.dataset.zoom) || 1;
-      return {{ clip, cut, ell, small, w: box.width / k, h: box.height / k, inner: ib.height / k, left: (box.left - world.getBoundingClientRect().left) / k,
+      // 3.6.0.23 PV: "Goal" on a member's first line costs no room -- each line's and member's height with the words
+      // as drawn, then with the words before "Goal" (the same text node, put back at once: React keeps its node)
+      const goal = ['g2', 'g4'].map((id) => {{ const ln = g.querySelector(`[data-member=${{id}}] [data-testid=map-member-line]`), m = ln.closest('[data-member]');
+        const t = ln.firstChild, was = t.nodeValue, hs = () => [ln.getBoundingClientRect().height / k, m.getBoundingClientRect().height / k];
+        const now = hs(); t.nodeValue = was.replace(' · Goal: ', ': '); const before = hs(); t.nodeValue = was; return [was, before, now]; }});
+      return {{ clip, cut, ell, small, goal, w: box.width / k, h: box.height / k, inner: ib.height / k, left: (box.left - world.getBoundingClientRect().left) / k,
         world: world.getBoundingClientRect().width / k, members: [...g.querySelectorAll('[data-member]')].map((m) => [m.dataset.member, m.getBoundingClientRect().width / k, m.getBoundingClientRect().height / k]),
         name: g.querySelector('[data-testid=map-group-name]').textContent, counts: g.querySelector('[data-testid=map-group-counts]').textContent,
         bad: g.querySelector('[data-testid=map-group-counts] .mp-bad')?.textContent || '', why: g.querySelector('[data-testid=map-group-why]')?.textContent || '',

@@ -361,8 +361,9 @@ def _groups(c, ev: dict, bad: list) -> None:
 
 
 def _who(line: str) -> str:
-    """A member's agent name: the text before the first ':' of its first line, the whole line when it has none."""
-    return (line or "").split(":", 1)[0].strip()
+    """A member's agent name: the text before " · Goal: " (3.6.0.23 PV), else before the first ':' of its first line, the
+    whole line when it has neither."""
+    return (line or "").split(" · Goal: ", 1)[0].split(":", 1)[0].strip()
 
 
 def judge_groups(read: dict, first) -> list:

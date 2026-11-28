@@ -96,6 +96,105 @@ def test_a_square_agent_carries_its_does_line(ctx: Ctx):
     ctx.check(f"the orchestra square's node, got {rows[key].get('square')}", rows[key]["square"]["does"] == "Makes a code change.")
 
 
+def _todo(content: str, status: str = "pending", active: str = "") -> dict:
+    return {"content": content, "status": status, "activeForm": active or f"Doing {content}"}
+
+
+def _write_plan(tree, aid: str, todos: list, call: str, ok: bool = True) -> str:
+    """One TodoWrite of `aid`: its call (the input on tool_use_ready), what its row says while it runs, its result."""
+    tree.observe(aid, _ev("tool_use_ready", id=call, name="TodoWrite", input={"todos": todos}))
+    doing = tree.row(aid).get("current")
+    tree.observe(aid, _ev("tool_result", id=call, ok=ok, summary="Todos updated"))
+    return doing
+
+
+@test
+def test_a_todowrite_puts_the_plan_on_the_row(ctx: Ctx):
+    """3.6.0.23 PV ruling 1: a successful TodoWrite keeps that agent's list on its row (`plan`), the last call replacing
+    it, capped in count and length; a refused one changes nothing; a sub-agent keeps its own. Ruling 6: while the call
+    runs the "doing" line says the plan's size, never its raw JSON."""
+    from halo_harness.agent.agent_observe import PLAN_MAX, PLAN_TEXT
+    from halo_harness.agent.agent_registry import FIELDS
+    root, tree = _tree()
+    ctx.check("`plan` is an agent row field", "plan" in FIELDS)
+    tree.started("main", root, "build the parser and its tests")
+    ctx.check(f"no plan before the first list, got {tree.row('main').get('plan')!r}", not tree.row("main").get("plan"))
+    doing = _write_plan(tree, "main", [_todo("Read the code", "completed"), _todo("Write the parser", "in_progress", "Writing the parser"), _todo("Test it")], "t1")
+    ctx.check(f"the doing line says the plan's size, got {doing!r}", doing == "TodoWrite: plan of 3 steps" and "{" not in doing)
+    plan = tree.row("main").get("plan")
+    ctx.check(f"the plan is on main's row, got {plan}", plan == [
+        {"content": "Read the code", "status": "completed", "activeForm": "Doing Read the code"},
+        {"content": "Write the parser", "status": "in_progress", "activeForm": "Writing the parser"},
+        {"content": "Test it", "status": "pending", "activeForm": "Doing Test it"}])
+    _write_plan(tree, "main", [_todo("One step only", "in_progress")], "t2")
+    ctx.check(f"the next list replaces it, got {tree.row('main')['plan']}", [t["content"] for t in tree.row("main")["plan"]] == ["One step only"])
+    _write_plan(tree, "main", [_todo("a", "in_progress"), _todo("b", "in_progress")], "t3", ok=False)
+    ctx.check("a refused TodoWrite changes nothing", [t["content"] for t in tree.row("main")["plan"]] == ["One step only"])
+    ctx.check(f"after the call the doing line is back to thinking, got {tree.row('main')['current']!r}", tree.row("main")["current"] == "thinking")
+    _write_plan(tree, "main", [_todo("x" * 900) for _ in range(PLAN_MAX + 5)], "t4")
+    big = tree.row("main")["plan"]
+    ctx.check(f"capped: at most {PLAN_MAX} steps, each at most {PLAN_TEXT} characters, got {len(big)} / {len(big[0]['content'])}",
+              len(big) == PLAN_MAX and len(big[0]["content"]) <= PLAN_TEXT and len(big[0]["activeForm"]) <= PLAN_TEXT)
+    _spawn(root, "h1", "Check the docs")
+    tree.started("h1", NS(model_ref=None), "Check the docs")
+    _write_plan(tree, "h1", [_todo("Open README", "in_progress")], "s1")
+    rows = {r["agent_id"]: r for r in tree.public_rows()}
+    ctx.check(f"a sub-agent keeps its own plan, main keeps his, got {rows['h1'].get('plan')}",
+              [t["content"] for t in rows["h1"]["plan"]] == ["Open README"] and len(rows["main"]["plan"]) == PLAN_MAX)
+
+
+@test
+def test_main_objective_is_the_latest_prompt_of_four_words(ctx: Ctx):
+    """3.6.0.23 PV ruling 2: main's `objective` is the first line of the person's latest prompt with at least four
+    words; a short reply ("yes", "go on") keeps the one that was there; empty before such a prompt; no model call."""
+    from halo_harness.agent.agent_registry import FIELDS
+    root, tree = _tree()
+    ctx.check("`objective` is an agent row field", "objective" in FIELDS)
+    ctx.check(f"empty at first, got {tree.row('main').get('objective')!r}", not tree.row("main").get("objective"))
+    tree.started("main", root, "ok go")
+    ctx.check(f"a short first prompt sets none, got {tree.row('main').get('objective')!r}", not tree.row("main").get("objective"))
+    tree.started("main", root, "Fix the login page so it remembers me\nand add a test")
+    ctx.check(f"four words or more: its first line, got {tree.row('main')['objective']!r}",
+              tree.row("main")["objective"] == "Fix the login page so it remembers me")
+    for short in ("yes", "go on", "  do it now  "):
+        tree.started("main", root, short)
+    ctx.check(f"short replies keep it, got {tree.row('main')['objective']!r}", tree.row("main")["objective"] == "Fix the login page so it remembers me")
+    tree.started("main", root, "now write the release notes for it " + "x" * 300)
+    ctx.check(f"capped as `task` is, got {len(tree.row('main')['objective'])}", len(tree.row("main")["objective"]) <= 120
+              and tree.row("main")["objective"] == tree.row("main")["task"])
+    _spawn(root, "h1", "Read the long report today")
+    tree.started("h1", NS(model_ref=None), "Read the long report today please")
+    ctx.check(f"a helper's row has no objective, got {tree.row('h1').get('objective')!r}", not tree.row("h1").get("objective"))
+
+
+@test
+def test_a_spawn_keeps_the_words_of_its_parents_step_in_progress(ctx: Ctx):
+    """3.6.0.23 PV ruling 5: an agent's `spawn.plan_step` is the WORDS of its parent's step in progress at its start,
+    frozen (a list rewritten afterwards does not change them); none when the parent had no step in progress; an
+    agent started by an agent gets its own parent's step, or none."""
+    root, tree = _tree()
+    tree.started("main", root, "review the three reports for me")
+    _spawn(root, "a0", "Before any plan")
+    _write_plan(tree, "main", [_todo("Read the reports", "completed"), _todo("Compare the numbers", "in_progress")], "t1")
+    _spawn(root, "a1", "Compare report one")
+    _write_plan(tree, "main", [_todo("Something else entirely", "in_progress")], "t2")
+    _spawn(root, "a2", "Do the other thing")
+    _write_plan(tree, "main", [_todo("All of it", "completed")], "t3")
+    _spawn(root, "a3", "Tidy up")
+    tree.started("a1", NS(model_ref=None), "Compare report one")
+    child = NS(log=None, opt_ins=None, agent_id="a1", _agent_tree=tree)
+    _write_plan(tree, "a1", [_todo("Open report one", "in_progress")], "c1")
+    from halo_harness.agent.agent_hooks import register_child
+    register_child(child, NS(log=None, opt_ins=None), agent_id="g1", spec=NS(name="general-purpose"), model=None, role=None, task_text="Count rows")
+    register_child(NS(log=None, opt_ins=None, agent_id="a2", _agent_tree=tree), NS(log=None, opt_ins=None), agent_id="g2", spec=NS(name="general-purpose"),
+                   model=None, role=None, task_text="Count more rows")
+    rows = {r["agent_id"]: r for r in tree.public_rows()}
+    got = {k: rows[k]["spawn"].get("plan_step") for k in ("a0", "a1", "a2", "a3", "g1", "g2")}
+    ctx.check(f"each keeps the words of its parent's step at its start, got {got}", got == {
+        "a0": None, "a1": "Compare the numbers", "a2": "Something else entirely", "a3": None,
+        "g1": "Open report one", "g2": None})
+
+
 @test
 def test_studio_groups_by_these_fields(ctx: Ctx):
     """The rule Studio draws by (routes/crew/live/groups.ts): siblings of one step, two or more, are a task group; a

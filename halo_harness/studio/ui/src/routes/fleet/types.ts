@@ -32,7 +32,7 @@ export type AgentRow = {
   square?: { name: string; engine: string; does?: string } | null;
   /** 3.3.16.3: the parent's step that started it (agent_hooks.spawn_of): Live boxes the agents of one step. 3.6.0.5 B3 B6:
    *  `task` the words main gave it ("" when none), `group` the group it is in (crew/groups.py; no name: groupName). */
-  spawn?: { step: string; description?: string; lead?: string; task?: string;
+  spawn?: { step: string; description?: string; lead?: string; task?: string; plan_step?: string;
             group?: { key: string; n: number; by: "workflow" | "task" | "reply" } | null } | null;
   /** 3.6.0.0 R4: the map box it runs for (crew/map_events.py tag); `made_up`: a helper main made up, under `box`.
    *  3.6.0.2 R13: the agent it runs, `saved` (a saved agent), a workflow step's `workflow` and `step` (under its caller's box). */
@@ -43,6 +43,11 @@ export type AgentRow = {
   turn_total?: { helpers: number; tools: number } | null;
   /** 3.6.0.15 F3 (agent/agent_inbox.py): a pause is set on this agent, from the press until a resume (pauseFact.ts). */
   pause_set?: boolean | null;
+  /** 3.6.0.23 PV (agent/agent_observe.py): its last successful TodoWrite list, capped there; `objective`, main's row
+   *  only: the first line of his latest prompt of four words or more. `spawn.plan_step`: the WORDS of its parent's step
+   *  in progress when it started (agent_hooks.spawn_of), frozen. */
+  plan?: { content: string; status: string; activeForm?: string }[] | null;
+  objective?: string | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;

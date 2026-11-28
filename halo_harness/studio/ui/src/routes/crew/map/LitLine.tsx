@@ -6,12 +6,12 @@ import { Button } from "../../../lib/ui";
 import { isLiveRun, useOrch } from "../../orchestra/store";
 import { openRun as openOrchRun, startOrchestra } from "../../orchestra/sync";
 import { openFeed, openMapDrawer } from "./feedOpen";
-import { planWords, startTodos, useTodos } from "./todoStore";
+import { planWords, useTodos } from "./todoStore";
 import { WORDS } from "./truthWords";
 
 /** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed. */
 export function Extras({ sid }: { sid: string }) {
-  useEffect(() => (startTodos(), startOrchestra()), []);
+  useEffect(() => startOrchestra(), []);
   const plan = planWords(useTodos(sid));
   if (!plan) return null;
   return (

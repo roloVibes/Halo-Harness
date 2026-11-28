@@ -110,7 +110,7 @@ TODOS = [{"content": "Read basket.py", "status": "completed"},
 
 
 def plan(c, rig, lv, sent) -> dict:
-    lv.frame("main", "todos", {"todos": TODOS})
+    lv.state("main", plan=TODOS)  # 3.6.0.23 PV: the plan is main's row field (agent_observe.py); the `todos` frame is gone
     link = t("map-lit-plan")
     out = {"plan_line": c.wait(f"{link}?.textContent", 15)}
     press(c, link)

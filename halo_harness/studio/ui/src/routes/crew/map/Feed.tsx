@@ -17,7 +17,7 @@ import { LiveRow, type Who } from "../../session/LiveRows";
 import { useFollow } from "../../session/follow";
 import { followAgain } from "../../session/steer";
 import { BoxHead } from "./BoxHead";
-import { PlanList, UnderList } from "./FeedParts";
+import { PlanPage, UnderList } from "./FeedParts";
 import { setFeedFor, useLitStore } from "./litStore";
 import { under } from "./overlay";
 import { useTodos } from "./todoStore";
@@ -78,7 +78,7 @@ export function Feed() {
   return (
     <div className="mpf" data-testid="map-feed" data-sid={L.session.sid} data-filter={filter || "everyone"} data-follow={following || undefined}>
       <Pick L={L} filter={filter} />
-      {filter === "plan" && <PlanList list={plan} />}
+      {filter === "plan" && <PlanPage list={plan} />}
       {filter.startsWith("under:") && <UnderList L={L} aid={filter.slice(6)} />}
       {target && filter && filter !== "plan" && !filter.startsWith("under:") && <BoxHead L={L} a={target} box={box} />}
       {filter !== "plan" && (

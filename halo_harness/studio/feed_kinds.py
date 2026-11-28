@@ -11,7 +11,7 @@ live/think.py) and `agent_talk` (one agent's words to another, live/talk.py). ui
 mirrors DEFAULT_KINDS."""
 
 DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "tool_use_start", "tool_result",
-                 "tool_progress", "permission_request", "question", "plan_review", "approval_request", "todos",
+                 "tool_progress", "permission_request", "question", "plan_review", "approval_request",
                  "status", "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued",
                  "subagent_progress", "notification", "phase", "compaction", "governor", "remote_attached",
                  "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",

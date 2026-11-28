@@ -23,6 +23,7 @@ import { closeSteer, openSteer, pinTo, targetName, useSteerTarget, useStripAgent
 import { takeScreenshot, useSteerImage } from "./steerImage";
 import { chosenSession, sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
+import { FeedPlan } from "./FeedPlan";
 import { FeedSession } from "./FeedSession";
 
 /** The kind pick's choices: value, label, the line kinds it keeps. */
@@ -163,6 +164,7 @@ export function LiveHead({ working, count, onFollow, following }: { working: num
         <TraceExport where="head" />
       </div>
       <FeedSession />
+      <FeedPlan />
     </header>
   );
 }

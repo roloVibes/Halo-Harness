@@ -838,7 +838,7 @@ _DOC_LINES = [
     (_GROUPS, ["waiting for a model reply · {s}"], {"s": "12 s"}, "now_model"),
     (_GROUPS, ["a tool · {s}"], {"s": "12 s"}, "now_held"),
     (_LIVE, ["a tool · {s}"], {"s": "12 s"}, "now_held"),
-    (_GROUPS, ["{who}: {description}"], {"who": "reader", "description": "read the pdf"}, "member_line"),
+    (_GROUPS, ["{who} · Goal: {description}"], {"who": "reader", "description": "read the pdf"}, "member_line"),  # 3.6.0.23 PV
     (_GROUPS, ["{model} · {state}"], {"model": "kimi-x", "state": "queued"}, "member_state"),
     (_GROUPS, ["Now: {whole words}"], {"whole words": "Grep · 12 s"}, "hover_now"),
     (_GROUPS, ["Now: queued · {s}: it starts when a running helper ends."], {"s": "12 s"}, "hover_queued"),

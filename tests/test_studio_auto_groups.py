@@ -73,9 +73,9 @@ def test_auto_draws_main_alone_then_named_coloured_groups(ctx: Ctx):
               one.get("n") == "1" and one.get("name") == "compare the three reports" and one.get("members") == 3
               and one.get("counts") == "3 agents · 3 working" and one.get("why", "").startswith("3 researchers on kimi-k3"))
     first = (one.get("lines") or [[]])[0]
-    ctx.check(f"a member reads who: description over model · state, then NOW (3.6.0.13 L2a: the rig's rows only, no feed "
-              f"line: a model reply), got {one.get('lines')}",
-              first[:2] == ["researcher: read report A", "kimi-k3 · working"] and len(first) == 3
+    ctx.check(f"a member reads who · Goal: description (3.6.0.23 PV) over model · state, then NOW (3.6.0.13 L2a: the rig's "
+              f"rows only, no feed line: a model reply), got {one.get('lines')}",
+              first[:2] == ["researcher · Goal: read report A", "kimi-k3 · working"] and len(first) == 3
               and first[2].startswith("waiting for a model reply · "))
     ctx.check(f"its border is --group-1, no state's colour, got {one.get('border')} {probe}",
               one.get("border") == probe.get("--group-1") and one.get("border") not in [probe.get(v) for v in ("--accent", "--warn", "--ok", "--bad")])
@@ -137,6 +137,12 @@ def test_group_head_and_members_grow_never_clip(ctx: Ctx):
     ctx.check(f"five count parts, the failed one in --bad, got {d.get('counts')!r} {d.get('bad')!r}",
               d.get("counts") == "5 agents · 2 working · 1 waiting on you · 1 done · 1 failed · $0.0300" and d.get("bad") == "1 failed")
     ctx.check(f"the why line, got {d.get('why')!r}", bool(d.get("why")))
+    goal = d.get("goal") or []
+    # 3.6.0.23 PV: "Goal" is a word on the first line, no new row: the members keep their boxes here; a short goal keeps
+    # its line; a line that was near the member's edge ("researcher: read B" at this width) wraps once more (never cut)
+    ctx.check(f"3.6.0.23 PV: a member's first line says Goal; each member's box as tall as without it, a short goal's "
+              f"line too, got {goal}", [g[0] for g in goal] == ["researcher · Goal: read B", "coder · Goal: fix two"]
+              and all(abs(g[1][1] - g[2][1]) < 0.5 for g in goal) and abs(goal[1][1][0] - goal[1][2][0]) < 0.5)
     ctx.check(f"the child of a child's third line, got {d.get('third')!r}",
               d.get("third") == "started by researcher: compare the three quarterly reports and write the summary now")
     w, left, world = d.get("w") or 0, d.get("left") or 0, d.get("world") or 0

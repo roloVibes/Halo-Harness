@@ -58,6 +58,9 @@ def tool_label(name: str, args) -> str:
         from halo_harness.tools.browser import step_words
         words = step_words(args)
         return f"Browser: {words[len('Browser '):]}" if words.startswith("Browser ") else words
+    if name == "TodoWrite" and isinstance(args, dict) and isinstance(args.get("todos"), list):  # 3.6.0.23 PV ruling 6
+        n = len(args["todos"])
+        return f"TodoWrite: plan of {n} step{'' if n == 1 else 's'}"
     if isinstance(args, dict):
         for key in (_WORKFLOW_KEYS if name == "Workflow" else _ARG_KEYS):
             if isinstance(args.get(key), str) and args[key].strip():

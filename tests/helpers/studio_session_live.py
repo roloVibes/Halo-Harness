@@ -61,6 +61,8 @@ def live(c, rig) -> dict:
     out["titles"] = c.js("Object.fromEntries(['session-map', 'session-live'].map((p) => [p, (document.querySelector("
                          "`[data-testid=\"${p}\"] [data-testid=\"panel-title\"]`)?.textContent || '').trim()]))")  # 3.6.0.2 R35
     out["follow_default"] = c.js(f"{COL}.dataset.follow === 'true'")
+    from tests.helpers.studio_session_plan import first, plan_view  # 3.6.0.23 PV: the objective's row and the plan
+    out.update(first(c))
     impl, res = lv.key("implementer"), lv.key("researcher")
     out["res_key"] = res
     lv.say("implementer", "ALPHA reads basket.py first. ")
@@ -98,6 +100,7 @@ def live(c, rig) -> dict:
     from tests.helpers.studio_session_insight import bang_stop  # 3.6.0.17 N2: a running `!` row's own Stop
     out.update(bang_stop(c, lv))
     out.update(flood(c, lv))
+    out.update(plan_view(c, rig, lv))
     return out
 
 
