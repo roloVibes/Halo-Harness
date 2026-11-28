@@ -25,6 +25,7 @@ owner POST local/traffic
 owner * ^local/host/(?P<name>[^/]+)/(?P<act>load|unload|measure)$
 owner * local/benches
 owner * ^local/host/(?P<name>[^/]+)/bench$
+owner * ^local/host/(?P<name>[^/]+)/sweep(?:/(?P<verb>stop|use|tuner|tuner/stop|notes/remove))?$
 owner * ^local/host/(?P<name>[^/]+)/(?P<act>measured|dialect)$
 owner * local/pulls
 owner * ^local/host/(?P<name>[^/]+)/(?P<act>pull|delete|show|copy|rename|twin|loaded|uses)$
