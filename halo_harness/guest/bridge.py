@@ -291,6 +291,17 @@ def _bridge_runs(on: Path, claude: int) -> bool:
     return start_matches(bridge, began, now)
 
 
+def _forget_worker(job_file: Path) -> None:
+    """A dead bridge's hand-out job file names its worker's session: its transcript and history entry go too."""
+    try:
+        session = (json.loads(job_file.read_text(encoding="utf-8")) or {}).get("session") or {}
+        from halo_harness.guest.hand_out import forget_session
+        if session.get("id") and session.get("project"):
+            forget_session(session["project"], str(session["id"]))
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
 def sweep(directory: Path, also: Optional[int] = None) -> int:
     """Remove what a bridge that ended hard left: a `.on` whose BRIDGE is gone takes its spools with it, whatever its
     Claude Code's pid names now (Windows gives a pid to the next program at once); a spool with no `.on` stays only
@@ -314,10 +325,12 @@ def sweep(directory: Path, also: Optional[int] = None) -> int:
         path = Path(directory) / name
         if int(head) != also and name.endswith(".jsonl") and f"{head}.on" not in names and _young(path):
             continue
-        if name.endswith(".plans"):  # a hand-out's plan-mode folder (guest/hand_out.HandOuts.plans)
+        if name.endswith(".plans"):  # a hand-out's own folder (guest/hand_out.HandOuts.plans)
             import shutil
             shutil.rmtree(path, ignore_errors=True)
         else:
+            if ".job." in name and name.endswith(".json"):  # 3.6.0.26 H: and what its worker's hard end left
+                _forget_worker(path)
             _unlink(path)
         removed += 1
     return removed

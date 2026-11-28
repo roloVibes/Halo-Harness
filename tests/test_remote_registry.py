@@ -587,28 +587,31 @@ def test_guest_status_prints_the_setting_and_the_jobs_a_bridge_runs(ctx: Ctx):
 @test
 def test_studio_lists_no_hand_out_worker_as_a_session_and_attaches_none(ctx: Ctx):
     """3.6.0.26 H: a worker's own registry row (`parent: guest:<bridge session>`) is drawn as a row of its guest's
-    tree: Studio's session list and its event bridge leave it out; every other row is as before."""
+    tree: Studio's session list and its event bridge leave it out WHILE ITS GUEST'S ROW LIVES (after the review, finding
+    9: a worker whose bridge is gone shows, so it can be stopped); every other row is as before."""
     from types import SimpleNamespace
     from halo_harness.remote import registry
     from halo_harness.studio import events, sessions_api
-    rows = [{"session_id": "g-1", "kind": "guest", "parent": "claude-code:7", "pid": os.getpid(), "started": 1.0},
+    rows = [{"session_id": "guest-7-8", "kind": "guest", "parent": "claude-code:7", "pid": os.getpid(), "started": 1.0},
             {"session_id": "w-1", "kind": "print", "parent": "guest:guest-7-8", "pid": os.getpid(), "started": 2.0},
-            {"session_id": "s-1", "kind": "headless", "parent": "studio:9", "pid": os.getpid(), "started": 3.0}]
+            {"session_id": "s-1", "kind": "headless", "parent": "studio:9", "pid": os.getpid(), "started": 3.0},
+            {"session_id": "w-2", "kind": "print", "parent": "guest:guest-9-gone", "pid": os.getpid(), "started": 4.0}]
     real = registry.list_live, sessions_api.statuses
     try:
         registry.list_live = lambda *a, **kw: [dict(r) for r in rows]
         sessions_api.statuses = lambda entries: {}
         _code, listed = sessions_api.list_sessions(SimpleNamespace(params={}, body={}))
-        ctx.check(f"the list: the guest and the Studio session, never the worker; got {[r['session_id'] for r in listed]}",
-                  [r["session_id"] for r in listed] == ["g-1", "s-1"])
+        ctx.check(f"the list: the guest, the Studio session and the worker whose guest is gone, never the worker of a "
+                  f"live guest; got {[r['session_id'] for r in listed]}",
+                  [r["session_id"] for r in listed] == ["guest-7-8", "s-1", "w-2"])
     finally:
         registry.list_live, sessions_api.statuses = real
     attached = []
     bridge = events.EventBridge(list_live=lambda: [dict(r) for r in rows])
     bridge._attach = lambda entry: attached.append(entry["session_id"])
     bridge.scan()
-    ctx.check(f"the event bridge attaches the guest and the session, not the worker; got {attached}",
-              sorted(attached) == ["g-1", "s-1"])
+    ctx.check(f"the event bridge attaches the guest, the session and the bridgeless worker, not the guest's own "
+              f"worker; got {attached}", sorted(attached) == ["guest-7-8", "s-1", "w-2"])
 
 
 if __name__ == "__main__":

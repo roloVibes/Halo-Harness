@@ -52,10 +52,43 @@ def sweep_dead() -> int:
         return 0
 
 
+WORKER_MARK = "HALO_HAND_OUT_WORKER"  # "1" in a hand-out worker's environment, set by its bridge (hand_out.worker_env)
+
+
+def worker_refuses(ref) -> bool:
+    """3.6.0.26 H (after the review): inside a hand-out worker every model it would call -- its small model, a title,
+    an escalation, the ladder, a fallback, a sub-agent's, an image lane -- must be his own local one
+    (model.is_own_local_ref); anything else is refused where its provider is resolved (headless._resolve_creds,
+    and Session.set_model for a switch), before a request is built. Outside a worker: False, nothing changes."""
+    import os
+    if os.environ.get(WORKER_MARK) != "1":
+        return False
+    try:
+        from halo_harness.model import is_own_local_ref
+        return not is_own_local_ref(ref)
+    except Exception:
+        return True
+
+
 def worker_of_a_guest(row) -> bool:
     """3.6.0.26 H: a registry row of a hand-out worker (`parent` guest:<bridge session>): Studio draws it as a row of
     the guest's own tree, never as another session (`halo ps` still names it)."""
     return isinstance(row, dict) and str(row.get("parent") or "").startswith("guest:")
+
+
+def of_a_guest(row) -> bool:
+    """A guest row, or a hand-out worker's row (it carries the goal Claude Code sent): never offered to a transport
+    nor to the LAN voice door (ext/remote._offered, voice/turn)."""
+    return isinstance(row, dict) and (row.get("kind") == KIND or worker_of_a_guest(row))
+
+
+def drawn_in_its_guest(row, rows) -> bool:
+    """A worker's row is drawn in its guest's tree, not as a session of its own, only WHILE that guest's row lives in
+    `rows` (the registry's live rows); a worker whose bridge is gone shows as a session, so it can be stopped."""
+    if not worker_of_a_guest(row):
+        return False
+    sid = str(row.get("parent") or "")[len("guest:"):]
+    return any(isinstance(r, dict) and r.get("kind") == KIND and r.get("session_id") == sid for r in rows or ())
 
 
 def guest_dir():

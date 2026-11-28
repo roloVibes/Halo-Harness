@@ -88,7 +88,8 @@ shape as `.claude/settings.json`. See `docs/CONFIG.md`'s precedence table.
 
 #### `--setting-sources SOURCES`
 What: a comma list restricting which of `user,project,local` settings layers
-are read at all (managed/policy and `--settings` itself are never affected).
+are read at all (managed/policy and `--settings` itself are never affected);
+an empty value (`--setting-sources ""`) reads none of the three.
 ```sh
 halo -p --setting-sources user "hi"
 ```

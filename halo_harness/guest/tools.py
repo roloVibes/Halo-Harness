@@ -28,8 +28,8 @@ WORDS = {
         "window, the measured speed and cold load, whether it calls tools, and the tuner's guide line marked as the "
         "tuner's. What is not known says so. It starts nothing."),
     "halo_hand_out": (
-        "Hands one bounded task to an agent Halo runs on one of this person's local models, on his own machine or the "
-        "Ollama host he named (never a paid or cloud model). mode none: the agent has no tools and answers from what "
+        "Hands one bounded task to an agent Halo runs on one of this person's local models, on his own machine or an "
+        "Ollama host on his network (never a paid or cloud model). mode none: the agent has no tools and answers from what "
         "you send. mode read_only: it may read and search files in this project folder; it changes nothing and runs "
         "no command. wait (the default): the call answers when the job ends; wait false: a job_id at once. Caps: 12 "
         "turns (up to 40), 10 minutes (up to 60), two jobs at once, one per host."),

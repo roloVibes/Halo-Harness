@@ -65,6 +65,9 @@ def _resolve_creds(ref, settings=None) -> Optional[ProviderCreds]:
     trust/cwd) is what actually gates OPENROUTER_API_KEY/DATABRICKS_HOST/
     DATABRICKS_TOKEN etc. -- `settings=None` falls back to bare
     `os.environ`."""
+    from halo_harness.guest import worker_refuses
+    if worker_refuses(ref):  # 3.6.0.26 H: a hand-out worker calls only his own local models
+        return None
     env = settings.effective_env if settings is not None else None
     if ref.provider == "openrouter":
         orc = resolve_openrouter(env)

@@ -807,7 +807,9 @@ def _main(argv: Optional[list] = None) -> int:
             return 2
         append_system_prompt_text = f"{append_system_prompt_text}\n\n{file_text}" if append_system_prompt_text else file_text
 
-    setting_sources = [s.strip() for s in args.setting_sources.split(",") if s.strip()] if args.setting_sources else None
+    # 3.6.0.26 H: an empty value (`--setting-sources ""`, as Claude Code's SDK sends for none) reads no layer at all
+    setting_sources = ([s.strip() for s in args.setting_sources.split(",") if s.strip()]
+                       if args.setting_sources is not None else None)
 
     stdin_lines = None
     prompt_text = args.prompt

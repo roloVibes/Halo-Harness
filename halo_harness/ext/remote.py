@@ -58,8 +58,10 @@ def offline() -> bool:
 
 def _offered(row) -> bool:
     """3.6.0.25 G: a Claude Code session Halo only shows (kind `guest`) is never offered to a transport: nothing of it
-    (its prompt, its tools, its words) leaves this machine."""
-    return isinstance(row, dict) and row.get("kind") != "guest"
+    (its prompt, its tools, its words) leaves this machine; 3.6.0.26 H: nor a hand-out worker's row (guest.of_a_guest).
+    """
+    from halo_harness.guest import of_a_guest
+    return isinstance(row, dict) and not of_a_guest(row)
 
 
 def _live() -> list:

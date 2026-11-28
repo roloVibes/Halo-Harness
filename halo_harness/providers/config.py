@@ -170,15 +170,22 @@ _HARNESS_SECRET_ENV_KEYS = frozenset({
 _LOGIN_WORDS = ("TOKEN", "KEY", "SECRET", "CREDENTIAL", "PASSWORD")
 
 
-def child_env_without_login(env: dict) -> dict:
+def child_env_without_login(env: dict, *, config_folder=None) -> dict:
     """3.6.0.26 H (a Claude Code hand-out's worker, guest/hand_out.worker_env): `tool_child_env(env)` minus Claude
     Code's own login and keys too -- every `ANTHROPIC_*` and every `CLAUDE_*` whose name says token, key, secret,
     credential or password (CLAUDE_CODE_OAUTH_TOKEN among them). A Halo child started for Claude Code never carries
-    its login."""
+    its login. After the review: NO SECRET AT ALL -- also every name (any case) with token, key, secret, credential or
+    password in it, every `AWS_*` (Bedrock: keys, session tokens, profiles) and GOOGLE_APPLICATION_CREDENTIALS
+    (Vertex): such a child calls only keyless hosts of his own. CLAUDE_CONFIG_DIR never goes on: with `config_folder`
+    it names that (the job's own empty folder), so nothing of the person's `~/.claude` is read or written by it."""
     def login(k: str) -> bool:
         k = k.upper()
-        return k.startswith("ANTHROPIC_") or (k.startswith("CLAUDE_") and any(w in k for w in _LOGIN_WORDS))
-    return {k: v for k, v in tool_child_env(env).items() if not login(k)}
+        return (k.startswith(("ANTHROPIC_", "AWS_")) or k == "GOOGLE_APPLICATION_CREDENTIALS"
+                or any(w in k for w in _LOGIN_WORDS))
+    out = {k: v for k, v in tool_child_env(env).items() if not login(k) and k.upper() != "CLAUDE_CONFIG_DIR"}
+    if config_folder is not None:  # Claude Code's config folder: the child's own empty one, never the person's
+        out["CLAUDE_CONFIG_DIR"] = str(config_folder)
+    return out
 
 
 def tool_child_env(env: dict, *, env_file_path: Optional[Path] = None) -> dict:

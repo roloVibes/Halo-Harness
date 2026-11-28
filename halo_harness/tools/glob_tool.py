@@ -25,6 +25,34 @@ _PRUNE_DIRS = frozenset({".git", "node_modules", ".venv", "__pycache__"})
 MAX_RESULTS = 500
 
 
+def pattern_root(base: Path, pattern: str) -> Path:
+    """3.6.0.26 H (the review's finding 3a): the deepest folder EVERY match of `pattern` searched from `base` lies in
+    -- what the permission engine rates a Glob by (permissions._categorize), as a Read of that path would be. `..`
+    climbs (`../../outside/*` is `<base>/../../outside`), an absolute pattern starts at its own anchor, the literal
+    segments before the first wildcard go down. `*` is one segment (`*/..` cancels); `**` counts as no segment, the
+    highest it can reach (`**/../x` reaches `<base>/../x`)."""
+    path = Path(pattern)
+    root = Path(path.anchor) if path.anchor else Path(base)
+    stack: list = []
+    for seg in (path.parts[1:] if path.anchor else path.parts):
+        if seg in ("", "."):
+            continue
+        if seg == "..":
+            at = next((i for i in range(len(stack) - 1, -1, -1) if stack[i] != "**"), None)
+            if at is None:
+                root = root.parent
+            else:
+                del stack[at]
+            continue
+        stack.append("**" if seg == "**" else "*" if any(c in seg for c in "*?[{") else seg)
+    prefix = []
+    for seg in stack:
+        if seg in ("*", "**"):
+            break
+        prefix.append(seg)
+    return root.joinpath(*prefix)
+
+
 class GlobTool(Tool):
     name = "Glob"
     description = DESCRIPTION

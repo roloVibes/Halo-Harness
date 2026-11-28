@@ -1019,6 +1019,29 @@ def test_fixpass_c_read_legacy_rewrite_applies_in_bypass_permissions_mode(ctx: C
             os.environ["BRIDGE_TEST_HOME"] = old_home
 
 
+@test
+def test_a_glob_pattern_that_climbs_out_is_rated_as_a_read_outside(ctx: Ctx):
+    """3.6.0.26 H (the review's finding 3a): a Glob is rated by where its PATTERN reaches, not by `path` alone: `..`
+    out of the project and an absolute pattern elsewhere are a read outside (an ask; in print mode a recorded denial),
+    as a Read of that folder is; a pattern that stays inside, or climbs back in, is still a read in the project."""
+    from halo_harness.tools.glob_tool import GlobTool
+    root = Path(tempfile.mkdtemp(prefix="glob-rate-"))
+    proj, outside = root / "work" / "proj", root / "outside"
+    proj.mkdir(parents=True)
+    outside.mkdir()
+    engine = P.PermissionEngine(mode="plan", cwd=proj, print_mode=True)
+    for pattern in ("../../outside/*", "../../**/*.txt", "**/../../../outside/*", f"{outside.as_posix()}/*", "*/../../x"):
+        cat = engine._categorize("Glob", {"pattern": pattern}, GlobTool())
+        d = engine.decide("Glob", {"pattern": pattern}, GlobTool())
+        ctx.check(f"{pattern}: read_outside and a recorded denial, got {cat} / {d.action}",
+                  cat == "read_outside" and d.action == "deny" and d.permission_denial is not None)
+    for pattern in ("**/*.py", "src/*.py", "src/../*.md", "a/*/../b/*"):
+        cat = engine._categorize("Glob", {"pattern": pattern}, GlobTool())
+        ctx.check(f"{pattern}: still a read in the project, got {cat}", cat == "read_in_workdir")
+    cat = engine._categorize("Glob", {"pattern": "../*", "path": str(proj / "src")}, GlobTool())
+    ctx.check(f"`..` from a path inside back to the project root: inside, got {cat}", cat == "read_in_workdir")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

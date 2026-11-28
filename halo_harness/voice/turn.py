@@ -99,7 +99,8 @@ def sessions(home=None) -> list:
     for r in (data.get("sessions") if isinstance(data, dict) else None) or []:
         if not isinstance(r, dict) or not r.get("session_id") or not r.get("endpoint"):
             continue
-        if r.get("kind") == "guest":  # 3.6.0.25 G: a Claude Code session, watch only: never offered off this machine
+        from halo_harness.guest import of_a_guest
+        if of_a_guest(r):  # 3.6.0.25 G / 3.6.0.26 H: a Claude Code session or its hand-out: never offered off this machine
             continue
         if isinstance(r.get("pid"), int) and not pid_alive(r["pid"]):
             continue

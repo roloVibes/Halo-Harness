@@ -68,14 +68,20 @@ def is_own_local_ref(ref: "ModelRef") -> bool:
     whose host entry carries no `api_key` (an entry with a key is an account somewhere, e.g. Ollama Cloud: an `ol:`
     prefix is a provider kind, not proof of his machine). A host name that is not configured: False. "A key" is also one
     kept in the env file and not loaded into this process: an entry naming `api_key_env` (3.3.13.1's migration writes
-    that shape), or the synthesized default host with OLLAMA_API_KEY in the env file."""
-    if ref.provider == "huggingface":
-        return bool(ref.local)
+    that shape), or the synthesized default host with OLLAMA_API_KEY in the env file. After the review (the
+    coordinator's ruling): OLLAMA HOSTS ONLY (`hf:local`/`hf:mlx` are not: a worker under --offline cannot start their
+    server), and the host's URL must pass the same "local" test --offline applies (providers.http.is_local_host:
+    loopback, a private address, a single-label or `.local` name, an `offline_ok` entry) -- a keyless host on a public
+    address is not his machine either."""
     if ref.provider != "ollama":
         return False
+    import urllib.parse
+    from halo_harness.providers.http import is_local_host
     from halo_harness.providers.ollama import resolve_ollama_host
     host = resolve_ollama_host(ref.host)
     if host is None or host.api_key:
+        return False
+    if not is_local_host(urllib.parse.urlparse(host.url or "").hostname, offline_ok=bool(getattr(host, "offline_ok", False))):
         return False
     if getattr(host, "synthesized", False):
         return not _env_file_has("OLLAMA_API_KEY")

@@ -2133,6 +2133,10 @@ class PermissionEngine:
             return "read_in_workdir" if (target is None or self._in_working_dirs(target)) else "read_outside"
         if tool_name in ("Glob", "Grep"):
             target = self._resolve_target_path(_str_field(tool_input, "path"))
+            pattern = _str_field(tool_input, "pattern") if tool_name == "Glob" else ""
+            if pattern:  # 3.6.0.26 H: a Glob is rated by where its pattern reaches (`..`, an absolute pattern)
+                from halo_harness.tools.glob_tool import pattern_root
+                target = pattern_root(target or self.cwd, pattern)
             return "read_in_workdir" if (target is None or self._in_working_dirs(target)) else "read_outside"
         if tool_name == "Bash":
             command = _str_field(tool_input, "command")

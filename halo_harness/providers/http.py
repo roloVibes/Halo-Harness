@@ -230,6 +230,14 @@ def _is_local_hostname(host: "str | None") -> bool:
     return "." not in name
 
 
+def is_local_host(host: "str | None", *, offline_ok: bool = False) -> bool:
+    """3.6.0.26 H: the "local" test `--offline` applies to a configured entry's host (`allowlisted_local_hosts`
+    below) plus loopback: a host a Claude Code hand-out's worker may call (model.is_own_local_ref)."""
+    lowered = (host or "").strip().lower()
+    return bool(lowered) and (offline_ok or _is_loopback_host(lowered) or _is_private_ip_literal(lowered)
+                              or _is_local_hostname(lowered))
+
+
 def allowlisted_local_hosts() -> "set[str]":
     """Every hostname `network.offline` lets through besides loopback --
     lowercased. Three sources, each read-only/local (no network call of its

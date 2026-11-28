@@ -8178,6 +8178,9 @@ class Session:
         and (c) no log record of the switch at all -- a `meta` node now
         carries the new model + the (possibly just-shrunk) tool list, the
         same shape `_on_catalog_grow` already logs."""
+        from halo_harness.guest import worker_refuses
+        if worker_refuses(model_ref):  # 3.6.0.26 H: a hand-out worker never moves off his own local models
+            raise ValueError(f"{model_ref.raw} is not one of your own local models: a hand-out stays local")
         old_model_raw = self.model_ref.raw
         _old_provider = self.model_ref.provider
         # Halo 2.0.5 round 5: the SAME host-dialect override __init__

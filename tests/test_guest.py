@@ -555,7 +555,10 @@ def test_a_guest_row_is_never_offered_to_a_transport_nor_to_the_lan_voice_door(c
     rows = [{"session_id": "h-1", "title": "my own work", "cwd": CWD, "pid": os.getpid(), "endpoint": ep, "kind": "tui",
              "started": 1.0},
             {"session_id": "g-1", "title": "Claude Code", "cwd": CWD, "pid": os.getpid(), "endpoint": ep, "kind": "guest",
-             "started": 2.0}]
+             "started": 2.0},
+            # 3.6.0.26 H, after the review (finding 6): a hand-out worker carries the goal Claude Code sent
+            {"session_id": "w-1", "title": "Claude Code hand-out", "cwd": CWD, "pid": os.getpid(), "endpoint": ep,
+             "kind": "print", "parent": "guest:g-1", "started": 3.0}]
     real = registry.list_live
     with _Home() as home:
         try:
@@ -564,6 +567,7 @@ def test_a_guest_row_is_never_offered_to_a_transport_nor_to_the_lan_voice_door(c
             ctx.check(f"sessions(): the Halo session only, got {[r['session_id'] for r in remote.sessions()]}",
                       [r["session_id"] for r in remote.sessions()] == ["h-1"])
             ctx.check("connect() to the guest: None", remote.connect("g-1", timeout=1) is None)
+            ctx.check("connect() to its hand-out worker: None", remote.connect("w-1", timeout=1) is None)
             text = "\n".join(remote.live_lines())
             ctx.check(f"live_lines(): one live session, the guest not named: {text!r}",
                       "1 live session(s)" in text and "Claude Code" not in text and "my own work" in text)
@@ -966,12 +970,26 @@ def test_only_his_own_local_models_are_allowed_and_a_refusal_starts_nothing(ctx:
             ctx.check(f"what Halo knows, nothing invented: {q}",
                       q["trained_window"] == 40960 and q["tool_calling"] == "yes" and q["tok_s"] == "not known"
                       and q["cold_load_s"] == "not known" and "tuner_guide" not in q)
+            ctx.check("halo_models says nothing of hf: (Ollama hosts only)", "hf:" not in json.dumps(H.models(home.path / ".halo")))
             jobs = _hand_outs(home.path, home.path)
             for model in ("ol:qwen3:30b@cloud-box", "or:vendor/model", "ant:opus", "dbx:databricks-gpt-5-mini",
-                          "claude-opus-4-5", "sonnet", "--tools=Bash"):
+                          "claude-opus-4-5", "sonnet", "--tools=Bash", "hf:local/qwen3", "hf:mlx/org/qwen3",
+                          "oai:gpt-x", "local:qwen3"):
                 job, why = jobs.start({"goal": "say hi", "mode": "none", "model": model})
-                ctx.check(f"{model}: refused with the allowed ones named, got {why!r}",
-                          job is None and "allowed: ol:<model>" in why and "hf:local/<model>" in why)
+                ctx.check(f"{model}: refused with the allowed ones named (Ollama only), got {why!r}",
+                          job is None and "allowed: ol:<model>" in why and "hf:" not in why.split("allowed:", 1)[1])
+            cfg = json.loads((home.path / ".halo" / "config.json").read_text(encoding="utf-8"))
+            cfg["ollama"]["hosts"].append({"name": "pub", "url": "https://ollama.example.com"})
+            _write_config(home.path, **cfg)
+            job, why = jobs.start({"goal": "say hi", "mode": "none", "model": "ol:qwen3:30b@pub"})
+            ctx.check(f"a keyless entry on a public address is not his machine: refused, got {why!r}",
+                      job is None and "is not local" in why)
+            ctx.check("and not listed", not any(r["host"] == "pub" for r in H.models(home.path / ".halo")["models"]))
+            with _Env(OLLAMA_HOST="https://ollama.example.com"):
+                _write_config(home.path)
+                ref, _h, why = H.choose("ol:qwen3:30b", home.path / ".halo")
+                ctx.check(f"the default host on a public address: refused, got {why!r}", not ref and "is not local" in why)
+            _write_config(home.path, **cfg)
             job, why = jobs.start({"goal": "say hi", "mode": "edits", "model": "ol:qwen3:30b@mine"})
             ctx.check(f"mode edits is refused, got {why!r}", job is None and why.startswith("mode is none"))
             ctx.check("nothing was started: no job, no worker in the ledger, no chat sent",
@@ -1115,6 +1133,116 @@ def test_read_only_runs_no_command_reads_no_login_and_writes_nothing_under_claud
                   p["state"] == "done" and "did not read" in p["summary"])
 
 
+def _files(root: Path) -> dict:
+    return {str(p.relative_to(root)).replace("\\", "/"): p for p in root.rglob("*") if p.is_file()}
+
+
+def _seal(home: Path, project: Path, outside: Path, marks: Path) -> None:
+    """The person's own settings, as full as they get: Claude Code's user settings and the project's, each with
+    command hooks that write a marker, allow rules, an added folder outside the project, an `env` block with a
+    token; his CLAUDE.md and the project's. A sealed worker takes in none of it."""
+    py = Path(sys.executable).as_posix()
+
+    def hook(name):
+        code = f"open(r'{(marks / name).as_posix()}', 'w').write('ran')"
+        return [{"hooks": [{"type": "command", "command": f'"{py}" -c "{code}"'}]}]
+    events = ("SessionStart", "UserPromptSubmit", "PreToolUse", "Stop", "SessionEnd")
+    cc = home / ".claude"
+    cc.mkdir(exist_ok=True)
+    (cc / "settings.json").write_text(json.dumps({
+        "env": {"ANTHROPIC_AUTH_TOKEN": "TOK-FROM-SETTINGS-77", "OLLAMA_API_KEY": "TOK-FROM-SETTINGS-78"},
+        "permissions": {"allow": ["Read", "Glob", "Grep"], "additionalDirectories": [str(outside)],
+                        "defaultMode": "bypassPermissions"},
+        "hooks": {e: hook(f"user-{e}") for e in events}}), encoding="utf-8")
+    (cc / "CLAUDE.md").write_text("USER-RULE-TEXT-6\n", encoding="utf-8")
+    (cc / ".claude.json").write_text(json.dumps({"projects": {str(project): {"hasTrustDialogAccepted": True},
+                                                              project.as_posix(): {"hasTrustDialogAccepted": True}}}))
+    (project / ".claude").mkdir(exist_ok=True)
+    (project / ".claude" / "settings.json").write_text(json.dumps({
+        "permissions": {"allow": ["Read"]}, "hooks": {e: hook(f"project-{e}") for e in events}}), encoding="utf-8")
+    (project / "CLAUDE.md").write_text("PROJECT-RULE-TEXT-5\n", encoding="utf-8")
+
+
+@test
+def test_a_worker_is_a_sealed_run_in_each_mode(ctx: Ctx):
+    """After the review (findings 1-4): no settings file of the person's, of Claude Code's or of the project changes
+    what a worker may do -- no hook of any source runs, no allow rule or added folder lets a read outside the project
+    through (it is a recorded denial, a Glob with `..` too), no `env` token reaches a request, no instruction file
+    goes to the model -- and nothing of the worker is kept: no transcript, no history entry, nothing new under
+    ~/.claude; while the bridge lives only its job file holds the job's words, after its close nothing does."""
+    for mode in ("none", "read_only"):
+        with _Home() as home:
+            h = home.path
+            outside, marks = h / "elsewhere", h / "marks"
+            outside.mkdir()
+            marks.mkdir()
+            (outside / "s.txt").write_text("OUTSIDE-TEXT-31\n", encoding="utf-8")
+            (outside / "listed-name-42.txt").write_text("x\n", encoding="utf-8")
+            seen = {}
+
+            def setup(jobs):
+                _seal(h, jobs.project, outside, marks)
+                seen["jobs"], seen["before"] = jobs, set(_files(h))
+            steps = [_said("SEALED-ANSWER-8")] if mode == "none" else [
+                _tool("Read", file_path=str(outside / "s.txt")), _tool("Glob", pattern="../elsewhere/*"),
+                _said("SEALED-ANSWER-8")]
+            with _Env(CLAUDE_CONFIG_DIR=str(h / ".claude")):
+                job, why, mock = _run_job(h, {"goal": "SEALED-GOAL-9", "mode": mode}, *steps, setup=setup)
+            ctx.check(f"{mode}: started and done ({why})", job is not None and job.packet()["state"] == "done")
+            ctx.check(f"{mode}: no hook of any source ran, got {sorted(os.listdir(marks))}", os.listdir(marks) == [])
+            sent = json.dumps(mock.requests)
+            ctx.check(f"{mode}: no settings token in any request the mock saw", "TOK-FROM-SETTINGS" not in sent)
+            ctx.check(f"{mode}: no instruction file of his or of the project went to the model",
+                      "USER-RULE-TEXT-6" not in sent and "PROJECT-RULE-TEXT-5" not in sent and "SEALED-GOAL-9" in sent)
+            if mode == "read_only":
+                denied = sorted(str(d.get("tool_name")) for d in job.packet()["permission_denials"])
+                ctx.check(f"read_only: the allowed and added outside read and the `..` Glob are recorded denials, "
+                          f"got {denied}", denied == ["Glob", "Read"])
+                ctx.check("read_only: nothing outside reached the model (no text, no file name)",
+                          "OUTSIDE-TEXT-31" not in sent and "listed-name-42" not in sent)
+            new = {k: p for k, p in _files(h).items() if k not in seen["before"]}
+            ctx.check(f"{mode}: no transcript, no history entry, nothing under ~/.claude: "
+                      f"{sorted(k for k in new if k.startswith(('.halo/sessions', '.claude')))}",
+                      not any(k.startswith((".halo/sessions", ".claude")) for k in new))
+            words = lambda p: any(w in p.read_bytes() for w in (b"SEALED-GOAL-9", b"SEALED-ANSWER-8"))  # noqa: E731
+            holders = sorted(k for k, p in new.items() if words(p))
+            ctx.check(f"{mode}: while the bridge lives only its job file holds the job's words, got {holders}",
+                      len(holders) == 1 and ".job." in holders[0] and holders[0].endswith(".json"))
+            seen["jobs"].close()
+            after = {k: p for k, p in _files(h).items() if k not in seen["before"]}
+            ctx.check(f"{mode}: after the bridge's close nothing holds them, got {sorted(k for k, p in after.items() if words(p))}",
+                      not any(words(p) for p in after.values()))
+            ctx.check(f"{mode}: and nothing of the job is left in the run folder",
+                      not [n for n in os.listdir(h / ".halo" / "run" / "guest") if ".job." in n])
+
+
+@test
+def test_a_worker_calls_only_his_own_local_models_whatever_his_roles_say(ctx: Ctx):
+    """After the review (finding 5): `roles.small`, `roles.judge` and `routing.escalation` pointed at a paid account
+    behind a loopback gateway (a local router in front of a paid API) -- `--offline` lets loopback through, so only
+    the worker mark holds: that gateway is never hit, and the hand-out still answers."""
+    gateway = _mock(_said("PAID-ANSWER"), _said("PAID-ANSWER"), _said("PAID-ANSWER"), model="paid-x")
+    try:
+        with _Home() as home:
+            def setup(_jobs):
+                cfg = json.loads((home.path / ".halo" / "config.json").read_text(encoding="utf-8"))
+                paid = "local:paid-x@gw"
+                cfg.update({"local": {"servers": {"gw": {"base_url": f"{gateway.base_url}/v1", "api_key": "paid-key"}}},
+                            "roles": {"small": paid, "judge": paid},
+                            "routing": {"escalation": {"to": paid, "when": ["low_confidence", "tool_failures"], "ask": False}}})
+                _write_config(home.path, **cfg)
+            with _Env(HALO_MODEL_SMALL="local:paid-x@gw"):
+                job, why, mock = _run_job(home.path, {"goal": "Say hi", "mode": "none"}, _said("hi there"),
+                                          _said("yes"), _said("yes"), setup=setup)
+            ctx.check(f"started ({why})", job is not None)
+            p = job.packet()
+            ctx.check(f"the hand-out still answers: {p['state']}, {p['summary']!r}",
+                      p["state"] == "done" and "hi there" in p["summary"])
+            ctx.check(f"the gateway was never hit, got {[r.get('path') for r in gateway.requests]}", not gateway.requests)
+    finally:
+        gateway.stop()
+
+
 @test
 def test_the_sweep_removes_a_dead_bridges_plan_folder(ctx: Ctx):
     from halo_harness.guest import bridge
@@ -1123,10 +1251,21 @@ def test_the_sweep_removes_a_dead_bridges_plan_folder(ctx: Ctx):
         plans = d / f"{PID}.job.{'a' * 32}.plans"
         plans.mkdir(parents=True)
         (plans / "ridge-cedar-bright.md").write_text("", encoding="utf-8")
-        (d / f"{PID}.job.{'a' * 32}.json").write_text("{}", encoding="utf-8")
+        # after the review (finding 1): a worker ended hard left its transcript and history entry; its job file names it
+        from halo_harness.agent import sessions as agent_sessions
+        from halo_harness.config.paths import state_slug
+        project, sid = home.path / "proj", "b" * 32
+        logs = home.path / ".halo" / "sessions" / state_slug(project)
+        logs.mkdir(parents=True)
+        (logs / f"{sid}.jsonl").write_text('{"type": "user", "text": "THE GOAL"}\n', encoding="utf-8")
+        (logs / "index.json").write_text(json.dumps({sid: {"title": "THE GOAL"}}), encoding="utf-8")
+        (d / f"{PID}.job.{'a' * 32}.json").write_text(json.dumps({"job": {}, "session": {"id": sid, "project": str(project)}}),
+                                                      encoding="utf-8")
         bridge.sweep(d)
         ctx.check(f"no bridge runs for {PID}: its job file and plan folder are swept, left {sorted(os.listdir(d))}",
                   os.listdir(d) == [])
+        ctx.check(f"and its worker's transcript and history entry, left {sorted(os.listdir(logs)) if logs.exists() else []}",
+                  not logs.exists() and sid not in agent_sessions.load_index(project))
 
 
 @test
@@ -1162,8 +1301,14 @@ def test_the_worker_is_given_no_login_and_no_provider_secret(ctx: Ctx):
         seen.update(kw.get("env") or {})
         raise OSError("the test's stand-in starts nothing")
     secrets = {"CLAUDE_CODE_OAUTH_TOKEN": "fake-oauth", "ANTHROPIC_API_KEY": "fake-a", "ANTHROPIC_AUTH_TOKEN": "fake-b",
-               "ANTHROPIC_BASE_URL": "http://127.0.0.1:9", "OPENROUTER_API_KEY": "fake-or", "OLLAMA_API_KEY": "fake-ol"}
-    with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9", **secrets):
+               "ANTHROPIC_BASE_URL": "http://127.0.0.1:9", "OPENROUTER_API_KEY": "fake-or", "OLLAMA_API_KEY": "fake-ol",
+               # after the review: no secret at all, Bedrock and Vertex logins, the shell's model choices, a proxy
+               "AWS_SECRET_ACCESS_KEY": "fake-aws", "AWS_SESSION_TOKEN": "fake-aws2", "AWS_BEARER_TOKEN_BEDROCK": "fake-b3",
+               "AWS_PROFILE": "fake-profile", "GOOGLE_APPLICATION_CREDENTIALS": "/x/fake-adc.json", "GH_TOKEN": "fake-gh",
+               "Probe_Db_Password": "fake-pw", "HF_TOKEN": "fake-hf", "HALO_MODEL": "ant:fake-opus",
+               "HALO_MODEL_SMALL": "ant:fake-haiku", "HTTPS_PROXY": "http://u:pw@proxy.example.com:8080",
+               "http_proxy": "http://u:pw@proxy.example.com:8080", "CLAUDE_CONFIG_DIR": "/somewhere/.claude"}
+    with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9", NO_PROXY="localhost", **secrets):
         jobs = _hand_outs(home.path, home.path)
         task, _why = H.task_of({"goal": "x", "mode": "none"})
         job = H.Job(jobs, task, "ol:qwen3:30b@mine", "ollama:mine", {"goal": "x", "mode": "none"})
@@ -1174,10 +1319,18 @@ def test_the_worker_is_given_no_login_and_no_provider_secret(ctx: Ctx):
         finally:
             subprocess_safe.Popen = real
         ctx.check("the stand-in was reached", bool(seen))
-        ctx.check(f"no login and no secret in the worker's env, got {sorted(k for k in secrets if k in seen)}",
-                  not any(k in seen for k in secrets))
-        ctx.check("OLLAMA_HOST and the parent mark go", seen.get("OLLAMA_HOST") == "http://127.0.0.1:9"
-                  and str(seen.get("HALO_SESSION_PARENT") or "").startswith("guest:"))
+        kept = {k.upper() for k in seen}  # Windows' environment names are upper case
+        left = sorted(k for k in secrets if k.upper() in kept and k != "CLAUDE_CONFIG_DIR")
+        ctx.check(f"no login and no secret in the worker's env, got {left}", not left)
+        ctx.check(f"the values never went either, got {[k for k, v in secrets.items() if v in seen.values()]}",
+                  not any(v in seen.values() for k, v in secrets.items() if k != "ANTHROPIC_BASE_URL"))  # its value is OLLAMA_HOST's here
+        ctx.check("OLLAMA_HOST, NO_PROXY and the parent mark go", seen.get("OLLAMA_HOST") == "http://127.0.0.1:9"
+                  and seen.get("NO_PROXY") == "localhost" and str(seen.get("HALO_SESSION_PARENT") or "").startswith("guest:"))
+        from halo_harness.guest import WORKER_MARK
+        ctx.check(f"the worker mark is set and its Claude config folder is the job's own, got "
+                  f"{seen.get(WORKER_MARK)!r}, {seen.get('CLAUDE_CONFIG_DIR')!r}",
+                  seen.get(WORKER_MARK) == "1" and seen.get("CLAUDE_CONFIG_DIR") == str(jobs.plans(job)))
+        ctx.check("the job's folder went with the job", not jobs.plans(job).exists())
         ctx.check(f"the job says failed, never a hang: {job.state}", job.state == "failed" and job.done.is_set())
 
 
@@ -1516,9 +1669,14 @@ def _kill_leg(ctx: Ctx, how: str) -> None:
             ctx.check(f"{how}: the worker (pid {row and row['pid']}) is gone within {GONE_S:.0f} s",
                       row is not None and _gone(row, GONE_S))
             mcp.proc.wait(60)
+            if how == "input-closes":  # after the review (finding 8): the bridge's own close left nothing, before any sweep
+                ctx.check(f"{how}: no job file is left by the bridge's close, before any sweep, got {_job_files(home.path)}",
+                          not _job_files(home.path))
             from halo_harness.guest import sweep_dead
             sweep_dead()
             ctx.check(f"{how}: no job file is left after the sweep, got {_job_files(home.path)}", not _job_files(home.path))
+            kept = sorted(str(p) for p in (home.path / ".halo" / "sessions").rglob("*.jsonl"))
+            ctx.check(f"{how}: and no transcript of the worker is kept, got {kept}", not kept)
         finally:
             stop.set()
             if mcp is not None:

@@ -470,6 +470,10 @@ def test_setting_sources_restricts_project_layer(ctx: Ctx):
         # with the project layer excluded, that's what's left standing.
         ctx.check(f"--setting-sources user excludes project, falls back to user's own auto, got {mode_without!r}",
                   mode_without == "auto")
+        # 3.6.0.26 H: an empty value (Claude Code's SDK sends it for none) reads none of user, project, local
+        none = _run_cli(fh, mock, "hi", extra_args=["--output-format", "stream-json", "--setting-sources", ""])
+        mode_none = json.loads(none.stdout.splitlines()[0])["permissionMode"]
+        ctx.check(f"--setting-sources \"\" reads no layer: the plain default, got {mode_none!r}", mode_none == "default")
     finally:
         mock.stop()
 

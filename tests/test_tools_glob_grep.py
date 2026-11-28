@@ -272,6 +272,34 @@ def test_grep_over_a_fifo_does_not_hang(ctx: Ctx):
                   "normal.txt" in outcome["result"].content)
 
 
+@test
+def test_a_glob_patterns_root_holds_every_match_it_can_return(ctx: Ctx):
+    """3.6.0.26 H (the review's finding 3a): `pattern_root(base, pattern)` is the folder every match lies in (what the
+    permission engine rates a Glob by): a pattern with `..` reaches above `base`, and every file the tool returns for
+    it is inside that root, so a root inside the project means no match outside it."""
+    import os
+    from halo_harness.tools.glob_tool import pattern_root
+    top = Path(tempfile.mkdtemp(prefix="glob-root-")).resolve()
+    base = top / "work" / "proj"
+    for rel in ("work/proj/src/a.py", "work/proj/b.md", "work/notes.txt", "outside/secret.txt"):
+        (top / rel).parent.mkdir(parents=True, exist_ok=True)
+        (top / rel).write_text("x\n", encoding="utf-8")
+    want = {"../../outside/*": top / "outside", "../../**/*.txt": top, "**/../../x": top,
+            "src/*.py": base / "src", "src/../*.md": base, "*/../*.md": base, "**/*.py": base}
+    for pattern, root in want.items():
+        got = Path(os.path.normpath(pattern_root(base, pattern)))
+        ctx.check(f"{pattern}: root {root}, got {got}", got == root)
+    for pattern in ("../../outside/*", "../../**/*.txt", "src/*.py", "*/../*.md", "../*"):
+        root = os.path.normpath(pattern_root(base, pattern))
+        out = GlobTool().run({"pattern": pattern}, ToolContext(cwd=base)).content
+        found = [ln for ln in out.splitlines() if ln and not ln.startswith(("No files", "..."))]
+        ctx.check(f"{pattern}: every match lies in its root {root}: {found}",
+                  found and all(os.path.normpath(f).startswith(root) for f in found))
+    absolute = pattern_root(base, f"{(top / 'outside').as_posix()}/*")
+    ctx.check(f"an absolute pattern starts at its own anchor, got {absolute}",
+              Path(os.path.normpath(absolute)) == top / "outside")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
