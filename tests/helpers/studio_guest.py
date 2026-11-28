@@ -4,7 +4,7 @@ home and an in-process guest bridge fed hook lines (no Claude Code, no model). t
 
     python -m tests.helpers.studio_guest guest   Session on the guest: the header says "Claude Code" and "watch only",
                                                  no Prompt box (the watch-only line instead), Steer and Screenshot
-                                                 disabled, the cost "not known", the agent rows of the bridge's tree;
+                                                 disabled, no Steer box, the registry row;
                                                  then the bridge ends: its row leaves the list
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). Nothing is started but the in-process
@@ -40,15 +40,19 @@ def _lines(proj: Path) -> list:
 
 def look(c, server, bridge) -> dict:
     from halo_harness.studio.server import url_for
-    c.go(url_for(server, "session").replace("#t=", f"&tour=off&session={bridge.act.session_id}#t="))
+    c.go(url_for(server, "session").replace("#t=", f"&tour=off&session={bridge.act.session_id}&prompt=1#t="))
     words = f"{Q}('[data-testid=\"prompt-to\"]')?.textContent || ''"
-    out = {"head": c.wait(f"({words}).includes('watch only') && {words}", 40)}
+    try:
+        out = {"head": c.wait(f"({words}).includes('watch only') && {words}", 40)}
+    except TimeoutError as e:
+        seen = c.js("JSON.stringify({to: " + words + ", prompt: !!" + Q + "('[data-testid=\"prompt-detail\"]'), "
+                    "url: location.search, text: document.body.innerText.slice(0, 600)})")
+        raise TimeoutError(f"{e}; the page: {seen}") from None
     out["watch_line"] = c.wait(f"{Q}('[data-testid=\"prompt-watch-only\"]')?.textContent", 15)
     out["prompt_input"] = c.js(f"!!{Q}('[data-testid=\"prompt-input\"]')")
     out["steer_disabled"] = c.js(f"{Q}('[data-testid=\"session-live-steer-open\"]')?.disabled")
     out["shot_disabled"] = c.js(f"{Q}('[data-testid=\"session-live-screenshot\"]')?.disabled")
     out["steer_box"] = c.js(f"!!{Q}('[data-testid=\"session-live-steer\"]')")
-    out["cost"] = c.js(f"{Q}('[data-testid=\"session-cost-guest\"]')?.textContent || ''")
     from halo_harness.remote import registry
     out["row"] = next((r for r in registry.list_live() if r.get("kind") == "guest"), None)
     return out
