@@ -195,8 +195,8 @@ dynamic servers.
 
 #### `--strict-mcp-config`
 What: use *only* `--mcp-config` (plus `--chrome`/`--playwright` if also
-given) -- every other source (`.mcp.json`, `~/.claude.json`, plugins) is
-skipped for this run.
+given) -- every other source (`.mcp.json`, `~/.claude.json`, plugins, the
+claude.ai connectors: no `claude auth status`, no discovery) is skipped for this run.
 ```sh
 halo -p --strict-mcp-config --mcp-config '{"mcpServers":{}}' "hi"
 ```

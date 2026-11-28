@@ -12,7 +12,8 @@ A worker is `halo -p --output-format json --strict-mcp-config --offline` (no too
 own local hosts on the network), a CHILD of the bridge started through subprocess_safe.Popen after the bridge ran
 closing.install() (Windows: born in the bridge's Job; POSIX: its own session, watching the bridge) and recorded in the
 children ledger as the bridge's. Its prompt goes on stdin. `none` = `--tools ""`, `read_only` = `--permission-mode
-plan`: a print run turns every ask into a recorded denial, so nothing waits for a person. The wall clock is this
+plan --tools Read,Grep,Glob` (its plan file in the job's own folder): a print run turns every ask (a read outside the
+project folder) into a recorded denial, so nothing waits for a person. The wall clock is this
 module's timer: the polite `shutdown` on the worker's socket, then closing's stop of the pid (children_stop). A job's
 record lives in this process and in `<guest dir>/<claude pid>.job.<id>.json` (0600) while the bridge lives; the
 bridge's end removes it, guest.sweep_dead removes a dead bridge's.
@@ -43,6 +44,7 @@ PAIR_NS = 5_000_000_000  # a hook line of the call and the call itself land this
 LOG_LINES = 20
 TOOL = "halo_hand_out"  # its hook line names it mcp__plugin_halo-guest_halo-guest__halo_hand_out
 COST = "free (local)"
+READ_ONLY_TOOLS = "Read,Grep,Glob"  # read_only's whole tool set: no Bash, PowerShell, Agent, Workflow or web
 ALLOWED = ("allowed: ol:<model> or ol:<model>@<host> on an Ollama host entry with no key (your own machine or network), "
            "hf:local/<model>, hf:mlx/<model>")
 OFF_LINE = "hand-outs are off: `halo config set guest.hand_out local` turns them on (then reconnect this server)"
@@ -227,12 +229,27 @@ def answers(text: str, checks: list) -> list:
     return [{"check": c, "answer": "not answered"} for c in checks]
 
 
-def argv_of(model: str, project, turns: int, mode: str) -> list:
-    """The worker's command line, from the helper Studio's new-session start uses (selfexec.python_argv)."""
+def argv_of(model: str, project, turns: int, mode: str, plans=None) -> list:
+    """The worker's command line, from the helper Studio's new-session start uses (selfexec.python_argv). read_only:
+    plan mode AND only READ_ONLY_TOOLS (plan mode alone allows read-only Bash anywhere, sub-agents and web reads);
+    `plans` is the job's own folder for plan mode's plan file (never `~/.claude/plans`)."""
     from halo_harness.selfexec import python_argv
     argv = [*python_argv(unbuffered=True), "-p", "--output-format", "json", "--strict-mcp-config", "--offline",
             "--model", model, "--cwd", str(project), "--max-turns", str(turns)]
-    return argv + (["--tools", ""] if mode == "none" else ["--permission-mode", "plan"])
+    if mode == "none":
+        return argv + ["--tools", ""]
+    return argv + ["--permission-mode", "plan", "--tools", READ_ONLY_TOOLS] + (
+        ["--settings", json.dumps({"plansDirectory": str(plans)})] if plans is not None else [])
+
+
+def worker_env(environ) -> dict:
+    """The worker's environment: this process's, minus every provider secret and Claude Code's own login and keys
+    (providers.config.child_env_without_login) and an orchestra run's mark. The worker reads the env file itself,
+    for his own hosts only."""
+    from halo_harness.providers.config import child_env_without_login
+    from halo_harness.remote.session_identity import PARENT_ENV
+    env = child_env_without_login(dict(environ))
+    return {k: v for k, v in env.items() if k not in ("HALO_ORCHESTRA_RUN", PARENT_ENV)}
 
 
 # ---- the arguments ---------------------------------------------------------------------------------------------------
@@ -346,8 +363,9 @@ class Job:
     def _start(self) -> None:
         from halo_harness import subprocess_safe as subprocess
         from halo_harness.remote.session_identity import PARENT_ENV
-        argv = argv_of(self.model, self.owner.project, self.task["turns"], self.task["mode"])
-        env = {k: v for k, v in os.environ.items() if k not in ("HALO_ORCHESTRA_RUN", PARENT_ENV)}
+        argv = argv_of(self.model, self.owner.project, self.task["turns"], self.task["mode"],
+                       plans=None if self.task["mode"] == "none" else self.owner.plans(self))
+        env = worker_env(os.environ)
         env.update({PARENT_ENV: f"guest:{self.owner.sid}", "PYTHONIOENCODING": "utf-8"})
         kw: dict = {"stdin": subprocess.PIPE, "stdout": subprocess.PIPE, "stderr": subprocess.PIPE,
                     "cwd": str(self.owner.project), "env": env}
@@ -491,6 +509,7 @@ class Job:
         if self.proc is not None:
             from halo_harness import children
             children.unregister(self.proc.pid)
+        _rmtree(self.owner.plans(self))
         self.done.set()
         self.owner.ended(self)
 
@@ -517,6 +536,10 @@ class HandOuts:
 
     def path(self, job: Job) -> Path:
         return self.dir / f"{self.claude_pid}.job.{job.id}.json"
+
+    def plans(self, job: Job) -> Path:
+        """read_only's plan-mode folder (`plansDirectory`): beside the job's file, removed with it."""
+        return self.dir / f"{self.claude_pid}.job.{job.id}.plans"
 
     def save(self, job: Job) -> None:
         _private(self.path(job), {"job": job.brief(), **({"result": job.result} if job.result else {})})
@@ -633,3 +656,9 @@ class HandOuts:
                 os.unlink(self.path(job))
             except OSError:
                 pass
+            _rmtree(self.plans(job))
+
+
+def _rmtree(path: Path) -> None:
+    import shutil
+    shutil.rmtree(path, ignore_errors=True)

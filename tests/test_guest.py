@@ -671,7 +671,7 @@ def _said(text: str) -> list:
 
 def _tool(name: str, **args) -> list:
     return [{"message": {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": name, "arguments": args}}]},
-             "done": True, "done_reason": "stop", "prompt_eval_count": 20, "eval_count": 6}]
+             "done": True, "done_reason": "stop", "prompt_eval_count": "real", "eval_count": 6}]  # "real": the mock counts
 
 
 def _slow(stop, seconds: float, text: str = "late"):
@@ -884,12 +884,18 @@ def test_the_setting_reads_off_for_any_other_value_and_doctor_says_so(ctx: Ctx):
 
 @test
 def test_a_client_revision_this_server_does_not_implement_is_answered_with_its_newest(ctx: Ctx):
+    """Hand-outs on: never an echo of a revision this server does not implement. Off: release 1's answer byte for byte
+    (its echo, whatever the client asked)."""
     from halo_harness.guest import bridge
-    got = bridge.answer({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2026-07-28"}})
-    ctx.check(f"an unknown revision: the newest implemented, got {got['result']['protocolVersion']}",
+    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2026-07-28"}}
+    got = bridge.answer(init, hand_outs=True)
+    ctx.check(f"on, an unknown revision: the newest implemented, got {got['result']['protocolVersion']}",
               got["result"]["protocolVersion"] == bridge.REVISIONS[-1] != "2026-07-28")
-    got = bridge.answer({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}})
-    ctx.check("a known one is kept", got["result"]["protocolVersion"] == "2025-06-18")
+    got = bridge.answer({**init, "params": {"protocolVersion": "2025-06-18"}}, hand_outs=True)
+    ctx.check("on, a known one is kept", got["result"]["protocolVersion"] == "2025-06-18")
+    got = bridge.answer(init)
+    ctx.check(f"off: release 1's echo, got {got['result']['protocolVersion']}",
+              got["result"]["protocolVersion"] == "2026-07-28")
 
 
 @test
@@ -1007,7 +1013,7 @@ def test_a_third_job_and_a_second_on_one_host_are_refused_with_one_line(ctx: Ctx
             mock.stop()
 
 
-def _run_job(home: Path, args: dict, *steps, seconds: float = 120.0, setup=None):
+def _run_job(home: Path, args: dict, *steps, seconds: float = 120.0, setup=None, quiet_net: bool = True):
     """One hand-out run in THIS process (the worker a real `halo -p` child of the test) against the mock."""
     mock = _mock(*steps)
     jobs = job = None
@@ -1016,7 +1022,8 @@ def _run_job(home: Path, args: dict, *steps, seconds: float = 120.0, setup=None)
         project = home / "proj"
         project.mkdir(exist_ok=True)
         (project / "a.txt").write_text("alpha\n", encoding="utf-8")
-        with _Env(OLLAMA_HOST=mock.base_url, HALO_NO_UPDATER="1", BRIDGE_TEST_NO_BACKGROUND_NET="1", PYTHONPATH=str(REPO)):
+        with _Env(OLLAMA_HOST=mock.base_url, HALO_NO_UPDATER="1", BRIDGE_TEST_NO_BACKGROUND_NET="1" if quiet_net else None,
+                  PYTHONPATH=str(REPO)):
             jobs = _hand_outs(home, project)
             if setup:
                 setup(jobs)
@@ -1055,19 +1062,232 @@ def test_a_hand_out_in_none_returns_the_packet(ctx: Ctx):
 
 @test
 def test_read_only_denies_a_write_and_an_ask_and_a_check_not_followed_reads_not_answered(ctx: Ctx):
+    """read_only's tools are Read, Grep and Glob: a Write is no tool of its (never run); an ask (a read outside the
+    project folder) is a recorded denial, never a hang."""
     with _Home() as home:
-        job, why, _m = _run_job(home.path, {"goal": "Change a.txt", "mode": "read_only", "acceptance": ["a.txt changed"]},
-                                _tool("Write", file_path="a.txt", content="beta"), _tool("Bash", command="rm -rf build"),
-                                _said("I could not change it."))
+        outside = home.path / "elsewhere.txt"
+        outside.write_text("OUTSIDE-TEXT-31\n", encoding="utf-8")
+        job, why, mock = _run_job(home.path, {"goal": "Change a.txt", "mode": "read_only", "acceptance": ["a.txt changed"]},
+                                  _tool("Write", file_path="a.txt", content="beta"),
+                                  _tool("Read", file_path=str(outside)), _said("I could not change it."))
         ctx.check(f"started ({why})", job is not None and job.done.is_set())
         p = job.packet()
         denied = [str(d.get("tool_name") or d.get("tool") or d) for d in p["permission_denials"]]
-        ctx.check(f"the write and the ask are recorded denials, never a hang: {p['permission_denials']}",
-                  any("Write" in d for d in denied) and any("Bash" in d for d in denied))
+        ctx.check(f"the ask (a read outside the project) is a recorded denial, never a hang: {p['permission_denials']}",
+                  any("Read" in d for d in denied))
+        sent = json.dumps([r.get("body") for r in mock.requests if r.get("path") == "/api/chat"])
+        ctx.check("the write was never run (no tool of read_only's) and the outside text never reached the model",
+                  "Unknown tool" in sent and "OUTSIDE-TEXT-31" not in sent)
         ctx.check("a.txt is unchanged", (home.path / "proj" / "a.txt").read_text(encoding="utf-8") == "alpha\n")
         ctx.check(f"the check not answered, the text still returned: {p['acceptance']}, {p['summary']!r}",
                   p["acceptance"] == [{"check": "a.txt changed", "answer": "not answered"}]
                   and "could not change" in p["summary"] and p["state"] == "done")
+
+
+@test
+def test_read_only_runs_no_command_reads_no_login_and_writes_nothing_under_claude(ctx: Ctx):
+    """The check's probe: in read_only a `cat` of a file outside the project (a Claude login file) is never run, the
+    worker is offered Read, Grep and Glob only (no Bash, Agent, Workflow, web), and plan mode's plan file goes to the
+    job's own folder, removed with the job: the scratch home's ~/.claude is exactly as it was."""
+    with _Home() as home:
+        cred = home.path / ".claude" / ".credentials.json"
+        cred.parent.mkdir(parents=True)
+        cred.write_text('{"claudeAiOauth": {"accessToken": "FAKE-LOGIN-TOKEN-7"}}', encoding="utf-8")
+        before = sorted(str(p.relative_to(home.path)) for p in (home.path / ".claude").rglob("*"))
+        job, why, mock = _run_job(home.path, {"goal": "Look around", "mode": "read_only"},
+                                  _tool("Bash", command=f"cat {cred.as_posix()}"), _said("I did not read it."))
+        ctx.check(f"started ({why})", job is not None and job.done.is_set())
+        chats = [r for r in mock.requests if r.get("path") == "/api/chat"]
+        offered = {(t.get("function") or {}).get("name") for t in ((chats[0].get("body") or {}).get("tools") or [])} \
+            if chats else set()
+        ctx.check(f"only Read, Grep and Glob are offered, got {sorted(offered)}", offered == {"Read", "Grep", "Glob"})
+        ctx.check("the login file's text never reached the model",
+                  chats and not any("FAKE-LOGIN-TOKEN-7" in json.dumps(r.get("body")) for r in chats))
+        ctx.check("plan mode's note names the job's own folder", any(".plans" in json.dumps(r.get("body")) for r in chats))
+        after = sorted(str(p.relative_to(home.path)) for p in (home.path / ".claude").rglob("*"))
+        ctx.check(f"~/.claude unchanged: {before} -> {after}", before == after)
+        left = list((home.path / ".halo" / "run" / "guest").glob("*.plans"))
+        ctx.check(f"the job's plan folder went with the job, left {left}", not left)
+        p = job.packet()
+        ctx.check(f"the packet says done with the text: {p['state']}, {p['summary']!r}",
+                  p["state"] == "done" and "did not read" in p["summary"])
+
+
+@test
+def test_the_sweep_removes_a_dead_bridges_plan_folder(ctx: Ctx):
+    from halo_harness.guest import bridge
+    with _Home() as home:
+        d = home.path / ".halo" / "run" / "guest"
+        plans = d / f"{PID}.job.{'a' * 32}.plans"
+        plans.mkdir(parents=True)
+        (plans / "ridge-cedar-bright.md").write_text("", encoding="utf-8")
+        (d / f"{PID}.job.{'a' * 32}.json").write_text("{}", encoding="utf-8")
+        bridge.sweep(d)
+        ctx.check(f"no bridge runs for {PID}: its job file and plan folder are swept, left {sorted(os.listdir(d))}",
+                  os.listdir(d) == [])
+
+
+@test
+def test_a_worker_starts_no_claude_even_with_connector_discovery_on(ctx: Ctx):
+    """`connectors.discover_on_start: true` makes a print session run `claude auth status` and discovery; a worker
+    (--strict-mcp-config) never does: the fake claude's argv log stays empty."""
+    with _Home() as home:
+        log = home.path / "claude-argv.log"
+
+        def setup(_jobs):
+            cfg = json.loads((home.path / ".halo" / "config.json").read_text(encoding="utf-8"))
+            cfg["connectors"] = {"discover_on_start": True}
+            _write_config(home.path, **cfg)
+        fake = f'"{sys.executable}" "{REPO / "tests" / "helpers" / "fake_claude_cc.py"}"'
+        with _Env(HALO_CLAUDE_EXE=fake, FAKE_CLAUDE_CC_ARGV_LOG=str(log), BRIDGE_TEST_CC_AUTH_STATUS=None,
+                  FAKE_CLAUDE_CC_CONNECTORS='[{"name": "Docs Fake", "url": "https://example.invalid/mcp"}]'):
+            job, why, _m = _run_job(home.path, {"goal": "Say hi", "mode": "none"}, _said("hi"), setup=setup,
+                                    quiet_net=False)
+        ctx.check(f"started ({why})", job is not None and job.done.is_set() and job.packet()["state"] == "done")
+        got = log.read_text(encoding="utf-8") if log.exists() else ""
+        ctx.check(f"no claude was started, got {got[:300]!r}", got == "")
+
+
+@test
+def test_the_worker_is_given_no_login_and_no_provider_secret(ctx: Ctx):
+    """The worker's environment: Claude Code's login and keys (CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_*) and Halo's own
+    provider secrets are dropped; the rest (OLLAMA_HOST, the parent mark) goes."""
+    from halo_harness import subprocess_safe
+    from halo_harness.guest import hand_out as H
+    seen = {}
+
+    def popen(argv, **kw):
+        seen.update(kw.get("env") or {})
+        raise OSError("the test's stand-in starts nothing")
+    secrets = {"CLAUDE_CODE_OAUTH_TOKEN": "fake-oauth", "ANTHROPIC_API_KEY": "fake-a", "ANTHROPIC_AUTH_TOKEN": "fake-b",
+               "ANTHROPIC_BASE_URL": "http://127.0.0.1:9", "OPENROUTER_API_KEY": "fake-or", "OLLAMA_API_KEY": "fake-ol"}
+    with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9", **secrets):
+        jobs = _hand_outs(home.path, home.path)
+        task, _why = H.task_of({"goal": "x", "mode": "none"})
+        job = H.Job(jobs, task, "ol:qwen3:30b@mine", "ollama:mine", {"goal": "x", "mode": "none"})
+        real = subprocess_safe.Popen
+        try:
+            subprocess_safe.Popen = popen
+            job.run()
+        finally:
+            subprocess_safe.Popen = real
+        ctx.check("the stand-in was reached", bool(seen))
+        ctx.check(f"no login and no secret in the worker's env, got {sorted(k for k in secrets if k in seen)}",
+                  not any(k in seen for k in secrets))
+        ctx.check("OLLAMA_HOST and the parent mark go", seen.get("OLLAMA_HOST") == "http://127.0.0.1:9"
+                  and str(seen.get("HALO_SESSION_PARENT") or "").startswith("guest:"))
+        ctx.check(f"the job says failed, never a hang: {job.state}", job.state == "failed" and job.done.is_set())
+
+
+@test
+def test_a_host_whose_key_is_in_the_env_file_is_not_his_own(ctx: Ctx):
+    """The key of an `ollama.hosts` entry kept in the env file (`api_key_env`, the shape 3.3.13.1's migration writes),
+    not loaded into the bridge: the entry is still an account (refused, not listed, its catalog never read); the same
+    for the synthesized default host with OLLAMA_API_KEY only in the env file."""
+    from halo_harness.guest import hand_out as H
+    with _Home() as home:
+        envf = home.path / "halo.env"
+        envf.write_text("PROBE_CLOUD_KEY=k-probe\nOLLAMA_API_KEY=k-probe2\n", encoding="utf-8")
+        mock = _mock(_said("hello"))
+        try:
+            with _Env(HALO_ENV_FILE=str(envf), PROBE_CLOUD_KEY=None, OLLAMA_API_KEY=None, OLLAMA_HOST=mock.base_url):
+                _write_config(home.path, ollama={"hosts": [{"name": "acct", "url": mock.base_url,
+                                                            "api_key_env": "PROBE_CLOUD_KEY"}]})
+                ref, _h, why = H.choose("ol:qwen3:30b@acct", home.path / ".halo")
+                ctx.check(f"an api_key_env entry: refused, got {why!r}", not ref and "is not local" in why)
+                rows = H.models(home.path / ".halo")["models"]
+                ctx.check(f"not listed and its catalog never read: {rows}, {len(mock.requests)} requests",
+                          rows == [] and not mock.requests)
+                _write_config(home.path)
+                ref, _h, why = H.choose("ol:qwen3:30b", home.path / ".halo")
+                ctx.check(f"the default host with OLLAMA_API_KEY in the env file: refused, got {why!r}",
+                          not ref and "is not local" in why)
+                ctx.check("the env file was read purely (nothing loaded here)",
+                          "PROBE_CLOUD_KEY" not in os.environ and "OLLAMA_API_KEY" not in os.environ)
+                envf.write_text("", encoding="utf-8")
+                ref, _h, why = H.choose("ol:qwen3:30b", home.path / ".halo")
+                ctx.check(f"and with no key anywhere it is his own, got {why!r}", ref == "ol:qwen3:30b")
+        finally:
+            mock.stop()
+
+
+@test
+def test_a_cancel_that_comes_while_the_job_is_being_started_stops_it(ctx: Ctx):
+    """A `notifications/cancelled` that arrives while halo_hand_out still checks the model and reads the host list
+    (before the job exists) is kept: the job is stopped as soon as it exists and the call answers nothing."""
+    import queue
+    import threading
+    from halo_harness.guest.tools import Tools
+
+    class In:
+        def __init__(self):
+            self.q = queue.Queue()
+
+        def readline(self):
+            return self.q.get()
+
+    class Out:
+        def __init__(self):
+            self.lines = []
+
+        def write(self, b):
+            self.lines.append(json.loads(b.decode("utf-8")))
+
+        def flush(self):
+            pass
+
+    class FakeJob:
+        id, model, state = "j" * 32, "ol:qwen3:30b@mine", "running"
+        task = {"wait": True}
+
+        def __init__(self):
+            self.done, self.stopped = threading.Event(), threading.Event()
+
+        def stop(self, why):
+            self.stopped.set()
+            self.done.set()
+            return "asked"
+
+        def packet(self, part=1):
+            return {"state": "stopped"}
+    with _Home() as home:
+        d = home.path / ".halo" / "run" / "guest"
+        d.mkdir(parents=True)
+        tools = Tools(None, home.path, claude_pid=PID, directory=d, state_dir=home.path / ".halo")
+        gate, fake = threading.Event(), FakeJob()
+
+        def slow_start(_args):
+            gate.wait(30)  # the model checked, the host's list being read
+            tools.jobs.jobs[fake.id] = fake
+            return fake, ""
+        tools.jobs.start = slow_start
+        rf, wf = In(), Out()
+        loop = threading.Thread(target=tools.loop, args=(rf, wf), daemon=True)
+        loop.start()
+        try:
+            def send(obj):
+                rf.q.put((json.dumps(obj) + "\n").encode("utf-8"))
+            send({"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+                  "params": {"name": "halo_hand_out", "arguments": {"goal": "x", "mode": "none"}}})
+            send({"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 7}})
+            send({"jsonrpc": "2.0", "id": 8, "method": "ping"})
+            import time
+            end = time.monotonic() + 30
+            while time.monotonic() < end and not any(m.get("id") == 8 for m in wf.lines):
+                time.sleep(0.05)
+            ctx.check("the loop read the cancel (the ping after it is answered)", any(m.get("id") == 8 for m in wf.lines))
+            gate.set()
+            ctx.check("the job is stopped once it exists", fake.stopped.wait(30))
+            end = time.monotonic() + 2.0
+            while time.monotonic() < end and not any(m.get("id") == 7 for m in wf.lines):
+                time.sleep(0.05)
+            ctx.check(f"the cancelled call answers nothing, got {[m for m in wf.lines if m.get('id') == 7]}",
+                      not any(m.get("id") == 7 for m in wf.lines))
+        finally:
+            gate.set()
+            fake.done.set()
+            rf.q.put(b"")
+            loop.join(10)
 
 
 @test

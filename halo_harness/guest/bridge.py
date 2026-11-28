@@ -309,12 +309,16 @@ def sweep(directory: Path, also: Optional[int] = None) -> int:
                 live.add(int(head))
     for name in names:
         head = name.split(".", 1)[0]
-        if not head.isdigit() or not name.endswith((".on", ".jsonl", ".json")) or int(head) in live:
+        if not head.isdigit() or not name.endswith((".on", ".jsonl", ".json", ".plans")) or int(head) in live:
             continue
         path = Path(directory) / name
         if int(head) != also and name.endswith(".jsonl") and f"{head}.on" not in names and _young(path):
             continue
-        _unlink(path)
+        if name.endswith(".plans"):  # a hand-out's plan-mode folder (guest/hand_out.HandOuts.plans)
+            import shutil
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            _unlink(path)
         removed += 1
     return removed
 
@@ -348,7 +352,9 @@ def answer(msg, hand_outs: bool = False) -> Optional[dict]:
     params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
     if method == "initialize":
         from halo_harness import __version__
-        version = revision(params.get("protocolVersion")) if isinstance(params.get("protocolVersion"), str) else PROTOCOL
+        asked = params.get("protocolVersion")
+        # off: release 1's echo, byte for byte; on: never an echo of a revision this server does not implement
+        version = (revision(asked) if hand_outs else asked) if isinstance(asked, str) else PROTOCOL
         result = {"protocolVersion": version, "capabilities": {"tools": {"listChanged": False}},
                   "serverInfo": {"name": PLUGIN, "title": "Halo (watch only)", "version": __version__,
                                  "description": DESCRIPTION}}

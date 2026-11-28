@@ -1347,10 +1347,13 @@ def build_session(
             from halo_harness.tools.connector_tool import ConnectorTool
             connector_requested = bool(tools_subset) and any(
                 n.startswith("connector__") for n in tools_subset)
-            if print_mode and (connector_requested or connectors_bridge.discover_on_start_configured()):
+            # 3.6.0.26 H: --strict-mcp-config ignores the claude.ai connectors too (no `claude auth status`, no
+            # discovery, no connector tool): a Claude Code hand-out's worker starts no `claude`.
+            if print_mode and not strict_mcp_config and (
+                    connector_requested or connectors_bridge.discover_on_start_configured()):
                 connectors_bridge.prime_auth_cache_if_stale()
                 connectors_bridge.ensure_discovered_synchronously_if_cold()
-            for info in connectors_bridge.get_connectors():
+            for info in ([] if strict_mcp_config else connectors_bridge.get_connectors()):
                 if not connectors_bridge.connector_enabled(info.slug):
                     continue
                 connector_wire_name = f"connector__{info.slug}"
@@ -1363,7 +1366,7 @@ def build_session(
                     frozen_registry.add_tool(connector_tool)
                 else:
                     deferred[connector_wire_name] = (None, connector_tool)
-            if print_mode:
+            if print_mode and not strict_mcp_config:
                 # The TUI's own equivalent background kick is
                 # `tui/bootstrap.build_controller`'s job, not this shared
                 # builder's -- it needs a real `on_done` wired to a live

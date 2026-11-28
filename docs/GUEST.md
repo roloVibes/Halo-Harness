@@ -141,17 +141,19 @@ The tools Claude Code then sees (named `mcp__plugin_halo-guest_halo-guest__<tool
   what it was denied, turns, tokens and cost.
 - `halo_job_stop`: stop a job.
 
-**Which models**: `ol:<model>` or `ol:<model>@<host>` whose host entry in `ollama.hosts` has **no key** (a host entry
-with a key is an account somewhere, such as Ollama Cloud, not your machine), and `hf:local/<model>`, `hf:mlx/<model>`.
+**Which models**: `ol:<model>` or `ol:<model>@<host>` whose host entry in `ollama.hosts` has **no key**, in the entry
+or in Halo's env file (a host entry with a key is an account somewhere, such as Ollama Cloud, not your machine), and
+`hf:local/<model>`, `hf:mlx/<model>`.
 Anything else (an `or:`, `ant:` or `dbx:` model, a Claude model) is refused with one line that names the allowed ones.
 With no model named, Halo's default model is taken when it is one of these. Before a start Halo reads the host's
 model list once: "does not answer" and "is not on <host>" are said before anything starts.
 
-**What a worker may do**: in mode `none` it has no tools and answers from what it was sent; in mode `read_only` it may
-read and search files in the session's project folder and changes nothing. In both it runs **no** command, edits
-nothing, starts no tool server (`--strict-mcp-config`) and reaches nothing on the network but this machine and your
-own local hosts (`--offline`); an ask is a recorded denial (nobody is asked), never a wait. It can never be given a
-Claude model, your Claude login, a shell line or a Bash prompt. There is no mode that edits in this release.
+**What a worker may do**: in mode `none` it has no tools and answers from what it was sent; in mode `read_only` its
+only tools are Read, Grep and Glob, held to the session's project folder (a read anywhere else is a recorded denial).
+In both it runs **no** command, edits nothing, starts no sub-agent, no tool server and no `claude` (`--strict-mcp-config`
+leaves out the claude.ai connectors too) and reaches nothing on the network but this machine and your own local hosts
+(`--offline`); an ask is a recorded denial (nobody is asked), never a wait. Its environment carries no Claude login or
+provider key. It can never be given a Claude model, your Claude login, a shell line or a Bash prompt. No mode edits.
 
 **Where its words go**: to the model on your own machine or on the host you named, nothing else. The worker is a `halo
 -p` process on your machine; its prompt is the task, the files' names and the checks (a user prompt; no session's
@@ -165,8 +167,9 @@ stop`, or the session's end. A stop asks the agent to end at its next step, then
 third is refused (no queue). A job that hits a cap answers `stopped` with what it had.
 
 **What is kept**: each job's record and result, in the bridge's memory and in `~/.halo/run/guest/<pid>.job.<id>.json`
-(yours alone) while the session lives; removed at the session's end, and a dead session's by the same sweeps as the
-spool. Halo writes nothing under `~/.claude`.
+(yours alone) while the session lives, and beside it the empty plan file plan mode makes (`<pid>.job.<id>.plans/`,
+removed when the job ends); removed at the session's end, and a dead session's by the same sweeps as the spool. Halo
+writes nothing under `~/.claude`.
 
 **Closing**: every worker ends with the bridge that started it, however the bridge ends (its input closes, it is killed
 hard, Claude Code is killed, `halo update`, `halo stop`): on Windows the bridge's own Job holds it, on Linux and macOS

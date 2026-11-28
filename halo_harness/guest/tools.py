@@ -98,6 +98,8 @@ class Tools:
         self._waiting: dict = {}  # job id -> {"rid", "token", "sent": monotonic}
         self._by_request: dict = {}  # request id (json) -> job id
         self._cancelled: set = set()  # request ids (json) cancelled: no answer is sent for them
+        self._calls: set = set()  # request ids (json) of tools/call still running (a cancel may come before the job)
+        self._clock = threading.Lock()  # the three above
 
     # ---- the loop ----------------------------------------------------------------------------------------------------
     def write(self, obj: dict) -> None:
@@ -124,6 +126,8 @@ class Tools:
                 self.cancelled((msg.get("params") or {}).get("requestId"))
                 continue
             if method == "tools/call" and "id" in msg:
+                with self._clock:
+                    self._calls.add(json.dumps(msg["id"]))
                 threading.Thread(target=self._call, args=(msg,), daemon=True, name="halo-guest-call").start()
                 continue
             reply = answer(msg, hand_outs=True)
@@ -138,9 +142,12 @@ class Tools:
                                ((params.get("_meta") or {}) if isinstance(params.get("_meta"), dict) else {}).get("progressToken"))
         except Exception as e:
             result = _text(f"the call failed in Halo: {type(e).__name__}: {e}", True)
-        if json.dumps(rid) in self._cancelled:
-            self._cancelled.discard(json.dumps(rid))
-            return
+        key = json.dumps(rid)
+        with self._clock:
+            self._calls.discard(key)
+            if key in self._cancelled:
+                self._cancelled.discard(key)
+                return
         self.write({"jsonrpc": "2.0", "id": rid, "result": result})
 
     # ---- the calls ---------------------------------------------------------------------------------------------------
@@ -166,16 +173,23 @@ class Tools:
         job, why = self.jobs.start(args)
         if job is None:
             return _text(why, True)
-        if not job.task["wait"]:
-            return _text({"job_id": job.id, "state": job.state, "model": job.model})
         key = json.dumps(rid)
+        with self._clock:  # a cancel that came while the job was being checked and started: it stops it now
+            self._by_request[key] = job.id
+            cancelled = key in self._cancelled
+        if cancelled:
+            job.stop("the call was cancelled")
+        if not job.task["wait"] or cancelled:
+            with self._clock:
+                self._by_request.pop(key, None)
+            return _text({"job_id": job.id, "state": job.state, "model": job.model})
         self._waiting[job.id] = {"rid": rid, "token": token, "sent": 0.0}
-        self._by_request[key] = job.id
         try:
             job.done.wait()
         finally:
             self._waiting.pop(job.id, None)
-            self._by_request.pop(key, None)
+            with self._clock:
+                self._by_request.pop(key, None)
         return _text(job.packet(1))
 
     def _progress(self, job) -> None:
@@ -189,10 +203,15 @@ class Tools:
                                "message": f"{job.model}: {b['step'] or 'thinking'} (turn {b['turns']}, {b['minutes']} min)"}})
 
     def cancelled(self, rid) -> None:
-        """A `notifications/cancelled` for a waiting hand-out stops its job (its call then answers nothing more)."""
-        job = self.jobs.get(self._by_request.get(json.dumps(rid)))
+        """A `notifications/cancelled` for a waiting hand-out stops its job (its call then answers nothing more); one
+        for a call whose job is still being checked and started is kept, and stops that job once it exists."""
+        key = json.dumps(rid)
+        with self._clock:
+            job = self.jobs.get(self._by_request.get(key))
+            if job is None and key not in self._calls:
+                return  # not a call of this bridge's that still runs
+            self._cancelled.add(key)
         if job is not None:
-            self._cancelled.add(json.dumps(rid))
             job.stop("the call was cancelled")
 
     def close(self) -> None:

@@ -167,6 +167,20 @@ _HARNESS_SECRET_ENV_KEYS = frozenset({
 })
 
 
+_LOGIN_WORDS = ("TOKEN", "KEY", "SECRET", "CREDENTIAL", "PASSWORD")
+
+
+def child_env_without_login(env: dict) -> dict:
+    """3.6.0.26 H (a Claude Code hand-out's worker, guest/hand_out.worker_env): `tool_child_env(env)` minus Claude
+    Code's own login and keys too -- every `ANTHROPIC_*` and every `CLAUDE_*` whose name says token, key, secret,
+    credential or password (CLAUDE_CODE_OAUTH_TOKEN among them). A Halo child started for Claude Code never carries
+    its login."""
+    def login(k: str) -> bool:
+        k = k.upper()
+        return k.startswith("ANTHROPIC_") or (k.startswith("CLAUDE_") and any(w in k for w in _LOGIN_WORDS))
+    return {k: v for k, v in tool_child_env(env).items() if not login(k)}
+
+
 def tool_child_env(env: dict, *, env_file_path: Optional[Path] = None) -> dict:
     """`env` (typically `Settings.effective_env`, shell < settings chain)
     minus every key the harness's own env-file loader would inject PLUS

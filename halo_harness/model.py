@@ -66,14 +66,37 @@ def is_local_model_ref(ref: "ModelRef") -> bool:
 def is_own_local_ref(ref: "ModelRef") -> bool:
     """3.6.0.26 H (a Claude Code hand-out, guest/hand_out.py): local AND his own -- `hf:local`/`hf:mlx`, or an `ol:` ref
     whose host entry carries no `api_key` (an entry with a key is an account somewhere, e.g. Ollama Cloud: an `ol:`
-    prefix is a provider kind, not proof of his machine). A host name that is not configured: False."""
+    prefix is a provider kind, not proof of his machine). A host name that is not configured: False. "A key" is also one
+    kept in the env file and not loaded into this process: an entry naming `api_key_env` (3.3.13.1's migration writes
+    that shape), or the synthesized default host with OLLAMA_API_KEY in the env file."""
     if ref.provider == "huggingface":
         return bool(ref.local)
     if ref.provider != "ollama":
         return False
     from halo_harness.providers.ollama import resolve_ollama_host
     host = resolve_ollama_host(ref.host)
-    return host is not None and not host.api_key
+    if host is None or host.api_key:
+        return False
+    if getattr(host, "synthesized", False):
+        return not _env_file_has("OLLAMA_API_KEY")
+    from halo_harness.theme import get_config_value
+    raw = get_config_value("ollama.hosts", default=None)
+    named = [e for e in (raw if isinstance(raw, list) else []) if isinstance(e, dict)
+             and (e.get("name") if isinstance(e.get("name"), str) and e.get("name") else e.get("url")) == host.name]
+    return not any(e.get("api_key") or e.get("api_key_env") for e in named)
+
+
+def _env_file_has(name: str) -> bool:
+    """`name` set here or in Halo's env file (read purely: os.environ is not changed)."""
+    import os
+    if os.environ.get(name):
+        return True
+    try:
+        from halo_harness.config.paths import env_file_path
+        from halo_harness.providers.config import _parse_env_file  # noqa: SLF001 (the env file's pure reader)
+        return bool(_parse_env_file(env_file_path()).get(name))
+    except Exception:
+        return True  # an env file that cannot be read: not proven keyless
 
 
 def is_local_ref_string(raw) -> bool:
