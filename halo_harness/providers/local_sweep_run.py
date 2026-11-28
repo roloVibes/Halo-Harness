@@ -157,6 +157,8 @@ def _finish(state_dir, host, rec: dict, *, stopped: bool, max_loads: int, gpu_to
     kept = lookup_learned_cap(state_dir, **keys) if w and safe is None else None  # none swept: left as it was
     rec["safe"] = safe or kept
     S.save(state_dir, rec)
+    if safe is None and kept and not (w and w > kept):  # after the review: the ladder's entry is never erased (it is
+        return                                           # cleared and rewritten); the pick stays in the sweep's record
     if rec["safe"] or (floor and not w):  # a safe window, or measured down to the floor and nothing fits (a failed
         p = next((r for r in rec["windows"] if r["window"] == w), {})   # load is no fit reading)
         tight = w if w and w > (rec["safe"] or 0) else None
@@ -183,7 +185,8 @@ def sweep(host, model: str, *, state_dir, card=None, send: Optional[Callable] = 
     f = _facts(host, model, client)
     if not f:
         return _fail(model, name, f"no model named {model} on {name}")
-    rec = None if again else S.load(state_dir, host.url, model, digest=f["digest"], server=f["server"])
+    # an unknown digest (no digest in /api/tags) never reuses a record kept under another: a new record is started
+    rec = None if again or not f["digest"] else S.load(state_dir, host.url, model, digest=f["digest"], server=f["server"])
     if rec is None:
         rec = {"host_url": host.url, "host": name, "model": model, "digest": f["digest"], "server": f["server"],
                "trained": f["trained"], "start": start or _start(host, model, f, card), "windows": [], "pick": None,

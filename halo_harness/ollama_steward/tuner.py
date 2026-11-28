@@ -33,8 +33,8 @@ OUT_TOKENS = 600
 SENDS = ("the model's facts from its header, the server's version and settings, the sweep's table and the card's "
          "size: no file path, no host name, no address, no user name")
 WRITES = ("nothing to the Ollama store; up to three texts in Halo's notes (a diagnosis, server advice, a guide), each "
-          "shown as written by {tuner}; a window it proposes is measured by Halo (the sweep's load cap) and becomes the "
-          "pick only if it measures better")
+          "shown as written by {tuner}; each window it asks for is a load on {host}: Halo unloads what is loaded and puts "
+          "it back after, at most {loads} loads; a window it proposes becomes the pick only if it measures better")
 
 HEAD = """You tune one local model on one Ollama server. Halo measured it and gives you the facts. Each reply is ONE \
 JSON object and nothing else:
@@ -77,9 +77,15 @@ _IP4 = re.compile(r"(?<!\d)(?<!\d\.)(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?!\.?\d)")
 _IP6 = re.compile(r"(?<![\w:])(?=[0-9a-f:]*(?:::|[a-f]))(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])", re.I)
 _WIN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s\"'<>]*")
 _UNC = re.compile(r"\\\\[^\s\"'<>]+")
-# any absolute POSIX path (a "/" that starts a segment followed by another "/"), and ~/...; Ollama's own API paths
-# (/api/ps) are no private path
-_POSIX = re.compile(r"(?<![\w.~/])(?:~(?:/[^\s\"'<>]*)?|/(?!api/)[^\s/\"'<>]+/[^\s\"'<>]*)")
+# any absolute POSIX path (a "/" that starts a segment followed by another "/"), and ~/...; only Ollama's own known
+# endpoints (/api/ps) are no private path, not every /api/ path
+_API = r"api/(?:ps|tags|show|generate|chat|embed|embeddings|version|pull|push|create|copy|delete|blobs)\b"
+_POSIX = re.compile(rf"(?<![\w.~/])(?:~(?:/[^\s\"'<>]*)?|/(?!{_API})[^\s/\"'<>]+/[^\s\"'<>]*)")
+# a registry or LAN host in front of a model tag ("nas.lan:5000/team/coder"): a host with a dot or a port, then "/";
+# the public registries Ollama pulls from stay
+_TAGHOST = re.compile(r"(?<![\w.:/@-])(?!(?:hf\.co|huggingface\.co|registry\.ollama\.ai|ollama\.com)/)"
+                      r"(?:(?:[A-Za-z0-9-]+\.)+[A-Za-z][A-Za-z0-9-]*(?::\d{1,5})?|[A-Za-z0-9][A-Za-z0-9.-]*:\d{1,5})/(?=[\w.-])")
+_HELD = "\x01"  # a name found before the path passes: held inside a path so the path pass takes it whole
 
 
 def _names(host) -> list:
@@ -88,6 +94,7 @@ def _names(host) -> list:
               os.environ.get("COMPUTERNAME"), getattr(host, "name", None)):
         if isinstance(v, str) and len(v.strip()) >= 2:
             out.add(v.strip())
+            out.update(p for p in v.split() if len(p) >= 2)  # every part of a name with a space ("Jane Doe")
     try:
         from urllib.parse import urlparse
         h = urlparse(str(getattr(host, "url", "") or "")).hostname
@@ -113,15 +120,22 @@ def _safe(fn) -> Optional[str]:
 
 
 def scrub(text: str, host=None) -> str:
-    s = _URL.sub("<address>", str(text))
+    names = _names(host)
+
+    def by_name(s: str, to: str) -> str:  # wherever it sits ("pat-coder", "8b-gpu-box", "gpu-box2"), bounded by letters
+        for n in names:
+            s = re.sub(rf"(?<![A-Za-z]){re.escape(n)}(?![A-Za-z])", to, s, flags=re.I)
+        return s
+    # names first (a path pass stops at the space of "C:\...\Jane Doe\..." and would leave "Doe"), again after
+    s = by_name(str(text).replace(_HELD, ""), _HELD)
+    s = _URL.sub("<address>", s)
     s = _UNC.sub("<path>", s)
     s = _WIN.sub("<path>", s)
     s = _POSIX.sub("<path>", s)
+    s = _TAGHOST.sub("<address>/", s)
     s = _IP4.sub("<address>", s)
     s = _IP6.sub("<address>", s)
-    for n in _names(host):  # wherever it sits ("pat-coder", "8b-gpu-box", "gpu-box2"), bounded only by letters
-        s = re.sub(rf"(?<![A-Za-z]){re.escape(n)}(?![A-Za-z])", "<name>", s, flags=re.I)
-    return s
+    return by_name(s.replace(_HELD, "<name>"), "<name>")
 
 
 # ---- the facts ----------------------------------------------------------------------------------------------------
@@ -181,7 +195,13 @@ def offer(state_dir, host, model: str, *, tuner: Optional[str] = None, card=None
         n = tokens(guide()) + 1500
     tin = sum(n + i * 400 for i in range(ROUNDS))  # each round resends the context and the tools' answers so far
     return {"tuner": tuner, "sends": SENDS, "cost": call_price(tuner, tin, OUT_TOKENS * ROUNDS) + f" (at most {ROUNDS} rounds)",
-            "writes": WRITES.format(tuner=tuner), "rounds": ROUNDS}
+            "writes": WRITES.format(tuner=tuner, host=getattr(host, "name", "") or "this host", loads=_loads_cap()),
+            "rounds": ROUNDS}
+
+
+def _loads_cap() -> int:
+    from halo_harness.providers import local_sweep as S
+    return S.MAX_LOADS
 
 
 # ---- the job ------------------------------------------------------------------------------------------------------
@@ -313,6 +333,11 @@ def _write(state_dir, host, model, args: dict, out: dict, *, tuner, digest, trai
         if first and S.good(first):
             out["refused"] += 1
             return "refused: the sweep shows the model loads wholly on the card at its start; no diagnosis is kept"
+        st = (first or {}).get("state")
+        if not (st in (S.FAILED, S.SPILLED) or (st in (S.ON, S.SLOW) and not S.room_ok(first))):
+            out["refused"] += 1
+            return ("refused: no sweep shows the model not loading, spilling or without room at its start; no diagnosis "
+                    "is kept")
         txt = str(args.get("text") or "").strip()[:600]
         if not txt:
             out["refused"] += 1

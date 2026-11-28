@@ -22,7 +22,8 @@ from typing import Optional
 
 KINDS = ("diagnosis", "advice", "guide")
 _KEEP = re.compile(r"^(-1|0|\d{1,4}[smh])$")
-_ORIGINS = re.compile(r"^[A-Za-z0-9:/*.,_-]{1,200}$")
+# no "*": a wildcard origin lets any web page call the server's API (pull, delete, the GPU)
+_ORIGINS = re.compile(r"^[A-Za-z0-9:/.,_-]{1,200}$")
 
 
 def _allowed(key: str, value: str, trained: Optional[int]) -> bool:

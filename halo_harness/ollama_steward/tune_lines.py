@@ -29,7 +29,7 @@ def env_lines(key: str, value: str, os_name: str) -> dict:
         return {"set": f'[Environment]::SetEnvironmentVariable("{key}", "{value}", "User")',
                 "revert": f'[Environment]::SetEnvironmentVariable("{key}", $null, "User")', "restart": RESTART[os_name]}
     if os_name == "macos":
-        return {"set": f"launchctl setenv {key} {value}", "revert": f"launchctl unsetenv {key}",
+        return {"set": f'launchctl setenv {key} "{value}"', "revert": f"launchctl unsetenv {key}",
                 "restart": RESTART[os_name]}
     conf = f"{DROPIN}/halo-{key.lower()}.conf"
     return {"set": (f"sudo mkdir -p {DROPIN} && printf '[Service]\\nEnvironment=\"{key}={value}\"\\n' | sudo tee {conf} "

@@ -229,7 +229,10 @@ def test_the_tuner_job_proposals_texts_and_what_is_sent(ctx: Ctx):
         off = T.offer(rig.state, rig.host, "sw-up:8b", tuner=TUNER, card=rig.card)
         ctx.check(f"said before: which model, what is sent, the cost, what it writes, got {off}", off["tuner"] == TUNER
                   and off["sends"].endswith("no file path, no host name, no address, no user name")
-                  and "(at most 8 rounds)" in off["cost"] and off["writes"].startswith("nothing to the Ollama store"))
+                  and "(at most 8 rounds)" in off["cost"] and off["writes"].startswith("nothing to the Ollama store")
+                  # after the review: each window it asks for is a load, said before
+                  and "each window it asks for is a load on fake: Halo unloads what is loaded and puts it back after, "
+                      "at most 6 loads" in off["writes"])
         seen: list = []
         replies = [{"tool": "measure", "args": {"window": 65536}}, {"tool": "measure", "args": {"window": 49152}},
                    {"tool": "measure", "args": {"window": 262144}},
@@ -316,6 +319,11 @@ def test_a_diagnosis_after_a_spilling_start_that_stepped_down(ctx: Ctx):
         got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script(diag, seen), card=rig.card)
         ctx.check(f"a start on the card: refused, got {got.get('say')!r}", got["refused"] == 1 and not got["texts"]
                   and "loads wholly on the card at its start" in seen[-1]["user"])
+    with _bench_rig() as rig:  # after the review: no sweep at all, so no start row: refused and counted
+        seen = []
+        got = T.run(rig.state, rig.host, "sw-up:8b", tuner=TUNER, caller=_script(diag, seen), card=rig.card)
+        ctx.check(f"no start row: refused, got {got.get('say')!r} {seen[-1]['user'][-200:]!r}", got["refused"] == 1
+                  and not got["texts"] and "no diagnosis is kept" in seen[-1]["user"])
 
 
 def _scrub_env(user: str):
@@ -366,6 +374,29 @@ def test_the_request_body_with_a_user_named_tag_and_an_error_with_a_path(ctx: Ct
     leaks = [x for x in ("tester", "/data/", "blobs") if x in sent]
     ctx.check(f"two rounds, the failed load's answer sent scrubbed, got {got.get('say')!r}, leaks {leaks}",
               got["rounds"] == 2 and "<name>-coder:8b" in sent and "did not load" in sent and "<path>" in sent and not leaks)
+    # after the review: the reviewer's probes through the same real call: a tag behind a LAN registry, a user name with
+    # a space inside the Windows path of the error, and an /api/ path that is no Ollama endpoint
+    from tests.helpers import mock_ollama_bench as MB
+    reg = "nas.lan:5000/team/tester-coder:8b"
+    MB.SWEEP[reg] = {**MB.spec("tester-coder:8b"), "fail": SPACED_ERR + " (see /api/home/someone/x)"}
+    back = _scrub_env("Pat Tester")
+    try:
+        with BenchRig([reg]) as rig:
+            n = [0]
+            rig.mock.scenarios["tuner-mock:1b"] = scn
+            rig.mock.tags_response["models"].append({"name": "tuner-mock:1b", "model": "tuner-mock:1b", "size": 1000,
+                                                     "digest": "sha256:tm", "details": {"family": "qwen3"}})
+            rig.mock.show_responses["tuner-mock:1b"] = {"capabilities": ["completion"], "details": {"family": "qwen3"},
+                                                        "model_info": {"qwen3.context_length": 32768}}
+            got = T.run(rig.state, rig.host, reg, tuner="ol:tuner-mock:1b@fake", card=rig.card)
+            sent = "\n".join(json.dumps(r.get("body"), ensure_ascii=False) for r in rig.mock.requests
+                             if r.get("path") == "/api/chat" and (r.get("body") or {}).get("model") == "tuner-mock:1b")
+    finally:
+        back()
+        MB.SWEEP.pop(reg, None)
+    leaks = [x for x in ("Pat", "Tester", "tester", "nas.lan", ":5000", "profiles", "blobs", "someone") if x in sent]
+    ctx.check(f"the probes through the real call: two rounds, scrubbed, got {got.get('say')!r}, leaks {leaks}",
+              got["rounds"] == 2 and "<address>/team/<name>-coder:8b" in sent and "did not load" in sent and not leaks)
 
 
 @test
@@ -434,6 +465,27 @@ def test_the_scrub(ctx: Ctx):
         back()
     wrong = {k: v for k, v in got.items() if v != cases[k]}
     ctx.check(f"every case scrubbed, nothing else touched, wrong {wrong}", not wrong)
+    # after the review: a user name with a space inside a Windows path (the path pass stops at the space), each part
+    # of such a name alone, a registry or LAN host in front of a model tag, and an /api/ path that is no Ollama endpoint
+    back = _scrub_env("Pat Tester")
+    try:
+        host = OllamaHost(name="gpu-box", url="http://gpu-box.lan:11434")
+        cases = {SPACED_ERR: "Error: open <path> The system cannot find the file",
+                 "/srv/Pat Tester/models/x: gone": "<path> gone", "Tester said so, and pat": "<name> said so, and <name>",
+                 "registry.corp.example:5000/team/model:latest": "<address>/team/model:latest",
+                 "model nas.lan:5000/team/coder:latest": "model <address>/team/coder:latest",
+                 "hf.co/someone/Qwen-GGUF:Q4": "hf.co/someone/Qwen-GGUF:Q4",
+                 "/api/home/someone/x": "<path>", "/api/someonex/y": "<path>",
+                 "/api/ps and /api/tags did not answer": "/api/ps and /api/tags did not answer",
+                 "llama3.1:8b, 120 tok/s, 1.5/2": "llama3.1:8b, 120 tok/s, 1.5/2"}
+        got = {k: scrub(k, host) for k in cases}
+    finally:
+        back()
+    wrong = {k: v for k, v in got.items() if v != cases[k]}
+    ctx.check(f"a spaced name, a host in a tag, a non-endpoint /api/ path scrubbed, wrong {wrong}", not wrong)
+
+
+SPACED_ERR = "Error: open D:\\profiles\\Pat Tester\\.ollama\\models\\blobs\\sha256-1: The system cannot find the file"
 
 
 if __name__ == "__main__":

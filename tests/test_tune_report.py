@@ -165,7 +165,8 @@ def test_the_server_lines_per_os(ctx: Ctx):
               w["set"] == '[Environment]::SetEnvironmentVariable("OLLAMA_KV_CACHE_TYPE", "q8_0", "User")'
               and w["revert"] == '[Environment]::SetEnvironmentVariable("OLLAMA_KV_CACHE_TYPE", $null, "User")' and "tray" in w["restart"])
     m = T.env_lines("OLLAMA_KV_CACHE_TYPE", "q8_0", "macos")
-    ctx.check(f"macOS: launchctl, got {m}", m["set"] == "launchctl setenv OLLAMA_KV_CACHE_TYPE q8_0"
+    # after the review: the value is quoted (a shell never expands it)
+    ctx.check(f"macOS: launchctl, got {m}", m["set"] == 'launchctl setenv OLLAMA_KV_CACHE_TYPE "q8_0"'
               and m["revert"] == "launchctl unsetenv OLLAMA_KV_CACHE_TYPE")
     lx = T.env_lines("OLLAMA_KV_CACHE_TYPE", "q8_0", "linux")
     ctx.check(f"Linux: a systemd drop-in and its removal, got {lx}",
@@ -175,6 +176,20 @@ def test_the_server_lines_per_os(ctx: Ctx):
               and lx["restart"] == "sudo systemctl restart ollama")
     ctx.check("an unknown OS: every OS's lines", sorted(T.server_block("env", "K", "v", None)) == ["linux", "macos", "windows"])
     ctx.check("the card's os wins", T.os_of(None, {"os": "darwin"}) == "macos" and T.os_of(None, {"os": "Linux"}) == "linux")
+
+
+@test
+def test_a_wildcard_origin_is_refused_and_counted(ctx: Ctx):
+    """After the review: OLLAMA_ORIGINS with '*' lets any web page call the server's API: the advice drops it and
+    counts it; a plain origin list is kept, its macOS line quoted."""
+    from halo_harness.ollama_steward import tuner_notes as N
+    for v in ("*", "http://*", "app://x,*"):
+        kept, dropped = N.advice([{"key": "OLLAMA_ORIGINS", "value": v, "why": "w"}], os_name="macos")
+        ctx.check(f"{v!r} refused and counted, got {kept} {dropped}", kept == [] and dropped == 1)
+    kept, dropped = N.advice([{"key": "OLLAMA_ORIGINS", "value": "app://halo,http://localhost", "why": "w"}], os_name="macos")
+    line = (kept[0].get("server") or {}) if kept else {}
+    ctx.check(f"a plain list kept, quoted on macOS, got {kept} {dropped}", dropped == 0 and len(kept) == 1
+              and 'launchctl setenv OLLAMA_ORIGINS "app://halo,http://localhost"' in str(line))
 
 
 @test

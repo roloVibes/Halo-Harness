@@ -473,6 +473,18 @@ def test_the_pick_is_the_tight_window_the_safe_window_keeps_its_own_rule(ctx: Ct
         ctx.check(f"no swept window meets the rule: the safe window is left as it was, the pick is the tight one, got "
                   f"cap={cap} tight={tight} {S.lines(got['record'])[-1]!r}",
                   cap == 16384 and tight.get("tight_ctx") == 49152 and S.lines(got["record"])[-1] == SAFE_LINE + "16,384")
+    with BenchRig(["sw-up:8b"]) as rig:  # after the review: a sweep never erases what the measuring ladder kept
+        from halo_harness.providers.ollama_calibrate import load_fit_store
+        from halo_harness.providers.ollama_hw import fit_settings_of
+        record_calibration(rig.state, host_url=rig.host.url, model="sw-up:8b", digest="sha256:sw-up-8b",
+                           max_full_gpu_ctx=65536, tight_ctx=81920, tight_vram=20 * GIB, gpu_total=24 * GIB,
+                           ollama_version="0.40.13", fit_settings=fit_settings_of(rig.host))
+        before = [dict(e) for e in load_fit_store(rig.state)["entries"] if e.get("model") == "sw-up:8b"]
+        got = _sweep(rig, "sw-up:8b", start=49152, max_loads=1, memory=_mem(rig, at49 + 500 * MIB))
+        after = [dict(e) for e in load_fit_store(rig.state)["entries"] if e.get("model") == "sw-up:8b"]
+        ctx.check(f"no swept window safe, the pick (49,152) not above the kept 65,536: the ladder's entry stays whole, "
+                  f"the pick only in the sweep's record, got {after} pick={got['record']['pick']}",
+                  after == before and len(after) == 1 and after[0]["tight_ctx"] == 81920 and got["record"]["pick"] == 49152)
     with BenchRig(["sw-up:8b"]) as rig:
         got = _sweep(rig, "sw-up:8b", start=32768, memory=_mem(rig, at49 + 500 * MIB))
         rec, (entry, cap, tight) = got["record"], _fit(rig, "sw-up:8b")
@@ -516,6 +528,20 @@ def test_halo_local_bench_sweep(ctx: Ctx):
                   code == 0 and text[0].startswith("local: ~") and "at most 2 loads of sw-short:8b" in text[0]
                   and "puts it back" in text[0] and "nothing to the Ollama store" in text[0]
                   and text[1] == "sw-short:8b on fake:" and any(x.strip().startswith("the pick: ") for x in text))
+
+
+@test
+def test_a_sweep_under_an_unknown_digest_starts_a_new_record(ctx: Ctx):
+    """After the review: when /api/tags gives no digest, a sweep kept under another digest is never reused (not for
+    going on, not for 'swept already'): a new record is started."""
+    with BenchRig(["sw-up:8b"]) as rig:
+        first = _sweep(rig, "sw-up:8b", start=32768)
+        ctx.check(f"the first sweep is done, got {_ws(first)}", first["record"].get("done"))
+        for m in rig.mock.tags_response["models"]:
+            m.pop("digest", None)
+        got = _sweep(rig, "sw-up:8b", start=32768, max_loads=1)
+        ctx.check(f"a new record, measured again, got {got.get('say')!r} {_ws(got)}", not got.get("already")
+                  and not got.get("capped") and _ws(got) == [32768] and got["record"].get("digest") is None)
 
 
 if __name__ == "__main__":
