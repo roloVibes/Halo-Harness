@@ -378,7 +378,7 @@ def test_the_request_body_with_a_user_named_tag_and_an_error_with_a_path(ctx: Ct
     # a space inside the Windows path of the error, and an /api/ path that is no Ollama endpoint
     from tests.helpers import mock_ollama_bench as MB
     reg = "nas.lan:5000/team/tester-coder:8b"
-    MB.SWEEP[reg] = {**MB.spec("tester-coder:8b"), "fail": SPACED_ERR + " (see /api/home/someone/x)"}
+    MB.SWEEP[reg] = {**MB.spec("tester-coder:8b"), "fail": SPACED_ERR + " (see /api/home/user/x)"}
     back = _scrub_env("Pat Tester")
     try:
         with BenchRig([reg]) as rig:
@@ -475,7 +475,7 @@ def test_the_scrub(ctx: Ctx):
                  "registry.corp.example:5000/team/model:latest": "<address>/team/model:latest",
                  "model nas.lan:5000/team/coder:latest": "model <address>/team/coder:latest",
                  "hf.co/someone/Qwen-GGUF:Q4": "hf.co/someone/Qwen-GGUF:Q4",
-                 "/api/home/someone/x": "<path>", "/api/someonex/y": "<path>",
+                 "/api/home/user/x": "<path>", "/api/someonex/y": "<path>",
                  "/api/ps and /api/tags did not answer": "/api/ps and /api/tags did not answer",
                  "llama3.1:8b, 120 tok/s, 1.5/2": "llama3.1:8b, 120 tok/s, 1.5/2"}
         got = {k: scrub(k, host) for k in cases}
