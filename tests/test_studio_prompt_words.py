@@ -563,15 +563,15 @@ console.log(JSON.stringify({ cost: [w.agentCost(g, 0, worker), w.agentCost(g, 0,
     got = node_ts.run(js)
     if got is None:
         return
-    ctx.check(f"the worker's cost is its figure, every other guest agent's not known; got {got['cost']}",
-              got["cost"][0].startswith("$") and got["cost"][1:3] == ["not known", "not known"] and got["cost"][3].startswith("$"))
+    ctx.check(f"the worker's cost is Halo's words for a local model (never a made-up $0), every other guest agent's not known; got {got['cost']}",
+              got["cost"][0] == "free (local)" and got["cost"][1:3] == ["not known", "not known"] and got["cost"][3].startswith("$"))
     ctx.check(f"the worker's Stop is on; a guest's other agents' and the session's off; got {got['stop']}",
               got["stop"][0] is None and str(got["stop"][1]).startswith("Claude Code · watch only")
               and str(got["stop"][2]).startswith("Claude Code · watch only") and got["stop"][3] is None)
     ctx.check(f"its other controls: off with their own line; got {got['watch']}",
               got["watch"][0] == "a hand-out takes Stop only: Halo runs it for this Claude Code session"
               and str(got["watch"][1]).startswith("Claude Code · watch only") and got["watch"][2] is None)
-    ctx.check(f"the pinned stream shows the worker's figure, got {got['pip']!r}", "not known" not in got["pip"])
+    ctx.check(f"the pinned stream shows the worker's cost words, got {got['pip']!r}", "free (local)" in got["pip"] and "$" not in got["pip"])
     src = {p: (routes / p).read_text(encoding="utf-8") for p in ("fleet/Agent.tsx", "crew/map/Feed.tsx")}
     ctx.check("the inspector's and the Map feed's Stop read stopWhy", "stopWhy(r.s, a)" in src["fleet/Agent.tsx"]
               and "disabled={!!stopNo}" in src["crew/map/Feed.tsx"])

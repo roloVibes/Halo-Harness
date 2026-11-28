@@ -13,9 +13,13 @@ export const WORKER_LINE = "a hand-out takes Stop only: Halo runs it for this Cl
 /** A hand-out worker's row in a Claude Code session (guest/hand_out.py): Halo runs it. */
 export const isWorker = (agent: Kinded): boolean => String(agent?.kind || "") === "halo-worker";
 
-/** An agent's cost on a card: "not known" in a Claude Code session (a worker's own figure shows), else its figure. */
+/** A hand-out worker's cost: it runs on the person's own local model (guest.hand_out is off or local in this release),
+ *  so Halo's words for that (guest/hand_out.py COST, the packet's), never a made-up "$0.0000". */
+export const WORKER_COST = "free (local)";
+
+/** An agent's cost on a card: "not known" in a Claude Code session, "free (local)" for its hand-out worker, else its figure. */
 export const agentCost = (session: Kinded, usd: number | null | undefined, agent?: Kinded): string =>
-  isGuest(session) && !isWorker(agent) ? NOT_KNOWN : cost(usd);
+  !isGuest(session) ? cost(usd) : isWorker(agent) ? WORKER_COST : NOT_KNOWN;
 
 /** Why a card's controls are off in a Claude Code session (their title), else undefined. */
 export const watchWhy = (session: Kinded, agent?: Kinded): string | undefined =>
