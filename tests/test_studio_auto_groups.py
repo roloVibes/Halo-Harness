@@ -138,11 +138,13 @@ def test_group_head_and_members_grow_never_clip(ctx: Ctx):
               d.get("counts") == "5 agents · 2 working · 1 waiting on you · 1 done · 1 failed · $0.0300" and d.get("bad") == "1 failed")
     ctx.check(f"the why line, got {d.get('why')!r}", bool(d.get("why")))
     goal = d.get("goal") or []
-    # 3.6.0.23 PV: "Goal" is a word on the first line, no new row: the members keep their boxes here; a short goal keeps
-    # its line; a line that was near the member's edge ("researcher: read B" at this width) wraps once more (never cut)
-    ctx.check(f"3.6.0.23 PV: a member's first line says Goal; each member's box as tall as without it, a short goal's "
-              f"line too, got {goal}", [g[0] for g in goal] == ["researcher · Goal: read B", "coder · Goal: fix two"]
-              and all(abs(g[1][1] - g[2][1]) < 0.5 for g in goal) and abs(goal[1][1][0] - goal[1][2][0]) < 0.5)
+    # 3.6.0.23 PV: "Goal" is a word on the first line, no new row. A short goal keeps its one line. A line that was
+    # near the member's edge ("researcher: read B" at this width) wraps once more and its member grows with it, from
+    # its first draw: the box grows before a word is cut (ruled after the check: the goal stays on the card's face).
+    ctx.check(f"3.6.0.23 PV: a member's first line says Goal; a short goal's line is as tall as without the word; a "
+              f"line that wraps is whole inside its member, got {goal}",
+              [g[0] for g in goal] == ["researcher · Goal: read B", "coder · Goal: fix two"]
+              and abs(goal[1][1][0] - goal[1][2][0]) < 0.5 and all(g[2][1] >= g[2][0] - 0.5 for g in goal))
     ctx.check(f"the child of a child's third line, got {d.get('third')!r}",
               d.get("third") == "started by researcher: compare the three quarterly reports and write the summary now")
     w, left, world = d.get("w") or 0, d.get("left") or 0, d.get("world") or 0

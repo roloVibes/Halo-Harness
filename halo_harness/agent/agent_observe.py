@@ -112,7 +112,9 @@ class ObserveMixin:
                 label = tool_label(str(data.get("name") or "?"), data.get("input"))
                 self._inflight.setdefault(aid, {})[data.get("id")] = label
                 if data.get("name") == "TodoWrite":  # 3.6.0.23 PV: the list waits for the call's result
-                    self._todo_in.setdefault(aid, {})[data.get("id")] = (data.get("input") or {}).get("todos")                         if isinstance(data.get("input"), dict) else None
+                    given = data.get("input")
+                    self._todo_in.setdefault(aid, {})[data.get("id")] = (
+                        given.get("todos") if isinstance(given, dict) else None)
                 row["current"] = label
                 _running(row)
             elif kind == "tool_result":
