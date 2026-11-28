@@ -8,6 +8,103 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.26] - unreleased
+
+Claude Code can hand a bounded task to one of your own local models, through Halo. Off until you turn it on.
+
+### Added
+
+- **Hand-outs (a Claude Code session, the step after watch only).** `halo config set guest.hand_out local`, then
+  a new Claude Code session: five tools appear in Claude Code. `halo_models` lists your local models with what
+  Halo knows of each (window, measured speed and cold load, tool calling, the tuner's guide marked as the
+  tuner's). `halo_hand_out` gives one task (a goal, checks its answer must meet, files, a model, a mode) to an
+  agent Halo runs on one of them, and answers when the job ends (or at once with a job id). `halo_job`,
+  `halo_job_result` and `halo_job_stop` read and stop a job. The point: bounded work on your own machine, not on
+  your Claude tokens.
+- **Local means yours, and it is checked.** Allowed: a model on an Ollama host entry that has no key (in the
+  entry or in Halo's env file) and sits at a local address (this machine, a private address, a single-label or
+  `.local` name). A host entry with a key is an account somewhere and is refused, as is every paid or cloud
+  model and every Claude model, with one line that names the allowed ones. The worker itself refuses every other
+  model too (its small-model role, an escalation, a fallback), so a local router in front of a paid account is
+  not reached through a hand-out.
+- **What a worker may do.** Mode `none`: no tools, it answers from what it was sent. Mode `read_only`: Read,
+  Grep and Glob only, held to the session's project folder (a read anywhere else is a recorded denial). In both
+  it runs no command, edits nothing, starts no sub-agent, no tool server and no `claude`; an ask is a recorded
+  denial, never a wait. No mode edits files in this release.
+- **A worker is a sealed run.** None of your hooks runs in it. No settings file (yours, Claude Code's or the
+  project's) changes what it may do: no allow rule, no added folder, no `env` block. Its environment carries no
+  login, key or token. Its model is sent Halo's own prompt for such a run and the task: no instruction file, no
+  memory, nothing of your `~/.claude`. It keeps no session: no transcript, no entry in the session list
+  (`halo -c` after a hand-out continues your own last session).
+- **Caps, and a Stop.** 12 turns (up to 40) and 10 minutes (up to 60) a job; two jobs at once, one per host; a
+  third is refused. A job that hits a cap answers "stopped" with what it had. `halo_job_stop`, the worker's Stop
+  in Studio, a cancel of the call in Claude Code, `halo stop` or the session's end stop a job.
+- **In Studio.** The worker is a card under the Claude Code session's main ("Halo: <model>", its goal, the tool it
+  runs, turns, tokens, "free (local)"), or under the Claude Code sub-agent that asked when that is sure. Its Stop
+  works; every other card of the session, and the session itself, stay watch only.
+- **Everything ends with the session.** A worker ends with the bridge that started it, however the bridge ends
+  (its input closes, it is killed hard, Claude Code is killed, `halo update`, `halo stop`). A job's record lives
+  under Halo's own run folder while the session lives and is removed at its end; a dead session's files are
+  swept. Halo writes nothing under `~/.claude`.
+- `halo guest status` says the setting and the jobs that run; `halo doctor`'s row says the setting; docs/GUEST.md
+  has the section.
+
+### Changed
+
+- With hand-outs off (the default) the bridge is what 3.6.0.25 shipped, with one correction that holds on and
+  off: it no longer answers with a protocol revision it does not implement (an unknown one gets the newest it
+  implements).
+- A Glob whose pattern climbs out of the working folders (`..`), or is an absolute path elsewhere, is now rated
+  as a read outside them, as a Read of that place is: an ask, or a recorded denial in print mode. Before, it was
+  rated as a read inside and returned the names.
+- `--strict-mcp-config` now also leaves out the claude.ai connectors: such a run starts none of them and does
+  not ask Claude Code for its sign-in state.
+- `--setting-sources ""` now reads no settings layer (before: all of them).
+- `halo -p` with JSON output carries `capped: "max_turns"` when the turn cap ended the run (`stop_reason` is
+  unchanged: it stays the model's own).
+
+### Tests
+
+- What the independent check found before the review, each with its test now: a `read_only` worker could run
+  read-only shell commands and so read any file, the Claude login file among them; it wrote a plan file under
+  `~/.claude`; a host whose key is kept in Halo's env file passed as "your own"; with connector discovery on, a
+  worker could start `claude auth status`; a cancel that came while a job was being started was lost.
+- What the review found after that, each with its test now: a worker ran your hooks, Claude Code's own among
+  them; a settings `env` block could hand it a login or a gateway key; an allow rule or an added folder let it
+  read outside the project, and a search pattern with `..` listed files outside it; its small-model role or an
+  escalation could reach a paid account behind a local router; it kept a session transcript that your next
+  `halo -c` in that project would have continued; a worker's row was offered to a phone transport.
+- Hard-kill tests: the bridge's input closes, the bridge is killed by its handle, and on Windows the same inside
+  a strict outer Job: the worker is gone and its files are swept. On Linux the test goes red when the bridge's
+  closing set-up is taken out.
+- The whole suite on Linux found that a first way of saying the turn cap changed print mode's `stop_reason` for
+  everyone: it became the field of its own named above.
+- Real use, on a Windows PC: two real Claude Code sessions with hand-outs on, the second on the sealed worker.
+  Claude Code called `halo_models` and `halo_hand_out`; a real worker process read the file it was asked about
+  and answered; Claude Code reported the answer, the model, and that the check read "not answered"; the worker
+  showed under main in the session's rows; its model was offered Read, Grep and Glob only; at the end no row, no
+  job file and no session was left, and no file in Halo's folder held a word of the task. The worker's model in
+  those runs was a stand-in server (no local model server was running on the PC).
+- What a session's model is sent is pinned and unchanged; the words a worker is sent are pinned by their own test.
+
+### Known limits
+
+- **No hand-out has run on a real local model in the making of this release**: the first ones are yours. A small
+  local model may not answer the checks in the asked shape: each then reads "not answered" and the answer text is
+  still returned.
+- A worker is sent no instruction file of the project (a sealed run): what it must know goes into the goal.
+- A job does not outlive its session. Only Ollama hosts are allowed in this release.
+- Claude Code does not say which of its sub-agents made a call: the worker goes under a sub-agent only when
+  exactly one hook line matches the call (same tool, same arguments, close in time), else under main. Whether a
+  cancel in Claude Code reaches the bridge was not seen in a real session; when it does not, the job runs to its
+  caps or to a Stop.
+- A real session was tried on Windows only; macOS and Linux by tests. The kill tests do not yet hold a process
+  started BY a worker (a worker has no tool that starts one).
+- Halo's own counts of the traffic on your host (model, tokens, timing; never words) count a worker's calls.
+- Not in this release: a mode that edits files, paid or cloud models, a queue, long-running MCP tasks, anything
+  that tells Claude Code when to hand out, any change to `halo mcp serve`.
+- Every Known limit of 3.6.0.25 still holds.
+
 ## [3.6.0.25] - 2026-11-28
 
 Two things. Halo finds a local model's best window by measuring it, and a model of your choice can tune with it.
