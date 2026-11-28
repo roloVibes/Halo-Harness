@@ -174,7 +174,9 @@ class EventBridge:
                 rows = registry.list_live()
         except Exception:
             return
-        live = {r.get("session_id"): r for r in rows if isinstance(r, dict) and r.get("session_id")}
+        from halo_harness.guest import worker_of_a_guest  # 3.6.0.26 H: drawn in its guest's tree, never as a session
+        live = {r.get("session_id"): r for r in rows if isinstance(r, dict) and r.get("session_id")
+                and not worker_of_a_guest(r)}
         now = time.monotonic()
         with self._lock:
             gone = [sid for sid in self._stops if sid not in live]

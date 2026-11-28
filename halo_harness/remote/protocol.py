@@ -157,7 +157,11 @@ def run_cmd(handle, req: dict, conn) -> Any:
     if getattr(handle, "watch_only", False):  # 3.6.0.25 G: a Claude Code session (guest/bridge.py) only reads
         from halo_harness.guest import WATCH_CMDS, WATCH_ONLY_LINE
         if cmd not in WATCH_CMDS:
-            raise HandleError(WATCH_ONLY_LINE)
+            own = getattr(handle, "serve_own", None)  # 3.6.0.26 H: a hand-out worker's row is Halo's (its Stop)
+            got = own(cmd, req) if callable(own) else None
+            if got is None:
+                raise HandleError(WATCH_ONLY_LINE)
+            return got
     if cmd == "ping":
         return {"pong": True, "session_id": handle.session_id}
     if cmd == "status":

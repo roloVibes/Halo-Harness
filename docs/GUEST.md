@@ -1,6 +1,6 @@
 # A Claude Code session in Studio (watch only)
 
-Read this when you want to see a Claude Code session in Studio: how to turn the watch-only view on and off, what Studio shows of it, and what Halo reads and keeps.
+Read this when you want to see a Claude Code session in Studio: how to turn the watch-only view on and off, what Studio shows of it, what Halo reads and keeps, and how Claude Code may hand a bounded task to your own local models.
 
 Halo can show a Claude Code session in Studio's Session section, as one more session with its agent blocks: the
 main agent, its sub-agents, the tool each one runs, the plan and the objective. It is **watch only**: nothing is
@@ -119,7 +119,68 @@ the same loopback control socket every Halo session opens.
 - **The folder Claude Code starts its MCP server in.** The plugin passes Claude Code's project folder; when it is not
   given, the bridge's own folder is taken.
 
+## Hand-outs: Claude Code hands a bounded task to one of your local models
+
+Off until you turn it on. With it on, Claude Code (as main) can hand one bounded task to an agent Halo runs on one of
+**your own** local models, and Studio shows that agent as a child of the session's main (or of the Claude Code
+sub-agent that asked, when that is sure). The point: bounded work on your own machine, not on your Claude tokens.
+
+**Turn it on**: `halo config set guest.hand_out local`, then start a new Claude Code session (or reconnect the
+`halo-guest` server with `/mcp`): the bridge reads the setting once, when it starts. **Turn it off**: `halo config
+set guest.hand_out off` and the same restart. `off` and `local` are the only values read; any other reads as off and
+`halo doctor` says so.
+
+The tools Claude Code then sees (named `mcp__plugin_halo-guest_halo-guest__<tool>`):
+
+- `halo_models`: your local models Halo may use, with what Halo knows of each (window, measured speed and cold load,
+  tool calling, the tuner's guide line marked as the tuner's); what is not known says so.
+- `halo_hand_out`: one task (a goal, up to 10 acceptance checks, up to 50 files, a model, a mode, the caps); it answers
+  when the job ends (`wait: false`: a job id at once).
+- `halo_job`: a job's state, step, turns, tokens and minutes.
+- `halo_job_result`: its answer text (in parts of 20,000 characters), its answer to each check (or "not answered"),
+  what it was denied, turns, tokens and cost.
+- `halo_job_stop`: stop a job.
+
+**Which models**: `ol:<model>` or `ol:<model>@<host>` whose host entry in `ollama.hosts` has **no key** (a host entry
+with a key is an account somewhere, such as Ollama Cloud, not your machine), and `hf:local/<model>`, `hf:mlx/<model>`.
+Anything else (an `or:`, `ant:` or `dbx:` model, a Claude model) is refused with one line that names the allowed ones.
+With no model named, Halo's default model is taken when it is one of these. Before a start Halo reads the host's
+model list once: "does not answer" and "is not on <host>" are said before anything starts.
+
+**What a worker may do**: in mode `none` it has no tools and answers from what it was sent; in mode `read_only` it may
+read and search files in the session's project folder and changes nothing. In both it runs **no** command, edits
+nothing, starts no tool server (`--strict-mcp-config`) and reaches nothing on the network but this machine and your
+own local hosts (`--offline`); an ask is a recorded denial (nobody is asked), never a wait. It can never be given a
+Claude model, your Claude login, a shell line or a Bash prompt. There is no mode that edits in this release.
+
+**Where its words go**: to the model on your own machine or on the host you named, nothing else. The worker is a `halo
+-p` process on your machine; its prompt is the task, the files' names and the checks (a user prompt; no session's
+system prompt is changed).
+
+**Stopping a job**: `halo_job_stop`, the worker's Stop in Studio (its row is Halo's own: its Stop works, its cost and
+tokens show; every other row of the Claude Code session stays watch only), a cancel of the call in Claude Code, `halo
+stop`, or the session's end. A stop asks the agent to end at its next step, then ends its process.
+
+**Caps**: 12 turns (up to 40), 10 minutes of wall clock (up to 60), two jobs at once per session and one per host; a
+third is refused (no queue). A job that hits a cap answers `stopped` with what it had.
+
+**What is kept**: each job's record and result, in the bridge's memory and in `~/.halo/run/guest/<pid>.job.<id>.json`
+(yours alone) while the session lives; removed at the session's end, and a dead session's by the same sweeps as the
+spool. Halo writes nothing under `~/.claude`.
+
+**Closing**: every worker ends with the bridge that started it, however the bridge ends (its input closes, it is killed
+hard, Claude Code is killed, `halo update`, `halo stop`): on Windows the bridge's own Job holds it, on Linux and macOS
+the worker watches the bridge and ends within two seconds of it going. `halo ps` names a running worker ("Claude Code
+hand-out"); Studio draws it under the session's main and not as a session of its own.
+
+**Limits**: a job does not outlive its session (no resume); `hf:local` / `hf:mlx` models are allowed but not listed by
+`halo_models`; a keyless host entry on a public address is allowed but `--offline` refuses to reach it; Claude Code
+does not document which sub-agent made an MCP call: the worker goes under that sub-agent only when the hook line of
+the call (same tool, same arguments, close in time) is the only one, else under main.
+
 ## Not in this release
 
-Handing work out to agents Halo runs, any MCP tool, reading the transcript (cost, tokens, replies as they are
-written), steering, a Claude Code session on another machine, and any change to `halo mcp serve`.
+An editing mode, paid or cloud models, MCP tasks, a queue, a second model reviewing a result, applying a patch,
+resuming a job after its session ended, anything that tells Claude Code when to hand out (a skill, a sub-agent
+definition), reading the transcript (cost, tokens, replies as they are written), steering, a Claude Code session on
+another machine, and any change to `halo mcp serve`.

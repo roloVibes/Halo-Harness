@@ -14,6 +14,11 @@ it. A bridge ended hard leaves files of a dead pid: the hook writes nothing to t
 not alive, note.bridge_alive), and they are swept (guest.sweep_dead) by `halo update` after its stops, `halo guest
 status` and `uninstall`, `halo doctor`'s row, a Studio start and the next bridge's start; the row of a dead pid
 leaves the registry by itself (remote/registry.py). It starts no process. Nothing is kept after it.
+
+3.6.0.26 H, hand-outs (`guest.hand_out local`, read once at its start; docs/GUEST.md "Hand-outs"): it calls
+closing.install() FIRST, offers five tools (guest/tools.py) and starts each hand-out's worker as its own child
+(guest/hand_out.py); a worker's row in its tree is Halo's (`agent_stop` on it stops the job), every other row stays
+watch only. With the setting off none of that is imported, installed or started.
 """
 
 from __future__ import annotations
@@ -28,7 +33,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
 
-from halo_harness.guest import DESCRIPTION, KIND, PLUGIN, TITLE, WATCH_ONLY_LINE, guest_dir
+from halo_harness.guest import DESCRIPTION, HAND_OUT_DESCRIPTION, KIND, PLUGIN, TITLE, WATCH_ONLY_LINE, guest_dir
 from halo_harness.guest import note
 from halo_harness.remote.base import HandleError, _BaseHandle
 
@@ -37,6 +42,7 @@ ROTATE_AT = 1024 * 1024
 READ_CHUNK = 1024 * 1024
 SPOOL_YOUNG_S = 30.0  # a spool with no `.on` this young may be a starting bridge's (its `.on` comes next)
 PROTOCOL = "2025-06-18"
+REVISIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")  # the MCP revisions this server implements
 
 
 class _NoLog:
@@ -77,6 +83,7 @@ class GuestHandle(_BaseHandle):
         super().__init__(session, project)
         self.claude_pid = claude_pid
         self.feed = None  # feed.GuestFeed, once the tree exists
+        self.hand_outs = None  # hand_out.HandOuts, when hand-outs are on
 
     def title(self) -> str:
         return TITLE
@@ -91,7 +98,16 @@ class GuestHandle(_BaseHandle):
                 "pending": {}, "remote_attached": 0, "agents": tree_for(self.session).live_count(),
                 "accepts_turns": False, "watch_only": True,
                 "guest": {"claude_pid": self.claude_pid, "claude_session_id": feed.sid if feed else "",
-                          "dropped": feed.dropped if feed else 0}}
+                          "dropped": feed.dropped if feed else 0, **_hand_out_status(self.hand_outs)}}
+
+    def serve_own(self, cmd: str, req: dict):
+        """3.6.0.26 H: the one command a guest serves past watch only: `agent_stop` on a hand-out worker's row (Halo's
+        own: it stops that job). None for every other command and row (remote/protocol.py answers watch only)."""
+        job = self.hand_outs.by_row(str(req.get("agent_id") or "")) if self.hand_outs is not None else None
+        if cmd != "agent_stop" or job is None:
+            return None
+        via = " ".join(str(req.get("via") or "Studio").split())[:32] or "Studio"
+        return {"agent_id": job.aid, "stopping": [job.aid], "said": job.stop(f"{via} (its Stop)")}
 
     def kept_entries(self, aid: str) -> list:
         """agent_tail's entries: the lines this bridge read, never a transcript file."""
@@ -293,7 +309,7 @@ def sweep(directory: Path, also: Optional[int] = None) -> int:
                 live.add(int(head))
     for name in names:
         head = name.split(".", 1)[0]
-        if not head.isdigit() or not (name.endswith(".on") or name.endswith(".jsonl")) or int(head) in live:
+        if not head.isdigit() or not name.endswith((".on", ".jsonl", ".json")) or int(head) in live:
             continue
         path = Path(directory) / name
         if int(head) != also and name.endswith(".jsonl") and f"{head}.on" not in names and _young(path):
@@ -311,20 +327,41 @@ def _young(path: Path) -> bool:
 
 
 # ---- the MCP side: stdio, newline-delimited JSON-RPC; no tools, no instructions to the model ----------------------
-def answer(msg) -> Optional[dict]:
-    """The reply to one MCP message (None for a notification)."""
+def _hand_out_status(jobs) -> dict:
+    if jobs is None:
+        return {}
+    from halo_harness.guest.tools import status_of
+    return status_of(jobs)
+
+
+def revision(asked) -> str:
+    """The client's revision when this server implements it; else the newest it implements (never an echo of one it
+    does not know)."""
+    return asked if asked in REVISIONS else REVISIONS[-1]
+
+
+def answer(msg, hand_outs: bool = False) -> Optional[dict]:
+    """The reply to one MCP message (None for a notification). `hand_outs`: the tools of guest/tools.py are on."""
     if not isinstance(msg, dict) or "id" not in msg or not isinstance(msg.get("method"), str):
         return None
     method, rid = msg["method"], msg["id"]
     params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
     if method == "initialize":
         from halo_harness import __version__
-        version = params.get("protocolVersion") if isinstance(params.get("protocolVersion"), str) else PROTOCOL
+        version = revision(params.get("protocolVersion")) if isinstance(params.get("protocolVersion"), str) else PROTOCOL
         result = {"protocolVersion": version, "capabilities": {"tools": {"listChanged": False}},
                   "serverInfo": {"name": PLUGIN, "title": "Halo (watch only)", "version": __version__,
                                  "description": DESCRIPTION}}
+        if hand_outs:
+            from halo_harness.guest.tools import INSTRUCTIONS
+            result["serverInfo"].update(title="Halo (watch, local hand-outs)", description=HAND_OUT_DESCRIPTION)
+            result["instructions"] = INSTRUCTIONS
     elif method == "tools/list":
-        result = {"tools": []}
+        if hand_outs:
+            from halo_harness.guest.tools import tool_list
+            result = {"tools": tool_list()}
+        else:
+            result = {"tools": []}
     elif method == "ping":
         result = {}
     elif method == "tools/call":
@@ -334,8 +371,12 @@ def answer(msg) -> Optional[dict]:
     return {"jsonrpc": "2.0", "id": rid, "result": result}
 
 
-def mcp_loop(rf, wf) -> None:
-    """Answer until the input closes."""
+def mcp_loop(rf, wf, tools=None) -> None:
+    """Answer until the input closes. `tools` (guest/tools.Tools, hand-outs on): its loop, which keeps reading while
+    a call runs."""
+    if tools is not None:
+        tools.loop(rf, wf)
+        return
     for raw in iter(rf.readline, b""):
         try:
             reply = answer(json.loads(raw.decode("utf-8", "replace")))
@@ -361,12 +402,21 @@ def serve(argv: Optional[list] = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     out = sys.stdout.buffer
     sys.stdout = sys.stderr  # nothing but the protocol on the output
-    bridge = None
+    from halo_harness.guest.hand_out import setting
+    on = setting()[0] == "local"  # read once: a change takes a new session (or a reconnect of this server)
+    if on:  # FIRST, before any thread that could start a process: the Job (Windows), the owner watch, the ledger owner
+        from halo_harness import closing
+        closing.install()
+    bridge = tools = None
+    claude, project = note.claude_pid(), _project(argv)
     try:
-        bridge = GuestBridge(note.claude_pid(), _project(argv)).start()
+        bridge = GuestBridge(claude, project).start()
     except Exception as e:
         print(f"halo guest: the bridge did not open ({type(e).__name__}: {e}); Studio will not show this session",
               file=sys.stderr)
+    if on:
+        from halo_harness.guest.tools import Tools
+        tools = Tools(bridge, project, claude_pid=claude, directory=guest_dir())
     for sig in (getattr(signal, "SIGTERM", None), getattr(signal, "SIGHUP", None)):
         if sig is not None:
             try:
@@ -374,10 +424,12 @@ def serve(argv: Optional[list] = None) -> int:
             except (ValueError, OSError):
                 pass
     try:
-        mcp_loop(sys.stdin.buffer, out)
+        mcp_loop(sys.stdin.buffer, out, tools)
     except (KeyboardInterrupt, SystemExit, OSError):
         pass
     finally:
+        if tools is not None:
+            tools.close()  # every job stopped (politely, then by closing's stop) and its file removed
         if bridge is not None:
             bridge.close()
     return 0

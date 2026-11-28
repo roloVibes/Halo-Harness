@@ -85,7 +85,7 @@ export function StepIn({ t, where, map, sid, close, onLive, told, groups }: Prop
   const seen = useRef<{ id: string; ids: Set<string> } | null>(null); // the asks present at open: later ones go to the end
   if (!seen.current || seen.current.id !== t.id) seen.current = { id: t.id, ids: new Set(attn.map((r) => r.id)) };
   const a = useFleet((s) => (pick ? findAgent(s, pick)?.a : undefined));
-  const watch = useFleet((s) => (pick ? watchWhy(findAgent(s, pick)?.s) : undefined)); // 3.6.0.25 G: a Claude Code session
+  const watch = useFleet((s) => (pick ? watchWhy(findAgent(s, pick)?.s, findAgent(s, pick)?.a) : undefined)); // 3.6.0.25 G: a Claude Code session
   const steerLive = !!a && isLive(a) && !watch;
   const own = t.id.startsWith("member:") ? t.id.slice("member:".length) : "";
   const chosen = t.who.find((w) => w.key === pick);

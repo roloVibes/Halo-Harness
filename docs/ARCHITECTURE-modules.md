@@ -350,5 +350,9 @@ Workflow tool's words for each rule), `workflows/blocks_show.py` (the squares on
 teams`, the `halo workflows` square verbs and the composing routes (their one line: cli.py
 `GONE_VERBS`).
 
+A Claude Code session in Studio (`halo_harness/guest`, [GUEST.md](GUEST.md)): `guest/note.py` the hook, `guest/feed.py`
+the spool's lines as tree rows, `guest/bridge.py` the plugin's MCP server, `guest/install.py` the commands;
+3.6.0.26 H: `guest/hand_out.py` a hand-out's model check, worker and packet, `guest/tools.py` the five MCP tools.
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

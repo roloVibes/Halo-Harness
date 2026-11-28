@@ -623,6 +623,708 @@ def test_the_mcp_side_offers_no_tools_and_ends_at_the_inputs_end(ctx: Ctx):
     ctx.check("a call answers watch only", got[2]["error"]["message"].startswith("watch only"))
 
 
+# ---- 3.6.0.26 H: hand-outs (a bounded task handed to an agent on the person's own local model) -----------------------
+REPO = Path(__file__).resolve().parent.parent
+GONE_S = 45.0  # a worker's pid is gone this long after its bridge (slow Windows runners: the polite stop is 10 s)
+
+
+class _Env:
+    """os.environ entries set for a test and put back exactly as found."""
+
+    def __init__(self, **values):
+        self.values = values
+        self.saved = {k: os.environ.get(k) for k in values}
+
+    def __enter__(self):
+        for k, v in self.values.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        return self
+
+    def __exit__(self, *exc):
+        for k, v in self.saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        return False
+
+
+def _write_config(home: Path, **cfg) -> None:
+    d = home / ".halo"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+
+def _mock(*steps, model="qwen3:30b"):
+    from tests.helpers.mock_ollama import MockUpstream
+    from tests.helpers.ollama_turns import _Script
+    return MockUpstream(scenarios={model: _Script(list(steps))}).start()
+
+
+def _said(text: str) -> list:
+    from tests.helpers.ollama_turns import _done
+    return _done(text)
+
+
+def _tool(name: str, **args) -> list:
+    return [{"message": {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": name, "arguments": args}}]},
+             "done": True, "done_reason": "stop", "prompt_eval_count": 20, "eval_count": 6}]
+
+
+def _slow(stop, seconds: float, text: str = "late"):
+    """A chat step that holds its answer `seconds` (or until the test ends: `stop` set)."""
+    from tests.helpers.mock_ollama import _finish_chat
+
+    def step(handler, _body):
+        stop.wait(seconds)
+        _finish_chat(handler, _said(text))
+    return step
+
+
+def _bridge_env(home: Path, mock_url: str) -> dict:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("HALO_") or k == "HALO_TEST_NO_PROC"}
+    env.pop("BRIDGE_STATE_DIR", None)
+    env.update({"BRIDGE_TEST_HOME": str(home), "OLLAMA_HOST": mock_url, "HALO_NO_UPDATER": "1",
+                "BRIDGE_TEST_NO_BACKGROUND_NET": "1", "PYTHONPATH": str(REPO), "PYTHONIOENCODING": "utf-8"})
+    return env
+
+
+class _Mcp:
+    """The test as Claude Code: the bridge (`python -m halo_harness.guest serve`) as its child, newline JSON-RPC on
+    its input, every message it writes kept in order."""
+
+    def __init__(self, home: Path, project: Path, mock_url: str, *, flags: int = 0):
+        import queue
+        import threading
+        self.log = home / "bridge.log"
+        self.q, self.got = queue.Queue(), []
+        kw = {"creationflags": flags} if flags else {}
+        with open(self.log, "ab") as err:
+            self.proc = subprocess.Popen([sys.executable, "-m", "halo_harness.guest", "serve", "--project", str(project)],
+                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=err, cwd=str(REPO),
+                                         env=_bridge_env(home, mock_url), **kw)
+        threading.Thread(target=self._read, daemon=True).start()
+
+    def _read(self):
+        for raw in iter(self.proc.stdout.readline, b""):
+            try:
+                self.q.put(json.loads(raw.decode("utf-8")))
+            except ValueError:
+                self.q.put({"not_json": raw[:200].decode("utf-8", "replace")})
+
+    def send(self, obj: dict) -> None:
+        self.proc.stdin.write((json.dumps(obj) + "\n").encode("utf-8"))
+        self.proc.stdin.flush()
+
+    def ask(self, rid, method: str, params=None) -> None:
+        self.send({"jsonrpc": "2.0", "id": rid, "method": method, **({"params": params} if params is not None else {})})
+
+    def wait(self, pred, seconds: float):
+        import queue
+        import time
+        end = time.monotonic() + seconds
+        for m in self.got:
+            if pred(m):
+                return m
+        while time.monotonic() < end:
+            try:
+                m = self.q.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            self.got.append(m)
+            if pred(m):
+                return m
+        return None
+
+    def reply(self, rid, seconds: float = 120.0):
+        return self.wait(lambda m: m.get("id") == rid and ("result" in m or "error" in m), seconds)
+
+    def call(self, rid, name: str, seconds: float = 120.0, meta=None, **args):
+        self.ask(rid, "tools/call", {"name": name, "arguments": args, **({"_meta": meta} if meta else {})})
+        r = self.reply(rid, seconds)
+        if not r or "result" not in r:
+            return None, r
+        res = r["result"]
+        text = res["content"][0]["text"]
+        try:
+            return json.loads(text), res
+        except ValueError:
+            return text, res
+
+    def end(self) -> None:
+        try:
+            if self.proc.poll() is None:
+                self.proc.kill()
+            self.proc.wait(30)
+        except Exception:
+            pass
+
+
+def _workers() -> list:
+    from halo_harness import children
+    try:
+        rows = json.loads(children.registry_path().read_text(encoding="utf-8")).get("children") or []
+    except (OSError, ValueError):
+        return []
+    return [r for r in rows if r.get("what") == "guest-worker"]
+
+
+def _wait_worker(seconds: float = 60.0) -> "dict | None":
+    import time
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        rows = _workers()
+        if rows:
+            return rows[0]
+        time.sleep(0.2)
+    return None
+
+
+def _alive(row: dict) -> bool:
+    from halo_harness import children
+    return children.same_process(row["pid"], row.get("start_time"))
+
+
+def _gone(row: dict, seconds: float) -> bool:
+    import time
+    end = time.monotonic() + seconds
+    while time.monotonic() < end and _alive(row):
+        time.sleep(0.2)
+    return not _alive(row)
+
+
+def _end_pid(row: "dict | None") -> None:
+    """Ends a worker the test's bridge started, by its pid and start time, if a failed check left it."""
+    if row and _alive(row):
+        from halo_harness.children_stop import terminate
+        terminate(row["pid"], timeout=5.0, recorded=row.get("start_time"))
+
+
+def _job_files(home: Path) -> list:
+    d = home / ".halo" / "run" / "guest"
+    return sorted(d.glob("*.job.*.json")) if d.is_dir() else []
+
+
+def _hand_outs(home: Path, project: Path, tree=None):
+    from halo_harness.guest.hand_out import HandOuts
+    d = home / ".halo" / "run" / "guest"
+    d.mkdir(parents=True, exist_ok=True)
+    return HandOuts(project, sid="guest-test", directory=d, claude_pid=PID, tree=tree, state_dir=home / ".halo")
+
+
+@test
+def test_hand_outs_off_the_bridge_is_release_1s_and_installs_nothing(ctx: Ctx):
+    """With the setting off (and with an unknown value): no tools, a call refused, closing.install never called; with
+    it on, install runs before the bridge opens anything."""
+    import contextlib
+    from halo_harness import closing
+    from halo_harness.guest import bridge
+    seen = []
+    real_install, real_start = closing.install, bridge.GuestBridge.start
+    msgs = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "halo_hand_out", "arguments": {}}}]
+    for value in (None, "off", "local+paid"):
+        with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9"):
+            _write_config(home.path, **({"guest": {"hand_out": value}} if value else {}))
+            stdin = type("In", (), {"buffer": io.BytesIO(b"".join((json.dumps(m) + "\n").encode() for m in msgs))})()
+            out = io.BytesIO()
+            stdout = type("Out", (), {"buffer": out, "write": lambda *_a: None, "flush": lambda *_a: None})()
+            saved = sys.stdin, sys.stdout
+            try:
+                closing.install = lambda *a, **kw: seen.append(("install", value))
+                bridge.GuestBridge.start = lambda self: seen.append(("start", value)) and None
+                sys.stdin, sys.stdout = stdin, stdout
+                with contextlib.redirect_stderr(io.StringIO()):
+                    bridge.serve(["--project", str(home.path)])
+            finally:
+                sys.stdin, sys.stdout = saved
+                closing.install, bridge.GuestBridge.start = real_install, real_start
+            got = [json.loads(x) for x in out.getvalue().decode().splitlines()]
+            ctx.check(f"{value}: no tools, the call refused watch only, no instructions; got {got}",
+                      got[1]["result"] == {"tools": []} and got[2]["error"]["message"].startswith("watch only")
+                      and "instructions" not in got[0]["result"])
+    ctx.check(f"off: closing.install never called, got {seen}", not any(s[0] == "install" for s in seen))
+    with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9"):
+        _write_config(home.path, guest={"hand_out": "local"})
+        stdin = type("In", (), {"buffer": io.BytesIO(b"")})()
+        stdout = type("Out", (), {"buffer": io.BytesIO(), "write": lambda *_a: None, "flush": lambda *_a: None})()
+        saved, order = (sys.stdin, sys.stdout), []
+        try:
+            closing.install = lambda *a, **kw: order.append("install")
+            bridge.GuestBridge.start = lambda self: order.append("bridge") and None
+            sys.stdin, sys.stdout = stdin, stdout
+            with contextlib.redirect_stderr(io.StringIO()):
+                bridge.serve(["--project", str(home.path)])
+        finally:
+            sys.stdin, sys.stdout = saved
+            closing.install, bridge.GuestBridge.start = real_install, real_start
+        ctx.check(f"local: closing.install first, then the bridge; got {order}", order == ["install", "bridge"])
+
+
+@test
+def test_the_setting_reads_off_for_any_other_value_and_doctor_says_so(ctx: Ctx):
+    from halo_harness.guest import hand_out as H
+    with _Home() as home:
+        for raw, want in ((None, "off"), ("off", "off"), ("local", "local"), ("LOCAL ", "local"), ("local+paid", "off"),
+                          (True, "off")):
+            _write_config(home.path, **({"guest": {"hand_out": raw}} if raw is not None else {}))
+            ctx.check(f"{raw!r} reads {want}", H.setting()[0] == want)
+        _write_config(home.path, guest={"hand_out": "local+paid"})
+        from halo_harness.guest import install
+        line = install.doctor_line()
+        ctx.check(f"doctor names the value it does not read, got {line!r}",
+                  "hand-outs: off (guest.hand_out is 'local+paid': only off or local are read)" in line)
+        _write_config(home.path, guest={"hand_out": "local"})
+        ctx.check("and says local when on", "hand-outs: local" in install.doctor_line())
+
+
+@test
+def test_a_client_revision_this_server_does_not_implement_is_answered_with_its_newest(ctx: Ctx):
+    from halo_harness.guest import bridge
+    got = bridge.answer({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2026-07-28"}})
+    ctx.check(f"an unknown revision: the newest implemented, got {got['result']['protocolVersion']}",
+              got["result"]["protocolVersion"] == bridge.REVISIONS[-1] != "2026-07-28")
+    got = bridge.answer({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}})
+    ctx.check("a known one is kept", got["result"]["protocolVersion"] == "2025-06-18")
+
+
+@test
+def test_the_tools_words_and_the_instructions_are_short_and_plain(ctx: Ctx):
+    from halo_harness.guest import bridge, tools
+    names = [t["name"] for t in tools.tool_list()]
+    ctx.check(f"five tools, got {names}", names == ["halo_models", "halo_hand_out", "halo_job", "halo_job_result", "halo_job_stop"])
+    for t in tools.tool_list():
+        ctx.check(f"{t['name']}: at most 600 characters ({len(t['description'])})", len(t["description"]) <= 600)
+        ctx.check(f"{t['name']}: never 'always use'", "always use" not in t["description"].lower())
+    hand = next(t for t in tools.tool_list() if t["name"] == "halo_hand_out")
+    ctx.check("halo_hand_out says where it runs and what the agent may do",
+              "own machine" in hand["description"] and "read_only" in hand["description"] and "no tools" in hand["description"])
+    ctx.check(f"no edits mode is offered: {hand['inputSchema']['properties']['mode']}",
+              hand["inputSchema"]["properties"]["mode"]["enum"] == ["none", "read_only"])
+    lines = tools.INSTRUCTIONS.splitlines()
+    ctx.check(f"the instructions: three lines at most, they say he turned it on: {lines}",
+              len(lines) <= 3 and "turned hand-outs on" in tools.INSTRUCTIONS and "always use" not in tools.INSTRUCTIONS.lower())
+    got = bridge.answer({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}, hand_outs=True)
+    ctx.check("on: initialize carries the instructions", got["result"]["instructions"] == tools.INSTRUCTIONS)
+
+
+@test
+def test_the_frame_a_worker_is_sent_is_pinned(ctx: Ctx):
+    from halo_harness.guest.hand_out import frame
+    want = ("Halo hands you one task from a Claude Code session. Do only this task, then answer in plain text.\n"
+            "You may read and search files in the project folder; you change nothing and run no command.\n"
+            "\nThe task:\nFind where the session id is set\n"
+            "\nFiles the task is about:\n- halo_harness/guest/feed.py\n"
+            "\nChecks your answer must meet:\n1. names the function\n"
+            "\nEnd your answer with one line of JSON that answers each check, in order, like this:\n"
+            '{"acceptance": [{"n": 1, "met": "yes", "why": "one short line"}]}\n')
+    got = frame("Find where the session id is set", ["names the function"], ["halo_harness/guest/feed.py"], "read_only")
+    ctx.check(f"read_only, with files and a check: the frame word for word, got {got!r}", got == want)
+    bare = frame("Say hello", [], [], "none")
+    ctx.check(f"none, nothing else: two lines and the task, got {bare!r}",
+              bare == "Halo hands you one task from a Claude Code session. Do only this task, then answer in plain text.\n"
+                      "You have no tools: answer from what is written here.\n\nThe task:\nSay hello\n")
+
+
+@test
+def test_acceptance_answers_only_in_the_asked_shape_else_not_answered(ctx: Ctx):
+    from halo_harness.guest.hand_out import answers
+    checks = ["names the file", "says the line"]
+    good = 'It is in feed.py.\n{"acceptance": [{"n": 1, "met": "yes", "why": "feed.py"}, {"n": 2, "met": "no", "why": "not sure"}]}'
+    ctx.check("the asked shape: each answer", [a["answer"] for a in answers(good, checks)] == ["yes: feed.py", "no: not sure"])
+    for bad in ("It is in feed.py.", '{"acceptance": [{"n": 1, "met": "yes"}]}', '{"acceptance": "yes"}',
+                '{"acceptance": [{"met": "maybe"}, {"met": "yes"}]}', "{not json"):
+        ctx.check(f"not the shape ({bad[:30]!r}): every check not answered",
+                  [a["answer"] for a in answers(bad, checks)] == ["not answered", "not answered"])
+
+
+@test
+def test_only_his_own_local_models_are_allowed_and_a_refusal_starts_nothing(ctx: Ctx):
+    with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9"):
+        mock = _mock(_said("hello"))
+        try:
+            _write_config(home.path, ollama={"hosts": [{"name": "mine", "url": mock.base_url, "default": True},
+                                                        {"name": "cloud-box", "url": mock.base_url, "api_key": "k-example"}]})
+            from halo_harness.guest import hand_out as H
+            rows = H.models(home.path / ".halo")["models"]
+            refs = sorted(r["ref"] for r in rows)
+            ctx.check(f"halo_models: the keyless host's models only, got {refs}",
+                      refs == ["ol:gpt-oss:20b@mine", "ol:qwen3:30b@mine"])
+            q = next(r for r in rows if r["ref"] == "ol:qwen3:30b@mine")
+            ctx.check(f"what Halo knows, nothing invented: {q}",
+                      q["trained_window"] == 40960 and q["tool_calling"] == "yes" and q["tok_s"] == "not known"
+                      and q["cold_load_s"] == "not known" and "tuner_guide" not in q)
+            jobs = _hand_outs(home.path, home.path)
+            for model in ("ol:qwen3:30b@cloud-box", "or:vendor/model", "ant:opus", "dbx:databricks-gpt-5-mini",
+                          "claude-opus-4-5", "sonnet", "--tools=Bash"):
+                job, why = jobs.start({"goal": "say hi", "mode": "none", "model": model})
+                ctx.check(f"{model}: refused with the allowed ones named, got {why!r}",
+                          job is None and "allowed: ol:<model>" in why and "hf:local/<model>" in why)
+            job, why = jobs.start({"goal": "say hi", "mode": "edits", "model": "ol:qwen3:30b@mine"})
+            ctx.check(f"mode edits is refused, got {why!r}", job is None and why.startswith("mode is none"))
+            ctx.check("nothing was started: no job, no worker in the ledger, no chat sent",
+                      not jobs.jobs and not _workers() and not any(r.get("path") == "/api/chat" for r in mock.requests))
+            _write_config(home.path, model="ant:opus", ollama={"hosts": [{"name": "mine", "url": mock.base_url}]})
+            job, why = jobs.start({"goal": "say hi", "mode": "none"})
+            ctx.check(f"no model given and a cloud default: refused, got {why!r}",
+                      job is None and why.startswith("no model given and Halo's default model ant:opus is not local"))
+            _write_config(home.path, model="ol:nope:1b@mine", ollama={"hosts": [{"name": "mine", "url": mock.base_url}]})
+            job, why = jobs.start({"goal": "say hi", "mode": "none"})
+            ctx.check(f"the default is local but not on the host: said before a start, got {why!r}",
+                      job is None and why.startswith("nope:1b is not on mine"))
+            _write_config(home.path, ollama={"hosts": [{"name": "mine", "url": "http://127.0.0.1:9"}]})
+            job, why = jobs.start({"goal": "say hi", "mode": "none", "model": "ol:qwen3:30b@mine"})
+            ctx.check(f"the host does not answer: said before a start, got {why!r}",
+                      job is None and why.startswith("the Ollama host mine does not answer") and not _workers())
+        finally:
+            mock.stop()
+
+
+@test
+def test_a_third_job_and_a_second_on_one_host_are_refused_with_one_line(ctx: Ctx):
+    import threading
+    from types import SimpleNamespace
+    with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9"):
+        mock = _mock(_said("hello"))
+        try:
+            _write_config(home.path, ollama={"hosts": [{"name": "mine", "url": mock.base_url, "default": True},
+                                                        {"name": "gpu-box", "url": mock.base_url}]})
+            jobs = _hand_outs(home.path, home.path)
+            busy = SimpleNamespace(done=threading.Event(), key="ollama:mine")
+            jobs.jobs["a"] = busy
+            job, why = jobs.start({"goal": "x", "mode": "none", "model": "ol:qwen3:30b@mine"})
+            ctx.check(f"one job per host, got {why!r}", job is None and why == "a hand-out runs on mine now: one job per host at a time")
+            jobs.jobs["b"] = SimpleNamespace(done=threading.Event(), key="ollama:gpu-box")
+            job, why = jobs.start({"goal": "x", "mode": "none", "model": "ol:qwen3:30b@gpu-box"})
+            ctx.check(f"a third job: refused, no queue; got {why!r}",
+                      job is None and why.startswith("2 hand-outs run now: wait for one to end"))
+            ctx.check("nothing started", not _workers())
+        finally:
+            mock.stop()
+
+
+def _run_job(home: Path, args: dict, *steps, seconds: float = 120.0, setup=None):
+    """One hand-out run in THIS process (the worker a real `halo -p` child of the test) against the mock."""
+    mock = _mock(*steps)
+    jobs = job = None
+    try:
+        _write_config(home, ollama={"hosts": [{"name": "mine", "url": mock.base_url, "default": True}]})
+        project = home / "proj"
+        project.mkdir(exist_ok=True)
+        (project / "a.txt").write_text("alpha\n", encoding="utf-8")
+        with _Env(OLLAMA_HOST=mock.base_url, HALO_NO_UPDATER="1", BRIDGE_TEST_NO_BACKGROUND_NET="1", PYTHONPATH=str(REPO)):
+            jobs = _hand_outs(home, project)
+            if setup:
+                setup(jobs)
+            job, why = jobs.start({"model": "ol:qwen3:30b@mine", **args})
+            if job is None:
+                return None, why, mock
+            job.done.wait(seconds)
+        return job, "", mock
+    finally:
+        if job is not None and not job.done.is_set():
+            job.end_hard()
+        mock.stop()
+
+
+@test
+def test_a_hand_out_in_none_returns_the_packet(ctx: Ctx):
+    with _Home() as home:
+        text = 'The answer is 42.\n{"acceptance": [{"n": 1, "met": "yes", "why": "it says 42"}]}'
+        job, why, mock = _run_job(home.path, {"goal": "What is six times seven?", "mode": "none",
+                                              "acceptance": ["gives a number"]}, _said(text))
+        ctx.check(f"started ({why})", job is not None and job.done.is_set())
+        p = job.packet()
+        ctx.check(f"done, the text whole, the check answered: {p}",
+                  p["state"] == "done" and p["summary"] == text and p["parts"] == 1
+                  and p["acceptance"] == [{"check": "gives a number", "answer": "yes: it says 42"}])
+        ctx.check(f"tokens as counted, the cost in Halo's words, no invented figure: {p['usage']}, {p['cost']}",
+                  p["cost"] == "free (local)" and p["num_turns"] >= 1 and isinstance(p["usage"], dict))
+        chat = [r for r in mock.requests if r.get("path") == "/api/chat"]
+        body = chat[0].get("body") or {}
+        ctx.check("none: the worker was given no tools", not body.get("tools"))
+        users = [m for m in body.get("messages") or [] if m.get("role") == "user"]
+        ctx.check("the frame went as the user's prompt", users and "Halo hands you one task" in str(users[-1].get("content")))
+        ctx.check("the worker is gone from the ledger and its file is kept while the bridge lives",
+                  not _workers() and len(_job_files(home.path)) == 1)
+
+
+@test
+def test_read_only_denies_a_write_and_an_ask_and_a_check_not_followed_reads_not_answered(ctx: Ctx):
+    with _Home() as home:
+        job, why, _m = _run_job(home.path, {"goal": "Change a.txt", "mode": "read_only", "acceptance": ["a.txt changed"]},
+                                _tool("Write", file_path="a.txt", content="beta"), _tool("Bash", command="rm -rf build"),
+                                _said("I could not change it."))
+        ctx.check(f"started ({why})", job is not None and job.done.is_set())
+        p = job.packet()
+        denied = [str(d.get("tool_name") or d.get("tool") or d) for d in p["permission_denials"]]
+        ctx.check(f"the write and the ask are recorded denials, never a hang: {p['permission_denials']}",
+                  any("Write" in d for d in denied) and any("Bash" in d for d in denied))
+        ctx.check("a.txt is unchanged", (home.path / "proj" / "a.txt").read_text(encoding="utf-8") == "alpha\n")
+        ctx.check(f"the check not answered, the text still returned: {p['acceptance']}, {p['summary']!r}",
+                  p["acceptance"] == [{"check": "a.txt changed", "answer": "not answered"}]
+                  and "could not change" in p["summary"] and p["state"] == "done")
+
+
+@test
+def test_the_turn_cap_and_the_wall_clock_stop_a_job_with_what_it_had(ctx: Ctx):
+    import threading
+    from halo_harness.guest import hand_out as H
+    with _Home() as home:
+        job, why, _m = _run_job(home.path, {"goal": "Read a.txt", "mode": "read_only", "max_turns": 2},
+                                _tool("Read", file_path="a.txt"))
+        ctx.check(f"started ({why})", job is not None and job.done.is_set())
+        p = job.packet()
+        ctx.check(f"the turn cap: stopped, said so: {p['state']}, {p.get('stopped_by')}",
+                  p["state"] == "stopped" and p.get("stopped_by") == "the turn cap (2 turns)")
+    stop = threading.Event()
+    saved = H.MINUTE_S, H.POLITE_S
+    with _Home() as home:
+        try:
+            H.MINUTE_S, H.POLITE_S = 4.0, 2.0
+            job, why, _m = _run_job(home.path, {"goal": "Say hi", "mode": "none", "max_minutes": 1},
+                                    _slow(stop, 120.0), seconds=90.0)
+        finally:
+            H.MINUTE_S, H.POLITE_S = saved
+            stop.set()
+        ctx.check(f"started ({why})", job is not None)
+        ctx.check("the wall clock ended it", job.done.is_set())
+        p = job.packet()
+        ctx.check(f"stopped by the wall clock, with what it had: {p['state']}, {p.get('stopped_by')}",
+                  p["state"] == "stopped" and p.get("stopped_by") == "the wall clock (1 minutes)" and "summary" in p)
+        ctx.check("its pid is gone and out of the ledger", job.proc.poll() is not None and not _workers())
+
+
+def _rows_rig():
+    from halo_harness.guest.hand_out import Job
+    feed, _seen, _ = _feed()
+    home = Path(tempfile.mkdtemp(prefix="guest-rows-"))
+    jobs = _hand_outs(home, Path(CWD), tree=feed.tree)
+    feed.on_hand_out = jobs.saw_call
+    for aid in ("s1", "s2"):
+        feed._child(aid, "Explore", None)
+
+    def job(goal: str):
+        args = {"goal": goal, "mode": "none"}
+        j = Job(jobs, {"goal": goal, "mode": "none", "acceptance": [], "files": [], "turns": 12, "minutes": 10,
+                       "wait": True}, "ol:qwen3:30b", "ollama:default", args)
+        jobs.jobs[j.id] = j
+        jobs._row(j)
+        return j, args
+    return feed, jobs, job
+
+
+def _hook(feed, aid: str, args: dict, tid: str, ts: int) -> None:
+    from halo_harness.guest import note
+    feed.take([json.loads(note.line_of(_ev("PreToolUse", tool_name="mcp__plugin_halo-guest_halo-guest__halo_hand_out",
+                                           tool_use_id=tid, tool_input=args, **({"agent_id": aid} if aid else {})), ts=ts))])
+
+
+@test
+def test_a_workers_row_goes_under_the_calling_sub_agent_only_when_sure(ctx: Ctx):
+    import time
+    feed, jobs, job = _rows_rig()
+    j0, a0 = job("Read the logs for errors")
+    row = feed.tree.row(j0.aid)
+    ctx.check(f"the row: under main, Halo: <model>, the goal, kind halo-worker; got {row}",
+              row["parent"] == "main" and row["name"] == "Halo: ol:qwen3:30b" and row["task"] == "Read the logs for errors"
+              and row["kind"] == "halo-worker" and row["state"] == "running")
+    j1, a1 = job("Summarise the README")
+    j2, a2 = job("List the test files")
+    now = time.time_ns()
+    _hook(feed, "s1", a1, "t1", now)
+    _hook(feed, "s2", a2, "t2", now)
+    ctx.check(f"two calls of one tool, two goals: each under its caller; got {feed.tree.row(j1.aid)['parent']}, "
+              f"{feed.tree.row(j2.aid)['parent']}", feed.tree.row(j1.aid)["parent"] == "s1" and feed.tree.row(j2.aid)["parent"] == "s2")
+    j3, a3 = job("Same goal twice")
+    j4, a4 = job("Same goal twice")
+    _hook(feed, "s1", a3, "t3", time.time_ns())
+    _hook(feed, "s2", a4, "t4", time.time_ns())
+    ctx.check("identical goals: both under main", feed.tree.row(j3.aid)["parent"] == "main" and feed.tree.row(j4.aid)["parent"] == "main")
+    j5, a5 = job("A goal long ago")
+    _hook(feed, "s1", a5, "t5", time.time_ns() - 60_000_000_000)
+    ctx.check("a line far from the call in time: main", feed.tree.row(j5.aid)["parent"] == "main")
+
+
+@test
+def test_stop_on_a_worker_row_stops_its_job_and_every_other_row_stays_watch_only(ctx: Ctx):
+    from halo_harness.guest.bridge import GuestHandle, GuestSession
+    from halo_harness.remote import protocol
+    from halo_harness.remote.base import HandleError
+    feed, jobs, job = _rows_rig()
+    j, _a = job("Read the logs")
+    asked = []
+    j.stop = lambda why: asked.append(why) or "the stop is asked"
+    handle = GuestHandle(feed.session, CWD, PID)
+    handle.feed, handle.hand_outs = feed, jobs
+    got = protocol.run_cmd(handle, {"cmd": "agent_stop", "agent_id": j.aid, "via": "Studio"}, None)
+    ctx.check(f"agent_stop on the worker's row stops its job, got {got} {asked}",
+              asked == ["Studio (its Stop)"] and got["agent_id"] == j.aid)
+    for req in ({"cmd": "agent_stop", "agent_id": "main"}, {"cmd": "agent_stop", "agent_id": "s1"},
+                {"cmd": "agent_steer", "agent_id": j.aid, "text": "x"}, {"cmd": "submit", "text": "x"}):
+        try:
+            protocol.run_cmd(handle, req, None)
+            said = ""
+        except HandleError as e:
+            said = str(e)
+        ctx.check(f"{req['cmd']} {req.get('agent_id', '')}: watch only, got {said!r}", said.startswith("watch only"))
+    ctx.check("a guest without hand-outs: agent_stop watch only as before",
+              GuestHandle(GuestSession("g"), CWD, PID).serve_own("agent_stop", {"agent_id": j.aid}) is None)
+
+
+@test
+def test_the_bridge_hands_out_answers_ping_meanwhile_and_cuts_a_long_answer_into_parts(ctx: Ctx):
+    """The real bridge, the test as Claude Code: tools listed, a wait call with progress while ping is answered, a
+    wait false job read in parts, a cancel that stops its job and gets no answer."""
+    import threading
+    import time
+    stop = threading.Event()
+    long = "".join(f"line {i:05d} of the long answer\n" for i in range(1500))  # 45,000 characters
+    with _Home() as home:
+        mock = _mock(_slow(stop, 3.0, "Hello from the local model"), _said(long), _slow(stop, 120.0))
+        mcp = None
+        try:
+            _write_config(home.path, guest={"hand_out": "local"}, model="ol:qwen3:30b",
+                          ollama={"hosts": [{"name": "mine", "url": mock.base_url, "default": True}]})
+            project = home.path / "proj"
+            project.mkdir()
+            mcp = _Mcp(home.path, project, mock.base_url)
+            mcp.ask(1, "initialize", {"protocolVersion": "2025-06-18"})
+            init = mcp.reply(1, 60)
+            ctx.check(f"initialize: the instructions, got {init}", bool(init) and "instructions" in init["result"])
+            mcp.ask(2, "tools/list")
+            names = [t["name"] for t in (mcp.reply(2, 30) or {}).get("result", {}).get("tools", [])]
+            ctx.check(f"five tools, got {names}", len(names) == 5 and "halo_hand_out" in names)
+            mcp.ask(3, "tools/call", {"name": "halo_hand_out", "arguments": {"goal": "Say hello", "mode": "none"},
+                                      "_meta": {"progressToken": "p-1"}})
+            time.sleep(1.0)
+            mcp.ask(4, "ping")
+            pong = mcp.reply(4, 30)
+            done = mcp.reply(3, 180)
+            ctx.check("ping answered while the job ran (before its answer)",
+                      bool(pong) and bool(done) and mcp.got.index(pong) < mcp.got.index(done))
+            packet = json.loads(done["result"]["content"][0]["text"])
+            ctx.check(f"the packet: done, its text, got {packet.get('state')} {packet.get('summary')!r}",
+                      packet["state"] == "done" and packet["summary"] == "Hello from the local model")
+            prog = [m["params"] for m in mcp.got if m.get("method") == "notifications/progress"]
+            ctx.check(f"progress for its token, increasing, at most one a second: {prog}",
+                      prog and all(p["progressToken"] == "p-1" for p in prog)
+                      and all(b["progress"] > a["progress"] for a, b in zip(prog, prog[1:])))
+            started, _r = mcp.call(5, "halo_hand_out", goal="Write a long answer", mode="none", wait=False)
+            ctx.check(f"wait false: a job_id at once, got {started}", isinstance(started, dict) and len(started.get("job_id", "")) == 32)
+            jid = started["job_id"]
+            end = time.monotonic() + 120
+            state, n = None, 100
+            while time.monotonic() < end:
+                n += 1
+                state, _r = mcp.call(n, "halo_job", job_id=jid)
+                if state and state.get("state") != "running":
+                    break
+                time.sleep(0.5)
+            ctx.check(f"halo_job: done, got {state}", bool(state) and state["state"] == "done")
+            p1, _r = mcp.call(7, "halo_job_result", job_id=jid)
+            p3, _r = mcp.call(8, "halo_job_result", job_id=jid, part=3)
+            ctx.check(f"parts of 20,000 characters, the cut said: {p1.get('parts')} {p1.get('cut')!r}",
+                      p1["parts"] == 3 and len(p1["summary"]) == 20000 and "halo_job_result with part 2" in p1["cut"]
+                      and p1["summary"] + "" == long[:20000] and p3["summary"] == long[40000:])
+            mcp.ask(9, "tools/call", {"name": "halo_hand_out", "arguments": {"goal": "Never ends", "mode": "none"}})
+            row = _wait_worker(60)
+            ctx.check("its worker is in the ledger", row is not None)
+            mcp.send({"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 9, "reason": "Esc"}})
+            ctx.check(f"the cancel ends its worker within {GONE_S:.0f} s", row is not None and _gone(row, GONE_S))
+            files = _job_files(home.path)
+            last = json.loads(files[-1].read_text(encoding="utf-8")) if files else {}
+            time.sleep(1.0)
+            ctx.check(f"its job: stopped by the cancel, got {last.get('job')}",
+                      any((json.loads(f.read_text(encoding='utf-8')).get("job") or {}).get("stopped_by") == "the call was cancelled"
+                          for f in files))
+            ctx.check("no answer to the cancelled call", mcp.reply(9, 2.0) is None)
+            mcp.proc.stdin.close()
+            mcp.proc.wait(60)
+            ctx.check("the input closed: the bridge ended and removed its job files", not _job_files(home.path))
+        finally:
+            stop.set()
+            if mcp is not None:
+                mcp.end()
+            _end_pid(_wait_worker(0.1))
+            mock.stop()
+
+
+def _kill_leg(ctx: Ctx, how: str) -> None:
+    """The bridge as the test's child starts a worker on the mock, then is ended `how`; the worker's pid is gone
+    within GONE_S and the job files are swept."""
+    import threading
+    stop = threading.Event()
+    with _Home() as home:
+        mock = _mock(_slow(stop, 300.0))
+        mcp = row = job = None
+        k32 = None
+        try:
+            _write_config(home.path, guest={"hand_out": "local"}, model="ol:qwen3:30b",
+                          ollama={"hosts": [{"name": "mine", "url": mock.base_url, "default": True}]})
+            project = home.path / "proj"
+            project.mkdir()
+            flags = 0x4 if how == "outer-job" else 0  # CREATE_SUSPENDED: into the strict Job before its first instruction
+            mcp = _Mcp(home.path, project, mock.base_url, flags=flags)
+            if how == "outer-job":
+                from tests.test_kept_outlives_starter import _no_breakaway_job
+                from halo_harness import closing
+                k32, job = _no_breakaway_job()
+                ctx.check("the bridge is in the test's strict Job", k32.AssignProcessToJobObject(job, int(mcp.proc._handle)))
+                closing._nt_resume(mcp.proc)
+            mcp.ask(1, "initialize", {"protocolVersion": "2025-06-18"})
+            ctx.check("the bridge answers", mcp.reply(1, 60) is not None)
+            started, _r = mcp.call(2, "halo_hand_out", goal="Never ends", mode="none", wait=False)
+            ctx.check(f"a job started, got {started}", isinstance(started, dict) and "job_id" in started)
+            row = _wait_worker(60)
+            import time
+            end = time.monotonic() + 90
+            while time.monotonic() < end and not any(r.get("path") == "/api/chat" for r in mock.requests):
+                time.sleep(0.2)
+            ctx.check(f"{how}: its worker runs, its model call held at the mock (not a vacuous check)",
+                      row is not None and _alive(row) and any(r.get("path") == "/api/chat" for r in mock.requests))
+            if how == "input-closes":
+                mcp.proc.stdin.close()
+            else:
+                mcp.proc.kill()  # hard, by the test's own handle: no Python runs in the bridge
+            ctx.check(f"{how}: the worker (pid {row and row['pid']}) is gone within {GONE_S:.0f} s",
+                      row is not None and _gone(row, GONE_S))
+            mcp.proc.wait(60)
+            from halo_harness.guest import sweep_dead
+            sweep_dead()
+            ctx.check(f"{how}: no job file is left after the sweep, got {_job_files(home.path)}", not _job_files(home.path))
+        finally:
+            stop.set()
+            if mcp is not None:
+                mcp.end()
+            _end_pid(row)
+            if job is not None:
+                k32.CloseHandle(job)
+            mock.stop()
+
+
+@test
+def test_closing_a_worker_ends_when_the_bridges_input_closes(ctx: Ctx):
+    _kill_leg(ctx, "input-closes")
+
+
+@test
+def test_closing_a_worker_ends_when_the_bridge_is_killed_hard(ctx: Ctx):
+    _kill_leg(ctx, "killed-hard")
+
+
+@test
+def test_closing_a_worker_ends_when_the_bridge_is_killed_hard_inside_a_strict_outer_job(ctx: Ctx):
+    if os.name != "nt":
+        ctx.check("Windows only: Job objects (POSIX: the leg above is the owner watch's)", True)
+        return
+    _kill_leg(ctx, "outer-job")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

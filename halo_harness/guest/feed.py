@@ -70,6 +70,7 @@ class GuestFeed:
         self.tasks: dict = {}  # agent -> OrderedDict task_id -> step
         self.kept: dict = {}  # agent -> deque of transcript entries (agent_tail)
         self._kept_lock = threading.Lock()  # the spool's thread adds, a socket's thread reads
+        self.on_hand_out = None  # 3.6.0.26 H: (agent, cut input, stamp) of a hand-out call's hook line (hand_out.saw_call)
 
     # ---- which lines ---------------------------------------------------------------------------------------------
     def _here(self, cwd) -> bool:
@@ -161,6 +162,8 @@ class GuestFeed:
         self.ready[tid] = (aid, name, given)
         if name in AGENT_TOOLS and aid == MAIN:
             self._call(tid, given, int(d.get("ts") or 0))
+        if self.on_hand_out is not None and name.endswith("__halo_hand_out"):
+            self.on_hand_out(aid, given, int(d.get("ts") or 0))
         self.publish(aid, events.Event("tool_use_start", {"id": tid, "name": name}))
         self.publish(aid, events.Event("tool_use_ready", {"id": tid, "name": name, "input": given}))
         if aid == MAIN and name not in AGENT_TOOLS:

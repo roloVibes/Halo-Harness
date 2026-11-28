@@ -31,6 +31,8 @@ WATCH_ONLY = "watch only"
 WATCH_ONLY_LINE = "watch only: Halo shows this Claude Code session and sends nothing into it"
 GOAL_NOT_KNOWN = "goal not known"
 DESCRIPTION = "Halo: shows this session in Studio (watch only)"
+HAND_OUT_DESCRIPTION = "Halo: shows this session in Studio and hands bounded tasks to the person's own local models"
+WORKER_KIND = "halo-worker"  # 3.6.0.26 H: a hand-out worker's row in the guest's tree (Halo's own: its Stop works)
 # the commands the bridge serves; every other one answers WATCH_ONLY_LINE (remote/protocol.py)
 WATCH_CMDS = ("ping", "status", "subscribe", "unsubscribe", "agents", "agent_tail", "agent_follow")
 
@@ -48,6 +50,12 @@ def sweep_dead() -> int:
         return sweep(d)
     except Exception:
         return 0
+
+
+def worker_of_a_guest(row) -> bool:
+    """3.6.0.26 H: a registry row of a hand-out worker (`parent` guest:<bridge session>): Studio draws it as a row of
+    the guest's own tree, never as another session (`halo ps` still names it)."""
+    return isinstance(row, dict) and str(row.get("parent") or "").startswith("guest:")
 
 
 def guest_dir():

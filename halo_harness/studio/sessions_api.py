@@ -106,7 +106,8 @@ def _state(data) -> str:
 
 
 def list_sessions(req):
-    entries = _list_live()
+    from halo_harness.guest import worker_of_a_guest  # 3.6.0.26 H: a hand-out worker is a row of its guest's tree
+    entries = [e for e in _list_live() if not worker_of_a_guest(e)]
     got = statuses(entries)
     rows = []
     for e in sorted(entries, key=lambda r: (r.get("started") or 0, r.get("session_id"))):

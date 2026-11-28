@@ -48,7 +48,7 @@ export function liveNodes(rec: WorkRecord, st: FleetState, now = Date.now()): Li
     return {
       id: a.id, key: a.key, parent: a.orphan ? UNKNOWN : a.parent, name: a.name, role: a.role, model: a.model, state: a.state, pick: pickLine(a),
       activity, glow: glowOf(activity), card: "", cardLabel: "", task: a.task, current: a.current,
-      cost: a.cost, started: a.started, ended: a.ended, ...(rec.kind === "guest" ? { guest: true } : {}),
+      cost: a.cost, started: a.started, ended: a.ended, ...(rec.kind === "guest" && a.row.kind !== "halo-worker" ? { guest: true } : {}), // 3.6.0.26 H: a worker's cost is Halo's
       ...(a.row.square ? { square: a.row.square.name, engine: a.row.square.engine } : {}),
     };
   });

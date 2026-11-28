@@ -28,6 +28,7 @@ ROWS = [
     Row("update.notify", "update", "Update note", "bool", True, (), "The once-a-day update available note at startup.", "next launch"),
     Row("update.channel", "update", "Update channel", "enum", None, ("stable", "main"), "Which releases halo update follows; unset, derived from the install (stable on a tag, else main).", "now"),
     Row("local.servers", "local", "Local servers", "mapping", None, (), "Named OpenAI-compatible local servers (name to base_url and model) a local route calls.", "now"),
+    Row("guest.hand_out", "local", "Claude Code hand-outs", "enum", "off", ("off", "local"), "A Claude Code session may hand bounded tasks to agents on your own local models (docs/GUEST.md); off, it is watch only.", "next session"),
     Row("local.ladder", "local", "Degradation ladder", "list", ["repair", "smaller-ask", "other-local", "bigger-local", "cloud", "ask"], (), "The rungs a failed local call walks once per turn, in order (repair, smaller-ask, other-local, bigger-local, cloud, ask); off (or []) turns the ladder off.", "now"),
     Row("local.min_resident_s", "local", "Minimum residency (s)", "float", 60, (), "A model the scheduler loaded (a pivot, halo local warm) stays at least this many seconds before another pivot unloads it, so two lanes cannot thrash one card.", "now"),
     Row("host.port", "local", "Host port", "int", 7431, (), "The LAN port halo host serves paired peers on.", "next launch"),

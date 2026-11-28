@@ -169,6 +169,16 @@ def test_a_claude_code_session_is_drawn_as_a_session_watch_only(ctx: Ctx):
     row = got.get("row") or {}
     ctx.check(f"the registry row: kind guest, its parent Claude Code's: {row}",
               row.get("kind") == "guest" and str(row.get("parent") or "").startswith("claude-code:"))
+    ctx.check(f"3.6.0.26 H: the hand-out worker's card under main: its name, goal and model, its cost shown; got "
+              f"{got.get('worker_name')!r} {got.get('worker_task')!r} {got.get('worker_cost')!r}",
+              got.get("worker_name") == "Halo: ol:qwen3:30b" and got.get("worker_task") == "Count the login tests"
+              and "ol:qwen3:30b" in str(got.get("worker_model")) and "not known" not in str(got.get("worker_cost")))
+    ctx.check(f"its Stop is on, its Pause off; a press stops that job: {got.get('worker_stop_disabled')} "
+              f"{got.get('worker_pause_disabled')} {got.get('stopped')}",
+              got.get("worker_stop_disabled") is False and got.get("worker_pause_disabled") is True
+              and len(got.get("stopped") or []) == 1 and str(got["stopped"][0]).endswith("(its Stop)"))
+    ctx.check(f"the guest's own sub-agent stays watch only: {got.get('sub_name')!r} stop disabled {got.get('sub_stop_disabled')}",
+              str(got.get("sub_name")).startswith("Explore") and got.get("sub_stop_disabled") is True)
     ctx.check("its end: the row and the spool gone", got.get("row_gone") == "gone" and got.get("spool_gone") is True)
 
 

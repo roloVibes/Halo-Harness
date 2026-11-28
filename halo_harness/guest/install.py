@@ -105,12 +105,13 @@ def doctor_line() -> str:
     """`halo doctor`'s one row: the plugin folder, and how many Claude Code sessions are shown now."""
     from halo_harness.guest import sweep_dead
     sweep_dead()
+    from halo_harness.guest.hand_out import setting_line
     root = plugin_root()
     if not root.is_dir():
-        return "Claude Code in Studio: off (`halo guest install` shows a Claude Code session, watch only)"
+        return f"Claude Code in Studio: off (`halo guest install` shows a Claude Code session, watch only); {setting_line()}"
     up = len(bridges())
     return (f"Claude Code in Studio: the plugin folder is written ({root}); "
-            + (f"{up} session{'' if up == 1 else 's'} shown now" if up else "no session shown now"))
+            + (f"{up} session{'' if up == 1 else 's'} shown now" if up else "no session shown now") + f"; {setting_line()}")
 
 
 def cmd_install(argv: list) -> int:
@@ -136,15 +137,15 @@ def cmd_uninstall(argv: list) -> int:
     return 0
 
 
-def dropped_of(row: dict):
-    """The lines a bridge dropped (another folder, another session): one `status` call on its socket; None when
-    it does not answer."""
+def guest_status(row: dict) -> Optional[dict]:
+    """A bridge's own `guest` status (one `status` call on its socket): the lines it dropped, the hand-out setting it
+    read at its start and its jobs; None when it does not answer."""
     from halo_harness.remote.client import ControlClient, default_token_for
     client = None
     try:
         client = ControlClient(str(row.get("endpoint") or ""), default_token_for(row), timeout=2.0)
-        n = ((client.call("status").get("result") or {}).get("guest") or {}).get("dropped")
-        return n if isinstance(n, int) and not isinstance(n, bool) else None
+        got = (client.call("status").get("result") or {}).get("guest")
+        return got if isinstance(got, dict) else None
     except Exception:
         return None
     finally:
@@ -152,17 +153,41 @@ def dropped_of(row: dict):
             client.close()
 
 
+def dropped_of(row: dict):
+    """The lines a bridge dropped (another folder, another session); None when it does not answer."""
+    n = (guest_status(row) or {}).get("dropped")
+    return n if isinstance(n, int) and not isinstance(n, bool) else None
+
+
+def jobs_line(got: Optional[dict]) -> str:
+    """One line of a bridge's hand-outs: the setting it read at its start, the jobs that run."""
+    if got is None:
+        return "hand-outs: not known (the bridge did not answer)"
+    if got.get("hand_out") != "local":
+        return "hand-outs: off for this session"
+    jobs = [j for j in got.get("jobs") or [] if isinstance(j, dict)]
+    if not jobs:
+        return "hand-outs: on, no job runs"
+    return "hand-outs: on; " + "; ".join(f"{j.get('model')} {j.get('state')} {j.get('minutes')} min "
+                                         f"(job {str(j.get('job_id') or '')[:8]})" for j in jobs)
+
+
 def cmd_status(_argv: list) -> int:
     from halo_harness.guest import sweep_dead
     sweep_dead()
+    from halo_harness.guest.hand_out import setting_line
     rows = bridges()
+    print(f"The setting: {setting_line()} (a session reads it when it starts)")
     if not rows:
         print("No Claude Code session is shown in Studio now (no bridge is up).")
         return 0
     for r in rows:
-        n = dropped_of(r)
+        got = guest_status(r)
+        n = (got or {}).get("dropped")
+        n = n if isinstance(n, int) and not isinstance(n, bool) else None
         print(f"Claude Code session shown, watch only: {r.get('cwd')} ({r.get('parent')}); lines dropped (another "
               f"folder or another session): {'not known' if n is None else n}")
+        print(f"  {jobs_line(got)}")
     return 0
 
 

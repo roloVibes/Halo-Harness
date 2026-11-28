@@ -63,6 +63,19 @@ def is_local_model_ref(ref: "ModelRef") -> bool:
     return ref.provider == "ollama" or (ref.provider == "huggingface" and ref.local)
 
 
+def is_own_local_ref(ref: "ModelRef") -> bool:
+    """3.6.0.26 H (a Claude Code hand-out, guest/hand_out.py): local AND his own -- `hf:local`/`hf:mlx`, or an `ol:` ref
+    whose host entry carries no `api_key` (an entry with a key is an account somewhere, e.g. Ollama Cloud: an `ol:`
+    prefix is a provider kind, not proof of his machine). A host name that is not configured: False."""
+    if ref.provider == "huggingface":
+        return bool(ref.local)
+    if ref.provider != "ollama":
+        return False
+    from halo_harness.providers.ollama import resolve_ollama_host
+    host = resolve_ollama_host(ref.host)
+    return host is not None and not host.api_key
+
+
 def is_local_ref_string(raw) -> bool:
     """3.1.9.0 R1: `is_local_model_ref` for a catalog row's ref string -- a
     Hugging Face ROUTER ref (`hf:<org>/<model>`) is remote, only `hf:local/*`

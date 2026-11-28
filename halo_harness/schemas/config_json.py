@@ -105,8 +105,9 @@ _SCALARS = {
 # `background`: when_done continue|tell|wait, self_turns (3.4.1.3, agent/bg_pickup.py)
 # `crew`: map (3.6.0.0 R3: the map new sessions run on, crew/compile.py in_use; Studio's Map tab, `halo maps use`)
 # `browser`: profile kept|clean, window hidden|shown (3.6.0.6 W: the Browser tool's browser, browser_cdp.py)
+# `guest`: hand_out off|local (3.6.0.26 H: Claude Code's hand-outs to local models, guest/hand_out.py)
 _SECTIONS = ("agents", "attention", "background", "browser", "caps", "clipboard", "comfy", "connectors", "control", "copilot", "crew", "databricks", "tools",
-             "embeddings", "experiential", "governor", "harness", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
+             "embeddings", "experiential", "governor", "guest", "harness", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",
              "update", "voice", "workflows", "worktree")  # 3.3.9.0 R1: voice (stt_model, tts_model, device, tts_voice); R2: the loop's
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",

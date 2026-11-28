@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Button, Empty, Icon, Kbd } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
 import { elapsed, short } from "../orchestra/format";
-import { agentCost, watchWhy } from "./watchOnly";
+import { agentCost, stopWhy, watchWhy } from "./watchOnly";
 import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
 import { pauseSet, pauseWord } from "./pauseFact";
@@ -46,7 +46,7 @@ function Head({ r }: { r: AgentRef }) {
         {a.role && a.role !== a.name && <span className="og-chip mono">{a.role}</span>}
         <span className="spacer" />
         {isLive(a) && here && <WatchInSession agent={r.key} testid="roles-watch-session" />}
-        <span className="mono fa-cost" title="what it has cost so far">{agentCost(s, a.cost_usd)}</span>
+        <span className="mono fa-cost" title="what it has cost so far">{agentCost(s, a.cost_usd, a)}</span>
       </div>
       <div className="fa-meta mono muted">
         {h.name || h.id.slice(0, 8)} · {short(sessionTitle(s), 28)} · {a.model || "model ?"}
@@ -105,9 +105,11 @@ export function AgentView({ r }: { r: AgentRef }) {
   const { a, key, h } = r;
   const live = isLive(a);
   const done = FINISHED.includes(String(a.state));
-  const watchOnly = watchWhy(r.s); // 3.6.0.25 G: a Claude Code session takes no command: Pause, Stop, Steer and the rest off
+  const watchOnly = watchWhy(r.s, a); // 3.6.0.25 G: a Claude Code session takes no command: Pause, Stop, Steer and the rest off
   const noControl = h.allow_control === "none" || !!watchOnly;
   const why = watchOnly || (noControl ? `${h.name || "that harness"} takes no commands from here (allow_control none)` : undefined);
+  const stopNo = h.allow_control === "none" || !!stopWhy(r.s, a); // 3.6.0.26 H: a hand-out worker's Stop works
+  const stopTitle = stopWhy(r.s, a) || (h.allow_control === "none" ? why : undefined);
   const task = st.entries.find((e) => e.kind === "user" && !e.you)?.text || a.task || "";
   const views: Record<StreamTab, ReactNode> = {
     thinking: <ThinkingView entries={st.entries} live={live} />,
@@ -141,7 +143,7 @@ export function AgentView({ r }: { r: AgentRef }) {
         <Button size="sm" icon={<Icon name={pauseSet(a) ? "play" : "pause"} />} disabled={done || noControl} onClick={() => void togglePause(key)} title={why || "P"} data-testid="fleet-pause">
           {pauseWord(a)}
         </Button>
-        <Button size="sm" variant="danger" icon={<Icon name="stop" />} disabled={done || noControl} onClick={() => askStop(key)} title={why || "Stops at its next step (asks first)"} data-testid="fleet-stop">
+        <Button size="sm" variant="danger" icon={<Icon name="stop" />} disabled={done || stopNo} onClick={() => askStop(key)} title={stopTitle || "Stops at its next step (asks first)"} data-testid="fleet-stop">
           Stop
         </Button>
         <Button size="sm" variant={follow ? "primary" : "ghost"} icon={<Icon name="follow" />} aria-pressed={follow} onClick={toggleFollow} title="F: the stream scrolls with it">
@@ -180,7 +182,7 @@ export function AgentGlance() {
   const text = outputOf(st.entries) || ref.a.last_text || "";
   return (
     <div className="glance fa-glance">
-      <div className="glance-kicker mono">{String(ref.a.state || "").toUpperCase()} · {agentCost(ref.s, ref.a.cost_usd)}</div>
+      <div className="glance-kicker mono">{String(ref.a.state || "").toUpperCase()} · {agentCost(ref.s, ref.a.cost_usd, ref.a)}</div>
       <div className="glance-text">{ref.a.name || ref.a.agent_id}</div>
       <div className="glance-hint mono">{nowText(ref.a)}</div>
       {text && <div className="fa-glance-text"><Typed text={short(text, 240)} live={isLive(ref.a)} /></div>}

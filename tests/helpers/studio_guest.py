@@ -5,6 +5,9 @@ home and an in-process guest bridge fed hook lines (no Claude Code, no model). t
     python -m tests.helpers.studio_guest guest   Session on the guest: the header says "Claude Code" and "watch only",
                                                  no Prompt box (the watch-only line instead), Steer and Screenshot
                                                  disabled, no Steer box, the registry row;
+                                                 3.6.0.26 H: a hand-out worker's card under main (its goal, its
+                                                 model, its cost, Pause off, Stop on: a press stops that job); the
+                                                 Explore sub-agent's Stop stays off (watch only);
                                                  then the bridge ends: its row leaves the list
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). Nothing is started but the in-process
@@ -58,6 +61,43 @@ def look(c, server, bridge) -> dict:
     return out
 
 
+AGENT = "document.querySelector('[data-panel=session-agent]')"
+
+
+def _hop_to(c, name: str) -> str:
+    """J (Session's hop key) until the Agent panel shows the agent whose name starts so; its name, or ''."""
+    import time
+    for _ in range(8):
+        got = c.js(f"{AGENT}?.querySelector('.fa-name')?.textContent || ''")
+        if str(got).startswith(name):
+            return got
+        c.js("window.dispatchEvent(new KeyboardEvent('keydown', {key: 'j', bubbles: true})); 1")
+        time.sleep(0.6)
+    return ""
+
+
+def worker(c, server, bridge) -> dict:
+    from halo_harness.studio.server import url_for
+    c.go(url_for(server, "session").replace("#t=", f"&tour=off&mode=session&session={bridge.act.session_id}&open=session-agent#t="))
+    c.wait(f"!!{AGENT}", 40)
+    out = {"worker_name": _hop_to(c, "Halo:")}
+    q = lambda sel: f"{AGENT}?.querySelector('{sel}')"  # noqa: E731
+    out["worker_stop_disabled"] = c.js(f"{q('[data-testid=fleet-stop]')}?.disabled")
+    out["worker_pause_disabled"] = c.js(f"{q('[data-testid=fleet-pause]')}?.disabled")
+    out["worker_cost"] = c.js(f"{q('.fa-cost')}?.textContent || ''")
+    out["worker_task"] = c.js(f"{q('.fa-task p')}?.textContent || ''")
+    out["worker_model"] = c.js(f"{q('.fa-meta')}?.textContent || ''")
+    if out["worker_stop_disabled"] is False:
+        c.click_on(q("[data-testid=fleet-stop]"))
+        c.wait("!!document.querySelector('[data-testid=fleet-confirm-yes]')", 10)
+        c.click_on("document.querySelector('[data-testid=fleet-confirm-yes]')")
+        from tests.helpers.session_rig import wait_for
+        out["stopped"] = wait_for(lambda: bridge.stops[:1] or None, 20)
+    out["sub_name"] = _hop_to(c, "Explore")
+    out["sub_stop_disabled"] = c.js(f"{q('[data-testid=fleet-stop]')}?.disabled")
+    return out
+
+
 def ends(c, server, bridge) -> dict:
     bridge.close()
     from tests.helpers.session_rig import wait_for
@@ -86,10 +126,22 @@ class GuestDriver(Driver):
             for d in _lines(proj):
                 note.write(json.dumps(d).encode(), bridge.dir, bridge.claude_pid)
             bridge.poll()
+            from halo_harness.agent.agent_registry import tree_for
+            from halo_harness.guest.hand_out import HandOuts, Job
+            jobs = HandOuts(proj, sid=bridge.act.session_id, directory=bridge.dir, claude_pid=bridge.claude_pid,
+                            tree=tree_for(bridge.handle.session), state_dir=home / ".halo")
+            task = {"goal": "Count the login tests", "mode": "read_only", "acceptance": [], "files": [], "turns": 12,
+                    "minutes": 10, "wait": True}
+            job = Job(jobs, task, "ol:qwen3:30b", "ollama:default", {"goal": task["goal"], "mode": "read_only"})
+            bridge.stops = []
+            job.stop = lambda why, polite_s=None: bridge.stops.append(why) or "the stop is asked"
+            jobs.jobs[job.id] = job
+            jobs._row(job)  # its row as a running hand-out (no worker process: no model here)
+            bridge.handle.hand_outs = jobs
             server = start_server(port=0, cwd=proj, state_dir=home / ".halo")
             threading.Thread(target=server.serve_forever, daemon=True, name="guest-studio").start()
             args = (c, server, bridge)
-            yield ((look, args), (ends, args))
+            yield ((look, args), (worker, args), (ends, args))
         finally:
             if bridge is not None:
                 bridge.close()

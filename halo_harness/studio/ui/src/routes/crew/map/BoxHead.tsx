@@ -44,7 +44,7 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
   const tin = Number(r.tokens_in || 0), tout = Number(r.tokens_out || 0);
   const state = a.state === "paused" ? "paused" : a.state === "waiting" ? STATE_WORDS.waiting : a.state || "not started";
   const set = pauseSet({ state: a.state, pause_set: r.pause_set }); // F3: what a press of Pause / Resume does
-  const watch = watchWhy(L.rec); // 3.6.0.25 G: a Claude Code session: cost not known, Pause and Take over off
+  const watch = watchWhy(L.rec, r); // 3.6.0.25 G: a Claude Code session: cost not known, Pause and Take over off
   return (
     <section className="mpf-head" data-testid="map-feed-head" data-agent={a.id} data-box={box} data-state={a.state}>
       <span className="mpf-fact" data-testid="map-fact-who"><b>{a.name}</b> · {state}{box && box !== a.name ? ` · the box ${box}` : ""}</span>
@@ -52,7 +52,7 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
       {a.reason && <span className="mpf-fact" data-testid="map-fact-why">why this model: {a.reason}</span>}
       {uses && <span className="mpf-fact" data-testid="map-fact-uses">may use: {uses}</span>}
       {(tin > 0 || tout > 0) && <span className="mpf-fact mono" data-testid="map-fact-tokens">tokens: {count(tin)} in · {count(tout)} out</span>}
-      <span className="mpf-fact mono" data-testid="map-fact-cost">cost: {agentCost(L.rec, a.cost || 0)}</span>
+      <span className="mpf-fact mono" data-testid="map-fact-cost">cost: {agentCost(L.rec, a.cost || 0, r)}</span>
       {ran && <span className="mpf-fact mono" data-testid="map-fact-ran">{live ? "running for" : "ran for"} {ran}</span>}
       {(live || (a.state === "failed" && !gone)) && (
         <span className="mpf-buttons" data-testid="map-feed-more">

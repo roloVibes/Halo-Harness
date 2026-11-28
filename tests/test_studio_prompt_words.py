@@ -539,11 +539,42 @@ def test_a_claude_code_sessions_cost_reads_not_known_on_live_and_on_every_card(c
     src = {p: (routes / p).read_text(encoding="utf-8") for p in ("fleet/Agent.tsx", "fleet/Pip.tsx", "crew/map/BoxHead.tsx",
                                                                   "crew/live/liveModel.ts", "fleet/store.ts")}
     ctx.check("no card prints cost(a.cost_usd) any more", not any("{cost(" in s or "money(" in s for s in src.values()))
-    ctx.check("liveModel marks a guest record's agents", 'rec.kind === "guest" ? { guest: true }' in src["crew/live/liveModel.ts"])
+    ctx.check("liveModel marks a guest record's agents (3.6.0.26 H: but a hand-out worker's, whose cost is Halo's)",
+              'rec.kind === "guest" && a.row.kind !== "halo-worker" ? { guest: true }' in src["crew/live/liveModel.ts"])
     ctx.check("a guest session's name carries 'watch only' on every view (sessionTitle)",
               "isGuest(s) ? `${title} · ${WATCH_ONLY}`" in src["fleet/store.ts"])
-    ctx.check("the inspector's controls are off with the line for a guest", "watchWhy(r.s)" in src["fleet/Agent.tsx"]
+    ctx.check("the inspector's controls are off with the line for a guest", "watchWhy(r.s, a)" in src["fleet/Agent.tsx"]
               and '|| !!watchOnly' in src["fleet/Agent.tsx"] and fleet.is_dir())
+
+
+@test
+def test_a_hand_out_workers_card_shows_its_numbers_and_its_stop_works_every_other_guest_card_stays_watch_only(ctx: Ctx):
+    """3.6.0.26 H: a hand-out worker's row (agent kind `halo-worker`) in a Claude Code session is Halo's: its cost
+    shows and its Stop is on (it stops that job); its Pause and Steer stay off with a line that says why; every other
+    agent of the guest stays watch only, and a terminal session is as it was."""
+    from tests.helpers import node_ts
+    routes = WORDS.parent.parent
+    js = """const w = await import(%s);
+const g = { kind: "guest" }, t = { kind: "tui" }, worker = { kind: "halo-worker" }, sub = { kind: "subagent" };
+console.log(JSON.stringify({ cost: [w.agentCost(g, 0, worker), w.agentCost(g, 0, sub), w.agentCost(g, 0), w.agentCost(t, 0, sub)],
+  stop: [w.stopWhy(g, worker) ?? null, w.stopWhy(g, sub) ?? null, w.stopWhy(g) ?? null, w.stopWhy(t, sub) ?? null],
+  watch: [w.watchWhy(g, worker) ?? null, w.watchWhy(g, sub) ?? null, w.watchWhy(t, worker) ?? null],
+  pip: w.pipMeta(g, "running", 0, "claude-code", worker) }));""" % json.dumps((routes / "fleet" / "watchOnly.ts").resolve().as_uri())
+    got = node_ts.run(js)
+    if got is None:
+        return
+    ctx.check(f"the worker's cost is its figure, every other guest agent's not known; got {got['cost']}",
+              got["cost"][0].startswith("$") and got["cost"][1:3] == ["not known", "not known"] and got["cost"][3].startswith("$"))
+    ctx.check(f"the worker's Stop is on; a guest's other agents' and the session's off; got {got['stop']}",
+              got["stop"][0] is None and str(got["stop"][1]).startswith("Claude Code · watch only")
+              and str(got["stop"][2]).startswith("Claude Code · watch only") and got["stop"][3] is None)
+    ctx.check(f"its other controls: off with their own line; got {got['watch']}",
+              got["watch"][0] == "a hand-out takes Stop only: Halo runs it for this Claude Code session"
+              and str(got["watch"][1]).startswith("Claude Code · watch only") and got["watch"][2] is None)
+    ctx.check(f"the pinned stream shows the worker's figure, got {got['pip']!r}", "not known" not in got["pip"])
+    src = {p: (routes / p).read_text(encoding="utf-8") for p in ("fleet/Agent.tsx", "crew/map/Feed.tsx")}
+    ctx.check("the inspector's and the Map feed's Stop read stopWhy", "stopWhy(r.s, a)" in src["fleet/Agent.tsx"]
+              and "disabled={!!stopNo}" in src["crew/map/Feed.tsx"])
 
 
 @test
@@ -561,7 +592,7 @@ console.log(JSON.stringify([w.pipMeta({ kind: "tui" }, "idle", 0, "halo"), w.pip
     ctx.check(f"state · cost · name, a space on each side of every dot; got {got}",
               got == ["idle · $0.0000 · halo", "running · not known · claude-code", "done · $0.5000 · a-very-long-har…"])
     pip = (fleet / "Pip.tsx").read_text(encoding="utf-8")
-    ctx.check("the pinned stream prints that line", "{pipMeta(ref.s, a.state, a.cost_usd, ref.h.name)}" in pip)
+    ctx.check("the pinned stream prints that line (3.6.0.26 H: with its agent, a worker shows its figure)", "{pipMeta(ref.s, a.state, a.cost_usd, ref.h.name, a)}" in pip)
 
 
 if __name__ == "__main__":

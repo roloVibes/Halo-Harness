@@ -374,6 +374,8 @@ class PrintModeSink:
             self._error_message = event.data.get("message")
         elif event.kind == "turn_done":
             self._num_turns = event.turn
+            if event.data.get("reason") == "max_turns":  # 3.6.0.26 H: the cap ended it (the wrap-up's own reason is not)
+                self._stop_reason = "max_turns"
             # finding 15: whatever's still pending here IS the final message.
             self._final_text = think_tag_strip("".join(self._pending_text_parts))
             if self.verbose:
@@ -701,6 +703,8 @@ class StreamJsonSink:
         elif kind == "turn_done":
             if agent_id is None:
                 self._num_turns = event.turn
+                if event.data.get("reason") == "max_turns":  # 3.6.0.26 H: as the json sink says it
+                    self._stop_reason = "max_turns"
                 self._final_text = think_tag_strip("".join(buf["text"]))
             self._flush_pending(agent_id)
 

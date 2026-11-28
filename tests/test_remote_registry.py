@@ -483,9 +483,11 @@ def test_a_guest_spool_is_swept_by_its_bridge_even_when_its_claude_pid_was_given
 
 def _dead_bridge_files(d: Path, gone_pid: int) -> list:
     on, spool = d / f"{gone_pid}.on", d / f"{gone_pid}.jsonl"
+    job = d / f"{gone_pid}.job.{'ab' * 16}.json"  # 3.6.0.26 H: a hand-out's record goes with its bridge's spool
     on.write_text(json.dumps({"claude_pid": gone_pid, "bridge_pid": gone_pid, "bridge_start": "1"}))
     spool.write_text('{"prompt": "the dead session\'s words"}\n')
-    return [on, spool]
+    job.write_text('{"job": {"goal": "the dead session\'s task"}}')
+    return [on, spool, job]
 
 
 @test
@@ -548,6 +550,65 @@ def test_guest_status_prints_the_lines_a_bridge_dropped(ctx: Ctx):
         finally:
             if bridge is not None:
                 bridge.close()
+
+
+@test
+def test_guest_status_prints_the_setting_and_the_jobs_a_bridge_runs(ctx: Ctx):
+    """3.6.0.26 H: `halo guest status` says the setting and, per bridge, the hand-out jobs that run."""
+    import threading
+    from types import SimpleNamespace
+    with _Home():
+        home = Path(os.environ["BRIDGE_TEST_HOME"])
+        (home / ".halo").mkdir(parents=True, exist_ok=True)
+        (home / ".halo" / "config.json").write_text(json.dumps({"guest": {"hand_out": "local"}}), encoding="utf-8")
+        from halo_harness.guest import install
+        from halo_harness.guest.bridge import GuestBridge
+        from halo_harness.guest.hand_out import HandOuts
+        bridge = GuestBridge(os.getpid(), Path(tempfile.mkdtemp(prefix="guest-proj-"))).start()
+        try:
+            if bridge is None:
+                ctx.check("this build opens a session socket", False)
+                return
+            jobs = HandOuts(bridge.project, sid="g", directory=bridge.dir, claude_pid=os.getpid())
+            brief = {"job_id": "c0ffee" * 5 + "00", "state": "running", "model": "ol:qwen3:30b", "minutes": 1.5}
+            jobs.jobs["x"] = SimpleNamespace(done=threading.Event(), brief=lambda: brief)
+            bridge.handle.hand_outs = jobs
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                install.cmd_status([])
+            text = out.getvalue()
+            ctx.check(f"the setting is said: {text!r}", "The setting: hand-outs: local" in text)
+            ctx.check(f"and its job: {text!r}", "hand-outs: on; ol:qwen3:30b running 1.5 min (job c0ffeec0)" in text)
+        finally:
+            if bridge is not None:
+                bridge.close()
+
+
+@test
+def test_studio_lists_no_hand_out_worker_as_a_session_and_attaches_none(ctx: Ctx):
+    """3.6.0.26 H: a worker's own registry row (`parent: guest:<bridge session>`) is drawn as a row of its guest's
+    tree: Studio's session list and its event bridge leave it out; every other row is as before."""
+    from types import SimpleNamespace
+    from halo_harness.remote import registry
+    from halo_harness.studio import events, sessions_api
+    rows = [{"session_id": "g-1", "kind": "guest", "parent": "claude-code:7", "pid": os.getpid(), "started": 1.0},
+            {"session_id": "w-1", "kind": "print", "parent": "guest:guest-7-8", "pid": os.getpid(), "started": 2.0},
+            {"session_id": "s-1", "kind": "headless", "parent": "studio:9", "pid": os.getpid(), "started": 3.0}]
+    real = registry.list_live, sessions_api.statuses
+    try:
+        registry.list_live = lambda *a, **kw: [dict(r) for r in rows]
+        sessions_api.statuses = lambda entries: {}
+        _code, listed = sessions_api.list_sessions(SimpleNamespace(params={}, body={}))
+        ctx.check(f"the list: the guest and the Studio session, never the worker; got {[r['session_id'] for r in listed]}",
+                  [r["session_id"] for r in listed] == ["g-1", "s-1"])
+    finally:
+        registry.list_live, sessions_api.statuses = real
+    attached = []
+    bridge = events.EventBridge(list_live=lambda: [dict(r) for r in rows])
+    bridge._attach = lambda entry: attached.append(entry["session_id"])
+    bridge.scan()
+    ctx.check(f"the event bridge attaches the guest and the session, not the worker; got {attached}",
+              sorted(attached) == ["g-1", "s-1"])
 
 
 if __name__ == "__main__":

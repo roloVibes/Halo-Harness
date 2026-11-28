@@ -57,7 +57,7 @@ export function FleetPip() {
       <header className="pip-bar" onPointerDown={down} onPointerMove={move} onPointerUp={() => (drag.current = null)} title="Drag to move it">
         <span className="panel-dot" data-motion={agentMotion(a, doneAt)} aria-hidden="true" />
         <b className="pip-name">{a.name || a.agent_id}</b>
-        <span className="mono muted pip-meta">{pipMeta(ref.s, a.state, a.cost_usd, ref.h.name)}</span>
+        <span className="mono muted pip-meta">{pipMeta(ref.s, a.state, a.cost_usd, ref.h.name, a)}</span>
         <button className="icon-btn" onClick={goTo} title={inSession ? "Open it in Session's Agent panel" : "Open it in Agents -> Live"}
                 aria-label={inSession ? "Open it in Session's Agent panel" : "Open it in Agents Live"}>
           <Icon name="popout" />
