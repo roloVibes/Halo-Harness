@@ -461,6 +461,43 @@ def test_the_prompt_panels_help_says_what_a_bang_line_does(ctx: Ctx):
     ctx.check("the Prompt panel's help holds the sentence, word for word", BANG_HELP in block)
 
 
+
+JS_GUEST = """
+const w = await import(%s);
+const p = await import(%s);
+const now = new Date(2026, 10, 27, 15, 0).getTime();
+const g = { session_id: "guest-1", kind: "guest", title: "Claude Code", cwd: "/w/shop", started: now / 1000 - 60 };
+const t = { session_id: "t-1", kind: "tui", title: "fix", cwd: "/w/shop", started: now / 1000 - 30 };
+console.log(JSON.stringify({ head: w.headLine(g, now), tuiHead: w.headLine(t, now), isGuest: [w.isGuest(g), w.isGuest(t), w.isGuest(null)],
+  talked: [p.talkedTo(g), p.talkedTo(t)], line: w.GUEST_LINE, auto: p.autoPick([t, g], "", false, false) }));
+"""
+
+
+@test
+def test_a_claude_code_session_reads_watch_only_and_is_never_talked_to(ctx: Ctx):
+    """3.6.0.25 G: a guest row's header says `<folder> · Claude Code · started <HH:MM> · watch only`; Session never
+    moves to it by itself (`talkedTo`); a terminal session's header is as it was."""
+    from tests.helpers import node_ts
+    got = node_ts.run(JS_GUEST % (json.dumps(WORDS.resolve().as_uri()), json.dumps(PICK.resolve().as_uri()))) or {}
+    ctx.check(f"the guest's header, got {got.get('head')!r}", got.get("head") == "shop · Claude Code · started 14:59 · watch only")
+    ctx.check(f"a terminal's header unchanged, got {got.get('tuiHead')!r}", got.get("tuiHead") == "shop · fix · started 14:59 · in a terminal")
+    ctx.check("isGuest", got.get("isGuest") == [True, False, False])
+    ctx.check("nothing is typed into a guest: talkedTo is false for it", got.get("talked") == [False, True])
+    ctx.check(f"the pick follows the terminal session, never the guest, got {got.get('auto')!r}", got.get("auto") == "t-1")
+    ctx.check("the line", got.get("line") == "Claude Code · watch only: Studio shows this session; nothing is typed into it or steered from here.")
+
+
+@test
+def test_the_session_pages_draw_no_prompt_box_steer_or_cost_for_a_guest(ctx: Ctx):
+    """3.6.0.25 G, read in the source (the browser half is tests/test_studio_session.py): the Prompt panel's foot is the
+    watch-only line, the Steer box is that line, Steer and Screenshot are disabled, the cost is "not known"."""
+    src = {n: (WORDS.parent / n).read_text(encoding="utf-8") for n in ("Prompt.tsx", "LiveSteer.tsx", "LiveHead.tsx", "Cost.tsx")}
+    ctx.check("Prompt: the line instead of the composer", "isGuest(ss) ? <div" in src["Prompt.tsx"] and "prompt-watch-only" in src["Prompt.tsx"])
+    ctx.check("LiveSteer: the line instead of the box", "if (isGuest(ss))" in src["LiveSteer.tsx"] and "session-live-watch-only" in src["LiveSteer.tsx"])
+    ctx.check("LiveHead: Steer and Screenshot disabled", src["LiveHead.tsx"].count("isGuest(") == 3 and "disabled={!t.key || watch}" in src["LiveHead.tsx"])
+    ctx.check("Cost: not known, twice", src["Cost.tsx"].count("if (isGuest(ss))") == 2 and "NOT_KNOWN" in src["Cost.tsx"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -294,6 +294,9 @@ def _discover_one_plugin_root_mcp_servers(plugin_name: str, plugin_root: Path, *
     loop and the CLI `--plugin-dir`/`--plugin-url` loop below, which differ
     only in where their `(plugin_name, plugin_root)` pairs come from)."""
     from halo_harness.mcp.manager import expand_config, parse_server
+    from halo_harness.guest import PLUGIN as GUEST_PLUGIN
+    if plugin_name.split("@", 1)[0] == GUEST_PLUGIN:  # 3.6.0.25 G: Claude Code's own bridge; never a Halo child
+        return
 
     servers = _read_plugin_mcp_servers(plugin_root)
     if not servers:

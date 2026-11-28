@@ -319,6 +319,12 @@ def _check_plugins() -> str:
     return f"{OK} Plugins: {len(servers)} MCP server(s) discovered ({names}){suffix}"
 
 
+def _check_guest() -> str:
+    """3.6.0.25 G: whether the Claude Code plugin folder is written and how many Claude Code sessions Studio shows."""
+    from halo_harness.guest.install import doctor_line
+    return f"{OK} {doctor_line()}"
+
+
 def _check_playwright() -> str:
     node = shutil.which("node")
     npx = shutil.which("npx") or shutil.which("npx.cmd")
@@ -1790,6 +1796,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("terminal_program", _row("terminal_program", _check_terminal_program)))
     entries.append(("shell", _row("shell", _check_shell)))
     entries.append(("plugins", _row("plugins", _check_plugins)))
+    entries.append(("guest", _row("guest", _check_guest)))  # 3.6.0.25 G: a Claude Code session in Studio
     entries.append(("platform", _row("platform", _check_platform)))
     entries.append(("governor", _row("governor", _check_governor)))
     entries.append(("drain_tick_rate", _row("drain_tick_rate", _check_drain_tick_rate)))

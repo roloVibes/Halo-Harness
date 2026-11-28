@@ -21,7 +21,7 @@ import { PromptComposer } from "./PromptComposer";
 import { PromptFeed } from "./PromptFeed";
 import { PromptHead } from "./PromptHead";
 import { lastRow, openOrder } from "./pick";
-import { endedLine } from "./promptWords";
+import { endedLine, GUEST_LINE, isGuest } from "./promptWords";
 import type { SessionRow } from "../fleet/types";
 import { chosenSession, localSessions, useSession } from "./store";
 
@@ -55,7 +55,8 @@ export function PromptDetail() {
       <PromptHead row={ss || gone} pick={ss ? sid : pick} rows={rows} state={state} />
       <div className="spp-body">{feed ? <PromptFeed sid={feed} hid={hid} /> : <NewSession compact />}</div>
       <footer className="spp-foot">
-        <PromptComposer sid={sid} off={off} ended={ended} />
+        {isGuest(ss) ? <div className="spp-watch mono muted" data-testid="prompt-watch-only">{GUEST_LINE}</div>
+          : <PromptComposer sid={sid} off={off} ended={ended} />}
       </footer>
     </div>
   );

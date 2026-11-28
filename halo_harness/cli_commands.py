@@ -90,6 +90,8 @@ COMMANDS = (
     _c("config", "halo_harness.config_cli:cmd_config", SETUP, "read and write Halo's config.json"),
     _c("pack", "halo_harness.packs.cli:cmd_pack", SETUP, "capability packs: list, install, enable, update, remove"),
     _c("mcp", "halo_harness.mcp_cli:cmd_mcp", SETUP, "MCP servers: list, get, add, remove"),
+    _c("guest", "halo_harness.guest.install:cmd_guest", SETUP,
+       "a Claude Code session in Studio, watch only: install, uninstall, status"),
     _c("preflight", "halo_harness.preflight:cmd_preflight", SETUP, "verify the tools before a long autonomous run"),
     _c("completion", "halo_harness.completion_cli:cmd_completion", SETUP, "a shell completion script: bash, zsh, PowerShell"),
     _c("proxy", "bridge:main", SETUP, "the local bridge that routes Claude Code's calls to other models"),

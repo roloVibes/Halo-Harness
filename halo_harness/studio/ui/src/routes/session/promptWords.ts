@@ -68,6 +68,11 @@ export function editStart(inputType: string, before: number | null, after: numbe
 export const NO_MESSAGES = "no messages yet";
 export const IN_TERMINAL = "in a terminal";
 export const NO_TERMINAL = "no terminal";
+// 3.6.0.25 G: a Claude Code session (halo_harness/guest), listed and drawn like a session; nothing is typed into it
+export const WATCH_ONLY = "watch only";
+export const GUEST_LINE = "Claude Code · watch only: Studio shows this session; nothing is typed into it or steered from here.";
+export const NOT_KNOWN = "not known";
+export const isGuest = (row?: { kind?: string | null } | null): boolean => String(row?.kind || "") === "guest";
 export const CHANGE_SESSION = "Change session";
 export const ENDED = "This session has ended. What you typed is still here.";
 export const COPY = "Copy";
@@ -103,7 +108,7 @@ export function startedWords(started: number | null | undefined, now: number): s
 
 /** P27: the header's four parts (the page colours each); `headLine` joins them with ` · `. */
 export function headParts(row: HeadRow, now: number): { folder: string; title: string; started: string; terminal: string } {
-  return { folder: folderOf(row.cwd), title: titleOf(row), started: startedWords(row.started, now), terminal: row.kind === "headless" ? NO_TERMINAL : IN_TERMINAL };
+  return { folder: folderOf(row.cwd), title: titleOf(row), started: startedWords(row.started, now), terminal: row.kind === "headless" ? NO_TERMINAL : isGuest(row) ? WATCH_ONLY : IN_TERMINAL };
 }
 export const headLine = (row: HeadRow, now: number): string => Object.values(headParts(row, now)).filter(Boolean).join(" · ");
 

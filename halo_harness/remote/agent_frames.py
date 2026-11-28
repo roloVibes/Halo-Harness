@@ -56,6 +56,8 @@ def joined(act) -> None:
     the opening thread (a slow or missing git never delays a launch)."""
     registry_frame(act, "register")
     act.handle.hub.greeting = lambda: _registry(act, "hello")  # every new subscriber's first frame
+    if getattr(act.handle, "watch_only", False):  # 3.6.0.25 G: a Claude Code session's bridge starts no process (no git)
+        return
 
     def fill() -> None:
         from halo_harness.remote import session_identity, registry

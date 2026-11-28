@@ -150,6 +150,29 @@ def test_studio_focuses_the_page_already_open(ctx: Ctx):
               str(got.get("focus_tab")).startswith("Session") and f"|{FAKE_SID}|" in str(got.get("focus_agent")) and got.get("focus_tabs_opened") == 0)
 
 
+
+@test
+def test_a_claude_code_session_is_drawn_as_a_session_watch_only(ctx: Ctx):
+    """3.6.0.25 G (tests/helpers/studio_guest.py): a guest row is a session named "Claude Code", "watch only" beside
+    it; no Prompt box (one line instead), Steer and Screenshot disabled, no Steer box, cost and tokens "not known";
+    the bridge's end takes its row out of the list."""
+    from tests.helpers.driver_got import got as driver_got
+    got = driver_got(ctx, "tests.helpers.studio_guest", why="a Claude Code session in Session needs headless Chrome",
+                     cache=_RUNS, key="guest", args=("guest",), timeout=300)
+    ctx.check(f"the driver ran: {got.get('failed')!r}", "failed" not in got)
+    head = str(got.get("head") or "")
+    ctx.check(f"the header names Claude Code, watch only: {head!r}", "Claude Code" in head and "watch only" in head)
+    ctx.check(f"no Prompt box, the watch-only line: {got.get('watch_line')!r}",
+              got.get("prompt_input") is False and str(got.get("watch_line") or "").startswith("Claude Code · watch only"))
+    ctx.check("Steer and Screenshot are disabled, no Steer box",
+              got.get("steer_disabled") is True and got.get("shot_disabled") is True and got.get("steer_box") is False)
+    ctx.check(f"cost and tokens not known: {got.get('cost')!r}", "not known" in str(got.get("cost") or ""))
+    row = got.get("row") or {}
+    ctx.check(f"the registry row: kind guest, its parent Claude Code's: {row}",
+              row.get("kind") == "guest" and str(row.get("parent") or "").startswith("claude-code:"))
+    ctx.check("its end: the row and the spool gone", got.get("row_gone") == "gone" and got.get("spool_gone") is True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

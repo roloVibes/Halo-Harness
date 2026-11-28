@@ -26,6 +26,9 @@ def cmd_tail(handle, tree, req: dict) -> dict:
         return {"agent_id": aid, "events": tail([{"kind": "tool_call", "id": aid, "name": "Bash", "ts": row["since"],
                                                   "label": f"Bash: {row.get('task')}", "input": {"command": row["task"]}}],
                                                 n, kinds)}
+    kept = getattr(handle, "kept_entries", None)  # 3.6.0.25 G: a guest's own lines (guest/bridge.py), never a file
+    if callable(kept):
+        return {"agent_id": aid, "events": tail(kept(aid), n, kinds)}
     session = _session(handle, tree, aid)
     from halo_harness.agent.subagent import _agent_log_nodes
     path = (tree.row(aid) or {}).get("transcript")

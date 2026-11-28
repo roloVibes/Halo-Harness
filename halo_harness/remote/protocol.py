@@ -154,6 +154,10 @@ def base64_bytes(block: dict) -> bytes:
 def run_cmd(handle, req: dict, conn) -> Any:
     """Execute one request; `conn` offers `start_feed(kinds)` / `stop_feed()`."""
     cmd = req.get("cmd")
+    if getattr(handle, "watch_only", False):  # 3.6.0.25 G: a Claude Code session (guest/bridge.py) only reads
+        from halo_harness.guest import WATCH_CMDS, WATCH_ONLY_LINE
+        if cmd not in WATCH_CMDS:
+            raise HandleError(WATCH_ONLY_LINE)
     if cmd == "ping":
         return {"pong": True, "session_id": handle.session_id}
     if cmd == "status":

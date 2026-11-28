@@ -29,6 +29,7 @@ import { LiveImage } from "./LiveImage"; // 3.3.6.0 R6: the steer's image
 import { imageFile, sendWithImage, steerImage, takeFile } from "./steerImage";
 import { chosenSession } from "./store";
 import { noteSteerDraft, steerText } from "./pick";
+import { GUEST_LINE, isGuest } from "./promptWords";
 import { TargetLine } from "./LiveTarget";
 import { closeSteer, cycleTarget, setComposing, targetName, useSteerTarget } from "./steer";
 
@@ -65,6 +66,8 @@ export function LiveSteer() {
   };
   const off = !t.key || !t.ref || FINISHED.includes(String(t.ref.a.state)) || t.ref.h.allow_control === "none";
   useEffect(() => void (off && setComposing(false)), [off]); // a field that goes away (or is disabled) holds no keyboard
+  if (isGuest(ss)) // 3.6.0.25 G: a Claude Code session: no Steer, no Pause, no Stop
+    return <div className="slv-hint mono muted" data-testid="session-live-watch-only">{GUEST_LINE}</div>;
   if (!t.key)
     return <div className="slv-hint mono muted" data-testid="session-live-hint">No session here yet: start one in a terminal (halo) and steer it from here.</div>;
   const a = t.ref?.a;

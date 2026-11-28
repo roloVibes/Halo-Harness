@@ -265,6 +265,59 @@ def test_a_socket_path_that_cannot_fit_is_one_plain_line(ctx: Ctx):
         control_socket.short_dir = saved
 
 
+
+@test
+def test_a_guest_socket_reads_and_answers_watch_only_to_everything_that_sends(ctx: Ctx):
+    """3.6.0.25 G: the bridge of a Claude Code session serves ping, status, subscribe, agents, agent_tail and
+    agent_follow; submit, steer, interrupt, answer, slash, shutdown, agent_steer, agent_stop answer "watch only"."""
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+    os.environ.pop("BRIDGE_STATE_DIR", None)
+    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="guest-sock-")
+    bridge = client = None
+    try:
+        import json as _json
+        from halo_harness.guest import note
+        from halo_harness.guest.bridge import GuestBridge
+        from halo_harness.remote.client import ControlClient
+        project = Path(tempfile.mkdtemp(prefix="guest-proj-"))
+        bridge = GuestBridge(os.getpid(), project).start()
+        line = {"hook_event_name": "UserPromptSubmit", "session_id": "s-1", "cwd": str(project),
+                "prompt": "Show me the plan of the release"}
+        ctx.check("a hook line lands", note.write(_json.dumps(line).encode(), bridge.dir, bridge.claude_pid))
+        bridge.poll()
+        client = ControlClient(bridge.act.server.endpoint, bridge.act.server.token)
+        ctx.check("ping", client.call("ping").get("ok") is True)
+        status = client.call("status").get("result") or {}
+        ctx.check(f"status: watch only, accepts no turn, cost not known: {status}",
+                  status.get("watch_only") is True and status.get("accepts_turns") is False and status.get("cost_usd") is None
+                  and status.get("busy") is True)
+        rows = (client.call("agents").get("result") or {}).get("agents") or []
+        ctx.check(f"agents: main with the objective, got {rows}",
+                  rows and rows[0]["agent_id"] == "main" and rows[0]["objective"] == "Show me the plan of the release")
+        tail = client.call("agent_tail", agent_id="main").get("result") or {}
+        ctx.check(f"agent_tail: the bridge's own lines, got {tail}", [e["kind"] for e in tail.get("events") or []] == ["user"])
+        ctx.check("agent_follow", client.call("agent_follow", agent_id="main").get("ok") is True)
+        for cmd, fields in (("submit", {"text": "hi"}), ("steer", {"text": "hi"}), ("interrupt", {}),
+                            ("answer", {"kind": "permission", "request_id": "r", "action": "allow"}),
+                            ("slash", {"line": "/clear"}), ("tail", {}), ("mode", {"mode": "plan"}),
+                            ("shutdown", {}), ("pause", {}), ("note", {"name": "fleet.message", "text": "x"}),
+                            ("agent_steer", {"agent_id": "main", "text": "x"}), ("agent_stop", {"agent_id": "main"})):
+            got = client.call(cmd, **fields)
+            ctx.check(f"{cmd} answers watch only, got {got}",
+                      got.get("ok") is False and str(got.get("error") or "").startswith("watch only"))
+        ctx.check("subscribe", client.call("subscribe").get("ok") is True)
+    finally:
+        if client is not None:
+            client.close()
+        if bridge is not None:
+            bridge.close()
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

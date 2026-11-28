@@ -33,6 +33,7 @@ import { lastTurnCost, startSpend, useSpend } from "./spend";
 import { ChangeSession, useWatched } from "./ChangeSession";
 import { copilotLine, ownCosts, partialTitle, unpricedMain } from "./shares";
 import { chosenSession } from "./store";
+import { isGuest, NOT_KNOWN } from "./promptWords";
 import { EffortMenu } from "./EffortMenu"; // 3.3.5.0 R0b (c): the effort control
 import { CompositionBar } from "./CostComposition"; // 3.3.5.0 R4: what the last request was made of
 import { LoadingTax } from "./LoadingTax"; // 3.3.7.0 R3 (G5): the loads and their seconds, beside the dollars
@@ -86,6 +87,8 @@ export function CostDetail() {
     return <Empty title={w.ended} testid="session-cost-ended"
                   action={<div className="sco-change"><ChangeSession rows={w.rows} pick={w.pick} testid="session-cost-change" /></div>} />;
   if (!ss) return <Empty title="No session here yet" body="Start one in a terminal (halo): what it spends, its tokens and its turns show here as it works." testid="session-cost-empty" />;
+  if (isGuest(ss)) // 3.6.0.25 G: Claude Code keeps its own count; Halo does not read it
+    return <Empty title={`Cost and tokens: ${NOT_KNOWN}`} body="A Claude Code session, watch only: Claude Code keeps its own count, and Halo does not read it." testid="session-cost-guest" />;
   const usd = Number(ss.cost_usd) || 0;
   const own = ownCosts(ss);
   const partial = partialTitle(ss);
@@ -151,6 +154,7 @@ export function CostGlance() {
   const ended = useWatched().ended;
   if (!ss && ended) return <div className="glance" data-testid="session-cost-ended"><div className="glance-text">{ended}</div></div>;
   if (!ss) return <div className="glance"><div className="glance-text">No session here yet</div><div className="glance-hint">Run halo in a terminal.</div></div>;
+  if (isGuest(ss)) return <div className="glance" data-testid="session-cost-guest"><div className="glance-text">{`Cost and tokens: ${NOT_KNOWN}`}</div><div className="glance-hint">Claude Code, watch only</div></div>;
   return (
     <div className="glance" data-testid="session-cost-glance">
       <div className="glance-numbers">

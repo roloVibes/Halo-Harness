@@ -9,7 +9,7 @@ import { Button } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
 import type { SessionRow } from "../fleet/types";
 import { choseInList, lastRow, openOrder } from "./pick";
-import { CHANGE_SESSION, endedLine, headParts, NO_TERMINAL, othersLine } from "./promptWords";
+import { CHANGE_SESSION, endedLine, headParts, NO_TERMINAL, othersLine, WATCH_ONLY } from "./promptWords";
 import { chosenSession, localSessions, openSession, useSession } from "./store";
 
 const NONE: SessionRow[] = []; // one empty list: a selector that made a new one each read would never settle
@@ -22,7 +22,7 @@ export function Words({ row, now }: { row: SessionRow; now: number }) {
       <span className="spp-dot-sep"> · </span><span className="spp-title muted">{p.title}</span>
       {p.started && <><span className="spp-dot-sep"> · </span><span className="muted">{p.started}</span></>}
       <span className="spp-dot-sep"> · </span>
-      {p.terminal === NO_TERMINAL ? <span className="og-chip mono">{p.terminal}</span> : <span className="spp-term">{p.terminal}</span>}
+      {p.terminal === NO_TERMINAL || p.terminal === WATCH_ONLY ? <span className="og-chip mono">{p.terminal}</span> : <span className="spp-term">{p.terminal}</span>}
     </>
   );
 }

@@ -354,6 +354,71 @@ def test_halo_ps_and_doctor_count_a_live_session(ctx: Ctx):
             lst.close()
 
 
+
+@test
+def test_a_guest_bridge_is_a_watch_only_session_row_and_its_end_takes_it_all(ctx: Ctx):
+    """3.6.0.25 G: Claude Code's bridge (guest/bridge.py) lists itself as every session does, `kind: guest`,
+    `parent: claude-code:<pid>`, titled "Claude Code"; its end removes the row, its `.on` and its spool."""
+    with _Home():
+        from halo_harness.guest.bridge import GuestBridge
+        from halo_harness.remote import registry
+        import subprocess
+        project = Path(tempfile.mkdtemp(prefix="guest-proj-"))
+        started, real_popen = [], subprocess.Popen
+
+        class _Counted(real_popen):  # the bridge starts no process (not even the git query of a project row)
+            def __init__(self, *a, **kw):
+                started.append(a[0] if a else kw.get("args"))
+                super().__init__(*a, **kw)
+        subprocess.Popen = _Counted
+        try:
+            bridge = GuestBridge(os.getpid(), project).start()
+            bridge.poll()
+        finally:
+            subprocess.Popen = real_popen
+        ctx.check(f"the bridge started no process, got {started}", started == [])
+        try:
+            ctx.check("the bridge opened", bridge is not None)
+            rows = [r for r in registry.list_live() if r.get("kind") == "guest"]
+            ctx.check(f"one guest row, got {rows}", len(rows) == 1)
+            row = rows[0]
+            ctx.check(f"its parent and title: {row.get('parent')}, {row.get('title')}",
+                      row["parent"] == f"claude-code:{os.getpid()}" and row["title"] == "Claude Code"
+                      and row["cwd"] == str(project))
+            ctx.check("its .on and its spool are there", bridge.on.is_file() and bridge.spool.is_file())
+            if os.name != "nt":
+                ctx.check("the spool is 0600", (bridge.spool.stat().st_mode & 0o777) == 0o600)
+        finally:
+            if bridge is not None:
+                bridge.close()
+        ctx.check("its end: no row", not [r for r in registry.list_live() if r.get("kind") == "guest"])
+        ctx.check("its end: no .on, no spool", not bridge.on.exists() and not bridge.spool.exists())
+
+
+@test
+def test_a_guest_spool_of_a_dead_claude_code_is_swept_at_a_bridges_start(ctx: Ctx):
+    import subprocess
+    with _Home():
+        from halo_harness.guest import guest_dir
+        from halo_harness.guest.bridge import GuestBridge
+        p = subprocess.Popen([sys.executable, "-c", "pass"])
+        p.wait(60)
+        dead = p.pid
+        d = guest_dir()
+        left = [d / f"{dead}.on", d / f"{dead}.jsonl", d / f"{dead}.17.jsonl"]
+        for f in left:
+            f.write_text("{}")
+        other = d / "notes.txt"
+        other.write_text("kept")
+        bridge = GuestBridge(os.getpid(), Path(tempfile.mkdtemp(prefix="guest-proj-"))).start()
+        try:
+            ctx.check(f"the dead pid's files are gone: {[f.name for f in left if f.exists()]}", not any(f.exists() for f in left))
+            ctx.check("another file stays", other.exists())
+        finally:
+            if bridge is not None:
+                bridge.close()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

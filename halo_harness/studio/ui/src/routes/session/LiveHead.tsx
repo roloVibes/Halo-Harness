@@ -25,6 +25,7 @@ import { chosenSession, sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
 import { FeedPlan } from "./FeedPlan";
 import { FeedSession } from "./FeedSession";
+import { GUEST_LINE, isGuest } from "./promptWords";
 
 /** The kind pick's choices: value, label, the line kinds it keeps. */
 export const KIND_PICKS: [string, string, LiveKind[]][] = [
@@ -101,13 +102,13 @@ function ShotButton() {
   const hid = useFleet((s) => s.scope.harness || "local");
   const busy = useSteerImage((s) => s.busy);
   return (
-    <Button size="sm" variant="ghost" icon={<Icon name="eye" />} disabled={!ss || busy} data-testid="session-live-screenshot"
+    <Button size="sm" variant="ghost" icon={<Icon name="eye" />} disabled={!ss || busy || isGuest(ss)} data-testid="session-live-screenshot"
             onClick={() => {
               if (!ss) return;
               openSteer(); // 3.6.0.11: the capture is the open box's chip
               void takeScreenshot(hid, ss.session_id, ss.model);
             }}
-            title={!ss ? "No session to attach a screenshot to" : "Capture the screen of the machine this session's harness runs on (a Mac " +
+            title={!ss ? "No session to attach a screenshot to" : isGuest(ss) ? GUEST_LINE : "Capture the screen of the machine this session's harness runs on (a Mac " +
               "or Kali driving this Studio captures this PC's screen) and attach it to your next steer"}>
       {busy ? "Capturing..." : "Screenshot"}
     </Button>
@@ -118,9 +119,10 @@ function ShotButton() {
 function SteerToggle() {
   const open = useSession((s) => s.steer);
   const t = useSteerTarget();
+  const watch = isGuest(useFleet(chosenSession)); // 3.6.0.25 G: a Claude Code session takes no steer
   return (
-    <Button size="sm" variant={open ? "primary" : "ghost"} icon={<Icon name="edit" />} aria-pressed={open} disabled={!t.key} data-testid="session-live-steer-open"
-            onClick={() => (open ? closeSteer() : openSteer())} title={`Steer ${targetName(t)}: the picked row's agent, else main`}>
+    <Button size="sm" variant={open ? "primary" : "ghost"} icon={<Icon name="edit" />} aria-pressed={open} disabled={!t.key || watch} data-testid="session-live-steer-open"
+            onClick={() => (open ? closeSteer() : openSteer())} title={watch ? GUEST_LINE : `Steer ${targetName(t)}: the picked row's agent, else main`}>
       Steer
     </Button>
   );

@@ -137,9 +137,10 @@ export function autoPick<R extends SessionRow>(rows: R[], pick: string, byHand: 
   return openOrder(rows.filter(talkedTo))[0]?.session_id || pick;
 }
 
-/** A session a person talks to: the terminal app's, or one Studio started. A one-shot (`halo -p`) and a worker another
- *  session started (Orchestra, a mission) are in the list too; Session never moves to one of those by itself. */
-export const talkedTo = (r: SessionRow): boolean => !["print", "orchestra-worker", "mission-worker"].includes(String(r.kind || "tui"));
+/** A session a person talks to: the terminal app's, or one Studio started. A one-shot (`halo -p`), a worker another
+ *  session started (Orchestra, a mission) and a Claude Code session (3.6.0.25 G `guest`: watch only, nothing is typed
+ *  into it) are in the list too; Session never moves to one of those by itself. */
+export const talkedTo = (r: SessionRow): boolean => !["print", "orchestra-worker", "mission-worker", "guest"].includes(String(r.kind || "tui"));
 
 /** 3.6.0.11: an agent he chose makes the pick his (the ruling: "a Map or agent selection"): one he selected on harness
  *  `here` (`sel`, not the one the store selected itself: `own`), a pin or a steer target (their session stays shown,

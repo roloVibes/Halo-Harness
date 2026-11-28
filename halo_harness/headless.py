@@ -303,7 +303,10 @@ def build_hook_runner(*, settings, cwd: Path, session_id: str, transcript_path: 
         # `_plugin_roots`, silently didn't).
         settings_raw = getattr(settings, "raw", None) if settings is not None else None
         manifest = load_installed_plugins()
+        from halo_harness.guest import PLUGIN as GUEST_PLUGIN
         for _plugin_name, plugin_root in _plugin_roots(manifest, settings_raw, cwd=cwd):
+            if _plugin_name.split("@", 1)[0] == GUEST_PLUGIN:  # 3.6.0.25 G: Claude Code's hooks, never a Halo session's
+                continue
             hooks_by_event = merge_hook_maps(hooks_by_event, load_plugin_hooks(plugin_root))
         from halo_harness.packs.contribute import hook_roots  # 3.2.0.0 R1: a pack's hooks load once granted
         for plugin_root in hook_roots(extra_plugin_roots or []):
