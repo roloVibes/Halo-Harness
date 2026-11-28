@@ -6,13 +6,13 @@
 // person has not folded it; a click on the chip folds and unfolds it, kept (planFold.ts). Its opening when the first
 // plan arrives is the one move; no plan, no list. The words are crew/map/planWords.ts; nothing here asks a model.
 import { PlanList } from "../crew/map/PlanList";
-import { chipHover, chipWords, OBJECTIVE_ROOM, objectiveOf, planOf } from "../crew/map/planWords";
+import { chipHover, chipWords, countOf, OBJECTIVE_ROOM, objectiveOf, planOf } from "../crew/map/planWords";
 import { useWatched } from "./ChangeSession";
 import { togglePlanFold, usePlanFolded } from "./planFold";
 
 export function FeedPlan() {
   const { row } = useWatched();
-  const list = planOf(row), objective = objectiveOf(row);
+  const list = planOf(row), objective = objectiveOf(row), count = countOf(row, list); // the true counts of the whole list
   const folded = usePlanFolded();
   const open = list.length > 0 && !folded;
   return (
@@ -27,12 +27,12 @@ export function FeedPlan() {
           <span className="slv-objective-twin" aria-hidden="true"><span className="slv-objective-label mono">Objective</span>{OBJECTIVE_ROOM}</span>
         </span>
         <button type="button" className="slv-plan-chip mono" data-testid="session-plan-chip"
-                aria-disabled={list.length ? undefined : "true"} aria-expanded={list.length ? open : undefined} title={chipHover(list)}
+                aria-disabled={list.length ? undefined : "true"} aria-expanded={list.length ? open : undefined} title={chipHover(list, count)}
                 onClick={() => list.length && togglePlanFold()}>
-          {chipWords(list)}
+          {chipWords(list, count)}
         </button>
       </div>
-      {open && <div className="slv-plan" data-testid="session-plan"><PlanList list={list} tid="session-plan-list" /></div>}
+      {open && <div className="slv-plan" data-testid="session-plan"><PlanList list={list} all={count.all} tid="session-plan-list" /></div>}
     </>
   );
 }

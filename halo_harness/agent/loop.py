@@ -2510,6 +2510,7 @@ class Session:
             self.log.append_snapshot([{"type": "text", "text": reminder}], kind="deferred_tools")
         _map_facts.cleared(self)  # 3.6.0.2 R38: the new conversation's first turn is a first turn (no note)
         _kinds_note.cleared(self)  # 3.6.0.15 U5: the added names are told once more
+        _agent_tree.conversation_reset(self)  # 3.6.0.23 PV: main's row drops the old plan and objective
         if getattr(getattr(self, "team_control", None), "is_map", False) and self.agent_depth == 0:
             # 3.6.0.2 R51: /clear keeps the map and the new log says so (after its system node, as at construction);
             # `started` also sets F1's time and the note's baseline to now
@@ -8743,8 +8744,9 @@ class Session:
         order, as the next `user_input` on this same worker thread."""
         if self._leftover_steer_texts:
             leftover, self._leftover_steer_texts = self._leftover_steer_texts, []
-            for leftover_text in leftover:
-                commands.put(events.Command("user_input", {"text": leftover_text}))
+            for leftover_text in leftover:  # 3.6.0.23 PV: its noted meta (a receipt, a slash line's `typed`) rides along
+                commands.put(events.Command("user_input", {"text": leftover_text,
+                                                           "meta": _receipt_seams.take_steer(self, leftover_text) or None}))
 
     def run(self, commands, out, *, mcp_status_fn=None) -> int:
         """The worker-thread command pump (D-Contract): consume `Command`s

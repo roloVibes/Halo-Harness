@@ -123,9 +123,10 @@ def test_a_todowrite_puts_the_plan_on_the_row(ctx: Ctx):
     ctx.check(f"the doing line says the plan's size, got {doing!r}", doing == "TodoWrite: plan of 3 steps" and "{" not in doing)
     plan = tree.row("main").get("plan")
     ctx.check(f"the plan is on main's row, got {plan}", plan == [
-        {"content": "Read the code", "status": "completed", "activeForm": "Doing Read the code"},
-        {"content": "Write the parser", "status": "in_progress", "activeForm": "Writing the parser"},
-        {"content": "Test it", "status": "pending", "activeForm": "Doing Test it"}])
+        {"content": "Read the code", "status": "completed", "activeForm": "Doing Read the code", "n": 1},
+        {"content": "Write the parser", "status": "in_progress", "activeForm": "Writing the parser", "n": 2},
+        {"content": "Test it", "status": "pending", "activeForm": "Doing Test it", "n": 3}])
+    ctx.check(f"with its true counts, got {tree.row('main').get('plan_count')}", tree.row("main").get("plan_count") == {"all": 3, "done": 1})
     _write_plan(tree, "main", [_todo("One step only", "in_progress")], "t2")
     ctx.check(f"the next list replaces it, got {tree.row('main')['plan']}", [t["content"] for t in tree.row("main")["plan"]] == ["One step only"])
     _write_plan(tree, "main", [_todo("a", "in_progress"), _todo("b", "in_progress")], "t3", ok=False)
@@ -227,6 +228,151 @@ def test_a_spawn_keeps_the_words_of_its_parents_step_in_progress(ctx: Ctx):
     ctx.check(f"each keeps the words of its parent's step at its start, got {got}", got == {
         "a0": None, "a1": "Compare the numbers", "a2": "Something else entirely", "a3": None,
         "g1": "Open report one", "g2": None})
+
+
+@test
+def test_a_list_over_the_cap_keeps_its_counts_and_the_step_in_progress(ctx: Ctx):
+    """3.6.0.23 PV after the review, fault 4: a list of more than PLAN_MAX steps is never cut silently: the row carries
+    the true counts (`plan_count`), each kept step its number `n`; the step in progress is always kept (the first
+    PLAN_MAX - 1 and that one), so the hover and a spawn's `plan_step` see it."""
+    from halo_harness.agent.agent_observe import PLAN_MAX
+    root, tree = _tree()
+    tree.started("main", root, "work through the long list today")
+    todos = [_todo(f"step {i}", "completed" if i <= 10 else "pending") for i in range(1, 41)]
+    todos[34] = _todo("step 35", "in_progress", "Doing step 35")
+    _write_plan(tree, "main", todos, "t1")
+    row = tree.row("main")
+    ns = [t["n"] for t in row["plan"]]
+    ctx.check(f"the true counts of the whole list, got {row.get('plan_count')}", row.get("plan_count") == {"all": 40, "done": 10})
+    ctx.check(f"the first {PLAN_MAX - 1} and the step in progress, got {ns}", ns == list(range(1, PLAN_MAX)) + [35])
+    ctx.check(f"the kept step in progress, got {row['plan'][-1]}", row["plan"][-1]["status"] == "in_progress" and row["plan"][-1]["content"] == "step 35")
+    _spawn(root, "a1", "Help with step 35")
+    ctx.check(f"a spawn past the cap gets its step, got {tree.row('a1')['spawn'].get('plan_step')!r}", tree.row("a1")["spawn"].get("plan_step") == "step 35")
+    _write_plan(tree, "main", [_todo(f"s{i}") for i in range(1, 36)], "t2")
+    row = tree.row("main")
+    ctx.check(f"no step in progress: the first {PLAN_MAX}, counted all, got {len(row['plan'])} {row.get('plan_count')}",
+              [t["n"] for t in row["plan"]] == list(range(1, PLAN_MAX + 1)) and row.get("plan_count") == {"all": 35, "done": 0})
+
+
+def _real_session():
+    """A real `agent.loop.Session` (tests/helpers/turn_session.py, its own scratch home); nothing here calls a model."""
+    from tests.helpers.turn_session import new_session
+    return new_session(mock=NS(base_url="http://127.0.0.1:9"), model="or:mock/pv-clear")
+
+
+def _with_plan(tree, session) -> list:
+    tree.started("main", session, "Fix the basket discount order today")
+    _write_plan(tree, "main", [_todo("Read basket.py", "in_progress")], "t1")
+    frames: list = []
+    tree.add_listener(lambda k, a, d: frames.append((k, a, d)))
+    return frames
+
+
+def _check_empty(ctx: Ctx, tree, frames: list, what: str) -> None:
+    row = tree.row("main")
+    ctx.check(f"{what}: main's row has no plan and no objective, got {row.get('plan')!r} {row.get('objective')!r}",
+              not row.get("plan") and not row.get("plan_count") and not row.get("objective"))
+    ctx.check(f"{what}: the row's other fields stay, got {row.get('task')!r}", row.get("task") == "Fix the basket discount order today")
+    pub = [d for k, a, d in frames if k == "agent_state" and a == "main"]
+    ctx.check(f"{what}: the row is published, got {len(pub)}", bool(pub) and not pub[-1].get("plan") and not pub[-1].get("objective"))
+
+
+@test
+def test_clear_drops_mains_plan_and_objective(ctx: Ctx):
+    """Fault 1 after the review: `/clear` starts a new conversation, so main's row starts empty ("none yet", "no plan yet")."""
+    from halo_harness.agent.agent_registry import tree_for
+    session = _real_session()
+    tree = tree_for(session)
+    frames = _with_plan(tree, session)
+    session.clear()
+    _check_empty(ctx, tree, frames, "after /clear")
+
+
+@test
+def test_an_in_app_resume_drops_mains_plan_and_objective(ctx: Ctx):
+    """Fault 1 after the review: an in-app `/resume` (session_switch.pump_resume) switches the conversation: main's row
+    starts empty (the resumed session's plan is not rebuilt in this release)."""
+    from halo_harness.agent.agent_registry import tree_for
+    from halo_harness.agent.session_switch import pump_resume
+    session = _real_session()
+    old = session.log.session_id
+    session.log.append_user([{"type": "text", "text": "an earlier conversation"}])
+    session.clear()
+    tree = tree_for(session)
+    frames = _with_plan(tree, session)
+    said: list = []
+    pump_resume(session, {"session_id": old}, said.append)
+    ctx.check(f"the resume switched, got {session.log.session_id} / {[getattr(e, 'kind', '') for e in said]}", session.log.session_id == old)
+    _check_empty(ctx, tree, frames, "after a resume")
+
+
+@test
+def test_a_steered_slash_line_keeps_what_was_typed_when_it_becomes_a_turn(ctx: Ctx):
+    """Fault 3 after the review: a slash line typed while a turn runs is steered as its body; when no safe point took
+    it, it is resubmitted as its own turn WITH its `typed` meta, so the objective is still his words."""
+    import queue
+    from halo_harness.agent.agent_registry import tree_for
+    from halo_harness.controller import Controller
+    session = _real_session()
+    body = "Look over the code carefully: the basket discount order"
+    session._busy.set()
+    Controller.submit(NS(session=session, events=queue.Queue(), commands=queue.Queue()), body,
+                      meta={"typed": "/pvcheck the basket discount order"})
+    session._end_busy_period()
+    commands: queue.Queue = queue.Queue()
+    session._resubmit_leftover_steers(commands)
+    cmd = commands.get_nowait()
+    ctx.check(f"the text and its meta ride together, got {cmd.data}",
+              cmd.data.get("text") == body and (cmd.data.get("meta") or {}).get("typed") == "/pvcheck the basket discount order")
+    session._turn_meta = cmd.data.get("meta")  # what Session.run does with a `user_input`
+    tree = tree_for(session)
+    tree.started("main", session, body)
+    ctx.check(f"the objective is what he typed, got {tree.row('main').get('objective')!r}",
+              tree.row("main").get("objective") == "/pvcheck the basket discount order")
+
+
+@test
+def test_a_headless_slash_line_sets_the_objective_from_what_was_typed(ctx: Ctx):
+    """Fault 2 after the review: `halo -p "/command args"` sends main the command's expanded body; the turn's meta
+    carries the typed line, so main's objective is his words, never the body's first line."""
+    import contextlib
+    import io
+    import os
+    from halo_harness import headless
+    from halo_harness.agent.agent_registry import tree_for
+    from halo_harness.agent.loop import Session
+    from tests.helpers.fake_home import build_fake_home
+    from tests.helpers.mock_openai import SCENARIOS, MockUpstream, _finish
+    fh = build_fake_home()
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_OPENROUTER_BASE_URL")}
+    os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+    (Path(fh["proj"]) / ".claude" / "commands").mkdir(parents=True, exist_ok=True)
+    (Path(fh["proj"]) / ".claude" / "commands" / "pvcheck.md").write_text("Look over the code carefully: $ARGUMENTS\n", encoding="utf-8")
+    SCENARIOS["pv-headless"] = lambda h, body: _finish(h, [
+        {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+        {"choices": [{"index": 0, "delta": {"content": "PV-OK"}}]},
+        {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}])
+    mock = MockUpstream().start()
+    seen: list = []
+    real_turn = Session.turn
+
+    def recording_turn(self, text, *a, **kw):
+        seen.append((self, text))
+        yield from real_turn(self, text, *a, **kw)
+    Session.turn = recording_turn
+    try:
+        os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            headless.run_print_mode(prompt="/pvcheck the basket discount order", cwd=fh["proj"],
+                                    model_ref_raw="or:mock/pv-headless", max_turns=2)
+    finally:
+        Session.turn = real_turn
+        mock.stop()
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+    ctx.check(f"main was sent the expanded body, got {[t for _, t in seen]}", len(seen) == 1 and seen[0][1].startswith("Look over the code carefully"))
+    obj = tree_for(seen[0][0]).row("main").get("objective") if seen else None
+    ctx.check(f"the objective is what he typed, got {obj!r}", obj == "/pvcheck the basket discount order")
 
 
 @test

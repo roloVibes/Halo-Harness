@@ -1636,6 +1636,33 @@ console.log(JSON.stringify({plan: P.planOf(D.sess), same: P.planOf(D.sess) === P
 
 
 @test
+def test_a_list_over_the_cap_says_its_true_counts_and_what_is_not_shown(ctx: Ctx):
+    """3.6.0.23 PV after the review, fault 4: the chip says "Plan <done> of <all>" from the row's true counts
+    (`plan_count`), its hover the kept step in progress past the cap; the list shows the kept steps and, where numbers
+    are left out (between two kept steps, or after the last), ONE muted line "+N more steps not shown" in that place."""
+    kept = [{**_todo(f"step {i}", "completed" if i <= 10 else "pending"), "n": i} for i in range(1, 30)]
+    kept.append({**_todo("step 35", "in_progress", "Doing step 35"), "n": 35})
+    sess = {"agents": [{**MAIN, "plan": kept, "plan_count": {"all": 40, "done": 10}}]}
+    old = {"agents": [{**MAIN, "plan": [_todo("a"), _todo("b", "completed")]}]}
+    js = """const P = M.pw, l = P.planOf(D.sess), c = P.countOf(D.sess, l);
+const shape = (ls) => ls.map((x) => ("more" in x ? P.moreWords(x.more) : x.step.n));
+console.log(JSON.stringify({chip: P.chipWords(l, c), hover: P.chipHover(l, c), lines: shape(P.planLines(l, c.all)),
+  whole: shape(P.planLines(l.slice(0, 29), 29)), old: [P.chipWords(P.planOf(D.old), P.countOf(D.old)), P.countOf(D.old)],
+  tail: shape(P.planLines(l.slice(0, 29), 31))}));"""
+    got = _run(["pw"], js, {"sess": sess, "old": old})
+    ctx.check(f"the chip counts the whole list, got {got['chip']!r}", got["chip"] == "Plan 10 of 40")
+    ctx.check(f"its hover is the kept step in progress, got {got['hover']!r}", got["hover"] == "Now: Doing step 35")
+    ctx.check(f"the kept steps, one line between, one after, got {got['lines'][27:]}",
+              got["lines"] == list(range(1, 30)) + ["+5 more steps not shown", 35, "+5 more steps not shown"])
+    ctx.check(f"a whole list: no line added, got {len(got['whole'])}", got["whole"] == list(range(1, 30)))
+    ctx.check(f"numbers left out after the last only, got {got['tail'][-2:]}", got["tail"][-1] == "+2 more steps not shown" and len(got["tail"]) == 30)
+    ctx.check(f"a row without counts counts its own list, got {got['old']}", got["old"] == ["Plan 1 of 2", {"all": 2, "done": 1}])
+    src = (SRC / "routes/crew/map/PlanList.tsx").read_text(encoding="utf-8") + (SRC / "routes/session/FeedPlan.tsx").read_text(encoding="utf-8")
+    ctx.check("the list draws planLines (the more line muted, in its place); the head passes the true counts",
+              "planLines(list, all)" in src and "muted" in src and "all={count.all}" in src and "chipWords(list, count)" in src)
+
+
+@test
 def test_a_card_says_goal_and_its_hover_the_step_it_was_started_for(ctx: Ctx):
     """3.6.0.23 PV ruling 5: a member's first line says "Goal" before its description (no new row); its hover adds
     "started for: <main's step in progress at its start>" (spawn.plan_step, words frozen at the start, never "n of M"),

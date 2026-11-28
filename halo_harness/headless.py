@@ -496,6 +496,13 @@ def _maybe_run_slash_command(prompt_text: str, *, registry, facade, disable_slas
     return (output, None) if cmd.kind == "prompt" else (None, output)
 
 
+def _note_typed(session, typed: str) -> None:
+    """3.6.0.23 PV after the review: a slash line's turn carries the line he typed on its meta (agent_observe's
+    objective is his words, not the expanded body); the loop's take-and-clear of `_turn_meta` stays as it is."""
+    meta = getattr(session, "_turn_meta", None)
+    session._turn_meta = {**(meta if isinstance(meta, dict) else {}), "typed": (typed or "").strip().split("\n", 1)[0]}
+
+
 def _append_at_mention_snapshots(session, text: Optional[str], cwd: Path) -> None:
     """H4 scope C: a slash-invoked command/skill's EXPANDED body's `@path`
     mentions, read via the Read tool's own path resolution and appended
@@ -2083,6 +2090,7 @@ def run_print_mode(
                     _append_at_mention_snapshots(session, final_prompt, cwd)
                     _append_agent_mention_snapshot(session, final_prompt or turn_text, build.agents)
                     if final_prompt is not None:
+                        _note_typed(session, turn_text)
                         extra_ctx = session.fire_user_prompt_expansion(turn_text, final_prompt)
                         if extra_ctx:
                             session.log.append_snapshot([{"type": "text", "text": extra_ctx}], kind="hook_context")
@@ -2150,6 +2158,7 @@ def run_print_mode(
         _append_at_mention_snapshots(session, final_prompt, cwd)
         _append_agent_mention_snapshot(session, final_prompt or prompt_text, build.agents)
         if final_prompt is not None:
+            _note_typed(session, prompt_text)
             extra_ctx = session.fire_user_prompt_expansion(prompt_text, final_prompt)
             if extra_ctx:
                 session.log.append_snapshot([{"type": "text", "text": extra_ctx}], kind="hook_context")

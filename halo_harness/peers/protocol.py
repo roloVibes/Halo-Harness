@@ -177,6 +177,11 @@ def scrub_agent(row: dict, level: str) -> dict:
     out = {k: v for k, v in (row or {}).items() if k != "transcript"}
     if level == "status":
         out.pop("last_text", None)
+        out.pop("objective", None)  # 3.6.0.23 PV: the plan's and the objective's words are content, its states are not
+        if isinstance(out.get("plan"), list):
+            out["plan"] = [{k: t.get(k) for k in ("status", "n")} for t in out["plan"] if isinstance(t, dict)]
+        if isinstance(out.get("spawn"), dict) and "plan_step" in out["spawn"]:
+            out["spawn"] = {k: v for k, v in out["spawn"].items() if k != "plan_step"}
     return out
 
 

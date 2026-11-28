@@ -38,15 +38,21 @@ PLAN_STATES = ("pending", "in_progress", "completed")
 OBJECTIVE_WORDS = 4  # 3.6.0.23 PV: a prompt's first line of fewer words ("yes", "go on") keeps main's objective
 
 
-def plan_of(todos) -> list:
-    """TodoWrite's `todos` as a row keeps them: [{content, status, activeForm}], capped (PLAN_MAX, PLAN_TEXT)."""
-    out = []
-    for t in (todos if isinstance(todos, list) else [])[:PLAN_MAX]:
+def plan_of(todos) -> "tuple[list, dict]":
+    """TodoWrite's `todos` as a row keeps them: [{content, status, activeForm, n}] (n: its number in the whole list),
+    capped (PLAN_MAX, PLAN_TEXT; past the cap the step in progress is still kept: the first PLAN_MAX - 1 and it), and
+    the true counts of the whole list {all, done} (`plan_count`), so a cut list never reads as the whole one."""
+    steps = []
+    for t in todos if isinstance(todos, list) else []:
         if isinstance(t, dict) and isinstance(t.get("content"), str):
             status = t.get("status") if t.get("status") in PLAN_STATES else "pending"
-            out.append({"content": first_line(t["content"], PLAN_TEXT), "status": status,
-                        "activeForm": first_line(t.get("activeForm") or "", PLAN_TEXT)})
-    return out
+            steps.append({"content": first_line(t["content"], PLAN_TEXT), "status": status,
+                          "activeForm": first_line(t.get("activeForm") or "", PLAN_TEXT), "n": len(steps) + 1})
+    kept = steps[:PLAN_MAX]
+    now = next((t for t in steps if t["status"] == "in_progress"), None)
+    if now is not None and now["n"] > PLAN_MAX:
+        kept = steps[:PLAN_MAX - 1] + [now]
+    return kept, {"all": len(steps), "done": sum(t["status"] == "completed" for t in steps)}
 
 
 def step_in_progress(plan) -> str:
@@ -92,6 +98,19 @@ class ObserveMixin:
             pub = self._commit(aid, row, before, force=True)
         self._publish(pub)
 
+    def conversation_reset(self) -> None:
+        """3.6.0.23 PV after the review: `/clear` and an in-app resume start another conversation, so main's row drops
+        its `plan` and `objective` (the row's other fields stay) and is published (Session.clear, pump_resume)."""
+        with self.lock:
+            row = self.rows.get(self.root_id)
+            if row is None:
+                return
+            before = dict(row)
+            row["plan"] = row["plan_count"] = row["objective"] = None
+            self._todo_in.pop(self.root_id, None)
+            pub = self._commit(self.root_id, row, before, force=True)
+        self._publish(pub)
+
     def observe(self, aid: str, ev) -> None:
         kind, data = getattr(ev, "kind", ""), getattr(ev, "data", None) or {}
         with self.lock:
@@ -122,7 +141,7 @@ class ObserveMixin:
                 inflight.pop(data.get("id"), None)
                 todos = (self._todo_in.get(aid) or {}).pop(data.get("id"), None)
                 if todos is not None and data.get("ok") is True:  # a refused list changes nothing
-                    row["plan"] = plan_of(todos)
+                    row["plan"], row["plan_count"] = plan_of(todos)
                 row["current"] = next(reversed(list(inflight.values())), "thinking")
                 _running(row)
             elif kind in ASKS and row.get("state") == "running":

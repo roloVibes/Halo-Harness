@@ -86,6 +86,8 @@ def pump_resume(session, data: dict, out) -> None:
             out(events.notification(f"/resume: no saved session {new_log.session_id}", level="warning"))
             return
         switch_log(session, new_log)
+        from halo_harness.agent.agent_hooks import conversation_reset
+        conversation_reset(session)  # 3.6.0.23 PV: main's row drops the old plan and objective
         if callable(on_switched):
             on_switched(new_log)
         out(session.status_event(phase="idle"))

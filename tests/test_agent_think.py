@@ -120,6 +120,23 @@ def test_the_feed_kinds_carry_the_new_frames(ctx: Ctx):
         ctx.check(f"{k} is content: a full share only", k in FULL_KINDS and frame_allowed("full", k) and not frame_allowed("events", k))
 
 
+@test
+def test_a_status_share_sends_the_plans_states_not_its_words(ctx: Ctx):
+    """3.6.0.23 PV after the review, fault 5: a peer at the `status` share level gets a row's plan as states only
+    (no step's words), no objective and no `spawn.plan_step`; a full share keeps them."""
+    from halo_harness.peers.protocol import scrub_agent
+    row = {"agent_id": "main", "state": "running", "objective": "Fix the basket discount order",
+           "plan": [{"content": "Read basket.py", "status": "completed", "activeForm": "Reading basket.py", "n": 1}],
+           "plan_count": {"all": 1, "done": 1}, "spawn": {"step": "main#1", "description": "d", "plan_step": "Read basket.py"}}
+    got = scrub_agent(row, "status")
+    ctx.check(f"status: the plan's states and numbers only, got {got.get('plan')}", got.get("plan") == [{"status": "completed", "n": 1}])
+    ctx.check(f"status: no objective, no plan_step, the counts kept, got {got}", "objective" not in got
+              and "plan_step" not in got["spawn"] and got["spawn"]["step"] == "main#1" and got["plan_count"] == {"all": 1, "done": 1})
+    ctx.check("the row itself is untouched", row["spawn"].get("plan_step") == "Read basket.py" and row["plan"][0]["content"])
+    full = scrub_agent(row, "full")
+    ctx.check("full: the words stay", full["objective"] and full["plan"][0]["content"] == "Read basket.py" and full["spawn"]["plan_step"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

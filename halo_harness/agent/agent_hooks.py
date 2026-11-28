@@ -63,6 +63,16 @@ def observe(session, ev) -> None:
             pass
 
 
+def conversation_reset(session) -> None:
+    """3.6.0.23 PV after the review: /clear (Session.clear) and an in-app resume (session_switch.pump_resume)."""
+    tree = getattr(session, "_agent_tree", None)
+    if tree is not None and agent_key(session) == tree.root_id:
+        try:
+            tree.conversation_reset()
+        except Exception:
+            pass
+
+
 def turn_ended(session) -> None:
     tree = getattr(session, "_agent_tree", None)
     if tree is not None:

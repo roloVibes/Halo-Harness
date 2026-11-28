@@ -20,8 +20,8 @@ each would be at least 200 px wide, else two a row when each would be at least 1
   reply. A helper started by a helper sits in its parent's box, with a third line "started by {who}: {task}". Each
   helper reads "{who} · Goal: {description}" over "{model} · {state}", its state one of "working", "waiting on you", "queued",
   "done", "stopped", "failed"; up to eight are shown, then "+{n} more". Hovering a helper adds "started for: {step}":
-  the words of main's step in progress (his to-do list) at the moment the helper was started, kept as they were then;
-  nothing when main had no step in progress.
+  the words of the step in progress of its PARENT's to-do list (main's, or the helper's that started it) at the moment
+  the helper was started, kept as they were then; nothing when the parent had no step in progress.
 - **The colour** comes from four that repeat in the order the boxes start (the fifth box takes the first colour again).
   The colour never says how the work goes: each helper's left edge says its state. A queued or a stopped helper has a
   calm edge: it is neither working nor done.

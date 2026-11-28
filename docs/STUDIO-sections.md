@@ -162,8 +162,10 @@ runs, hands back and asks, in the live log's columns under this session's
 timeline strip, with the Steer box at its foot. Since 3.6.0.23 the header's last row says the session's **Objective** (the
 first line of your latest prompt of four words or more, or the slash line you typed for a skill or a command; a short
 reply such as "yes" keeps it; the row holds the room of a long objective from the start) and ends with a plan chip:
-"Plan 3 of 7" (steps done of all) once main keeps a to-do list, "no plan yet" before that and after a resume. Under it
-the plan is written out, one line per step marked "to do", "doing" or "done"; a click on the chip folds and unfolds it,
+"Plan 3 of 7" (steps done of all) once main keeps a to-do list, "no plan yet" before that. After `/clear` and after a
+resume the row starts empty ("none yet", "no plan yet"). Under it the plan is written out, one line per step marked
+"to do", "doing" or "done"; a list of more than 30 steps shows the first ones and the step in progress, and says how
+many are not shown ("+5 more steps not shown") where they are left out; a click on the chip folds and unfolds it,
 and the choice is kept. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree -- since 3.3.11.0 R2 the thumbnail of the tree Roles Live draws full size (**Open in Roles Live** on its bar). Cost
 (`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost

@@ -58,8 +58,9 @@ def failed(session, rid: str, reason: str, cwd=None) -> Optional[dict]:
 
 
 def note_steer(session, text: str, meta: Optional[dict]) -> None:
-    """Controller.submit's steer path: the steer's meta, found again by its text where it is applied."""
-    if not (isinstance(meta, dict) and meta.get("receipt")):
+    """Controller.submit's steer path: the steer's meta, found again by its text where it is applied (3.6.0.23 PV: also
+    a slash line's `typed`, which a leftover steer resubmitted as its own turn takes along)."""
+    if not (isinstance(meta, dict) and (meta.get("receipt") or meta.get("typed"))):
         return
     with _lock:
         notes = getattr(session, "_receipt_steers", None)

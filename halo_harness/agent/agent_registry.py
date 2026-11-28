@@ -50,7 +50,8 @@ FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind"
           "turn", "turn_total",  # 3.6.0.10 M10, main's row only: {n, helpers, tools, ended}, {helpers, tools}
           "ended",  # 3.6.0.15 F4, a helper row only: time.time() of its end, sent with the end state
           "pause_set",  # 3.6.0.15 F3: a pause is set on THIS agent (its own key in controls.pauses) until a resume
-          "plan",  # 3.6.0.23 PV: its last successful TodoWrite list [{content, status, activeForm}] (agent_observe.py)
+          "plan",  # 3.6.0.23 PV: its last successful TodoWrite list [{content, status, activeForm, n}] (agent_observe.py)
+          "plan_count",  # and that whole list's true counts {all, done} (the list itself is capped)
           "objective")  # 3.6.0.23 PV, main's row only: the first line of his latest prompt of four words or more
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0

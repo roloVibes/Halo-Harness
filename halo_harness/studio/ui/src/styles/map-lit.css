@@ -108,6 +108,7 @@
 .mpf-plan-row[data-status="in_progress"] { color: var(--accent); background: var(--bg-2); }
 .mpf-plan-row[data-status="in_progress"] .mpf-plan-state { color: var(--accent); }
 .mpf-plan[data-long] { max-height: calc(8 * 21px + 7 * var(--s-2)); overflow-y: auto; }
+.mpf-plan-more { display: block; font-size: 12px; color: var(--muted); } /* 3.6.0.23 PV: "+N more steps not shown" */
 /* the goal form and a goal run's pages, reused in the drawer: in its flow, not floating over the canvas */
 .mpf .lh-drawer { position: static; width: auto; max-width: 100%; flex: 1 1 auto; min-height: 0; }
 .mpf > [data-testid=map-feed-back] { align-self: flex-start; }
