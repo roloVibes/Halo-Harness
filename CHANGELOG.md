@@ -8,6 +8,61 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.23] - unreleased
+
+A closing release, Windows only. Every program Halo starts is inside Halo's Job from its first instant: the start
+moment named in the Known limits of 3.6.0.22 is closed. Nothing changes on macOS or Linux.
+
+### Fixed
+
+- **Windows: a hard kill of Halo in the moment a program was being started could leave that program behind.** A
+  program joined Halo's Job a moment after its start. Killed in that moment, Halo left a browser it runs itself
+  suspended for good, any other program running on, and a tool server was never in a Job of Halo's at all. Now
+  Halo makes itself a member of a Job of its own, first thing. Everything it starts is born inside: an ordinary
+  program, the browser Halo runs, a tool server, a helper. Windows ends them with Halo at any instant.
+- **A program can no longer slip out in that moment either.** The Job Halo sits in has to let a kept program
+  leave (a background job, the updater, your browser). So a program born in it could let a child of its own leave
+  before Halo had moved it into the strict Job; Git Bash programs do that whenever they may. An ordinary program
+  is now started suspended and let run only once it is inside the strict Job.
+
+### Changed
+
+- **What is yours stays yours.** Your editor (from Roles, the crew editor, the terminal app, the /mcp dialog) is
+  started so that it leaves Halo's Job: it never ends with Halo, not at a normal exit and not at a hard kill. Kept
+  programs leave as before: by themselves, or from outside every Job where an outer Job lets nothing leave, or
+  held by that outer Job with the one line that says so.
+- On Windows Halo no longer falls back to opening your browser from inside its own process (it would close with
+  Halo). Where no kept start can be made, the address stays printed for you to open.
+- **For pack authors:** on Windows a program a pack starts by itself with Python's own `subprocess` is born in
+  Halo's Job now and ends with Halo, also at a normal exit. A program that must outlive Halo is started through
+  `closing.kept_kwargs`, the person's own program through `closing.start_persons`.
+
+### Tests
+
+- Proofs with the kill placed in the moment on purpose (the starter held right after a create): an ordinary child,
+  the browser stand-in, a tool-server stand-in, inside a launcher-like Job and inside a strict outer Job: gone. A
+  kept child and an editor: they OUTLIVE the starter, after a normal exit and after a hard kill. A grandchild that
+  asks to leave as its first act: gone. A resume that fails: the child is ended and the caller told. A
+  self-assignment that fails: the old path, one trace line.
+- The independent check found a kept start that ended with Halo inside a strict outer Job when it could not be
+  started from outside; repaired, with its test. The review asked whether the terminal app's editor still ended
+  with Halo; run, it does not, and that shape is a test now.
+- Real use on a Windows PC: a real `halo init` in a scratch home, inside a strict outer Job, with no outer Job,
+  and through an installed launcher. Healthy starts asked the browser exactly once; hard kills at many moments
+  left nothing.
+
+### Known limits
+
+- A tool server may start a program of its own that asks to leave before the server library's own Job holds the
+  server (the library assigns that Job after the start). Halo's Job holds the server itself from its birth.
+- A Ctrl+C in the few instructions between a create and Python's record of it leaves that one child suspended
+  until Halo ends; it ends with Halo.
+- Where Halo cannot join a Job of its own (an outer Job that refuses a nested one), it works as 3.6.0.22 did, and
+  one trace line says so.
+- Not tried before the push: a hosted machine's own outer Job, other installers' launchers, a real service, a real
+  browser.
+- Every other Known limit of 3.6.0.22 still holds.
+
 ## [3.6.0.22] - 2026-11-27
 
 A closing release, Windows only. The hole a test caught while 3.6.0.21 was made is closed, and a second of the same
