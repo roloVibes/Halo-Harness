@@ -132,6 +132,7 @@ def test_loop_breaker_ends_the_turn_by_8_repeats(ctx: Ctx):
         # plus a small margin, not dozens/hundreds.
         ctx.check(f"upstream was called a bounded number of times (<=10), got {len(mock.requests)}", len(mock.requests) <= 10)
         ctx.check(f"upstream was called AT LEAST 8 times (reached the end-turn threshold), got {len(mock.requests)}", len(mock.requests) >= 8)
+        ctx.check("3.6.0.26: a run no turn cap ended carries no `capped` field", "capped" not in json.loads(result.stdout))
     finally:
         mock.stop()
         try:
@@ -177,6 +178,8 @@ def test_max_turns_caps_model_calls_per_turn(ctx: Ctx):
         obj = json.loads(result.stdout)
         ctx.check(f"json result reports a stop_reason, got {obj.get('stop_reason')!r}",
                    obj.get("stop_reason") in ("tool_use", "end_turn"))
+        ctx.check(f"3.6.0.26: the cap is said in a field of its own, got capped={obj.get('capped')!r}",
+                   obj.get("capped") == "max_turns")
     finally:
         mock.stop()
         try:
@@ -202,6 +205,8 @@ def test_max_turns_wrap_up_call_gets_a_text_reply(ctx: Ctx):
         obj = json.loads(result.stdout)
         ctx.check(f"the turn ends cleanly once the model complies, got stop_reason={obj.get('stop_reason')!r}",
                    obj.get("stop_reason") == "end_turn")
+        ctx.check(f"3.6.0.26: and the result still says the cap ended it, got capped={obj.get('capped')!r}",
+                   obj.get("capped") == "max_turns")
         ctx.check(f"the wrap-up text made it into the result, got {obj.get('result')!r}",
                    "summary" in (obj.get("result") or "").lower())
     finally:

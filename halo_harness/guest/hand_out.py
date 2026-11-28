@@ -524,7 +524,7 @@ class Job:
         self._drop_client()
         self.t1 = time.monotonic()
         r = self.result or {}
-        if self._stop_asked.is_set() or r.get("stop_reason") == "max_turns":
+        if self._stop_asked.is_set() or r.get("capped") == "max_turns":
             self.state = "stopped"
             self.why = self.why or f"the turn cap ({self.task['turns']} turns)"
         elif self.state != "failed":

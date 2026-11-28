@@ -65,6 +65,7 @@ def build_result_object(
     num_turns: int,
     stop_reason: Optional[str],
     usage: dict,
+    capped: Optional[str] = None,
     total_cost_usd: Optional[float],
     result_text: str,
     is_error: bool = False,
@@ -133,6 +134,9 @@ def build_result_object(
         "uuid": uuid,
         "prompt_suggestion": prompt_suggestion,
         "escalations": escalations or [],
+        # 3.6.0.26 H: present ONLY when a cap ended the run ("max_turns": the wrap-up call after the cap may still
+        # end cleanly, so `stop_reason` cannot say it); a caller that bounds a run reads this
+        **({"capped": capped} if capped else {}),
     }
 
 
@@ -202,6 +206,7 @@ class PrintModeSink:
         self._had_error = False
         self._error_message: Optional[str] = None
         self._stop_reason: Optional[str] = None
+        self._capped: Optional[str] = None  # 3.6.0.26 H: "max_turns" when the turn cap ended the turn
         self._usage: dict = {}
         self._total_cost_usd: Optional[float] = None
         self._cost_complete: Optional[bool] = None
@@ -374,8 +379,8 @@ class PrintModeSink:
             self._error_message = event.data.get("message")
         elif event.kind == "turn_done":
             self._num_turns = event.turn
-            if event.data.get("reason") == "max_turns":  # 3.6.0.26 H: the cap ended it (the wrap-up's own reason is not)
-                self._stop_reason = "max_turns"
+            if event.data.get("reason") == "max_turns":  # 3.6.0.26 H: the cap ended it; `stop_reason` stays the model's own
+                self._capped = "max_turns"
             # finding 15: whatever's still pending here IS the final message.
             self._final_text = think_tag_strip("".join(self._pending_text_parts))
             if self.verbose:
@@ -449,6 +454,7 @@ class PrintModeSink:
                 model=self.model,
                 num_turns=self._num_turns,
                 stop_reason=self._stop_reason,
+                capped=self._capped,
                 usage=self._usage,
                 total_cost_usd=self._total_cost_usd,
                 cost_complete=self._cost_complete,
@@ -543,6 +549,7 @@ class StreamJsonSink:
         self._cost_complete: Optional[bool] = None
         self._num_turns = 0
         self._stop_reason: Optional[str] = None
+        self._capped: Optional[str] = None  # 3.6.0.26 H: "max_turns" when the turn cap ended the turn
         self._had_error = False
         self._error_message: Optional[str] = None
         self._budget_exceeded = False
@@ -704,7 +711,7 @@ class StreamJsonSink:
             if agent_id is None:
                 self._num_turns = event.turn
                 if event.data.get("reason") == "max_turns":  # 3.6.0.26 H: as the json sink says it
-                    self._stop_reason = "max_turns"
+                    self._capped = "max_turns"
                 self._final_text = think_tag_strip("".join(buf["text"]))
             self._flush_pending(agent_id)
 
@@ -756,7 +763,7 @@ class StreamJsonSink:
                          "suggestion": self._prompt_suggestion})
         result = build_result_object(
             session_id=self.session_id, model=self.model, num_turns=self._num_turns,
-            stop_reason=self._stop_reason, usage=self._usage, total_cost_usd=self._total_cost_usd,
+            stop_reason=self._stop_reason, capped=self._capped, usage=self._usage, total_cost_usd=self._total_cost_usd,
             cost_complete=self._cost_complete,
             result_text=self._error_message if self._had_error else self._final_text,
             is_error=is_error, subtype=subtype, permission_denials=self._permission_denials,
