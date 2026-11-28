@@ -61,14 +61,16 @@ def look(c, server, bridge) -> dict:
     return out
 
 
-AGENT = "document.querySelector('[data-panel=session-agent]')"
+def _in(sel: str) -> str:
+    """An element inside the Agent drawer (the first `[data-panel=session-agent]` is the viewbar's button)."""
+    return f"document.querySelector('[data-panel=session-agent] {sel}')"
 
 
 def _hop_to(c, name: str) -> str:
     """J (Session's hop key) until the Agent panel shows the agent whose name starts so; its name, or ''."""
     import time
     for _ in range(8):
-        got = c.js(f"{AGENT}?.querySelector('.fa-name')?.textContent || ''")
+        got = c.js(f"{_in('.fa-name')}?.textContent || ''")
         if str(got).startswith(name):
             return got
         c.js("window.dispatchEvent(new KeyboardEvent('keydown', {key: 'j', bubbles: true})); 1")
@@ -78,10 +80,19 @@ def _hop_to(c, name: str) -> str:
 
 def worker(c, server, bridge) -> dict:
     from halo_harness.studio.server import url_for
+    c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
+    c.go("about:blank")
+    c.wait("location.href === 'about:blank'", 10)
     c.go(url_for(server, "session").replace("#t=", f"&tour=off&mode=session&session={bridge.act.session_id}&open=session-agent#t="))
-    c.wait(f"!!{AGENT}", 40)
+    try:
+        c.wait(f"!!{_in('[data-testid=fleet-agent-detail]')} || !!{_in('[data-testid=fleet-agent-empty]')}", 40)
+    except TimeoutError:
+        return {"worker_name": "", "seen": c.js("JSON.stringify([...document.querySelectorAll('[data-panel]')].map((e) => "
+                                                "e.dataset.panel + (e.hidden ? ':hidden' : '')))")}
     out = {"worker_name": _hop_to(c, "Halo:")}
-    q = lambda sel: f"{AGENT}?.querySelector('{sel}')"  # noqa: E731
+    if not out["worker_name"]:  # what the page showed instead (the check then says it)
+        out["seen"] = c.js(f"({_in('[data-testid=fleet-agent-empty]')}?.innerText || document.body.innerText).slice(0, 400)")
+    q = _in
     out["worker_stop_disabled"] = c.js(f"{q('[data-testid=fleet-stop]')}?.disabled")
     out["worker_pause_disabled"] = c.js(f"{q('[data-testid=fleet-pause]')}?.disabled")
     out["worker_cost"] = c.js(f"{q('.fa-cost')}?.textContent || ''")

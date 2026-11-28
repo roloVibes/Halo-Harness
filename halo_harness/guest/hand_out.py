@@ -571,7 +571,7 @@ class HandOuts:
         if self.tree is not None:
             live = job.live
             self.tree.update(job.aid, current=str(live.get("current") or "thinking")[:200], turns=live.get("turns"),
-                             tokens_in=live.get("tokens_in"), tokens_out=live.get("tokens_out"), cost_usd=0.0)
+                             tokens_in=live.get("tokens_in"), tokens_out=live.get("tokens_out"))
         self.pair()
         job.step += 1
         if self.notify is not None:
@@ -585,7 +585,8 @@ class HandOuts:
             self.tree.update(job.aid, state=job.state, current="", ended=time.time(), last_text=job.text()[-2048:],
                              turns=r.get("num_turns", job.live.get("turns")),
                              tokens_in=usage.get("input_tokens", job.live.get("tokens_in")),
-                             tokens_out=usage.get("output_tokens", job.live.get("tokens_out")), cost_usd=0.0)
+                             tokens_out=usage.get("output_tokens", job.live.get("tokens_out")),
+                             **({"cost_usd": r["total_cost_usd"]} if isinstance(r.get("total_cost_usd"), (int, float)) else {}))
 
     def saw_call(self, agent: str, given: dict, ts: int) -> None:
         """The feed read a hook line of a hand-out call (who called it, its cut input, its stamp)."""
