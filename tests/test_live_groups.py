@@ -168,6 +168,40 @@ def test_main_objective_is_the_latest_prompt_of_four_words(ctx: Ctx):
 
 
 @test
+def test_a_slash_command_sets_the_objective_from_what_was_typed(ctx: Ctx):
+    """3.6.0.23 PV after the check: a skill's or a custom command's slash line sends main its EXPANDED body ("Base
+    directory for this skill: <path>" first); the objective is the person's own words, the line he typed
+    (controller.run_slash puts it on the turn's meta as `typed`), never the body's first line."""
+    from halo_harness.controller import Controller
+    sent: list = []
+    body = "Base directory for this skill: /opt/skills/review/with/a/long/path\n\nReview the code: $ARGUMENTS"
+    fake = NS(registry=NS(resolve=lambda n: NS(kind="prompt", source="skill", allowed_tools=None,
+                                                run=lambda a, f: body)),
+              facade=None, cwd=Path("."), session=NS(permission_engine=None, tool_env=None, mcp_manager=None,
+                                                     queue_log_write=lambda *a, **k: None),
+              submit=lambda text, images=None, pasted=None, meta=None: sent.append((text, meta)))
+    out = Controller.run_slash(fake, "review", "the basket discount order")
+    ctx.check(f"the expanded body goes to main as before, got {out!r} {sent}",
+              out == "" and len(sent) == 1 and sent[0][0].startswith("Base directory for this skill:"))
+    meta = sent[0][1] if sent else None
+    ctx.check(f"the typed line rides the turn's meta, got {meta!r}",
+              isinstance(meta, dict) and meta.get("typed") == "/review the basket discount order")
+    root, tree = _tree()
+    root._turn_meta = meta
+    tree.started("main", root, sent[0][0] if sent else body)
+    ctx.check(f"the objective is what he typed, got {tree.row('main').get('objective')!r}",
+              tree.row("main").get("objective") == "/review the basket discount order")
+    root._turn_meta = {"typed": "/review"}
+    tree.started("main", root, body)
+    ctx.check(f"a slash line under four words keeps it, got {tree.row('main').get('objective')!r}",
+              tree.row("main").get("objective") == "/review the basket discount order")
+    root._turn_meta = {"via": "studio"}
+    tree.started("main", root, "Fix the login page so it remembers me")
+    ctx.check(f"a plain prompt (no `typed`) is its own first line, got {tree.row('main').get('objective')!r}",
+              tree.row("main").get("objective") == "Fix the login page so it remembers me")
+
+
+@test
 def test_a_spawn_keeps_the_words_of_its_parents_step_in_progress(ctx: Ctx):
     """3.6.0.23 PV ruling 5: an agent's `spawn.plan_step` is the WORDS of its parent's step in progress at its start,
     frozen (a list rewritten afterwards does not change them); none when the parent had no step in progress; an

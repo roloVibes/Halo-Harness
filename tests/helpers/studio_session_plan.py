@@ -14,11 +14,18 @@ LIST = "document.querySelector('[data-testid=\"session-plan-list\"]')"
 WORDS = f"({OBJ}?.querySelector('[data-testid=\"session-objective-words\"]')?.textContent || '')"
 TOP = "Math.round(document.querySelector('.slv-strip').getBoundingClientRect().top * 10) / 10"
 STEPS = ["Read basket.py", "Fix the discount order", "Run the basket suite"]
+# After the check: the last step's activeForm wraps where its content does not, so its turn from "to do" to "doing"
+# keeps the list's height only through the twin (PlanList.tsx); an objective at the cap (120 characters), in other
+# words than the twin's own (planWords.ts OBJECTIVE_ROOM), must not move the Timeline either.
+LONG_NOW = ("Running the basket suite with the discount order fixed, then reading every failure it prints and writing down "
+            "what each one says about the basket")
+LONG_OBJ = "Ship the basket discount fix today: reorder the discounts in basket.py, add a test for each coupon and update the notes."
+ROW_H = f"Math.round(({OBJ}?.getBoundingClientRect().height || 0) * 10) / 10"
+FORM = {0: "Doing: Read basket.py", 1: "Fixing the discount order", 2: LONG_NOW}
 
 
 def _todos(states: list) -> list:
-    return [{"content": s, "status": st, "activeForm": f"{'Fixing the discount order' if i == 1 else 'Doing: ' + s}"}
-            for i, (s, st) in enumerate(zip(STEPS, states))]
+    return [{"content": s, "status": st, "activeForm": FORM[i]} for i, (s, st) in enumerate(zip(STEPS, states))]
 
 
 def write_plan(rig, call: str, states: list) -> None:
@@ -40,13 +47,20 @@ def first(c) -> dict:
 
 def plan_view(c, rig, lv) -> dict:
     out: dict = {}
-    tops = [c.js(TOP)]
+    tops, rows = [c.js(TOP)], [c.js(ROW_H)]
     lv.state("main", objective="")
     c.wait(f"!!{OBJ}?.querySelector('[data-testid=\"session-objective-none\"]')", 10)
     tops.append(c.js(TOP))
+    rows.append(c.js(ROW_H))
+    lv.state("main", objective=LONG_OBJ)
+    c.wait(f"{WORDS} === {LONG_OBJ!r}", 10)
+    out["plan_long_objective"] = {"top": c.js(TOP), "row": c.js(ROW_H), "wraps": c.js(
+        f"{OBJ}.querySelector('[data-testid=\"session-objective-words\"]').getClientRects().length > 1")}
     lv.state("main", objective="Fix the discount order in basket.py")
     c.wait(f"{WORDS} === 'Fix the discount order in basket.py'", 10)
     tops.append(c.js(TOP))
+    rows.append(c.js(ROW_H))
+    out["plan_row_heights"] = rows
     write_plan(rig, "pv-1", ["completed", "in_progress", "pending"])
     c.wait(f"{CHIP}?.textContent === 'Plan 1 of 3' && {LIST}?.querySelectorAll('li').length === 3", 15)
     time.sleep(0.3)
@@ -58,6 +72,8 @@ def plan_view(c, rig, lv) -> dict:
     time.sleep(0.3)
     tops.append(c.js(TOP))
     heights.append(_h(c))
+    out["plan_now_wraps"] = c.js(f"(() => {{ const w = [...{LIST}.querySelectorAll('.mpf-plan-words')].map((e) => "
+                                 "e.getBoundingClientRect().height); return w[2] > w[0]; })()")
     out["plan_rows"] = c.js(f"[...{LIST}.querySelectorAll('li')].map((l) => [l.dataset.status, "
                             "l.querySelector('.mpf-plan-state').textContent, l.querySelector('.mpf-plan-words').textContent])")
     c.click_on(CHIP)

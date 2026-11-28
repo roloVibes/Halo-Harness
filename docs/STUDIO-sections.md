@@ -160,7 +160,8 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 Session follows the newest session you start unless you picked one, never while the Prompt box holds text), what it types,
 runs, hands back and asks, in the live log's columns under this session's
 timeline strip, with the Steer box at its foot. Since 3.6.0.23 the header's last row says the session's **Objective** (the
-first line of your latest prompt of four words or more; a short reply such as "yes" keeps it) and ends with a plan chip:
+first line of your latest prompt of four words or more, or the slash line you typed for a skill or a command; a short
+reply such as "yes" keeps it; the row holds the room of a long objective from the start) and ends with a plan chip:
 "Plan 3 of 7" (steps done of all) once main keeps a to-do list, "no plan yet" before that and after a resume. Under it
 the plan is written out, one line per step marked "to do", "doing" or "done"; a click on the chip folds and unfolds it,
 and the choice is kept. Map (`session-map`): your

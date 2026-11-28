@@ -42,6 +42,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.studio_session_plan import LONG_NOW  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -240,10 +241,18 @@ def test_the_objective_row_and_the_plan_in_the_feed_head(ctx: Ctx):
     r, got = _driver("live")
     _ran(ctx, r, got)
     f = got.get("plan_first") or {}
-    ctx.check(f"the row at the first draw: the objective, 'no plan yet', no list, one line, got {f}",
+    ctx.check(f"the row at the first draw: the objective, 'no plan yet', no list, got {f}",
               f.get("row") is True and f.get("words") == "Ship the basket discount fix" and f.get("chip") == "no plan yet"
-              and f.get("list") is False and 0 < (f.get("h") or 0) <= 30)
+              and f.get("list") is False and (f.get("h") or 0) > 0)
     t, h = got.get("plan_tops") or [], got.get("plan_heights") or []
+    # After the check: the row holds the room of a cap-length objective from the first draw (its twin), so a
+    # 120-character objective that wraps moves nothing; re-pinned from "one line" (<= 30 px) at the first draw
+    lo, rh = got.get("plan_long_objective") or {}, got.get("plan_row_heights") or []
+    ctx.check(f"a 120-character objective wraps and moves neither the row nor the Timeline, got {lo} rows {rh} tops {t}",
+              lo.get("wraps") is True and len(rh) == 3 and rh[0] == rh[1] == rh[2] == lo.get("row")
+              and bool(t) and lo.get("top") == t[0])
+    ctx.check(f"the step that turns to 'doing' wraps in its activeForm words (so the height check means the twin), "
+              f"got {got.get('plan_now_wraps')!r}", got.get("plan_now_wraps") is True)
     ctx.check(f"the Timeline holds still while the objective goes and comes, moves once when the plan opens, holds on a "
               f"change of states, and is back when folded, got tops {t}",
               len(t) == 6 and t[0] == t[1] == t[2] and t[3] > t[2] and t[4] == t[3] and t[5] == t[2])
@@ -251,7 +260,7 @@ def test_the_objective_row_and_the_plan_in_the_feed_head(ctx: Ctx):
     ctx.check(f"the chip's hover says the step in progress, got {got.get('plan_hover')!r}", got.get("plan_hover") == "Now: Fixing the discount order")
     ctx.check(f"each step a mark and a word, the one in progress in its activeForm words, got {got.get('plan_rows')}",
               got.get("plan_rows") == [["completed", "✓ done", "Read basket.py"], ["completed", "✓ done", "Fix the discount order"],
-                                       ["in_progress", "▸ doing", "Doing: Run the basket suite"]])
+                                       ["in_progress", "▸ doing", LONG_NOW]])
     rl = got.get("plan_reload") or {}
     ctx.check(f"after a reload: the plan from the fleet load, still folded, got {rl}",
               rl.get("chip") == "Plan 2 of 3" and rl.get("expanded") == "false" and rl.get("list") is False)

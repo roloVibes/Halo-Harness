@@ -31,6 +31,9 @@ export function planOf(ss: Sessionish): Todo[] {
 
 /** Main's objective ("" before a prompt of four words). */
 export const objectiveOf = (ss: Sessionish): string => String(mainOf(ss)?.objective || "");
+/** The objective row's held room (FeedPlan.tsx, a hidden twin in the same cell): an objective at its cap (120
+ * characters, agent_transcript.first_line) of ordinary letters, so one arriving never moves what is under the row. */
+export const OBJECTIVE_ROOM = "compare the three reports and write the summary for the team, then fix the discount order in basket.py and run its suite";
 
 const STATES = ["pending", "in_progress", "completed"];
 export const doneOf = (list: Todo[]): number => list.filter((t) => t.status === "completed").length;

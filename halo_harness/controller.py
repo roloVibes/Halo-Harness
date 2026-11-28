@@ -759,7 +759,8 @@ class Controller:
                 if extra_ctx:
                     self.session.queue_log_write(
                         "snapshot", {"blocks": [{"type": "text", "text": extra_ctx}], "snapshot_kind": "hook_context"})
-            self.submit(result.text)
+            # 3.6.0.23 PV: the line he typed rides the turn (agent_observe's objective is his words, not the body)
+            self.submit(result.text, meta={"typed": f"/{name.lstrip('/')} {args}".strip()})
             return ""
         if cmd.run is None:
             return f"/{name} has no implementation in this build."

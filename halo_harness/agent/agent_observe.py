@@ -59,6 +59,13 @@ def _running(row: dict) -> None:
         row["state"] = "running"
 
 
+def _typed(session) -> str:
+    """The line the person typed for this turn when it differs from the text main is sent (controller.run_slash: a
+    skill's or a custom command's expanded body); "" for a plain prompt."""
+    meta = getattr(session, "_turn_meta", None)
+    return first_line(meta.get("typed")) if isinstance(meta, dict) and meta.get("typed") else ""
+
+
 class ObserveMixin:
     """Mixed into `AgentTree` (which provides lock, rows, _commit, _publish,
     _emit, _new_row, _ref and the per-agent scratch dicts)."""
@@ -69,8 +76,9 @@ class ObserveMixin:
             before = dict(row)
             if aid == self.root_id or not row.get("task"):
                 row["task"] = first_line(text)
-            if aid == self.root_id and len(first_line(text).split()) >= OBJECTIVE_WORDS:
-                row["objective"] = first_line(text)
+            said = _typed(session) or first_line(text)  # a slash command's own line, not its expanded body
+            if aid == self.root_id and len(said.split()) >= OBJECTIVE_WORDS:
+                row["objective"] = said
             if row.get("state") != "paused":
                 row["state"] = "running"
             model = getattr(getattr(session, "model_ref", None), "raw", None)
