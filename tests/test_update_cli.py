@@ -264,6 +264,70 @@ def test_apply_update_keep_running_refuses_and_names_each_process(ctx: Ctx):
         _restore_all(orig)
 
 
+_BRIDGE = "python -s -m halo_harness.guest serve --project /w"
+_SAID = ("a Claude Code session is shown in Studio through Halo's bridge (pid 5001); the update {} the bridge; the "
+         "Claude Code session itself keeps running; its view in Studio comes back when that session reconnects its "
+         "tool servers or at its next start")
+
+
+def _with_bridge():
+    """A Halo session (4242) and a guest bridge: Claude Code's child 5001 and, as Windows' venv launcher makes it,
+    the real interpreter 5002 under it with the same words."""
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242, 5001, 5002])
+    rows = [(4242, 1, "halo --continue"), (5001, 900, _BRIDGE), (5002, 5001, _BRIDGE)]
+    upd.other_halo_processes = lambda **kw: [{"pid": p, "ppid": pp, "what": upd.halo_what(c), "cmd": c}
+                                             for p, pp, c in rows]
+    return orig
+
+
+@test
+def test_apply_update_says_the_line_once_then_ends_the_claude_code_bridge(ctx: Ctx):
+    """3.6.0.25 G (the coordinator's ruling): `halo update` ends a running guest bridge as it ends Halo's other
+    processes, and before it ends one it says so, one line per bridge."""
+    orig = _with_bridge()
+    stopped = orig["stopped"]
+    try:
+        code, out, _err = _capture(update_cli.apply_update)
+        said = "halo update: " + _SAID.format("ends")
+        ctx.check(f"installs, exit 0, got {code}", code == 0 and "uv tool install --reinstall" in out)
+        ctx.check(f"the line once, got {out!r}", out.count(said) == 1 and out.count("Halo's bridge") == 1)
+        ctx.check(f"the bridge is in the set that is ended, the session too, got {stopped}",
+                  [e["pid"] for e in stopped] == [4242, 5001, 5002])
+        ctx.check(f"said before the bridge's stop line, got {out!r}",
+                  out.index(said) < out.index("Claude Code bridge (pid 5001)") and
+                  out.index("halo (pid 4242)") < out.index(said))
+    finally:
+        _restore_all(orig)
+
+
+@test
+def test_check_and_keep_running_say_what_would_happen_and_end_nothing(ctx: Ctx):
+    orig = _with_bridge()
+    stopped = orig["stopped"]
+    try:
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"--check: exit 10, the line as what would happen, once, got {code} {out!r}",
+                  code == 10 and out.count("halo update: " + _SAID.format("would end")) == 1)
+        code, out, err = _capture(lambda: update_cli.apply_update(keep_running=True))
+        ctx.check(f"--keep-running: refuses, says the line once as what would happen, got {code} {err!r}",
+                  code == 1 and err.count(_SAID.format("would end")) == 1)
+        ctx.check(f"and nothing is ended or installed, got {stopped} {out!r}",
+                  not stopped and "uv tool install" not in out)
+    finally:
+        _restore_all(orig)
+
+
+@test
+def test_no_bridge_no_line(ctx: Ctx):
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])
+    try:
+        outs = [_capture(update_cli.cmd_update, ["--check"])[1], _capture(update_cli.apply_update)[1],
+                "".join(_capture(lambda: update_cli.apply_update(keep_running=True))[1:])]
+        ctx.check(f"no bridge line anywhere, got {outs}", not any("bridge" in o for o in outs))
+    finally:
+        _restore_all(orig)
+
+
 @test
 def test_apply_update_force_stops_nothing_and_installs(ctx: Ctx):
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])

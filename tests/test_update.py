@@ -686,6 +686,31 @@ def test_other_halo_processes_names_what_each_one_is(ctx: Ctx):
 
 
 @test
+def test_other_halo_processes_tells_a_claude_code_bridge_from_a_session(ctx: Ctx):
+    """3.6.0.25 G (the coordinator's ruling): the guest bridge, Claude Code's child, is "guest" by its command line
+    (with its Windows venv launcher's child under it), a Halo session beside it stays "halo"."""
+    this_pid = os.getpid()
+    rows = [(this_pid + 1, 900, "/opt/uv/tools/halo-harness/bin/python -s -m halo_harness.guest serve --project /w"),
+            (this_pid + 2, this_pid + 1, "/usr/bin/python3.12 -s -m halo_harness.guest serve --project /w"),
+            (this_pid + 3, 1, "/usr/bin/halo --continue")]
+    if os.name == "nt":
+        import json as _json
+        run_fn = _fake_run({"Win32_Process": _Proc(_json.dumps(
+            [{"ProcessId": this_pid, "ParentProcessId": 1, "CommandLine": "halo.exe"}]
+            + [{"ProcessId": p, "ParentProcessId": pp, "CommandLine": c} for p, pp, c in rows]))})
+    else:
+        table = "  PID  PPID ARGS\n" + f"{this_pid} 1 halo\n" + "".join(f"{p} {pp} {c}\n" for p, pp, c in rows)
+        run_fn = _fake_run({"ps -eo": _Proc(table)})
+    found = upd.other_halo_processes(run_fn=run_fn)
+    ctx.check(f"the bridge (both processes) is guest, the session halo, got {found}",
+              [(r["pid"], r["what"]) for r in found] == [(this_pid + 1, "guest"), (this_pid + 2, "guest"),
+                                                         (this_pid + 3, "halo")])
+    from halo_harness import update_stop
+    lines = update_stop.bridge_lines(found)
+    ctx.check(f"one line, for the bridge, got {lines}", len(lines) == 1 and f"(pid {this_pid + 1})" in lines[0])
+
+
+@test
 def test_relaunch_halo_calls_exec_fn_with_continue_and_never_really_execs(ctx: Ctx):
     calls = []
     code = upd.relaunch_halo(["--continue", "extra"], exec_fn=lambda path, argv: calls.append((path, argv)))

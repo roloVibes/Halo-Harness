@@ -833,6 +833,8 @@ def _halo_sub(args: "list[str]") -> str:
         return "supervisor"
     if args[:2] == ["host", "serve"]:
         return "host"
+    if args[:2] == ["guest", "serve"]:
+        return "guest"  # 3.6.0.25 G: Claude Code's bridge (guest/install.py writes `-m halo_harness.guest serve`)
     return "halo"
 
 
@@ -843,6 +845,8 @@ def _halo_module(module: str, args: "list[str]") -> Optional[str]:
         return _halo_sub(args)
     if module == "halo_harness._bg_wrapper":
         return "bg"
+    if module == "halo_harness.guest":
+        return _halo_sub(["guest", *args])
     return "halo" if module.startswith("halo_harness.") else None
 
 
@@ -866,7 +870,8 @@ def _halo_boot(rest: "list[str]") -> Optional[str]:
 def halo_what(cmdline: str, *, prefix: Optional[str] = None) -> Optional[str]:
     """What a process IS when it is a process of this halo install, by
     position, else None: "studio" (`halo studio`, `python -u -m halo_harness
-    studio`), "supervisor" (`... supervise`), "host" (`... host serve`), "bg" (`python -m
+    studio`), "supervisor" (`... supervise`), "host" (`... host serve`), "guest" (Claude Code's bridge, `... guest
+    serve`, `-m halo_harness.guest serve`), "bg" (`python -m
     halo_harness._bg_wrapper`), "mlx"/"llama" (this install's own
     interpreter, under `prefix` = sys.prefix, running `mlx_lm.server`, or a
     `llama-server` under it), else "halo". A later token never counts, so

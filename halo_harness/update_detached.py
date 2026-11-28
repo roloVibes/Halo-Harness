@@ -212,7 +212,7 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
     from halo_harness import update as upd
     from halo_harness import update_plan as UP
     from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
-    from halo_harness.update_stop import describe, lingering, unproven_line
+    from halo_harness.update_stop import bridge_lines, bridges, describe, lingering, unproven_line
     if offline_mode_enabled():
         print(f"halo update: {format_offline_refusal('the update server')}", file=sys.stderr)
         return 1
@@ -249,6 +249,13 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
               "again", file=sys.stderr)
         return 1
     starts = {r["pid"]: r["start_time"] for r in rows}
+    said = {r["pid"]: line for r, line in zip(bridges(rows), bridge_lines(rows))}  # 3.6.0.25 G: once per bridge
+
+    def name_stops() -> None:
+        for r in rows:
+            if r["pid"] in said:
+                print(f"halo update: {said[r['pid']]}")
+            print(f"halo update: the updater stops {describe(r)}")
     supervisor = any(r.get("what") == "supervisor" for r in rows)
     from halo_harness.supervise.pulse import stop_path
     spec = kind.get("spec")
@@ -274,8 +281,7 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
                              wait_pids=[os.getpid(), *ancestors] if windows else [],  # POSIX: exec, no wait
                              stop_pids=[r["pid"] for r in rows], supervisor_stop_file=stop_file,
                              restart_supervisor=supervisor, windows=windows, stop_starts=starts)
-        for r in rows:
-            print(f"halo update: the updater stops {describe(r)}")
+        name_stops()
         print(("halo update: the update runs in its own window after halo exits" if windows else
                "halo update: the update runs here now") + f"; its log: {log}; `halo --version` then" + tail)
         got = (launch or UP.launch)(plan, state_dir=state_dir, windows=windows, python=py, quiet=True)
@@ -289,7 +295,6 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
     if spawn(path, windows=windows, cwd=_state(state_dir)) is None:
         print(f"halo update: could not start the updater ({path}); run `halo update` from a shell", file=sys.stderr)
         return 1
-    for r in rows:
-        print(f"halo update: the updater stops {describe(r)}")
+    name_stops()
     print(f"halo update: the update runs after halo exits; its log: {log}; `halo --version` then" + tail)
     return 0

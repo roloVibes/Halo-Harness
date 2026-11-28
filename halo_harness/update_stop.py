@@ -109,8 +109,29 @@ def scanned(known=()) -> list:
             if r["pid"] not in skip and r.get("ppid") in skip:
                 skip.add(r["pid"])
                 changed = True
-    return [{"pid": r["pid"], "start_time": r["start_time"], "what": r.get("what") or "halo",
+    return [{"pid": r["pid"], "ppid": r.get("ppid"), "start_time": r["start_time"], "what": r.get("what") or "halo",
              "cmd": str(r.get("cmd") or "").split(), "source": "scan"} for r in found if r["pid"] not in skip]
+
+
+# 3.6.0.25 G (the coordinator's ruling): the update ends Claude Code's guest bridge as it ends Halo's other processes
+# (it is Halo's own program and holds the install on Windows), and says so first, once per bridge
+BRIDGE_LINE = ("a Claude Code session is shown in Studio through Halo's bridge (pid {pid}); the update {ends} the "
+               "bridge; the Claude Code session itself keeps running; its view in Studio comes back when that session "
+               "reconnects its tool servers or at its next start")
+
+
+def bridges(rows) -> list:
+    """The guest bridges among `rows` (`what` "guest", update.halo_what: by the command line), one row each: a row
+    under another bridge row is that bridge's own interpreter (Windows' venv launcher starts it as its child)."""
+    found = [r for r in rows if r.get("what") == "guest"]
+    pids = {r.get("pid") for r in found}
+    return [r for r in found if r.get("ppid") not in pids]
+
+
+def bridge_lines(rows=None, *, would: bool = False) -> list:
+    """One line per bridge in `rows` (the scan when None); `would`: the dry forms' words, nothing is ended."""
+    rows = scanned() if rows is None else rows
+    return [BRIDGE_LINE.format(pid=r.get("pid"), ends="would end" if would else "ends") for r in bridges(rows)]
 
 
 def lingering(state_dir=None, *, skip=()) -> list:
@@ -177,8 +198,14 @@ def unproven_line(entry: dict) -> str:
 def refusal_lines(state_dir=None) -> list:
     """`--keep-running`: one line per process with the command that stops it; [] when none run. 3.6.0.1 (jf-update):
     a row with no recorded start time gets `unproven_line` (as /update does), never a `taskkill` / `kill` by number."""
-    return [f"  {describe(e)} -- stop it with: {stop_command(e)}" if e.get("start_time") else f"  {unproven_line(e)}"
-            for e in lingering(state_dir)]
+    rows = lingering(state_dir)
+    said = {r["pid"]: f"  {line}" for r, line in zip(bridges(rows), bridge_lines(rows, would=True))}
+    out = []
+    for e in rows:
+        out += [said[e["pid"]]] if e["pid"] in said else []
+        out.append(f"  {describe(e)} -- stop it with: {stop_command(e)}" if e.get("start_time")
+                   else f"  {unproven_line(e)}")
+    return out
 
 
 def _stop_line(entry: dict, timeout: float, state_dir) -> str:
@@ -187,13 +214,26 @@ def _stop_line(entry: dict, timeout: float, state_dir) -> str:
     return CS.line(result) + (f" -- {words}" if words else "")
 
 
-def stop_lingering(state_dir=None, *, timeout: float = 5.0, skip=()) -> "tuple[list, bool]":
+def stop_lingering(state_dir=None, *, timeout: float = 5.0, skip=(), say=None) -> "tuple[list, bool]":
     """Stop the registry's processes, then what the scan still finds. One line each. `skip`: pids left for the
-    updater (see `lingering`)."""
+    updater (see `lingering`). `say(line)`: each line as it is made, so a bridge's line comes before it is ended."""
     skip = set(skip)
     sup = _supervisor_entry(state_dir) is not None
-    lines = [_stop_line(e, timeout, state_dir) for e in registered(state_dir) if e.get("pid") not in skip]
-    lines += [_stop_line(e, timeout, state_dir) for e in scanned() if e.get("pid") not in skip]
+    lines: list = []
+
+    def add(line: str) -> None:
+        lines.append(line)
+        if say:
+            say(line)
+    for e in registered(state_dir):
+        if e.get("pid") not in skip:
+            add(_stop_line(e, timeout, state_dir))
+    found = [e for e in scanned() if e.get("pid") not in skip]
+    said = {r["pid"]: line for r, line in zip(bridges(found), bridge_lines(found))}
+    for e in found:
+        if e["pid"] in said:
+            add(said[e["pid"]])
+        add(_stop_line(e, timeout, state_dir))
     return lines, sup
 
 

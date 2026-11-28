@@ -127,9 +127,8 @@ def _stop_or_refuse(keep_running: bool, skip=()) -> "Optional[bool]":
                 print(row, file=sys.stderr)
             return None
         return False
-    lines, supervisor = update_stop.stop_lingering(skip=skip)
-    for row in lines:
-        print(f"halo update: {row}")
+    # 3.6.0.25 G: each line as it is made (a Claude Code bridge's line before it is ended)
+    _lines, supervisor = update_stop.stop_lingering(skip=skip, say=lambda row: print(f"halo update: {row}"))
     return supervisor
 
 
@@ -327,6 +326,10 @@ def cmd_update(argv: "list[str]") -> int:
         if artifact_line:
             print(artifact_line)
     if args.check:
+        if code == 10 or args.to:  # 3.6.0.25 G: what an apply would end, said; nothing is ended
+            from halo_harness import update_stop
+            for row in update_stop.bridge_lines(would=True):
+                print(f"halo update: {row}")
         return code
     if older:
         print(f"halo update: not moving back -- {older}", file=sys.stderr)

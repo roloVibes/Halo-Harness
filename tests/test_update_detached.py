@@ -211,6 +211,45 @@ def test_run_after_exit_hands_the_plan_to_the_python_updater(ctx: Ctx):
     ctx.check(f"the TUI's last lines name the stop and the resume, got {out.getvalue()!r}",
               "the updater stops Studio (pid 4242)" in out.getvalue()
               and "`halo --continue` picks the session up again" in out.getvalue())
+    ctx.check("no bridge: no bridge line", "bridge" not in out.getvalue())
+
+
+@test
+def test_run_after_exit_says_the_line_before_the_updater_ends_a_claude_code_bridge(ctx: Ctx):
+    """3.6.0.25 G (the coordinator's ruling): `/update` hands a guest bridge to the updater to end, and says the line
+    once per bridge before it names the stop (Windows' venv launcher child under it is the same bridge)."""
+    from halo_harness import update as upd
+    from halo_harness import update_plan as UP
+    from halo_harness import update_stop
+    got = []
+    saved = (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python, upd._direct_url,
+             upd.halo_openers)
+    upd.halo_openers = lambda **kw: []
+    UD.reinstall_cmd = lambda to=None: ("uv tool install --reinstall git+https://x/y@v2.0.3", {
+        "kind": "uv_tool", "spec": "git+https://x/y", "current_cmd": "uv tool install --reinstall git+https://x/y",
+        "expect": {"version": "2.0.3", "label": "2.0.3"}})
+    UD.launch = lambda plan, **kw: got.append(plan) or 0
+    upd.halo_ancestors = lambda **kw: []
+    bridge = ["python", "-m", "halo_harness.guest", "serve"]
+    update_stop.lingering = lambda state_dir=None: [
+        {"pid": 5001, "ppid": 900, "what": "guest", "cmd": bridge, "start_time": "1"},
+        {"pid": 5002, "ppid": 5001, "what": "guest", "cmd": bridge, "start_time": "2"}]
+    UP.outside_python = lambda: ["/opt/py/python3", "-I"]
+    upd._direct_url = lambda: None
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            code = UD.run_after_exit(state_dir=Path(tempfile.mkdtemp(prefix="g-ui-")), windows=False)
+    finally:
+        (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python,
+         upd._direct_url, upd.halo_openers) = saved
+    text = out.getvalue()
+    said = "halo update: a Claude Code session is shown in Studio through Halo's bridge (pid 5001); the update ends"
+    ctx.check(f"hands over with the bridge in the stop set, got {code} {got and got[0]['stop_pids']}",
+              code == 0 and got[0]["stop_pids"] == [5001, 5002])
+    ctx.check(f"the line once, before the stop is named, got {text!r}",
+              text.count("Halo's bridge") == 1 and said in text
+              and text.index(said) < text.index("the updater stops Claude Code bridge (pid 5001)"))
 
 
 @test

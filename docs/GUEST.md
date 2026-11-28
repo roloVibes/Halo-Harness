@@ -32,6 +32,10 @@ claude plugin disable halo-guest
 To remove it: `halo guest uninstall` removes the folder and prints the commands that remove the plugin from Claude
 Code (`claude plugin uninstall halo-guest@halo-local`, `claude plugin marketplace remove halo-local`).
 
+`halo update` ends the bridge as it ends Halo's other processes, and says so first in one line: the Claude Code
+session itself keeps running, and its view in Studio comes back when that session reconnects its tool servers or at
+its next start (`halo update --check` says the same line as what would happen and ends nothing).
+
 ## What Studio shows
 
 - The session is listed like any other, named **Claude Code** with **watch only** beside it.

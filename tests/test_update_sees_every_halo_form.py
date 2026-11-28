@@ -119,6 +119,37 @@ def test_the_host_is_stopped_by_its_stop_file_a_clean_exit(ctx: Ctx):
         ctx.check(f"a clean exit through the stop file (code 0), got {rc}", rc == 0)
 
 
+@test
+def test_a_claude_code_bridge_is_its_own_kind_and_said_once(ctx: Ctx):
+    """3.6.0.25 G (the coordinator's ruling): the guest bridge the plugin starts (`python -m halo_harness.guest serve`,
+    guest/install.py) is told apart from a Halo session by its command line, in every form. Windows' venv launcher
+    starts the real interpreter as its child with the same words: one bridge, one line."""
+    cases = [[PY, "-m", "halo_harness.guest", "serve", "--project", "/w"],
+             [PY, "-s", "-m", "halo_harness.guest", "serve", "--project", "/w"],
+             [PY, "-c", selfexec.BOOT.format(module="halo_harness.guest"), "serve"],
+             ["halo", "guest", "serve", "--project", "/w"]]
+    for argv in cases:
+        for label, line in _shapes(argv):
+            got = upd.halo_what(line)
+            ctx.check(f"{label}: {line[:90]!r} -> guest, got {got}", got == "guest")
+    for argv in ([PY, "-m", "halo_harness.guest", "status"], ["halo", "guest", "install"], ["halo", "--continue"]):
+        line = " ".join(argv)
+        ctx.check(f"not the bridge: {line!r}, got {upd.halo_what(line)}", upd.halo_what(line) == "halo")
+    rows = [{"pid": 51, "ppid": 9, "what": "guest"}, {"pid": 52, "ppid": 51, "what": "guest"},
+            {"pid": 61, "ppid": 9, "what": "guest"}, {"pid": 70, "ppid": 9, "what": "halo"}]
+    lines = US.bridge_lines(rows)
+    ctx.check(f"one line per bridge (51 with its child 52, and 61), got {lines}",
+              len(lines) == 2 and "(pid 51)" in lines[0] and "(pid 61)" in lines[1])
+    ctx.check(f"the line in plain words, got {lines[0]!r}", lines[0] == (
+        "a Claude Code session is shown in Studio through Halo's bridge (pid 51); the update ends the bridge; the "
+        "Claude Code session itself keeps running; its view in Studio comes back when that session reconnects its "
+        "tool servers or at its next start"))
+    ctx.check("the dry form says what would happen", "the update would end the bridge;" in
+              US.bridge_lines(rows, would=True)[0])
+    ctx.check("no bridge: no line", US.bridge_lines([rows[3]]) == [])
+    ctx.check(f"named as such, got {US.describe(rows[0])!r}", US.describe(rows[0]) == "Claude Code bridge (pid 51)")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
