@@ -139,7 +139,9 @@ cannot free room the turn ends with a context-window error. Opt-in: with no flag
 TUI and in print mode alike (Claude Code parity; before 2.0.3 a default of
 50 stopped long interactive tasks mid-stream). A non-positive value also
 means no cap. The identical-call breaker and the cost/context meters stay
-on regardless.
+on regardless. 3.6.0.26: when the cap ended the run, the `-p` JSON result (and
+`stream-json`'s result line) carries `capped: "max_turns"`; the field is absent
+otherwise, and `stop_reason` stays the model's own.
 
 #### `--max-budget-usd MAX_BUDGET_USD`
 What: stops the session (mid-turn, at the next safe point) once cumulative
