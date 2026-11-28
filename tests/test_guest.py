@@ -1306,8 +1306,8 @@ def test_the_worker_is_given_no_login_and_no_provider_secret(ctx: Ctx):
                "AWS_SECRET_ACCESS_KEY": "fake-aws", "AWS_SESSION_TOKEN": "fake-aws2", "AWS_BEARER_TOKEN_BEDROCK": "fake-b3",
                "AWS_PROFILE": "fake-profile", "GOOGLE_APPLICATION_CREDENTIALS": "/x/fake-adc.json", "GH_TOKEN": "fake-gh",
                "Probe_Db_Password": "fake-pw", "HF_TOKEN": "fake-hf", "HALO_MODEL": "ant:fake-opus",
-               "HALO_MODEL_SMALL": "ant:fake-haiku", "HTTPS_PROXY": "http://u:pw@proxy.example.com:8080",
-               "http_proxy": "http://u:pw@proxy.example.com:8080", "CLAUDE_CONFIG_DIR": "/somewhere/.claude"}
+               "HALO_MODEL_SMALL": "ant:fake-haiku", "HTTPS_PROXY": "http://u:pw@proxy-box:8080",
+               "http_proxy": "http://u:pw@proxy-box:8080", "CLAUDE_CONFIG_DIR": "/somewhere/.claude"}
     with _Home() as home, _Env(OLLAMA_HOST="http://127.0.0.1:9", NO_PROXY="localhost", **secrets):
         jobs = _hand_outs(home.path, home.path)
         task, _why = H.task_of({"goal": "x", "mode": "none"})
