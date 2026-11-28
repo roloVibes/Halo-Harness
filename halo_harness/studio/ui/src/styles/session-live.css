@@ -174,7 +174,7 @@
 /* 3.6.0.23 PV (FeedPlan.tsx): the objective's row under the session's, there from the first draw one line high (its room
    held: words arriving move nothing; a longer objective wraps, never cut); the plan chip at its end keeps one width
    whatever it says; the checklist under it opens once, when the first plan arrives. */
-.slv-objective { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: 26px; font-size: 12px; }
+.slv-objective { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 10px; min-height: 26px; font-size: 12px; }
 .slv-objective-words { display: grid; min-width: 0; overflow-wrap: anywhere; } /* PV after the check: the room of a cap-length objective (its twin, the same cell) */
 .slv-objective-words > * { grid-area: 1 / 1; min-width: 0; }
 .slv-objective-twin { visibility: hidden; pointer-events: none; }
