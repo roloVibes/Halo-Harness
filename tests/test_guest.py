@@ -884,8 +884,8 @@ def test_the_setting_reads_off_for_any_other_value_and_doctor_says_so(ctx: Ctx):
 
 @test
 def test_a_client_revision_this_server_does_not_implement_is_answered_with_its_newest(ctx: Ctx):
-    """Hand-outs on: never an echo of a revision this server does not implement. Off: release 1's answer byte for byte
-    (its echo, whatever the client asked)."""
+    """Never an echo of a revision this server does not implement, hand-outs on or off; a revision it implements is
+    answered as asked (as release 1 answered it)."""
     from halo_harness.guest import bridge
     init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2026-07-28"}}
     got = bridge.answer(init, hand_outs=True)
@@ -894,8 +894,10 @@ def test_a_client_revision_this_server_does_not_implement_is_answered_with_its_n
     got = bridge.answer({**init, "params": {"protocolVersion": "2025-06-18"}}, hand_outs=True)
     ctx.check("on, a known one is kept", got["result"]["protocolVersion"] == "2025-06-18")
     got = bridge.answer(init)
-    ctx.check(f"off: release 1's echo, got {got['result']['protocolVersion']}",
-              got["result"]["protocolVersion"] == "2026-07-28")
+    ctx.check(f"off, an unknown revision: the newest implemented too, got {got['result']['protocolVersion']}",
+              got["result"]["protocolVersion"] == bridge.REVISIONS[-1])
+    got = bridge.answer({**init, "params": {"protocolVersion": "2025-06-18"}})
+    ctx.check("off, a known one is kept (release 1's answer)", got["result"]["protocolVersion"] == "2025-06-18")
 
 
 @test

@@ -353,8 +353,9 @@ def answer(msg, hand_outs: bool = False) -> Optional[dict]:
     if method == "initialize":
         from halo_harness import __version__
         asked = params.get("protocolVersion")
-        # off: release 1's echo, byte for byte; on: never an echo of a revision this server does not implement
-        version = (revision(asked) if hand_outs else asked) if isinstance(asked, str) else PROTOCOL
+        # never an echo of a revision this server does not implement, hand-outs on or off (the coordinator's ruling
+        # after the check: a revision it implements is answered as release 1 answered it)
+        version = revision(asked) if isinstance(asked, str) else PROTOCOL
         result = {"protocolVersion": version, "capabilities": {"tools": {"listChanged": False}},
                   "serverInfo": {"name": PLUGIN, "title": "Halo (watch only)", "version": __version__,
                                  "description": DESCRIPTION}}
