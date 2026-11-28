@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.26] - unreleased
+## [3.6.0.26] - 2026-11-28
 
 Claude Code can hand a bounded task to one of your own local models, through Halo. Off until you turn it on.
 
