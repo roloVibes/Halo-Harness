@@ -177,6 +177,7 @@ def test_the_sweep_routes_offer_stop_and_use_in_halo(ctx: Ctx):
             sw = got["sweep"] or {}
             ctx.check(f"the table and the pick, free unknown said, got {sw}", sw.get("pick") == 40960
                       and sw["why"] == "40,960: the model's own limit" and all("free unknown" in r["line"] for r in sw["windows"])
+                      and sw.get("safe") is None and sw.get("safe_line") == ""  # free unknown: no safe window
                       and got["use"].startswith("sets the profile's window of sw-short:8b on fake to 40,960"))
             st, used = _api(rig, "POST", "local/host/fake/sweep/use", body={"model": "sw-short:8b"})
             from halo_harness.ollama_steward import changes as C

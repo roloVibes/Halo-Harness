@@ -124,6 +124,40 @@ def test_the_report_carries_the_sweep(ctx: Ctx):
 
 
 @test
+def test_the_report_and_the_card_say_the_pick_is_tight(ctx: Ctx):
+    """After the ruling on fault 7: when the safe window is another one, `halo local tune` and the sweep card show one
+    more short line under the pick; "Use in Halo" still lands the pick."""
+    from halo_harness.ollama_steward.tune_report import format_report
+    from halo_harness.providers.local_sweep_run import sweep
+    from halo_harness.studio import local_sweep_api as API
+    gib, mib = 2 ** 30, 2 ** 20
+    total = 5 * gib + 49152 * 98304 + 500 * mib  # 500 MiB free at sw-up's 49,152
+
+    def mem():
+        used = sum(int(e.get("size_vram") or 0) for e in (rig.mock.ps_response or {}).get("models") or [])
+        return {"used": used, "free": total - used, "total": total}
+    want = ("the pick is tight: it fits with nothing else on the card; with other programs on the card the safe window "
+            "is 32,768")
+    with BenchRig(["sw-up:8b"], version="0.40.6") as rig:
+        sweep(rig.host, "sw-up:8b", state_dir=rig.state, card=rig.card, start=32768, sessions=lambda: [], memory=mem)
+        r = _report(rig)
+        sw = {e["model"]: e for e in r["models"]}["sw-up:8b"].get("sweep") or {}
+        text = format_report(r)
+        at = text.index(f"    {sw.get('line')}") if f"    {sw.get('line')}" in text else -1
+        ctx.check(f"the pick with its reason, then the short line, got {text[at:at + 2] if at >= 0 else text}",
+                  sw.get("pick") == 49152 and at >= 0 and text[at + 1] == f"    {want}")
+        view = API._view(API._rec(type("R", (), {"state_dir": rig.state})(), rig.host, "sw-up:8b"))
+        ctx.check(f"the card's answer carries the same line, got {view and view.get('safe_line')!r}",
+                  view and view["pick"] == 49152 and view["safe"] == 32768 and view["safe_line"] == want)
+        from types import SimpleNamespace
+        st, used = API.post_use(SimpleNamespace(state_dir=rig.state), rig.host, "fake", "sw-up:8b")
+        from halo_harness.ollama_steward import changes as C
+        rows = [x for x in C.read(rig.state) if not x.get("reverted_at")]
+        ctx.check(f"Use in Halo lands the pick, got {st} {rows}", st == 200
+                  and any(x.get("field") == "num_ctx" and x.get("after") == 49152 for x in rows))
+
+
+@test
 def test_the_server_lines_per_os(ctx: Ctx):
     from halo_harness.ollama_steward import tune_lines as T
     w = T.env_lines("OLLAMA_KV_CACHE_TYPE", "q8_0", "windows")

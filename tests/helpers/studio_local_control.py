@@ -175,6 +175,12 @@ def sweep(c, url, ctx) -> dict:
         return {"window": window, "at": time.time(), "on_card": True, "free_mib": 1200, "used_mib": 9000,
                 "prompt_tok_s": 2400.0, "tok_s": 90.0, "timed": 1, "size": 1, "size_vram": 1}
     SR.measure_window, LBR.busy = slow, (lambda *_a, **_k: "")
+    # after the ruling on fault 7: the stand-in leaves 1,200 MiB free (under the ladder's 1.5 GiB), so the pick is the
+    # tight window; a safe window the ladder measured before (4,096) is left as it was, and the card says so
+    from halo_harness.providers.ollama import resolve_ollama_host
+    from halo_harness.providers.ollama_calibrate import record_calibration
+    record_calibration(ctx["state"], host_url=resolve_ollama_host("box").url, model="qwen3.5:9b", digest=None,
+                       max_full_gpu_ctx=4096, ollama_version=None)
     out: dict = {}
     try:
         row = _row("qwen3.5:9b")
@@ -196,6 +202,7 @@ def sweep(c, url, ctx) -> dict:
                                     f"Array.from({tb}.querySelectorAll('tbody tr')).map((r) => [r.dataset.pick || '', "
                                     f"Array.from(r.cells).map((x) => x.textContent)])", 30)
         out["sweep_pick"] = c.wait(f"{q('[data-testid=local-sweep-pick]')}?.textContent", 10)
+        out["sweep_safe"] = c.js(f"{q('[data-testid=local-sweep-safe]')}?.textContent")
         out["sweep_start_after"] = c.js(f"{q('[data-testid=local-sweep-start]')}?.textContent")
         out["sweep_acts"] = c.wait(f"!!{q('[data-testid=local-sweep-use]')} && [{q('[data-testid=local-sweep-use]')}.title, "
                                    f"{q('[data-testid=local-sweep-twin]')}.textContent]", 10)

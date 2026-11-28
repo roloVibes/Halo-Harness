@@ -4,7 +4,10 @@ export type SweepRow = {
   window: number; state: string; free_mib: number | null; prompt_tok_s: number | null; tok_s: number | null;
   line: string; slow?: boolean; error?: string; timed?: number;
 };
-export type Sweep = { windows: SweepRow[]; pick: number | null; why: string; done: boolean; loads: number; loads_cap?: number };
+export type Sweep = {
+  windows: SweepRow[]; pick: number | null; why: string; done: boolean; loads: number; loads_cap?: number;
+  safe?: number | null; safe_line?: string; // after the ruling on fault 7: the pick is tight; the safe window, when another
+};
 export type SweepJob = { job: string; done: boolean; ok: boolean; line: string; lines: string[] };
 export type TunerOffer = { tuner: string | null; line?: string; sends?: string; cost?: string; writes?: string; rounds?: number };
 export type Setting = { key: string; value: string; why: string; server: Record<string, { set: string; revert: string; restart: string }> };

@@ -433,6 +433,77 @@ def test_a_failed_ps_read_is_unknown_never_a_spill(ctx: Ctx):
                   and not has_calibration_entry(rig.state, host_url=rig.host.url, model="sw-up:8b"))
 
 
+def _fit(rig, name: str):
+    from halo_harness.providers.ollama_calibrate import has_calibration_entry, lookup_learned_cap, lookup_tight
+    from halo_harness.providers.ollama_hw import fit_settings_of
+    kw = dict(host_url=rig.host.url, model=name, digest=MB.row(name)["digest"], ollama_version="0.40.13",
+              fit_settings=fit_settings_of(rig.host))
+    return (has_calibration_entry(rig.state, **kw), lookup_learned_cap(rig.state, **kw),
+            (lookup_tight(rig.state, host_url=rig.host.url, model=name) or {}))
+
+
+SAFE_LINE = "the pick is tight: it fits with nothing else on the card; with other programs on the card the safe window is "
+
+
+@test
+def test_the_pick_is_the_tight_window_the_safe_window_keeps_its_own_rule(ctx: Ctx):
+    """After the ruling on fault 7: a sweep's pick (wholly on the card, 300 MiB free, before the cliff) is the measured
+    TIGHT window; `max_full_gpu_ctx` (the window Halo calls safe) is only the largest swept window with the measuring
+    ladder's own headroom free (max(8 % of the card, 1.5 GiB)), else left as it was; free memory unknown: none."""
+    from halo_harness.providers import local_sweep as S
+    from halo_harness.providers.ollama_calibrate import record_calibration
+    from halo_harness.providers.ollama_calibrate_steps import headroom_kind
+    at49 = 5 * GIB + 49152 * 98304  # sw-up's size_vram at 49,152
+    with BenchRig(["sw-up:8b"]) as rig:
+        got = _sweep(rig, "sw-up:8b", start=49152, max_loads=1, memory=_mem(rig, at49 + 500 * MIB))
+        rec, (entry, cap, tight) = got["record"], _fit(rig, "sw-up:8b")
+        p = rec["windows"][0]
+        ctx.check(f"the checker's case: a pick with 500 MiB free is the pick, got {rec['pick']} {p['free_mib']}",
+                  rec["pick"] == 49152 and p["free_mib"] == 500)
+        ctx.check(f"... never the safe window (the ladder calls it {headroom_kind(p['size_vram'], at49 + 500 * MIB)}),"
+                  f" no swept window is safe: nothing written as safe, got entry={entry} cap={cap} safe={rec.get('safe')}",
+                  headroom_kind(p["size_vram"], at49 + 500 * MIB) == "tight" and not entry and cap is None
+                  and rec.get("safe") is None and not any(x.startswith(SAFE_LINE) for x in S.lines(rec)))
+    with BenchRig(["sw-up:8b"]) as rig:
+        from halo_harness.providers.ollama_hw import fit_settings_of
+        record_calibration(rig.state, host_url=rig.host.url, model="sw-up:8b", digest="sha256:sw-up-8b",
+                           max_full_gpu_ctx=16384, ollama_version="0.40.13", fit_settings=fit_settings_of(rig.host))
+        got = _sweep(rig, "sw-up:8b", start=49152, max_loads=1, memory=_mem(rig, at49 + 500 * MIB))
+        entry, cap, tight = _fit(rig, "sw-up:8b")
+        ctx.check(f"no swept window meets the rule: the safe window is left as it was, the pick is the tight one, got "
+                  f"cap={cap} tight={tight} {S.lines(got['record'])[-1]!r}",
+                  cap == 16384 and tight.get("tight_ctx") == 49152 and S.lines(got["record"])[-1] == SAFE_LINE + "16,384")
+    with BenchRig(["sw-up:8b"]) as rig:
+        got = _sweep(rig, "sw-up:8b", start=32768, memory=_mem(rig, at49 + 500 * MIB))
+        rec, (entry, cap, tight) = got["record"], _fit(rig, "sw-up:8b")
+        ctx.check(f"a smaller swept window with the headroom free is written as safe, the pick as tight, got {_ws(got)} "
+                  f"pick={rec['pick']} cap={cap} tight={tight}",
+                  _ws(got) == [32768, 49152, 65536] and rec["pick"] == 49152 and cap == 32768 == rec.get("safe")
+                  and tight.get("tight_ctx") == 49152 and tight.get("tight_vram") == at49
+                  and tight.get("gpu_total") == at49 + 500 * MIB)
+        ctx.check(f"the pick's line, then one more short line, got {S.lines(rec)[-2:]}",
+                  S.lines(rec)[-2].startswith("the pick: 49,152: ") and S.lines(rec)[-1] == SAFE_LINE + "32,768")
+        from halo_harness.local_ollama_cli import measure
+        said = measure(rig.host, "sw-up:8b")
+        ctx.check(f"`halo local measure` says what it says for the same facts: safe fits, the pick tight, got "
+                  f"{said.get('say')!r}", said.get("already") and said.get("max_full_gpu_ctx") == 32768
+                  and "32k fits, 49k tight" in said["say"])
+        from halo_harness.providers.ollama_hw import observed_floor
+        srv = rec["server"]
+        fl = observed_floor(rig.state, rig.host.url, "sw-up:8b", digest="sha256:sw-up-8b", learned_cap=cap,
+                            room=24 * GIB, server=srv)
+        ctx.check(f"the estimate floors at the safe window, never the tight pick, got {fl}", fl == (32768, "learned cap"))
+        from halo_harness.providers.ollama_tune import plan_twin
+        ctx.check("the twin made at the pick is the pick", plan_twin(rig.host, "sw-up:8b", 49152, state_dir=rig.state).window
+                  == 49152)
+    with BenchRig(["sw-short:8b"]) as rig:
+        got = _sweep(rig, "sw-short:8b", start=32768, memory=lambda: None)
+        entry, cap, tight = _fit(rig, "sw-short:8b")
+        ctx.check(f"free memory unknown: a pick, no safe window written, got pick={got['record']['pick']} entry={entry} "
+                  f"cap={cap}", got["record"]["pick"] == 40960 and not entry and cap is None
+                  and got["record"].get("safe") is None)
+
+
 @test
 def test_halo_local_bench_sweep(ctx: Ctx):
     from halo_harness.local_bench_cli import cmd_bench

@@ -190,7 +190,8 @@ def sweep_of(state_dir, host, card: Optional[dict], model: str, digest: Optional
     line = (f"the sweep tried {', '.join(_k(r['window']) for r in ws)}; "
             + (f"the pick {rec['why']}" if rec.get("pick") else f"no pick: {rec.get('why')}")
             + f"; reply {sp(first)} (the start)" + (f" -> {sp(at)} (the pick)" if at and at is not first else ""))
-    return {"windows": ws, "pick": rec.get("pick"), "why": rec.get("why"), "line": line}
+    from halo_harness.providers.local_sweep import safe_line
+    return {"windows": ws, "pick": rec.get("pick"), "why": rec.get("why"), "line": line, "also": safe_line(rec)}
 
 
 def _live_session() -> bool:
@@ -230,6 +231,8 @@ def format_report(r: dict) -> list:
         out.append(f"  {m['line']}")
         if m.get("sweep"):
             out.append(f"    {m['sweep']['line']}")
+            if m["sweep"].get("also"):
+                out.append(f"    {m['sweep']['also']}")
     out.extend(f"  finding: {f['line']}" for f in r.get("findings") or [])
     for o in r.get("options") or []:
         out.append(f"  [{o['id']}] {o['kind']}: {o['line']} -- writes {o['writes']}; takes {o['takes']}")

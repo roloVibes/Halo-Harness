@@ -123,6 +123,9 @@ def test_find_the_best_window_offer_table_pick_and_stop(ctx: Ctx):
               and picked[0][1][5] == "the pick")
     ctx.check(f"the pick's reason, got {got.get('sweep_pick')!r}",
               bool(picked) and str(got.get("sweep_pick") or "").startswith(f"the pick: {picked[0][1][0]}: "))
+    ctx.check(f"the pick is tight: one more short line names the safe window, got {got.get('sweep_safe')!r}",
+              got.get("sweep_safe") == "the pick is tight: it fits with nothing else on the card; with other programs on "
+                                        "the card the safe window is 4,096")
     off = got.get("tuner_off") or [None, "", None]
     ctx.check(f"no tuner model set: one closed line, no start, got {off}", off[0] is False and off[2] is False
               and "write a diagnosis, server advice and a guide" in str(off[1]))

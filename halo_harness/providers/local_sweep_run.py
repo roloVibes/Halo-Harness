@@ -12,9 +12,11 @@ window measured before, to rule out noise, the faster kept), `/api/ps` (wholly o
 used and free memory where it can be read (this machine; a host with an `ssh:` entry; else unknown). Everything runs
 inside `ollama_measure_guard.measuring()` (one measurement per server across processes, the loaded models put back),
 after the bench's wait for an idle host. Each window is saved as it lands; a Stop ends the sweep after the running
-load and keeps what was measured; a second start goes on from there. The pick is written as the measured window
-(ollama_calibrate.record_calibration, keyed by digest + the server's version and fit settings), so `halo local
-measure`, the estimate and the tuned twin read the same number.
+load and keeps what was measured; a second start goes on from there. After the ruling on fault 7 each field keeps
+one meaning (ollama_calibrate.record_calibration, keyed by digest + the server's version and fit settings): the pick
+is the measured TIGHT window (`tight_ctx`); `max_full_gpu_ctx` (safe) is the largest swept window with the ladder's
+own headroom free (local_sweep.safe_window), left as it was when none is, so `halo local measure`, the estimate and
+`headroom_kind` say what they said before for the same facts. "Use in Halo" and the twin take the pick.
 """
 
 from __future__ import annotations
@@ -144,15 +146,24 @@ def _finish(state_dir, host, rec: dict, *, stopped: bool, max_loads: int, gpu_to
     w, why = S.pick(rec["windows"], top=rec["top"], trained=rec.get("trained"), cap=rec.get("max_ctx"),
                     loads_left=max_loads - len(rec["windows"]), stopped=stopped)
     rec.update(pick=w, why=why, done=S.next_window(rec["windows"], start=rec["start"], top=rec["top"]) is None)
-    S.save(state_dir, rec)
     floor = rec["done"] and rec["windows"] and not any(r.get("state") in (S.FAILED, S.UNKNOWN) for r in rec["windows"]) \
         and S.step_down(min(r["window"] for r in rec["windows"])) is None
-    if w or floor:  # a pick, or measured down to the floor and nothing fits (a load that failed is no fit reading)
-        from halo_harness.providers.ollama_calibrate import record_calibration
-        srv = rec.get("server") or {}
-        record_calibration(state_dir, host_url=host.url, model=rec["model"], digest=rec.get("digest"), max_full_gpu_ctx=w,
-                           ollama_version=srv.get("version"), gpu_total=gpu_total,
-                           fit_settings={k: v for k, v in srv.items() if k != "version"} or None)
+    # After the ruling on fault 7: the pick is the TIGHT window; the safe window keeps the ladder's headroom rule.
+    from halo_harness.providers.ollama_calibrate import lookup_learned_cap, record_calibration
+    srv = rec.get("server") or {}
+    keys = dict(host_url=host.url, model=rec["model"], digest=rec.get("digest"), ollama_version=srv.get("version"),
+                fit_settings={k: v for k, v in srv.items() if k != "version"} or None)
+    safe = S.safe_window(rec["windows"]) if w else None
+    kept = lookup_learned_cap(state_dir, **keys) if w and safe is None else None  # none swept: left as it was
+    rec["safe"] = safe or kept
+    S.save(state_dir, rec)
+    if rec["safe"] or (floor and not w):  # a safe window, or measured down to the floor and nothing fits (a failed
+        p = next((r for r in rec["windows"] if r["window"] == w), {})   # load is no fit reading)
+        tight = w if w and w > (rec["safe"] or 0) else None
+        total = (p["free_mib"] + p["used_mib"]) * 2 ** 20 if isinstance(p.get("free_mib"), (int, float)) \
+            and isinstance(p.get("used_mib"), (int, float)) else gpu_total
+        record_calibration(state_dir, max_full_gpu_ctx=rec["safe"], tight_ctx=tight,
+                           tight_vram=p.get("size_vram") if tight else None, gpu_total=total, **keys)
 
 
 def sweep(host, model: str, *, state_dir, card=None, send: Optional[Callable] = None, client=None,

@@ -13,7 +13,8 @@ host's max_ctx, Halo's 131,072 cap: the pick's line names which one bound it). A
 "unknown": never a spill, never picked. The cliff: a window whose reply speed is more than 40 % below the best reply speed of a smaller
 window of the same sweep (on Windows a load can spill into shared memory while the server still says it is wholly on
 the card). The pick: the largest measured window wholly on the card, with at least 300 MiB free on the card where
-that is known, and before the cliff. The record sits in `<state>/ollama-fit.json` under `sweeps`, keyed by the
+that is known, and before the cliff: the measured TIGHT window (`tight_ctx`). The safe window (`max_full_gpu_ctx`)
+keeps the measuring ladder's own headroom rule (`safe_window`). The record sits in `<state>/ollama-fit.json` under `sweeps`, keyed by the
 host's url and the model, and holds only under the digest and the server (version + fit settings) it was measured
 under: another one is no record at all.
 """
@@ -53,6 +54,34 @@ def room_ok(r: dict) -> bool:
 
 def good(r: dict) -> bool:
     return r.get("state") == ON and room_ok(r)
+
+
+def headroom_ok(r: dict) -> bool:
+    """The measuring ladder's own headroom rule (ollama_calibrate_steps): at least max(8 % of the card, 1.5 GiB) free
+    on the card. Free memory unknown: never."""
+    from halo_harness.providers.ollama_calibrate_steps import HEADROOM_FRACTION, HEADROOM_MIN_BYTES
+    free, used = r.get("free_mib"), r.get("used_mib")
+    if not isinstance(free, (int, float)) or not isinstance(used, (int, float)):
+        return False
+    total = (free + used) * 2 ** 20
+    return total > 0 and free * 2 ** 20 >= max(HEADROOM_FRACTION * total, HEADROOM_MIN_BYTES)
+
+
+def safe_window(rows: list) -> Optional[int]:
+    """After the ruling on fault 7: the largest swept window a pick could be (wholly on the card, room, before the
+    cliff) that also meets the ladder's headroom rule: the window Halo calls safe (`max_full_gpu_ctx`); else None."""
+    cliff = min((r["window"] for r in rows if r.get("slow")), default=None)
+    return max((r["window"] for r in rows if good(r) and headroom_ok(r) and (cliff is None or r["window"] < cliff)),
+               default=None)
+
+
+def safe_line(rec: dict) -> str:
+    """The one more short line under the pick when the safe window is another (smaller) one; else ""."""
+    pick, safe = rec.get("pick"), rec.get("safe")
+    if not pick or not isinstance(safe, int) or safe >= pick:
+        return ""
+    return ("the pick is tight: it fits with nothing else on the card; with other programs on the card the safe "
+            f"window is {safe:,}")
 
 
 def mark(rows: list) -> list:
@@ -188,4 +217,4 @@ def lines(rec: dict) -> list:
     """The sweep's lines for the CLI and the tuning report: each window, then the pick and its reason."""
     out = [row_line(r) for r in sorted(rec.get("windows") or [], key=lambda r: r["window"])]
     out.append(f"the pick: {rec['why']}" if rec.get("pick") else f"no pick: {rec.get('why') or 'nothing measured'}")
-    return out
+    return out + [x for x in (safe_line(rec),) if x]

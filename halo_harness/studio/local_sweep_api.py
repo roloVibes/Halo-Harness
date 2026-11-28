@@ -55,7 +55,8 @@ def _view(rec) -> "dict | None":
     from halo_harness.providers import local_sweep as S
     rows = [{**r, "line": S.row_line(r)} for r in sorted(rec.get("windows") or [], key=lambda r: r["window"])]
     return {"windows": rows, "pick": rec.get("pick"), "why": rec.get("why"), "done": bool(rec.get("done")),
-            "loads": len(rows), "loads_cap": S.MAX_LOADS, "trained": rec.get("trained"), "at": rec.get("at")}
+            "loads": len(rows), "loads_cap": S.MAX_LOADS, "trained": rec.get("trained"), "at": rec.get("at"),
+            "safe": rec.get("safe"), "safe_line": S.safe_line(rec)}
 
 
 def _job(name: str, model: str, kind: str = "sweep"):

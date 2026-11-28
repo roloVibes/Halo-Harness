@@ -80,6 +80,9 @@ export function SweepCard({ host, m }: { host: string; m: ModelEntry }) {
       {sw && !live && (
         <p className="lc-why" data-testid="local-sweep-pick">{pick ? `the pick: ${sw.why}` : `no pick: ${sw.why}`}</p>
       )}
+      {sw && !live && pick && sw.safe_line ? (
+        <p className="lc-why" data-testid="local-sweep-safe">{sw.safe_line}</p>
+      ) : null}
       {pick && !live ? (
         <div className="lc-sweep-acts" data-testid="local-sweep-acts">
           <p className="lc-why">{a?.use}</p>
